@@ -1,7 +1,7 @@
 // Premium Skeleton UI for Dashboard Loading
 export default function Loading() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-[#96AEC2]/10 p-3 sm:p-4 md:p-6 lg:p-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-[#96AEC2]/10 p-2 md:p-4">
       {/* Animated background bubbles */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-[#96AEC2]/15 rounded-full blur-3xl animate-pulse" style={{ animationDuration: '4s' }} />

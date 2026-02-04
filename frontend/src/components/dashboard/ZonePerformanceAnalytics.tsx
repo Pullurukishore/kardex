@@ -101,16 +101,11 @@ export default function ZonePerformanceAnalytics({
     .sort((a, b) => getZoneResolutionTime(a) - getZoneResolutionTime(b));
 
   return (
-    <div className="relative">
-      {/* Main Card with Gradient Border Effect */}
-      <div className="absolute inset-0 bg-gradient-to-r from-[#6F8A9D] via-[#6F8A9D] to-[#6F8A9D] rounded-2xl sm:rounded-3xl blur-sm opacity-20" />
-      
-      <Card className="relative overflow-hidden bg-white border-0 shadow-xl rounded-2xl sm:rounded-3xl">
-        {/* Animated Background */}
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-[#96AEC2]/20 via-blue-400/15 to-transparent rounded-full blur-3xl" />
-          <div className="absolute -bottom-32 -left-32 w-64 h-64 bg-gradient-to-tr from-indigo-400/20 via-purple-400/15 to-transparent rounded-full blur-3xl" />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-gradient-to-br from-blue-200/10 to-transparent rounded-full blur-3xl" />
+      <Card className="relative overflow-hidden bg-white border border-[#96AEC2]/20 shadow-xl rounded-2xl sm:rounded-3xl">
+        {/* Simplified Background */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-[#96AEC2]/5 rounded-full blur-3xl transform-gpu" />
+          <div className="absolute -bottom-32 -left-32 w-64 h-64 bg-[#CE9F6B]/5 rounded-full blur-3xl transform-gpu" />
         </div>
         
         <CardHeader className="relative z-10 pb-6">
@@ -411,6 +406,5 @@ export default function ZonePerformanceAnalytics({
           </div>
         </CardContent>
       </Card>
-    </div>
   );
 }

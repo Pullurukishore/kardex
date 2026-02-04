@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { arApi, ARInvoice, formatARCurrency, formatARDate } from '@/lib/ar-api';
-import { Search, ChevronLeft, ChevronRight, FileText, Plus, TrendingUp, AlertTriangle, Clock, CheckCircle2, DollarSign, Calendar, Building2, Upload, Shield, ArrowUpRight, Layers, Zap, Wallet, Package, Timer, Truck, PackageCheck, PackageX } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, FileText, Plus, TrendingUp, AlertTriangle, Clock, CheckCircle2, DollarSign, Calendar, Building2, Upload, Shield, ArrowUpRight, Layers, Zap, Wallet, Package, Timer, Truck, PackageCheck, PackageX, BadgeCheck, Tag } from 'lucide-react';
 
 export default function ARInvoicesPage() {
   const searchParams = useSearchParams();
@@ -36,7 +36,7 @@ export default function ARInvoicesPage() {
   const loadInvoices = async () => {
     try {
       setLoading(true);
-      const result = await arApi.getInvoices({ search, status, invoiceType, page, limit: 100 });
+      const result = await arApi.getInvoices({ search, status, invoiceType, page, limit: 25 });
       setInvoices(result.data);
       setTotalPages(result.pagination.totalPages);
       setTotal(result.pagination.total);
@@ -107,6 +107,7 @@ export default function ARInvoicesPage() {
       case 'PARTIALLY_DELIVERED': return 'bg-[#6F8A9D]/15 text-[#546A7A] border border-[#6F8A9D]/40';
       case 'FULLY_DELIVERED': return 'bg-[#82A094]/15 text-[#4F6A64] border border-[#82A094]/40';
       case 'EXPIRED': return 'bg-[#E17F70]/15 text-[#9E3B47] border border-[#E17F70]/40';
+      case 'LINKED': return 'bg-[#82A094]/15 text-[#4F6A64] border border-[#82A094]/40';
       default: return 'bg-[#AEBFC3]/15 text-[#5D6E73] border border-[#AEBFC3]/30';
     }
   };
@@ -117,6 +118,7 @@ export default function ARInvoicesPage() {
       case 'PARTIALLY_DELIVERED': return <Truck className="w-3.5 h-3.5" />;
       case 'FULLY_DELIVERED': return <PackageCheck className="w-3.5 h-3.5" />;
       case 'EXPIRED': return <PackageX className="w-3.5 h-3.5" />;
+      case 'LINKED': return <BadgeCheck className="w-3.5 h-3.5" />;
       default: return <Package className="w-3.5 h-3.5" />;
     }
   };
@@ -127,6 +129,7 @@ export default function ARInvoicesPage() {
       case 'PARTIALLY_DELIVERED': return 'Partial';
       case 'FULLY_DELIVERED': return 'Delivered';
       case 'EXPIRED': return 'Expired';
+      case 'LINKED': return 'Linked';
       default: return 'N/A';
     }
   };
@@ -375,6 +378,12 @@ export default function ARInvoicesPage() {
                 </th>
                 <th className="text-left py-4 px-5 text-xs font-semibold text-white uppercase tracking-wide">
                   <div className="flex items-center gap-2">
+                    <Tag className="w-3.5 h-3.5 opacity-80" />
+                    Type
+                  </div>
+                </th>
+                <th className="text-left py-4 px-5 text-xs font-semibold text-white uppercase tracking-wide">
+                  <div className="flex items-center gap-2">
                     <Calendar className="w-3.5 h-3.5 opacity-80" />
                     {isPrepaidView ? 'Advance Received' : 'Invoice Date'}
                   </div>
@@ -416,7 +425,7 @@ export default function ARInvoicesPage() {
                   <tr key={i} className="border-b border-[#AEBFC3]/15">
                     {Array.from({ length: 10 }).map((_, j) => (
                       <td key={j} className="py-4 px-5">
-                        <div className="h-4 bg-gradient-to-r from-[#AEBFC3]/20 to-[#96AEC2]/10 rounded animate-pulse" style={{ width: `${50 + Math.random() * 50}%` }} />
+                        <div className="h-4 bg-[#AEBFC3]/10 rounded" style={{ width: `${50 + Math.random() * 50}%` }} />
                       </td>
                     ))}
                   </tr>
@@ -503,6 +512,17 @@ export default function ARInvoicesPage() {
                         </div>
                       </td>
 
+                      {/* Type */}
+                      <td className="py-4 px-5">
+                        <span className={`text-[10px] font-bold px-2 py-1 rounded uppercase ${
+                          invoice.type === 'SALES' ? 'bg-[#E17F70]/10 text-[#9E3B47]' : 
+                          invoice.type === 'OTHERS' ? 'bg-[#CE9F6B]/10 text-[#976E44]' : 
+                          'bg-[#82A094]/10 text-[#4F6A64]'
+                        }`}>
+                          {invoice.type || '-'}
+                        </span>
+                      </td>
+
                       {/* Invoice Date / Advance Received */}
                       <td className="py-4 px-5">
                         <div className="text-sm text-[#5D6E73] font-medium">
@@ -527,7 +547,7 @@ export default function ARInvoicesPage() {
                                 {deliveryDays !== null && (
                                   <div>
                                     <span className={`inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded ${
-                                      deliveryDays < 0 ? 'text-white bg-[#9E3B47] animate-pulse' : 'text-[#5D6E73] bg-[#AEBFC3]/20'
+                                      deliveryDays < 0 ? 'text-white bg-[#9E3B47]' : 'text-[#5D6E73] bg-[#AEBFC3]/20'
                                     }`}>
                                       {deliveryDays < 0 ? `${Math.abs(deliveryDays)}d overdue` : `${deliveryDays}d left`}
                                     </span>
@@ -537,14 +557,20 @@ export default function ARInvoicesPage() {
                             ) : '-'
                           ) : (
                             <div className="space-y-1">
-                              <span className={`text-sm font-medium ${invoice.dueByDays && invoice.dueByDays > 0 ? 'text-[#E17F70] font-bold' : 'text-[#4F6A64]'}`}>
+                              <span className={`text-sm font-medium ${
+                                (invoice.dueByDays ?? 0) > 0 ? 'text-[#E17F70] font-bold' : 
+                                (invoice.dueByDays ?? 0) < 0 ? 'text-[#82A094] font-bold' : 
+                                'text-[#4F6A64]'
+                              }`}>
                                 {formatARDate(invoice.dueDate)}
                               </span>
-                              {invoice.dueByDays && invoice.dueByDays > 0 && (
+                              {(invoice.dueByDays ?? 0) !== 0 && invoice.status !== 'PAID' && invoice.prepaidStatus !== 'FULLY_DELIVERED' && (
                                 <div>
-                                  <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-white bg-[#9E3B47] px-1.5 py-0.5 rounded animate-pulse">
-                                    <Zap className="w-2.5 h-2.5" />
-                                    +{invoice.dueByDays}d
+                                  <span className={`inline-flex items-center gap-0.5 text-[9px] font-bold text-white px-1.5 py-0.5 rounded shadow-sm ${
+                                    (invoice.dueByDays ?? 0) > 0 ? 'bg-[#E17F70]' : 'bg-[#82A094]'
+                                  }`}>
+                                    {(invoice.dueByDays ?? 0) > 0 ? <Zap className="w-2.5 h-2.5" /> : <Clock className="w-2.5 h-2.5" />}
+                                    {(invoice.dueByDays ?? 0) > 0 ? `+${invoice.dueByDays}` : invoice.dueByDays}d
                                   </span>
                                 </div>
                               )}
@@ -629,8 +655,8 @@ export default function ARInvoicesPage() {
         {!loading && invoices.length > 0 && (
           <div className="flex items-center justify-between px-5 py-4 border-t border-[#AEBFC3]/20 bg-gradient-to-r from-[#F8FAFB] to-white">
             <span className="text-sm text-[#5D6E73]">
-              Showing <span className="font-bold text-[#E17F70]">{Math.min((page - 1) * 100 + 1, total)}</span> to{' '}
-              <span className="font-bold text-[#E17F70]">{Math.min(page * 100, total)}</span> of{' '}
+              Showing <span className="font-bold text-[#E17F70]">{Math.min((page - 1) * 25 + 1, total)}</span> to{' '}
+              <span className="font-bold text-[#E17F70]">{Math.min(page * 25, total)}</span> of{' '}
               <span className="font-bold text-[#546A7A]">{total}</span> invoices
             </span>
             <div className="flex items-center gap-1.5">
@@ -748,7 +774,7 @@ export default function ARInvoicesPage() {
                     </div>
                   </div>
                   
-                  {invoice.balance && Number(invoice.balance) > 0 && (
+                  {Number(invoice.balance) > 0 && (
                     <div className="flex items-center justify-between pt-2 border-t border-[#AEBFC3]/10">
                       <p className="text-[10px] text-[#E17F70] uppercase font-bold">Balance Amount</p>
                       <p className="text-base font-bold text-[#E17F70]">{formatARCurrency(Number(invoice.balance))}</p>
@@ -783,9 +809,11 @@ export default function ARInvoicesPage() {
                     <span className={`px-2 py-1 rounded text-[10px] font-bold ${getRiskStyle(invoice.riskClass)}`}>
                       {invoice.riskClass || 'N/A'}
                     </span>
-                    {invoice.dueByDays && invoice.dueByDays > 0 && (
-                      <span className="text-[10px] font-bold text-white bg-[#9E3B47] px-2 py-1 rounded">
-                        +{invoice.dueByDays}d overdue
+                    {(invoice.dueByDays ?? 0) !== 0 && invoice.status !== 'PAID' && invoice.prepaidStatus !== 'FULLY_DELIVERED' && (
+                      <span className={`text-[10px] font-bold text-white px-2 py-1 rounded shadow-sm ${
+                        (invoice.dueByDays ?? 0) > 0 ? 'bg-[#E17F70]' : 'bg-[#82A094]'
+                      }`}>
+                        {(invoice.dueByDays ?? 0) > 0 ? `+${invoice.dueByDays}d overdue` : `${invoice.dueByDays}d left`}
                       </span>
                     )}
                   </div>

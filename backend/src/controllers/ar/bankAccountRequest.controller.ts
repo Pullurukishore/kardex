@@ -1,5 +1,10 @@
 import { Request, Response } from 'express';
 import prisma from '../../config/db';
+import {
+    logBankAccountActivity,
+    getUserFromRequest,
+    getIpFromRequest
+} from './bankAccountActivityLog.controller';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // BANK ACCOUNT CHANGE REQUEST OPERATIONS
@@ -94,6 +99,19 @@ export const createChangeRequest = async (req: Request, res: Response) => {
             include: {
                 bankAccount: true
             }
+        });
+
+        // Log activity
+        const user = getUserFromRequest(req);
+        await logBankAccountActivity({
+            bankAccountId: bankAccountId || null,
+            action: 'CHANGE_REQUEST_CREATED',
+            description: `Change request (${requestType}) created${changeRequest.bankAccount ? ` for: ${changeRequest.bankAccount.vendorName}` : ` for new vendor: ${requestedData?.vendorName || 'Unknown'}`}`,
+            performedById: user.id,
+            performedBy: user.name,
+            ipAddress: getIpFromRequest(req),
+            userAgent: req.headers['user-agent'] || null,
+            metadata: { requestId: changeRequest.id, requestType }
         });
 
         res.status(201).json(changeRequest);
@@ -348,6 +366,19 @@ export const approveRequest = async (req: Request, res: Response) => {
             });
         }
 
+        // Log activity
+        const user = getUserFromRequest(req);
+        await logBankAccountActivity({
+            bankAccountId: bankAccount?.id || request.bankAccountId || null,
+            action: 'CHANGE_REQUEST_APPROVED',
+            description: `Change request (${request.requestType}) approved${bankAccount ? ` for vendor: ${bankAccount.vendorName}` : ''}`,
+            performedById: user.id,
+            performedBy: user.name,
+            ipAddress: getIpFromRequest(req),
+            userAgent: req.headers['user-agent'] || null,
+            metadata: { requestId: id, requestType: request.requestType, reviewNotes }
+        });
+
         res.json({
             message: 'Request approved successfully',
             bankAccount,
@@ -396,6 +427,19 @@ export const rejectRequest = async (req: Request, res: Response) => {
             include: {
                 bankAccount: true
             }
+        });
+
+        // Log activity
+        const user = getUserFromRequest(req);
+        await logBankAccountActivity({
+            bankAccountId: updatedRequest.bankAccountId || null,
+            action: 'CHANGE_REQUEST_REJECTED',
+            description: `Change request (${updatedRequest.requestType}) rejected${updatedRequest.bankAccount ? ` for vendor: ${updatedRequest.bankAccount.vendorName}` : ''}`,
+            performedById: user.id,
+            performedBy: user.name,
+            ipAddress: getIpFromRequest(req),
+            userAgent: req.headers['user-agent'] || null,
+            metadata: { requestId: id, requestType: updatedRequest.requestType, reviewNotes }
         });
 
         res.json({

@@ -6,6 +6,27 @@ import ServicePersonDashboardClientFixed from './components/ServicePersonDashboa
 import { DashboardErrorBoundary } from '@/components/dashboard/DashboardErrorBoundary';
 import DashboardErrorFallback from '@/components/dashboard/DashboardErrorFallback';
 
+// ============================================================================
+// Types
+// ============================================================================
+interface AttendanceStatus {
+  isCheckedIn: boolean;
+  checkInTime?: string;
+  checkOutTime?: string;
+  status?: string;
+}
+
+interface DashboardData {
+  attendance: AttendanceStatus | null;
+}
+
+// ============================================================================
+// Configuration
+// ============================================================================
+const API_TIMEOUT_MS = parseInt(process.env.API_TIMEOUT || '10000', 10);
+const MAX_RETRIES = 2;
+const RETRY_DELAY_MS = 1000;
+
 // Page metadata for SEO and browser tabs
 export const metadata: Metadata = {
   title: 'Dashboard | Service Person | KardexRemstar',
@@ -22,14 +43,14 @@ export const revalidate = 0;
  */
 function DashboardLoading() {
   return (
-    <div className="min-h-screen relative overflow-hidden">
+    <div className="min-h-screen relative overflow-hidden" role="status" aria-label="Loading dashboard">
       {/* Background */}
-      <div className="fixed inset-0 bg-gradient-to-br from-[#AEBFC3]/10 via-blue-50/40 to-[#96AEC2]/10/30"></div>
+      <div className="fixed inset-0 bg-gradient-to-br from-[#AEBFC3]/10 via-blue-50/40 to-[#96AEC2]/30"></div>
       <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(99,102,241,0.06),_transparent_50%)]"></div>
       
       {/* Floating orbs */}
-      <div className="fixed top-20 left-10 w-64 h-64 bg-gradient-to-br from-[#96AEC2]/10 to-indigo-400/10 rounded-full blur-3xl animate-pulse pointer-events-none"></div>
-      <div className="fixed bottom-32 right-10 w-80 h-80 bg-gradient-to-br from-purple-400/10 to-[#EEC1BF]/10 rounded-full blur-3xl animate-pulse pointer-events-none" style={{ animationDelay: '1s' }}></div>
+      <div className="fixed top-20 left-10 w-64 h-64 bg-gradient-to-br from-[#96AEC2]/10 to-[#6F8A9D]/10 rounded-full blur-3xl animate-pulse pointer-events-none"></div>
+      <div className="fixed bottom-32 right-10 w-80 h-80 bg-gradient-to-br from-[#E17F70]/10 to-[#EEC1BF]/10 rounded-full blur-3xl animate-pulse pointer-events-none" style={{ animationDelay: '1s' }}></div>
       
       {/* Header Skeleton - Coral gradient */}
       <div className="relative bg-gradient-to-r from-[#9E3B47] via-[#E17F70] to-[#CE9F6B] px-4 py-6 sm:px-6 sm:py-8">
@@ -94,14 +115,12 @@ function DashboardLoading() {
 /**
  * Fetches the service-person attendance data
  */
-async function getServicePersonDashboardData(token: string, retryCount = 0): Promise<any> {
-  const MAX_RETRIES = 2;
-  const RETRY_DELAY = 1000;
+async function getServicePersonDashboardData(token: string, retryCount = 0): Promise<DashboardData | null> {
   try {
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5003';
     const apiUrl = baseUrl.endsWith('/api') ? baseUrl : `${baseUrl}/api`;
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
     const res = await fetch(`${apiUrl}/attendance/status`, {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -114,17 +133,25 @@ async function getServicePersonDashboardData(token: string, retryCount = 0): Pro
       next: { revalidate: 0 },
     });
     clearTimeout(timeoutId);
-    if (res.status === 401 || res.status === 403) redirect('/auth/login');
+    if (res.status === 401 || res.status === 403) {
+      console.warn('[ServicePersonDashboard] Auth failed, redirecting to login');
+      redirect('/auth/login');
+    }
     if (res.status >= 500 && retryCount < MAX_RETRIES) {
-      await new Promise(r => setTimeout(r, RETRY_DELAY * (retryCount + 1)));
+      console.warn(`[ServicePersonDashboard] Server error ${res.status}, retrying (${retryCount + 1}/${MAX_RETRIES})`);
+      await new Promise(r => setTimeout(r, RETRY_DELAY_MS * (retryCount + 1)));
       return getServicePersonDashboardData(token, retryCount + 1);
     }
     if (!res.ok) return null;
     const data = await res.json();
     return { attendance: data };
-  } catch (e: any) {
-    if (e.name === 'AbortError' && retryCount < MAX_RETRIES) {
-      await new Promise(r => setTimeout(r, RETRY_DELAY * (retryCount + 1)));
+  } catch (e: unknown) {
+    const error = e as Error;
+    console.error('[ServicePersonDashboard] Fetch error:', error.message);
+    
+    if (error.name === 'AbortError' && retryCount < MAX_RETRIES) {
+      console.warn(`[ServicePersonDashboard] Request timeout, retrying (${retryCount + 1}/${MAX_RETRIES})`);
+      await new Promise(r => setTimeout(r, RETRY_DELAY_MS * (retryCount + 1)));
       return getServicePersonDashboardData(token, retryCount + 1);
     }
     return null;

@@ -202,7 +202,7 @@ const CustomerMobileCard = memo(({ customer, readOnly, basePath, index }: { cust
   const gradient = gradientColors[index % gradientColors.length];
 
   return (
-    <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-[#AEBFC3]/30 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden">
+    <div className="bg-white rounded-2xl border border-[#AEBFC3]/30 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden">
       {/* Gradient accent bar */}
       <div className={cn("h-1.5 bg-gradient-to-r", gradient)} />
       
@@ -377,7 +377,7 @@ const CustomerTable = memo(function CustomerTable({ customers, readOnly = false 
             <h2 className="text-xl font-bold text-[#546A7A]">Customers</h2>
             <Badge variant="secondary" className="bg-[#92A2A5]/30 text-[#5D6E73]">0</Badge>
           </div>
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-[#AEBFC3]/30 shadow-lg overflow-hidden">
+          <div className="bg-white rounded-2xl border border-[#AEBFC3]/30 shadow-lg overflow-hidden">
             <div className="h-1.5 bg-gradient-to-r from-[#6F8A9D] via-[#6F8A9D] to-[#6F8A9D]" />
             <div className="text-center py-12 px-6">
               <div className="mx-auto h-24 w-24 rounded-2xl bg-gradient-to-br from-[#96AEC2]/20 via-indigo-100 to-[#6F8A9D]/20 flex items-center justify-center mb-5 shadow-inner">

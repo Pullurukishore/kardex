@@ -1,6 +1,6 @@
 import express from 'express';
 import { authMiddleware } from '../middleware/auth';
-import { authenticate } from '../middleware/auth.middleware';
+import { authenticate, requireRole } from '../middleware/auth.middleware';
 import prisma from '../config/db';
 import {
   getFSADashboard,
@@ -98,69 +98,69 @@ router.get('/zone-users', authMiddleware(['ADMIN']), async (req, res) => {
 // User Management Routes (Admin only)
 // IMPORTANT: Put specific routes before parameterized routes to avoid conflicts
 // Get users with optional role filter - this must come before /:id route
-router.get('/users', authenticate, (req, res, next) => {
+router.get('/users', authenticate, requireRole(['ADMIN', 'EXPERT_HELPDESK']), (req, res, next) => {
   const authReq = req as any;
   return getUsers(authReq, res).catch(next);
 });
 
 // Create user
-router.post('/users', authenticate, (req, res, next) => {
+router.post('/users', authenticate, requireRole(['ADMIN']), (req, res, next) => {
   const authReq = req as any;
   return createUser(authReq, res).catch(next);
 });
 
 // Activity Log Routes (Admin, Zone Manager, Expert Helpdesk)
 // These must come BEFORE /:id routes
-router.get('/ticket-activity-log', authenticate, (req, res, next) => {
+router.get('/ticket-activity-log', authenticate, requireRole(['ADMIN', 'ZONE_MANAGER', 'EXPERT_HELPDESK']), (req, res, next) => {
   const authReq = req as any;
   return getTicketActivityLogs(authReq, res).catch(next);
 });
 
-router.get('/ticket-activity-log/stats', authenticate, (req, res, next) => {
+router.get('/ticket-activity-log/stats', authenticate, requireRole(['ADMIN', 'ZONE_MANAGER', 'EXPERT_HELPDESK']), (req, res, next) => {
   const authReq = req as any;
   return getTicketActivityStats(authReq, res).catch(next);
 });
 
-router.get('/offer-activity-log', authenticate, (req, res, next) => {
+router.get('/offer-activity-log', authenticate, requireRole(['ADMIN', 'ZONE_MANAGER', 'EXPERT_HELPDESK']), (req, res, next) => {
   const authReq = req as any;
   return getOfferActivityLogs(authReq, res).catch(next);
 });
 
-router.get('/offer-activity-log/stats', authenticate, (req, res, next) => {
+router.get('/offer-activity-log/stats', authenticate, requireRole(['ADMIN', 'ZONE_MANAGER', 'EXPERT_HELPDESK']), (req, res, next) => {
   const authReq = req as any;
   return getOfferActivityStats(authReq, res).catch(next);
 });
 
-router.get('/activity-log/users', authenticate, (req, res, next) => {
+router.get('/activity-log/users', authenticate, requireRole(['ADMIN', 'ZONE_MANAGER', 'EXPERT_HELPDESK']), (req, res, next) => {
   const authReq = req as any;
   return getActivityLogUsers(authReq, res).catch(next);
 });
 
-router.get('/:id', authenticate, (req, res, next) => {
+router.get('/:id', authenticate, requireRole(['ADMIN']), (req, res, next) => {
   const authReq = req as any;
   return getUserById(authReq, res).catch(next);
 });
 
 // Update user by ID
-router.put('/:id', authenticate, (req, res, next) => {
+router.put('/:id', authenticate, requireRole(['ADMIN']), (req, res, next) => {
   const authReq = req as any;
   return updateUser(authReq, res).catch(next);
 });
 
 // Delete user by ID
-router.delete('/:id', authenticate, (req, res, next) => {
+router.delete('/:id', authenticate, requireRole(['ADMIN']), (req, res, next) => {
   const authReq = req as any;
   return deleteUser(authReq, res).catch(next);
 });
 
 // Reset user password by ID
-router.post('/:id/reset-password', authenticate, (req, res, next) => {
+router.post('/:id/reset-password', authenticate, requireRole(['ADMIN']), (req, res, next) => {
   const authReq = req as any;
   return resetUserPassword(authReq, res).catch(next);
 });
 
 // Toggle user status by ID
-router.patch('/:id/toggle-status', authenticate, (req, res, next) => {
+router.patch('/:id/toggle-status', authenticate, requireRole(['ADMIN']), (req, res, next) => {
   const authReq = req as any;
   return toggleUserStatus(authReq, res).catch(next);
 });

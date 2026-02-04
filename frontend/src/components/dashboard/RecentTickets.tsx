@@ -241,10 +241,10 @@ export default function RecentTickets({ dashboardData, loading }: RecentTicketsP
   const tickets = dashboardData?.recentTickets?.slice(0, 6) || [];
 
   return (
-    <Card className="relative overflow-hidden bg-white/90 backdrop-blur-xl border-0 shadow-xl rounded-2xl sm:rounded-3xl">
+    <Card className="relative overflow-hidden bg-white border-0 shadow-xl rounded-2xl sm:rounded-3xl">
       {/* Background decorations */}
-      <div className="absolute -top-32 -right-32 w-64 h-64 bg-gradient-to-br from-orange-200/40 to-rose-200/30 rounded-full blur-3xl" />
-      <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-gradient-to-tr from-amber-200/30 to-yellow-200/20 rounded-full blur-3xl" />
+      <div className="absolute -top-32 -right-32 w-64 h-64 bg-[#CE9F6B]/5 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-[#96AEC2]/5 rounded-full blur-3xl pointer-events-none" />
       
       <CardHeader className="relative z-10 pb-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

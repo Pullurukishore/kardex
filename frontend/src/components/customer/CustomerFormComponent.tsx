@@ -155,7 +155,12 @@ export default function CustomerFormComponent({ customer, customerId }: Customer
         });
       }
       
-      router.push('/admin/customers');
+      const currentPath = window.location.pathname;
+      if (currentPath.includes('/expert/')) {
+        router.push('/expert/customers');
+      } else {
+        router.push('/admin/customers');
+      }
     } catch (error: any) {
       const errorMessage = error.response?.data?.error || 'Failed to process customer. Please try again.';
       

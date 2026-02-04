@@ -41,7 +41,7 @@ export default function EditInvoicePage() {
     invoiceType: 'REGULAR' as 'REGULAR' | 'PREPAID',
     advanceReceivedDate: '',
     deliveryDueDate: '',
-    prepaidStatus: '' as '' | 'AWAITING_DELIVERY' | 'PARTIALLY_DELIVERED' | 'FULLY_DELIVERED' | 'EXPIRED',
+    prepaidStatus: '' as '' | 'AWAITING_DELIVERY' | 'PARTIALLY_DELIVERED' | 'FULLY_DELIVERED' | 'EXPIRED' | 'LINKED',
   });
 
   useEffect(() => {
@@ -317,14 +317,18 @@ export default function EditInvoicePage() {
             </div>
             <div>
               <label className={labelClass}>Type</label>
-              <input
-                type="text"
-                name="type"
-                value={formData.type}
-                onChange={handleChange}
-                placeholder="Invoice type"
-                className={inputClass}
-              />
+              <select 
+                name="type" 
+                value={formData.type || ''} 
+                onChange={handleChange} 
+                className={selectClass}
+                required
+              >
+                <option value="">Select Type</option>
+                <option value="SERVICE">Service</option>
+                <option value="SALES">Sales</option>
+                <option value="OTHERS">Others</option>
+              </select>
             </div>
           </div>
         </div>
@@ -486,6 +490,7 @@ export default function EditInvoicePage() {
                   <option value="PARTIALLY_DELIVERED">Partially Delivered</option>
                   <option value="FULLY_DELIVERED">Fully Delivered</option>
                   <option value="EXPIRED">Expired</option>
+                  <option value="LINKED">Linked</option>
                 </select>
               </div>
             </div>

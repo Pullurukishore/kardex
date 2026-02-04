@@ -35,81 +35,17 @@ const nextConfig = {
     ],
   },
 
-  // Modular imports for better tree-shaking
-  modularizeImports: {
-    'date-fns': {
-      transform: 'date-fns/{{member}}',
-    },
-  },
 
-  webpack: (config, { isServer, dev }) => {
-    // Skip complex optimizations in development
-    if (dev) {
-      return config;
-    }
 
-    // Remove console logs in production
-    config.optimization.minimizer = config.optimization.minimizer || [];
-    const TerserPlugin = require('terser-webpack-plugin');
-    config.optimization.minimizer.push(
-      new TerserPlugin({
-        terserOptions: {
-          compress: {
-            drop_console: process.env.NEXT_PUBLIC_ENABLE_LOGS !== 'true',
-          },
-        },
-      })
-    );
 
-    // Advanced code splitting (PRODUCTION ONLY)
-    if (!isServer) {
-      config.optimization.splitChunks = {
-        chunks: 'all',
-        maxInitialRequests: 25,
-        minSize: 20000, // Reduced to allow more granular chunks
-        cacheGroups: {
-          default: false,
-          vendors: false,
-          // Let Next.js handle the core framework chunk automatically
-
-          // Visualization libs
-          charts: {
-            test: /[\\/]node_modules[\\/](recharts|chart\.js|react-chartjs-2|d3)[\\/]/,
-            priority: 35,
-            chunks: 'all',
-            reuseExistingChunk: true,
-          },
-          // Heavy mapping/excel libs
-          heavy_libs: {
-            test: /[\\/]node_modules[\\/](xlsx|file-saver|jspdf|exceljs|docx|leaflet|react-leaflet)[\\/]/,
-            priority: 30,
-            chunks: 'all',
-            reuseExistingChunk: true,
-          },
-          // UI components
-          ui: {
-            test: /[\\/]node_modules[\\/](@radix-ui|@tanstack\/react-table|lucide-react)[\\/]/,
-            priority: 25,
-            chunks: 'all',
-            reuseExistingChunk: true,
-          },
-          common: {
-            minChunks: 2,
-            priority: 20,
-            chunks: 'all',
-            reuseExistingChunk: true,
-          },
-        },
-      };
-    }
-
-    // Add asset loaders
+  webpack: (config, { isServer }) => {
+    // Add asset loaders for fonts
     config.module.rules.push({
       test: /\.(woff|woff2|eot|ttf|otf)$/i,
       type: 'asset/resource',
     });
 
-    // Handle undefined module errors
+    // Handle polyfills for libs like xlsx/exceljs/docx
     config.resolve.fallback = {
       ...config.resolve.fallback,
       fs: false,

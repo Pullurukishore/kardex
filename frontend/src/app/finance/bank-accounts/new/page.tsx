@@ -47,6 +47,7 @@ export default function NewBankAccountPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [currentStep, setCurrentStep] = useState(1);
   const [activeStep, setActiveStep] = useState(1);
   const [isMounted, setIsMounted] = useState(false);
   
@@ -120,29 +121,27 @@ export default function NewBankAccountPage() {
     setError('');
 
     try {
-      if (!formData.vendorName || !formData.beneficiaryBankName || 
-          !formData.accountNumber || !formData.ifscCode) {
-        setError('Please fill in all required fields');
+      // Validate all steps before submission
+      const step1Validation = validateStep(1);
+      if (!step1Validation.valid) {
+        setError(step1Validation.message || 'Step 1: Please complete vendor information');
+        setCurrentStep(1);
         setLoading(false);
         return;
       }
 
-      // Smart Mandatory Validation for GST/PAN (only for INR)
-      if (formData.currency === 'INR') {
-        if (!formData.gstNumber) {
-          setError('GST Number is required for INR transactions');
-          setLoading(false);
-          return;
-        }
-        if (!formData.panNumber) {
-          setError('PAN Number is required for INR transactions');
-          setLoading(false);
-          return;
-        }
+      const step2Validation = validateStep(2);
+      if (!step2Validation.valid) {
+        setError(step2Validation.message || 'Step 2: Please complete bank details');
+        setCurrentStep(2);
+        setLoading(false);
+        return;
       }
-      
-      if (formData.accountNumber !== formData.confirmAccountNumber) {
-        setError('Account numbers do not match');
+
+      const step3Validation = validateStep(3);
+      if (!step3Validation.valid) {
+        setError(step3Validation.message || 'Step 3: Please upload required documents');
+        setCurrentStep(3);
         setLoading(false);
         return;
       }
@@ -182,7 +181,26 @@ export default function NewBankAccountPage() {
         setTimeout(() => router.push('/finance/bank-accounts/requests'), 1500);
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to submit');
+      console.error('Form submission error:', err);
+      
+      // Extract error message from various possible formats
+      let errorMessage = 'Failed to submit';
+      
+      if (err.response?.data?.error) {
+        // API returned { error: "message" }
+        errorMessage = err.response.data.error;
+      } else if (err.response?.data?.message) {
+        // API returned { message: "message" }
+        errorMessage = err.response.data.message;
+      } else if (err.message) {
+        // Standard error message
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
+      
+      // Scroll to top to show error message
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setLoading(false);
     }
@@ -203,145 +221,263 @@ export default function NewBankAccountPage() {
     return Math.round((filled / required.length) * 100);
   };
 
+  const validateStep = (step: number): { valid: boolean; message?: string } => {
+    if (step === 1) {
+      if (!formData.vendorName) {
+        return { valid: false, message: 'Vendor name is required' };
+      }
+      if (formData.isMSME && !formData.udyamRegNum) {
+        return { valid: false, message: 'Udyam Registration Number is required for MSME vendors' };
+      }
+      return { valid: true };
+    }
+    if (step === 2) {
+      if (!formData.beneficiaryBankName) {
+        return { valid: false, message: 'Beneficiary Bank Name is required' };
+      }
+      if (!formData.accountNumber) {
+        return { valid: false, message: 'Account Number is required' };
+      }
+      if (!formData.ifscCode) {
+        return { valid: false, message: 'IFSC/SWIFT Code is required' };
+      }
+      if (!formData.confirmAccountNumber) {
+        return { valid: false, message: 'Please confirm the account number' };
+      }
+      if (formData.accountNumber !== formData.confirmAccountNumber) {
+        return { valid: false, message: 'Account numbers do not match' };
+      }
+      if (formData.currency === 'INR') {
+        if (!formData.gstNumber) {
+          return { valid: false, message: 'GST Number is required for INR transactions' };
+        }
+        if (!formData.panNumber) {
+          return { valid: false, message: 'PAN Number is required for INR transactions' };
+        }
+      }
+      if (formData.currency === 'Other' && !formData.otherCurrency) {
+        return { valid: false, message: 'Please specify the currency code' };
+      }
+      return { valid: true };
+    }
+    if (step === 3) {
+      if (selectedFiles.length === 0) {
+        return { valid: false, message: 'Please upload at least one document for verification' };
+      }
+      return { valid: true };
+    }
+    return { valid: true };
+  };
+
+  const handleNext = () => {
+    const validation = validateStep(currentStep);
+    if (validation.valid) {
+      setCurrentStep(prev => Math.min(prev + 1, 3));
+      setError('');
+    } else {
+      setError(validation.message || 'Please complete all required fields in this step');
+    }
+  };
+
+  const handlePrevious = () => {
+    setCurrentStep(prev => Math.max(prev - 1, 1));
+    setError('');
+  };
+
   return (
-    <div className="w-full min-h-screen">
-      {/* Premium Header - Kardex Blue Gradient */}
+    <div className="w-full min-h-screen" style={{ background: 'linear-gradient(to bottom, #f8fafb 0%, #ffffff 100%)' }}>
+      {/* Premium Header - Enhanced Glassmorphism */}
       <div 
-        className={`relative overflow-hidden rounded-3xl mb-8 transition-all duration-700 ${isMounted ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'}`}
-        style={{ background: 'linear-gradient(135deg, #546A7A 0%, #6F8A9D 50%, #546A7A 100%)' }}
+        className={`relative overflow-hidden rounded-[2rem] mb-10 transition-all duration-700 ${isMounted ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'}`}
+        style={{ 
+          background: 'linear-gradient(135deg, #546A7A 0%, #6F8A9D 40%, #96AEC2 70%, #6F8A9D 100%)',
+          boxShadow: '0 20px 60px rgba(84,106,122,0.3), 0 0 0 1px rgba(255,255,255,0.1) inset'
+        }}
       >
-        {/* Background Effects */}
-        <div className="absolute inset-0 overflow-hidden">
+        {/* Animated Background Meshes */}
+        <div className="absolute inset-0 overflow-hidden opacity-30">
           <div 
-            className="absolute -top-40 -right-40 w-80 h-80 rounded-full blur-3xl animate-pulse"
-            style={{ background: 'radial-gradient(circle, rgba(206,159,107,0.2) 0%, transparent 70%)' }}
+            className="absolute -top-40 -right-40 w-96 h-96 rounded-full blur-3xl animate-pulse"
+            style={{ background: 'radial-gradient(circle, rgba(206,159,107,0.4) 0%, transparent 70%)', animationDuration: '3s' }}
           />
           <div 
-            className="absolute -bottom-40 -left-40 w-80 h-80 rounded-full blur-3xl animate-pulse"
-            style={{ background: 'radial-gradient(circle, rgba(150,174,194,0.2) 0%, transparent 70%)', animationDelay: '1s' }}
+            className="absolute -bottom-40 -left-40 w-96 h-96 rounded-full blur-3xl animate-pulse"
+            style={{ background: 'radial-gradient(circle, rgba(130,160,148,0.3) 0%, transparent 70%)', animationDelay: '1.5s', animationDuration: '4s' }}
           />
           <div 
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-px"
-            style={{ background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent)' }}
+            className="absolute top-20 right-20 w-64 h-64 rounded-full blur-2xl animate-pulse"
+            style={{ background: 'radial-gradient(circle, rgba(238,193,191,0.2) 0%, transparent 70%)', animationDelay: '0.5s', animationDuration: '3.5s' }}
           />
         </div>
         
-        <div className="relative p-8 md:p-10">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-            <div className="flex items-start gap-5">
+        <div className="relative p-10 md:p-12">
+          {/* Top Bar */}
+          <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-8 mb-10">
+            <div className="flex items-start gap-6">
               <Link
                 href="/finance/bank-accounts"
-                className="group p-3.5 rounded-2xl border transition-all duration-300"
+                className="group p-4 rounded-2xl border-2 transition-all duration-300 hover:scale-105"
                 style={{ 
-                  background: 'rgba(255,255,255,0.05)', 
-                  borderColor: 'rgba(255,255,255,0.1)',
-                  color: 'rgba(255,255,255,0.7)'
+                  background: 'rgba(255,255,255,0.08)', 
+                  borderColor: 'rgba(255,255,255,0.15)',
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
+                  backdropFilter: 'blur(10px)'
                 }}
               >
-                <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+                <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" style={{ color: 'white' }} />
               </Link>
               <div>
-                <div className="flex items-center gap-3 mb-2">
+                <div className="flex items-center gap-3 mb-3">
                   <div 
-                    className="p-2.5 rounded-xl shadow-lg"
-                    style={{ background: 'linear-gradient(135deg, #CE9F6B 0%, #976E44 100%)', boxShadow: '0 8px 20px rgba(206,159,107,0.3)' }}
+                    className="p-3 rounded-2xl shadow-2xl animate-pulse"
+                    style={{ 
+                      background: 'linear-gradient(135deg, #CE9F6B 0%, #976E44 100%)', 
+                      boxShadow: '0 10px 30px rgba(206,159,107,0.4), 0 0 0 4px rgba(206,159,107,0.2)',
+                      animationDuration: '2s'
+                    }}
                   >
-                    <Wallet className="w-5 h-5 text-white" />
+                    <Wallet className="w-6 h-6 text-white" />
                   </div>
                   <span 
-                    className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border"
-                    style={{ background: 'rgba(206,159,107,0.2)', color: '#EEC1BF', borderColor: 'rgba(206,159,107,0.3)' }}
+                    className="px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest border-2"
+                    style={{ 
+                      background: 'linear-gradient(135deg, rgba(238,193,191,0.3) 0%, rgba(206,159,107,0.2) 100%)', 
+                      color: '#EEC1BF', 
+                      borderColor: 'rgba(238,193,191,0.4)',
+                      boxShadow: '0 4px 12px rgba(206,159,107,0.2)'
+                    }}
                   >
-                    {isAdmin ? 'Direct Creation' : 'Approval Required'}
+                    {isAdmin ? '✦ Create Account' : '↗ Request Account'}
                   </span>
                 </div>
-                <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight mb-2">
-                  {isAdmin ? 'Add Vendor Account' : 'Request Vendor Account'}
+                <h1 className="text-3xl md:text-4xl lg:text-5xl font-black text-white tracking-tight mb-3 drop-shadow-lg">
+                  {isAdmin ? 'Add Bank Account' : 'Request Bank Account'}
                 </h1>
-                <p className="text-sm md:text-base flex items-center gap-2" style={{ color: '#AEBFC3' }}>
-                  <Shield className="w-4 h-4" style={{ color: '#CE9F6B' }} />
-                  {isAdmin ? 'Create a verified vendor bank account' : 'Submit for administrative verification'}
+                <p className="text-base md:text-lg flex items-center gap-2.5 font-medium" style={{ color: '#E8F0F2', textShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+                  <Shield className="w-5 h-5" style={{ color: '#CE9F6B' }} />
+                  {isAdmin ? 'Create a verified vendor bank account' : 'Submit for admin verification'}
                 </p>
               </div>
             </div>
             
-            {/* Progress Indicator */}
+            {/* Enhanced Progress Ring */}
             <div className="lg:text-right">
               <div 
-                className="inline-flex items-center gap-4 px-6 py-4 rounded-2xl border"
-                style={{ background: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.1)' }}
+                className="inline-flex items-center gap-5 px-7 py-5 rounded-3xl border-2 backdrop-blur-xl"
+                style={{ 
+                  background: 'linear-gradient(135deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.06) 100%)', 
+                  borderColor: 'rgba(255,255,255,0.2)',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.15), 0 0 0 1px rgba(255,255,255,0.1) inset'
+                }}
               >
                 <div className="relative">
-                  <svg className="w-16 h-16 -rotate-90">
-                    <circle cx="32" cy="32" r="28" stroke="rgba(255,255,255,0.1)" strokeWidth="4" fill="none" />
+                  <svg className="w-20 h-20 -rotate-90">
+                    <circle cx="40" cy="40" r="34" stroke="rgba(255,255,255,0.15)" strokeWidth="6" fill="none" />
                     <circle 
-                      cx="32" cy="32" r="28" 
-                      stroke="url(#kardexGradient)" 
-                      strokeWidth="4" 
+                      cx="40" cy="40" r="34" 
+                      stroke="url(#kardexGradientEnhanced)" 
+                      strokeWidth="6" 
                       fill="none" 
                       strokeLinecap="round"
-                      strokeDasharray={`${(getCompletionPercentage() / 100) * 176} 176`}
-                      className="transition-all duration-700"
+                      strokeDasharray={`${(getCompletionPercentage() / 100) * 213.6} 213.6`}
+                      className="transition-all duration-1000 ease-out"
+                      style={{ filter: 'drop-shadow(0 0 8px rgba(206,159,107,0.6))' }}
                     />
                     <defs>
-                      <linearGradient id="kardexGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                        <stop offset="0%" stopColor="#CE9F6B" />
+                      <linearGradient id="kardexGradientEnhanced" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor="#EEC1BF" />
+                        <stop offset="50%" stopColor="#CE9F6B" />
                         <stop offset="100%" stopColor="#976E44" />
                       </linearGradient>
                     </defs>
                   </svg>
-                  <span className="absolute inset-0 flex items-center justify-center text-lg font-black text-white">
-                    {getCompletionPercentage()}%
-                  </span>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="text-2xl font-black text-white" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.3)' }}>
+                      {getCompletionPercentage()}%
+                    </span>
+                  </div>
                 </div>
                 <div>
-                  <p className="text-xs uppercase tracking-wider mb-1" style={{ color: 'rgba(255,255,255,0.4)' }}>Completion</p>
-                  <p className="text-white font-bold">Step {activeStep} of 3</p>
+                  <p className="text-xs uppercase tracking-widest mb-1.5 font-bold" style={{ color: 'rgba(255,255,255,0.5)' }}>Completion</p>
+                  <p className="text-white font-black text-xl" style={{ textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>Step {currentStep} of 3</p>
                 </div>
               </div>
             </div>
           </div>
           
-          {/* Step Indicators */}
-          <div className="mt-8 grid grid-cols-3 gap-4">
+          {/* Interactive Step Bubbles */}
+          <div className="grid grid-cols-3 gap-5">
             {steps.map((step, index) => {
               const Icon = step.icon;
-              const isActive = activeStep >= step.id;
-              const isCurrent = activeStep === step.id;
+              const isCompleted = currentStep > step.id;
+              const isCurrent = currentStep === step.id;
+              const isPending = currentStep < step.id;
               
               return (
                 <div 
                   key={step.id}
-                  className="relative p-4 rounded-2xl transition-all duration-500"
+                  className={`relative p-5 rounded-2xl transition-all duration-500 ${
+                    validateStep(step.id - 1).valid && step.id <= currentStep + 1 ? 'cursor-pointer hover:scale-105' : ''
+                  }`}
+                  onClick={() => {
+                    if (validateStep(step.id - 1).valid && step.id <= currentStep + 1) {
+                      setCurrentStep(step.id);
+                      setError('');
+                    }
+                  }}
                   style={{ 
                     background: isCurrent 
-                      ? 'linear-gradient(135deg, rgba(206,159,107,0.2) 0%, rgba(151,110,68,0.1) 100%)' 
-                      : isActive 
-                        ? 'rgba(255,255,255,0.05)' 
-                        : 'rgba(255,255,255,0.02)',
-                    border: `1px solid ${isCurrent ? 'rgba(206,159,107,0.3)' : isActive ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.05)'}`
+                      ? 'linear-gradient(135deg, rgba(206,159,107,0.35) 0%, rgba(151,110,68,0.25) 100%)' 
+                      : isCompleted
+                        ? 'linear-gradient(135deg, rgba(130,160,148,0.2) 0%, rgba(79,106,100,0.15) 100%)'
+                        : 'rgba(255,255,255,0.08)',
+                    border: `2px solid ${
+                      isCurrent ? 'rgba(206,159,107,0.5)' : 
+                      isCompleted ? 'rgba(130,160,148,0.4)' : 
+                      'rgba(255,255,255,0.15)'
+                    }`,
+                    boxShadow: isCurrent 
+                      ? '0 8px 24px rgba(206,159,107,0.3), 0 0 0 1px rgba(206,159,107,0.2) inset' 
+                      : isCompleted
+                        ? '0 4px 16px rgba(130,160,148,0.2)'
+                        : 'none',
+                    backdropFilter: 'blur(12px)'
                   }}
                 >
-                  <div className="flex items-center gap-3">
+                  {isCompleted && (
+                    <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full flex items-center justify-center"
+                      style={{ background: 'linear-gradient(135deg, #82A094 0%, #4F6A64 100%)', boxShadow: '0 4px 12px rgba(130,160,148,0.4)' }}
+                    >
+                      <CheckCircle2 className="w-4 h-4 text-white" />
+                    </div>
+                  )}
+                  <div className="flex items-center gap-4">
                     <div 
-                      className="p-2.5 rounded-xl transition-all duration-500"
+                      className="p-3 rounded-xl transition-all duration-500"
                       style={{ 
                         background: isCurrent 
                           ? 'linear-gradient(135deg, #CE9F6B 0%, #976E44 100%)' 
-                          : isActive 
-                            ? 'rgba(255,255,255,0.1)' 
-                            : 'rgba(255,255,255,0.05)',
-                        boxShadow: isCurrent ? '0 8px 20px rgba(206,159,107,0.3)' : 'none'
+                          : isCompleted
+                            ? 'linear-gradient(135deg, #82A094 0%, #4F6A64 100%)'
+                            : 'rgba(255,255,255,0.1)',
+                        boxShadow: isCurrent || isCompleted ? '0 6px 20px rgba(0,0,0,0.2)' : 'none'
                       }}
                     >
-                      <Icon className="w-5 h-5" style={{ color: isCurrent ? 'white' : isActive ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.3)' }} />
+                      <Icon className="w-6 h-6" style={{ 
+                        color: isCurrent || isCompleted ? 'white' : 'rgba(255,255,255,0.4)' 
+                      }} />
                     </div>
-                    <div>
-                      <p className="font-bold text-sm" style={{ color: isCurrent ? 'white' : isActive ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.3)' }}>
+                    <div className="flex-1">
+                      <p className="font-black text-base mb-0.5" style={{ 
+                        color: isCurrent ? 'white' : isCompleted ? '#E8F0F2' : 'rgba(255,255,255,0.4)',
+                        textShadow: isCurrent ? '0 2px 4px rgba(0,0,0,0.2)' : 'none'
+                      }}>
                         {step.title}
                       </p>
-                      <p className="text-xs" style={{ color: isCurrent ? '#EEC1BF' : 'rgba(255,255,255,0.3)' }}>
-                        {step.description}
+                      <p className="text-xs font-medium" style={{ 
+                        color: isCurrent ? '#EEC1BF' : isCompleted ? 'rgba(130,160,148,0.8)' : 'rgba(255,255,255,0.3)' 
+                      }}>
+                        {isCompleted ? '✓ Completed' : isCurrent ? '→ ' + step.description : step.description}
                       </p>
                     </div>
                   </div>
@@ -376,60 +512,97 @@ export default function NewBankAccountPage() {
         {/* Error/Success Messages */}
         {error && (
           <div 
-            className="flex items-center gap-3 p-5 rounded-2xl border mb-6"
-            style={{ background: 'rgba(225,127,112,0.1)', borderColor: 'rgba(225,127,112,0.3)' }}
+            className="flex items-start gap-4 p-6 rounded-[2rem] border-2 mb-8 animate-in fade-in slide-in-from-top-4 duration-300"
+            style={{ 
+              background: 'linear-gradient(135deg, rgba(225,127,112,0.15) 0%, rgba(158,59,71,0.08) 100%)', 
+              borderColor: 'rgba(225,127,112,0.4)',
+              boxShadow: '0 8px 24px rgba(225,127,112,0.2)'
+            }}
           >
-            <div className="p-2 rounded-xl" style={{ background: 'rgba(225,127,112,0.15)' }}>
-              <AlertCircle className="w-5 h-5" style={{ color: '#E17F70' }} />
+            <div className="p-3 rounded-2xl" style={{ background: 'linear-gradient(135deg, #E17F70 0%, #9E3B47 100%)', boxShadow: '0 4px 12px rgba(225,127,112,0.3)' }}>
+              <AlertCircle className="w-6 h-6 text-white" />
             </div>
-            <span className="font-medium" style={{ color: '#9E3B47' }}>{error}</span>
+            <div className="flex-1">
+              <p className="font-black text-lg mb-1" style={{ color: '#9E3B47' }}>Error</p>
+              <p className="font-medium text-base" style={{ color: '#75242D' }}>{error}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setError('')}
+              className="p-2 rounded-xl hover:bg-white/50 transition-colors"
+              style={{ color: '#E17F70' }}
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
         )}
 
         {success && (
           <div 
-            className="flex items-center gap-3 p-5 rounded-2xl border mb-6"
-            style={{ background: 'rgba(130,160,148,0.1)', borderColor: 'rgba(130,160,148,0.3)' }}
+            className="flex items-start gap-4 p-6 rounded-[2rem] border-2 mb-8 animate-in fade-in slide-in-from-top-4 duration-300"
+            style={{ 
+              background: 'linear-gradient(135deg, rgba(130,160,148,0.15) 0%, rgba(79,106,100,0.08) 100%)', 
+              borderColor: 'rgba(130,160,148,0.4)',
+              boxShadow: '0 8px 24px rgba(130,160,148,0.2)'
+            }}
           >
-            <div className="p-2 rounded-xl" style={{ background: 'rgba(130,160,148,0.15)' }}>
-              <CheckCircle2 className="w-5 h-5" style={{ color: '#82A094' }} />
+            <div className="p-3 rounded-2xl animate-pulse" style={{ background: 'linear-gradient(135deg, #82A094 0%, #4F6A64 100%)', boxShadow: '0 4px 12px rgba(130,160,148,0.3)', animationDuration: '2s' }}>
+              <CheckCircle2 className="w-6 h-6 text-white" />
             </div>
-            <span className="font-medium" style={{ color: '#4F6A64' }}>{success}</span>
+            <div className="flex-1">
+              <p className="font-black text-lg mb-1" style={{ color: '#4F6A64' }}>Success!</p>
+              <p className="font-medium text-base" style={{ color: '#4F6A64' }}>{success}</p>
+            </div>
           </div>
         )}
 
         {/* Step 1: Vendor Information */}
-        <div className="bg-white rounded-3xl border overflow-hidden mb-8" style={{ borderColor: 'rgba(174,191,195,0.3)', boxShadow: '0 10px 40px rgba(84,106,122,0.1)' }}>
-          <div 
-            className="p-6 border-b flex items-center justify-between"
-            style={{ background: 'linear-gradient(90deg, #F8FAFB 0%, white 100%)', borderColor: 'rgba(174,191,195,0.2)' }}
+        {currentStep === 1 && (
+        <div className="bg-white rounded-[2rem] border-2 overflow-hidden mb-8 animate-in fade-in slide-in-from-right-4 duration-500" 
+          style={{ 
+            borderColor: 'rgba(206,159,107,0.2)', 
+            boxShadow: '0 16px 48px rgba(84,106,122,0.12), 0 0 0 1px rgba(206,159,107,0.05) inset'
+          }}>
+          <div
+            className="p-6 border-b-2 flex items-center justify-between"
+            style={{ 
+              background: 'linear-gradient(135deg, rgba(206,159,107,0.08) 0%, rgba(238,193,191,0.05) 50%, white 100%)', 
+              borderColor: 'rgba(206,159,107,0.15)' 
+            }}
           >
             <div className="flex items-center gap-4">
               <div 
-                className="p-3 rounded-2xl shadow-lg"
-                style={{ background: 'linear-gradient(135deg, #CE9F6B 0%, #976E44 100%)', boxShadow: '0 8px 20px rgba(206,159,107,0.2)' }}
+                className="p-3.5 rounded-2xl shadow-xl"
+                style={{ 
+                  background: 'linear-gradient(135deg, #CE9F6B 0%, #976E44 100%)', 
+                  boxShadow: '0 8px 24px rgba(206,159,107,0.3), 0 0 0 3px rgba(206,159,107,0.1)' 
+                }}
               >
                 <User className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h2 className="text-xl font-bold" style={{ color: '#546A7A' }}>Vendor Information</h2>
-                <p className="text-sm" style={{ color: '#92A2A5' }}>Basic details about the vendor</p>
+                <h2 className="text-lg font-black" style={{ color: '#546A7A' }}>Vendor Information</h2>
+                <p className="text-sm font-medium" style={{ color: '#92A2A5' }}>Enter basic vendor details</p>
               </div>
             </div>
             <span 
-              className="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest border"
-              style={{ background: '#F8FAFB', color: '#92A2A5', borderColor: 'rgba(174,191,195,0.3)' }}
+              className="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest border-2"
+              style={{ 
+                background: 'linear-gradient(135deg, rgba(206,159,107,0.1) 0%, transparent 100%)', 
+                color: '#CE9F6B', 
+                borderColor: 'rgba(206,159,107,0.2)' 
+              }}
             >
               Step 01
             </span>
           </div>
 
-          <div className="p-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+          <div className="p-8 md:p-10">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
               {/* Vendor Name */}
-              <div className="md:col-span-2 xl:col-span-1 space-y-3">
-                <label className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider" style={{ color: '#5D6E73' }}>
-                  <User className="w-4 h-4" style={{ color: '#CE9F6B' }} />
+              <div className="md:col-span-2 xl:col-span-1 space-y-2.5">
+                <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider" style={{ color: '#5D6E73' }}>
+                  <User className="w-3.5 h-3.5" style={{ color: '#B18E63' }} />
                   Vendor Name <span style={{ color: '#E17F70' }}>*</span>
                 </label>
                 <input
@@ -438,7 +611,7 @@ export default function NewBankAccountPage() {
                   value={formData.vendorName}
                   onChange={handleChange}
                   placeholder="Enter vendor/company name"
-                  className="w-full px-5 py-4 rounded-2xl text-lg font-medium transition-all focus:outline-none"
+                  className="w-full px-4 py-3 rounded-xl text-sm font-medium transition-all focus:outline-none"
                   style={{ 
                     background: '#F8FAFB', 
                     border: '2px solid #AEBFC3', 
@@ -448,9 +621,9 @@ export default function NewBankAccountPage() {
                 />
               </div>
 
-              <div className="space-y-3">
-                <label className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider" style={{ color: '#5D6E73' }}>
-                  <Hash className="w-4 h-4" style={{ color: '#CE9F6B' }} />
+              <div className="space-y-2.5">
+                <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider" style={{ color: '#5D6E73' }}>
+                  <Hash className="w-3.5 h-3.5" style={{ color: '#B18E63' }} />
                   Nick Name
                 </label>
                 <input
@@ -459,8 +632,12 @@ export default function NewBankAccountPage() {
                   value={formData.nickName}
                   onChange={handleChange}
                   placeholder="Short reference name"
-                  className="w-full px-5 py-4 rounded-2xl font-medium transition-all focus:outline-none"
-                  style={{ background: '#F8FAFB', border: '2px solid #AEBFC3', color: '#546A7A' }}
+                  className="w-full px-4 py-3 rounded-xl text-sm font-medium transition-all focus:outline-none"
+                  style={{ 
+                    background: '#F8FAFB', 
+                    border: '2px solid #AEBFC3', 
+                    color: '#546A7A'
+                  }}
                 />
               </div>
 
@@ -547,34 +724,50 @@ export default function NewBankAccountPage() {
             </div>
           </div>
         </div>
+        )}
 
         {/* Step 2: Bank & Currency Details */}
-        <div className="bg-white rounded-3xl border overflow-hidden mb-8" style={{ borderColor: 'rgba(174,191,195,0.3)', boxShadow: '0 10px 40px rgba(84,106,122,0.1)' }}>
-          <div 
-            className="p-6 border-b flex items-center justify-between"
-            style={{ background: 'linear-gradient(90deg, #F8FAFB 0%, white 100%)', borderColor: 'rgba(174,191,195,0.2)' }}
+        {currentStep === 2 && (
+        <div className="bg-white rounded-[2rem] border-2 overflow-hidden mb-8 animate-in fade-in slide-in-from-right-4 duration-500" 
+          style={{ 
+            borderColor: 'rgba(111,138,157,0.2)', 
+            boxShadow: '0 16px 48px rgba(84,106,122,0.12), 0 0 0 1px rgba(111,138,157,0.05) inset'
+          }}>
+          <div
+            className="p-6 border-b-2 flex items-center justify-between"
+            style={{ 
+              background: 'linear-gradient(135deg, rgba(111,138,157,0.08) 0%, rgba(150,174,194,0.05) 50%, white 100%)', 
+              borderColor: 'rgba(111,138,157,0.15)' 
+            }}
           >
             <div className="flex items-center gap-4">
               <div 
-                className="p-3 rounded-2xl shadow-lg"
-                style={{ background: 'linear-gradient(135deg, #6F8A9D 0%, #546A7A 100%)', boxShadow: '0 8px 20px rgba(111,138,157,0.2)' }}
+                className="p-3.5 rounded-2xl shadow-xl"
+                style={{ 
+                  background: 'linear-gradient(135deg, #6F8A9D 0%, #546A7A 100%)', 
+                  boxShadow: '0 8px 24px rgba(111,138,157,0.3), 0 0 0 3px rgba(111,138,157,0.1)' 
+                }}
               >
                 <Landmark className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h2 className="text-xl font-bold" style={{ color: '#546A7A' }}>Bank & Currency Details</h2>
-                <p className="text-sm" style={{ color: '#92A2A5' }}>Account and routing information</p>
+                <h2 className="text-lg font-black" style={{ color: '#546A7A' }}>Bank Details</h2>
+                <p className="text-sm font-medium" style={{ color: '#92A2A5' }}>Account and routing information</p>
               </div>
             </div>
             <span 
-              className="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest border"
-              style={{ background: '#F8FAFB', color: '#92A2A5', borderColor: 'rgba(174,191,195,0.3)' }}
+              className="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest border-2"
+              style={{ 
+                background: 'linear-gradient(135deg, rgba(111,138,157,0.1) 0%, transparent 100%)', 
+                color: '#6F8A9D', 
+                borderColor: 'rgba(111,138,157,0.2)' 
+              }}
             >
               Step 02
             </span>
           </div>
 
-          <div className="p-8 space-y-8">
+          <div className="p-8 md:p-10 space-y-8">
             {/* Currency Selection */}
             <div 
               className="grid grid-cols-1 md:grid-cols-2 gap-8 p-6 rounded-3xl border"
@@ -811,37 +1004,65 @@ export default function NewBankAccountPage() {
             </div>
           </div>
         </div>
+        )}
 
         {/* Step 3: Verification Documents */}
-        <div className="bg-white rounded-3xl border overflow-hidden mb-8" style={{ borderColor: 'rgba(174,191,195,0.3)', boxShadow: '0 10px 40px rgba(84,106,122,0.1)' }}>
-          <div 
-            className="p-6 border-b flex items-center justify-between"
-            style={{ background: 'linear-gradient(90deg, #F8FAFB 0%, white 100%)', borderColor: 'rgba(174,191,195,0.2)' }}
+        {currentStep === 3 && (
+        <div className="bg-white rounded-[2rem] border-2 overflow-hidden mb-8 animate-in fade-in slide-in-from-right-4 duration-500" 
+          style={{ 
+            borderColor: 'rgba(130,160,148,0.2)', 
+            boxShadow: '0 16px 48px rgba(84,106,122,0.12), 0 0 0 1px rgba(130,160,148,0.05) inset'
+          }}>
+          <div
+            className="p-6 border-b-2 flex items-center justify-between"
+            style={{ 
+              background: 'linear-gradient(135deg, rgba(130,160,148,0.08) 0%, rgba(162,185,175,0.05) 50%, white 100%)', 
+              borderColor: 'rgba(130,160,148,0.15)' 
+            }}
           >
             <div className="flex items-center gap-4">
               <div 
-                className="p-3 rounded-2xl shadow-lg"
-                style={{ background: 'linear-gradient(135deg, #82A094 0%, #4F6A64 100%)', boxShadow: '0 8px 20px rgba(130,160,148,0.2)' }}
+                className="p-3.5 rounded-2xl shadow-xl"
+                style={{ 
+                  background: 'linear-gradient(135deg, #82A094 0%, #4F6A64 100%)', 
+                  boxShadow: '0 8px 24px rgba(130,160,148,0.3), 0 0 0 3px rgba(130,160,148,0.1)' 
+                }}
               >
                 <FileText className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h2 className="text-xl font-bold" style={{ color: '#546A7A' }}>Verification Documents</h2>
-                <p className="text-sm" style={{ color: '#92A2A5' }}>Upload supporting documents</p>
+                <h2 className="text-lg font-black" style={{ color: '#546A7A' }}>Documents</h2>
+                <p className="text-sm font-medium" style={{ color: '#92A2A5' }}>Upload supporting documents</p>
               </div>
             </div>
             <span 
-              className="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest border"
-              style={{ background: '#F8FAFB', color: '#92A2A5', borderColor: 'rgba(174,191,195,0.3)' }}
+              className="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest border-2"
+              style={{ 
+                background: 'linear-gradient(135deg, rgba(130,160,148,0.1) 0%, transparent 100%)', 
+                color: '#82A094', 
+                borderColor: 'rgba(130,160,148,0.2)' 
+              }}
             >
               Step 03
             </span>
           </div>
           
-          <div className="p-8">
+          <div className="p-8 md:p-10">
+            <div className="mb-4">
+              <h3 className="text-sm font-bold uppercase tracking-wider flex items-center gap-2" style={{ color: '#5D6E73' }}>
+                <FileText className="w-4 h-4" style={{ color: '#82A094' }} />
+                Upload Documents <span style={{ color: '#E17F70' }}>*</span>
+              </h3>
+              <p className="text-xs mt-1" style={{ color: '#92A2A5' }}>
+                At least one document is required for verification
+              </p>
+            </div>
             <label 
               className="flex flex-col items-center justify-center w-full min-h-[200px] border-2 border-dashed rounded-3xl cursor-pointer transition-all group relative overflow-hidden"
-              style={{ borderColor: '#AEBFC3', background: '#F8FAFB' }}
+              style={{ 
+                borderColor: selectedFiles.length > 0 ? 'rgba(130,160,148,0.4)' : '#AEBFC3', 
+                background: selectedFiles.length > 0 ? 'rgba(130,160,148,0.05)' : '#F8FAFB' 
+              }}
             >
               <div 
                 className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -849,13 +1070,26 @@ export default function NewBankAccountPage() {
               />
               <div className="flex flex-col items-center justify-center py-8 relative">
                 <div 
-                  className="p-4 rounded-2xl transition-colors mb-4"
-                  style={{ background: 'rgba(130,160,148,0.15)' }}
+                  className="p-4 rounded-2xl transition-all duration-300 mb-4"
+                  style={{ 
+                    background: selectedFiles.length > 0 
+                      ? 'linear-gradient(135deg, #82A094 0%, #4F6A64 100%)'
+                      : 'rgba(130,160,148,0.15)',
+                    boxShadow: selectedFiles.length > 0 ? '0 8px 24px rgba(130,160,148,0.3)' : 'none'
+                  }}
                 >
-                  <Upload className="w-10 h-10" style={{ color: '#4F6A64' }} />
+                  {selectedFiles.length > 0 ? (
+                    <CheckCircle2 className="w-10 h-10 text-white" />
+                  ) : (
+                    <Upload className="w-10 h-10" style={{ color: '#4F6A64' }} />
+                  )}
                 </div>
-                <p className="text-lg font-bold mb-1" style={{ color: '#546A7A' }}>Drop files here or click to upload</p>
-                <p style={{ color: '#92A2A5' }}>PDF, JPG, PNG, etc. (Max 20MB per file)</p>
+                <p className="text-lg font-bold mb-1" style={{ color: '#546A7A' }}>
+                  {selectedFiles.length > 0 ? `${selectedFiles.length} file(s) selected` : 'Drop files here or click to upload'}
+                </p>
+                <p className="text-sm" style={{ color: '#92A2A5' }}>
+                  {selectedFiles.length > 0 ? 'Click to add more files' : 'Required: Upload at least one document • PDF, JPG, PNG (Max 20MB)'}
+                </p>
               </div>
               <input type="file" className="hidden" multiple onChange={handleFileSelect} />
             </label>
@@ -898,62 +1132,122 @@ export default function NewBankAccountPage() {
             )}
           </div>
         </div>
+        )}
 
-        {/* Submit Section */}
+        {/* Premium Wizard Navigation */}
         <div 
-          className="rounded-3xl border p-8"
-          style={{ background: 'linear-gradient(135deg, #F8FAFB 0%, rgba(174,191,195,0.1) 100%)', borderColor: 'rgba(174,191,195,0.3)' }}
+          className="rounded-[2rem] border-2 p-8 backdrop-blur-sm"
+          style={{ 
+            background: 'linear-gradient(135deg, rgba(246,248,250,0.8) 0%, rgba(255,255,255,0.9) 100%)', 
+            borderColor: 'rgba(174,191,195,0.3)',
+            boxShadow: '0 8px 32px rgba(84,106,122,0.08)'
+          }}
         >
-          <div className="flex flex-col lg:flex-row items-center justify-between gap-6">
-            {/* Tips */}
-            <div className="flex items-start gap-4 flex-1">
-              <div className="p-3 rounded-xl" style={{ background: 'rgba(206,159,107,0.15)' }}>
-                <Info className="w-5 h-5" style={{ color: '#CE9F6B' }} />
-              </div>
-              <div>
-                <p className="font-bold mb-1" style={{ color: '#546A7A' }}>Quick Tips</p>
-                <ul className="text-sm space-y-1" style={{ color: '#5D6E73' }}>
-                  <li className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#CE9F6B' }} />
-                    Double-check account number to avoid payment failures
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#CE9F6B' }} />
-                    IFSC: 4 letters + 0 + 6 alphanumeric (11 chars total)
-                  </li>
-                </ul>
-              </div>
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+            {/* Previous Button */}
+            <button
+              type="button"
+              onClick={handlePrevious}
+              disabled={currentStep === 1}
+              className="flex items-center gap-3 px-7 py-4 rounded-2xl font-bold transition-all duration-300 disabled:opacity-20 disabled:cursor-not-allowed hover:scale-105 active:scale-95 group"
+              style={{ 
+                background: currentStep === 1 ? '#F8FAFB' : 'white', 
+                border: '2px solid #AEBFC3', 
+                color: '#5D6E73',
+                boxShadow: currentStep === 1 ? 'none' : '0 4px 16px rgba(174,191,195,0.15)'
+              }}
+            >
+              <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+              <span className="hidden sm:inline">Previous</span>
+            </button>
+
+            {/* Step Progress Dots */}
+            <div className="flex items-center gap-3">
+              {[1, 2, 3].map(step => (
+                <div
+                  key={step}
+                  className="relative transition-all duration-500"
+                  style={{ 
+                    transform: currentStep === step ? 'scale(1.3)' : 'scale(1)'
+                  }}
+                >
+                  <div
+                    className="w-3 h-3 rounded-full transition-all duration-500"
+                    style={{ 
+                      background: currentStep >= step 
+                        ? 'linear-gradient(135deg, #6F8A9D 0%, #546A7A 100%)' 
+                        : '#AEBFC3',
+                      boxShadow: currentStep === step 
+                        ? '0 0 0 4px rgba(111,138,157,0.2), 0 4px 12px rgba(111,138,157,0.3)' 
+                        : 'none'
+                    }}
+                  />
+                  {currentStep === step && (
+                    <div 
+                      className="absolute inset-0 rounded-full animate-ping"
+                      style={{ background: 'rgba(111,138,157,0.4)' }}
+                    />
+                  )}
+                </div>
+              ))}
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex items-center gap-4">
-              <Link
-                href="/finance/bank-accounts"
-                className="px-8 py-4 rounded-2xl font-bold border-2 transition-all"
-                style={{ background: 'white', borderColor: '#AEBFC3', color: '#5D6E73' }}
-              >
-                Cancel
-              </Link>
+            {/* Next/Submit Button */}
+            {currentStep < 3 ? (
               <button
-                type="submit"
-                disabled={loading || !!success}
-                className="flex items-center justify-center gap-3 px-10 py-4 rounded-2xl text-white font-black uppercase tracking-wider transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed group"
+                type="button"
+                onClick={handleNext}
+                className="flex items-center gap-3 px-7 py-4 rounded-2xl text-white font-bold transition-all duration-300 hover:scale-105 hover:shadow-2xl active:scale-95 group"
                 style={{ 
-                  background: 'linear-gradient(135deg, #6F8A9D 0%, #546A7A 100%)',
-                  boxShadow: '0 10px 30px rgba(111,138,157,0.3)'
+                  background: 'linear-gradient(135deg, #6F8A9D 0%, #546A7A 100%)', 
+                  boxShadow: '0 8px 24px rgba(111,138,157,0.4), 0 0 0 1px rgba(111,138,157,0.5) inset'
                 }}
               >
-                {loading ? (
-                  <Loader2 className="w-6 h-6 animate-spin" />
-                ) : success ? (
-                  <CheckCircle2 className="w-6 h-6" />
-                ) : (
-                  <Save className="w-6 h-6 group-hover:scale-110 transition-transform" />
-                )}
-                {isAdmin ? 'Create Vendor Account' : 'Submit for Approval'}
+                <span>Next Step</span>
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </button>
-            </div>
+            ) : (
+              <div className="relative group/submit">
+                <button
+                  type="submit"
+                  disabled={loading || !!success || selectedFiles.length === 0}
+                  className="flex items-center gap-3 px-8 py-4 rounded-2xl text-white font-black transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 hover:shadow-2xl active:scale-95 group"
+                  style={{ 
+                    background: success 
+                      ? 'linear-gradient(135deg, #82A094 0%, #4F6A64 100%)'
+                      : 'linear-gradient(135deg, #CE9F6B 0%, #976E44 100%)', 
+                    boxShadow: success 
+                      ? '0 8px 24px rgba(130,160,148,0.5)' 
+                      : '0 8px 24px rgba(206,159,107,0.5), 0 0 0 1px rgba(206,159,107,0.3) inset',
+                    position: 'relative',
+                    overflow: 'hidden'
+                  }}
+                >
+                  {loading && (
+                    <div className="absolute inset-0 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.2)' }}>
+                      <Loader2 className="w-6 h-6 animate-spin text-white" />
+                    </div>
+                  )}
+                  {!loading && (success ? <CheckCircle2 className="w-6 h-6" /> : <Save className="w-6 h-6 group-hover:scale-110 transition-transform" />)}
+                  <span className="text-base tracking-wide">
+                    {loading ? 'Processing...' : success ? 'Success!' : isAdmin ? '✦ Create Account' : '↗ Submit Request'}
+                  </span>
+                  {!loading && !success && <Sparkles className="w-5 h-5 group-hover:rotate-12 transition-transform" />}
+                </button>
+                {selectedFiles.length === 0 && !success && (
+                  <div 
+                    className="absolute bottom-full mb-2 right-0 px-4 py-2 rounded-xl text-xs font-medium whitespace-nowrap opacity-0 group-hover/submit:opacity-100 transition-opacity pointer-events-none"
+                    style={{ 
+                      background: 'linear-gradient(135deg, #E17F70 0%, #9E3B47 100%)', 
+                      color: 'white',
+                      boxShadow: '0 4px 12px rgba(225,127,112,0.3)'
+                    }}
+                  >
+                    ⚠ Please upload at least one document
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </form>

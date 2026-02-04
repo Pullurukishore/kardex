@@ -149,8 +149,8 @@ function FinanceSidebar({
             <div className="absolute inset-0 bg-gradient-to-r from-[#96AEC2] via-[#82A094] to-[#CE9F6B] blur-sm opacity-50" />
           </div>
           
-          <div className="absolute top-24 left-1/2 -translate-x-1/2 w-48 h-48 bg-[#96AEC2]/10 rounded-full blur-3xl pointer-events-none animate-pulse" style={{ animationDuration: '4s' }} />
-          <div className="absolute bottom-32 left-1/3 w-32 h-32 bg-[#82A094]/10 rounded-full blur-3xl pointer-events-none animate-pulse" style={{ animationDuration: '6s', animationDelay: '2s' }} />
+          <div className="absolute top-24 left-1/2 -translate-x-1/2 w-48 h-48 bg-[#96AEC2]/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute bottom-32 left-1/3 w-32 h-32 bg-[#82A094]/10 rounded-full blur-3xl pointer-events-none" />
 
           <div className={cn(
             "relative flex items-center justify-between border-b border-[#96AEC2]/15",
@@ -463,17 +463,6 @@ function FinanceLayoutMain({
           </div>
 
           <div className="flex items-center gap-3">
-            <button className="hidden md:flex p-2.5 rounded-xl bg-white border border-[#AEBFC3]/30 text-[#92A2A5] hover:text-[#6F8A9D] hover:border-[#6F8A9D]/30 hover:shadow-md transition-all">
-              <HelpCircle className="w-5 h-5" />
-            </button>
-
-            <button className="relative p-2.5 rounded-xl bg-white border border-[#AEBFC3]/30 text-[#5D6E73] hover:border-[#6F8A9D]/40 hover:shadow-md transition-all">
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#E17F70] animate-pulse" />
-            </button>
-
-            <div className="hidden md:block w-px h-8 bg-[#AEBFC3]/30 mx-1" />
-
             <div className="relative">
               <button 
                 onClick={() => setUserMenuOpen(!userMenuOpen)}

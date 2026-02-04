@@ -76,7 +76,7 @@ const SimpleAddressEntry: React.FC<SimpleAddressEntryProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md mx-4 sm:mx-auto max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <MapPin className="h-5 w-5 text-[#546A7A]" />
@@ -124,8 +124,11 @@ const SimpleAddressEntry: React.FC<SimpleAddressEntryProps> = ({
               value={address}
               onChange={(e) => setAddress(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleConfirm()}
-              className="text-sm"
+              className="text-base min-h-[48px] px-4"
               autoFocus
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck="false"
             />
             <p className="text-xs text-[#AEBFC3]0">
               Be as specific as possible for better records
@@ -156,19 +159,18 @@ const SimpleAddressEntry: React.FC<SimpleAddressEntryProps> = ({
           )}
 
           {/* Action Buttons */}
-          <div className="flex justify-between items-center pt-4 border-t">
-            <div className="text-xs text-[#AEBFC3]0">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 pt-4 border-t">
+            <div className="text-xs text-[#AEBFC3]0 hidden sm:block">
               {address.trim() ? '✅ Ready to proceed' : '📝 Please enter your address'}
             </div>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={handleClose} size="sm">
+            <div className="flex gap-2 w-full sm:w-auto">
+              <Button variant="outline" onClick={handleClose} className="flex-1 sm:flex-none min-h-[48px]">
                 Cancel
               </Button>
               <Button 
                 onClick={handleConfirm}
                 disabled={!address.trim()}
-                className={`${address.trim() ? 'bg-[#4F6A64] hover:bg-[#4F6A64]' : 'bg-[#979796]'} text-white font-medium`}
-                size="sm"
+                className={`flex-1 sm:flex-none min-h-[48px] ${address.trim() ? 'bg-[#4F6A64] hover:bg-[#4F6A64]' : 'bg-[#979796]'} text-white font-medium`}
               >
                 {address.trim() ? (
                   <>

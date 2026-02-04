@@ -6,8 +6,10 @@ import './utils/console-wrapper';
 
 import { createServer, Server as HttpServer, IncomingMessage } from 'http';
 import { WebSocket, WebSocketServer } from 'ws';
+import jwt from 'jsonwebtoken';
 import { app } from './app';
 import { prisma } from './config/db';
+import { JWT_CONFIG } from './config/auth';
 import { logger } from './utils/logger';
 import { CustomWebSocket } from './types/custom';
 import { cronService } from './services/cron.service';
@@ -25,26 +27,44 @@ const wss = new WebSocketServer({
 });
 
 // Handle WebSocket connections
-wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
+wss.on('connection', async (ws: WebSocket, req: IncomingMessage) => {
   // Safe type conversion
   const customWs = ws as unknown as CustomWebSocket;
 
   // Initialize custom properties
   customWs.isAlive = true;
 
-  // Extract user ID from the auth token in the query params
+  // Extract token from query params
   const token = new URLSearchParams(req.url?.split('?')[1] || '').get('token');
-  const userId = token || '1'; // Replace with actual JWT verification
 
-  if (!userId) {
-    logger.warn('WebSocket connection attempt without userId');
-    ws.close(4001, 'User ID is required');
+  if (!token) {
+    logger.warn('WebSocket connection attempt without token');
+    ws.close(4008, 'Authentication token is required');
     return;
   }
 
-  customWs.userId = userId;
+  try {
+    const decoded = jwt.verify(token, JWT_CONFIG.secret) as any;
+    customWs.userId = decoded.id.toString();
 
-  logger.info(`New WebSocket connection: ${userId}`);
+    // Check if user is still active
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.id, isActive: true },
+      select: { id: true, role: true }
+    });
+
+    if (!user) {
+      logger.warn(`WebSocket connection: User ${decoded.id} not found or inactive`);
+      ws.close(4003, 'User not found or inactive');
+      return;
+    }
+
+    logger.info(`New WebSocket connection: ${customWs.userId} (${user.role})`);
+  } catch (error) {
+    logger.error('WebSocket auth failed:', error);
+    ws.close(4001, 'Invalid authentication token');
+    return;
+  }
 
   // Handle pong messages
   customWs.on('pong', () => {

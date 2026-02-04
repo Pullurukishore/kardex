@@ -198,19 +198,14 @@ export default function DashboardClient({
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-[#96AEC2]/8 overflow-x-hidden w-full">
-      {/* Premium animated background with Kardex signature colors */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        {/* Primary coral accent - top left */}
-        <div className="absolute -top-20 left-1/4 w-[500px] h-[500px] bg-gradient-to-br from-[#E17F70]/15 via-[#EEC1BF]/10 to-transparent rounded-full blur-3xl animate-pulse" style={{ animationDuration: '8s' }} />
-        {/* Blue accent - center right */}
-        <div className="absolute top-1/3 -right-20 w-[450px] h-[450px] bg-gradient-to-bl from-[#96AEC2]/20 via-[#6F8A9D]/12 to-transparent rounded-full blur-3xl animate-pulse" style={{ animationDuration: '10s', animationDelay: '2s' }} />
-        {/* Green accent - bottom left */}
-        <div className="absolute bottom-1/4 left-1/3 w-[400px] h-[400px] bg-gradient-to-tr from-[#82A094]/15 via-[#A2B9AF]/10 to-transparent rounded-full blur-3xl animate-pulse" style={{ animationDuration: '12s', animationDelay: '4s' }} />
-        {/* Sand accent - center */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-br from-[#CE9F6B]/8 via-[#EEC1BF]/5 to-transparent rounded-full blur-3xl animate-pulse" style={{ animationDuration: '14s', animationDelay: '6s' }} />
-        {/* Subtle Kardex grid pattern */}
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(111,138,157,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(111,138,157,0.03)_1px,transparent_1px)] bg-[size:48px_48px]" />
+    <div className="min-h-screen bg-slate-50/50 overflow-x-hidden w-full selection:bg-[#6F8A9D]/30">
+      {/* Optimized background elements - static or very subtle */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+        <div className="absolute top-[-10%] left-[10%] w-[500px] h-[500px] bg-[#E17F70]/5 rounded-full blur-[100px] transform-gpu" />
+        <div className="absolute top-[20%] right-[-5%] w-[450px] h-[450px] bg-[#96AEC2]/8 rounded-full blur-[120px] transform-gpu" />
+        <div className="absolute bottom-[-10%] left-[20%] w-[400px] h-[400px] bg-[#82A094]/5 rounded-full blur-[100px] transform-gpu" />
+        {/* Subtle grid pattern */}
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(111,138,157,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(111,138,157,0.02)_1px,transparent_1px)] bg-[size:64px_64px]" />
       </div>
 
       <div className="relative z-10 w-full max-w-full overflow-x-hidden">

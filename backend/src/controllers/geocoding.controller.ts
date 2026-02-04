@@ -40,12 +40,6 @@ export const reverseGeocode = async (req: Request, res: Response) => {
       });
     }
 
-    logger.info(`Reverse geocoding request for coordinates: ${lat}, ${lng}`, {
-      accuracy: acc,
-      source: locationData.source,
-      validationWarnings: validation.warnings
-    });
-
     // Call the enhanced geocoding service with validation
     const maxDistanceKm = maxDistance ? parseFloat(maxDistance as string) : 5;
     const result = await GeocodingService.reverseGeocodeWithValidation(
@@ -57,14 +51,6 @@ export const reverseGeocode = async (req: Request, res: Response) => {
 
     // Get location quality assessment
     const quality = LocationValidationService.getLocationQuality(locationData);
-
-    // Log the result for debugging
-    logger.info('Geocoding result:', {
-      address: result.address,
-      source: result.source,
-      error: result.error,
-      coordinates: `${lat}, ${lng}`
-    });
 
     res.json({
       success: true,
@@ -160,12 +146,6 @@ export const validateLocationJump = async (req: Request, res: Response) => {
       maxSpeed ? parseFloat(maxSpeed) : undefined
     );
 
-    logger.info('Location jump validation:', {
-      previousLocation: prevLocationData,
-      newLocation: newLocationData,
-      jumpResult
-    });
-
     res.json({
       success: true,
       data: {
@@ -221,8 +201,6 @@ export const forwardGeocode = async (req: Request, res: Response) => {
         message: 'Address must be at least 3 characters'
       });
     }
-
-    logger.info(`Forward geocoding request for: ${address}`);
 
     const result = await GeocodingService.forwardGeocode(address);
 

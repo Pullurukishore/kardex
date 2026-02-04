@@ -64,13 +64,9 @@ export const logUserActivity = async (params: {
                 performedById: params.userId,
                 ipAddress: params.ipAddress || null,
                 userAgent: params.userAgent || null,
-                // TODO: Uncomment after running: npx prisma db push && npx prisma generate
-                // deviceInfo: parseUserAgent(params.userAgent || undefined),
-                // module: params.module || 'SYSTEM',
-                details: params.details || {
-                    deviceInfo: parseUserAgent(params.userAgent || undefined),
-                    module: params.module || 'SYSTEM'
-                },
+                deviceInfo: parseUserAgent(params.userAgent || undefined),
+                module: params.module || 'SYSTEM',
+                details: params.details || {},
                 updatedAt: new Date()
             }
         });

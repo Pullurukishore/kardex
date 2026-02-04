@@ -4,8 +4,28 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiClient } from '@/lib/api/api-client';
 import { toast } from 'sonner';
-import CleanAttendanceWidget from '@/components/attendance/CleanAttendanceWidget';
 import dynamic from 'next/dynamic';
+
+// Dynamic imports to reduce initial bundle size
+const CleanAttendanceWidget = dynamic(() => import('@/components/attendance/CleanAttendanceWidget'), {
+  loading: () => (
+    <div className="bg-white rounded-3xl overflow-hidden shadow-xl border border-[#AEBFC3]/30">
+      <div className="bg-gradient-to-br from-[#546A7A] via-[#6F8A9D] to-[#96AEC2] p-6 text-white">
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 bg-white/20 rounded-2xl animate-pulse"></div>
+          <div className="space-y-2">
+            <div className="h-6 w-32 bg-white/20 rounded animate-pulse"></div>
+            <div className="h-4 w-24 bg-white/15 rounded animate-pulse"></div>
+          </div>
+        </div>
+      </div>
+      <div className="p-6">
+        <div className="h-14 bg-[#AEBFC3]/20 rounded-xl animate-pulse"></div>
+      </div>
+    </div>
+  ),
+  ssr: false
+});
 
 const TicketStatusDialogWithLocation = dynamic(() => import('@/components/tickets/TicketStatusDialogWithLocation'), {
   loading: () => null,
@@ -265,42 +285,42 @@ export default function ServicePersonDashboardClientFixed({ initialLocation, ini
     setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
   };
 
-  // Loading state
+  // Loading state - Mobile optimized
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden">
+      <div className="min-h-screen min-h-[100dvh] flex items-center justify-center px-6 relative overflow-hidden" role="status" aria-label="Loading dashboard">
         {/* Background elements */}
-        <div className="fixed inset-0 bg-gradient-to-br from-[#AEBFC3]/10 via-blue-50/30 to-[#96AEC2]/10/20"></div>
+        <div className="fixed inset-0 bg-gradient-to-br from-[#AEBFC3]/10 via-blue-50/30 to-[#96AEC2]/20"></div>
         <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(99,102,241,0.08),_transparent_50%)]"></div>
         <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_bottom_right,_rgba(168,85,247,0.08),_transparent_50%)]"></div>
         
-        {/* Floating orbs */}
-        <div className="fixed top-20 left-10 w-72 h-72 bg-gradient-to-br from-[#96AEC2]/15 to-indigo-400/15 rounded-full blur-3xl animate-pulse"></div>
-        <div className="fixed bottom-20 right-10 w-96 h-96 bg-gradient-to-br from-purple-400/15 to-[#EEC1BF]/15 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+        {/* Floating orbs - smaller on mobile */}
+        <div className="fixed top-20 left-4 w-48 sm:w-72 h-48 sm:h-72 bg-gradient-to-br from-[#96AEC2]/15 to-[#6F8A9D]/15 rounded-full blur-3xl animate-pulse"></div>
+        <div className="fixed bottom-20 right-4 w-56 sm:w-96 h-56 sm:h-96 bg-gradient-to-br from-[#E17F70]/15 to-[#EEC1BF]/15 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
         
-        <div className="text-center relative z-10">
-          <div className="relative mb-8">
-            {/* Animated spinner */}
-            <div className="relative w-24 h-24 mx-auto">
-              <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-blue-500 border-r-indigo-500 animate-spin"></div>
-              <div className="absolute inset-2 rounded-full border-4 border-transparent border-b-purple-400 border-l-blue-400 animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }}></div>
-              <div className="absolute inset-4 rounded-full border-4 border-transparent border-t-indigo-300 border-r-purple-300 animate-spin" style={{ animationDuration: '2s' }}></div>
+        <div className="text-center relative z-10 w-full max-w-sm mx-auto">
+          <div className="relative mb-6 sm:mb-8">
+            {/* Animated spinner - larger touch target on mobile */}
+            <div className="relative w-20 h-20 sm:w-24 sm:h-24 mx-auto">
+              <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-[#96AEC2] border-r-[#6F8A9D] animate-spin"></div>
+              <div className="absolute inset-2 rounded-full border-4 border-transparent border-b-[#A2B9AF] border-l-[#82A094] animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }}></div>
+              <div className="absolute inset-4 rounded-full border-4 border-transparent border-t-[#546A7A] border-r-[#4F6A64] animate-spin" style={{ animationDuration: '2s' }}></div>
               <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-12 h-12 bg-gradient-to-br from-[#6F8A9D] to-[#6F8A9D] rounded-xl flex items-center justify-center shadow-lg shadow-[#96AEC2]/30">
-                  <Briefcase className="w-6 h-6 text-white" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-[#6F8A9D] to-[#546A7A] rounded-xl flex items-center justify-center shadow-lg shadow-[#96AEC2]/30">
+                  <Briefcase className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                 </div>
               </div>
             </div>
           </div>
-          <div className="space-y-3">
-            <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-800 via-blue-800 to-purple-800 bg-clip-text text-transparent">
-              Loading Service Dashboard
+          <div className="space-y-2 sm:space-y-3 px-4">
+            <h2 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-[#546A7A] via-[#6F8A9D] to-[#4F6A64] bg-clip-text text-transparent">
+              Loading Dashboard
             </h2>
-            <p className="text-[#5D6E73] animate-pulse font-medium">Preparing your workspace...</p>
-            <div className="flex items-center justify-center space-x-2 mt-6">
-              <div className="w-2.5 h-2.5 bg-[#96AEC2]/100 rounded-full animate-bounce shadow-lg shadow-blue-500/50"></div>
-              <div className="w-2.5 h-2.5 bg-[#546A7A]/100 rounded-full animate-bounce shadow-lg shadow-indigo-500/50" style={{ animationDelay: '0.1s' }}></div>
-              <div className="w-2.5 h-2.5 bg-[#6F8A9D]/100 rounded-full animate-bounce shadow-lg shadow-purple-500/50" style={{ animationDelay: '0.2s' }}></div>
+            <p className="text-[#5D6E73] animate-pulse font-medium text-sm sm:text-base">Preparing your workspace...</p>
+            <div className="flex items-center justify-center space-x-3 mt-4 sm:mt-6">
+              <div className="w-3 h-3 sm:w-2.5 sm:h-2.5 bg-[#96AEC2] rounded-full animate-bounce shadow-lg shadow-[#96AEC2]/50"></div>
+              <div className="w-3 h-3 sm:w-2.5 sm:h-2.5 bg-[#6F8A9D] rounded-full animate-bounce shadow-lg shadow-[#6F8A9D]/50" style={{ animationDelay: '0.1s' }}></div>
+              <div className="w-3 h-3 sm:w-2.5 sm:h-2.5 bg-[#546A7A] rounded-full animate-bounce shadow-lg shadow-[#546A7A]/50" style={{ animationDelay: '0.2s' }}></div>
             </div>
           </div>
         </div>
@@ -309,108 +329,89 @@ export default function ServicePersonDashboardClientFixed({ initialLocation, ini
   }
 
   return (
-    <div className="min-h-screen pb-safe overflow-x-hidden w-full max-w-full relative">
-      {/* Premium Background */}
-      <div className="fixed inset-0 bg-gradient-to-br from-[#AEBFC3]/10 via-blue-50/40 to-[#96AEC2]/10/30 -z-10"></div>
-      <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(99,102,241,0.06),_transparent_50%)] -z-10"></div>
-      <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_bottom_right,_rgba(168,85,247,0.06),_transparent_50%)] -z-10"></div>
+    <div className="min-h-screen min-h-[100dvh] pb-safe pb-6 overflow-x-hidden w-full max-w-full relative touch-pan-y bg-[#AEBFC3]/10">
+      {/* Premium Background - Subtle mesh gradient */}
+      <div className="fixed inset-0 bg-gradient-to-br from-[#AEBFC3]/15 via-[#96AEC2]/10 to-[#AEBFC3]/15 -z-10"></div>
+      <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top_left,_rgba(158,59,71,0.05),_transparent_40%)] -z-10"></div>
+      <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_bottom_right,_rgba(206,159,107,0.05),_transparent_40%)] -z-10"></div>
       
-      {/* Floating decorative orbs */}
-      <div className="fixed top-20 left-10 w-64 h-64 bg-gradient-to-br from-[#96AEC2]/10 to-indigo-400/10 rounded-full blur-3xl animate-pulse pointer-events-none"></div>
-      <div className="fixed bottom-32 right-10 w-80 h-80 bg-gradient-to-br from-purple-400/10 to-[#EEC1BF]/10 rounded-full blur-3xl animate-pulse pointer-events-none" style={{ animationDelay: '1s' }}></div>
-      <div className="fixed top-1/2 left-1/3 w-72 h-72 bg-gradient-to-br from-indigo-400/5 to-blue-400/5 rounded-full blur-3xl animate-pulse pointer-events-none" style={{ animationDelay: '0.5s' }}></div>
+      {/* Subtle grid pattern overlay */}
+      <div className="fixed inset-0 bg-[linear-gradient(to_right,rgba(0,0,0,0.02)_1px,transparent_1px),linear-gradient(to_bottom,rgba(0,0,0,0.02)_1px,transparent_1px)] bg-[size:24px_24px] -z-10"></div>
       
-      {/* Premium Header - Coral Gradient */}
-      <header className="relative bg-gradient-to-r from-[#9E3B47] via-[#E17F70] to-[#CE9F6B] text-white overflow-hidden">
-        {/* Background decorations */}
+      {/* Premium Header - Enhanced Coral Gradient */}
+      <header className="sticky top-0 z-40 bg-gradient-to-r from-[#8B2E38] via-[#D6705E] to-[#C4915F] text-white shadow-xl shadow-[#9E3B47]/20">
+        {/* Premium background effects */}
         <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute -top-24 -right-24 w-96 h-96 bg-white/10 rounded-full blur-3xl"></div>
-          <div className="absolute -bottom-24 -left-24 w-80 h-80 bg-white/10 rounded-full blur-3xl"></div>
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0zNiAxOGMtOS45NDEgMC0xOCA4LjA1OS0xOCAxOHM4LjA1OSAxOCAxOCAxOGM5Ljk0MSAwIDE4LTguMDU5IDE4LTE4cy04LjA1OS0xOC0xOC0xOHptMCAzMmMtNy43MzIgMC0xNC02LjI2OC0xNC0xNHM2LjI2OC0xNCAxNC0xNCA0IDYuMjY4IDE0IDE0LTYuMjY4IDE0LTE0IDE0eiIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjAzKSIvPjwvZz48L3N2Zz4=')] opacity-50"></div>
+          <div className="absolute -top-20 -right-20 w-80 h-80 bg-white/8 rounded-full blur-3xl"></div>
+          <div className="absolute -bottom-16 -left-16 w-64 h-64 bg-white/8 rounded-full blur-3xl"></div>
+          <div className="absolute inset-0 bg-gradient-to-t from-black/5 to-transparent"></div>
         </div>
         
-        <div className="relative z-10 px-4 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
+        <div className="relative z-10 px-4 py-4 sm:px-6 sm:py-5 lg:px-8">
           <div className="max-w-7xl mx-auto">
             {/* Mobile Layout */}
-            <div className="sm:hidden space-y-4">
+            <div className="sm:hidden">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center border border-white/30 shadow-lg">
-                    <Briefcase className="w-6 h-6 text-white" />
+                  <div className="w-10 h-10 bg-white/15 backdrop-blur-md rounded-xl flex items-center justify-center border border-white/20">
+                    <Briefcase className="w-5 h-5 text-white" />
                   </div>
                   <div>
-                    <h1 className="text-xl font-bold text-white">Service Dashboard</h1>
-                    <p className="text-white/70 text-xs font-medium">Field Operations</p>
+                    <h1 className="text-lg font-bold text-white">Service Dashboard</h1>
+                    <p className="text-white/60 text-xs">Hi, <span className="text-white/90 font-medium">{user?.name?.split(' ')[0] || 'Engineer'}</span></p>
                   </div>
                 </div>
-                {/* Status Badge */}
                 {attendanceStatus && (
-                  <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full backdrop-blur-sm border text-xs font-semibold transition-all ${
+                  <div className={`flex items-center gap-2 px-3 py-2 rounded-lg backdrop-blur-md border text-xs font-bold ${
                     attendanceStatus.isCheckedIn 
-                      ? 'bg-[#A2B9AF]/100/20 border-green-400/50 text-[#A2B9AF]' 
-                      : 'bg-white/10 border-white/30 text-white/80'
+                      ? 'bg-[#82A094]/20 border-[#82A094]/40 text-[#A2B9AF]' 
+                      : 'bg-white/10 border-white/20 text-white/80'
                   }`}>
                     <div className={`w-2 h-2 rounded-full ${attendanceStatus.isCheckedIn ? 'bg-[#82A094] animate-pulse' : 'bg-white/50'}`}></div>
-                    <span>{attendanceStatus.isCheckedIn ? 'Active' : 'Off Duty'}</span>
+                    <span>{attendanceStatus.isCheckedIn ? 'Active' : 'Off'}</span>
                   </div>
                 )}
               </div>
-              <p className="text-white/80 text-sm font-medium">
-                👋 Welcome, <span className="text-white font-bold">{user?.name?.split(' ')[0] || 'Service Person'}</span>
-              </p>
             </div>
 
             {/* Desktop Layout */}
             <div className="hidden sm:flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <div className="w-14 h-14 lg:w-16 lg:h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center border border-white/30 shadow-xl">
-                  <Briefcase className="w-7 h-7 lg:w-8 lg:h-8 text-white" />
+                <div className="w-12 h-12 bg-white/15 backdrop-blur-md rounded-xl flex items-center justify-center border border-white/20 shadow-lg">
+                  <Briefcase className="w-6 h-6 text-white" />
                 </div>
                 <div>
                   <div className="flex items-center gap-3">
-                    <h1 className="text-2xl lg:text-3xl font-bold text-white tracking-tight">Service Dashboard</h1>
-                    {/* Status Badge */}
+                    <h1 className="text-2xl font-bold text-white tracking-tight">Service Dashboard</h1>
                     {attendanceStatus && (
-                      <div className={`flex items-center gap-2 px-4 py-2 rounded-full backdrop-blur-sm border transition-all ${
+                      <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full backdrop-blur-md border text-sm font-semibold ${
                         attendanceStatus.isCheckedIn 
-                          ? 'bg-[#A2B9AF]/100/20 border-green-400/50' 
-                          : 'bg-white/10 border-white/30'
+                          ? 'bg-[#82A094]/20 border-[#82A094]/40 text-[#A2B9AF]' 
+                          : 'bg-white/10 border-white/20 text-white/70'
                       }`}>
-                        <div className={`w-2.5 h-2.5 rounded-full ${attendanceStatus.isCheckedIn ? 'bg-[#82A094] animate-pulse shadow-lg shadow-green-400/50' : 'bg-white/50'}`}></div>
-                        <span className={`text-sm font-semibold ${attendanceStatus.isCheckedIn ? 'text-[#A2B9AF]' : 'text-white/80'}`}>
-                          {attendanceStatus.isCheckedIn ? (
-                            <>🟢 Active • {attendanceStatus.attendance?.checkInAt ? 
-                              new Date(attendanceStatus.attendance.checkInAt).toLocaleTimeString('en-US', {
-                                hour: '2-digit',
-                                minute: '2-digit',
-                                hour12: true
-                              }) : 'Working'
-                            }</>
-                          ) : '⚪ Off Duty'}
-                        </span>
+                        <div className={`w-2 h-2 rounded-full ${attendanceStatus.isCheckedIn ? 'bg-[#82A094] animate-pulse' : 'bg-white/50'}`}></div>
+                        <span>{attendanceStatus.isCheckedIn ? 'On Duty' : 'Off Duty'}</span>
                       </div>
                     )}
                   </div>
-                  <p className="text-white/80 text-sm lg:text-base mt-1">
-                    👋 Welcome back, <span className="text-white font-bold">{user?.name?.split(' ')[0] || user?.email?.split('@')[0] || 'Service Person'}</span>
+                  <p className="text-white/70 text-sm mt-0.5">
+                    Welcome back, <span className="text-white font-medium">{user?.name?.split(' ')[0] || 'Service Person'}</span>
                   </p>
                 </div>
               </div>
               
-              {/* Date Card */}
-              <div className="bg-white/15 backdrop-blur-sm rounded-2xl px-5 py-3 border border-white/30 shadow-xl">
-                <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 bg-white/20 rounded-xl flex items-center justify-center">
-                    <Calendar className="w-5 h-5 text-white" />
-                  </div>
-                  <div>
-                    <p className="text-white font-bold text-sm lg:text-base">
-                      {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                    </p>
-                    <p className="text-white/70 text-xs lg:text-sm">
-                      {new Date().toLocaleDateString('en-US', { weekday: 'long' })}
-                    </p>
-                  </div>
+              {/* Date Badge */}
+              <div className="flex items-center gap-3 bg-white/10 backdrop-blur-md rounded-xl px-4 py-2.5 border border-white/15">
+                <div className="w-9 h-9 bg-white/15 rounded-lg flex items-center justify-center">
+                  <Calendar className="w-4 h-4 text-white" />
+                </div>
+                <div className="text-right">
+                  <p className="text-white font-semibold text-sm">
+                    {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </p>
+                  <p className="text-white/60 text-xs">
+                    {new Date().toLocaleDateString('en-US', { weekday: 'long' })}
+                  </p>
                 </div>
               </div>
             </div>
@@ -419,65 +420,80 @@ export default function ServicePersonDashboardClientFixed({ initialLocation, ini
       </header>
 
       {/* Quick Stats Bar */}
-      <div className="relative z-10 px-4 sm:px-6 lg:px-8 -mt-4 sm:-mt-6">
+      <div className="relative z-30 px-4 sm:px-6 lg:px-8 mt-4 sm:mt-6">
         <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
-            {/* Active Activities */}
-            <div className="group bg-white/90 backdrop-blur-xl rounded-xl sm:rounded-2xl p-3 sm:p-5 border border-white/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]">
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-[#6F8A9D] to-[#6F8A9D] rounded-xl flex items-center justify-center shadow-lg shadow-[#96AEC2]/30 group-hover:scale-110 transition-transform duration-300">
-                  <Activity className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+          <div className="grid grid-cols-4 gap-2 sm:gap-4">
+            {/* Active */}
+            <button 
+              onClick={() => {
+                setExpandedSections(prev => ({ ...prev, createActivity: true }));
+                setTimeout(() => document.getElementById('create-activity-section')?.scrollIntoView({ behavior: 'smooth' }), 100);
+              }}
+              className="group bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 border border-[#AEBFC3]/80 shadow-sm hover:shadow-md hover:border-[#92A2A5] transition-all duration-200 active:scale-[0.98]"
+            >
+              <div className="flex flex-col items-center sm:items-start gap-1 sm:gap-2">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-[#96AEC2] to-[#6F8A9D] rounded-lg flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
+                  <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                 </div>
-                <div className="min-w-0">
-                  <p className="text-xs sm:text-sm text-[#AEBFC3]0 font-medium truncate">Active</p>
-                  <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-[#546A7A]">{dashboardStats.activeActivities}</p>
+                <div className="text-center sm:text-left">
+                  <p className="text-[9px] sm:text-xs text-[#5D6E73] font-medium uppercase tracking-wider">Active</p>
+                  <p className="text-lg sm:text-2xl font-bold text-[#546A7A]">{dashboardStats.activeActivities}</p>
                 </div>
               </div>
-            </div>
+            </button>
 
-            {/* Pending Schedules - Needs Attention */}
-            <div className="group bg-white/90 backdrop-blur-xl rounded-xl sm:rounded-2xl p-3 sm:p-5 border border-white/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] relative overflow-hidden">
+            {/* Pending */}
+            <button 
+              onClick={() => {
+                setExpandedSections(prev => ({ ...prev, schedules: true }));
+                setTimeout(() => document.getElementById('schedules-section')?.scrollIntoView({ behavior: 'smooth' }), 100);
+              }}
+              className="group bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 border border-[#AEBFC3]/80 shadow-sm hover:shadow-md hover:border-[#CE9F6B] transition-all duration-200 active:scale-[0.98] relative"
+            >
               {dashboardStats.pendingSchedules > 0 && (
-                <div className="absolute top-2 right-2 sm:top-3 sm:right-3">
-                  <span className="flex h-3 w-3">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#CE9F6B] opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-[#EEC1BF]/100"></span>
-                  </span>
+                <div className="absolute -top-1 -right-1 w-4 h-4 sm:w-5 sm:h-5 bg-[#CE9F6B] rounded-full flex items-center justify-center shadow-lg animate-bounce">
+                  <span className="text-[8px] sm:text-[10px] text-white font-bold">{dashboardStats.pendingSchedules}</span>
                 </div>
               )}
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-yellow-500 to-[#CE9F6B] rounded-xl flex items-center justify-center shadow-lg shadow-yellow-500/30 group-hover:scale-110 transition-transform duration-300">
-                  <Bell className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+              <div className="flex flex-col items-center sm:items-start gap-1 sm:gap-2">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-[#CE9F6B] to-[#976E44] rounded-lg flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
+                  <Bell className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                 </div>
-                <div className="min-w-0">
-                  <p className="text-xs sm:text-sm text-[#AEBFC3]0 font-medium truncate">Pending</p>
-                  <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-[#546A7A]">{dashboardStats.pendingSchedules}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Accepted Schedules */}
-            <div className="group bg-white/90 backdrop-blur-xl rounded-xl sm:rounded-2xl p-3 sm:p-5 border border-white/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]">
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-[#6F8A9D] to-[#6F8A9D] rounded-xl flex items-center justify-center shadow-lg shadow-[#6F8A9D]/30 group-hover:scale-110 transition-transform duration-300">
-                  <CalendarCheck className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs sm:text-sm text-[#AEBFC3]0 font-medium truncate">Accepted</p>
-                  <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-[#546A7A]">{dashboardStats.acceptedSchedules}</p>
+                <div className="text-center sm:text-left">
+                  <p className="text-[9px] sm:text-xs text-[#5D6E73] font-medium uppercase tracking-wider">Pending</p>
+                  <p className="text-lg sm:text-2xl font-bold text-[#546A7A]">{dashboardStats.pendingSchedules}</p>
                 </div>
               </div>
-            </div>
+            </button>
 
-            {/* Completed Today */}
-            <div className="group bg-white/90 backdrop-blur-xl rounded-xl sm:rounded-2xl p-3 sm:p-5 border border-white/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]">
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-[#82A094] to-[#82A094] rounded-xl flex items-center justify-center shadow-lg shadow-green-500/30 group-hover:scale-110 transition-transform duration-300">
-                  <CheckCircle2 className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+            {/* Accepted */}
+            <button 
+              onClick={() => {
+                setExpandedSections(prev => ({ ...prev, schedules: true }));
+                setTimeout(() => document.getElementById('schedules-section')?.scrollIntoView({ behavior: 'smooth' }), 100);
+              }}
+              className="group bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 border border-[#AEBFC3]/80 shadow-sm hover:shadow-md hover:border-[#92A2A5] transition-all duration-200 active:scale-[0.98]"
+            >
+              <div className="flex flex-col items-center sm:items-start gap-1 sm:gap-2">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-[#6F8A9D] to-[#546A7A] rounded-lg flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
+                  <CalendarCheck className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                 </div>
-                <div className="min-w-0">
-                  <p className="text-xs sm:text-sm text-[#AEBFC3]0 font-medium truncate">Done Today</p>
-                  <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-[#546A7A]">{dashboardStats.completedToday}</p>
+                <div className="text-center sm:text-left">
+                  <p className="text-[9px] sm:text-xs text-[#5D6E73] font-medium uppercase tracking-wider">Accepted</p>
+                  <p className="text-lg sm:text-2xl font-bold text-[#546A7A]">{dashboardStats.acceptedSchedules}</p>
+                </div>
+              </div>
+            </button>
+
+            {/* Done */}
+            <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 border border-[#AEBFC3]/80 shadow-sm">
+              <div className="flex flex-col items-center sm:items-start gap-1 sm:gap-2">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-[#82A094] to-[#4F6A64] rounded-lg flex items-center justify-center shadow-sm">
+                  <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                </div>
+                <div className="text-center sm:text-left">
+                  <p className="text-[9px] sm:text-xs text-[#5D6E73] font-medium uppercase tracking-wider">Done</p>
+                  <p className="text-lg sm:text-2xl font-bold text-[#546A7A]">{dashboardStats.completedToday}</p>
                 </div>
               </div>
             </div>
@@ -486,93 +502,77 @@ export default function ServicePersonDashboardClientFixed({ initialLocation, ini
       </div>
 
       {/* Main Content */}
-      <div className="relative z-10 px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+      <div className="relative z-10 px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
         <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
           
-          {/* New Assignment Alert Banner */}
+          {/* New Assignment Alert Banner - More prominent on mobile */}
           {dashboardStats.pendingSchedules > 0 && (
-            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#CE9F6B] via-[#CE9F6B] to-[#E17F70] p-4 sm:p-5 shadow-lg shadow-orange-500/25 animate-fade-in">
-              {/* Background decoration */}
-              <div className="absolute inset-0 overflow-hidden">
-                <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-2xl"></div>
-                <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
+            <div className="relative rounded-xl sm:rounded-2xl bg-gradient-to-r from-[#CE9F6B] to-[#976E44] p-4 sm:p-5 shadow-lg shadow-[#CE9F6B]/20">
+              <div className="absolute inset-0 overflow-hidden rounded-xl sm:rounded-2xl">
+                <div className="absolute -top-8 -right-8 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
               </div>
               
-              <div className="relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-3 sm:gap-4">
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center border border-white/30 flex-shrink-0">
-                    <Bell className="w-5 h-5 sm:w-6 sm:h-6 text-white animate-bounce" />
+              <div className="relative flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-sm rounded-lg flex items-center justify-center">
+                    <Bell className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                   </div>
                   <div>
                     <h3 className="text-white font-bold text-base sm:text-lg">
-                      New Assignment{dashboardStats.pendingSchedules > 1 ? 's' : ''}
+                      {dashboardStats.pendingSchedules} New Assignment{dashboardStats.pendingSchedules > 1 ? 's' : ''}
                     </h3>
-                    <p className="text-white/80 text-xs sm:text-sm">
-                      You have {dashboardStats.pendingSchedules} scheduled activit{dashboardStats.pendingSchedules > 1 ? 'ies' : 'y'} awaiting your response
-                    </p>
+                    <p className="text-white/80 text-xs sm:text-sm">Awaiting response</p>
                   </div>
                 </div>
                 
-                <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
-                  <button
-                    onClick={() => {
-                      setExpandedSections(prev => ({ ...prev, schedules: true }));
-                      setTimeout(() => {
-                        document.getElementById('schedules-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                      }, 100);
-                    }}
-                    className="flex-1 sm:flex-none px-4 sm:px-5 py-2.5 bg-white text-[#976E44] rounded-xl font-semibold text-sm hover:bg-[#CE9F6B]/10 transition-all duration-200 shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>Review & Respond</span>
-                  </button>
-                </div>
+                <button
+                  onClick={() => {
+                    setExpandedSections(prev => ({ ...prev, schedules: true }));
+                    setTimeout(() => document.getElementById('schedules-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+                  }}
+                  className="px-4 py-2 sm:px-5 sm:py-2.5 bg-white text-[#976E44] rounded-lg font-semibold text-sm hover:bg-[#EEC1BF]/20 transition-all shadow-md active:scale-[0.98]"
+                >
+                  Review
+                </button>
               </div>
             </div>
           )}
           {/* Attendance Widget */}
-          <div className="group bg-white/90 backdrop-blur-xl rounded-2xl sm:rounded-3xl border border-white/50 shadow-xl overflow-hidden hover:shadow-2xl transition-all duration-300">
-            <div className="absolute inset-0 bg-gradient-to-br from-[#96AEC2]/10/40 to-[#96AEC2]/10/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-2xl sm:rounded-3xl"></div>
-            <div className="relative">
-              <CleanAttendanceWidget 
-                onStatusChange={handleAttendanceChange}
-                initialData={attendanceStatus}
-              />
-            </div>
+          <div className="bg-white rounded-xl sm:rounded-2xl border border-[#AEBFC3]/80 shadow-sm overflow-hidden">
+            <CleanAttendanceWidget 
+              onStatusChange={handleAttendanceChange}
+              initialData={attendanceStatus}
+            />
           </div>
 
           {/* Create Activity Section */}
-          <div className="relative bg-white/90 backdrop-blur-xl rounded-2xl sm:rounded-3xl border border-white/50 shadow-xl overflow-hidden">
+          <div id="create-activity-section" className="bg-white rounded-xl sm:rounded-2xl border border-[#AEBFC3]/80 shadow-sm overflow-hidden">
             <button
               onClick={() => toggleSection('createActivity')}
-              className="relative w-full p-4 sm:p-6 flex items-center justify-between"
+              className="w-full p-4 sm:p-5 flex items-center justify-between hover:bg-[#AEBFC3]/10 transition-colors"
             >
-              <div className="flex items-center gap-3 sm:gap-4">
-                <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-[#82A094] to-[#82A094] rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg shadow-[#82A094]/30">
-                  <PlayCircle className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 sm:w-11 sm:h-11 bg-gradient-to-br from-[#82A094] to-[#4F6A64] rounded-xl flex items-center justify-center shadow-sm">
+                  <PlayCircle className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                 </div>
                 <div className="text-left">
-                  <h3 className="text-lg sm:text-xl font-bold text-[#546A7A]">Create New Activity</h3>
-                  <p className="text-xs sm:text-sm text-[#AEBFC3]0 font-medium">Start tracking a task or activity</p>
+                  <h3 className="text-base sm:text-lg font-semibold text-[#546A7A]">Create Activity</h3>
+                  <p className="text-xs sm:text-sm text-[#5D6E73]">Start tracking a task</p>
                 </div>
               </div>
-              <div className={`w-9 h-9 sm:w-10 sm:h-10 bg-[#AEBFC3]/20 rounded-xl flex items-center justify-center transition-transform duration-300 ${expandedSections.createActivity ? 'rotate-180' : ''}`}>
-                <ChevronDown className="w-5 h-5 sm:w-6 sm:h-6 text-[#5D6E73]" />
+              <div className={`w-8 h-8 sm:w-9 sm:h-9 bg-[#AEBFC3]/30 rounded-lg flex items-center justify-center transition-transform duration-200 ${expandedSections.createActivity ? 'rotate-180' : ''}`}>
+                <ChevronDown className="w-4 h-4 sm:w-5 sm:h-5 text-[#5D6E73]" />
               </div>
             </button>
             
-            {/* Expanded Content */}
             <div className={`transition-all duration-300 ease-in-out ${expandedSections.createActivity ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0 overflow-hidden'}`}>
-              <div className="border-t border-[#AEBFC3]/30 p-4 sm:p-6 lg:p-8 space-y-6 sm:space-y-8">
-                {/* Active Activities Section */}
+              <div className="border-t border-[#AEBFC3]/30 p-4 sm:p-6 space-y-6">
                 {activities.filter(a => !a.endTime && a.ActivityStage?.some((stage: ActivityStage) => !stage.endTime)).length > 0 && (
-                  <div className="bg-gradient-to-br from-[#96AEC2]/10/70 to-[#96AEC2]/10/70 rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-[#96AEC2]/30/50">
-                    <h4 className="text-base sm:text-lg font-bold text-[#546A7A] mb-4 flex items-center gap-2">
-                      <div className="w-8 h-8 bg-gradient-to-br from-[#6F8A9D] to-[#6F8A9D] rounded-lg flex items-center justify-center">
-                        <Activity className="w-4 h-4 text-white" />
-                      </div>
-                      <span>Active Activities</span>
-                      <span className="ml-2 px-2.5 py-0.5 bg-[#96AEC2]/20 text-[#546A7A] text-xs font-bold rounded-full">
+                  <div className="bg-[#96AEC2]/10 rounded-xl p-4 border border-[#96AEC2]/30">
+                    <h4 className="text-sm sm:text-base font-semibold text-[#546A7A] mb-3 flex items-center gap-2">
+                      <Activity className="w-4 h-4 text-[#6F8A9D]" />
+                      Active Activities
+                      <span className="px-2 py-0.5 bg-[#96AEC2]/20 text-[#546A7A] text-xs font-bold rounded-full">
                         {activities.filter(a => !a.endTime && a.ActivityStage?.some((stage: ActivityStage) => !stage.endTime)).length}
                       </span>
                     </h4>
@@ -583,13 +583,10 @@ export default function ServicePersonDashboardClientFixed({ initialLocation, ini
                   </div>
                 )}
                 
-                {/* Create New Activity Form */}
                 <div>
-                  <h4 className="text-base sm:text-lg font-bold text-[#546A7A] mb-4 flex items-center gap-2">
-                    <div className="w-8 h-8 bg-gradient-to-br from-[#82A094] to-[#82A094] rounded-lg flex items-center justify-center">
-                      <PlayCircle className="w-4 h-4 text-white" />
-                    </div>
-                    <span>New Activity</span>
+                  <h4 className="text-sm sm:text-base font-semibold text-[#546A7A] mb-3 flex items-center gap-2">
+                    <PlayCircle className="w-4 h-4 text-[#82A094]" />
+                    New Activity
                   </h4>
                   <ActivityLogger 
                     activities={activities}
@@ -601,28 +598,34 @@ export default function ServicePersonDashboardClientFixed({ initialLocation, ini
           </div>
 
           {/* Scheduled Activities Section */}
-          <div id="schedules-section" className="relative bg-white/90 backdrop-blur-xl rounded-2xl sm:rounded-3xl border border-white/50 shadow-xl overflow-hidden">
+          <div id="schedules-section" className="bg-white rounded-xl sm:rounded-2xl border border-[#AEBFC3]/80 shadow-sm overflow-hidden">
             <button
               onClick={() => toggleSection('schedules')}
-              className="relative w-full p-4 sm:p-6 flex items-center justify-between"
+              className="w-full p-4 sm:p-5 flex items-center justify-between hover:bg-[#AEBFC3]/10 transition-colors"
             >
-              <div className="flex items-center gap-3 sm:gap-4">
-                <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-[#6F8A9D] to-[#6F8A9D] rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg shadow-[#6F8A9D]/30">
-                  <CalendarCheck className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 sm:w-11 sm:h-11 bg-gradient-to-br from-[#6F8A9D] to-[#546A7A] rounded-xl flex items-center justify-center shadow-sm">
+                  <CalendarCheck className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                 </div>
                 <div className="text-left">
-                  <h3 className="text-lg sm:text-xl font-bold text-[#546A7A]">Scheduled Activities</h3>
-                  <p className="text-xs sm:text-sm text-[#AEBFC3]0 font-medium">View your scheduled tasks</p>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base sm:text-lg font-semibold text-[#546A7A]">My Schedules</h3>
+                    {(dashboardStats.pendingSchedules > 0 || dashboardStats.acceptedSchedules > 0) && (
+                      <span className="px-2 py-0.5 bg-[#6F8A9D]/20 text-[#546A7A] text-xs font-bold rounded-full">
+                        {dashboardStats.pendingSchedules + dashboardStats.acceptedSchedules}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs sm:text-sm text-[#5D6E73]">View scheduled tasks</p>
                 </div>
               </div>
-              <div className={`w-9 h-9 sm:w-10 sm:h-10 bg-[#AEBFC3]/20 rounded-xl flex items-center justify-center transition-transform duration-300 ${expandedSections.schedules ? 'rotate-180' : ''}`}>
-                <ChevronDown className="w-5 h-5 sm:w-6 sm:h-6 text-[#5D6E73]" />
+              <div className={`w-8 h-8 sm:w-9 sm:h-9 bg-[#AEBFC3]/30 rounded-lg flex items-center justify-center transition-transform duration-200 ${expandedSections.schedules ? 'rotate-180' : ''}`}>
+                <ChevronDown className="w-4 h-4 sm:w-5 sm:h-5 text-[#5D6E73]" />
               </div>
             </button>
             
-            {/* Expanded Content */}
             <div className={`transition-all duration-300 ease-in-out ${expandedSections.schedules ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0 overflow-hidden'}`}>
-              <div className="border-t border-[#AEBFC3]/30 p-4 sm:p-6 lg:p-8">
+              <div className="border-t border-[#AEBFC3]/30 p-4 sm:p-6">
                 <ServicePersonSchedules />
               </div>
             </div>
@@ -633,12 +636,10 @@ export default function ServicePersonDashboardClientFixed({ initialLocation, ini
 
       {/* Refreshing Overlay */}
       {isRefreshing && (
-        <div className="fixed top-4 right-4 z-50 animate-fade-in">
-          <div className="bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-[#92A2A5]/50 px-5 py-3 flex items-center gap-3">
-            <div className="relative">
-              <RefreshCw className="w-5 h-5 text-[#546A7A] animate-spin" />
-            </div>
-            <span className="text-sm text-[#5D6E73] font-semibold">Updating...</span>
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
+          <div className="bg-white rounded-full shadow-xl border border-[#AEBFC3] px-4 py-2 flex items-center gap-2">
+            <RefreshCw className="w-4 h-4 text-[#5D6E73] animate-spin" />
+            <span className="text-sm text-[#5D6E73] font-medium">Updating...</span>
           </div>
         </div>
       )}

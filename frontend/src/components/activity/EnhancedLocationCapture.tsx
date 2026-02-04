@@ -234,7 +234,7 @@ const EnhancedLocationCapture: React.FC<EnhancedLocationCaptureProps> = ({
               <Button
                 size="sm"
                 onClick={handleCaptureClick}
-                className="bg-[#6F8A9D] hover:bg-[#546A7A]"
+                className="bg-[#6F8A9D] hover:bg-[#546A7A] min-h-[44px] px-4"
               >
                 <Target className="h-4 w-4 mr-1" />
                 Capture GPS
@@ -246,6 +246,7 @@ const EnhancedLocationCapture: React.FC<EnhancedLocationCaptureProps> = ({
                 size="sm"
                 variant="outline"
                 onClick={handleRetry}
+                className="min-h-[44px] px-4"
               >
                 <RefreshCw className="h-4 w-4 mr-1" />
                 Retry
@@ -276,7 +277,7 @@ const EnhancedLocationCapture: React.FC<EnhancedLocationCaptureProps> = ({
                 size="sm"
                 variant="outline"
                 onClick={openManualAddress}
-                className="w-full"
+                className="w-full min-h-[48px] text-base"
               >
                 <MapPin className="h-4 w-4 mr-2" />
                 Select Location Manually

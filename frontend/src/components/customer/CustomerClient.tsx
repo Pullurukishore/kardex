@@ -43,7 +43,7 @@ const CustomerClient = memo(function CustomerClient({
       if (searchParams.search) params.append('search', searchParams.search);
       if (searchParams.status && searchParams.status !== 'all') params.append('status', searchParams.status);
       if (searchParams.page) params.append('page', searchParams.page);
-      params.append('limit', '100');
+      params.append('limit', '25');
 
       const response = await api.get(`/customers?${params.toString()}`);
       const customerData = response.data || [];

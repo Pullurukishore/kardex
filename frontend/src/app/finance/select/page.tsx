@@ -36,7 +36,7 @@ export default function FinanceSelectPage() {
       description: 'Vendor management, requests, and verification',
       icon: <Building2 className="w-8 h-8" />,
       color: '#CE9F6B',
-      features: ['Vendors', 'Requests', 'New Vendor', 'Reports'],
+      features: ['Vendors', 'Requests', 'New Vendor', 'Activities'],
     }
   ];
 

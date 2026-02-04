@@ -65,8 +65,8 @@ export const listAssets = async (req: AssetRequest, res: Response) => {
     const userRole = user.role;
     const userCustomerId = user.customerId;
 
-    if (userRole === 'ADMIN') {
-      // Admin can view all assets
+    if (userRole === 'ADMIN' || userRole === 'EXPERT_HELPDESK') {
+      // Admin and Expert Helpdesk can view all assets
       if (customerId) {
         where.customerId = parseInt(customerId as string);
       }
@@ -240,8 +240,8 @@ export const getAsset = async (req: AssetRequest, res: Response) => {
     const userRole = user.role;
     const userCustomerId = user.customerId;
 
-    if (userRole === 'ADMIN') {
-      // Admin can view any asset
+    if (userRole === 'ADMIN' || userRole === 'EXPERT_HELPDESK') {
+      // Admin and Expert Helpdesk can view any asset
     } else if (userRole === 'ZONE_USER') {
       // Zone users can only view their own customer's assets
       if (!userCustomerId || userCustomerId !== asset.customerId) {
@@ -315,8 +315,8 @@ export const createAsset = async (req: AssetRequest, res: Response) => {
     const userRole = user.role;
     const userCustomerId = user.customerId;
 
-    if (userRole === 'ADMIN') {
-      // Admin can create assets for any customer
+    if (userRole === 'ADMIN' || userRole === 'EXPERT_HELPDESK') {
+      // Admin and Expert Helpdesk can create assets for any customer
     } else if (userRole === 'ZONE_USER') {
       // Zone users can only create assets for their own customer
       if (!userCustomerId || userCustomerId !== parseInt(customerId)) {

@@ -7,21 +7,8 @@ import { cn } from '@/lib/utils';
 import { UserRole } from '@/types/user.types';
 
 // Dynamic imports for heavy components - reduces initial bundle
-const Sidebar = dynamic(
-  () => import('@/components/layout/Sidebar').then(mod => ({ default: mod.Sidebar })),
-  { 
-    ssr: false,
-    loading: () => <div className="hidden lg:block w-64 h-screen bg-gradient-to-b from-[#546A7A] to-[#3D4F5C]" />
-  }
-);
-
-const Header = dynamic(
-  () => import('@/components/layout/Header').then(mod => ({ default: mod.Header })),
-  { 
-    ssr: false,
-    loading: () => <div className="h-16 bg-white border-b border-gray-100" />
-  }
-);
+import { Sidebar } from '@/components/layout/Sidebar';
+import { Header } from '@/components/layout/Header';
 
 interface DashboardClientWrapperProps {
   children: React.ReactNode;
@@ -63,89 +50,68 @@ export function DashboardClientWrapper({ children, userRole }: DashboardClientWr
     const timer = setTimeout(() => {
       setPageKey(prev => prev + 1);
       setIsPageVisible(true);
-    }, 50);
+    }, 10);
     return () => clearTimeout(timer);
   }, [pathname]);
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Animated background elements - more subtle */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none print:hidden">
-        <div className="absolute top-0 right-1/4 w-96 h-96 bg-[#6F8A9D]/5 rounded-full blur-3xl animate-pulse" style={{ animationDuration: '8s' }} />
-        <div className="absolute bottom-1/4 left-1/3 w-80 h-80 bg-[#96AEC2]/5 rounded-full blur-3xl animate-pulse" style={{ animationDuration: '10s', animationDelay: '2s' }} />
-        <div className="absolute top-1/3 left-1/4 w-64 h-64 bg-[#6F8A9D]/5 rounded-full blur-3xl animate-pulse" style={{ animationDuration: '12s', animationDelay: '4s' }} />
-      </div>
-
-      {/* Mobile overlay - using CSS transition instead of framer-motion */}
-      {showSidebar && (
+    <div className="min-h-screen bg-[#F0F4F8]">
+      {/* Mobile overlay */}
+      {showSidebar && sidebarOpen && isMobile && (
         <div
-          className={cn(
-            "fixed inset-0 z-[55] bg-[#546A7A]/40 backdrop-blur-[2px] print:hidden transition-opacity duration-300",
-            sidebarOpen && isMobile ? "opacity-100" : "opacity-0 pointer-events-none"
-          )}
+          className="fixed inset-0 z-[55] bg-black/60 backdrop-blur-sm transition-opacity duration-300"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
-      {/* Sidebar - fixed position, no wrapper interference */}
+      {/* Sidebar - fixed position, edge-to-edge like Finance */}
       {showSidebar && (
         <div
           className={cn(
-            "fixed inset-y-0 left-0 z-[60] print:hidden transition-transform duration-300 ease-in-out bg-white",
+            "fixed inset-y-0 left-0 z-[60] print:hidden transition-all duration-300 ease-out",
             isMobile 
               ? cn("w-80", sidebarOpen ? "translate-x-0" : "-translate-x-full")
               : cn(isCollapsed ? "w-[72px]" : "w-64", "hidden lg:block")
           )}
         >
-          <Suspense fallback={<div className="h-full bg-white border-r border-[#6F8A9D]/15" />}>
-            <Sidebar 
-              userRole={userRole}
-              collapsed={!isMobile && isCollapsed}
-              setCollapsed={setIsCollapsed}
-              onClose={() => setSidebarOpen(false)}
-              className="static h-full w-full"
-            />
-          </Suspense>
+          <Sidebar 
+            userRole={userRole}
+            collapsed={!isMobile && isCollapsed}
+            setCollapsed={setIsCollapsed}
+            onClose={() => setSidebarOpen(false)}
+            className="h-full w-full"
+          />
         </div>
       )}
       
-      {/* Main content */}
+      {/* Main content - no extra padding/gaps like Finance */}
       <div 
         className={cn(
-          "flex flex-col h-screen overflow-hidden transition-all duration-500 ease-out relative z-10",
-          // Conditional margins based on sidebar visibility and user role
+          "flex flex-col h-screen overflow-hidden transition-all duration-300 ease-out relative z-10",
           !showSidebar 
-            ? "ml-0" // No sidebar for service persons
+            ? "ml-0" 
             : isMobile 
-              ? "ml-0" // No margin on mobile (overlay sidebar)
+              ? "ml-0" 
               : isCollapsed 
-                ? "lg:ml-[72px]" // Match sidebar collapsed width (72px)
+                ? "lg:ml-[72px]"
                 : "lg:ml-64"
         )}
       >
-        <Suspense fallback={<div className="h-16 bg-white border-b border-gray-100 flex-shrink-0" />}>
-          <Header 
-            onMenuClick={() => setSidebarOpen(true)} 
-            isMobile={isMobile}
-            sidebarOpen={sidebarOpen}
-            showSidebar={showSidebar}
-            className="print:hidden flex-shrink-0"
-          />
-        </Suspense>
+        <Header 
+          onMenuClick={() => setSidebarOpen(true)} 
+          isMobile={isMobile}
+          sidebarOpen={sidebarOpen}
+          showSidebar={showSidebar}
+          className="print:hidden flex-shrink-0"
+        />
         
-        <main className="flex-1 overflow-y-auto focus:outline-none">
-          <div className={cn(
-            "min-h-full",
-            // Reduced padding for more content width
-            isMobile 
-              ? "py-3 px-3" 
-              : "py-4 px-4 lg:px-6"
-          )}>
-            {/* Page transition using CSS instead of framer-motion */}
+        <main className="flex-1 overflow-y-auto">
+          <div className={cn("min-h-full", isMobile ? "p-3" : "p-4")}>
+            {/* Page transition */}
             <div
               key={pageKey}
               className={cn(
-                "transition-all duration-100 ease-out",
+                "transition-all duration-150 ease-out",
                 isPageVisible 
                   ? "opacity-100 translate-y-0" 
                   : "opacity-0 translate-y-1"

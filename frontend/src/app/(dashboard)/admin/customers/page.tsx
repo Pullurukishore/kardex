@@ -22,7 +22,7 @@ export default async function CustomersPage({
 
   try {
     // Fetch data server-side
-    const allCustomers = await getCustomers({ search, status, page, limit: 100 });
+    const allCustomers = await getCustomers({ search, status, page, limit: 25 });
     const stats = await getCustomerStats(allCustomers);
 
     return (

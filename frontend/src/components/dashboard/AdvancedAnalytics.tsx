@@ -121,10 +121,10 @@ export default function AdvancedAnalytics({
 
   return (
     <div className="mb-6">
-      <Card className="relative overflow-hidden bg-white/95 backdrop-blur-xl border border-[#96AEC2]/20 shadow-lg rounded-2xl">
+      <Card className="relative overflow-hidden bg-white border border-[#96AEC2]/20 shadow-lg rounded-2xl">
         {/* Background decorations with Kardex colors */}
-        <div className="absolute -top-24 -right-24 w-48 h-48 bg-gradient-to-br from-[#E17F70]/15 to-transparent rounded-full blur-3xl" />
-        <div className="absolute -bottom-16 -left-16 w-36 h-36 bg-gradient-to-tr from-[#82A094]/15 to-transparent rounded-full blur-3xl" />
+        <div className="absolute -top-24 -right-24 w-48 h-48 bg-[#E17F70]/5 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-16 -left-16 w-36 h-36 bg-[#82A094]/5 rounded-full blur-3xl pointer-events-none" />
         
         <CardHeader className="relative z-10 pb-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">

@@ -9,6 +9,7 @@ import { sendEmail } from '../utils/email';
 import prisma from '../config/db';
 import { logSessionActivity, getIpFromRequest as getSessionIp } from './ar/arSessionActivity.controller';
 import { logUserActivity, getIpFromRequest as getActivityIp } from './activityLog.controller';
+import { logBankAccountActivity } from './ar/bankAccountActivityLog.controller';
 
 // Type for user data that's safe to return to the client
 type SafeUser = {
@@ -33,31 +34,8 @@ export const register = async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'Email, password and at least one role (FSM or Finance) are required' });
     }
 
-    // Security check: require the requester to be an ADMIN for all internal roles
-    const authHeader = req.headers.authorization;
-    const accessToken = req.cookies.accessToken || req.cookies.token;
-
-    let requesterRole: string | undefined;
-
-    try {
-      if (authHeader && authHeader.startsWith('Bearer ')) {
-        const token = authHeader.split(' ')[1];
-        const decoded = jwt.verify(token, JWT_CONFIG.secret) as any;
-        requesterRole = decoded.role;
-      } else if (accessToken) {
-        const decoded = jwt.verify(accessToken, JWT_CONFIG.secret) as any;
-        requesterRole = decoded.role;
-      }
-    } catch (err) {
-      // Token verification failed or not provided
-    }
-
-    if (requesterRole !== 'ADMIN') {
-      return res.status(403).json({
-        message: 'Access denied. Only administrators can register users.',
-        code: 'FORBIDDEN_USER_CREATION'
-      });
-    }
+    // Registration is now protected by authenticate and requireRole('ADMIN') middleware
+    // in the routes file, ensuring only active admins can create users.
 
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({ where: { email } });
@@ -270,7 +248,8 @@ export const login = async (req: Request, res: Response) => {
     // Only generate new token version if user doesn't have one or it's been compromised
     let tokenVersion = user.tokenVersion;
     if (!tokenVersion || tokenVersion === '0') {
-      tokenVersion = Math.random().toString(36).substring(2, 15);
+      const { v4: uuidv4 } = require('uuid');
+      tokenVersion = uuidv4();
     }
 
     // Generate tokens with existing or new version
@@ -362,6 +341,16 @@ export const login = async (req: Request, res: Response) => {
         userName: user.name,
         userEmail: user.email,
         financeRole: user.financeRole,
+        ipAddress: getSessionIp(req),
+        userAgent: req.headers['user-agent'] || null
+      });
+
+      // Log to Bank Account Activity Log as well
+      await logBankAccountActivity({
+        action: 'USER_LOGIN',
+        description: `User ${user.email} logged into Finance module`,
+        performedById: user.id,
+        performedBy: user.name || user.email,
         ipAddress: getSessionIp(req),
         userAgent: req.headers['user-agent'] || null
       });
@@ -555,6 +544,16 @@ export const logout = async (req: AuthenticatedRequest, res: Response) => {
         userName: userDetails.name || userDetails.email?.split('@')[0] || null,
         userEmail: userDetails.email || null,
         financeRole: userDetails.financeRole,
+        ipAddress: getSessionIp(req),
+        userAgent: req.headers['user-agent'] || null
+      });
+
+      // Log to Bank Account Activity Log as well
+      await logBankAccountActivity({
+        action: 'USER_LOGOUT',
+        description: `User ${userDetails.email} logged out from Finance module`,
+        performedById: req.user.id,
+        performedBy: userDetails.name || userDetails.email,
         ipAddress: getSessionIp(req),
         userAgent: req.headers['user-agent'] || null
       });

@@ -13,12 +13,15 @@ export default function PinGuard({ children }: PinGuardProps) {
 
   const [isValidated, setIsValidated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isMounted, setIsMounted] = useState(false);
   const [hasChecked, setHasChecked] = useState(false);
 
   useEffect(() => {
+    setIsMounted(true);
+    
     const checkPinAccess = async () => {
       if (!pathname) return;
-
+      
       const publicRoutes = ['/pin-access', '/admin/pin-management', '/favicon.ico', '/_next', '/api/auth', '/auth'];
       const isPublicRoute = pathname === '/' || publicRoutes.some(route => route !== '/' && pathname.startsWith(route));
 
@@ -37,8 +40,6 @@ export default function PinGuard({ children }: PinGuardProps) {
         
         if (pinSession || localSession || forceBypass === 'true') {
           setIsValidated(true);
-          setIsLoading(false);
-          setHasChecked(true);
         } else {
           router.replace('/pin-access');
         }
@@ -53,13 +54,24 @@ export default function PinGuard({ children }: PinGuardProps) {
     checkPinAccess();
   }, [pathname, router]);
 
+  // Prevent hydration mismatch by rendering the same thing as server on first client render
+  if (!isMounted) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="relative">
+          <div className="w-12 h-12 border-4 border-[#96AEC2]/20 border-t-[#6F8A9D] rounded-full animate-spin"></div>
+        </div>
+      </div>
+    );
+  }
+
   // Show loading state
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#96AEC2]/10 to-[#6F8A9D]/20 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-8 h-8 border-4 border-[#546A7A] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-[#5D6E73]">Checking access...</p>
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="relative">
+          <div className="w-12 h-12 border-4 border-[#96AEC2]/20 border-t-[#6F8A9D] rounded-full animate-spin transition-all duration-500"></div>
+          <div className="absolute inset-0 bg-gradient-to-tr from-[#6F8A9D]/10 to-transparent rounded-full animate-pulse-slow"></div>
         </div>
       </div>
     );

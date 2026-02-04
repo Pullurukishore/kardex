@@ -10,6 +10,7 @@ import * as bankAccountController from '../../controllers/ar/bankAccount.control
 import * as bankAccountRequestController from '../../controllers/ar/bankAccountRequest.controller';
 import * as bankAccountAttachmentController from '../../controllers/ar/bankAccountAttachment.controller';
 import * as bankAccountImportController from '../../controllers/ar/bankAccountImport.controller';
+import * as bankAccountActivityController from '../../controllers/ar/bankAccountActivityLog.controller';
 import { bankDocUpload } from '../../config/bankDocMulter';
 import * as financeUserController from '../../controllers/ar/financeUser.controller';
 import * as dashboardController from '../../controllers/ar/arDashboard.controller';
@@ -73,6 +74,11 @@ router.get('/invoices/:id/remarks', requireFinanceRead, invoiceController.getInv
 router.post('/invoices/:id/remarks', requireFinanceWrite, invoiceController.addInvoiceRemark);
 router.get('/invoices/:id/activity', requireFinanceRead, invoiceController.getInvoiceActivityLog);
 
+// Prepaid Invoice Linking Routes
+router.get('/invoices/:id/matching-prepaids', requireFinanceRead, invoiceController.getMatchingPrepaids);
+router.post('/invoices/:id/accept-prepaid', requireFinanceWrite, invoiceController.acceptPrepaid);
+router.get('/invoices/:id/linked-prepaid', requireFinanceRead, invoiceController.getLinkedPrepaidDetails);
+
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CUSTOMER ROUTES
@@ -123,6 +129,13 @@ router.get('/bank-accounts/:id/attachments', requireFinanceRead, bankAccountAtta
 router.post('/bank-accounts/:id/attachments', requireFinanceWrite, bankDocUpload.single('file'), bankAccountAttachmentController.uploadAttachment);
 router.get('/bank-accounts/attachments/:attachmentId/download', requireFinanceRead, bankAccountAttachmentController.downloadAttachment);
 router.delete('/bank-accounts/attachments/:attachmentId', requireFinanceAdmin, bankAccountAttachmentController.deleteAttachment);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BANK ACCOUNT ACTIVITY LOG ROUTES
+// ═══════════════════════════════════════════════════════════════════════════
+router.get('/bank-accounts/:id/activities', requireFinanceRead, bankAccountActivityController.getActivityLogs);
+router.get('/bank-accounts/activities/recent', requireFinanceAdmin, bankAccountActivityController.getRecentActivities);
+router.get('/bank-accounts/activities/stats', requireFinanceAdmin, bankAccountActivityController.getActivityStats);
 
 // ═══════════════════════════════════════════════════════════════════════════
 // BANK ACCOUNT IMPORT ROUTES

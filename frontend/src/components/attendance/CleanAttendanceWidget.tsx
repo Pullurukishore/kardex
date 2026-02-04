@@ -557,7 +557,7 @@ export default function CleanAttendanceWidget({
     
     if (isCheckedIn) {
       return (
-        <Button onClick={handleCheckOut} disabled={actionLoading} className="w-full h-14 bg-gradient-to-r from-[#E17F70] to-[#9E3B47] text-white font-bold rounded-xl shadow-lg">
+        <Button onClick={handleCheckOut} disabled={actionLoading} className="w-full h-14 min-h-[56px] bg-gradient-to-r from-[#E17F70] to-[#9E3B47] text-white font-bold rounded-xl shadow-lg active:scale-[0.98] transition-transform">
           {actionLoading ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <LogOut className="w-5 h-5 mr-2" />}
           {actionLoading ? 'Checking Out...' : 'Check Out'}
         </Button>
@@ -568,7 +568,7 @@ export default function CleanAttendanceWidget({
           <div className="text-center text-xs text-[#546A7A] font-semibold bg-[#96AEC2]/10 py-2.5 px-4 rounded-xl border border-[#96AEC2]">
             Checked out today • Tap to resume work
           </div>
-          <Button onClick={handleReCheckIn} disabled={actionLoading} className="w-full h-14 bg-gradient-to-r from-[#6F8A9D] to-[#546A7A] text-white font-bold rounded-xl shadow-lg">
+          <Button onClick={handleReCheckIn} disabled={actionLoading} className="w-full h-14 min-h-[56px] bg-gradient-to-r from-[#6F8A9D] to-[#546A7A] text-white font-bold rounded-xl shadow-lg active:scale-[0.98] transition-transform">
             {actionLoading ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <LogIn className="w-5 h-5 mr-2" />}
             {actionLoading ? 'Re-Checking In...' : 'Re-Check In'}
           </Button>
@@ -576,7 +576,7 @@ export default function CleanAttendanceWidget({
       );
     } else {
       return (
-        <Button onClick={handleCheckIn} disabled={actionLoading} className="w-full h-14 bg-gradient-to-r from-[#82A094] to-[#4F6A64] text-white font-bold rounded-xl shadow-lg">
+        <Button onClick={handleCheckIn} disabled={actionLoading} className="w-full h-14 min-h-[56px] bg-gradient-to-r from-[#82A094] to-[#4F6A64] text-white font-bold rounded-xl shadow-lg active:scale-[0.98] transition-transform">
           {actionLoading ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <LogIn className="w-5 h-5 mr-2" />}
           {actionLoading ? 'Checking In...' : 'Check In'}
         </Button>
@@ -587,34 +587,57 @@ export default function CleanAttendanceWidget({
   if (loading) return <div>Loading...</div>;
 
   return (
-    <div className="bg-white rounded-3xl overflow-hidden shadow-xl border border-white/50">
-      <div className="bg-gradient-to-r from-[#546A7A] via-[#6F8A9D] to-[#96AEC2] p-6 text-white">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center border border-white/30">
-              <Clock className="w-6 h-6" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold">Attendance</h2>
-              <p className="text-white/70 text-sm">Track your work hours</p>
-            </div>
-          </div>
-          <div className={`px-4 py-2 rounded-full border ${attendanceData?.isCheckedIn ? 'bg-green-500/20 border-green-500/50' : 'bg-white/10 border-white/30'}`}>
-            <span className="text-sm font-bold">{attendanceData?.isCheckedIn ? 'Checked In' : 'Off Duty'}</span>
-          </div>
+    <div className="bg-white rounded-3xl overflow-hidden shadow-xl border border-[#AEBFC3]/30">
+      {/* Premium Header with decorative elements */}
+      <div className="relative bg-gradient-to-br from-[#546A7A] via-[#6F8A9D] to-[#96AEC2] p-6 text-white overflow-hidden">
+        {/* Decorative background elements */}
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute -top-12 -right-12 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
+          <div className="absolute -bottom-8 -left-8 w-24 h-24 bg-white/8 rounded-full blur-xl"></div>
+          <div className="absolute top-1/2 right-1/4 w-16 h-16 bg-white/5 rounded-full blur-lg"></div>
+          {/* Subtle grid pattern */}
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:20px_20px]"></div>
         </div>
-        {attendanceData?.attendance?.checkInAt && (
-          <div className="mt-4 pt-4 border-t border-white/20 grid grid-cols-2 gap-4">
-            <div className="bg-white/10 p-3 rounded-xl">
-              <p className="text-white/60 text-xs">Started at</p>
-              <p className="font-bold">{formatTime(attendanceData.attendance.checkInAt)}</p>
+        
+        <div className="relative z-10">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 bg-white/15 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/30 shadow-lg shadow-black/10">
+                <Clock className="w-7 h-7" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-black tracking-tighter leading-none">Attendance</h2>
+                <p className="text-white/70 text-[10px] font-black uppercase tracking-widest mt-1">Operational Telemetry</p>
+              </div>
+            </div>
+            <div className={`px-5 py-2.5 rounded-2xl border-2 backdrop-blur-xl font-black text-[10px] uppercase tracking-widest transition-all ${
+              attendanceData?.isCheckedIn 
+                ? 'bg-[#82A094]/30 border-[#A2B9AF]/60 text-white shadow-2xl animate-pulse' 
+                : 'bg-white/10 border-white/40 text-white/90 shadow-xl'
+            }`}>
+              <span className="flex items-center gap-2">
+                {attendanceData?.isCheckedIn ? 'Status: Active' : 'Status: Off Duty'}
+              </span>
             </div>
           </div>
-        )}
+          
+          {/* Check-in time display */}
+          {attendanceData?.attendance?.checkInAt && (
+            <div className="mt-5 pt-4 border-t border-white/20">
+              <div className="bg-white/15 backdrop-blur-md p-5 rounded-2xl border border-white/20 shadow-inner">
+                <p className="text-white/50 text-[10px] font-black uppercase tracking-[0.2em]">Shift Commencement</p>
+                <div className="flex items-baseline gap-2 mt-1">
+                  <p className="text-3xl font-black tracking-tighter">{formatTime(attendanceData.attendance.checkInAt)}</p>
+                  <p className="text-white/40 text-[10px] font-black uppercase tracking-widest">Local Time</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
       <div className="p-6">
         {enhancedLocationState.showLocationCapture && (
-          <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-2xl">
+          <div className="mb-4 p-4 bg-[#96AEC2]/10 border border-[#96AEC2]/30 rounded-2xl">
             <EnhancedLocationCapture
               onLocationCapture={handleEnhancedLocationCapture}
               required={true}
@@ -626,38 +649,72 @@ export default function CleanAttendanceWidget({
         
         {/* Captured Location Preview */}
         {enhancedLocationState.capturedLocation && !enhancedLocationState.showLocationCapture && (
-          <div className="mb-4 bg-[#A2B9AF]/10 border border-[#A2B9AF]/30 rounded-2xl p-4 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
+          <div className="mb-4 bg-gradient-to-br from-[#A2B9AF]/15 to-[#82A094]/10 border-2 border-[#82A094]/40 rounded-2xl p-4 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
             <div className="flex items-start justify-between">
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 bg-[#A2B9AF]/20 rounded-xl flex items-center justify-center flex-shrink-0">
-                  <MapPin className="w-5 h-5 text-[#4F6A64]" />
+              <div className="flex items-start gap-3 flex-1 min-w-0">
+                <div className="w-11 h-11 bg-gradient-to-br from-[#82A094] to-[#4F6A64] rounded-xl flex items-center justify-center flex-shrink-0 shadow-md shadow-[#82A094]/30">
+                  <MapPin className="w-5 h-5 text-white" />
                 </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-bold text-[#4F6A64] flex items-center gap-1.5">
-                    Location Captured 
-                    <CheckCircle className="w-3.5 h-3.5" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] font-black text-[#546A7A] uppercase tracking-widest flex items-center gap-2">
+                    Security Telemetry Validated 
+                    <div className="w-4 h-4 rounded-full bg-[#82A094] flex items-center justify-center">
+                      <CheckCircle className="w-2.5 h-2.5 text-white" />
+                    </div>
                   </p>
-                  <p className="text-xs text-[#5D6E73] mt-0.5 line-clamp-2 leading-relaxed">
+                  <p className="text-xs text-[#5D6E73] mt-1 line-clamp-2 leading-relaxed pr-2">
                     {enhancedLocationState.capturedLocation.address || `${enhancedLocationState.capturedLocation.latitude.toFixed(6)}, ${enhancedLocationState.capturedLocation.longitude.toFixed(6)}`}
                   </p>
-                  <div className="flex gap-3 mt-1.5">
-                    <span className="text-[10px] bg-white/50 px-2 py-0.5 rounded-full text-[#AEBFC3]0 font-medium">
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    <span className="text-[10px] bg-white/70 px-2.5 py-1 rounded-full text-[#5D6E73] font-semibold border border-[#AEBFC3]/30">
                       Accuracy: ±{Math.round(enhancedLocationState.capturedLocation.accuracy)}m
                     </span>
-                    <span className="text-[10px] bg-white/50 px-2 py-0.5 rounded-full text-[#AEBFC3]0 font-medium">
+                    <span className="text-[10px] bg-white/70 px-2.5 py-1 rounded-full text-[#5D6E73] font-semibold border border-[#AEBFC3]/30">
                       Source: {enhancedLocationState.capturedLocation.source?.toUpperCase() || 'GPS'}
                     </span>
                   </div>
                 </div>
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setEnhancedLocationState(prev => ({ ...prev, capturedLocation: null, showLocationCapture: true }))}
-                className="h-8 w-8 text-[#546A7A] hover:bg-white/50 rounded-lg"
-              >
-                <X className="h-4 w-4" />
-              </Button>
+              <div className="flex flex-col gap-1.5 ml-2">
+                {/* Recapture button */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    setEnhancedLocationState(prev => ({ ...prev, showLocationCapture: true }));
+                    toast({
+                      title: "Recapture Location",
+                      description: "Capturing a new location..."
+                    });
+                  }}
+                  className="h-10 w-10 min-h-[44px] min-w-[44px] text-[#6F8A9D] hover:bg-[#96AEC2]/20 rounded-xl transition-colors"
+                  title="Recapture location"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                </Button>
+                {/* Clear button */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    setEnhancedLocationState(prev => ({ 
+                      ...prev, 
+                      capturedLocation: null, 
+                      showLocationCapture: false 
+                    }));
+                    setLastKnownLocation(null);
+                    toast({
+                      title: "Location Cleared",
+                      description: "Please capture location again before check-in/out.",
+                      variant: "destructive"
+                    });
+                  }}
+                  className="h-10 w-10 min-h-[44px] min-w-[44px] text-[#E17F70] hover:bg-[#E17F70]/10 rounded-xl transition-colors"
+                  title="Clear location"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </div>
         )}
@@ -665,20 +722,23 @@ export default function CleanAttendanceWidget({
         <Button 
           variant="ghost" 
           onClick={() => { fetchAttendanceStatus(); fetchAttendanceStats(); }} 
-          className="w-full mt-4 text-[#5D6E73] hover:bg-gray-100"
+          className="w-full mt-4 text-[#5D6E73] hover:bg-[#AEBFC3]/15 rounded-xl h-11 border border-transparent hover:border-[#AEBFC3]/30 transition-all"
         >
           <RotateCcw className="w-4 h-4 mr-2" /> Refresh Status
         </Button>
       </div>
       
       {showEarlyCheckoutConfirm && earlyCheckoutData && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white p-6 rounded-3xl max-w-sm w-full">
-            <h3 className="text-xl font-bold mb-4">Confirm Early Checkout</h3>
-            <p className="text-gray-600 mb-6">{earlyCheckoutData.confirmationData.message}</p>
-            <div className="flex gap-4">
-              <Button onClick={() => handleEarlyCheckoutConfirm(false)} variant="outline" className="flex-1">Cancel</Button>
-              <Button onClick={() => handleEarlyCheckoutConfirm(true)} className="flex-1 bg-[#CE9F6B]">Confirm</Button>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white p-6 rounded-3xl max-w-sm w-full shadow-2xl border border-[#AEBFC3]/30">
+            <div className="w-14 h-14 bg-gradient-to-br from-[#CE9F6B] to-[#976E44] rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-[#CE9F6B]/30">
+              <AlertCircle className="w-7 h-7 text-white" />
+            </div>
+            <h3 className="text-xl font-bold mb-3 text-[#546A7A] text-center">Confirm Early Checkout</h3>
+            <p className="text-[#5D6E73] mb-6 text-center text-sm">{earlyCheckoutData.confirmationData.message}</p>
+            <div className="flex gap-3">
+              <Button onClick={() => handleEarlyCheckoutConfirm(false)} variant="outline" className="flex-1 h-12 rounded-xl border-2 border-[#AEBFC3] hover:bg-[#AEBFC3]/10 font-semibold">Cancel</Button>
+              <Button onClick={() => handleEarlyCheckoutConfirm(true)} className="flex-1 h-12 rounded-xl bg-gradient-to-r from-[#CE9F6B] to-[#976E44] hover:from-[#976E44] hover:to-[#976E44] font-semibold shadow-lg shadow-[#CE9F6B]/30">Confirm</Button>
             </div>
           </div>
         </div>

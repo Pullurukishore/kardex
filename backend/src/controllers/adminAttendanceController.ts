@@ -264,6 +264,7 @@ export const adminAttendanceController = {
 
         if (!consolidatedRecords.has(key)) {
           // Create absent record for service person with no attendance
+          // Use the filter date as the record date, not today's date
           consolidatedRecords.set(key, {
             id: `absent-${servicePerson.id}-${Date.now()}`, // Unique ID for absent records
             userId: servicePerson.id,
@@ -278,8 +279,8 @@ export const adminAttendanceController = {
             totalHours: 0,
             status: 'ABSENT',
             notes: 'No attendance record for this date',
-            createdAt: new Date(),
-            updatedAt: new Date(),
+            createdAt: filterStartDate, // Use filter date instead of today
+            updatedAt: filterStartDate, // Use filter date instead of today
             user: {
               ...servicePerson,
               _count: { activityLogs: 0 }, // No activities for absent users

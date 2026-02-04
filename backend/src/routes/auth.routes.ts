@@ -15,7 +15,7 @@ import {
   checkPinStatus,
   generateNewPin
 } from '../controllers/pinAuthController';
-import { authenticate, AuthenticatedRequest } from '../middleware/auth.middleware';
+import { authenticate, requireRole, AuthenticatedRequest } from '../middleware/auth.middleware';
 import rateLimit from 'express-rate-limit';
 
 // Type guard for UserRole
@@ -64,9 +64,11 @@ const loginLimiter = rateLimit({
   skipSuccessfulRequests: true, // Don't count successful logins against the limit
 });
 
-// Register route
+// Register route - ADMIN only
 router.post(
   '/register',
+  authenticate,
+  requireRole('ADMIN'),
   validateRequest([
     body('email').isEmail().normalizeEmail(),
     body('password').isLength({ min: 8 }),

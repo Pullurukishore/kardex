@@ -1,5 +1,11 @@
 import { Request, Response } from 'express';
 import prisma from '../../config/db';
+import {
+    logBankAccountActivity,
+    logBankAccountFieldChanges,
+    getUserFromRequest,
+    getIpFromRequest
+} from './bankAccountActivityLog.controller';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // BANK ACCOUNT CRUD OPERATIONS
@@ -133,6 +139,19 @@ export const createBankAccount = async (req: Request, res: Response) => {
             }
         });
 
+        // Log activity
+        const user = getUserFromRequest(req);
+        await logBankAccountActivity({
+            bankAccountId: account.id,
+            action: 'BANK_ACCOUNT_CREATED',
+            description: `Bank account created for vendor: ${vendorName}`,
+            performedById: user.id,
+            performedBy: user.name,
+            ipAddress: getIpFromRequest(req),
+            userAgent: req.headers['user-agent'] || null,
+            metadata: { accountNumber, beneficiaryBankName }
+        });
+
         res.status(201).json(account);
     } catch (error: any) {
 
@@ -179,6 +198,14 @@ export const updateBankAccount = async (req: Request, res: Response) => {
             }
         });
 
+        // Log field changes
+        const fieldsToTrack = [
+            'vendorName', 'beneficiaryBankName', 'beneficiaryName', 'accountNumber',
+            'ifscCode', 'emailId', 'nickName', 'gstNumber', 'panNumber',
+            'isMSME', 'udyamRegNum', 'currency', 'isActive'
+        ];
+        await logBankAccountFieldChanges(id, existing, account, req, fieldsToTrack);
+
         res.json(account);
     } catch (error: any) {
 
@@ -212,6 +239,21 @@ export const deleteBankAccount = async (req: Request, res: Response) => {
             }
         });
 
+        // Log activity
+        const user = getUserFromRequest(req);
+        await logBankAccountActivity({
+            bankAccountId: id,
+            action: 'BANK_ACCOUNT_DEACTIVATED',
+            description: `Bank account deactivated for vendor: ${existing.vendorName}`,
+            fieldName: 'isActive',
+            oldValue: 'true',
+            newValue: 'false',
+            performedById: user.id,
+            performedBy: user.name,
+            ipAddress: getIpFromRequest(req),
+            userAgent: req.headers['user-agent'] || null
+        });
+
         res.json({ message: 'Bank account deleted successfully', account });
     } catch (error: any) {
 
@@ -224,8 +266,27 @@ export const permanentDeleteBankAccount = async (req: Request, res: Response) =>
     try {
         const { id } = req.params;
 
+        // Get existing data before delete for logging
+        const existing = await prisma.bankAccount.findUnique({ where: { id } });
+        if (!existing) {
+            return res.status(404).json({ error: 'Bank account not found' });
+        }
+
         await prisma.bankAccount.delete({
             where: { id }
+        });
+
+        // Log activity
+        const user = getUserFromRequest(req);
+        await logBankAccountActivity({
+            bankAccountId: id,
+            action: 'BANK_ACCOUNT_DELETED',
+            description: `Bank account permanently deleted for vendor: ${existing.vendorName}`,
+            performedById: user.id,
+            performedBy: user.name,
+            ipAddress: getIpFromRequest(req),
+            userAgent: req.headers['user-agent'] || null,
+            metadata: { vendorName: existing.vendorName, accountNumber: existing.accountNumber }
         });
 
         res.json({ message: 'Bank account permanently deleted' });

@@ -1049,6 +1049,12 @@ enum ARDeliveryStatus {
   ACKNOWLEDGED
 }
 
+enum ARServiceType {
+  SERVICE
+  SALES
+  OTHERS
+}
+
 // Invoice Type for distinguishing regular vs prepaid invoices
 enum ARInvoiceType {
   REGULAR
@@ -1061,6 +1067,7 @@ enum ARPrepaidStatus {
   PARTIALLY_DELIVERED  // Some items delivered
   FULLY_DELIVERED      // All items delivered
   EXPIRED              // Prepaid period expired without delivery
+  LINKED               // Prepaid has been linked to an invoice
 }
 
 // AR Payment Terms Master
@@ -1118,7 +1125,7 @@ model ARInvoice {
   receipts            Decimal?  @db.Decimal(15, 2) // Receipts (Manual)
   adjustments         Decimal?  @db.Decimal(15, 2) // Adjustments (Manual)
   totalReceipts       Decimal?  @db.Decimal(15, 2) // Total Receipts = Receipts + Adjustments
-  type                String?           // Type (TBC)
+  type                ARServiceType?    // Type (SERVICE, SALES, OTHERS)
   modeOfDelivery      String?           // Mode of Delivery with Details
   sentHandoverDate    DateTime?         // Sent/Handover date
   deliveryStatus      ARDeliveryStatus @default(PENDING) // Delivered/Acknowledgement Status (Mandatory)
@@ -1140,6 +1147,18 @@ model ARInvoice {
   deliveryDueDate     DateTime?     // Expected delivery date (for prepaid)
   prepaidStatus       ARPrepaidStatus? // Status for prepaid invoices
   
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PREPAID LINKING FIELDS
+  // ═══════════════════════════════════════════════════════════════════════════
+  soNo                String?           // Sales Order Number (for prepaid invoices)
+  linkedInvoiceId     String?           // For prepaid: links to regular invoice after acceptance
+  linkedPrepaidId     String?           // For regular: links to accepted prepaid invoice
+  prepaidAcceptedAt   DateTime?         // When prepaid was accepted and linked
+  
+  // Self-referential relations for prepaid linking
+  linkedInvoice       ARInvoice?        @relation("PrepaidToInvoice", fields: [linkedInvoiceId], references: [id])
+  linkedFromPrepaids  ARInvoice[]       @relation("PrepaidToInvoice")
+  
   // Remarks relation
   remarks             ARInvoiceRemark[]
 
@@ -1149,6 +1168,8 @@ model ARInvoice {
   @@index([invoiceDate])
   @@index([riskClass])
   @@index([invoiceType])
+  @@index([poNo])
+  @@index([linkedInvoiceId])
   @@map("ar_invoices")
 }
 
@@ -1193,6 +1214,7 @@ model ARPaymentHistory {
   paymentMode     String    // NEFT, RTGS, CHEQUE, CASH, ADJUSTMENT
   referenceNo     String?   // Cheque No, UTR No
   notes           String?
+  referenceBank   String?   // HDFC, DB
   recordedBy      String?   // User who recorded this payment
   createdAt       DateTime  @default(now())
   
@@ -1336,4 +1358,27 @@ enum BankAccountRequestStatus {
   PENDING
   APPROVED
   REJECTED
+}
+
+// Bank Account Activity Log - Audit trail for compliance and fraud prevention
+model BankAccountActivityLog {
+  id              String   @id @default(uuid())
+  bankAccountId   String?  // Nullable for CREATE operations (before account exists)
+  action          String   // CREATED, UPDATED, DELETED, ACTIVATED, DEACTIVATED, REQUEST_CREATED, REQUEST_APPROVED, REQUEST_REJECTED
+  description     String   // Human-readable description
+  fieldName       String?  // Field that was changed (for updates)
+  oldValue        String?  // Previous value
+  newValue        String?  // New value
+  performedById   Int?
+  performedBy     String?  // User name (denormalized)
+  ipAddress       String?
+  userAgent       String?
+  metadata        Json?    // Additional context
+  createdAt       DateTime @default(now())
+
+  @@index([bankAccountId])
+  @@index([action])
+  @@index([createdAt])
+  @@index([performedById])
+  @@map("bank_account_activity_logs")
 }

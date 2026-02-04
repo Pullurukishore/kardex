@@ -36,13 +36,8 @@ export function Header({ onMenuClick, className, isMobile = false, sidebarOpen =
   const { user, logout } = useAuth();
   const router = useRouter();
   const [isOnline, setIsOnline] = useState(true);
-  const [isVisible, setIsVisible] = useState(false);
   
-  useEffect(() => {
-    // Animate in on mount
-    const timer = setTimeout(() => setIsVisible(true), 10);
-    return () => clearTimeout(timer);
-  }, []);
+
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -165,10 +160,8 @@ export function Header({ onMenuClick, className, isMobile = false, sidebarOpen =
       className={cn(
         'sticky top-0 z-50 flex-shrink-0',
         'bg-white/95 backdrop-blur-2xl',
-        'border-b border-[#96AEC2]/15',
+        'border-b border-[#6F8A9D]/15',
         'shadow-[0_4px_30px_-4px_rgba(111,138,157,0.12)]',
-        'transition-all duration-300 ease-out',
-        isVisible ? 'translate-y-0 opacity-100' : '-translate-y-3 opacity-0',
         className
       )}
       suppressHydrationWarning
@@ -178,24 +171,13 @@ export function Header({ onMenuClick, className, isMobile = false, sidebarOpen =
         <div className="absolute inset-0 bg-gradient-to-r from-[#96AEC2] via-[#82A094] to-[#CE9F6B] blur-sm opacity-50" />
       </div>
       
-      {/* Subtle animated background effects */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-24 right-0 w-[500px] h-48 bg-gradient-to-bl from-[#96AEC2]/[0.05] via-[#82A094]/[0.03] to-transparent blur-3xl" />
-        <div className="absolute -top-12 left-1/4 w-80 h-36 bg-gradient-to-br from-[#CE9F6B]/[0.05] via-transparent to-transparent blur-2xl" />
-        <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#96AEC2]/10 to-transparent" />
-      </div>
-      
       <div className={cn(
         "relative flex items-center justify-between",
         isMobile ? "h-18 px-5" : "h-[76px] px-8"
       )}>
         {/* Left section */}
         <div 
-          className={cn(
-            "flex items-center gap-4 transition-all duration-200 ease-out",
-            isVisible ? "translate-x-0 opacity-100" : "-translate-x-3 opacity-0"
-          )}
-          style={{ transitionDelay: '50ms' }}
+          className="flex items-center gap-4 transition-all duration-200 ease-out"
         >
           {showSidebar && (
             <Button
@@ -246,11 +228,7 @@ export function Header({ onMenuClick, className, isMobile = false, sidebarOpen =
 
         {/* Right section */}
         <div 
-          className={cn(
-            "flex items-center gap-4 transition-all duration-200 ease-out",
-            isVisible ? "translate-x-0 opacity-100" : "translate-x-3 opacity-0"
-          )}
-          style={{ transitionDelay: '100ms' }}
+          className="flex items-center gap-4 transition-all duration-200 ease-out"
         >
           {/* User dropdown */}
           <DropdownMenu>

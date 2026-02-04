@@ -16,16 +16,18 @@ export default function NewInvoicePage() {
     bpCode: '',
     customerName: '',
     poNo: '',
+    soNo: '',  // Sales Order Number for prepaid
     totalAmount: '',
     netAmount: '',
     taxAmount: '',
     invoiceDate: '',
     dueDate: '',
     // Prepaid fields
-    invoiceType: 'REGULAR' as 'REGULAR' | 'PREPAID',
+    invoiceType: 'PREPAID' as 'REGULAR' | 'PREPAID',
     advanceReceivedDate: '',
     deliveryDueDate: '',
     actualPaymentTerms: '',
+    type: '' as any,
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -37,25 +39,52 @@ export default function NewInvoicePage() {
     e.preventDefault();
     setError(null);
 
-    // Required fields: invoiceNumber, bpCode, invoiceDate, totalAmount
-    if (!formData.invoiceNumber || !formData.bpCode || !formData.invoiceDate || !formData.totalAmount) {
+    // Required fields: For regular - invoiceNumber, bpCode, invoiceDate, totalAmount
+    // For prepaid - bpCode, invoiceDate, totalAmount (invoiceNumber is auto-generated if empty)
+    const isRegular = formData.invoiceType === 'REGULAR';
+    
+    if (isRegular && !formData.invoiceNumber) {
       setError('Please fill in all required fields: Doc. No., Customer Code, Document Date, and Amount');
+      return;
+    }
+    
+    if (!formData.bpCode || !formData.invoiceDate || !formData.totalAmount) {
+      setError('Please fill in all required fields: Customer Code, Document Date, and Amount');
       return;
     }
 
     // Validate prepaid-specific fields
-    if (formData.invoiceType === 'PREPAID' && !formData.advanceReceivedDate) {
-      setError('Advance Received Date is required for prepaid invoices');
-      return;
+    if (formData.invoiceType === 'PREPAID') {
+      if (!formData.advanceReceivedDate) {
+        setError('Advance Received Date is required for prepaid invoices');
+        return;
+      }
+      if (!formData.soNo) {
+        setError('SO Number is required for prepaid invoices');
+        return;
+      }
+      if (!formData.poNo) {
+        setError('PO Number is required for prepaid invoices');
+        return;
+      }
     }
 
     try {
       setSaving(true);
+      // For prepaid: use PO number as reference (PRE-{poNo}) for easy identification
+      const invoiceNumber = formData.invoiceNumber || 
+        (formData.invoiceType === 'PREPAID' && formData.poNo 
+          ? `PRE-${formData.poNo}` 
+          : formData.invoiceType === 'PREPAID' 
+            ? `PRE-${Date.now().toString(36).toUpperCase()}` // Fallback if no PO
+            : undefined);
+      
       await arApi.createInvoice({
-        invoiceNumber: formData.invoiceNumber,
+        invoiceNumber: invoiceNumber!,
         customerId: formData.bpCode, // Backend expects customerId, maps to bpCode
         customerName: formData.customerName || '',
         poNo: formData.poNo || undefined,
+        soNo: formData.soNo || undefined,
         totalAmount: parseFloat(formData.totalAmount),
         netAmount: formData.netAmount ? parseFloat(formData.netAmount) : parseFloat(formData.totalAmount),
         taxAmount: formData.taxAmount ? parseFloat(formData.taxAmount) : undefined,
@@ -66,6 +95,7 @@ export default function NewInvoicePage() {
         advanceReceivedDate: formData.advanceReceivedDate || undefined,
         deliveryDueDate: formData.deliveryDueDate || undefined,
         actualPaymentTerms: (formData as any).actualPaymentTerms || undefined,
+        type: formData.type,
       } as any);
       router.push('/finance/ar/invoices');
     } catch (err: any) {
@@ -134,7 +164,11 @@ export default function NewInvoicePage() {
           </div>
           <div>
             <p className="text-[#546A7A] font-semibold text-sm">Fields marked with <span className="text-[#E17F70]">*</span> are mandatory</p>
-            <p className="text-[#92A2A5] text-xs mt-1">Required: Doc. No., Customer Code, Document Date, and Amount</p>
+            <p className="text-[#92A2A5] text-xs mt-1">
+              {formData.invoiceType === 'PREPAID' 
+                ? 'Prepaid: SO Number, PO Number, Customer Code, Document Date, Amount, and Advance Received Date. Reference No. format: PRE-{PO Number}'
+                : 'Regular: Doc. No., Customer Code, Document Date, and Amount'}
+            </p>
           </div>
         </div>
 
@@ -176,36 +210,78 @@ export default function NewInvoicePage() {
 
           {/* Prepaid-specific fields */}
           {formData.invoiceType === 'PREPAID' && (
-            <div className="grid grid-cols-2 gap-5 pt-4 border-t border-[#CE9F6B]/20">
-              <div>
-                <label className="block text-[#5D6E73] text-sm font-semibold mb-2">
-                  Advance Received Date <span className="text-[#E17F70]">*</span>
-                </label>
-                <div className="relative">
-                  <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#CE9F6B]" />
-                  <input
-                    type="date"
-                    name="advanceReceivedDate"
-                    value={formData.advanceReceivedDate}
-                    onChange={handleChange}
-                    className="w-full h-12 pl-11 pr-4 rounded-xl bg-[#CE9F6B]/10 border-2 border-[#CE9F6B]/30 text-[#546A7A] focus:border-[#CE9F6B]/50 focus:outline-none focus:ring-4 focus:ring-[#CE9F6B]/10 transition-all font-medium"
-                    required
-                  />
+            <div className="space-y-5 pt-4 border-t border-[#CE9F6B]/20">
+              {/* SO Number and PO Number - Required for linking */}
+              <div className="p-4 rounded-xl bg-gradient-to-r from-[#CE9F6B]/10 to-[#E17F70]/5 border border-[#CE9F6B]/20">
+                <p className="text-sm font-semibold text-[#976E44] mb-3 flex items-center gap-2">
+                  <Wallet className="w-4 h-4" />
+                  Order Reference Numbers (Required for linking)
+                </p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[#5D6E73] text-sm font-semibold mb-2">
+                      SO Number (Sales Order) <span className="text-[#E17F70]">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="soNo"
+                      value={formData.soNo}
+                      onChange={handleChange}
+                      className="w-full h-12 px-4 rounded-xl bg-white border-2 border-[#CE9F6B]/30 text-[#546A7A] placeholder:text-[#92A2A5] focus:border-[#CE9F6B]/50 focus:outline-none focus:ring-4 focus:ring-[#CE9F6B]/10 transition-all font-medium"
+                      placeholder="SO-12345"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[#5D6E73] text-sm font-semibold mb-2">
+                      PO Number (Purchase Order) <span className="text-[#E17F70]">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="poNo"
+                      value={formData.poNo}
+                      onChange={handleChange}
+                      className="w-full h-12 px-4 rounded-xl bg-white border-2 border-[#CE9F6B]/30 text-[#546A7A] placeholder:text-[#92A2A5] focus:border-[#CE9F6B]/50 focus:outline-none focus:ring-4 focus:ring-[#CE9F6B]/10 transition-all font-medium"
+                      placeholder="PO-12345"
+                      required
+                    />
+                  </div>
                 </div>
+                <p className="text-xs text-[#92A2A5] mt-2">Enter PO Number to allow linking this prepaid to a regular invoice later.</p>
               </div>
-              <div>
-                <label className="block text-[#5D6E73] text-sm font-semibold mb-2">
-                  Expected Delivery Date
-                </label>
-                <div className="relative">
-                  <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#CE9F6B]" />
-                  <input
-                    type="date"
-                    name="deliveryDueDate"
-                    value={formData.deliveryDueDate}
-                    onChange={handleChange}
-                    className="w-full h-12 pl-11 pr-4 rounded-xl bg-[#AEBFC3]/10 border-2 border-[#AEBFC3]/30 text-[#546A7A] focus:border-[#CE9F6B]/50 focus:outline-none focus:ring-4 focus:ring-[#CE9F6B]/10 transition-all font-medium"
-                  />
+              
+              {/* Dates */}
+              <div className="grid grid-cols-2 gap-5">
+                <div>
+                  <label className="block text-[#5D6E73] text-sm font-semibold mb-2">
+                    Advance Received Date <span className="text-[#E17F70]">*</span>
+                  </label>
+                  <div className="relative">
+                    <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#CE9F6B]" />
+                    <input
+                      type="date"
+                      name="advanceReceivedDate"
+                      value={formData.advanceReceivedDate}
+                      onChange={handleChange}
+                      className="w-full h-12 pl-11 pr-4 rounded-xl bg-[#CE9F6B]/10 border-2 border-[#CE9F6B]/30 text-[#546A7A] focus:border-[#CE9F6B]/50 focus:outline-none focus:ring-4 focus:ring-[#CE9F6B]/10 transition-all font-medium"
+                      required
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[#5D6E73] text-sm font-semibold mb-2">
+                    Expected Delivery Date
+                  </label>
+                  <div className="relative">
+                    <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#CE9F6B]" />
+                    <input
+                      type="date"
+                      name="deliveryDueDate"
+                      value={formData.deliveryDueDate}
+                      onChange={handleChange}
+                      className="w-full h-12 pl-11 pr-4 rounded-xl bg-[#AEBFC3]/10 border-2 border-[#AEBFC3]/30 text-[#546A7A] focus:border-[#CE9F6B]/50 focus:outline-none focus:ring-4 focus:ring-[#CE9F6B]/10 transition-all font-medium"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -221,20 +297,41 @@ export default function NewInvoicePage() {
             Invoice Details
           </h3>
           <div className="grid grid-cols-2 gap-5">
-            {/* Doc. No. */}
+            {/* Doc. No. - Only show for REGULAR invoices, Prepaid uses auto-generated PRE-{poNo} */}
+            {formData.invoiceType === 'REGULAR' && (
+              <div>
+                <label className="block text-[#5D6E73] text-sm font-semibold mb-2">
+                  Doc. No. <span className="text-[#E17F70]">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="invoiceNumber"
+                  value={formData.invoiceNumber}
+                  onChange={handleChange}
+                  className={inputClass}
+                  placeholder="INV-2024-001"
+                  required
+                />
+              </div>
+            )}
+
+            {/* Invoice Category Type (Service, Sales, Others) */}
             <div>
               <label className="block text-[#5D6E73] text-sm font-semibold mb-2">
-                Doc. No. <span className="text-[#E17F70]">*</span>
+                Type <span className="text-[#E17F70]">*</span>
               </label>
-              <input
-                type="text"
-                name="invoiceNumber"
-                value={formData.invoiceNumber}
+              <select
+                name="type"
+                value={formData.type}
                 onChange={handleChange}
                 className={inputClass}
-                placeholder="INV-2024-001"
                 required
-              />
+              >
+                <option value="">Select Type</option>
+                <option value="SERVICE">Service</option>
+                <option value="SALES">Sales</option>
+                <option value="OTHERS">Others</option>
+              </select>
             </div>
 
             {/* Customer Code */}
@@ -267,19 +364,22 @@ export default function NewInvoicePage() {
                 placeholder="ABC Corporation Ltd (Optional)"              />
             </div>
 
-            {/* Customer Ref. No. (Optional) */}
-            <div>
-              <label className="block text-[#5D6E73] text-sm font-semibold mb-2">
-                Customer Ref. No.
-              </label>
-              <input
-                type="text"
-                name="poNo"
-                value={formData.poNo}
-                onChange={handleChange}
-                className={inputClass}
-                placeholder="PO-12345 (Optional)"              />
-            </div>
+            {/* Customer Ref. No. (PO) - Only show for REGULAR invoices, prepaid has its own section */}
+            {formData.invoiceType === 'REGULAR' && (
+              <div>
+                <label className="block text-[#5D6E73] text-sm font-semibold mb-2">
+                  Customer Ref. No. (PO)
+                </label>
+                <input
+                  type="text"
+                  name="poNo"
+                  value={formData.poNo}
+                  onChange={handleChange}
+                  className={inputClass}
+                  placeholder="PO-12345 (Optional)"
+                />
+              </div>
+            )}
 
             {/* Document Date */}
             <div>

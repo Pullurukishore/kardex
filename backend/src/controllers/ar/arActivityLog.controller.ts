@@ -12,7 +12,9 @@ export type ARActivityAction =
     | 'STATUS_CHANGED'
     | 'DELIVERY_UPDATED'
     | 'REMARK_ADDED'
-    | 'INVOICE_IMPORTED';
+    | 'INVOICE_IMPORTED'
+    | 'PREPAID_LINKED'      // When a prepaid invoice is linked to a regular invoice
+    | 'LINKED_TO_INVOICE';  // When a prepaid is linked (logged on the prepaid invoice)
 
 interface LogActivityParams {
     invoiceId: string;

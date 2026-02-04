@@ -22,7 +22,6 @@ import { getNavigationForRoleAndSubModule, type NavItem, type SubModule } from "
 
 // Constants
 const MOBILE_BREAKPOINT = 1024;
-const INITIAL_LOAD_DELAY = 20;
 
 interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
   userRole?: UserRole;
@@ -202,9 +201,7 @@ export function Sidebar({
   const router = useRouter();
   const { user, logout } = useAuth();
   const [isMobile, setIsMobile] = React.useState(false);
-  const [isInitialLoad, setIsInitialLoad] = React.useState(true);
   const [subModule, setSubModule] = React.useState<SubModule>(null);
-  const [isVisible, setIsVisible] = React.useState(false);
 
   React.useEffect(() => {
     let timeoutId: NodeJS.Timeout;
@@ -217,25 +214,21 @@ export function Sidebar({
     };
     
     // Initial check (immediate)
-    setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
-    window.addEventListener('resize', checkMobile);
+    if (typeof window !== 'undefined') {
+      setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
+      window.addEventListener('resize', checkMobile);
+    }
     return () => {
       clearTimeout(timeoutId);
-      window.removeEventListener('resize', checkMobile);
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('resize', checkMobile);
+      }
     };
   }, []);
 
-  React.useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsInitialLoad(false);
-    }, INITIAL_LOAD_DELAY);
-    return () => clearTimeout(timer);
-  }, []);
+  // No initial load delay needed
 
-  // Animate in on mount
-  React.useEffect(() => {
-    setIsVisible(true);
-  }, []);
+
 
   // Read sub-module selection from localStorage (with storage event listener)
   // Use ref to avoid re-reading on every render
@@ -334,52 +327,44 @@ export function Sidebar({
     }));
   }, []);
 
-  const navItems = React.useMemo(() => {
-    if (isInitialLoad) {
-      return Array.from({ length: 6 }, (_, index) => (
-        <div key={`skeleton-${index}`} className={cn("mb-1", isMobile ? "px-6" : "px-4")}>
-          <NavItemSkeleton isMobile={isMobile} collapsed={collapsed} />
-        </div>
-      ));
-    }
-    
-    return (
-      <div className="space-y-1">
-        {filteredNavItems.map((item) => (
-          <MemoizedNavItem
-            key={item.href}
-            item={item}
-            pathname={pathname}
-            collapsed={collapsed}
-            isMobile={isMobile}
-            onItemClick={handleItemClick}
-            onSectionToggle={toggleSection}
-            expandedSections={expandedSections}
-          />
-        ))}
-      </div>
-    );
-  }, [filteredNavItems, pathname, collapsed, isMobile, isInitialLoad, handleItemClick, toggleSection, expandedSections]);
+  const navItems = React.useMemo(() => (
+    <div className="space-y-1">
+      {filteredNavItems.map((item) => (
+        <MemoizedNavItem
+          key={item.href}
+          item={item}
+          pathname={pathname}
+          collapsed={collapsed}
+          isMobile={isMobile}
+          onItemClick={handleItemClick}
+          onSectionToggle={toggleSection}
+          expandedSections={expandedSections}
+        />
+      ))}
+    </div>
+  ), [filteredNavItems, pathname, collapsed, isMobile, handleItemClick, toggleSection, expandedSections]);
 
   return (
     <div
       className={cn(
-        "flex flex-col h-full bg-white transition-all duration-300 ease-out",
-        isVisible ? "opacity-100" : "opacity-0",
-        isMobile ? "border-none" : "backdrop-blur-xl",
+        "flex flex-col h-full",
+        "bg-gradient-to-b from-[#AEBFC3]/10 via-white/90 to-[#AEBFC3]/20",
+        "backdrop-blur-xl",
+        "border-r border-[#6F8A9D]/15",
+        "shadow-xl shadow-[#6F8A9D]/10",
         className
       )}
       role="navigation"
       aria-label="Primary"
     >
       {/* Top gradient accent bar - Kardex brand colors */}
-      <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[#96AEC2] via-[#82A094] to-[#CE9F6B]">
-        <div className="absolute inset-0 bg-gradient-to-r from-[#96AEC2] via-[#82A094] to-[#CE9F6B] blur-sm opacity-50" />
+      <div className="absolute top-0 left-0 right-0 h-[4px] bg-gradient-to-r from-[#96AEC2] via-[#6F8A9D] to-[#CE9F6B]">
+        <div className="absolute inset-0 bg-gradient-to-r from-[#96AEC2] via-[#6F8A9D] to-[#CE9F6B] blur-sm opacity-50" />
       </div>
       
       {/* Animated background glows - Kardex brand colors */}
-      <div className="absolute top-24 left-1/2 -translate-x-1/2 w-48 h-48 bg-[#96AEC2]/10 rounded-full blur-3xl pointer-events-none animate-pulse" style={{ animationDuration: '4s' }} />
-      <div className="absolute bottom-32 left-1/3 w-32 h-32 bg-[#82A094]/10 rounded-full blur-3xl pointer-events-none animate-pulse" style={{ animationDuration: '6s', animationDelay: '2s' }} />
+      <div className="absolute top-24 left-1/2 -translate-x-1/2 w-48 h-48 bg-[#96AEC2]/5 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-32 left-1/3 w-32 h-32 bg-[#82A094]/5 rounded-full blur-3xl pointer-events-none" />
       
       {/* Subtle grid pattern overlay */}
       <div className="absolute inset-0 opacity-[0.015] pointer-events-none" 
@@ -391,9 +376,9 @@ export function Sidebar({
 
       {/* Header */}
       <div className={cn(
-        "relative flex items-center justify-between border-b border-[#96AEC2]/15",
-        "bg-white/90 backdrop-blur-xl",
-        isMobile ? "h-16 px-5" : "h-[72px] px-3"
+        "relative flex items-center justify-between border-b border-[#96AEC2]/10",
+        "bg-white/50 backdrop-blur-xl",
+        isMobile ? "h-16 px-5" : "h-[76px] px-3"
       )}>
         <div suppressHydrationWarning className="flex-1 flex items-center justify-center">
           {(!collapsed || isMobile) && (

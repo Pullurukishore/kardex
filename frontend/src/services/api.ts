@@ -137,6 +137,15 @@ class ApiService {
   // SPARE PART BULK IMPORT
   // ═══════════════════════════════════════════════════════════════════════════
 
+  async uploadImage(file: File): Promise<string> {
+    const formData = new FormData();
+    formData.append('image', file);
+    const response = await api.post(`${this.baseURL}/spare-parts/upload`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return response.data.imageUrl;
+  }
+
   async previewSparePartImport(file: File): Promise<any> {
     const formData = new FormData();
     formData.append('file', file);

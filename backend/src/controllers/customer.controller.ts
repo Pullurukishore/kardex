@@ -49,8 +49,8 @@ export const listCustomers = async (req: AuthenticatedRequest, res: Response) =>
     const userRole = req.user?.role;
     const userId = req.user?.id;
 
-    if (userRole === 'ADMIN') {
-      // Admin can view all customers
+    if (userRole === 'ADMIN' || userRole === 'EXPERT_HELPDESK') {
+      // Admin and Expert Helpdesk can view all customers
     } else if (userRole === 'ZONE_USER' || userRole === 'ZONE_MANAGER') {
       // Zone users and zone managers can only view customers in their assigned zones
       const userWithZones = await prisma.user.findUnique({
@@ -147,6 +147,7 @@ export const listCustomers = async (req: AuthenticatedRequest, res: Response) =>
     const customers = await prisma.customer.findMany({
       where,
       orderBy: { companyName: 'asc' },
+      take: 1000, // Safety limit to prevent memory overload
       select: selectQuery
     });
 

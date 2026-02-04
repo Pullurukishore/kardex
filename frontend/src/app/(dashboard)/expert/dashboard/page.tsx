@@ -18,7 +18,7 @@ import DashboardClient from '@/components/dashboard/DashboardClient';
 // Loading component for Suspense boundary - Enhanced skeleton UI
 function DashboardLoading() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#AEBFC3]/10 via-blue-50 to-[#96AEC2]/20 p-3 sm:p-4 md:p-6 lg:p-8">
+    <div className="min-h-screen bg-gradient-to-br from-[#AEBFC3]/10 via-blue-50 to-[#96AEC2]/20 p-2 md:p-4">
       <div className="w-full max-w-full">
         {/* Header skeleton */}
         <div className="mb-6 sm:mb-8">

@@ -50,7 +50,7 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
   const reportData = null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#AEBFC3]/10 via-[#96AEC2]/10 to-[#A2B9AF]/10 p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen bg-gradient-to-br from-[#AEBFC3]/10 via-[#96AEC2]/10 to-[#A2B9AF]/10 p-2 sm:p-3 lg:p-4 space-y-6">
       {/* Client Component for API calls */}
       <ReportsClient 
         initialFilters={filters}

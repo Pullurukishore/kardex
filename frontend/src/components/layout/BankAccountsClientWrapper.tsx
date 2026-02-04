@@ -19,6 +19,7 @@ const navItems = [
   { href: '/finance/bank-accounts', label: 'All Vendors', icon: Building2, description: 'View all vendor accounts' },
   { href: '/finance/bank-accounts/new', label: 'Add Vendor', icon: Plus, description: 'Create vendor account' },
   { href: '/finance/bank-accounts/requests', label: 'Requests', icon: Clock, description: 'Vendor approvals' },
+  { href: '/finance/bank-accounts/activities', label: 'Activities', icon: Activity, description: 'Audit trail & logs' },
 ];
 
 export function BankAccountsClientWrapper({ children }: BankAccountsLayoutProps) {
@@ -107,9 +108,9 @@ export function BankAccountsClientWrapper({ children }: BankAccountsLayoutProps)
     <div className="min-h-screen bg-white">
       {/* Animated background effects */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 right-1/4 w-96 h-96 bg-[#CE9F6B]/5 rounded-full blur-3xl animate-pulse" style={{ animationDuration: '8s' }} />
-        <div className="absolute bottom-1/4 left-1/3 w-80 h-80 bg-[#82A094]/5 rounded-full blur-3xl animate-pulse" style={{ animationDuration: '10s', animationDelay: '2s' }} />
-        <div className="absolute top-1/3 left-1/4 w-64 h-64 bg-[#E17F70]/5 rounded-full blur-3xl animate-pulse" style={{ animationDuration: '12s', animationDelay: '4s' }} />
+        <div className="absolute top-0 right-1/4 w-96 h-96 bg-[#CE9F6B]/5 rounded-full blur-3xl" />
+        <div className="absolute bottom-1/4 left-1/3 w-80 h-80 bg-[#82A094]/5 rounded-full blur-3xl" />
+        <div className="absolute top-1/3 left-1/4 w-64 h-64 bg-[#E17F70]/5 rounded-full blur-3xl" />
       </div>
 
       {/* Mobile overlay */}
@@ -141,8 +142,8 @@ export function BankAccountsClientWrapper({ children }: BankAccountsLayoutProps)
           </div>
           
           {/* Animated background glows */}
-          <div className="absolute top-24 left-1/2 -translate-x-1/2 w-48 h-48 bg-[#CE9F6B]/10 rounded-full blur-3xl pointer-events-none animate-pulse" style={{ animationDuration: '4s' }} />
-          <div className="absolute bottom-32 left-1/3 w-32 h-32 bg-[#82A094]/10 rounded-full blur-3xl pointer-events-none animate-pulse" style={{ animationDuration: '6s', animationDelay: '2s' }} />
+          <div className="absolute top-24 left-1/2 -translate-x-1/2 w-48 h-48 bg-[#CE9F6B]/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute bottom-32 left-1/3 w-32 h-32 bg-[#82A094]/10 rounded-full blur-3xl pointer-events-none" />
 
           {/* Header */}
           <div className={cn(
@@ -427,17 +428,6 @@ export function BankAccountsClientWrapper({ children }: BankAccountsLayoutProps)
 
             {/* Right section */}
             <div className="flex items-center gap-3">
-              <button className="hidden md:flex p-2.5 rounded-xl bg-white border border-[#AEBFC3]/30 text-[#92A2A5] hover:text-[#6F8A9D] hover:border-[#6F8A9D]/30 hover:shadow-md transition-all">
-                <HelpCircle className="w-5 h-5" />
-              </button>
-
-              <button className="relative p-2.5 rounded-xl bg-white border border-[#AEBFC3]/30 text-[#5D6E73] hover:border-[#CE9F6B]/40 hover:shadow-md transition-all">
-                <Bell className="w-5 h-5" />
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#E17F70] animate-pulse" />
-              </button>
-
-              <div className="hidden md:block w-px h-8 bg-[#AEBFC3]/30 mx-1" />
-
               {/* User Menu */}
               <div className="relative">
                 <button 

@@ -273,7 +273,7 @@ export default function TargetsPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#AEBFC3]/10 via-blue-50/30 to-[#96AEC2]/10/50">
-      <div className="w-full p-4 sm:p-6 lg:p-8 space-y-6">
+      <div className="w-full p-2 sm:p-3 lg:p-4 space-y-6">
         
         {/* Premium Header with Inline Stats */}
         <div className="relative overflow-hidden bg-gradient-to-br from-[#6F8A9D] via-[#6F8A9D] to-[#546A7A] rounded-2xl shadow-2xl p-6 text-white">

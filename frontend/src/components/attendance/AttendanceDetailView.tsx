@@ -384,9 +384,9 @@ export default function AttendanceDetailView({
 
   if (loading) {
     return (
-      <div className="container mx-auto p-6">
+      <div className="min-h-screen bg-[#F8FAFC] p-4 md:p-6">
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin" />
+          <Loader2 className="h-8 w-8 animate-spin text-[#546A7A]" />
         </div>
       </div>
     );
@@ -394,13 +394,13 @@ export default function AttendanceDetailView({
 
   if (!attendance) {
     return (
-      <div className="container mx-auto p-6">
-        <div className="text-center py-12">
+      <div className="min-h-screen bg-[#F8FAFC] p-4 md:p-6">
+        <div className="bg-white rounded-2xl shadow-lg border border-[#AEBFC3]/20 p-12 text-center">
           <XCircle className="h-12 w-12 mx-auto text-[#E17F70] mb-4" />
-          <h3 className="text-lg font-medium text-[#546A7A] mb-2">Attendance Record Not Found</h3>
-          <p className="text-[#AEBFC3]0 mb-4">The requested attendance record could not be found.</p>
+          <h3 className="text-lg font-bold text-[#546A7A] mb-2">Attendance Record Not Found</h3>
+          <p className="text-[#6F8A9D] mb-6">The requested attendance record could not be found.</p>
           <Link href={backUrl}>
-            <Button variant="outline">
+            <Button variant="outline" className="rounded-xl border-[#AEBFC3] hover:bg-[#96AEC2]/10">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Attendance
             </Button>
@@ -418,64 +418,71 @@ export default function AttendanceDetailView({
   
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#AEBFC3]/10 via-[#96AEC2]/10 to-[#6F8A9D]/20 p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6 max-w-full overflow-x-hidden">
-      {/* Modern Header with Gradient */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#546A7A] via-[#546A7A] to-[#546A7A] p-4 sm:p-6 shadow-xl">
-        <div className="absolute inset-0 bg-black/5"></div>
-        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
-        <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full -ml-12 -mb-12"></div>
+    <div className="min-h-screen bg-[#F8FAFC] p-4 md:p-6 space-y-6 max-w-full overflow-x-hidden relative">
+      {/* Decorative Background Elements */}
+      <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-[#96AEC2]/5 rounded-full -mr-48 -mt-48 blur-3xl"></div>
+      <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-[#A2B9AF]/5 rounded-full -ml-36 -mb-36 blur-3xl"></div>
+
+      {/* Premium Header with Kardex Brand Gradient */}
+      <div className="relative z-10 overflow-hidden rounded-2xl bg-gradient-to-br from-[#546A7A] via-[#6F8A9D] to-[#546A7A] p-5 md:p-8 shadow-xl border border-white/20">
+        <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full -mr-24 -mt-24 blur-2xl"></div>
+        <div className="absolute bottom-0 left-0 w-36 h-36 bg-black/8 rounded-full -ml-18 -mb-18 blur-xl"></div>
         
         <div className="relative z-10">
-          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 min-w-0 flex-1">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-6 min-w-0 flex-1">
               <Link href={backUrl}>
-                <Button variant="secondary" size="sm" className="w-fit bg-white/20 hover:bg-white/30 text-white border-white/30 backdrop-blur-sm">
-                  <ArrowLeft className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-                  <span className="hidden sm:inline">Back</span>
+                <Button variant="outline" size="lg" className="h-12 w-12 sm:w-auto sm:px-6 rounded-2xl bg-white/15 hover:bg-white/25 text-white border-white/30 backdrop-blur-xl shadow-xl transition-all group">
+                  <ArrowLeft className="h-5 w-5 sm:mr-2 group-hover:-translate-x-1 transition-transform" />
+                  <span className="hidden sm:inline font-black uppercase tracking-widest text-[10px]">Back to Hub</span>
                 </Button>
               </Link>
               
-              {/* User Profile Section */}
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white font-bold text-xl shadow-lg border-2 border-white/30">
-                  {(attendance.user.name || attendance.user.email).charAt(0).toUpperCase()}
+              <div className="flex items-center gap-6">
+                <div className="relative group">
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-[2rem] bg-gradient-to-br from-white/25 to-white/5 backdrop-blur-3xl flex items-center justify-center text-white font-black text-2xl sm:text-3xl shadow-2xl border-2 border-white/40 group-hover:scale-105 transition-transform duration-500">
+                    {(attendance.user.name || attendance.user.email).charAt(0).toUpperCase()}
+                  </div>
+                  <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-[#82A094] rounded-full border-4 border-[#546A7A] shadow-lg"></div>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-white truncate">
+                <div className="min-w-0 space-y-1">
+                  <p className="text-[10px] font-black text-white/50 uppercase tracking-[0.3em]">Personnel Perspective</p>
+                  <h1 className="text-2xl sm:text-5xl font-black text-white tracking-tighter truncate drop-shadow-2xl leading-none">
                     {attendance.user.name || attendance.user.email}
                   </h1>
-                  <div className="flex flex-wrap items-center gap-2 mt-1">
-                    <Badge className="bg-white/20 text-white border-white/30 text-xs">
-                      <Calendar className="h-3 w-3 mr-1" />
-                      {formatDate(attendance.checkInAt)}
-                    </Badge>
+                  <div className="flex flex-wrap items-center gap-3 mt-3">
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-white/10 backdrop-blur-md rounded-xl border border-white/10 shadow-inner">
+                      <Calendar className="h-3.5 w-3.5 text-white/70" />
+                      <span className="text-[10px] font-black text-white uppercase tracking-widest">{formatDate(attendance.checkInAt)}</span>
+                    </div>
                     {attendance.user.serviceZones.length > 0 && (
-                      <Badge className="bg-white/20 text-white border-white/30 text-xs">
-                        <MapPin className="h-3 w-3 mr-1" />
-                        {attendance.user.serviceZones.map(sz => sz.serviceZone.name).join(', ')}
-                      </Badge>
+                      <div className="flex items-center gap-2 px-3 py-1.5 bg-white/10 backdrop-blur-md rounded-xl border border-white/10 shadow-inner">
+                        <MapPin className="h-3.5 w-3.5 text-white/70" />
+                        <span className="text-[10px] font-black text-white uppercase tracking-widest">{attendance.user.serviceZones.map(sz => sz.serviceZone.name).join(', ')}</span>
+                      </div>
                     )}
                   </div>
                 </div>
               </div>
             </div>
             
-            <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
-              <Badge className={`${statusConfig.color} border text-xs sm:text-sm whitespace-nowrap shadow-sm`}>
-                <StatusIcon className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+            <div className="flex flex-wrap items-center gap-4 flex-shrink-0">
+              <Badge className={`${statusConfig.color} px-6 py-2.5 rounded-2xl border-0 text-[10px] font-black uppercase tracking-widest shadow-2xl`}>
+                <StatusIcon className="h-4 w-4 mr-2.5" />
                 {statusConfig.label}
               </Badge>
               {isAutoCheckout && (
-                <Badge variant="outline" className="bg-[#6F8A9D]/20 text-[#546A7A] border-[#6F8A9D] text-xs sm:text-sm whitespace-nowrap shadow-sm">
-                  <Zap className="h-3 w-3 mr-1" />
-                  Auto
+                <Badge className="bg-white/10 text-white border-white/20 backdrop-blur-md px-6 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-2xl">
+                  <Zap className="h-4 w-4 mr-2.5 text-[#CE9F6B]" />
+                  Auto-Log
                 </Badge>
               )}
               {attendance.totalHours && Number(attendance.totalHours) > 0 && (
-                <Badge className="bg-white text-[#546A7A] border-0 text-xs sm:text-sm whitespace-nowrap shadow-sm font-semibold">
-                  <Timer className="h-3 w-3 mr-1" />
-                  {Number(attendance.totalHours).toFixed(1)}h
-                </Badge>
+                <div className="bg-white/95 backdrop-blur-3xl px-6 py-2.5 rounded-2xl text-[#546A7A] shadow-2xl border border-white/40 flex items-center gap-3 transform hover:scale-110 transition-all duration-500">
+                  <Timer className="h-5 w-5 text-[#6F8A9D]" />
+                  <span className="text-xl font-black tracking-tighter leading-none">{Number(attendance.totalHours).toFixed(1)}</span>
+                  <span className="text-[10px] font-black uppercase opacity-40">Hrs</span>
+                </div>
               )}
             </div>
           </div>
@@ -483,73 +490,65 @@ export default function AttendanceDetailView({
       </div>
 
       {/* Main Content with Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 sm:space-y-6">
-        <TabsList className="grid w-full grid-cols-4 h-auto p-1.5 bg-white/80 backdrop-blur-sm rounded-xl shadow-lg border border-[#92A2A5]">
-          <TabsTrigger value="overview" className="text-xs sm:text-sm px-2 sm:px-3 py-2.5 sm:py-3 min-w-0 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#6F8A9D] data-[state=active]:to-[#6F8A9D] data-[state=active]:text-white data-[state=active]:shadow-md transition-all duration-200">
-            <div className="flex flex-col items-center gap-1">
-              <Info className="h-4 w-4" />
-              <span className="hidden sm:inline text-xs font-medium">Overview</span>
-              <span className="sm:hidden text-xs font-medium">Info</span>
-            </div>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList className="grid w-full grid-cols-4 h-11 p-1 bg-white/80 backdrop-blur-md rounded-xl shadow-lg border border-[#AEBFC3]/20">
+          <TabsTrigger value="overview" className="flex items-center gap-2 rounded-lg text-sm data-[state=active]:bg-[#546A7A] data-[state=active]:text-white data-[state=active]:shadow-md transition-all">
+            <Info className="h-4 w-4" />
+            <span className="hidden sm:inline text-xs font-bold">Overview</span>
           </TabsTrigger>
-          <TabsTrigger value="activities" className="text-xs sm:text-sm px-2 sm:px-3 py-2.5 sm:py-3 min-w-0 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#6F8A9D] data-[state=active]:to-[#6F8A9D] data-[state=active]:text-white data-[state=active]:shadow-md transition-all duration-200">
-            <div className="flex flex-col items-center gap-1">
+          <TabsTrigger value="activities" className="flex items-center gap-2 rounded-lg text-sm data-[state=active]:bg-[#546A7A] data-[state=active]:text-white data-[state=active]:shadow-md transition-all">
+            <div className="relative">
               <Activity className="h-4 w-4" />
-              <span className="hidden sm:inline text-xs font-medium">Activities</span>
-              <span className="sm:hidden text-xs font-medium">Tasks</span>
-              <Badge className="text-[10px] px-1.5 py-0 bg-[#96AEC2]/20 text-[#546A7A] border-0">{activities.length}</Badge>
+              {activities.length > 0 && (
+                <span className="absolute -top-2 -right-2 bg-[#E17F70] text-white text-[9px] px-1 min-w-[16px] h-4 flex items-center justify-center rounded-full font-bold">{activities.length}</span>
+              )}
             </div>
+            <span className="hidden sm:inline text-xs font-bold">Activities</span>
           </TabsTrigger>
-          <TabsTrigger value="timeline" className="text-xs sm:text-sm px-2 sm:px-3 py-2.5 sm:py-3 min-w-0 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#6F8A9D] data-[state=active]:to-[#6F8A9D] data-[state=active]:text-white data-[state=active]:shadow-md transition-all duration-200">
-            <div className="flex flex-col items-center gap-1">
-              <Clock className="h-4 w-4" />
-              <span className="hidden sm:inline text-xs font-medium">Timeline</span>
-              <span className="sm:hidden text-xs font-medium">Time</span>
-            </div>
+          <TabsTrigger value="timeline" className="flex items-center gap-2 rounded-lg text-sm data-[state=active]:bg-[#546A7A] data-[state=active]:text-white data-[state=active]:shadow-md transition-all">
+            <Clock className="h-4 w-4" />
+            <span className="hidden sm:inline text-xs font-bold">Timeline</span>
           </TabsTrigger>
-          <TabsTrigger value="audit" className="text-xs sm:text-sm px-2 sm:px-3 py-2.5 sm:py-3 min-w-0 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#6F8A9D] data-[state=active]:to-[#6F8A9D] data-[state=active]:text-white data-[state=active]:shadow-md transition-all duration-200">
-            <div className="flex flex-col items-center gap-1">
-              <FileText className="h-4 w-4" />
-              <span className="hidden sm:inline text-xs font-medium">History</span>
-              <span className="sm:hidden text-xs font-medium">Log</span>
-            </div>
+          <TabsTrigger value="audit" className="flex items-center gap-2 rounded-lg text-sm data-[state=active]:bg-[#546A7A] data-[state=active]:text-white data-[state=active]:shadow-md transition-all">
+            <FileText className="h-4 w-4" />
+            <span className="hidden sm:inline text-xs font-bold">Audit</span>
           </TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
-        <TabsContent value="overview" className="space-y-4 sm:space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+        <TabsContent value="overview" className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Check-In Details */}
-            <Card>
-              <CardHeader className="pb-3 sm:pb-6">
-                <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-                  <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-[#4F6A64]" />
+            <Card className="rounded-xl shadow-sm border-[#AEBFC3]/20">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-sm font-bold text-[#546A7A]">
+                  <Clock className="h-4 w-4 text-[#4F6A64]" />
                   Check-In Details
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-3">
                 {attendance.checkInAt ? (
                   <>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-[#5D6E73]">Time:</span>
-                      <span className="text-sm font-mono">{formatTime(attendance.checkInAt)}</span>
+                      <span className="text-xs font-medium text-[#6F8A9D]">Time:</span>
+                      <span className="text-sm font-mono font-bold text-[#546A7A]">{formatTime(attendance.checkInAt)}</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-[#5D6E73]">Date:</span>
-                      <span className="text-sm">{formatDate(attendance.checkInAt)}</span>
+                      <span className="text-xs font-medium text-[#6F8A9D]">Date:</span>
+                      <span className="text-sm text-[#546A7A]">{formatDate(attendance.checkInAt)}</span>
                     </div>
                     {attendance.checkInAddress && (
-                      <div className="space-y-2">
-                        <span className="text-sm font-medium text-[#5D6E73]">Location:</span>
+                      <div className="space-y-1.5">
+                        <span className="text-xs font-medium text-[#6F8A9D]">Location:</span>
                         <div className="flex items-start gap-2">
-                          <MapPin className="h-4 w-4 text-[#979796] mt-0.5" />
+                          <MapPin className="h-3.5 w-3.5 text-[#AEBFC3] mt-0.5" />
                           <div className="flex-1">
-                            <p className="text-sm text-[#546A7A]">{attendance.checkInAddress}</p>
+                            <p className="text-xs text-[#546A7A]">{attendance.checkInAddress}</p>
                             {attendance.checkInLatitude && attendance.checkInLongitude && (
                               <Button
                                 variant="link"
                                 size="sm"
-                                className="h-auto p-0 text-[#546A7A]"
+                                className="h-auto p-0 text-xs text-[#96AEC2]"
                                 onClick={() => window.open(`https://maps.google.com/?q=${attendance.checkInLatitude},${attendance.checkInLongitude}`, '_blank')}
                               >
                                 <ExternalLink className="h-3 w-3 mr-1" />
@@ -562,23 +561,23 @@ export default function AttendanceDetailView({
                     )}
                   </>
                 ) : (
-                  <div className="text-center py-4">
-                    <XCircle className="h-8 w-8 mx-auto text-[#E17F70] mb-2" />
-                    <p className="text-sm text-[#AEBFC3]0">No check-in recorded</p>
+                  <div className="text-center py-3">
+                    <XCircle className="h-6 w-6 mx-auto text-[#E17F70] mb-1" />
+                    <p className="text-xs text-[#6F8A9D]">No check-in recorded</p>
                   </div>
                 )}
               </CardContent>
             </Card>
 
             {/* Check-Out Details */}
-            <Card>
-              <CardHeader className="pb-3 sm:pb-6">
-                <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-                  <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-[#9E3B47]" />
+            <Card className="rounded-xl shadow-sm border-[#AEBFC3]/20">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-sm font-bold text-[#546A7A]">
+                  <Clock className="h-4 w-4 text-[#9E3B47]" />
                   Check-Out Details
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-3">
                 {attendance.checkOutAt ? (
                   <>
                     <div className="flex items-center justify-between">
@@ -668,7 +667,7 @@ export default function AttendanceDetailView({
               </CardContent>
             </Card>
 
-            <Card className="border border-[#CE9F6B] bg-gradient-to-br from-[#EEC1BF]/10 via-orange-100 to-orange-200 shadow-sm hover:shadow-md transition-shadow">
+            <Card className="border border-[#CE9F6B] bg-gradient-to-br from-[#EEC1BF]/10 via-[#CE9F6B]/10 to-[#976E44]/10 shadow-sm hover:shadow-md transition-shadow">
               <CardContent className="p-3 sm:p-4">
                 <div className="flex items-center gap-2 sm:gap-3">
                   <div className="p-2 bg-[#CE9F6B]/100 rounded-xl flex-shrink-0">

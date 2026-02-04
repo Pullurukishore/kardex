@@ -47,53 +47,7 @@ import forecastRoutes from './routes/forecast.routes';
 const app = express();
 const server = http.createServer(app);
 
-// Create WebSocket server
-const wss = new WebSocketServer({
-  server: server as any,
-  path: '/api/notifications/ws'
-});
-
-// Extend WebSocket type to include userId
-export interface CustomWebSocket extends BaseWebSocket {
-  userId?: string;
-  isAlive: boolean;
-}
-
-// Handle WebSocket connections
-wss.on('connection', (ws: BaseWebSocket) => {
-  const customWs = ws as CustomWebSocket;
-  // Set initial alive state
-  customWs.isAlive = true;
-
-  // Handle ping/pong for connection keep-alive
-  customWs.on('pong', () => {
-    customWs.isAlive = true;
-  });
-
-  // Handle WebSocket close
-  customWs.on('close', () => {
-  });
-
-  // Handle errors
-  customWs.on('error', (error) => {
-  });
-});
-
-// Keep-alive interval
-const interval = setInterval(() => {
-  wss.clients.forEach((client) => {
-    const ws = client as CustomWebSocket;
-    if (ws.isAlive === false) return ws.terminate();
-
-    ws.isAlive = false;
-    ws.ping();
-  });
-}, 30000);
-
-// Clean up on server close
-wss.on('close', () => {
-  clearInterval(interval);
-});
+// WebSocket server is now managed in server.ts to avoid redundancy
 
 // CORS Configuration
 const corsOptions: cors.CorsOptions = {

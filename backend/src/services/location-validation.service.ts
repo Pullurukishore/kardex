@@ -28,7 +28,7 @@ export class LocationValidationService {
   private static readonly MAX_GPS_ACCURACY = 3000; // meters - updated for better GPS success rate
   private static readonly MAX_REASONABLE_SPEED = 200; // km/h
   private static readonly MIN_TIME_BETWEEN_LOCATIONS = 10; // seconds
-  
+
   // Coordinate bounds for India (approximate)
   private static readonly INDIA_BOUNDS = {
     minLat: 6.0,
@@ -97,13 +97,8 @@ export class LocationValidationService {
         errors,
         warnings
       });
-    } else if (warnings.length > 0) {
-      logger.info('Location validation passed with warnings:', {
-        location,
-        warnings
-      });
     } else {
-      logger.info('Location validation passed:', { location });
+      // Location validation passed
     }
 
     return result;
@@ -176,11 +171,7 @@ export class LocationValidationService {
         result
       });
     } else {
-      logger.info('Location jump validation passed:', {
-        distance: distance.toFixed(2),
-        speed: speed.toFixed(1),
-        timeElapsed: timeElapsedHours.toFixed(2)
-      });
+      // Location jump validation passed
     }
 
     return result;
@@ -295,7 +286,7 @@ export class LocationValidationService {
     if (location.timestamp) {
       const age = Date.now() - location.timestamp;
       const ageMinutes = age / (1000 * 60);
-      
+
       if (ageMinutes > 10) {
         score -= Math.min(20, ageMinutes - 10);
         description += ` (${ageMinutes.toFixed(0)}min old)`;

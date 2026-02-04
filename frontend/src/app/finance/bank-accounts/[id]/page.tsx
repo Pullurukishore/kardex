@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { arApi, BankAccount, BankAccountChangeRequest } from '@/lib/ar-api';
+import { arApi, BankAccount, BankAccountChangeRequest, BankAccountActivityLog } from '@/lib/ar-api';
 import { useAuth } from '@/contexts/AuthContext';
 import { FinanceRole } from '@/types/user.types';
 import { 
@@ -11,7 +11,8 @@ import {
   CreditCard, Mail, Hash, Clock, CheckCircle2, XCircle,
   AlertCircle, User, Calendar, Copy, ExternalLink, Check,
   FileText, Download, Trash, Upload, Loader2, FileIcon,
-  Eye, FileSpreadsheet, FileImage, File, Landmark, BadgeCheck
+  Eye, FileSpreadsheet, FileImage, File, Landmark, BadgeCheck,
+  Activity, ChevronDown, ChevronUp, Shield, TrendingUp
 } from 'lucide-react';
 
 export default function BankAccountDetailPage() {
@@ -23,12 +24,16 @@ export default function BankAccountDetailPage() {
   const [copied, setCopied] = useState<string | null>(null);
   const [attachments, setAttachments] = useState<any[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [activityLogs, setActivityLogs] = useState<BankAccountActivityLog[]>([]);
+  const [loadingActivities, setLoadingActivities] = useState(false);
+  const [showAllActivities, setShowAllActivities] = useState(false);
 
   const isAdmin = user?.financeRole === FinanceRole.FINANCE_ADMIN;
 
   useEffect(() => {
     loadAccount();
     loadAttachments();
+    loadActivityLogs();
   }, [params.id]);
 
   const loadAccount = async () => {
@@ -49,6 +54,18 @@ export default function BankAccountDetailPage() {
       setAttachments(data);
     } catch (error) {
       console.error('Failed to load attachments:', error);
+    }
+  };
+
+  const loadActivityLogs = async () => {
+    try {
+      setLoadingActivities(true);
+      const data = await arApi.getBankAccountActivityLogs(params.id as string, { limit: 50 });
+      setActivityLogs(data.logs || []);
+    } catch (error) {
+      console.error('Failed to load activity logs:', error);
+    } finally {
+      setLoadingActivities(false);
     }
   };
 
@@ -135,24 +152,30 @@ export default function BankAccountDetailPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="w-12 h-12 border-4 border-[#CE9F6B]/30 border-t-[#CE9F6B] rounded-full animate-spin" />
+      <div className="flex flex-col items-center justify-center min-h-[500px]">
+        <div className="relative">
+          <div className="w-16 h-16 border-4 border-[#96AEC2]/20 border-t-[#6F8A9D] rounded-full animate-spin" />
+          <Building2 className="w-6 h-6 text-[#6F8A9D] absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+        </div>
+        <p className="mt-4 text-sm font-medium text-[#92A2A5]">Loading account details...</p>
       </div>
     );
   }
 
   if (!account) {
     return (
-      <div className="text-center py-16">
-        <AlertCircle className="w-16 h-16 text-[#E17F70]/50 mx-auto mb-4" />
-        <h2 className="text-xl font-bold text-[#546A7A] mb-2">Vendor Account Not Found</h2>
-        <p className="text-[#92A2A5] mb-4">The requested vendor account could not be found.</p>
+      <div className="text-center py-20">
+        <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-[#E17F70]/10 to-[#E17F70]/5 mb-5">
+          <AlertCircle className="w-10 h-10 text-[#E17F70]" />
+        </div>
+        <h2 className="text-2xl font-bold text-[#546A7A] mb-2">Bank Account Not Found</h2>
+        <p className="text-[#92A2A5] mb-6">The requested bank account could not be found.</p>
         <Link
           href="/finance/bank-accounts"
-          className="inline-flex items-center gap-2 text-[#CE9F6B] hover:text-[#976E44] font-medium"
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#6F8A9D] to-[#546A7A] text-white font-semibold hover:shadow-lg hover:-translate-y-0.5 transition-all"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to Vendor Accounts
+          Back to Bank Accounts
         </Link>
       </div>
     );
@@ -160,173 +183,220 @@ export default function BankAccountDetailPage() {
 
   return (
     <div className="w-full max-w-none">
-      {/* Header - Full Width with Gradient Background */}
-      <div className="bg-gradient-to-r from-[#546A7A]/5 via-[#CE9F6B]/5 to-transparent rounded-3xl p-6 mb-8 border border-[#AEBFC3]/10">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-          <div className="flex items-center gap-5">
-            <Link
-              href="/finance/bank-accounts"
-              className="group p-3.5 rounded-2xl bg-white border border-[#AEBFC3]/30 text-[#5D6E73] hover:text-[#CE9F6B] hover:border-[#CE9F6B]/30 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300"
-            >
-              <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-            </Link>
-            <div>
-              <div className="flex flex-wrap items-center gap-3">
-                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight finance-gradient-text">
-                  {account.vendorName}
-                </h1>
-                {account.isActive && (
-                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#82A094]/15 text-[#4F6A64] text-[10px] font-black uppercase tracking-widest border border-[#82A094]/30 shadow-sm">
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    Verified Active
+      {/* Premium Header with Kardex Blue Gradient */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-[#96AEC2]/10 via-[#6F8A9D]/8 to-[#546A7A]/5 rounded-2xl border border-[#96AEC2]/20 shadow-lg mb-8">
+        {/* Decorative Pattern */}
+        <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-[#6F8A9D]/5 to-transparent rounded-full blur-3xl -z-10" />
+        
+        <div className="relative p-6">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+            {/* Left Section - Title & Info */}
+            <div className="flex items-start gap-4">
+              <Link
+                href="/finance/bank-accounts"
+                className="group mt-1 p-3 rounded-xl bg-white/80 backdrop-blur-sm border border-[#96AEC2]/30 text-[#6F8A9D] hover:text-white hover:bg-gradient-to-r hover:from-[#6F8A9D] hover:to-[#546A7A] hover:border-[#546A7A] hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300"
+              >
+                <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+              </Link>
+              
+              <div className="flex-1">
+                <div className="flex flex-wrap items-center gap-3 mb-2">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 rounded-lg bg-gradient-to-br from-[#6F8A9D] to-[#546A7A] shadow-lg">
+                      <Building2 className="w-5 h-5 text-white" />
+                    </div>
+                    <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-[#546A7A] to-[#6F8A9D] bg-clip-text text-transparent">
+                      {account.vendorName}
+                    </h1>
+                  </div>
+                  
+                  {account.isActive && (
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-[#82A094] to-[#4F6A64] text-white text-xs font-bold uppercase tracking-wide shadow-md">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      Active Account
+                    </div>
+                  )}
+                </div>
+                
+                {account.nickName && (
+                  <div className="flex items-center gap-2 text-[#6F8A9D]">
+                    <Sparkles className="w-4 h-4" />
+                    <p className="text-sm font-semibold">"{account.nickName}"</p>
                   </div>
                 )}
+                
+                <div className="flex items-center gap-2 mt-3 text-xs text-[#92A2A5]">
+                  <Calendar className="w-3.5 h-3.5 text-[#6F8A9D]" />
+                  <span>Created {formatDate(account.createdAt)}</span>
+                </div>
               </div>
-              {account.nickName && (
-                <p className="text-[#CE9F6B] text-sm mt-2 font-bold flex items-center gap-2">
-                  <Sparkles className="w-4 h-4" />
-                  "{account.nickName}"
-                </p>
+            </div>
+            
+            {/* Right Section - Actions */}
+            <div className="flex flex-wrap items-center gap-3">
+              <Link
+                href={`/finance/bank-accounts/${account.id}/edit`}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#6F8A9D] to-[#546A7A] text-white text-sm font-semibold shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300"
+              >
+                <Pencil className="w-4 h-4" />
+                <span className="hidden sm:inline">{isAdmin ? 'Edit Account' : 'Request Changes'}</span>
+                <span className="sm:hidden">Edit</span>
+              </Link>
+              
+              {isAdmin && (
+                <button
+                  onClick={handleDelete}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white border-2 border-[#E17F70]/30 text-[#E17F70] text-sm font-semibold hover:bg-[#E17F70] hover:text-white hover:border-[#E17F70] hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span className="hidden sm:inline">Delete</span>
+                </button>
               )}
             </div>
-          </div>
-          
-          <div className="flex flex-wrap items-center gap-3">
-            <Link
-              href={`/finance/bank-accounts/${account.id}/edit`}
-              className="finance-btn-primary finance-shimmer flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-[#6F8A9D] to-[#546A7A] text-white font-bold hover:shadow-xl hover:shadow-[#6F8A9D]/30 hover:-translate-y-0.5 transition-all duration-300"
-            >
-              <Pencil className="w-4 h-4" />
-              <span className="hidden sm:inline">{isAdmin ? 'Administrative Edit' : 'Initiate Change Request'}</span>
-              <span className="sm:hidden">Edit</span>
-            </Link>
-            {isAdmin && (
-              <button
-                onClick={handleDelete}
-                className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-[#E17F70]/5 border border-[#E17F70]/20 text-[#E17F70] font-bold hover:bg-[#E17F70] hover:text-white hover:-translate-y-0.5 transition-all duration-300 shadow-sm"
-              >
-                <Trash2 className="w-4 h-4" />
-                <span className="hidden sm:inline">Terminate</span>
-              </button>
-            )}
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
-        {/* Main Details Card */}
-        <div className="xl:col-span-3 space-y-6">
-          {/* Status Card */}
-          <div className={`finance-card-glow rounded-3xl p-8 border-2 ${
-            account.isActive 
-              ? 'bg-gradient-to-br from-[#82A094]/10 via-white to-[#82A094]/5 border-[#82A094]/30 shadow-2xl shadow-[#82A094]/10' 
-              : 'bg-gradient-to-br from-[#AEBFC3]/10 via-white to-[#AEBFC3]/5 border-[#AEBFC3]/30 shadow-2xl'
-          } animate-in fade-in zoom-in duration-500`}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-6">
-                <div className={`w-20 h-20 rounded-3xl flex items-center justify-center ${
+      {/* Main Grid Layout */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        {/* Main Content - Left Side */}
+        <div className="xl:col-span-2 space-y-6">
+          {/* Status & Quick Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Status Card */}
+            <div className={`relative overflow-hidden rounded-2xl p-6 ${
+              account.isActive 
+                ? 'bg-gradient-to-br from-[#82A094]/15 via-white to-[#82A094]/5 border-2 border-[#82A094]/30' 
+                : 'bg-gradient-to-br from-[#92A2A5]/15 via-white to-[#92A2A5]/5 border-2 border-[#92A2A5]/30'
+            } shadow-lg hover:shadow-xl transition-shadow`}>
+              {/* Decorative Circle */}
+              <div className={`absolute -right-8 -top-8 w-32 h-32 rounded-full ${
+                account.isActive ? 'bg-[#82A094]/10' : 'bg-[#92A2A5]/10'
+              } blur-2xl`} />
+              
+              <div className="relative">
+                <div className={`inline-flex p-3 rounded-xl ${
                   account.isActive 
                     ? 'bg-gradient-to-br from-[#82A094] to-[#4F6A64]' 
-                    : 'bg-gradient-to-br from-[#AEBFC3] to-[#8A9A9E]'
-                } shadow-2xl rotate-3 hover:rotate-0 transition-transform duration-500`}>
+                    : 'bg-gradient-to-br from-[#92A2A5] to-[#5D6E73]'
+                } shadow-lg mb-3`}>
                   {account.isActive 
-                    ? <CheckCircle2 className="w-10 h-10 text-white" /> 
-                    : <XCircle className="w-10 h-10 text-white" />
+                    ? <CheckCircle2 className="w-6 h-6 text-white" /> 
+                    : <XCircle className="w-6 h-6 text-white" />
                   }
                 </div>
-                <div>
-                  <p className="text-[#92A2A5] text-[10px] font-black uppercase tracking-[0.2em] mb-1">Operational Lifecycle</p>
-                  <p className={`text-4xl font-black ${account.isActive ? 'text-[#4F6A64]' : 'text-[#92A2A5]'}`}>
-                    {account.isActive ? 'Active' : 'Archived'}
-                  </p>
+                <p className="text-[#92A2A5] text-xs font-bold uppercase tracking-wider mb-1">Account Status</p>
+                <p className={`text-3xl font-bold ${
+                  account.isActive ? 'text-[#4F6A64]' : 'text-[#5D6E73]'
+                }`}>
+                  {account.isActive ? 'Active' : 'Inactive'}
+                </p>
+                
+                {/* Verification Badge */}
+                <div className="mt-4">
+                  <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg ${
+                    account.isActive 
+                      ? 'bg-[#82A094]/10 border border-[#82A094]/30 text-[#4F6A64]' 
+                      : 'bg-[#92A2A5]/10 border border-[#92A2A5]/30 text-[#5D6E73]'
+                  } text-xs font-semibold`}>
+                    <Shield className="w-3.5 h-3.5" />
+                    Verified Account
+                  </div>
                 </div>
               </div>
-              <div className="hidden sm:block text-right">
-                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-white border border-[#AEBFC3]/20 text-[#92A2A5] text-xs font-bold shadow-sm">
-                  <Calendar className="w-4 h-4 text-[#CE9F6B]" />
-                  Authored {formatDate(account.createdAt)}
-                </div>
+            </div>
+          
+          {/* Currency & Account Type Card */}
+          <div className="relative overflow-hidden rounded-2xl p-6 bg-gradient-to-br from-[#6F8A9D]/10 via-white to-[#546A7A]/5 border-2 border-[#6F8A9D]/20 shadow-lg hover:shadow-xl transition-shadow">
+            <div className="absolute -right-8 -bottom-8 w-32 h-32 rounded-full bg-[#6F8A9D]/10 blur-2xl" />
+            
+            <div className="relative">
+              <div className="inline-flex p-3 rounded-xl bg-gradient-to-br from-[#6F8A9D] to-[#546A7A] shadow-lg mb-3">
+                <CreditCard className="w-6 h-6 text-white" />
               </div>
+              <p className="text-[#92A2A5] text-xs font-bold uppercase tracking-wider mb-1">Currency</p>
+              <p className="text-3xl font-bold text-[#546A7A] uppercase">{account.currency}</p>
             </div>
           </div>
+        </div>
 
-          {/* Bank Details Card */}
-          <div className="bg-white rounded-3xl border border-[#AEBFC3]/20 overflow-hidden shadow-2xl finance-card-glow">
-            <div className="p-6 border-b border-[#AEBFC3]/10 bg-gradient-to-r from-[#CE9F6B]/15 via-white to-transparent flex items-center justify-between">
-              <h2 className="text-xl font-black text-[#546A7A] flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-[#CE9F6B]/10">
-                  <Building2 className="w-6 h-6 text-[#CE9F6B]" />
-                </div>
-                Primary Bank Infrastructure
-              </h2>
-              <span className="text-[10px] font-black uppercase tracking-widest text-[#AEBFC3] bg-[#F8FAFB] px-3 py-1 rounded-full border border-[#AEBFC3]/20">Verified</span>
-            </div>
-            <div className="p-6 space-y-6">
+        {/* Bank Details Card - Large */}
+        <div className="bg-white rounded-2xl border-2 border-[#6F8A9D]/20 overflow-hidden shadow-xl hover:shadow-2xl transition-shadow">
+          <div className="relative p-5 border-b border-[#6F8A9D]/10 bg-gradient-to-r from-[#96AEC2]/15 via-[#6F8A9D]/10 to-transparent flex items-center justify-between">
+            <h2 className="text-lg font-bold text-[#546A7A] flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-[#6F8A9D]/15">
+                <Building2 className="w-5 h-5 text-[#6F8A9D]" />
+              </div>
+              Bank Account Details
+            </h2>
+            <span className="text-[10px] font-bold uppercase tracking-wide text-[#82A094] bg-[#82A094]/10 px-2.5 py-1 rounded-lg border border-[#82A094]/20">Verified</span>
+          </div>
+          <div className="p-5 space-y-4">
               {/* Primary Details Grid - 3 columns on large screens */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                <div className="p-5 rounded-2xl bg-[#F8FAFB] border border-[#AEBFC3]/15 hover:shadow-lg hover:border-[#CE9F6B]/30 transition-all duration-300">
-                  <div className="flex items-center gap-2 text-[#92A2A5] text-sm mb-3">
-                    <Building2 className="w-4 h-4" />
-                    Beneficiary Bank
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                <div className="p-4 rounded-xl bg-[#F8FAFB] border border-[#AEBFC3]/15 hover:shadow-md hover:border-[#B18E63]/30 transition-all">
+                  <div className="flex items-center gap-1.5 text-[#92A2A5] text-xs mb-2">
+                    <Building2 className="w-3.5 h-3.5" />
+                    Bank Name
                   </div>
-                  <p className="text-[#546A7A] font-bold text-lg">{account.beneficiaryBankName}</p>
+                  <p className="text-[#546A7A] font-semibold text-sm">{account.beneficiaryBankName}</p>
                 </div>
 
-                <div className="p-5 rounded-2xl bg-[#F8FAFB] border border-[#AEBFC3]/15 hover:shadow-lg hover:border-[#CE9F6B]/30 transition-all duration-300">
-                  <div className="flex items-center gap-2 text-[#92A2A5] text-sm mb-3">
-                    <Hash className="w-4 h-4" />
-                    IFSC / SWIFT Code
+                <div className="p-4 rounded-xl bg-[#F8FAFB] border border-[#AEBFC3]/15 hover:shadow-md hover:border-[#B18E63]/30 transition-all">
+                  <div className="flex items-center gap-1.5 text-[#92A2A5] text-xs mb-2">
+                    <Hash className="w-3.5 h-3.5" />
+                    IFSC Code
                   </div>
                   <div className="flex items-center gap-2">
-                    <p className="text-[#CE9F6B] font-mono text-lg font-bold">{account.ifscCode}</p>
+                    <p className="text-[#B18E63] font-mono text-sm font-bold">{account.ifscCode}</p>
                     <button 
                       onClick={() => copyToClipboard(account.ifscCode, 'ifsc')}
-                      className="p-2 rounded-xl hover:bg-[#CE9F6B]/10 text-[#92A2A5] hover:text-[#CE9F6B] transition-all"
+                      className="p-1 rounded-lg hover:bg-[#B18E63]/10 text-[#92A2A5] hover:text-[#B18E63] transition-all"
                     >
-                      {copied === 'ifsc' ? <Check className="w-4 h-4 text-[#82A094]" /> : <Copy className="w-4 h-4" />}
+                      {copied === 'ifsc' ? <Check className="w-3.5 h-3.5 text-[#82A094]" /> : <Copy className="w-3.5 h-3.5" />}
                     </button>
                   </div>
                 </div>
 
-                <div className="p-5 rounded-2xl bg-[#F8FAFB] border border-[#AEBFC3]/15 hover:shadow-lg hover:border-[#CE9F6B]/30 transition-all duration-300">
-                  <div className="flex items-center gap-2 text-[#92A2A5] text-sm mb-3">
-                    <CreditCard className="w-4 h-4" />
+                <div className="p-4 rounded-xl bg-[#F8FAFB] border border-[#AEBFC3]/15 hover:shadow-md hover:border-[#B18E63]/30 transition-all">
+                  <div className="flex items-center gap-1.5 text-[#92A2A5] text-xs mb-2">
+                    <CreditCard className="w-3.5 h-3.5" />
                     Currency
                   </div>
-                  <p className="text-[#546A7A] font-bold text-lg uppercase">{account.currency}</p>
+                  <p className="text-[#546A7A] font-semibold text-sm uppercase">{account.currency}</p>
                 </div>
               </div>
 
-              {/* Beneficiary Name - Full Width Highlight */}
-              <div className="p-5 rounded-2xl bg-gradient-to-r from-[#CE9F6B]/8 to-[#CE9F6B]/3 border border-[#CE9F6B]/20 hover:shadow-lg transition-all duration-300">
-                <div className="flex items-center gap-2 text-[#92A2A5] text-sm mb-3">
-                  <User className="w-4 h-4 text-[#CE9F6B]" />
+              {/* Beneficiary Name */}
+              <div className="p-4 rounded-xl bg-gradient-to-r from-[#B18E63]/8 to-[#B18E63]/3 border border-[#B18E63]/20 hover:shadow-md transition-all">
+                <div className="flex items-center gap-1.5 text-[#92A2A5] text-xs mb-2">
+                  <User className="w-3.5 h-3.5 text-[#B18E63]" />
                   Beneficiary Name
                 </div>
-                <div className="flex items-center gap-3">
-                  <p className="text-[#546A7A] font-bold text-xl">{account.beneficiaryName || account.vendorName}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-[#546A7A] font-semibold text-sm">{account.beneficiaryName || account.vendorName}</p>
                   <button 
                     onClick={() => copyToClipboard(account.beneficiaryName || account.vendorName, 'beneficiary')}
-                    className="p-2 rounded-xl hover:bg-[#CE9F6B]/10 text-[#92A2A5] hover:text-[#CE9F6B] transition-all"
+                    className="p-1 rounded-lg hover:bg-[#B18E63]/10 text-[#92A2A5] hover:text-[#B18E63] transition-all"
                   >
-                    {copied === 'beneficiary' ? <Check className="w-4 h-4 text-[#82A094]" /> : <Copy className="w-4 h-4" />}
+                    {copied === 'beneficiary' ? <Check className="w-3.5 h-3.5 text-[#82A094]" /> : <Copy className="w-3.5 h-3.5" />}
                   </button>
                 </div>
               </div>
 
               {/* Account Number - Prominent Display */}
-              <div className="p-6 rounded-2xl bg-gradient-to-r from-[#546A7A]/8 via-[#CE9F6B]/5 to-transparent border-2 border-[#CE9F6B]/25 hover:shadow-xl transition-all duration-300">
-                <div className="flex items-center gap-2 text-[#92A2A5] text-sm mb-3">
-                  <CreditCard className="w-4 h-4" />
+              <div className="p-4 rounded-xl bg-gradient-to-r from-[#546A7A]/8 via-[#B18E63]/5 to-transparent border border-[#B18E63]/25 hover:shadow-md transition-all">
+                <div className="flex items-center gap-1.5 text-[#92A2A5] text-xs mb-2">
+                  <CreditCard className="w-3.5 h-3.5" />
                   Account Number
                 </div>
-                <div className="flex items-center gap-4">
-                  <p className="text-[#546A7A] font-mono text-2xl font-black tracking-widest">{account.accountNumber}</p>
+                <div className="flex items-center gap-3">
+                  <p className="text-[#546A7A] font-mono text-xl font-bold tracking-wider">{account.accountNumber}</p>
                   <button 
                     onClick={() => copyToClipboard(account.accountNumber, 'account')}
-                    className="p-2.5 rounded-xl bg-white border border-[#CE9F6B]/20 hover:bg-[#CE9F6B]/10 text-[#92A2A5] hover:text-[#CE9F6B] transition-all shadow-sm"
+                    className="p-2 rounded-lg bg-white border border-[#B18E63]/20 hover:bg-[#B18E63]/10 text-[#92A2A5] hover:text-[#B18E63] transition-all"
                   >
-                    {copied === 'account' ? <Check className="w-5 h-5 text-[#82A094]" /> : <Copy className="w-5 h-5" />}
+                    {copied === 'account' ? <Check className="w-4 h-4 text-[#82A094]" /> : <Copy className="w-4 h-4" />}
                   </button>
                 </div>
               </div>
@@ -334,72 +404,72 @@ export default function BankAccountDetailPage() {
           </div>
 
           {/* Vendor Details Card */}
-          <div className="bg-white rounded-3xl border border-[#AEBFC3]/20 overflow-hidden shadow-2xl finance-card-glow">
-            <div className="p-6 border-b border-[#AEBFC3]/10 bg-gradient-to-r from-[#6F8A9D]/10 via-[#6F8A9D]/5 to-transparent">
-              <h2 className="text-xl font-black text-[#546A7A] flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-[#6F8A9D]/10">
-                  <User className="w-6 h-6 text-[#6F8A9D]" />
+          <div className="bg-white rounded-2xl border border-[#AEBFC3]/20 overflow-hidden shadow-md">
+            <div className="p-4 border-b border-[#AEBFC3]/10 bg-gradient-to-r from-[#6F8A9D]/10 via-[#6F8A9D]/5 to-transparent">
+              <h2 className="text-base font-bold text-[#546A7A] flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-[#6F8A9D]/10">
+                  <User className="w-5 h-5 text-[#6F8A9D]" />
                 </div>
                 Vendor Information
               </h2>
             </div>
-            <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              <div className="p-5 rounded-2xl bg-[#F8FAFB] border border-[#AEBFC3]/15 hover:shadow-lg hover:border-[#6F8A9D]/30 transition-all duration-300">
-                <div className="flex items-center gap-2 text-[#92A2A5] text-sm mb-3">
-                  <User className="w-4 h-4" />
+            <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <div className="p-4 rounded-xl bg-[#F8FAFB] border border-[#AEBFC3]/15 hover:shadow-md hover:border-[#6F8A9D]/30 transition-all">
+                <div className="flex items-center gap-1.5 text-[#92A2A5] text-xs mb-2">
+                  <User className="w-3.5 h-3.5" />
                   Vendor Name
                 </div>
-                <p className="text-[#546A7A] font-bold text-lg">{account.vendorName}</p>
+                <p className="text-[#546A7A] font-semibold text-sm">{account.vendorName}</p>
               </div>
 
-              <div className="p-5 rounded-2xl bg-[#F8FAFB] border border-[#AEBFC3]/15 hover:shadow-lg hover:border-[#6F8A9D]/30 transition-all duration-300">
-                <div className="flex items-center gap-2 text-[#92A2A5] text-sm mb-3">
-                  <Hash className="w-4 h-4" />
+              <div className="p-4 rounded-xl bg-[#F8FAFB] border border-[#AEBFC3]/15 hover:shadow-md hover:border-[#6F8A9D]/30 transition-all">
+                <div className="flex items-center gap-1.5 text-[#92A2A5] text-xs mb-2">
+                  <Hash className="w-3.5 h-3.5" />
                   Nick Name
                 </div>
-                <p className="text-[#546A7A] font-bold text-lg">{account.nickName || '—'}</p>
+                <p className="text-[#546A7A] font-semibold text-sm">{account.nickName || '—'}</p>
               </div>
 
-              <div className="p-5 rounded-2xl bg-[#F8FAFB] border border-[#AEBFC3]/15 hover:shadow-lg hover:border-[#6F8A9D]/30 transition-all duration-300">
-                <div className="flex items-center gap-2 text-[#92A2A5] text-sm mb-3">
-                  <Mail className="w-4 h-4" />
-                  Email ID
+              <div className="p-4 rounded-xl bg-[#F8FAFB] border border-[#AEBFC3]/15 hover:shadow-md hover:border-[#6F8A9D]/30 transition-all">
+                <div className="flex items-center gap-1.5 text-[#92A2A5] text-xs mb-2">
+                  <Mail className="w-3.5 h-3.5" />
+                  Email
                 </div>
-                <p className="text-[#546A7A] font-bold text-lg break-all">{account.emailId || '—'}</p>
+                <p className="text-[#546A7A] font-semibold text-sm break-all">{account.emailId || '—'}</p>
               </div>
 
-              <div className="p-5 rounded-2xl bg-[#F8FAFB] border border-[#AEBFC3]/15 hover:shadow-lg hover:border-[#6F8A9D]/30 transition-all duration-300">
-                <div className="flex items-center gap-2 text-[#92A2A5] text-sm mb-3">
-                  <Landmark className="w-4 h-4" />
+              <div className="p-4 rounded-xl bg-[#F8FAFB] border border-[#AEBFC3]/15 hover:shadow-md hover:border-[#6F8A9D]/30 transition-all">
+                <div className="flex items-center gap-1.5 text-[#92A2A5] text-xs mb-2">
+                  <Landmark className="w-3.5 h-3.5" />
                   GST Number
                 </div>
-                <p className="text-[#546A7A] font-mono font-bold text-lg">{account.gstNumber || '—'}</p>
+                <p className="text-[#546A7A] font-mono font-semibold text-sm">{account.gstNumber || '—'}</p>
               </div>
 
-              <div className="p-5 rounded-2xl bg-[#F8FAFB] border border-[#AEBFC3]/15 hover:shadow-lg hover:border-[#6F8A9D]/30 transition-all duration-300">
-                <div className="flex items-center gap-2 text-[#92A2A5] text-sm mb-3">
-                  <BadgeCheck className="w-4 h-4" />
+              <div className="p-4 rounded-xl bg-[#F8FAFB] border border-[#AEBFC3]/15 hover:shadow-md hover:border-[#6F8A9D]/30 transition-all">
+                <div className="flex items-center gap-1.5 text-[#92A2A5] text-xs mb-2">
+                  <BadgeCheck className="w-3.5 h-3.5" />
                   PAN Number
                 </div>
-                <p className="text-[#546A7A] font-mono font-bold text-lg">{account.panNumber || '—'}</p>
+                <p className="text-[#546A7A] font-mono font-semibold text-sm">{account.panNumber || '—'}</p>
               </div>
 
               {account.isMSME && (
-                <div className="sm:col-span-2 lg:col-span-3 p-5 rounded-2xl bg-gradient-to-r from-[#CE9F6B]/10 to-[#CE9F6B]/5 border border-[#CE9F6B]/20 hover:shadow-lg transition-all duration-300">
-                  <div className="flex items-center justify-between flex-wrap gap-4">
+                <div className="sm:col-span-2 lg:col-span-3 p-4 rounded-xl bg-gradient-to-r from-[#B18E63]/10 to-[#B18E63]/5 border border-[#B18E63]/20 hover:shadow-md transition-all">
+                  <div className="flex items-center justify-between flex-wrap gap-3">
                     <div>
-                      <div className="flex items-center gap-2 text-[#CE9F6B] text-sm mb-2 font-bold">
-                        <Sparkles className="w-4 h-4" />
+                      <div className="flex items-center gap-1.5 text-[#B18E63] text-xs mb-1.5 font-semibold">
+                        <Sparkles className="w-3.5 h-3.5" />
                         MSME Registered
                       </div>
-                      <p className="text-[#546A7A] text-xs mb-1">Udyam Registration Number</p>
-                      <p className="text-[#546A7A] font-mono text-xl font-black tracking-wider">{account.udyamRegNum}</p>
+                      <p className="text-[#92A2A5] text-[11px] mb-1">Udyam Registration Number</p>
+                      <p className="text-[#546A7A] font-mono text-base font-bold tracking-wide">{account.udyamRegNum}</p>
                     </div>
                     <button 
                       onClick={() => copyToClipboard(account.udyamRegNum || '', 'udyam')}
-                      className="p-3 rounded-xl bg-white border border-[#CE9F6B]/20 text-[#CE9F6B] hover:bg-[#CE9F6B] hover:text-white transition-all shadow-sm"
+                      className="p-2 rounded-lg bg-white border border-[#B18E63]/20 text-[#B18E63] hover:bg-[#B18E63] hover:text-white transition-all"
                     >
-                      {copied === 'udyam' ? <Check className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
+                      {copied === 'udyam' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                     </button>
                   </div>
                 </div>
@@ -408,65 +478,65 @@ export default function BankAccountDetailPage() {
           </div>
 
           {/* Attachments Card */}
-          <div className="bg-white rounded-3xl border border-[#AEBFC3]/20 overflow-hidden shadow-2xl finance-card-glow">
-            <div className="p-6 border-b border-[#AEBFC3]/10 bg-gradient-to-r from-[#82A094]/10 via-[#82A094]/5 to-transparent flex items-center justify-between flex-wrap gap-4">
-              <h2 className="text-xl font-black text-[#546A7A] flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-[#82A094]/10">
-                  <FileText className="w-6 h-6 text-[#82A094]" />
+          <div className="bg-white rounded-2xl border border-[#AEBFC3]/20 overflow-hidden shadow-md">
+            <div className="p-4 border-b border-[#AEBFC3]/10 bg-gradient-to-r from-[#82A094]/10 via-[#82A094]/5 to-transparent flex items-center justify-between flex-wrap gap-3">
+              <h2 className="text-base font-bold text-[#546A7A] flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-[#82A094]/10">
+                  <FileText className="w-5 h-5 text-[#82A094]" />
                 </div>
-                Verification Documents
+                Documents
               </h2>
-              <label className={`flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#82A094] to-[#4F6A64] text-white text-sm font-bold cursor-pointer hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
-                {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+              <label className={`flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-[#82A094] to-[#4F6A64] text-white text-xs font-semibold cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
+                {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
                 Add Document
                 <input type="file" className="hidden" onChange={handleUpload} disabled={uploading} />
               </label>
             </div>
-            <div className="p-6">
+            <div className="p-4">
               {attachments.length === 0 ? (
-                <div className="text-center py-16 bg-gradient-to-b from-[#F8FAFB] to-white rounded-2xl border-2 border-dashed border-[#AEBFC3]/30">
-                  <FileIcon className="w-16 h-16 text-[#AEBFC3]/40 mx-auto mb-4" />
-                  <p className="text-[#92A2A5] font-bold text-lg">No documents attached yet</p>
-                  <p className="text-sm text-[#92A2A5] mt-2 max-w-xs mx-auto">Upload verification documents like cancelled cheques, bank statements, or authorization letters</p>
+                <div className="text-center py-12 bg-gradient-to-b from-[#F8FAFB] to-white rounded-xl border-2 border-dashed border-[#AEBFC3]/30">
+                  <FileIcon className="w-12 h-12 text-[#AEBFC3]/40 mx-auto mb-3" />
+                  <p className="text-[#92A2A5] font-semibold text-sm">No documents yet</p>
+                  <p className="text-xs text-[#92A2A5]/70 mt-1">Upload verification documents</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {attachments.map((file) => (
-                    <div key={file.id} className="group relative p-5 rounded-2xl bg-white border border-[#AEBFC3]/20 hover:border-[#82A094]/40 hover:shadow-xl transition-all duration-300">
-                      <div className="flex items-start gap-4">
-                        <div className={`w-14 h-14 rounded-xl flex items-center justify-center shadow-sm transition-transform group-hover:scale-110 duration-300 ${getFileColor(file.mimeType)}`}>
+                    <div key={file.id} className="group relative p-4 rounded-xl bg-white border border-[#AEBFC3]/20 hover:border-[#82A094]/40 hover:shadow-md transition-all">
+                      <div className="flex items-start gap-3">
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center group-hover:scale-105 transition-transform ${getFileColor(file.mimeType)}`}>
                           {getFileIcon(file.mimeType)}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <p className="text-sm font-bold text-[#546A7A] truncate" title={file.filename}>
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-xs font-semibold text-[#546A7A] truncate" title={file.filename}>
                               {file.filename}
                             </p>
-                            <span className="shrink-0 px-2 py-0.5 rounded-md bg-[#AEBFC3]/10 text-[#92A2A5] text-[10px] font-bold uppercase tracking-tight">
+                            <span className="shrink-0 px-1.5 py-0.5 rounded bg-[#AEBFC3]/10 text-[#92A2A5] text-[9px] font-bold uppercase">
                               {file.filename.split('.').pop()}
                             </span>
                           </div>
-                          <p className="text-xs text-[#92A2A5] mt-2 font-medium">
+                          <p className="text-[10px] text-[#92A2A5] mt-1.5">
                             {formatFileSize(file.size)} • {new Date(file.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
                           </p>
                         </div>
                       </div>
 
-                      <div className="mt-5 flex items-center gap-2 pt-4 border-t border-[#AEBFC3]/10">
+                      <div className="mt-3 flex items-center gap-1.5 pt-3 border-t border-[#AEBFC3]/10">
                         <button 
                           onClick={() => handleDownload(file.id)}
-                          className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#82A094]/10 text-[#82A094] text-xs font-bold hover:bg-[#82A094] hover:text-white transition-all shadow-sm"
+                          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-[#82A094]/10 text-[#82A094] text-xs font-semibold hover:bg-[#82A094] hover:text-white transition-all"
                         >
-                          <Download className="w-4 h-4" />
+                          <Download className="w-3.5 h-3.5" />
                           Download
                         </button>
                         {isAdmin && (
                           <button 
                             onClick={() => handleDeleteAttachment(file.id)}
-                            className="p-2.5 rounded-xl bg-[#F8FAFB] text-[#92A2A5] hover:text-[#E17F70] hover:bg-[#E17F70]/10 transition-all border border-transparent hover:border-[#E17F70]/20"
+                            className="p-2 rounded-lg bg-[#F8FAFB] text-[#92A2A5] hover:text-[#E17F70] hover:bg-[#E17F70]/10 transition-all border border-transparent hover:border-[#E17F70]/20"
                             title="Delete"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         )}
                       </div>
@@ -479,62 +549,103 @@ export default function BankAccountDetailPage() {
         </div>
 
         {/* Sidebar */}
-        <div className="xl:col-span-1 space-y-6">
+        <div className="xl:col-span-1 space-y-4">
           {/* Quick Actions */}
-          <div className="bg-white rounded-2xl border border-[#AEBFC3]/20 overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300">
-            <div className="p-5 border-b border-[#AEBFC3]/10 bg-gradient-to-r from-[#CE9F6B]/5 to-transparent">
-              <h3 className="font-bold text-[#546A7A]">Quick Actions</h3>
+          <div className="bg-white rounded-xl border border-[#AEBFC3]/20 overflow-hidden shadow-md">
+            <div className="p-3 border-b border-[#AEBFC3]/10 bg-gradient-to-r from-[#B18E63]/5 to-transparent">
+              <h3 className="text-sm font-bold text-[#546A7A]">Quick Actions</h3>
             </div>
-            <div className="p-4 space-y-2">
+            <div className="p-2 space-y-1">
               <Link
                 href={`/finance/bank-accounts/${account.id}/edit`}
-                className="flex items-center gap-3 w-full p-4 rounded-xl hover:bg-gradient-to-r hover:from-[#CE9F6B]/10 hover:to-transparent text-[#5D6E73] hover:text-[#976E44] transition-all group"
+                className="flex items-center gap-2 w-full p-3 rounded-lg hover:bg-[#B18E63]/10 text-[#5D6E73] hover:text-[#976E44] transition-all group"
               >
-                <div className="p-2.5 bg-[#CE9F6B]/10 rounded-xl group-hover:bg-[#CE9F6B]/20 group-hover:scale-110 transition-all duration-300">
-                  <Pencil className="w-4 h-4 text-[#CE9F6B]" />
+                <div className="p-1.5 bg-[#B18E63]/10 rounded-lg group-hover:bg-[#B18E63]/20 group-hover:scale-110 transition-all">
+                  <Pencil className="w-3.5 h-3.5 text-[#B18E63]" />
                 </div>
-                <span className="font-semibold">{isAdmin ? 'Edit Details' : 'Request Changes'}</span>
+                <span className="text-sm font-semibold">{isAdmin ? 'Edit Details' : 'Request Changes'}</span>
               </Link>
               <Link
                 href="/finance/bank-accounts/requests"
-                className="flex items-center gap-3 w-full p-4 rounded-xl hover:bg-gradient-to-r hover:from-[#6F8A9D]/10 hover:to-transparent text-[#5D6E73] hover:text-[#6F8A9D] transition-all group"
+                className="flex items-center gap-2 w-full p-3 rounded-lg hover:bg-[#6F8A9D]/10 text-[#5D6E73] hover:text-[#6F8A9D] transition-all group"
               >
-                <div className="p-2.5 bg-[#6F8A9D]/10 rounded-xl group-hover:bg-[#6F8A9D]/20 group-hover:scale-110 transition-all duration-300">
-                  <Clock className="w-4 h-4 text-[#6F8A9D]" />
+                <div className="p-1.5 bg-[#6F8A9D]/10 rounded-lg group-hover:bg-[#6F8A9D]/20 group-hover:scale-110 transition-all">
+                  <Clock className="w-3.5 h-3.5 text-[#6F8A9D]" />
                 </div>
-                <span className="font-semibold">View Requests</span>
+                <span className="text-sm font-semibold">View Requests</span>
               </Link>
             </div>
           </div>
 
-          {/* Timeline Card */}
-          <div className="bg-white rounded-2xl border border-[#AEBFC3]/20 overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300">
-            <div className="p-5 border-b border-[#AEBFC3]/10 bg-gradient-to-r from-[#82A094]/5 to-transparent">
-              <h3 className="font-bold text-[#546A7A] flex items-center gap-2">
-                <Clock className="w-4 h-4 text-[#CE9F6B]" />
-                Activity Timeline
+          {/* Activity Log Card */}
+          <div className="bg-white rounded-xl border border-[#AEBFC3]/20 overflow-hidden shadow-md">
+            <div className="p-3 border-b border-[#AEBFC3]/10 bg-gradient-to-r from-[#82A094]/5 to-transparent flex items-center justify-between">
+              <h3 className="text-sm font-bold text-[#546A7A] flex items-center gap-1.5">
+                <Activity className="w-3.5 h-3.5 text-[#B18E63]" />
+                Activity Log
               </h3>
+              {activityLogs.length > 5 && (
+                <button 
+                  onClick={() => setShowAllActivities(!showAllActivities)}
+                  className="text-[10px] text-[#B18E63] font-bold flex items-center gap-0.5 hover:text-[#976E44] transition-colors"
+                >
+                  {showAllActivities ? 'Show Less' : `Show All (${activityLogs.length})`}
+                  {showAllActivities ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                </button>
+              )}
             </div>
-            <div className="p-5 space-y-5">
-              <div className="flex gap-4">
-                <div className="flex flex-col items-center">
-                  <div className="w-3 h-3 rounded-full bg-[#82A094] ring-4 ring-[#82A094]/20" />
-                  <div className="flex-1 w-0.5 bg-gradient-to-b from-[#82A094]/40 to-[#CE9F6B]/40" />
+            <div className="p-3">
+              {loadingActivities ? (
+                <div className="flex items-center justify-center py-6">
+                  <Loader2 className="w-4 h-4 text-[#B18E63] animate-spin" />
                 </div>
-                <div className="pb-4">
-                  <p className="text-sm font-bold text-[#546A7A]">Last Updated</p>
-                  <p className="text-xs text-[#92A2A5] mt-1">{formatDate(account.updatedAt)}</p>
+              ) : activityLogs.length === 0 ? (
+                <div className="text-center py-6">
+                  <Activity className="w-6 h-6 text-[#AEBFC3]/40 mx-auto mb-1.5" />
+                  <p className="text-xs text-[#92A2A5]">No activity yet</p>
                 </div>
-              </div>
-              <div className="flex gap-4">
-                <div className="flex flex-col items-center">
-                  <div className="w-3 h-3 rounded-full bg-[#CE9F6B] ring-4 ring-[#CE9F6B]/20" />
+              ) : (
+                <div className="space-y-2 max-h-[350px] overflow-y-auto pr-1">
+                  {(showAllActivities ? activityLogs : activityLogs.slice(0, 5)).map((log, index) => (
+                    <div 
+                      key={log.id} 
+                      className="flex gap-2 p-2.5 rounded-lg bg-[#F8FAFB] border border-[#AEBFC3]/10 hover:border-[#B18E63]/20 transition-all"
+                    >
+                      <div className="flex flex-col items-center">
+                        <div className={`w-2 h-2 rounded-full ${
+                          log.action.includes('CREATED') ? 'bg-[#82A094]' :
+                          log.action.includes('UPDATED') ? 'bg-[#B18E63]' :
+                          log.action.includes('APPROVED') ? 'bg-[#82A094]' :
+                          log.action.includes('REJECTED') ? 'bg-[#E17F70]' :
+                          log.action.includes('DELETE') || log.action.includes('DEACTIVATED') ? 'bg-[#E17F70]' :
+                          'bg-[#6F8A9D]'
+                        }`} />
+                        {index < activityLogs.length - 1 && (
+                          <div className="flex-1 w-0.5 bg-gradient-to-b from-[#AEBFC3]/30 to-transparent mt-1" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-[#546A7A] leading-tight truncate">
+                          {log.description}
+                        </p>
+                        {log.fieldName && (
+                          <p className="text-[10px] text-[#92A2A5] mt-0.5">
+                            <span className="font-medium">{log.fieldName}:</span>{' '}
+                            <span className="line-through text-[#E17F70]/70">{log.oldValue || '(empty)'}</span>
+                            {' → '}
+                            <span className="text-[#82A094]">{log.newValue || '(empty)'}</span>
+                          </p>
+                        )}
+                        <div className="flex items-center gap-1.5 mt-1 text-[9px] text-[#92A2A5]">
+                          <span className="font-medium">{log.performedBy || 'System'}</span>
+                          <span>•</span>
+                          <span>{formatDate(log.createdAt)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div>
-                  <p className="text-sm font-bold text-[#546A7A]">Created</p>
-                  <p className="text-xs text-[#92A2A5] mt-1">{formatDate(account.createdAt)}</p>
-                </div>
-              </div>
+              )}
             </div>
           </div>
 

@@ -299,7 +299,7 @@ export default function OfferManagement() {
 
   return (
     <div className="min-h-screen bg-[#AEBFC3]/10">
-      <div className="w-full p-4 sm:p-6 lg:p-8 space-y-6">
+      <div className="w-full p-2 sm:p-4 lg:p-4 space-y-6">
         {/* Compact Header with Stats */}
         <DynamicOfferStats stats={stats} />
 

@@ -71,7 +71,6 @@ export class GeocodingService {
       const cacheKey = `${latFixed},${lngFixed}`;
 
       if (this.CACHE.has(cacheKey)) {
-        logger.info(`Geocoding cache hit: ${cacheKey}`);
         return {
           address: this.CACHE.get(cacheKey)!,
           source: 'locationiq',
@@ -88,8 +87,6 @@ export class GeocodingService {
           error: errorMsg
         };
       }
-
-      logger.info(`Attempting reverse geocoding for coordinates: ${latitude}, ${longitude}`);
 
       const boundingBox = options.boundingBox || this.DEFAULT_INDIA_BOUNDS;
       const params: any = {
@@ -119,7 +116,6 @@ export class GeocodingService {
         timeout: 3000,
       });
 
-      logger.info('LocationIQ API response received:', { hasData: !!data, displayName: data?.display_name });
       const address = this.formatAddress(data);
 
       const coordinateValidation = this.validateAddressCoordinates(
@@ -130,8 +126,6 @@ export class GeocodingService {
       );
 
       if (address && address !== `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`) {
-        logger.info(`Reverse geocoding successful: ${address}`);
-
         // Cache successful result
         if (this.CACHE.size < this.CACHE_LIMIT) {
           this.CACHE.set(cacheKey, address);

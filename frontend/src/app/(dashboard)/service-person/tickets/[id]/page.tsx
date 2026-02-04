@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { format, formatDistanceToNow } from 'date-fns';
+import dynamic from 'next/dynamic';
 import { 
   FileText, 
   MessageSquare, 
@@ -27,11 +27,40 @@ import { Ticket } from '@/types/ticket';
 import { apiClient } from '@/lib/api/api-client';
 import { StatusBadge } from '@/components/tickets/StatusBadge';
 import { PriorityBadge } from '@/components/tickets/PriorityBadge';
-import { TicketComments } from '@/components/tickets/TicketComments';
-import { TicketStatusDialogWithLocation } from '@/components/tickets/TicketStatusDialogWithLocation';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import Link from 'next/link';
+
+// Dynamic imports to reduce bundle size
+const TicketComments = dynamic(() => import('@/components/tickets/TicketComments').then(mod => mod.TicketComments), {
+  loading: () => <div className="p-8 text-center animate-pulse text-[#AEBFC3]">Loading comments...</div>,
+  ssr: false
+});
+
+const TicketStatusDialogWithLocation = dynamic(() => import('@/components/tickets/TicketStatusDialogWithLocation'), {
+  loading: () => null,
+  ssr: false
+});
+
+// Lazy format date helper
+const formatDate = (dateString: string, formatStr: string = 'MMM dd, yyyy') => {
+  try {
+    const date = new Date(dateString);
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = months[date.getMonth()];
+    const year = date.getFullYear();
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    
+    if (formatStr.includes('HH:mm')) {
+      return `${month} ${day}, ${year} ${hours}:${minutes}`;
+    }
+    return `${month} ${day}, ${year}`;
+  } catch {
+    return dateString;
+  }
+};
 
 type LocationData = {
   latitude: number;
@@ -306,7 +335,7 @@ export default function ServicePersonTicketDetailPage() {
                           <div className="flex items-center gap-2 mb-1">
                             <StatusBadge status={history.status} />
                             <span className="text-sm text-[#AEBFC3]0">
-                              {format(new Date(history.changedAt), 'MMM dd, yyyy HH:mm')}
+                              {formatDate(history.changedAt, 'MMM dd, yyyy HH:mm')}
                             </span>
                           </div>
                           {history.changedBy && (
@@ -340,7 +369,7 @@ export default function ServicePersonTicketDetailPage() {
               <div className="flex items-center justify-between">
                 <span className="text-sm text-[#5D6E73]">Created</span>
                 <span className="text-sm font-medium">
-                  {format(new Date(ticket.createdAt), 'MMM dd, yyyy')}
+                  {formatDate(ticket.createdAt)}
                 </span>
               </div>
               <div className="flex items-center justify-between">

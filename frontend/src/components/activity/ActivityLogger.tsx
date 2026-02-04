@@ -976,36 +976,39 @@ function ActivityLoggerComponent({
                     Log Activity
                   </Button>
                 </DialogTrigger>
-                <DialogContent className={isMobile ? "w-[95vw] max-w-[95vw] max-h-[90vh] p-0 overflow-hidden" : "sm:max-w-[500px] max-h-[90vh] p-0 overflow-hidden"}>
+                <DialogContent className={isMobile ? "w-[95vw] max-w-[95vw] max-h-[90vh] p-0 overflow-hidden rounded-2xl" : "sm:max-w-[520px] max-h-[90vh] p-0 overflow-hidden rounded-2xl"}>
                   {/* Premium Dialog Header */}
-                  <div className="relative bg-gradient-to-r from-[#546A7A] via-[#6F8A9D] to-[#96AEC2] p-4 sm:p-5 overflow-hidden">
-                    {/* Background decorations */}
-                    <div className="absolute inset-0 overflow-hidden">
-                      <div className="absolute -top-10 -right-10 w-28 h-28 bg-white/10 rounded-full blur-2xl"></div>
-                      <div className="absolute -bottom-6 -left-6 w-20 h-20 bg-white/10 rounded-full blur-2xl"></div>
+                  <div className="relative bg-gradient-to-br from-[#546A7A] via-[#6F8A9D] to-[#96AEC2] p-5 sm:p-6 overflow-hidden">
+                    {/* Background decorations - floating orbs */}
+                    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                      <div className="absolute -top-8 -right-8 w-32 h-32 bg-white/10 rounded-full blur-3xl animate-pulse"></div>
+                      <div className="absolute -bottom-6 -left-6 w-24 h-24 bg-white/15 rounded-full blur-2xl"></div>
+                      <div className="absolute top-1/2 right-1/4 w-16 h-16 bg-white/5 rounded-full blur-xl"></div>
+                      {/* Subtle grid pattern */}
+                      <div className="absolute inset-0 opacity-[0.03]" style={{backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '16px 16px'}}></div>
                     </div>
                     <DialogHeader className="relative z-10 p-0">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center border border-white/30 shadow-lg">
-                          <Activity className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 sm:w-14 sm:h-14 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/30 shadow-xl">
+                          <Activity className="w-6 h-6 sm:w-7 sm:h-7 text-white drop-shadow" />
                         </div>
                         <div>
-                          <DialogTitle className="text-lg sm:text-xl font-bold text-white">Log New Activity</DialogTitle>
-                          <p className="text-white/70 text-xs sm:text-sm mt-0.5">Start a new work activity</p>
+                          <DialogTitle className="text-xl sm:text-2xl font-bold text-white tracking-tight drop-shadow">Log New Activity</DialogTitle>
+                          <p className="text-white/80 text-sm sm:text-base mt-1">Start a new work activity</p>
                         </div>
                       </div>
                     </DialogHeader>
                   </div>
 
                   {/* Dialog Content */}
-                  <div className={`p-4 sm:p-5 space-y-4 overflow-y-auto max-h-[60vh]`}>
+                  <div className={`p-5 sm:p-6 space-y-5 overflow-y-auto max-h-[60vh] bg-gradient-to-b from-[#AEBFC3]/10 to-white`}>
                     {/* Activity Type Cards Grid */}
                     <div className="space-y-3">
-                      <Label htmlFor="activityType" className="text-sm font-semibold text-[#546A7A] flex items-center gap-2">
-                        <span className="w-5 h-5 bg-gradient-to-br from-[#6F8A9D] to-[#546A7A] rounded-md flex items-center justify-center text-white text-xs">1</span>
+                      <Label htmlFor="activityType" className="text-sm font-bold text-[#546A7A] flex items-center gap-2.5">
+                        <span className="w-6 h-6 bg-gradient-to-br from-[#6F8A9D] to-[#546A7A] rounded-lg flex items-center justify-center text-white text-xs font-bold shadow-sm">1</span>
                         Activity Type
                       </Label>
-                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2.5">
                         {ACTIVITY_TYPES.map((type) => (
                           <button
                             key={type.value}
@@ -1019,15 +1022,15 @@ function ActivityLoggerComponent({
                               }))
                             }
                             className={cn(
-                              "relative flex flex-col items-center justify-center p-2.5 sm:p-3 rounded-xl border-2 transition-all duration-200 touch-manipulation",
+                              "relative flex flex-col items-center justify-center p-3 sm:p-3.5 rounded-2xl border-2 transition-all duration-300 touch-manipulation min-h-[80px] sm:min-h-[90px]",
                               formData.activityType === type.value
-                                ? "border-[#6F8A9D] bg-gradient-to-br from-[#96AEC2]/10 to-[#6F8A9D]/10 shadow-md scale-[1.02]"
-                                : "border-[#92A2A5] bg-white hover:border-[#92A2A5] hover:bg-[#AEBFC3]/10"
+                                ? "border-[#6F8A9D] bg-gradient-to-br from-[#96AEC2]/20 to-[#6F8A9D]/15 shadow-lg shadow-[#6F8A9D]/20 scale-[1.02] ring-2 ring-[#96AEC2]/30"
+                                : "border-[#AEBFC3] bg-white hover:border-[#92A2A5] hover:bg-[#AEBFC3]/10 hover:shadow-md active:scale-[0.98]"
                             )}
                           >
-                            <span className="text-xl sm:text-2xl mb-1">{type.icon}</span>
+                            <span className="text-2xl sm:text-[28px] mb-1.5 drop-shadow-sm">{type.icon}</span>
                             <span className={cn(
-                              "text-[10px] sm:text-xs font-medium text-center leading-tight",
+                              "text-[10px] sm:text-[11px] font-semibold text-center leading-tight tracking-tight",
                               formData.activityType === type.value
                                 ? "text-[#546A7A]"
                                 : "text-[#5D6E73]"
@@ -1035,7 +1038,7 @@ function ActivityLoggerComponent({
                               {type.label}
                             </span>
                             {formData.activityType === type.value && (
-                              <div className="absolute top-1 right-1 w-4 h-4 bg-[#96AEC2]/100 rounded-full flex items-center justify-center">
+                              <div className="absolute -top-1 -right-1 w-5 h-5 bg-gradient-to-br from-[#82A094] to-[#4F6A64] rounded-full flex items-center justify-center shadow-lg shadow-[#82A094]/40 animate-in zoom-in-50 duration-200">
                                 <CheckCircle className="w-3 h-3 text-white" />
                               </div>
                             )}
@@ -1046,11 +1049,11 @@ function ActivityLoggerComponent({
 
                     {/* Show scheduled activity dropdown - only for activity types that require scheduling */}
                     {formData.activityType && !AD_HOC_ACTIVITY_TYPES.includes(formData.activityType) && (
-                      <div className="space-y-2">
-                        <Label htmlFor="activityScheduleId" className="text-sm font-semibold text-[#546A7A] flex items-center gap-2">
-                          <span className="w-5 h-5 bg-gradient-to-br from-[#6F8A9D] to-[#9E3B47] rounded-md flex items-center justify-center text-white text-xs">2</span>
+                      <div className="space-y-3">
+                        <Label htmlFor="activityScheduleId" className="text-sm font-bold text-[#546A7A] flex items-center gap-2.5">
+                          <span className="w-6 h-6 bg-gradient-to-br from-[#CE9F6B] to-[#976E44] rounded-lg flex items-center justify-center text-white text-xs font-bold shadow-sm">2</span>
                           Scheduled Activity
-                          <span className="text-xs font-medium text-[#E17F70] bg-[#E17F70]/10 px-1.5 py-0.5 rounded">Required</span>
+                          <span className="text-xs font-semibold text-[#976E44] bg-[#CE9F6B]/15 px-2 py-1 rounded-full border border-[#CE9F6B]">Required</span>
                         </Label>
                         <Select
                           value={formData.activityScheduleId}
@@ -1061,7 +1064,7 @@ function ActivityLoggerComponent({
                             }))
                           }
                         >
-                          <SelectTrigger className={`${isMobile ? 'h-14 text-base' : 'h-12'} rounded-xl border-2 border-[#92A2A5] focus:border-[#6F8A9D] bg-[#AEBFC3]/10/50`}>
+                          <SelectTrigger className={`${isMobile ? 'h-14 text-base' : 'h-12'} rounded-xl border-2 border-[#AEBFC3] focus:border-[#6F8A9D] bg-white shadow-sm hover:border-[#92A2A5] transition-colors`}>
                             <SelectValue placeholder="Select scheduled activity" />
                           </SelectTrigger>
                           <SelectContent>
@@ -1131,9 +1134,9 @@ function ActivityLoggerComponent({
                     )}
 
                     {/* Location Section */}
-                    <div className="space-y-2">
-                      <Label className="text-sm font-semibold text-[#546A7A] flex items-center gap-2">
-                        <span className="w-5 h-5 bg-gradient-to-br from-[#82A094] to-[#4F6A64] rounded-md flex items-center justify-center text-white text-xs">3</span>
+                    <div className="space-y-3">
+                      <Label className="text-sm font-bold text-[#546A7A] flex items-center gap-2.5">
+                        <span className="w-6 h-6 bg-gradient-to-br from-[#82A094] to-[#4F6A64] rounded-lg flex items-center justify-center text-white text-xs font-bold shadow-sm">3</span>
                         Location
                       </Label>
                       
@@ -1187,11 +1190,11 @@ function ActivityLoggerComponent({
                         <div className="space-y-2">
                           {(activityLocation || enhancedLocation) ? (
                             /* Location captured - show details */
-                            <div className="bg-gradient-to-r from-[#A2B9AF]/10 to-[#A2B9AF]/10 border border-[#A2B9AF] rounded-xl p-4">
+                            <div className="bg-gradient-to-br from-[#A2B9AF]/15 to-[#82A094]/10 border-2 border-[#82A094] rounded-2xl p-4 shadow-sm">
                               <div className="flex items-center justify-between mb-3">
-                                <div className="flex items-center gap-2">
-                                  <div className="w-8 h-8 bg-gradient-to-br from-[#82A094] to-[#4F6A64] rounded-lg flex items-center justify-center">
-                                    <CheckCircle className="h-4 w-4 text-white" />
+                                <div className="flex items-center gap-2.5">
+                                  <div className="w-9 h-9 bg-gradient-to-br from-[#82A094] to-[#4F6A64] rounded-xl flex items-center justify-center shadow-md shadow-[#82A094]/40">
+                                    <CheckCircle className="h-5 w-5 text-white" />
                                   </div>
                                   <span className="font-bold text-[#4F6A64] text-sm">Location Ready</span>
                                 </div>
@@ -1268,7 +1271,7 @@ function ActivityLoggerComponent({
                   </div>
 
                   {/* Dialog Footer */}
-                  <div className="border-t border-[#AEBFC3]/30 bg-[#AEBFC3]/10/50 p-4 sm:p-5">
+                  <div className="border-t border-[#92A2A5]/30 bg-gradient-to-b from-[#AEBFC3]/5 to-[#AEBFC3]/10 p-4 sm:p-5">
                     <div className={`flex gap-3 ${isMobile ? 'flex-col' : 'justify-end flex-row'}`}>
                       <Button
                         variant="outline"
@@ -1278,16 +1281,16 @@ function ActivityLoggerComponent({
                           setEnhancedLocation(null);
                         }}
                         disabled={submitting}
-                        className={`${isMobile ? 'w-full h-12 order-2' : ''} rounded-xl border-2`}
+                        className={`${isMobile ? 'w-full h-12 order-2' : ''} rounded-xl border-2 border-[#92A2A5] hover:bg-[#AEBFC3]/10 text-[#5D6E73] font-medium`}
                       >
                         Cancel
                       </Button>
                       
                       {/* Show message if location not captured */}
                       {!activityLocation && !enhancedLocation ? (
-                        <div className={`${isMobile ? 'w-full order-1' : ''} flex items-center justify-center gap-2 px-4 py-3 bg-[#CE9F6B]/10 border-2 border-[#CE9F6B]/50 rounded-xl text-[#976E44]`}>
+                        <div className={`${isMobile ? 'w-full order-1' : ''} flex items-center justify-center gap-2 px-4 py-3 bg-[#CE9F6B]/15 border-2 border-[#CE9F6B] rounded-xl text-[#976E44]`}>
                           <MapPin className="h-5 w-5 animate-pulse" />
-                          <span className="font-medium text-sm">Capture location to start activity</span>
+                          <span className="font-semibold text-sm">Capture location to start activity</span>
                         </div>
                       ) : (
                         <Button
@@ -1298,12 +1301,12 @@ function ActivityLoggerComponent({
                             // Only require schedule for non-ad-hoc activity types
                             (!AD_HOC_ACTIVITY_TYPES.includes(formData.activityType) && !formData.activityScheduleId)
                           }
-                          className={`${isMobile ? 'w-full h-12 order-1' : ''} bg-gradient-to-r from-[#82A094] to-[#4F6A64] hover:from-[#4F6A64] hover:to-[#4F6A64] rounded-xl font-bold shadow-lg shadow-green-500/30`}
+                          className={`${isMobile ? 'w-full h-14 order-1' : 'h-11'} bg-gradient-to-r from-[#82A094] to-[#4F6A64] hover:from-[#4F6A64] hover:to-[#4F6A64] rounded-xl font-bold shadow-lg shadow-[#82A094]/40 text-white active:scale-[0.98] transition-transform`}
                         >
                           {submitting ? (
                             <Loader2 className="h-5 w-5 mr-2 animate-spin" />
                           ) : (
-                            <Play className="h-5 w-5 mr-2" />
+                            <Play className="h-5 w-5 mr-2 fill-current" />
                           )}
                           Start Activity
                         </Button>

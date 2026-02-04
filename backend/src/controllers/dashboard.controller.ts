@@ -611,6 +611,7 @@ async function calculateAverageResponseTime(startDate: Date, endDate: Date) {
           lte: endDate
         }
       },
+      take: 2000, // Safety limit
       select: {
         id: true,
         createdAt: true,
@@ -678,6 +679,7 @@ async function calculateAverageResolutionTime(startDate: Date, endDate: Date): P
           lte: endDate
         }
       },
+      take: 2000, // Safety limit
       select: {
         createdAt: true,
         updatedAt: true,
@@ -701,6 +703,7 @@ async function calculateAverageResolutionTime(startDate: Date, endDate: Date): P
             lte: endDate
           }
         },
+        take: 2000, // Safety limit
         select: {
           createdAt: true,
           updatedAt: true,
@@ -761,6 +764,7 @@ async function calculateAverageDowntime(startDate: Date, endDate: Date): Promise
           lte: endDate
         }
       },
+      take: 2000, // Safety limit
       include: {
         ticket: {
           select: {
@@ -786,6 +790,7 @@ async function calculateAverageDowntime(startDate: Date, endDate: Date): Promise
             lte: endDate
           }
         },
+        take: 2000, // Safety limit
         select: {
           createdAt: true,
           updatedAt: true
@@ -853,6 +858,7 @@ async function calculateSLACompliance(startDate: Date, endDate: Date) {
           lte: endDate
         }
       },
+      take: 2000, // Safety limit
       include: {
         statusHistory: true
       }
@@ -1076,6 +1082,7 @@ async function calculateAverageTravelTime(startDate: Date, endDate: Date) {
           lte: endDate
         }
       },
+      take: 2000, // Safety limit
       include: {
         statusHistory: {
           orderBy: {
@@ -1155,6 +1162,7 @@ async function calculateAverageOnsiteResolutionTime(startDate: Date, endDate: Da
           lte: endDate
         }
       },
+      take: 2000, // Safety limit
       include: {
         statusHistory: {
           orderBy: {

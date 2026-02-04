@@ -1145,6 +1145,7 @@ async function generateIndustrialDataReport(res: Response, whereClause: any, sta
   // Get ALL assets (with or without issues)
   const allAssets = await prisma.asset.findMany({
     where: assetWhere,
+    take: 5000, // Safety limit
     select: {
       id: true,
       machineId: true,
@@ -1185,6 +1186,7 @@ async function generateIndustrialDataReport(res: Response, whereClause: any, sta
   // Get machine downtime data (only tickets with issues)
   const ticketsWithDowntime = await prisma.ticket.findMany({
     where: ticketFilters,
+    take: 5000, // Safety limit
     select: {
       id: true,
       title: true,
@@ -1395,11 +1397,21 @@ export const exportReport = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Report type is required' });
     }
 
-    const startDate = from ? new Date(from) : subDays(new Date(), 30);
-    const endDate = to ? new Date(to) : new Date();
+    const startDate = from ? new Date(from as string) : subDays(new Date(), 30);
+    const endDate = to ? new Date(to as string) : new Date();
 
     // Set end date to end of day
     endDate.setHours(23, 59, 59, 999);
+
+    // Date Range Validation (Safety Guard)
+    const diffDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+    if (diffDays > 366) {
+      return res.status(400).json({ error: 'Report range cannot exceed 366 days for performance reasons' });
+    }
+
+    if (diffDays < 0) {
+      return res.status(400).json({ error: 'Start date must be before end date' });
+    }
 
     const whereClause: any = {
       createdAt: {
@@ -1509,7 +1521,11 @@ export const exportReport = async (req: Request, res: Response) => {
         const calculateBusinessHours = (startDate: Date, endDate: Date): number => {
           let businessHours = 0;
           let currentDate = new Date(startDate);
-          while (currentDate < endDate) {
+          let safetyCounter = 0;
+          const MAX_ITERATIONS = 400; // Just over a year of days
+
+          while (currentDate < endDate && safetyCounter < MAX_ITERATIONS) {
+            safetyCounter++;
             const dayOfWeek = currentDate.getDay();
             if (WORKING_DAYS.includes(dayOfWeek)) {
               const dayStart = new Date(currentDate);
@@ -1762,38 +1778,30 @@ async function getTicketSummaryData(whereClause: any, startDate: Date, endDate: 
     _count: true,
   });
 
-  // Generate daily trends
+  // Generate daily trends in memory (Optimization: No N+1 queries)
   const dateRange = eachDayOfInterval({ start: startDate, end: endDate });
-  const dailyTrends = await Promise.all(
-    dateRange.map(async (date) => {
-      const startOfDay = new Date(date);
-      startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date(date);
-      endOfDay.setHours(23, 59, 59, 999);
+  const dailyTrends = dateRange.map(date => {
+    const dateStr = format(date, 'yyyy-MM-dd');
+    const startOfDayTime = startOfDay(date).getTime();
+    const endOfDayTime = startOfDay(date).getTime() + 24 * 60 * 60 * 1000 - 1;
 
-      const [created, resolved] = await Promise.all([
-        prisma.ticket.count({
-          where: {
-            ...whereClause,
-            createdAt: { gte: startOfDay, lte: endOfDay }
-          }
-        }),
-        prisma.ticket.count({
-          where: {
-            ...whereClause,
-            status: { in: ['RESOLVED', 'CLOSED'] },
-            updatedAt: { gte: startOfDay, lte: endOfDay }
-          }
-        })
-      ]);
+    const created = tickets.filter(t => {
+      const ticketTime = new Date(t.createdAt).getTime();
+      return ticketTime >= startOfDayTime && ticketTime <= endOfDayTime;
+    }).length;
 
-      return {
-        date: format(date, 'yyyy-MM-dd'),
-        created,
-        resolved
-      };
-    })
-  );
+    const resolved = tickets.filter(t => {
+      if (!['RESOLVED', 'CLOSED'].includes(t.status)) return false;
+      const ticketTime = new Date(t.updatedAt).getTime();
+      return ticketTime >= startOfDayTime && ticketTime <= endOfDayTime;
+    }).length;
+
+    return {
+      date: dateStr,
+      created,
+      resolved
+    };
+  });
 
   // Calculate average resolution time (BUSINESS HOURS ONLY)
   const resolvedTickets = tickets.filter((t: { status: string }) =>

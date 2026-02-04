@@ -58,6 +58,7 @@ import {
   Sparkles,
   Users
 } from 'lucide-react'
+import OfferStats from '@/components/offers/OfferStats'
 import { apiService } from '@/services/api'
 import { toast } from 'sonner'
 
@@ -320,46 +321,9 @@ export default function OfferManagement() {
 
   return (
     <div className="min-h-screen bg-[#AEBFC3]/10">
-      <div className="w-full p-4 sm:p-6 lg:p-8 space-y-6">
+      <div className="w-full p-2 sm:p-4 lg:p-4 space-y-6">
         {/* Compact Header with Stats */}
-        <div className="relative overflow-hidden bg-gradient-to-br from-[#82A094] via-[#82A094] to-[#546A7A] rounded-2xl shadow-xl p-6 text-white">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-          <div className="relative z-10 flex justify-between items-center">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-white/20 backdrop-blur-sm rounded-xl ring-2 ring-white/30">
-                <Sparkles className="h-8 w-8" />
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold">Offer Management</h1>
-                <p className="text-emerald-100 mt-1">Track, manage, and convert offers to orders</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="grid grid-cols-4 gap-3">
-                <div className="bg-white/10 backdrop-blur-md rounded-lg px-4 py-2 border border-white/20 text-center">
-                  <p className="text-emerald-100 text-xs font-medium">Total</p>
-                  <p className="text-2xl font-bold">{stats.total}</p>
-                </div>
-                <div className="bg-white/10 backdrop-blur-md rounded-lg px-4 py-2 border border-white/20 text-center">
-                  <p className="text-emerald-100 text-xs font-medium">Won</p>
-                  <p className="text-2xl font-bold">{stats.won}</p>
-                </div>
-                <div className="bg-white/10 backdrop-blur-md rounded-lg px-4 py-2 border border-white/20 text-center">
-                  <p className="text-emerald-100 text-xs font-medium">Win Rate</p>
-                  <p className="text-2xl font-bold">{stats.conversionRate.toFixed(0)}%</p>
-                </div>
-                <div className="bg-white/10 backdrop-blur-md rounded-lg px-4 py-2 border border-white/20 text-center">
-                  <p className="text-emerald-100 text-xs font-medium">Value</p>
-                  <p className="text-xl font-bold">{formatCurrency(stats.totalValue).replace('₹', '₹')}</p>
-                </div>
-              </div>
-              <Button onClick={() => router.push('/zone/offers/new')} className="bg-white text-[#4F6A64] hover:bg-[#82A094]/10 shadow-lg hover:shadow-xl transition-all">
-                <Plus className="h-4 w-4 mr-2" />
-                Create New
-              </Button>
-            </div>
-          </div>
-        </div>
+        <OfferStats stats={stats} createPath="/zone/offers/new" />
 
         {/* Filters */}
         <Card className="border-0 shadow-lg bg-white" style={{backgroundColor: 'white'}}>

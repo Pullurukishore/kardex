@@ -56,7 +56,7 @@ export interface ARInvoice {
     receipts?: number;
     adjustments?: number;
     totalReceipts?: number;
-    type?: string;
+    type?: 'SERVICE' | 'SALES' | 'OTHERS';
     modeOfDelivery?: string;
     sentHandoverDate?: string;
     deliveryStatus: 'PENDING' | 'SENT' | 'DELIVERED' | 'ACKNOWLEDGED';
@@ -70,7 +70,12 @@ export interface ARInvoice {
     invoiceType?: 'REGULAR' | 'PREPAID';
     advanceReceivedDate?: string;
     deliveryDueDate?: string;
-    prepaidStatus?: 'AWAITING_DELIVERY' | 'PARTIALLY_DELIVERED' | 'FULLY_DELIVERED' | 'EXPIRED';
+    prepaidStatus?: 'AWAITING_DELIVERY' | 'PARTIALLY_DELIVERED' | 'FULLY_DELIVERED' | 'EXPIRED' | 'LINKED';
+    // Prepaid Linking Fields
+    soNo?: string;
+    linkedInvoiceId?: string;
+    linkedPrepaidId?: string;
+    prepaidAcceptedAt?: string;
 }
 
 export interface ARPaymentHistory {
@@ -80,6 +85,7 @@ export interface ARPaymentHistory {
     paymentDate: string;
     paymentMode: string;
     referenceNo?: string;
+    referenceBank?: string;
     notes?: string;
     recordedBy?: string;
     createdAt: string;
@@ -150,6 +156,33 @@ export interface ARActivityFilters {
     search?: string;
     page?: number;
     limit?: number;
+}
+
+// Matching Prepaid Invoice type for linking
+export interface MatchingPrepaid {
+    id: string;
+    invoiceNumber: string;
+    soNo?: string;
+    poNo?: string;
+    totalAmount: number;
+    netAmount?: number;
+    receipts?: number;
+    totalReceipts?: number;
+    balance?: number;
+    advanceReceivedDate?: string;
+    prepaidStatus?: string;
+    customerName: string;
+    bpCode: string;
+    invoiceDate: string;
+    status: string;
+    payments: {
+        id: string;
+        amount: number;
+        paymentDate: string;
+        paymentMode: string;
+        referenceNo?: string;
+    }[];
+    totalPayments: number;
 }
 
 
@@ -316,6 +349,42 @@ export const arApi = {
 
     async getInvoiceActivityLog(invoiceId: string): Promise<any[]> {
         const res = await api.get(`/ar/invoices/${invoiceId}/activity`);
+        return res.data;
+    },
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PREPAID INVOICE LINKING
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    async getMatchingPrepaids(invoiceId: string): Promise<{
+        prepaids: MatchingPrepaid[];
+        hasLinkedPrepaid: boolean;
+        invoicePoNo: string;
+    }> {
+        const res = await api.get(`/ar/invoices/${invoiceId}/matching-prepaids`);
+        return res.data;
+    },
+
+    async acceptPrepaid(invoiceId: string, prepaidId: string, transferPayments = true): Promise<{
+        success: boolean;
+        prepaidInvoiceNumber: string;
+        totalTransferred: number;
+        newBalance?: number;
+        newStatus?: string;
+    }> {
+        const res = await api.post(`/ar/invoices/${invoiceId}/accept-prepaid`, {
+            prepaidId,
+            transferPayments
+        });
+        return res.data;
+    },
+
+    async getLinkedPrepaidDetails(invoiceId: string): Promise<{
+        linkedPrepaid: any;
+        transferredPayments: any[];
+        totalTransferred: number;
+    }> {
+        const res = await api.get(`/ar/invoices/${invoiceId}/linked-prepaid`);
         return res.data;
     },
 
@@ -491,6 +560,25 @@ export const arApi = {
         document.body.appendChild(link);
         link.click();
         link.remove();
+    },
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // VENDOR ACCOUNT ACTIVITY LOGS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    async getBankAccountActivityLogs(id: string, params?: { limit?: number; offset?: number }): Promise<{ logs: any[]; total: number }> {
+        const res = await api.get(`/ar/bank-accounts/${id}/activities`, { params });
+        return res.data;
+    },
+
+    async getRecentBankAccountActivities(limit = 50): Promise<any[]> {
+        const res = await api.get('/ar/bank-accounts/activities/recent', { params: { limit } });
+        return res.data;
+    },
+
+    async getBankAccountActivityStats(): Promise<{ total: number; byAction: Record<string, number> }> {
+        const res = await api.get('/ar/bank-accounts/activities/stats');
+        return res.data;
     }
 };
 
@@ -546,6 +634,22 @@ export interface BankAccountAttachment {
     uploadedById: number;
     createdAt: string;
     uploadedBy?: { id: number; name: string };
+}
+
+export interface BankAccountActivityLog {
+    id: string;
+    bankAccountId?: string;
+    action: string;
+    description: string;
+    fieldName?: string;
+    oldValue?: string;
+    newValue?: string;
+    performedById?: number;
+    performedBy?: string;
+    ipAddress?: string;
+    userAgent?: string;
+    metadata?: any;
+    createdAt: string;
 }
 
 // Utility functions

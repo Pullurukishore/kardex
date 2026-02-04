@@ -2214,11 +2214,46 @@ export const addNote = async (req: TicketRequest, res: Response) => {
       return res.status(401).json({ error: 'Authentication required' });
     }
 
-    // Add note directly to ticket notes field or create a simple log entry
-    const updatedTicket = await prisma.ticket.update({
+    if (!content || !content.trim()) {
+      return res.status(400).json({ error: 'Note content is required' });
+    }
+
+    // Check if ticket exists and user has access
+    const ticket = await prisma.ticket.findUnique({
+      where: { id: Number(ticketId) },
+    });
+
+    if (!ticket) {
+      return res.status(404).json({ error: 'Ticket not found' });
+    }
+
+    const hasAccess = await checkTicketAccess(user, Number(ticketId));
+    if (!hasAccess.allowed) {
+      return res.status(403).json({ error: hasAccess.error });
+    }
+
+    // Create the note record
+    const note = await prisma.ticketNote.create({
+      data: {
+        content: content.trim(),
+        ticketId: Number(ticketId),
+        authorId: user.id
+      },
+      include: {
+        author: {
+          select: {
+            id: true,
+            name: true,
+            email: true
+          }
+        }
+      }
+    });
+
+    // Update ticket's last status change timestamp
+    await prisma.ticket.update({
       where: { id: Number(ticketId) },
       data: {
-        // Store note in a notes field if available, or handle differently
         lastStatusChange: new Date(),
       },
     });
@@ -2231,12 +2266,16 @@ export const addNote = async (req: TicketRequest, res: Response) => {
         entityId: Number(ticketId),
         userId: user.id,
         performedById: user.id,
-        details: 'Added internal note',
-        updatedAt: new Date()
+        details: {
+          noteId: note.id,
+          message: 'Added internal note'
+        },
+        updatedAt: new Date(),
+        performedAt: new Date()
       }
     });
 
-    res.json({ success: true, message: 'Note added successfully', ticket: updatedTicket });
+    res.json({ success: true, message: 'Note added successfully', note });
   } catch (error) {
     res.status(500).json({ error: 'Error adding note' });
   }
@@ -3137,11 +3176,32 @@ export const updateStatusWithLifecycle = async (req: Request, res: Response) => 
 export const getTicketPhotos = async (req: TicketRequest, res: Response) => {
   try {
     const { id } = req.params;
+    const user = req.user as AuthUser;
 
     if (!id) {
       return res.status(400).json({
         success: false,
         error: 'Ticket ID is required'
+      });
+    }
+
+    // Check if ticket exists and user has access
+    const ticket = await prisma.ticket.findUnique({
+      where: { id: Number(id) },
+    });
+
+    if (!ticket) {
+      return res.status(404).json({
+        success: false,
+        error: 'Ticket not found'
+      });
+    }
+
+    const hasAccess = await checkTicketAccess(user, Number(id));
+    if (!hasAccess.allowed) {
+      return res.status(403).json({
+        success: false,
+        error: hasAccess.error
       });
     }
 
