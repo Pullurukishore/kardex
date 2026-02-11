@@ -10,26 +10,31 @@ const userMappingPath = path.join(__dirname, 'data', 'user-mapping.json');
 const userMapping = JSON.parse(fs.readFileSync(userMappingPath, 'utf8'));
 
 // Product type mapping from Excel to Prisma enum
-const productTypeMap = {
-    'Contract': 'CONTRACT',
-    'CONTRACT': 'CONTRACT',
-    'Contarct': 'CONTRACT',
-    'Ccontarct': 'CONTRACT',
-    'SPP': 'SPP',
+const productMapping = {
+    'contract': 'CONTRACT',
+    'mc': 'CONTRACT',
+    'contarct': 'CONTRACT',
+    'ccontarct': 'CONTRACT',
     'spp': 'SPP',
-    'Relocation': 'RELOCATION',
-    'RELOCATION': 'RELOCATION',
-    'Upgrade kit': 'UPGRADE_KIT',
-    'Upgrade': 'UPGRADE_KIT',
-    'Software': 'SOFTWARE',
-    'BD Charges': 'BD_CHARGES',
-    'BD Spare': 'BD_SPARE',
-    'Midlife Upgrade': 'MIDLIFE_UPGRADE',
-    'MLU': 'MIDLIFE_UPGRADE',
-    'Retrofit kit': 'RETROFIT_KIT',
-    'RETROFIT': 'RETROFIT_KIT',
-    'MC': 'CONTRACT'
+    'relocation': 'RELOCATION',
+    'upgradekit': 'UPGRADE_KIT',
+    'upgrade': 'UPGRADE_KIT',
+    'software': 'SOFTWARE',
+    'bdcharges': 'BD_CHARGES',
+    'bdcharges': 'BD_CHARGES', // Already covered but just in case
+    'bdspare': 'BD_SPARE',
+    'midlifeupgrade': 'MIDLIFE_UPGRADE',
+    'mlu': 'MIDLIFE_UPGRADE',
+    'retrofitkit': 'RETROFIT_KIT',
+    'retrofit': 'RETROFIT_KIT'
 };
+
+function normalizeProductType(type) {
+    if (!type) return null;
+    // Lowercase and remove all spaces, underscores, and dashes
+    const normalized = String(type).toLowerCase().replace(/[\s\-_]/g, '');
+    return productMapping[normalized] || null;
+}
 
 const leadStatusMap = {
     'Yes': 'YES',
@@ -142,7 +147,7 @@ async function main() {
         const ref = sheet['!ref'];
         if (ref) {
             const range = XLSX.utils.decode_range(ref);
-            if (range.e.r > 10000) { // If sheet appears to have >10k rows
+            if (range.e.r > 5000) { // If sheet appears to have >5k rows
                 let maxRow = 0;
                 // Find the actual highest row index present in the sheet object keys
                 Object.keys(sheet).forEach(key => {
@@ -244,18 +249,15 @@ async function main() {
             const offerRef = offerRefIndex >= 0 ? String(row[offerRefIndex] || '').trim() : '';
             const offerValueVal = offerValueIndex >= 0 ? row[offerValueIndex] : null;
 
-            // Relaxed condition: process if it has a company Name OR offer Ref OR a positive offer value
-            if (!companyName && !offerRef && (!offerValueVal || typeof offerValueVal !== 'number' || offerValueVal <= 0)) {
+            // Skip if no offer reference - as per user requirement
+            if (!offerRef) {
                 continue;
             }
 
             totalReadFromExcel++;
             sheetReadCount++;
 
-            let finalOfferRef = offerRef;
-            if (!finalOfferRef) {
-                finalOfferRef = `AUTO-${sheetName.toUpperCase()}-${slValue || i}`;
-            }
+            const finalOfferRef = offerRef;
 
             const poValueVal = poValueIndex >= 0 ? row[poValueIndex] : null;
             const machineSerial = machineSerialIndex >= 0 ? row[machineSerialIndex] : null;
@@ -376,8 +378,14 @@ async function main() {
                 }
 
                 // 3. Prepare Offer Data
-                const productTypeVal = productTypeIndex >= 0 ? String(row[productTypeIndex] || '') : null;
-                const leadVal = leadIndex >= 0 ? String(row[leadIndex] || '') : null;
+                const productTypeRaw = productTypeIndex >= 0 ? String(row[productTypeIndex] || '').trim() : null;
+                const productTypeVal = normalizeProductType(productTypeRaw);
+
+                if (productTypeRaw && !productTypeVal) {
+                    console.warn(`    ⚠ Unmapped Product Type found: "${productTypeRaw}" (Offer: ${offerRefStr})`);
+                }
+
+                const leadVal = leadIndex >= 0 ? String(row[leadIndex] || '').trim() : null;
                 const offerDateVal = offerDateIndex >= 0 ? row[offerDateIndex] : null;
                 const offerMonthVal = offerMonthIndex >= 0 ? row[offerMonthIndex] : null;
                 const poExpectedVal = poExpectedMonthIndex >= 0 ? row[poExpectedMonthIndex] : null;
@@ -403,7 +411,7 @@ async function main() {
                     offerReferenceNumber: offerRefStr,
                     offerReferenceDate: excelDateToJS(offerDateVal),
                     title: `Offer for ${companyName}`,
-                    productType: productTypeMap[productTypeVal] || null,
+                    productType: productTypeVal,
                     lead: leadStatusMap[leadVal] || null,
                     registrationDate: registrationDateJS,
                     company: companyName,
