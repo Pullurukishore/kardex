@@ -6,25 +6,18 @@ import Link from 'next/link';
 import { arApi } from '@/lib/ar-api';
 import { useAuth } from '@/contexts/AuthContext';
 import { FinanceRole } from '@/types/user.types';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { 
   ArrowLeft, Building2, Sparkles, Save, AlertCircle, 
   CheckCircle2, Mail, CreditCard, Hash, User, Loader2,
   Info, FileText, Upload, X, ArrowRight, Shield, Landmark,
-  Globe, BadgeCheck, ChevronRight, Wallet
+  Globe, BadgeCheck, ChevronRight, Wallet, Eye
 } from 'lucide-react';
-
-/*
-  KARDEX OFFICIAL COLOR PALETTE (18 Colors Only)
-  
-  Blues:   #96AEC2 (Blue 1), #6F8A9D (Blue 2), #546A7A (Blue 3)
-  Greens:  #A2B9AF (Green 1), #82A094 (Green 2), #4F6A64 (Green 3)
-  Greys:   #AEBFC3 (Grey 1), #92A2A5 (Grey 2), #5D6E73 (Grey 3)
-  Silvers: #ABACA9 (Silver 1), #979796 (Silver 2), #757777 (Silver 3)
-  Reds:    #E17F70 (Red 1), #9E3B47 (Red 2), #75242D (Red 3)
-  Sands:   #EEC1BF (Sand 1), #CE9F6B (Sand 2), #976E44 (Sand 3)
-*/
+import FilePreview from '@/components/FilePreview';
 
 interface FormData {
+  bpCode: string;
   vendorName: string;
   beneficiaryBankName: string;
   accountNumber: string;
@@ -38,6 +31,7 @@ interface FormData {
   gstNumber: string;
   panNumber: string;
   currency: string;
+  accountType: string;
   otherCurrency?: string;
 }
 
@@ -50,10 +44,13 @@ export default function NewBankAccountPage() {
   const [currentStep, setCurrentStep] = useState(1);
   const [activeStep, setActiveStep] = useState(1);
   const [isMounted, setIsMounted] = useState(false);
+  const [previewFile, setPreviewFile] = useState<any>(null);
+  const [showPreview, setShowPreview] = useState(false);
   
   const isAdmin = user?.financeRole === FinanceRole.FINANCE_ADMIN;
 
   const [formData, setFormData] = useState<FormData>({
+    bpCode: '',
     vendorName: '',
     beneficiaryBankName: '',
     accountNumber: '',
@@ -67,10 +64,11 @@ export default function NewBankAccountPage() {
     gstNumber: '',
     panNumber: '',
     currency: 'INR',
+    accountType: '',
     otherCurrency: ''
   });
 
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [selectedFiles, setSelectedFiles] = useState<{file: File, vendorType: string}[]>([]);
 
   useEffect(() => {
     setIsMounted(true);
@@ -106,13 +104,17 @@ export default function NewBankAccountPage() {
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      const newFiles = Array.from(e.target.files);
+      const newFiles = Array.from(e.target.files).map(file => ({ file, vendorType: '' }));
       setSelectedFiles(prev => [...prev, ...newFiles]);
     }
   };
 
   const removeFile = (index: number) => {
     setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const updateFileVendorType = (index: number, vendorType: string) => {
+    setSelectedFiles(prev => prev.map((item, i) => i === index ? { ...item, vendorType } : item));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -154,12 +156,12 @@ export default function NewBankAccountPage() {
         const account = await arApi.createBankAccount(apiData);
         
         if (selectedFiles.length > 0) {
-          for (const file of selectedFiles) {
-            await arApi.uploadBankAccountAttachment(account.id, file);
+          for (const { file, vendorType } of selectedFiles) {
+            await arApi.uploadBankAccountAttachment(account.id, file, vendorType);
           }
         }
         
-        setSuccess('Vendor account created successfully!');
+        setSuccess('Vendor bank account created successfully!');
         setTimeout(() => router.push(`/finance/bank-accounts/${account.id}`), 1500);
       } else {
         const { confirmAccountNumber, otherCurrency, ...apiData } = formData;
@@ -172,8 +174,8 @@ export default function NewBankAccountPage() {
         });
         
         if (selectedFiles.length > 0) {
-          for (const file of selectedFiles) {
-            await arApi.uploadBankAccountAttachment(request.id, file);
+          for (const { file, vendorType } of selectedFiles) {
+            await arApi.uploadBankAccountAttachment(request.id, file, vendorType);
           }
         }
         
@@ -208,13 +210,13 @@ export default function NewBankAccountPage() {
 
   const steps = [
     { id: 1, title: 'Vendor Details', icon: User, description: 'Basic information' },
-    { id: 2, title: 'Bank Account', icon: Landmark, description: 'Banking details' },
+    { id: 2, title: 'Vendor Bank Account', icon: Landmark, description: 'Banking details' },
     { id: 3, title: 'Documents', icon: FileText, description: 'Verification' },
   ];
 
   const getCompletionPercentage = () => {
     let filled = 0;
-    const required = ['vendorName', 'beneficiaryBankName', 'accountNumber', 'ifscCode', 'confirmAccountNumber'];
+    const required = ['bpCode', 'vendorName', 'beneficiaryBankName', 'accountNumber', 'ifscCode', 'confirmAccountNumber'];
     required.forEach(field => {
       if (formData[field as keyof FormData]) filled++;
     });
@@ -223,6 +225,9 @@ export default function NewBankAccountPage() {
 
   const validateStep = (step: number): { valid: boolean; message?: string } => {
     if (step === 1) {
+      if (!formData.bpCode) {
+        return { valid: false, message: 'BP Code / Vendor Code is required' };
+      }
       if (!formData.vendorName) {
         return { valid: false, message: 'Vendor name is required' };
       }
@@ -261,8 +266,15 @@ export default function NewBankAccountPage() {
       return { valid: true };
     }
     if (step === 3) {
-      if (selectedFiles.length === 0) {
-        return { valid: false, message: 'Please upload at least one document for verification' };
+      const selectedTypes = (formData as any).selectedTypes || [];
+      if (selectedTypes.length === 0) {
+        return { valid: false, message: 'Please select at least one account category' };
+      }
+      
+      const missingType = selectedTypes.find((typeId: string) => !selectedFiles.some(f => f.vendorType === typeId));
+      if (missingType) {
+        const label = missingType.charAt(0) + missingType.slice(1).toLowerCase();
+        return { valid: false, message: `Please upload the verification document for ${label} account` };
       }
       return { valid: true };
     }
@@ -285,322 +297,216 @@ export default function NewBankAccountPage() {
   };
 
   return (
-    <div className="w-full min-h-screen" style={{ background: 'linear-gradient(to bottom, #f8fafb 0%, #ffffff 100%)' }}>
-      {/* Premium Header - Enhanced Glassmorphism */}
+    <div className="w-full min-h-screen bg-[#F8FAFB]">
+      {/* Refined Compact Header */}
       <div 
-        className={`relative overflow-hidden rounded-[2rem] mb-10 transition-all duration-700 ${isMounted ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'}`}
+        className={`relative overflow-hidden rounded-[1.5rem] mb-8 transition-all duration-700 ${isMounted ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'}`}
         style={{ 
-          background: 'linear-gradient(135deg, #546A7A 0%, #6F8A9D 40%, #96AEC2 70%, #6F8A9D 100%)',
-          boxShadow: '0 20px 60px rgba(84,106,122,0.3), 0 0 0 1px rgba(255,255,255,0.1) inset'
+          background: 'linear-gradient(135deg, #546A7A 0%, #6F8A9D 100%)',
+          boxShadow: '0 10px 40px rgba(84,106,122,0.15)'
         }}
       >
-        {/* Animated Background Meshes */}
-        <div className="absolute inset-0 overflow-hidden opacity-30">
+        {/* Subtle Decorative Elements */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-20">
           <div 
-            className="absolute -top-40 -right-40 w-96 h-96 rounded-full blur-3xl animate-pulse"
-            style={{ background: 'radial-gradient(circle, rgba(206,159,107,0.4) 0%, transparent 70%)', animationDuration: '3s' }}
+            className="absolute -top-20 -right-20 w-64 h-64 rounded-full blur-3xl animate-pulse"
+            style={{ background: 'radial-gradient(circle, #CE9F6B 0%, transparent 70%)', animationDuration: '4s' }}
           />
           <div 
-            className="absolute -bottom-40 -left-40 w-96 h-96 rounded-full blur-3xl animate-pulse"
-            style={{ background: 'radial-gradient(circle, rgba(130,160,148,0.3) 0%, transparent 70%)', animationDelay: '1.5s', animationDuration: '4s' }}
-          />
-          <div 
-            className="absolute top-20 right-20 w-64 h-64 rounded-full blur-2xl animate-pulse"
-            style={{ background: 'radial-gradient(circle, rgba(238,193,191,0.2) 0%, transparent 70%)', animationDelay: '0.5s', animationDuration: '3.5s' }}
+            className="absolute -bottom-20 -left-20 w-64 h-64 rounded-full blur-3xl"
+            style={{ background: 'radial-gradient(circle, #82A094 0%, transparent 70%)' }}
           />
         </div>
         
-        <div className="relative p-10 md:p-12">
-          {/* Top Bar */}
-          <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-8 mb-10">
-            <div className="flex items-start gap-6">
-              <Link
-                href="/finance/bank-accounts"
-                className="group p-4 rounded-2xl border-2 transition-all duration-300 hover:scale-105"
-                style={{ 
-                  background: 'rgba(255,255,255,0.08)', 
-                  borderColor: 'rgba(255,255,255,0.15)',
-                  boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
-                  backdropFilter: 'blur(10px)'
-                }}
+        <div className="relative p-6 md:p-8">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+            {/* Title & Navigation Section */}
+            <div className="flex items-center gap-5 w-full md:w-auto">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => router.push('/finance/bank-accounts')}
+                className="bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white transition-all shrink-0 h-10 w-10 md:h-12 md:w-12 rounded-xl"
               >
-                <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" style={{ color: 'white' }} />
-              </Link>
-              <div>
-                <div className="flex items-center gap-3 mb-3">
-                  <div 
-                    className="p-3 rounded-2xl shadow-2xl animate-pulse"
-                    style={{ 
-                      background: 'linear-gradient(135deg, #CE9F6B 0%, #976E44 100%)', 
-                      boxShadow: '0 10px 30px rgba(206,159,107,0.4), 0 0 0 4px rgba(206,159,107,0.2)',
-                      animationDuration: '2s'
-                    }}
-                  >
-                    <Wallet className="w-6 h-6 text-white" />
-                  </div>
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+              
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 mb-1">
                   <span 
-                    className="px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest border-2"
-                    style={{ 
-                      background: 'linear-gradient(135deg, rgba(238,193,191,0.3) 0%, rgba(206,159,107,0.2) 100%)', 
-                      color: '#EEC1BF', 
-                      borderColor: 'rgba(238,193,191,0.4)',
-                      boxShadow: '0 4px 12px rgba(206,159,107,0.2)'
-                    }}
+                    className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-widest bg-[#CE9F6B]/20 text-[#EEC1BF] border border-[#CE9F6B]/30"
                   >
-                    {isAdmin ? '✦ Create Account' : '↗ Request Account'}
+                    {isAdmin ? '✦ Administration' : '↗ Request Account'}
                   </span>
                 </div>
-                <h1 className="text-3xl md:text-4xl lg:text-5xl font-black text-white tracking-tight mb-3 drop-shadow-lg">
-                  {isAdmin ? 'Add Bank Account' : 'Request Bank Account'}
+                <h1 className="text-xl md:text-2xl lg:text-3xl font-black text-white tracking-tight truncate">
+                  {isAdmin ? 'Add Vendor Bank Account' : 'Request Vendor Bank Account'}
                 </h1>
-                <p className="text-base md:text-lg flex items-center gap-2.5 font-medium" style={{ color: '#E8F0F2', textShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-                  <Shield className="w-5 h-5" style={{ color: '#CE9F6B' }} />
-                  {isAdmin ? 'Create a verified vendor bank account' : 'Submit for admin verification'}
+                <p className="text-xs md:text-sm text-white/70 font-medium flex items-center gap-1.5 truncate mt-0.5">
+                  <Shield className="w-3.5 h-3.5 text-[#CE9F6B]" />
+                  {isAdmin ? 'Create verified vendor bank account' : 'Submit for verification'}
                 </p>
               </div>
             </div>
-            
-            {/* Enhanced Progress Ring */}
-            <div className="lg:text-right">
-              <div 
-                className="inline-flex items-center gap-5 px-7 py-5 rounded-3xl border-2 backdrop-blur-xl"
-                style={{ 
-                  background: 'linear-gradient(135deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.06) 100%)', 
-                  borderColor: 'rgba(255,255,255,0.2)',
-                  boxShadow: '0 8px 32px rgba(0,0,0,0.15), 0 0 0 1px rgba(255,255,255,0.1) inset'
-                }}
-              >
-                <div className="relative">
-                  <svg className="w-20 h-20 -rotate-90">
-                    <circle cx="40" cy="40" r="34" stroke="rgba(255,255,255,0.15)" strokeWidth="6" fill="none" />
-                    <circle 
-                      cx="40" cy="40" r="34" 
-                      stroke="url(#kardexGradientEnhanced)" 
-                      strokeWidth="6" 
-                      fill="none" 
-                      strokeLinecap="round"
-                      strokeDasharray={`${(getCompletionPercentage() / 100) * 213.6} 213.6`}
-                      className="transition-all duration-1000 ease-out"
-                      style={{ filter: 'drop-shadow(0 0 8px rgba(206,159,107,0.6))' }}
-                    />
-                    <defs>
-                      <linearGradient id="kardexGradientEnhanced" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stopColor="#EEC1BF" />
-                        <stop offset="50%" stopColor="#CE9F6B" />
-                        <stop offset="100%" stopColor="#976E44" />
-                      </linearGradient>
-                    </defs>
-                  </svg>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-2xl font-black text-white" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.3)' }}>
-                      {getCompletionPercentage()}%
+
+            {/* Compact Progress Section */}
+            <div className="flex items-center gap-8 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 border-white/10 pt-4 md:pt-0">
+              {/* Stepper Dots (Simplified) */}
+              <div className="flex items-center gap-3">
+                {steps.map((step) => (
+                  <div key={step.id} className="flex flex-col items-center gap-1.5">
+                    <div 
+                      className={`w-8 h-8 md:w-10 md:h-10 rounded-xl flex items-center justify-center transition-all duration-300 ${
+                        currentStep === step.id ? 'bg-[#CE9F6B] text-white shadow-lg shadow-[#CE9F6B]/30' : 
+                        currentStep > step.id ? 'bg-[#82A094] text-white' : 'bg-white/10 text-white/40'
+                      }`}
+                      onClick={() => currentStep > step.id && setCurrentStep(step.id)}
+                      style={{ cursor: currentStep > step.id ? 'pointer' : 'default' }}
+                    >
+                      {currentStep > step.id ? <CheckCircle2 className="w-4 h-4" /> : <step.icon className="w-4 h-4" />}
+                    </div>
+                    <span className={`text-[9px] font-bold uppercase tracking-tight ${currentStep === step.id ? 'text-[#CE9F6B]' : 'text-white/40'}`}>
+                      {step.title.split(' ')[0]}
                     </span>
                   </div>
-                </div>
-                <div>
-                  <p className="text-xs uppercase tracking-widest mb-1.5 font-bold" style={{ color: 'rgba(255,255,255,0.5)' }}>Completion</p>
-                  <p className="text-white font-black text-xl" style={{ textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>Step {currentStep} of 3</p>
+                ))}
+              </div>
+
+              {/* Minimal Progress Circle */}
+              <div className="relative h-14 w-14 shrink-0">
+                <svg className="w-full h-full -rotate-90">
+                  <circle cx="28" cy="28" r="24" stroke="rgba(255,255,255,0.1)" strokeWidth="4" fill="none" />
+                  <circle 
+                    cx="28" cy="28" r="24" 
+                    stroke="url(#headerGradient)" 
+                    strokeWidth="4" 
+                    fill="none" 
+                    strokeLinecap="round"
+                    strokeDasharray={`${(getCompletionPercentage() / 100) * 150.8} 150.8`}
+                    className="transition-all duration-1000 ease-out"
+                  />
+                  <defs>
+                    <linearGradient id="headerGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#EEC1BF" />
+                      <stop offset="100%" stopColor="#CE9F6B" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-xs font-black text-white">{getCompletionPercentage()}%</span>
                 </div>
               </div>
             </div>
-          </div>
-          
-          {/* Interactive Step Bubbles */}
-          <div className="grid grid-cols-3 gap-5">
-            {steps.map((step, index) => {
-              const Icon = step.icon;
-              const isCompleted = currentStep > step.id;
-              const isCurrent = currentStep === step.id;
-              const isPending = currentStep < step.id;
-              
-              return (
-                <div 
-                  key={step.id}
-                  className={`relative p-5 rounded-2xl transition-all duration-500 ${
-                    validateStep(step.id - 1).valid && step.id <= currentStep + 1 ? 'cursor-pointer hover:scale-105' : ''
-                  }`}
-                  onClick={() => {
-                    if (validateStep(step.id - 1).valid && step.id <= currentStep + 1) {
-                      setCurrentStep(step.id);
-                      setError('');
-                    }
-                  }}
-                  style={{ 
-                    background: isCurrent 
-                      ? 'linear-gradient(135deg, rgba(206,159,107,0.35) 0%, rgba(151,110,68,0.25) 100%)' 
-                      : isCompleted
-                        ? 'linear-gradient(135deg, rgba(130,160,148,0.2) 0%, rgba(79,106,100,0.15) 100%)'
-                        : 'rgba(255,255,255,0.08)',
-                    border: `2px solid ${
-                      isCurrent ? 'rgba(206,159,107,0.5)' : 
-                      isCompleted ? 'rgba(130,160,148,0.4)' : 
-                      'rgba(255,255,255,0.15)'
-                    }`,
-                    boxShadow: isCurrent 
-                      ? '0 8px 24px rgba(206,159,107,0.3), 0 0 0 1px rgba(206,159,107,0.2) inset' 
-                      : isCompleted
-                        ? '0 4px 16px rgba(130,160,148,0.2)'
-                        : 'none',
-                    backdropFilter: 'blur(12px)'
-                  }}
-                >
-                  {isCompleted && (
-                    <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full flex items-center justify-center"
-                      style={{ background: 'linear-gradient(135deg, #82A094 0%, #4F6A64 100%)', boxShadow: '0 4px 12px rgba(130,160,148,0.4)' }}
-                    >
-                      <CheckCircle2 className="w-4 h-4 text-white" />
-                    </div>
-                  )}
-                  <div className="flex items-center gap-4">
-                    <div 
-                      className="p-3 rounded-xl transition-all duration-500"
-                      style={{ 
-                        background: isCurrent 
-                          ? 'linear-gradient(135deg, #CE9F6B 0%, #976E44 100%)' 
-                          : isCompleted
-                            ? 'linear-gradient(135deg, #82A094 0%, #4F6A64 100%)'
-                            : 'rgba(255,255,255,0.1)',
-                        boxShadow: isCurrent || isCompleted ? '0 6px 20px rgba(0,0,0,0.2)' : 'none'
-                      }}
-                    >
-                      <Icon className="w-6 h-6" style={{ 
-                        color: isCurrent || isCompleted ? 'white' : 'rgba(255,255,255,0.4)' 
-                      }} />
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-black text-base mb-0.5" style={{ 
-                        color: isCurrent ? 'white' : isCompleted ? '#E8F0F2' : 'rgba(255,255,255,0.4)',
-                        textShadow: isCurrent ? '0 2px 4px rgba(0,0,0,0.2)' : 'none'
-                      }}>
-                        {step.title}
-                      </p>
-                      <p className="text-xs font-medium" style={{ 
-                        color: isCurrent ? '#EEC1BF' : isCompleted ? 'rgba(130,160,148,0.8)' : 'rgba(255,255,255,0.3)' 
-                      }}>
-                        {isCompleted ? '✓ Completed' : isCurrent ? '→ ' + step.description : step.description}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
           </div>
         </div>
       </div>
 
+
       {/* Info banner for non-admin */}
       {!isAdmin && (
-        <div 
-          className={`flex items-start gap-4 p-6 rounded-2xl border mb-8 transition-all duration-500 delay-100 ${isMounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
-          style={{ background: 'linear-gradient(135deg, rgba(150,174,194,0.1) 0%, rgba(111,138,157,0.05) 100%)', borderColor: 'rgba(150,174,194,0.3)' }}
-        >
-          <div className="p-3 rounded-xl border" style={{ background: 'rgba(150,174,194,0.1)', borderColor: 'rgba(150,174,194,0.2)' }}>
-            <Info className="w-6 h-6" style={{ color: '#6F8A9D' }} />
-          </div>
-          <div>
-            <p className="font-bold text-lg mb-1" style={{ color: '#546A7A' }}>Administrative Review Required</p>
-            <p style={{ color: '#5D6E73' }}>
-              Your submission will undergo a verification process by the Finance Administration team. 
-              Please ensure all bank details and attachments are accurate to facilitate swift approval.
-            </p>
-          </div>
-        </div>
+        <Card className={`border-[#6F8A9D]/30 bg-gradient-to-r from-[#6F8A9D]/10 to-[#6F8A9D]/5 mb-8 transition-all duration-500 delay-100 ${isMounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+          <CardContent className="p-6">
+            <div className="flex items-start gap-4">
+              <div className="p-3 rounded-xl bg-[#6F8A9D]/20">
+                <Info className="w-6 h-6 text-[#6F8A9D]" />
+              </div>
+              <div>
+                <p className="font-bold text-lg mb-1 text-[#546A7A]">Administrative Review Required</p>
+                <p className="text-[#5D6E73]">
+                  Your submission will undergo a verification process by the Finance Administration team. 
+                  Please ensure all bank details and attachments are accurate to facilitate swift approval.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       )}
+
 
       {/* Main Form */}
       <form onSubmit={handleSubmit} className={`transition-all duration-500 delay-200 ${isMounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
         {/* Error/Success Messages */}
         {error && (
-          <div 
-            className="flex items-start gap-4 p-6 rounded-[2rem] border-2 mb-8 animate-in fade-in slide-in-from-top-4 duration-300"
-            style={{ 
-              background: 'linear-gradient(135deg, rgba(225,127,112,0.15) 0%, rgba(158,59,71,0.08) 100%)', 
-              borderColor: 'rgba(225,127,112,0.4)',
-              boxShadow: '0 8px 24px rgba(225,127,112,0.2)'
-            }}
-          >
-            <div className="p-3 rounded-2xl" style={{ background: 'linear-gradient(135deg, #E17F70 0%, #9E3B47 100%)', boxShadow: '0 4px 12px rgba(225,127,112,0.3)' }}>
-              <AlertCircle className="w-6 h-6 text-white" />
-            </div>
-            <div className="flex-1">
-              <p className="font-black text-lg mb-1" style={{ color: '#9E3B47' }}>Error</p>
-              <p className="font-medium text-base" style={{ color: '#75242D' }}>{error}</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setError('')}
-              className="p-2 rounded-xl hover:bg-white/50 transition-colors"
-              style={{ color: '#E17F70' }}
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
+          <Card className="border-[#E17F70]/40 bg-gradient-to-r from-[#E17F70]/15 to-[#9E3B47]/8 mb-8 shadow-lg animate-in fade-in slide-in-from-top-4 duration-300">
+            <CardContent className="p-6">
+              <div className="flex items-start gap-4">
+                <div className="p-3 rounded-2xl bg-gradient-to-br from-[#E17F70] to-[#9E3B47] shadow-lg">
+                  <AlertCircle className="w-6 h-6 text-white" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-black text-lg mb-1 text-[#9E3B47]">Error</p>
+                  <p className="font-medium text-base text-[#75242D]">{error}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setError('')}
+                  className="p-2 rounded-xl hover:bg-[#E17F70]/10 transition-colors text-[#E17F70]"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </CardContent>
+          </Card>
         )}
 
         {success && (
-          <div 
-            className="flex items-start gap-4 p-6 rounded-[2rem] border-2 mb-8 animate-in fade-in slide-in-from-top-4 duration-300"
-            style={{ 
-              background: 'linear-gradient(135deg, rgba(130,160,148,0.15) 0%, rgba(79,106,100,0.08) 100%)', 
-              borderColor: 'rgba(130,160,148,0.4)',
-              boxShadow: '0 8px 24px rgba(130,160,148,0.2)'
-            }}
-          >
-            <div className="p-3 rounded-2xl animate-pulse" style={{ background: 'linear-gradient(135deg, #82A094 0%, #4F6A64 100%)', boxShadow: '0 4px 12px rgba(130,160,148,0.3)', animationDuration: '2s' }}>
-              <CheckCircle2 className="w-6 h-6 text-white" />
-            </div>
-            <div className="flex-1">
-              <p className="font-black text-lg mb-1" style={{ color: '#4F6A64' }}>Success!</p>
-              <p className="font-medium text-base" style={{ color: '#4F6A64' }}>{success}</p>
-            </div>
-          </div>
+          <Card className="border-[#82A094]/40 bg-gradient-to-r from-[#82A094]/15 to-[#4F6A64]/8 mb-8 shadow-lg animate-in fade-in slide-in-from-top-4 duration-300">
+            <CardContent className="p-6">
+              <div className="flex items-start gap-4">
+                <div className="p-3 rounded-2xl bg-gradient-to-br from-[#82A094] to-[#4F6A64] shadow-lg animate-pulse" style={{ animationDuration: '2s' }}>
+                  <CheckCircle2 className="w-6 h-6 text-white" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-black text-lg mb-1 text-[#4F6A64]">Success!</p>
+                  <p className="font-medium text-base text-[#4F6A64]">{success}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         )}
+
 
         {/* Step 1: Vendor Information */}
         {currentStep === 1 && (
-        <div className="bg-white rounded-[2rem] border-2 overflow-hidden mb-8 animate-in fade-in slide-in-from-right-4 duration-500" 
-          style={{ 
-            borderColor: 'rgba(206,159,107,0.2)', 
-            boxShadow: '0 16px 48px rgba(84,106,122,0.12), 0 0 0 1px rgba(206,159,107,0.05) inset'
-          }}>
-          <div
-            className="p-6 border-b-2 flex items-center justify-between"
-            style={{ 
-              background: 'linear-gradient(135deg, rgba(206,159,107,0.08) 0%, rgba(238,193,191,0.05) 50%, white 100%)', 
-              borderColor: 'rgba(206,159,107,0.15)' 
-            }}
-          >
-            <div className="flex items-center gap-4">
-              <div 
-                className="p-3.5 rounded-2xl shadow-xl"
-                style={{ 
-                  background: 'linear-gradient(135deg, #CE9F6B 0%, #976E44 100%)', 
-                  boxShadow: '0 8px 24px rgba(206,159,107,0.3), 0 0 0 3px rgba(206,159,107,0.1)' 
-                }}
-              >
-                <User className="w-6 h-6 text-white" />
+        <Card className="shadow-xl overflow-hidden border-0 mb-8 animate-in fade-in slide-in-from-right-4 duration-500">
+          <CardHeader className="bg-gradient-to-r from-[#CE9F6B] to-[#976E44] text-white border-b-0 py-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-xl bg-white/20 backdrop-blur-sm">
+                  <User className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <CardTitle className="text-xl text-white font-black">Vendor Information</CardTitle>
+                  <CardDescription className="text-white/80">Enter basic vendor details</CardDescription>
+                </div>
               </div>
-              <div>
-                <h2 className="text-lg font-black" style={{ color: '#546A7A' }}>Vendor Information</h2>
-                <p className="text-sm font-medium" style={{ color: '#92A2A5' }}>Enter basic vendor details</p>
-              </div>
+              <span className="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest bg-white/20 text-white border border-white/30">
+                Step 01
+              </span>
             </div>
-            <span 
-              className="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest border-2"
-              style={{ 
-                background: 'linear-gradient(135deg, rgba(206,159,107,0.1) 0%, transparent 100%)', 
-                color: '#CE9F6B', 
-                borderColor: 'rgba(206,159,107,0.2)' 
-              }}
-            >
-              Step 01
-            </span>
-          </div>
-
-          <div className="p-8 md:p-10">
+          </CardHeader>
+          <CardContent className="p-8 md:p-10">
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              {/* BP Code */}
+              <div className="space-y-2.5">
+                <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider" style={{ color: '#5D6E73' }}>
+                  <Shield className="w-3.5 h-3.5" style={{ color: '#B18E63' }} />
+                  BP Code / Vendor Code <span style={{ color: '#E17F70' }}>*</span>
+                </label>
+                <input
+                  type="text"
+                  name="bpCode"
+                  value={formData.bpCode}
+                  onChange={handleChange}
+                  placeholder="e.g. VEN001 or V12345"
+                  maxLength={15}
+                  className="w-full px-4 py-2.5 rounded-xl text-sm font-bold uppercase tracking-wider transition-all focus:outline-none border-2 border-[#AEBFC3] bg-[#F8FAFB] text-[#546A7A] focus:border-[#CE9F6B]/50"
+                  required
+                />
+              </div>
+
               {/* Vendor Name */}
-              <div className="md:col-span-2 xl:col-span-1 space-y-2.5">
+              <div className="md:col-span-1 xl:col-span-1 space-y-2.5">
                 <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider" style={{ color: '#5D6E73' }}>
                   <User className="w-3.5 h-3.5" style={{ color: '#B18E63' }} />
                   Vendor Name <span style={{ color: '#E17F70' }}>*</span>
@@ -611,12 +517,8 @@ export default function NewBankAccountPage() {
                   value={formData.vendorName}
                   onChange={handleChange}
                   placeholder="Enter vendor/company name"
-                  className="w-full px-4 py-3 rounded-xl text-sm font-medium transition-all focus:outline-none"
-                  style={{ 
-                    background: '#F8FAFB', 
-                    border: '2px solid #AEBFC3', 
-                    color: '#546A7A'
-                  }}
+                  maxLength={100}
+                  className="w-full px-4 py-2.5 rounded-xl text-sm font-medium transition-all focus:outline-none border-2 border-[#AEBFC3] bg-[#F8FAFB] text-[#546A7A] focus:border-[#CE9F6B]/50"
                   required
                 />
               </div>
@@ -632,12 +534,8 @@ export default function NewBankAccountPage() {
                   value={formData.nickName}
                   onChange={handleChange}
                   placeholder="Short reference name"
-                  className="w-full px-4 py-3 rounded-xl text-sm font-medium transition-all focus:outline-none"
-                  style={{ 
-                    background: '#F8FAFB', 
-                    border: '2px solid #AEBFC3', 
-                    color: '#546A7A'
-                  }}
+                  maxLength={30}
+                  className="w-full px-4 py-2.5 rounded-xl text-sm font-medium transition-all focus:outline-none border-2 border-[#AEBFC3] bg-[#F8FAFB] text-[#546A7A] focus:border-[#CE9F6B]/50"
                 />
               </div>
 
@@ -652,8 +550,8 @@ export default function NewBankAccountPage() {
                   value={formData.emailId}
                   onChange={handleChange}
                   placeholder="vendor@company.com"
-                  className="w-full px-5 py-4 rounded-2xl font-medium transition-all focus:outline-none"
-                  style={{ background: '#F8FAFB', border: '2px solid #AEBFC3', color: '#546A7A' }}
+                  maxLength={50}
+                  className="w-full px-4 py-2.5 rounded-xl text-sm font-medium transition-all focus:outline-none border-2 border-[#AEBFC3] bg-[#F8FAFB] text-[#546A7A] focus:border-[#CE9F6B]/50"
                 />
               </div>
 
@@ -715,64 +613,43 @@ export default function NewBankAccountPage() {
                     value={formData.udyamRegNum}
                     onChange={handleChange}
                     placeholder="UDYAM-XX-00-0000000"
-                    className="w-full px-5 py-4 rounded-2xl font-mono font-bold text-lg tracking-widest transition-all focus:outline-none"
-                    style={{ background: 'white', border: '2px solid #CE9F6B', color: '#546A7A' }}
+                    maxLength={19}
+                    className="w-full px-4 py-3 rounded-xl font-mono font-bold text-base tracking-widest transition-all focus:outline-none border-2 border-[#CE9F6B] bg-white text-[#546A7A]"
                     required={formData.isMSME}
                   />
-                </div>
+              </div>
               )}
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
         )}
 
         {/* Step 2: Bank & Currency Details */}
         {currentStep === 2 && (
-        <div className="bg-white rounded-[2rem] border-2 overflow-hidden mb-8 animate-in fade-in slide-in-from-right-4 duration-500" 
-          style={{ 
-            borderColor: 'rgba(111,138,157,0.2)', 
-            boxShadow: '0 16px 48px rgba(84,106,122,0.12), 0 0 0 1px rgba(111,138,157,0.05) inset'
-          }}>
-          <div
-            className="p-6 border-b-2 flex items-center justify-between"
-            style={{ 
-              background: 'linear-gradient(135deg, rgba(111,138,157,0.08) 0%, rgba(150,174,194,0.05) 50%, white 100%)', 
-              borderColor: 'rgba(111,138,157,0.15)' 
-            }}
-          >
-            <div className="flex items-center gap-4">
-              <div 
-                className="p-3.5 rounded-2xl shadow-xl"
-                style={{ 
-                  background: 'linear-gradient(135deg, #6F8A9D 0%, #546A7A 100%)', 
-                  boxShadow: '0 8px 24px rgba(111,138,157,0.3), 0 0 0 3px rgba(111,138,157,0.1)' 
-                }}
-              >
-                <Landmark className="w-6 h-6 text-white" />
+        <Card className="shadow-xl overflow-hidden border-0 mb-8 animate-in fade-in slide-in-from-right-4 duration-500">
+          <CardHeader className="bg-gradient-to-r from-[#6F8A9D] to-[#546A7A] text-white border-b-0 py-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-xl bg-white/20 backdrop-blur-sm">
+                  <Landmark className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <CardTitle className="text-xl text-white font-black">Bank Details</CardTitle>
+                  <CardDescription className="text-white/80">Account and routing information</CardDescription>
+                </div>
               </div>
-              <div>
-                <h2 className="text-lg font-black" style={{ color: '#546A7A' }}>Bank Details</h2>
-                <p className="text-sm font-medium" style={{ color: '#92A2A5' }}>Account and routing information</p>
-              </div>
+              <span className="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest bg-white/20 text-white border border-white/30">
+                Step 02
+              </span>
             </div>
-            <span 
-              className="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest border-2"
-              style={{ 
-                background: 'linear-gradient(135deg, rgba(111,138,157,0.1) 0%, transparent 100%)', 
-                color: '#6F8A9D', 
-                borderColor: 'rgba(111,138,157,0.2)' 
-              }}
-            >
-              Step 02
-            </span>
-          </div>
-
-          <div className="p-8 md:p-10 space-y-8">
-            {/* Currency Selection */}
+          </CardHeader>
+          <CardContent className="p-8 md:p-10 space-y-8">
+            {/* Currency & Account Type */}
             <div 
               className="grid grid-cols-1 md:grid-cols-2 gap-8 p-6 rounded-3xl border"
               style={{ background: 'linear-gradient(135deg, rgba(150,174,194,0.1) 0%, rgba(111,138,157,0.05) 100%)', borderColor: 'rgba(150,174,194,0.2)' }}
             >
+              {/* Currency */}
               <div className="space-y-3">
                 <label className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider" style={{ color: '#5D6E73' }}>
                   <Globe className="w-4 h-4" style={{ color: '#6F8A9D' }} />
@@ -783,8 +660,7 @@ export default function NewBankAccountPage() {
                     name="currency"
                     value={formData.currency}
                     onChange={handleChange}
-                    className="w-full px-5 py-4 rounded-2xl font-bold appearance-none cursor-pointer transition-all focus:outline-none"
-                    style={{ background: 'white', border: '2px solid #96AEC2', color: '#546A7A' }}
+                    className="w-full px-4 py-3 rounded-xl font-bold appearance-none cursor-pointer transition-all focus:outline-none bg-white border-2 border-[#96AEC2] text-[#546A7A] focus:border-[#6F8A9D]/50"
                     required
                   >
                     <option value="INR">🇮🇳 INR — Indian Rupee</option>
@@ -798,9 +674,34 @@ export default function NewBankAccountPage() {
                 </div>
               </div>
 
+              {/* Account Type */}
+              <div className="space-y-3">
+                <label className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider" style={{ color: '#5D6E73' }}>
+                  <CreditCard className="w-4 h-4" style={{ color: '#6F8A9D' }} />
+                  Account Type <span style={{ color: '#E17F70' }}>*</span>
+                </label>
+                <div className="relative">
+                  <select
+                  name="accountType"
+                  value={formData.accountType}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 rounded-xl font-bold appearance-none cursor-pointer transition-all focus:outline-none bg-white border-2 border-[#96AEC2] text-[#546A7A] focus:border-[#6F8A9D]/50"
+                  required
+                >
+                  <option value="" disabled>🏦 Select Account Type</option>
+                  <option value="Current">🏦 Current Account</option>
+                  <option value="Savings">💰 Savings Account</option>
+                </select>
+                  <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: '#96AEC2' }}>
+                    <ChevronRight className="w-5 h-5 rotate-90" />
+                  </div>
+                </div>
+              </div>
+
               {formData.currency === 'Other' && (
-                <div className="space-y-3 animate-in fade-in slide-in-from-right-4 duration-500">
+                <div className="space-y-3 animate-in fade-in slide-in-from-right-4 duration-500 md:col-span-2">
                   <label className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider" style={{ color: '#5D6E73' }}>
+                    <Sparkles className="w-4 h-4" style={{ color: '#6F8A9D' }} />
                     Specify ISO Code <span style={{ color: '#E17F70' }}>*</span>
                   </label>
                   <input
@@ -809,6 +710,7 @@ export default function NewBankAccountPage() {
                     value={formData.otherCurrency}
                     onChange={handleChange}
                     placeholder="e.g., GBP, JPY"
+                    maxLength={3}
                     className="w-full px-5 py-4 rounded-2xl uppercase tracking-widest font-bold text-lg transition-all focus:outline-none"
                     style={{ background: 'white', border: '2px solid #96AEC2', color: '#546A7A' }}
                     required={formData.currency === 'Other'}
@@ -833,6 +735,7 @@ export default function NewBankAccountPage() {
                   value={formData.gstNumber}
                   onChange={handleChange}
                   placeholder="22AAAAA0000A1Z5"
+                  maxLength={15}
                   className="w-full px-5 py-4 rounded-2xl font-mono font-bold uppercase transition-all focus:outline-none"
                   style={{ background: 'white', border: '2px solid #AEBFC3', color: '#546A7A' }}
                 />
@@ -849,6 +752,7 @@ export default function NewBankAccountPage() {
                   value={formData.panNumber}
                   onChange={handleChange}
                   placeholder="ABCDE1234F"
+                  maxLength={10}
                   className="w-full px-5 py-4 rounded-2xl font-mono font-bold uppercase transition-all focus:outline-none"
                   style={{ background: 'white', border: '2px solid #AEBFC3', color: '#546A7A' }}
                 />
@@ -867,6 +771,7 @@ export default function NewBankAccountPage() {
                   value={formData.beneficiaryBankName}
                   onChange={handleChange}
                   placeholder="e.g., State Bank of India"
+                  maxLength={50}
                   className="w-full px-5 py-4 rounded-2xl font-medium transition-all focus:outline-none"
                   style={{ background: '#F8FAFB', border: '2px solid #AEBFC3', color: '#546A7A' }}
                   required
@@ -885,6 +790,7 @@ export default function NewBankAccountPage() {
                   value={formData.beneficiaryName}
                   onChange={handleChange}
                   placeholder="Full name as per bank records"
+                  maxLength={50}
                   className="w-full px-5 py-4 rounded-2xl font-medium transition-all focus:outline-none"
                   style={{ background: '#F8FAFB', border: '2px solid #AEBFC3', color: '#546A7A' }}
                 />
@@ -930,19 +836,15 @@ export default function NewBankAccountPage() {
                       value={formData.accountNumber}
                       onChange={handleChange}
                       placeholder="Enter account number"
-                      className="w-full px-5 py-4 rounded-2xl font-mono font-bold text-lg tracking-wider transition-all focus:outline-none"
-                      style={{ 
-                        background: 'rgba(255,255,255,0.1)', 
-                        border: '2px solid rgba(255,255,255,0.2)', 
-                        color: 'white' 
-                      }}
+                      maxLength={18}
+                      className="w-full px-4 py-3 rounded-xl font-mono font-bold text-base tracking-wider transition-all focus:outline-none bg-white/10 border-2 border-white/20 text-white focus:border-white/40"
                       required
                     />
                   </div>
 
                   <div className="space-y-3">
                     <label className="text-sm font-medium uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                      IFSC / SWIFT Code <span style={{ color: '#E17F70' }}>*</span>
+                      IFSC Code / SWIFT Code <span style={{ color: '#E17F70' }}>*</span>
                     </label>
                     <input
                       type="text"
@@ -950,12 +852,8 @@ export default function NewBankAccountPage() {
                       value={formData.ifscCode}
                       onChange={handleChange}
                       placeholder="e.g., SBIN0001234 or SWIFT-BIC"
-                      className="w-full px-5 py-4 rounded-2xl font-mono font-black text-lg tracking-widest uppercase transition-all focus:outline-none"
-                      style={{ 
-                        background: 'rgba(255,255,255,0.1)', 
-                        border: '2px solid rgba(255,255,255,0.2)', 
-                        color: '#CE9F6B' 
-                      }}
+                      maxLength={11}
+                      className="w-full px-4 py-3 rounded-xl font-mono font-black text-base tracking-widest uppercase transition-all focus:outline-none bg-white/10 border-2 border-white/20 text-[#CE9F6B] focus:border-[#CE9F6B]/50"
                       required
                     />
                   </div>
@@ -971,14 +869,12 @@ export default function NewBankAccountPage() {
                         value={formData.confirmAccountNumber}
                         onChange={handleChange}
                         placeholder="Re-type account number for verification"
-                        className="w-full px-5 py-4 rounded-2xl font-mono font-bold text-lg tracking-wider transition-all focus:outline-none"
-                        style={{ 
-                          background: formData.confirmAccountNumber && formData.accountNumber !== formData.confirmAccountNumber
-                            ? 'rgba(225,127,112,0.2)'
-                            : 'rgba(255,255,255,0.1)',
-                          border: `2px solid ${formData.confirmAccountNumber && formData.accountNumber !== formData.confirmAccountNumber ? '#E17F70' : 'rgba(255,255,255,0.2)'}`,
-                          color: formData.confirmAccountNumber && formData.accountNumber !== formData.confirmAccountNumber ? '#EEC1BF' : 'white'
-                        }}
+                        maxLength={18}
+                        className={`w-full px-4 py-3 rounded-xl font-mono font-bold text-base tracking-wider transition-all focus:outline-none border-2 ${
+                          formData.confirmAccountNumber && formData.accountNumber !== formData.confirmAccountNumber
+                            ? 'bg-[#E17F70]/20 border-[#E17F70] text-[#EEC1BF]'
+                            : 'bg-white/10 border-white/20 text-white focus:border-white/40'
+                        }`}
                         required
                       />
                       {formData.confirmAccountNumber && formData.accountNumber === formData.confirmAccountNumber && (
@@ -1002,255 +898,279 @@ export default function NewBankAccountPage() {
                 </div>
               </div>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
         )}
 
-        {/* Step 3: Verification Documents */}
+        {/* Step 3: Documents Section */}
         {currentStep === 3 && (
-        <div className="bg-white rounded-[2rem] border-2 overflow-hidden mb-8 animate-in fade-in slide-in-from-right-4 duration-500" 
-          style={{ 
-            borderColor: 'rgba(130,160,148,0.2)', 
-            boxShadow: '0 16px 48px rgba(84,106,122,0.12), 0 0 0 1px rgba(130,160,148,0.05) inset'
-          }}>
-          <div
-            className="p-6 border-b-2 flex items-center justify-between"
-            style={{ 
-              background: 'linear-gradient(135deg, rgba(130,160,148,0.08) 0%, rgba(162,185,175,0.05) 50%, white 100%)', 
-              borderColor: 'rgba(130,160,148,0.15)' 
-            }}
-          >
-            <div className="flex items-center gap-4">
-              <div 
-                className="p-3.5 rounded-2xl shadow-xl"
-                style={{ 
-                  background: 'linear-gradient(135deg, #82A094 0%, #4F6A64 100%)', 
-                  boxShadow: '0 8px 24px rgba(130,160,148,0.3), 0 0 0 3px rgba(130,160,148,0.1)' 
-                }}
-              >
-                <FileText className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h2 className="text-lg font-black" style={{ color: '#546A7A' }}>Documents</h2>
-                <p className="text-sm font-medium" style={{ color: '#92A2A5' }}>Upload supporting documents</p>
-              </div>
-            </div>
-            <span 
-              className="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest border-2"
-              style={{ 
-                background: 'linear-gradient(135deg, rgba(130,160,148,0.1) 0%, transparent 100%)', 
-                color: '#82A094', 
-                borderColor: 'rgba(130,160,148,0.2)' 
-              }}
-            >
-              Step 03
-            </span>
-          </div>
-          
-          <div className="p-8 md:p-10">
-            <div className="mb-4">
-              <h3 className="text-sm font-bold uppercase tracking-wider flex items-center gap-2" style={{ color: '#5D6E73' }}>
-                <FileText className="w-4 h-4" style={{ color: '#82A094' }} />
-                Upload Documents <span style={{ color: '#E17F70' }}>*</span>
-              </h3>
-              <p className="text-xs mt-1" style={{ color: '#92A2A5' }}>
-                At least one document is required for verification
-              </p>
-            </div>
-            <label 
-              className="flex flex-col items-center justify-center w-full min-h-[200px] border-2 border-dashed rounded-3xl cursor-pointer transition-all group relative overflow-hidden"
-              style={{ 
-                borderColor: selectedFiles.length > 0 ? 'rgba(130,160,148,0.4)' : '#AEBFC3', 
-                background: selectedFiles.length > 0 ? 'rgba(130,160,148,0.05)' : '#F8FAFB' 
-              }}
-            >
-              <div 
-                className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                style={{ background: 'linear-gradient(135deg, rgba(130,160,148,0.05) 0%, rgba(79,106,100,0.05) 100%)' }}
-              />
-              <div className="flex flex-col items-center justify-center py-8 relative">
-                <div 
-                  className="p-4 rounded-2xl transition-all duration-300 mb-4"
-                  style={{ 
-                    background: selectedFiles.length > 0 
-                      ? 'linear-gradient(135deg, #82A094 0%, #4F6A64 100%)'
-                      : 'rgba(130,160,148,0.15)',
-                    boxShadow: selectedFiles.length > 0 ? '0 8px 24px rgba(130,160,148,0.3)' : 'none'
-                  }}
-                >
-                  {selectedFiles.length > 0 ? (
-                    <CheckCircle2 className="w-10 h-10 text-white" />
-                  ) : (
-                    <Upload className="w-10 h-10" style={{ color: '#4F6A64' }} />
-                  )}
+        <Card className="shadow-xl overflow-hidden border-0 mb-8 animate-in fade-in slide-in-from-right-4 duration-500">
+          <CardHeader className="bg-gradient-to-r from-[#82A094] to-[#4F6A64] text-white border-b-0 py-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-xl bg-white/20 backdrop-blur-sm">
+                  <FileText className="w-6 h-6 text-white" />
                 </div>
-                <p className="text-lg font-bold mb-1" style={{ color: '#546A7A' }}>
-                  {selectedFiles.length > 0 ? `${selectedFiles.length} file(s) selected` : 'Drop files here or click to upload'}
-                </p>
-                <p className="text-sm" style={{ color: '#92A2A5' }}>
-                  {selectedFiles.length > 0 ? 'Click to add more files' : 'Required: Upload at least one document • PDF, JPG, PNG (Max 20MB)'}
-                </p>
+                <div>
+                  <CardTitle className="text-xl text-white font-black">Verification Documents</CardTitle>
+                  <CardDescription className="text-white/80">Select types and upload supporting documentation</CardDescription>
+                </div>
               </div>
-              <input type="file" className="hidden" multiple onChange={handleFileSelect} />
-            </label>
-
-            {selectedFiles.length > 0 && (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mt-6">
-                {selectedFiles.map((file, index) => (
-                  <div 
-                    key={index} 
-                    className="flex items-center justify-between p-4 rounded-2xl border group transition-all"
-                    style={{ background: '#F8FAFB', borderColor: 'rgba(174,191,195,0.3)' }}
-                  >
-                    <div className="flex items-center gap-4 overflow-hidden">
-                      <div 
-                        className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
-                        style={{ background: 'rgba(130,160,148,0.15)' }}
-                      >
-                        <FileText className="w-6 h-6" style={{ color: '#4F6A64' }} />
-                      </div>
-                      <div className="overflow-hidden">
-                        <p className="text-sm font-bold truncate" style={{ color: '#546A7A' }} title={file.name}>
-                          {file.name}
-                        </p>
-                        <p className="text-xs" style={{ color: '#92A2A5' }}>
-                          {(file.size / 1024 / 1024).toFixed(2)} MB
-                        </p>
-                      </div>
-                    </div>
-                    <button 
+              <span className="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest bg-white/20 text-white border border-white/30">
+                Step 03
+              </span>
+            </div>
+          </CardHeader>
+          <CardContent className="p-8 md:p-10">
+            {/* Stage 1: Select Vendor Types */}
+            <div className="mb-10">
+              <h3 className="text-sm font-black uppercase tracking-widest flex items-center gap-2 mb-6 text-[#546A7A]">
+                <Sparkles className="w-4 h-4 text-[#CE9F6B]" />
+                1. Select Account Categories <span className="text-[#E17F70]">*</span>
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {[
+                  { id: 'DOMESTIC', label: 'Domestic', icon: Building2, desc: 'Local vendor bank details', color: '#82A094' },
+                  { id: 'INTERNATIONAL', label: 'International', icon: Globe, desc: 'Foreign currency / SWIFT', color: '#6F8A9D' },
+                  { id: 'EMPLOYEE', label: 'Employee', icon: User, desc: 'Personal account verification', color: '#CE9F6B' }
+                ].map((type) => {
+                  const isSelected = selectedFiles.some(f => f.vendorType === type.id) || 
+                                   (formData as any).selectedTypes?.includes(type.id);
+                  return (
+                    <button
+                      key={type.id}
                       type="button"
-                      onClick={() => removeFile(index)}
-                      className="p-2 rounded-xl transition-all"
-                      style={{ color: '#92A2A5' }}
+                      onClick={() => {
+                        setFormData(prev => {
+                          const currentTypes = (prev as any).selectedTypes || [];
+                          const updatedTypes = currentTypes.includes(type.id)
+                            ? currentTypes.filter((t: string) => t !== type.id)
+                            : [...currentTypes, type.id];
+                          
+                          // If removing a type, also remove associated files
+                          if (currentTypes.includes(type.id)) {
+                            setSelectedFiles(files => files.filter(f => f.vendorType !== type.id));
+                          }
+                          
+                          return { ...prev, selectedTypes: updatedTypes };
+                        });
+                      }}
+                      className={`relative p-6 rounded-3xl border-2 transition-all text-left group ${
+                        (formData as any).selectedTypes?.includes(type.id)
+                          ? 'bg-white border-[#CE9F6B] shadow-xl translate-y-[-4px]'
+                          : 'bg-[#F8FAFB] border-[#AEBFC3]/30 hover:border-[#CE9F6B]/30'
+                      }`}
                     >
-                      <X className="w-5 h-5" />
+                      <div className="flex items-start justify-between mb-4">
+                        <div 
+                          className={`p-3 rounded-2xl transition-colors ${
+                            (formData as any).selectedTypes?.includes(type.id) ? 'bg-[#CE9F6B] text-white' : 'bg-[#AEBFC3]/20 text-[#546A7A]'
+                          }`}
+                        >
+                          <type.icon className="w-6 h-6" />
+                        </div>
+                        {(formData as any).selectedTypes?.includes(type.id) && (
+                          <div className="w-6 h-6 rounded-full bg-[#82A094] flex items-center justify-center animate-in zoom-in duration-300">
+                            <CheckCircle2 className="w-4 h-4 text-white" />
+                          </div>
+                        )}
+                      </div>
+                      <p className={`font-black text-lg mb-1 ${(formData as any).selectedTypes?.includes(type.id) ? 'text-[#546A7A]' : 'text-[#92A2A5]'}`}>
+                        {type.label}
+                      </p>
+                      <p className="text-xs text-[#92A2A5] font-medium leading-relaxed">
+                        {type.desc}
+                      </p>
                     </button>
-                  </div>
-                ))}
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Stage 2: Upload Files for Selected Types */}
+            {((formData as any).selectedTypes || []).length > 0 && (
+              <div className="space-y-8 animate-in fade-in slide-in-from-top-4 duration-500">
+                <div className="flex items-center gap-3 border-t border-[#AEBFC3]/20 pt-8 mt-8">
+                  <h3 className="text-sm font-black uppercase tracking-widest flex items-center gap-2 text-[#546A7A]">
+                    <Upload className="w-4 h-4 text-[#82A094]" />
+                    2. Upload Documents for Selected Types <span className="text-[#E17F70]">*</span>
+                  </h3>
+                </div>
+
+                <div className="grid grid-cols-1 gap-6">
+                  {((formData as any).selectedTypes || []).map((typeId: string) => {
+                    const fileDetail = selectedFiles.find(f => f.vendorType === typeId);
+                    const typeLabel = typeId.charAt(0) + typeId.slice(1).toLowerCase();
+                    
+                    return (
+                      <div key={typeId} className="relative">
+                        <div 
+                          className={`p-1 rounded-[2rem] transition-all bg-gradient-to-r ${
+                            fileDetail ? 'from-[#82A094] to-[#4F6A64]' : 'from-[#AEBFC3]/50 to-[#AEBFC3]/20'
+                          }`}
+                        >
+                          <div className="bg-white rounded-[1.8rem] p-6 flex flex-col md:flex-row items-center gap-6">
+                            <div className={`p-4 rounded-2xl ${fileDetail ? 'bg-[#82A094]/10 text-[#82A094]' : 'bg-[#F8FAFB] text-[#AEBFC3]'}`}>
+                              {typeId === 'DOMESTIC' ? <Building2 className="w-8 h-8" /> : 
+                               typeId === 'INTERNATIONAL' ? <Globe className="w-8 h-8" /> : 
+                               <User className="w-8 h-8" />}
+                            </div>
+                            
+                            <div className="flex-1 text-center md:text-left min-w-0">
+                              <h4 className="font-black text-[#546A7A] text-lg uppercase tracking-tight">{typeLabel} Document</h4>
+                              {fileDetail ? (
+                                <div className="flex items-center gap-2 text-[#82A094] font-bold text-sm mt-1">
+                                  <CheckCircle2 className="w-4 h-4" />
+                                  <span className="truncate max-w-[200px]">{fileDetail.file.name}</span>
+                                  <span className="text-xs opacity-60">({(fileDetail.file.size / 1024 / 1024).toFixed(2)} MB)</span>
+                                </div>
+                              ) : (
+                                <p className="text-[#92A2A5] text-sm mt-1 font-medium">Please upload the verification document for {typeLabel.toLowerCase()} account.</p>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-3 shrink-0">
+                               {fileDetail ? (
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    onClick={() => {
+                                      setPreviewFile({
+                                        filename: fileDetail.file.name,
+                                        mimeType: fileDetail.file.type,
+                                        localFile: fileDetail.file
+                                      });
+                                      setShowPreview(true);
+                                    }}
+                                    className="text-[#CE9F6B] hover:bg-[#CE9F6B]/10 rounded-xl h-10 px-4"
+                                  >
+                                    <Eye className="w-4 h-4 mr-2" /> Preview
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    onClick={() => setSelectedFiles(prev => prev.filter(f => f.vendorType !== typeId))}
+                                    className="text-[#E17F70] hover:bg-[#E17F70]/10 rounded-xl h-10 px-4"
+                                  >
+                                    <X className="w-4 h-4 mr-2" /> Clear
+                                  </Button>
+                                </div>
+                              ) : (
+                                <label className="flex items-center gap-2 px-6 py-3 rounded-xl bg-[#546A7A] text-white text-sm font-bold cursor-pointer hover:bg-[#455A64] transition-all shadow-lg shadow-[#546A7A]/20">
+                                  <Upload className="w-4 h-4" />
+                                  Choose File
+                                  <input 
+                                    type="file" 
+                                    className="hidden" 
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0];
+                                      if (file) {
+                                        setSelectedFiles(prev => [...prev.filter(f => f.vendorType !== typeId), { file, vendorType: typeId }]);
+                                      }
+                                    }} 
+                                  />
+                                </label>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
-          </div>
-        </div>
+
+            {((formData as any).selectedTypes || []).length === 0 && (
+              <div className="text-center py-20 bg-[#F8FAFB] rounded-[2.5rem] border-2 border-dashed border-[#AEBFC3]/30">
+                <Sparkles className="w-12 h-12 text-[#AEBFC3]/40 mx-auto mb-4" />
+                <p className="text-[#546A7A] font-black text-lg">No Categories Selected</p>
+                <p className="text-[#92A2A5] text-sm font-medium mt-1">Select at least one account type above to enable uploads</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
         )}
 
         {/* Premium Wizard Navigation */}
-        <div 
-          className="rounded-[2rem] border-2 p-8 backdrop-blur-sm"
-          style={{ 
-            background: 'linear-gradient(135deg, rgba(246,248,250,0.8) 0%, rgba(255,255,255,0.9) 100%)', 
-            borderColor: 'rgba(174,191,195,0.3)',
-            boxShadow: '0 8px 32px rgba(84,106,122,0.08)'
-          }}
-        >
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-            {/* Previous Button */}
-            <button
-              type="button"
-              onClick={handlePrevious}
-              disabled={currentStep === 1}
-              className="flex items-center gap-3 px-7 py-4 rounded-2xl font-bold transition-all duration-300 disabled:opacity-20 disabled:cursor-not-allowed hover:scale-105 active:scale-95 group"
-              style={{ 
-                background: currentStep === 1 ? '#F8FAFB' : 'white', 
-                border: '2px solid #AEBFC3', 
-                color: '#5D6E73',
-                boxShadow: currentStep === 1 ? 'none' : '0 4px 16px rgba(174,191,195,0.15)'
-              }}
-            >
-              <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-              <span className="hidden sm:inline">Previous</span>
-            </button>
-
-            {/* Step Progress Dots */}
-            <div className="flex items-center gap-3">
-              {[1, 2, 3].map(step => (
-                <div
-                  key={step}
-                  className="relative transition-all duration-500"
-                  style={{ 
-                    transform: currentStep === step ? 'scale(1.3)' : 'scale(1)'
-                  }}
-                >
-                  <div
-                    className="w-3 h-3 rounded-full transition-all duration-500"
-                    style={{ 
-                      background: currentStep >= step 
-                        ? 'linear-gradient(135deg, #6F8A9D 0%, #546A7A 100%)' 
-                        : '#AEBFC3',
-                      boxShadow: currentStep === step 
-                        ? '0 0 0 4px rgba(111,138,157,0.2), 0 4px 12px rgba(111,138,157,0.3)' 
-                        : 'none'
-                    }}
-                  />
-                  {currentStep === step && (
-                    <div 
-                      className="absolute inset-0 rounded-full animate-ping"
-                      style={{ background: 'rgba(111,138,157,0.4)' }}
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
-
-            {/* Next/Submit Button */}
-            {currentStep < 3 ? (
-              <button
+        <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm rounded-[1.5rem] mb-8">
+          <CardContent className="p-6">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+              {/* Previous Button */}
+              <Button
                 type="button"
-                onClick={handleNext}
-                className="flex items-center gap-3 px-7 py-4 rounded-2xl text-white font-bold transition-all duration-300 hover:scale-105 hover:shadow-2xl active:scale-95 group"
-                style={{ 
-                  background: 'linear-gradient(135deg, #6F8A9D 0%, #546A7A 100%)', 
-                  boxShadow: '0 8px 24px rgba(111,138,157,0.4), 0 0 0 1px rgba(111,138,157,0.5) inset'
-                }}
+                variant="outline"
+                onClick={handlePrevious}
+                disabled={currentStep === 1}
+                className="w-full md:w-auto px-8 h-12 rounded-xl font-bold border-[#AEBFC3] text-[#5D6E73] hover:bg-[#F8FAFB]"
               >
-                <span>Next Step</span>
-                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-              </button>
-            ) : (
-              <div className="relative group/submit">
-                <button
-                  type="submit"
-                  disabled={loading || !!success || selectedFiles.length === 0}
-                  className="flex items-center gap-3 px-8 py-4 rounded-2xl text-white font-black transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 hover:shadow-2xl active:scale-95 group"
-                  style={{ 
-                    background: success 
-                      ? 'linear-gradient(135deg, #82A094 0%, #4F6A64 100%)'
-                      : 'linear-gradient(135deg, #CE9F6B 0%, #976E44 100%)', 
-                    boxShadow: success 
-                      ? '0 8px 24px rgba(130,160,148,0.5)' 
-                      : '0 8px 24px rgba(206,159,107,0.5), 0 0 0 1px rgba(206,159,107,0.3) inset',
-                    position: 'relative',
-                    overflow: 'hidden'
-                  }}
-                >
-                  {loading && (
-                    <div className="absolute inset-0 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.2)' }}>
-                      <Loader2 className="w-6 h-6 animate-spin text-white" />
-                    </div>
-                  )}
-                  {!loading && (success ? <CheckCircle2 className="w-6 h-6" /> : <Save className="w-6 h-6 group-hover:scale-110 transition-transform" />)}
-                  <span className="text-base tracking-wide">
-                    {loading ? 'Processing...' : success ? 'Success!' : isAdmin ? '✦ Create Account' : '↗ Submit Request'}
-                  </span>
-                  {!loading && !success && <Sparkles className="w-5 h-5 group-hover:rotate-12 transition-transform" />}
-                </button>
-                {selectedFiles.length === 0 && !success && (
-                  <div 
-                    className="absolute bottom-full mb-2 right-0 px-4 py-2 rounded-xl text-xs font-medium whitespace-nowrap opacity-0 group-hover/submit:opacity-100 transition-opacity pointer-events-none"
-                    style={{ 
-                      background: 'linear-gradient(135deg, #E17F70 0%, #9E3B47 100%)', 
-                      color: 'white',
-                      boxShadow: '0 4px 12px rgba(225,127,112,0.3)'
-                    }}
+                <ArrowLeft className="w-5 h-5 mr-2" />
+                Previous
+              </Button>
+
+              {/* Step Progress Dots */}
+              <div className="flex items-center gap-3">
+                {[1, 2, 3].map(step => (
+                  <div
+                    key={step}
+                    className={`h-2.5 rounded-full transition-all duration-500 ${
+                      currentStep === step ? 'w-8 bg-[#6F8A9D]' : 'w-2.5 bg-[#AEBFC3]'
+                    } ${currentStep > step ? 'bg-[#82A094]' : ''}`}
+                  />
+                ))}
+              </div>
+
+              {/* Next/Submit Button */}
+              <div className="w-full md:w-auto">
+                {currentStep < 3 ? (
+                  <Button
+                    type="button"
+                    onClick={handleNext}
+                    className="w-full md:w-auto px-8 h-12 rounded-xl font-bold bg-gradient-to-r from-[#6F8A9D] to-[#546A7A] text-white shadow-lg shadow-[#6F8A9D]/30"
                   >
-                    ⚠ Please upload at least one document
+                    Next Step
+                    <ArrowRight className="w-5 h-5 ml-2" />
+                  </Button>
+                ) : (
+                  <div className="relative group/submit w-full md:w-auto">
+                    <Button
+                      type="submit"
+                      disabled={loading || !!success || ((formData as any).selectedTypes || []).length === 0}
+                      className={`w-full md:w-auto px-10 h-12 rounded-xl font-black text-white shadow-xl transition-all ${
+                        success 
+                          ? 'bg-gradient-to-r from-[#82A094] to-[#4F6A64]'
+                          : 'bg-gradient-to-r from-[#CE9F6B] to-[#976E44] shadow-[#CE9F6B]/30'
+                      }`}
+                    >
+                      {loading ? (
+                        <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                      ) : success ? (
+                        <CheckCircle2 className="w-5 h-5 mr-2" />
+                      ) : (
+                        <Save className="w-5 h-5 mr-2" />
+                      )}
+                      {loading ? 'Processing...' : success ? 'Success!' : isAdmin ? 'Create Account' : 'Submit Request'}
+                      {!loading && !success && <Sparkles className="w-4 h-4 ml-2" />}
+                    </Button>
+                    {((formData as any).selectedTypes || []).length === 0 && !success && (
+                      <div className="absolute bottom-full mb-3 right-0 px-4 py-2 rounded-xl text-[10px] font-bold bg-[#E17F70] text-white opacity-0 group-hover/submit:opacity-100 transition-opacity pointer-events-none shadow-lg">
+                        ⚠ Please select a category and upload a document
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
-            )}
-          </div>
-        </div>
+            </div>
+          </CardContent>
+        </Card>
       </form>
+
+      <FilePreview 
+        isOpen={showPreview} 
+        onClose={() => setShowPreview(false)} 
+        file={previewFile} 
+      />
     </div>
   );
 }

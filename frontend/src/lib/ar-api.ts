@@ -56,7 +56,7 @@ export interface ARInvoice {
     receipts?: number;
     adjustments?: number;
     totalReceipts?: number;
-    type?: 'SERVICE' | 'SALES' | 'OTHERS';
+    type?: 'LCS' | 'NB' | 'FINANCE';
     modeOfDelivery?: string;
     sentHandoverDate?: string;
     deliveryStatus: 'PENDING' | 'SENT' | 'DELIVERED' | 'ACKNOWLEDGED';
@@ -76,6 +76,13 @@ export interface ARInvoice {
     linkedInvoiceId?: string;
     linkedPrepaidId?: string;
     prepaidAcceptedAt?: string;
+    linkedFromPrepaids?: ARInvoice[];
+    linkedInvoice?: ARInvoice;
+    // Prepaid Milestones & Aging
+    grnDate?: string;
+    bgDate?: string;
+    othersDate?: string;
+    agingMilestone?: 'ADVANCE' | 'INVOICE' | 'GRN' | 'BG' | 'OTHERS';
 }
 
 export interface ARPaymentHistory {
@@ -156,6 +163,234 @@ export interface ARActivityFilters {
     search?: string;
     page?: number;
     limit?: number;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// REPORT TYPES
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface ReportFilters {
+    status?: string;
+    riskClass?: string;
+    customer?: string;
+    fromDate?: string;
+    toDate?: string;
+    bucket?: string;
+}
+
+export interface AgingReportData {
+    data: {
+        id: string;
+        invoiceNumber: string;
+        bpCode: string;
+        customerName: string;
+        totalAmount: number;
+        netAmount: number;
+        balance: number;
+        dueDate: string;
+        invoiceDate: string;
+        riskClass: string;
+        status: string;
+        region?: string;
+        poNo?: string;
+        daysOverdue: number;
+        agingBucket: string;
+    }[];
+    summary: {
+        totalInvoices: number;
+        totalAmount: number;
+        totalBalance: number;
+    };
+}
+
+export interface AgingSummaryData {
+    buckets: {
+        key: string;
+        label: string;
+        count: number;
+        amount: number;
+        percentage: string;
+    }[];
+    total: {
+        count: number;
+        amount: number;
+    };
+}
+
+export interface CustomerAgingData {
+    customers: {
+        bpCode: string;
+        customerName: string;
+        invoiceCount: number;
+        totalBalance: number;
+        riskClass: string;
+        currentAmount: number;
+        overdueAmount: number;
+        maxDaysOverdue: number;
+    }[];
+    summary: {
+        totalCustomers: number;
+        totalBalance: number;
+        totalOverdue: number;
+    };
+}
+
+export interface RiskAgingData {
+    risks: {
+        riskClass: string;
+        count: number;
+        balance: number;
+        totalAmount: number;
+        percentage: string;
+    }[];
+    total: {
+        count: number;
+        balance: number;
+    };
+}
+
+export interface CollectionTrendsData {
+    trends: {
+        period: string;
+        amount: number;
+        count: number;
+    }[];
+    summary: {
+        totalCollected: number;
+        avgCollection: number;
+        totalPayments: number;
+        periods: number;
+    };
+}
+
+export interface PaymentModeData {
+    modes: {
+        mode: string;
+        count: number;
+        amount: number;
+        percentage: string;
+    }[];
+    total: {
+        count: number;
+        amount: number;
+    };
+}
+
+export interface BankwiseData {
+    banks: {
+        bank: string;
+        count: number;
+        amount: number;
+        percentage: string;
+    }[];
+    total: {
+        count: number;
+        amount: number;
+    };
+}
+
+export interface DSOData {
+    monthly: {
+        period: string;
+        totalSales: number;
+        endingReceivables: number;
+        dso: number;
+    }[];
+    current: {
+        dso: number;
+        totalReceivables: number;
+        avgMonthlySales: number;
+        status: 'GOOD' | 'AVERAGE' | 'BAD';
+    };
+}
+
+export interface TopCustomersData {
+    customers: {
+        rank: number;
+        bpCode: string;
+        customerName: string;
+        invoiceCount: number;
+        totalBalance: number;
+        riskClass: string;
+        region?: string;
+        percentage: string;
+    }[];
+    summary: {
+        topCustomersBalance: number;
+        totalOutstanding: number;
+        concentration: string;
+    };
+}
+
+export interface CustomerRiskData {
+    distribution: {
+        riskClass: string;
+        count: number;
+        balance: number;
+        customers: string[];
+        percentage: string;
+    }[];
+    summary: {
+        totalCustomers: number;
+        highRiskCount: number;
+        highRiskBalance: number;
+        totalBalance: number;
+    };
+}
+
+export interface InvoiceStatusData {
+    statuses: {
+        status: string;
+        count: number;
+        totalAmount: number;
+        balance: number;
+        countPercentage: string;
+        amountPercentage: string;
+    }[];
+    summary: {
+        totalInvoices: number;
+        totalAmount: number;
+        paidAmount: number;
+        pendingAmount: number;
+        collectionRate: string;
+    };
+}
+
+export interface PrepaidAnalysisData {
+    byType: {
+        type: string;
+        count: number;
+        totalAmount: number;
+        balance: number;
+        paid: number;
+        paidPercentage: string;
+    }[];
+    prepaidStatuses: {
+        status: string;
+        count: number;
+        amount: number;
+    }[];
+    summary: {
+        totalInvoices: number;
+        regularCount: number;
+        prepaidCount: number;
+        prepaidPercentage: string;
+    };
+}
+
+export interface DeliveryStatusData {
+    statuses: {
+        status: string;
+        count: number;
+        amount: number;
+        percentage: string;
+    }[];
+    summary: {
+        totalPending: number;
+        totalDelivered: number;
+        pendingAmount: number;
+        deliveredAmount: number;
+    };
 }
 
 // Matching Prepaid Invoice type for linking
@@ -517,9 +752,12 @@ export const arApi = {
         return res.data;
     },
 
-    async uploadBankAccountAttachment(id: string, file: File): Promise<BankAccountAttachment> {
+    async uploadBankAccountAttachment(id: string, file: File, vendorType?: string): Promise<BankAccountAttachment> {
         const formData = new FormData();
         formData.append('file', file);
+        if (vendorType) {
+            formData.append('vendorType', vendorType);
+        }
         const res = await api.post(`/ar/bank-accounts/${id}/attachments`, formData, {
             headers: { 'Content-Type': 'multipart/form-data' }
         });
@@ -535,6 +773,11 @@ export const arApi = {
 
     async deleteBankAccountAttachment(attachmentId: string): Promise<void> {
         await api.delete(`/ar/bank-accounts/attachments/${attachmentId}`);
+    },
+
+    async updateBankAccountAttachmentVendorType(attachmentId: string, vendorType: string): Promise<BankAccountAttachment> {
+        const res = await api.put(`/ar/bank-accounts/attachments/${attachmentId}/vendor-type`, { vendorType });
+        return res.data;
     },
 
     async previewBankAccountImport(file: File): Promise<any> {
@@ -579,12 +822,86 @@ export const arApi = {
     async getBankAccountActivityStats(): Promise<{ total: number; byAction: Record<string, number> }> {
         const res = await api.get('/ar/bank-accounts/activities/stats');
         return res.data;
+    },
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // REPORTS API
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    // Aging Reports
+    async getDetailedAgingReport(params?: ReportFilters): Promise<AgingReportData> {
+        const res = await api.get('/ar/reports/aging/detailed', { params });
+        return res.data;
+    },
+
+    async getAgingSummary(params?: ReportFilters): Promise<AgingSummaryData> {
+        const res = await api.get('/ar/reports/aging/summary', { params });
+        return res.data;
+    },
+
+    async getCustomerAgingReport(params?: { limit?: number; sortBy?: 'balance' | 'overdue' }): Promise<CustomerAgingData> {
+        const res = await api.get('/ar/reports/aging/customer', { params });
+        return res.data;
+    },
+
+    async getRiskAgingReport(): Promise<RiskAgingData> {
+        const res = await api.get('/ar/reports/aging/risk');
+        return res.data;
+    },
+
+    // Collection Reports
+    async getCollectionTrends(params?: { months?: number; groupBy?: 'month' | 'week' }): Promise<CollectionTrendsData> {
+        const res = await api.get('/ar/reports/collections/trends', { params });
+        return res.data;
+    },
+
+    async getPaymentModeAnalysis(params?: ReportFilters): Promise<PaymentModeData> {
+        const res = await api.get('/ar/reports/collections/payment-modes', { params });
+        return res.data;
+    },
+
+    async getBankwiseCollections(params?: ReportFilters): Promise<BankwiseData> {
+        const res = await api.get('/ar/reports/collections/bankwise', { params });
+        return res.data;
+    },
+
+    async getDSOReport(params?: { months?: number }): Promise<DSOData> {
+        const res = await api.get('/ar/reports/dso', { params });
+        return res.data;
+    },
+
+    // Customer Reports
+    async getTopOutstandingCustomers(limit = 10): Promise<TopCustomersData> {
+        const res = await api.get('/ar/reports/customers/outstanding', { params: { limit } });
+        return res.data;
+    },
+
+    async getCustomerRiskReport(): Promise<CustomerRiskData> {
+        const res = await api.get('/ar/reports/customers/risk');
+        return res.data;
+    },
+
+    // Invoice Reports
+    async getInvoiceStatusSummary(params?: ReportFilters): Promise<InvoiceStatusData> {
+        const res = await api.get('/ar/reports/invoices/status', { params });
+        return res.data;
+    },
+
+    async getPrepaidAnalysisReport(): Promise<PrepaidAnalysisData> {
+        const res = await api.get('/ar/reports/invoices/prepaid');
+        return res.data;
+    },
+
+    async getDeliveryStatusReport(): Promise<DeliveryStatusData> {
+        const res = await api.get('/ar/reports/invoices/delivery');
+        return res.data;
     }
 };
 
 // Bank Account Types
 export interface BankAccount {
     id: string;
+    bpCode?: string;
     vendorName: string;
     beneficiaryBankName: string;
     accountNumber: string;
@@ -598,6 +915,7 @@ export interface BankAccount {
     gstNumber?: string;
     panNumber?: string;
     currency: string;
+    accountType?: string;
     createdById: number;
     updatedById: number;
     createdAt: string;
@@ -632,6 +950,7 @@ export interface BankAccountAttachment {
     size: number;
     bankAccountId: string;
     uploadedById: number;
+    vendorType?: string;
     createdAt: string;
     uploadedBy?: { id: number; name: string };
 }

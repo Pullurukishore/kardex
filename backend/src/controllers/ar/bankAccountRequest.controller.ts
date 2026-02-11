@@ -284,6 +284,7 @@ export const approveRequest = async (req: Request, res: Response) => {
             // Create new bank account
             bankAccount = await prisma.bankAccount.create({
                 data: {
+                    bpCode: requestedData.bpCode || null,
                     vendorName: requestedData.vendorName,
                     beneficiaryBankName: requestedData.beneficiaryBankName,
                     accountNumber: requestedData.accountNumber,

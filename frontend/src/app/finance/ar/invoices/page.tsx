@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { arApi, ARInvoice, formatARCurrency, formatARDate } from '@/lib/ar-api';
-import { Search, ChevronLeft, ChevronRight, FileText, Plus, TrendingUp, AlertTriangle, Clock, CheckCircle2, DollarSign, Calendar, Building2, Upload, Shield, ArrowUpRight, Layers, Zap, Wallet, Package, Timer, Truck, PackageCheck, PackageX, BadgeCheck, Tag } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, FileText, Plus, TrendingUp, AlertTriangle, Clock, CheckCircle2, IndianRupee, Calendar, Building2, Upload, Shield, ArrowUpRight, Layers, Zap, Wallet, Package, Timer, Truck, PackageCheck, PackageX, BadgeCheck, Tag } from 'lucide-react';
 
 export default function ARInvoicesPage() {
   const searchParams = useSearchParams();
@@ -157,6 +157,7 @@ export default function ARInvoicesPage() {
     switch (mode) {
       case 'TDS': return 'bg-[#CE9F6B]/15 text-[#976E44] border border-[#CE9F6B]/30';
       case 'LD': return 'bg-[#E17F70]/15 text-[#9E3B47] border border-[#E17F70]/30';
+      case 'Receipt': return 'bg-[#82A094]/15 text-[#4F6A64] border border-[#82A094]/30';
       default: return 'bg-[#6F8A9D]/15 text-[#546A7A] border border-[#6F8A9D]/30'; // Style for 'Other'
     }
   };
@@ -357,95 +358,135 @@ export default function ARInvoicesPage() {
         </div>
       </div>
 
-      {/* Desktop Table - Hidden on mobile */}
-      <div className="hidden md:block bg-white rounded-xl border border-[#AEBFC3]/30 overflow-hidden shadow-sm">
+      {/* Desktop Table - Hidden on mobile - Clean Table Design */}
+      <div className="hidden md:block bg-white rounded-xl border border-[#AEBFC3]/40 overflow-hidden shadow-lg">
+        {/* Table Header Bar */}
+        <div className={`px-5 py-3 border-b border-[#AEBFC3]/30 ${isPrepaidView ? 'bg-gradient-to-r from-[#CE9F6B] to-[#E17F70]' : 'bg-gradient-to-r from-[#546A7A] to-[#6F8A9D]'}`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              {isPrepaidView ? <Wallet className="w-5 h-5 text-white/90" /> : <FileText className="w-5 h-5 text-white/90" />}
+              <h3 className="text-sm font-bold text-white">{isPrepaidView ? 'Prepaid Invoice Records' : 'Invoice Records'}</h3>
+            </div>
+            <div className="flex items-center gap-2 text-white/80 text-xs">
+              <span>Showing</span>
+              <span className="px-2 py-0.5 rounded bg-white/20 font-bold text-white">{invoices.length}</span>
+              <span>of {total} records</span>
+            </div>
+          </div>
+        </div>
+
         <div className="overflow-x-auto">
-          <table className="w-full">
-            {/* Table Header - Dynamic columns based on view mode */}
+          <table className="w-full border-collapse">
+            {/* Table Header - Clean traditional design with Kardex colors */}
             <thead>
-              <tr className={`${isPrepaidView ? 'bg-gradient-to-r from-[#CE9F6B] via-[#976E44] to-[#CE9F6B]' : 'bg-gradient-to-r from-[#546A7A] via-[#6F8A9D] to-[#82A094]'}`}>
-                <th className="text-left py-4 px-5 text-xs font-semibold text-white uppercase tracking-wide">
-                  <div className="flex items-center gap-2">
-                    <FileText className="w-3.5 h-3.5 opacity-80" />
-                    Invoice Details
+              <tr className={`${isPrepaidView ? 'bg-[#CE9F6B]/10' : 'bg-[#546A7A]/5'}`}>
+                {/* Invoice */}
+                <th className="text-left py-3 px-4 border-b-2 border-[#546A7A] bg-[#546A7A]/10">
+                  <div className="flex items-center gap-2 text-[#546A7A]">
+                    <FileText className="w-4 h-4" />
+                    <span className="text-xs font-bold uppercase tracking-wide">Invoice</span>
                   </div>
                 </th>
-                <th className="text-left py-4 px-5 text-xs font-semibold text-white uppercase tracking-wide">
-                  <div className="flex items-center gap-2">
-                    <Building2 className="w-3.5 h-3.5 opacity-80" />
-                    Customer
+                {/* Customer */}
+                <th className="text-left py-3 px-4 border-b-2 border-[#6F8A9D] bg-[#6F8A9D]/10">
+                  <div className="flex items-center gap-2 text-[#6F8A9D]">
+                    <Building2 className="w-4 h-4" />
+                    <span className="text-xs font-bold uppercase tracking-wide">Customer</span>
                   </div>
                 </th>
-                <th className="text-left py-4 px-5 text-xs font-semibold text-white uppercase tracking-wide">
-                  <div className="flex items-center gap-2">
-                    <Tag className="w-3.5 h-3.5 opacity-80" />
-                    Type
+                {/* Type */}
+                <th className="text-left py-3 px-4 border-b-2 border-[#976E44] bg-[#976E44]/10">
+                  <div className="flex items-center gap-2 text-[#976E44]">
+                    <Tag className="w-4 h-4" />
+                    <span className="text-xs font-bold uppercase tracking-wide">Type</span>
                   </div>
                 </th>
-                <th className="text-left py-4 px-5 text-xs font-semibold text-white uppercase tracking-wide">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="w-3.5 h-3.5 opacity-80" />
-                    {isPrepaidView ? 'Advance Received' : 'Invoice Date'}
+                {/* Date */}
+                <th className="text-left py-3 px-4 border-b-2 border-[#82A094] bg-[#82A094]/10">
+                  <div className="flex items-center gap-2 text-[#4F6A64]">
+                    <Calendar className="w-4 h-4" />
+                    <span className="text-xs font-bold uppercase tracking-wide">{isPrepaidView ? 'Advance' : 'Invoice Date'}</span>
                   </div>
                 </th>
-                <th className="text-left py-4 px-5 text-xs font-semibold text-white uppercase tracking-wide">
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-3.5 h-3.5 opacity-80" />
-                    {isPrepaidView ? 'Delivery Due Date' : 'Due Date'}
+                {/* Due Date */}
+                <th className="text-left py-3 px-4 border-b-2 border-[#E17F70] bg-[#E17F70]/10 min-w-[140px]">
+                  <div className="flex items-center gap-2 text-[#E17F70]">
+                    <Clock className="w-4 h-4" />
+                    <span className="text-xs font-bold uppercase tracking-wide">{isPrepaidView ? 'Delivery' : 'Due Date'}</span>
                   </div>
                 </th>
-                <th className="text-right py-4 px-5 text-xs font-semibold text-white uppercase tracking-wide">
-                  <div className="flex items-center gap-2 justify-end">
-                    <DollarSign className="w-3.5 h-3.5 opacity-80" />
-                    Total Amount
+                {/* Total */}
+                <th className="text-right py-3 px-4 border-b-2 border-[#4F6A64] bg-[#4F6A64]/10 min-w-[120px]">
+                  <div className="inline-flex items-center gap-2 text-[#4F6A64]">
+                    <IndianRupee className="w-4 h-4" />
+                    <span className="text-xs font-bold uppercase tracking-wide">Total</span>
                   </div>
                 </th>
-                <th className="text-right py-4 px-5 text-xs font-semibold text-white uppercase tracking-wide whitespace-nowrap">
-                  Amount Received
+                {/* Received */}
+                <th className="text-right py-3 px-4 border-b-2 border-[#96AEC2] bg-[#96AEC2]/10 min-w-[110px]">
+                  <div className="inline-flex items-center gap-2 text-[#6F8A9D]">
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span className="text-xs font-bold uppercase tracking-wide">Received</span>
+                  </div>
                 </th>
-                <th className="text-right py-4 px-5 text-xs font-semibold text-white uppercase tracking-wide whitespace-nowrap">
-                  Balance Amount
+                {/* Balance */}
+                <th className="text-right py-3 px-4 border-b-2 border-[#9E3B47] bg-[#9E3B47]/10 min-w-[110px]">
+                  <div className="inline-flex items-center gap-2 text-[#9E3B47]">
+                    <AlertTriangle className="w-4 h-4" />
+                    <span className="text-xs font-bold uppercase tracking-wide">Balance</span>
+                  </div>
                 </th>
-                <th className="text-left py-4 px-5 text-xs font-semibold text-white uppercase tracking-wide">
-                  Payment Mode
+                {/* Risk/Delivery */}
+                <th className="text-center py-3 px-4 border-b-2 border-[#5D6E73] bg-[#5D6E73]/10">
+                  <div className="inline-flex items-center gap-2 text-[#5D6E73]">
+                    <Shield className="w-4 h-4" />
+                    <span className="text-xs font-bold uppercase tracking-wide">{isPrepaidView ? 'Delivery' : 'Risk'}</span>
+                  </div>
                 </th>
-                <th className="text-center py-4 px-5 text-xs font-semibold text-white uppercase tracking-wide">
-                  {isPrepaidView ? 'Delivery Status' : 'Risk'}
-                </th>
-                <th className="text-center py-4 px-5 text-xs font-semibold text-white uppercase tracking-wide">
-                  Status
+                {/* Status */}
+                <th className="text-center py-3 px-4 border-b-2 border-[#757777] bg-[#757777]/10">
+                  <div className="inline-flex items-center gap-2 text-[#5D6E73]">
+                    <Zap className="w-4 h-4" />
+                    <span className="text-xs font-bold uppercase tracking-wide">Status</span>
+                  </div>
                 </th>
               </tr>
             </thead>
 
-            {/* Table Body */}
+            {/* Table Body - Traditional table design with visible grid lines */}
             <tbody>
               {loading ? (
                 Array.from({ length: 6 }).map((_, i) => (
-                  <tr key={i} className="border-b border-[#AEBFC3]/15">
+                  <tr key={i} className={`${i % 2 === 0 ? 'bg-white' : 'bg-[#F8FAFB]'} border-b border-[#AEBFC3]/30`}>
                     {Array.from({ length: 10 }).map((_, j) => (
-                      <td key={j} className="py-4 px-5">
-                        <div className="h-4 bg-[#AEBFC3]/10 rounded" style={{ width: `${50 + Math.random() * 50}%` }} />
+                      <td key={j} className="py-3.5 px-4 border-r border-[#AEBFC3]/15 last:border-r-0">
+                        <div className="h-4 bg-[#AEBFC3]/15 rounded animate-pulse" style={{ width: `${50 + Math.random() * 40}%` }} />
                       </td>
                     ))}
                   </tr>
                 ))
               ) : invoices.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="py-16 text-center">
-                    {isPrepaidView ? (
-                      <>
-                        <Wallet className="w-12 h-12 text-[#CE9F6B]/40 mx-auto mb-3" />
-                        <p className="text-[#546A7A] font-medium">No prepaid invoices found</p>
-                        <p className="text-sm text-[#92A2A5]">Create a new prepaid invoice or adjust your filters</p>
-                      </>
-                    ) : (
-                      <>
-                        <FileText className="w-12 h-12 text-[#AEBFC3] mx-auto mb-3" />
-                        <p className="text-[#546A7A] font-medium">No invoices found</p>
-                        <p className="text-sm text-[#92A2A5]">Try adjusting your search or filters</p>
-                      </>
-                    )}
+                  <td colSpan={11} className="py-16 text-center bg-[#F8FAFB]">
+                    <div className="flex flex-col items-center">
+                      {isPrepaidView ? (
+                        <>
+                          <div className="w-16 h-16 rounded-xl bg-[#CE9F6B]/10 flex items-center justify-center mb-3 border border-[#CE9F6B]/20">
+                            <Wallet className="w-8 h-8 text-[#CE9F6B]" />
+                          </div>
+                          <p className="text-base font-semibold text-[#546A7A] mb-1">No prepaid invoices found</p>
+                          <p className="text-sm text-[#92A2A5]">Create a new prepaid invoice or adjust your filters</p>
+                        </>
+                      ) : (
+                        <>
+                          <div className="w-16 h-16 rounded-xl bg-[#546A7A]/10 flex items-center justify-center mb-3 border border-[#546A7A]/20">
+                            <FileText className="w-8 h-8 text-[#6F8A9D]" />
+                          </div>
+                          <p className="text-base font-semibold text-[#546A7A] mb-1">No invoices found</p>
+                          <p className="text-sm text-[#92A2A5]">Try adjusting your search or filters</p>
+                        </>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ) : (
@@ -454,194 +495,168 @@ export default function ARInvoicesPage() {
                   const paymentHistory = invoice.paymentHistory || [];
                   const paymentCount = paymentHistory.length;
                   
-                  // Categorize modes: TDS, LD, or Other
+                  // Categorize modes: TDS, LD, Receipt, or Other
                   const categorizedModes = Array.from(new Set(paymentHistory.map(p => {
                     const mode = p.paymentMode?.toUpperCase();
                     if (mode === 'TDS') return 'TDS';
                     if (mode === 'LD') return 'LD';
+                    if (mode === 'RECEIPT') return 'Receipt';
                     return 'Other';
                   })));
+                  
+                  // Determine row background and left border based on status
+                  const getRowClasses = () => {
+                    const baseColor = index % 2 === 0 ? 'bg-white' : 'bg-[#F8FAFB]';
+                    if (invoice.status === 'OVERDUE' || (deliveryDays !== null && deliveryDays < 0)) {
+                      return `${baseColor} border-l-4 border-l-[#E17F70]`;
+                    }
+                    if (invoice.status === 'PAID' || invoice.prepaidStatus === 'FULLY_DELIVERED') {
+                      return `${baseColor} border-l-4 border-l-[#82A094]`;
+                    }
+                    if (invoice.status === 'PARTIAL') {
+                      return `${baseColor} border-l-4 border-l-[#CE9F6B]`;
+                    }
+                    return `${baseColor} border-l-4 border-l-[#96AEC2]`;
+                  };
                   
                   return (
                     <tr 
                       key={invoice.id}
                       onClick={() => window.location.href = `/finance/ar/invoices/${encodeURIComponent(invoice.invoiceNumber)}`}
-                      className={`group cursor-pointer border-b border-[#AEBFC3]/15 transition-all ${getRowStyle(invoice, index)}`}
+                      className={`group cursor-pointer border-b border-[#AEBFC3]/30 transition-colors hover:bg-[#546A7A]/5 ${getRowClasses()}`}
                     >
-                      {/* Invoice Details */}
-                      <td className="py-4 px-5">
-                        <div className="space-y-1.5">
+                      {/* Invoice */}
+                      <td className="py-3 px-4 border-r border-[#AEBFC3]/15">
+                        <div className="space-y-1">
                           <div className="flex items-center gap-2">
                             <Link 
                               href={`/finance/ar/invoices/${encodeURIComponent(invoice.invoiceNumber)}`}
                               onClick={(e) => e.stopPropagation()}
-                              className="text-[#E17F70] font-bold hover:text-[#9E3B47] transition-colors flex items-center gap-1"
+                              className="text-[#546A7A] font-bold hover:text-[#E17F70] hover:underline transition-colors"
                             >
                               {invoice.invoiceNumber}
-                              <ArrowUpRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
                             </Link>
                             {invoice.invoiceType === 'PREPAID' && (
-                              <span className="text-[8px] font-bold text-white bg-gradient-to-r from-[#CE9F6B] to-[#E17F70] px-1.5 py-0.5 rounded uppercase shadow-sm">
+                              <span className="text-[8px] font-bold text-white bg-[#CE9F6B] px-1.5 py-0.5 rounded uppercase">
                                 PREPAID
                               </span>
                             )}
                           </div>
                           {invoice.poNo && (
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-[9px] font-bold text-white bg-[#CE9F6B] px-1.5 py-0.5 rounded uppercase">PO</span>
-                              <span className="text-xs font-mono text-[#976E44] font-semibold">{invoice.poNo}</span>
+                            <div className="flex items-center gap-1">
+                              <span className="text-[9px] font-bold text-[#976E44] bg-[#976E44]/10 px-1.5 py-0.5 rounded border border-[#976E44]/20">PO: {invoice.poNo}</span>
                             </div>
                           )}
                         </div>
                       </td>
 
                       {/* Customer */}
-                      <td className="py-4 px-5">
-                        <div className="max-w-[180px]">
+                      <td className="py-3 px-4 border-r border-[#AEBFC3]/15">
+                        <div className="max-w-[160px]">
                           <p className="text-sm text-[#546A7A] font-semibold truncate" title={invoice.customerName}>
                             {invoice.customerName || '-'}
                           </p>
-                          <div className="flex gap-2 mt-1">
-                            <span className="text-[10px] font-mono font-bold text-[#6F8A9D] bg-[#96AEC2]/20 px-1.5 py-0.5 rounded border border-[#96AEC2]/30">
-                              {invoice.bpCode}
-                            </span>
-                            {invoice.region && (
-                              <span className="text-[10px] text-[#92A2A5]">{invoice.region}</span>
-                            )}
-                          </div>
+                          <span className="text-[10px] font-mono text-[#6F8A9D] bg-[#6F8A9D]/10 px-1.5 py-0.5 rounded mt-1 inline-block">
+                            {invoice.bpCode}
+                          </span>
                         </div>
                       </td>
 
                       {/* Type */}
-                      <td className="py-4 px-5">
+                      <td className="py-3 px-4 border-r border-[#AEBFC3]/15">
                         <span className={`text-[10px] font-bold px-2 py-1 rounded uppercase ${
-                          invoice.type === 'SALES' ? 'bg-[#E17F70]/10 text-[#9E3B47]' : 
-                          invoice.type === 'OTHERS' ? 'bg-[#CE9F6B]/10 text-[#976E44]' : 
-                          'bg-[#82A094]/10 text-[#4F6A64]'
+                          invoice.type === 'NB' ? 'bg-[#976E44]/10 text-[#976E44]' : 
+                          invoice.type === 'FINANCE' ? 'bg-[#CE9F6B]/10 text-[#976E44]' : 
+                          'bg-[#82A094]/10 text-[#4F6A64]' // LCS
                         }`}>
                           {invoice.type || '-'}
                         </span>
                       </td>
 
-                      {/* Invoice Date / Advance Received */}
-                      <td className="py-4 px-5">
-                        <div className="text-sm text-[#5D6E73] font-medium">
+                      {/* Date */}
+                      <td className="py-3 px-4 border-r border-[#AEBFC3]/15">
+                        <span className="text-sm text-[#546A7A]">
                           {isPrepaidView 
                             ? (invoice.advanceReceivedDate ? formatARDate(invoice.advanceReceivedDate) : '-')
                             : formatARDate(invoice.invoiceDate)
                           }
-                        </div>
+                        </span>
                       </td>
 
-                      {/* Due Date / Delivery Due */}
-                      <td className="py-4 px-5">
-                        <div className="space-y-1.5">
+                      {/* Due Date */}
+                      <td className="py-3 px-4 border-r border-[#AEBFC3]/15">
+                        <div className="flex flex-col gap-1">
+                          <span className={`text-sm whitespace-nowrap ${
+                            isPrepaidView 
+                              ? (deliveryDays !== null && deliveryDays < 0 ? 'text-[#E17F70] font-bold' : 'text-[#546A7A]')
+                              : ((invoice.dueByDays ?? 0) > 0 ? 'text-[#E17F70] font-bold' : 'text-[#546A7A]')
+                          }`}>
+                            {isPrepaidView 
+                              ? (invoice.deliveryDueDate ? formatARDate(invoice.deliveryDueDate) : '-')
+                              : formatARDate(invoice.dueDate)
+                            }
+                          </span>
+                          {/* Days indicator */}
                           {isPrepaidView ? (
-                            invoice.deliveryDueDate ? (
-                              <div className="space-y-1">
-                                <span className={`text-sm font-medium ${
-                                  deliveryDays !== null && deliveryDays < 0 ? 'text-[#E17F70] font-bold' : 'text-[#546A7A]'
-                                }`}>
-                                  {formatARDate(invoice.deliveryDueDate)}
-                                </span>
-                                {deliveryDays !== null && (
-                                  <div>
-                                    <span className={`inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded ${
-                                      deliveryDays < 0 ? 'text-white bg-[#9E3B47]' : 'text-[#5D6E73] bg-[#AEBFC3]/20'
-                                    }`}>
-                                      {deliveryDays < 0 ? `${Math.abs(deliveryDays)}d overdue` : `${deliveryDays}d left`}
-                                    </span>
-                                  </div>
-                                )}
-                              </div>
-                            ) : '-'
-                          ) : (
-                            <div className="space-y-1">
-                              <span className={`text-sm font-medium ${
-                                (invoice.dueByDays ?? 0) > 0 ? 'text-[#E17F70] font-bold' : 
-                                (invoice.dueByDays ?? 0) < 0 ? 'text-[#82A094] font-bold' : 
-                                'text-[#4F6A64]'
+                            deliveryDays !== null && invoice.prepaidStatus !== 'FULLY_DELIVERED' && (
+                              <span className={`inline-block text-[9px] font-bold px-1.5 py-0.5 rounded w-fit ${
+                                deliveryDays < 0 ? 'text-white bg-[#E17F70]' : 'text-[#5D6E73] bg-[#AEBFC3]/30'
                               }`}>
-                                {formatARDate(invoice.dueDate)}
+                                {deliveryDays < 0 ? `${Math.abs(deliveryDays)}d overdue` : `${deliveryDays}d left`}
                               </span>
-                              {(invoice.dueByDays ?? 0) !== 0 && invoice.status !== 'PAID' && invoice.prepaidStatus !== 'FULLY_DELIVERED' && (
-                                <div>
-                                  <span className={`inline-flex items-center gap-0.5 text-[9px] font-bold text-white px-1.5 py-0.5 rounded shadow-sm ${
-                                    (invoice.dueByDays ?? 0) > 0 ? 'bg-[#E17F70]' : 'bg-[#82A094]'
-                                  }`}>
-                                    {(invoice.dueByDays ?? 0) > 0 ? <Zap className="w-2.5 h-2.5" /> : <Clock className="w-2.5 h-2.5" />}
-                                    {(invoice.dueByDays ?? 0) > 0 ? `+${invoice.dueByDays}` : invoice.dueByDays}d
-                                  </span>
-                                </div>
-                              )}
-                            </div>
+                            )
+                          ) : (
+                            (invoice.dueByDays ?? 0) !== 0 && invoice.status !== 'PAID' && (
+                              <span className={`inline-block text-[9px] font-bold px-1.5 py-0.5 rounded w-fit ${
+                                (invoice.dueByDays ?? 0) > 0 ? 'text-white bg-[#E17F70]' : 'text-white bg-[#82A094]'
+                              }`}>
+                                {(invoice.dueByDays ?? 0) > 0 ? `+${invoice.dueByDays}d` : `${invoice.dueByDays}d`}
+                              </span>
+                            )
                           )}
                         </div>
                       </td>
 
-                      {/* Total Amount */}
-                      <td className="py-4 px-5 text-right font-bold text-[#546A7A]">
-                        {formatARCurrency(Number(invoice.totalAmount) || 0)}
+                      {/* Total */}
+                      <td className="py-3 px-4 border-r border-[#AEBFC3]/15 text-right">
+                        <span className="font-bold text-[#4F6A64]">
+                          {formatARCurrency(Number(invoice.totalAmount) || 0)}
+                        </span>
                       </td>
 
-                      {/* Amount Received */}
-                      <td className="py-4 px-5 text-right text-[#4F6A64] font-semibold">
-                        {formatARCurrency(Number(invoice.totalReceipts) || 0)}
+                      {/* Received */}
+                      <td className="py-3 px-4 border-r border-[#AEBFC3]/15 text-right">
+                        <span className="text-[#6F8A9D] font-medium">
+                          {formatARCurrency(Number(invoice.totalReceipts) || 0)}
+                        </span>
                       </td>
 
-                      {/* Balance Amount */}
-                      <td className="py-4 px-5 text-right">
+                      {/* Balance */}
+                      <td className="py-3 px-4 border-r border-[#AEBFC3]/15 text-right">
                         <span className={`font-bold ${invoice.balance && Number(invoice.balance) > 0 ? 'text-[#E17F70]' : 'text-[#82A094]'}`}>
                           {formatARCurrency(Number(invoice.balance) || 0)}
                         </span>
                       </td>
 
-                      {/* Payment Mode */}
-                      <td className="py-4 px-5">
-                        <div className="flex flex-wrap gap-1">
-                          {categorizedModes.length > 0 ? (
-                            <>
-                              {categorizedModes.map((mode) => (
-                                <span 
-                                  key={mode} 
-                                  className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase transition-transform hover:scale-105 ${getPaymentModeStyle(mode)}`}
-                                >
-                                  {mode}
-                                </span>
-                              ))}
-                              {paymentCount > 1 && (
-                                <span className="px-1 py-0.5 rounded bg-white border border-[#AEBFC3]/30 text-[9px] text-[#92A2A5] font-bold flex items-center justify-center">
-                                  {paymentCount}x
-                                </span>
-                              )}
-                            </>
-                          ) : (
-                            <span className="text-xs text-[#92A2A5]">-</span>
-                          )}
-                        </div>
-                      </td>
-
-                      {/* Multi-purpose column: Risk/Delivery */}
-                      <td className="py-4 px-5 text-center">
+                      {/* Risk/Delivery */}
+                      <td className="py-3 px-4 border-r border-[#AEBFC3]/15 text-center">
                         {isPrepaidView ? (
-                          <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold ${getPrepaidStatusStyle(invoice.prepaidStatus)}`}>
+                          <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold ${getPrepaidStatusStyle(invoice.prepaidStatus)}`}>
                             {getPrepaidStatusLabel(invoice.prepaidStatus)}
                           </span>
                         ) : (
-                          <span className={`inline-flex px-3 py-1.5 rounded-md text-[10px] font-bold shadow-sm ${getRiskStyle(invoice.riskClass)}`}>
+                          <span className={`inline-block px-2 py-1 rounded text-[10px] font-bold ${getRiskStyle(invoice.riskClass)}`}>
                             {invoice.riskClass || 'N/A'}
                           </span>
                         )}
                       </td>
 
                       {/* Status */}
-                      <td className="py-4 px-5">
-                        <div className="flex justify-center">
-                          <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold shadow-sm ${getStatusStyle(invoice.status)}`}>
-                            {getStatusIcon(invoice.status)}
-                            {invoice.status}
-                          </span>
-                        </div>
+                      <td className="py-3 px-4 text-center">
+                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold ${getStatusStyle(invoice.status)}`}>
+                          {getStatusIcon(invoice.status)}
+                          {invoice.status}
+                        </span>
                       </td>
                     </tr>
                   );
@@ -651,56 +666,61 @@ export default function ARInvoicesPage() {
           </table>
         </div>
 
-        {/* Pagination */}
+        {/* Premium Pagination */}
         {!loading && invoices.length > 0 && (
-          <div className="flex items-center justify-between px-5 py-4 border-t border-[#AEBFC3]/20 bg-gradient-to-r from-[#F8FAFB] to-white">
-            <span className="text-sm text-[#5D6E73]">
-              Showing <span className="font-bold text-[#E17F70]">{Math.min((page - 1) * 25 + 1, total)}</span> to{' '}
-              <span className="font-bold text-[#E17F70]">{Math.min(page * 25, total)}</span> of{' '}
-              <span className="font-bold text-[#546A7A]">{total}</span> invoices
-            </span>
-            <div className="flex items-center gap-1.5">
+          <div className="flex items-center justify-between px-6 py-4 border-t border-[#AEBFC3]/15 bg-gradient-to-r from-[#F8FAFB] via-white to-[#F8FAFB]">
+            <div className="flex items-center gap-3">
+              <div className="w-2 h-2 rounded-full bg-gradient-to-r from-[#82A094] to-[#A2B9AF]" />
+              <span className="text-sm text-[#5D6E73]">
+                Showing <span className="font-bold text-[#546A7A]">{Math.min((page - 1) * 25 + 1, total)}</span> to{' '}
+                <span className="font-bold text-[#546A7A]">{Math.min(page * 25, total)}</span> of{' '}
+                <span className="font-bold text-[#E17F70]">{total}</span> invoices
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
               <button
                 onClick={() => setPage(p => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="p-2 rounded-lg border border-[#AEBFC3]/40 text-[#546A7A] hover:bg-[#96AEC2]/10 hover:border-[#6F8A9D] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                className="flex items-center justify-center w-9 h-9 rounded-xl bg-white border border-[#AEBFC3]/30 text-[#546A7A] hover:bg-gradient-to-r hover:from-[#546A7A]/5 hover:to-[#6F8A9D]/5 hover:border-[#6F8A9D]/50 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
               
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                let pageNum;
-                if (totalPages <= 5) {
-                  pageNum = i + 1;
-                } else if (page <= 3) {
-                  pageNum = i + 1;
-                } else if (page >= totalPages - 2) {
-                  pageNum = totalPages - 4 + i;
-                } else {
-                  pageNum = page - 2 + i;
-                }
-                
-                return (
-                  <button
-                    key={i}
-                    onClick={() => setPage(pageNum)}
-                    className={`w-8 h-8 rounded-lg text-sm font-semibold transition-all ${
-                      page === pageNum
-                        ? isPrepaidView 
-                          ? 'bg-gradient-to-r from-[#CE9F6B] to-[#E17F70] text-white shadow-md'
-                          : 'bg-gradient-to-r from-[#E17F70] to-[#CE9F6B] text-white shadow-md'
-                        : 'text-[#5D6E73] hover:bg-[#96AEC2]/10'
-                    }`}
-                  >
-                    {pageNum}
-                  </button>
-                );
-              })}
+              <div className="flex items-center gap-1 bg-[#F8FAFB] rounded-xl p-1 border border-[#AEBFC3]/20">
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (page <= 3) {
+                    pageNum = i + 1;
+                  } else if (page >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = page - 2 + i;
+                  }
+                  
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => setPage(pageNum)}
+                      className={`w-8 h-8 rounded-lg text-sm font-bold transition-all ${
+                        page === pageNum
+                          ? isPrepaidView 
+                            ? 'bg-gradient-to-r from-[#CE9F6B] to-[#E17F70] text-white shadow-lg shadow-[#CE9F6B]/30'
+                            : 'bg-gradient-to-r from-[#546A7A] to-[#6F8A9D] text-white shadow-lg shadow-[#546A7A]/30'
+                          : 'text-[#5D6E73] hover:bg-white hover:shadow-sm'
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+              </div>
               
               <button
                 onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
-                className="p-2 rounded-lg border border-[#AEBFC3]/40 text-[#546A7A] hover:bg-[#96AEC2]/10 hover:border-[#6F8A9D] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                className="flex items-center justify-center w-9 h-9 rounded-xl bg-white border border-[#AEBFC3]/30 text-[#546A7A] hover:bg-gradient-to-r hover:from-[#546A7A]/5 hover:to-[#6F8A9D]/5 hover:border-[#6F8A9D]/50 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>

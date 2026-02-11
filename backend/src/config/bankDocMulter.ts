@@ -2,10 +2,10 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { v4 as uuidv4 } from 'uuid';
+import { storageConfig } from './storage.config';
 import { Request } from 'express';
 
-const STORAGE_ROOT = process.env.STORAGE_ROOT || 'C:\\Kardexremstar\\storage';
-const ATTACHMENT_DIR = process.env.BANK_DOC_UPLOAD_DIR || path.join(STORAGE_ROOT, 'bank-account-docs');
+const ATTACHMENT_DIR = process.env.BANK_DOC_UPLOAD_DIR || path.join(storageConfig.root, 'bank-account-docs');
 
 // Ensure directory exists
 if (!fs.existsSync(ATTACHMENT_DIR)) {

@@ -348,7 +348,7 @@ export default function LoginPage() {
           <div className="space-y-4">
             {[
               { icon: Zap, title: 'Field Service', desc: 'Tickets, customers & service zones', color: '#E17F70' },
-              { icon: Shield, title: 'Finance Module', desc: 'AR, bank accounts & invoices', color: '#CE9F6B' },
+              { icon: Shield, title: 'Finance Module', desc: 'AR, vendor bank accounts & invoices', color: '#CE9F6B' },
               { icon: Users, title: 'Offers & Targets', desc: 'Track sales funnel & forecasts', color: '#82A094' },
             ].map((feature, i) => (
               <div 

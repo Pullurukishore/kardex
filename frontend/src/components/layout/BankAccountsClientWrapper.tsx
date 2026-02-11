@@ -8,19 +8,23 @@ import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { 
   Building2, Plus, Clock, ArrowLeft, LogOut, ChevronDown, 
-  Bell, Menu, X, HelpCircle, ChevronLeft, ChevronRight, Activity
+  Bell, Menu, X, HelpCircle, ChevronLeft, ChevronRight, Activity,
+  CreditCard
 } from 'lucide-react';
+import { FinanceRole } from '@/types/user.types';
 
 interface BankAccountsLayoutProps {
   children: ReactNode;
 }
 
-const navItems = [
+const allNavItems = [
   { href: '/finance/bank-accounts', label: 'All Vendors', icon: Building2, description: 'View all vendor accounts' },
   { href: '/finance/bank-accounts/new', label: 'Add Vendor', icon: Plus, description: 'Create vendor account' },
   { href: '/finance/bank-accounts/requests', label: 'Requests', icon: Clock, description: 'Vendor approvals' },
-  { href: '/finance/bank-accounts/activities', label: 'Activities', icon: Activity, description: 'Audit trail & logs' },
+  { href: '/finance/bank-accounts/payments', label: 'Bulk Payments', icon: CreditCard, description: 'Excel bulk payments' },
+  { href: '/finance/bank-accounts/activities', label: 'Activities', icon: Activity, description: 'Audit trail & logs', roles: [FinanceRole.FINANCE_ADMIN] },
 ];
+
 
 export function BankAccountsClientWrapper({ children }: BankAccountsLayoutProps) {
   const pathname = usePathname();
@@ -32,6 +36,11 @@ export function BankAccountsClientWrapper({ children }: BankAccountsLayoutProps)
   const [isMobile, setIsMobile] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   const { user, logout } = useAuth();
+
+  const navItems = (allNavItems as any[]).filter(item => {
+    if (!item.roles) return true;
+    return user?.financeRole && item.roles.includes(user.financeRole);
+  });
 
   useEffect(() => {
     setMounted(true);
@@ -105,7 +114,7 @@ export function BankAccountsClientWrapper({ children }: BankAccountsLayoutProps)
   const showSidebar = sidebarOpen || !isMobile;
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-[#F8F9FB]">
       {/* Animated background effects */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-0 right-1/4 w-96 h-96 bg-[#CE9F6B]/5 rounded-full blur-3xl" />
@@ -126,10 +135,9 @@ export function BankAccountsClientWrapper({ children }: BankAccountsLayoutProps)
         <aside
           className={cn(
             "fixed left-0 top-0 z-[60] flex h-screen flex-col",
-            "bg-gradient-to-b from-white/95 via-white/90 to-[#AEBFC3]/10",
-            "backdrop-blur-xl",
-            "border-r border-[#CE9F6B]/15",
-            "shadow-xl shadow-[#CE9F6B]/10",
+            "bg-[#F4F7F9]",
+            "border-r border-[#AEBFC3]/30",
+            "shadow-sm",
             "transition-all duration-300 ease-out",
             isMobile ? "w-80" : isCollapsed ? "w-[72px]" : "w-64",
             isMobile && !sidebarOpen && "-translate-x-full",
@@ -141,14 +149,12 @@ export function BankAccountsClientWrapper({ children }: BankAccountsLayoutProps)
             <div className="absolute inset-0 bg-gradient-to-r from-[#E17F70] via-[#CE9F6B] to-[#82A094] blur-sm opacity-50" />
           </div>
           
-          {/* Animated background glows */}
-          <div className="absolute top-24 left-1/2 -translate-x-1/2 w-48 h-48 bg-[#CE9F6B]/10 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute bottom-32 left-1/3 w-32 h-32 bg-[#82A094]/10 rounded-full blur-3xl pointer-events-none" />
+          {/* Animated background glows removed for 'white only' sidebar */}
 
           {/* Header */}
           <div className={cn(
-            "relative flex items-center justify-between border-b border-[#CE9F6B]/15",
-            "bg-white/90 backdrop-blur-xl",
+            "relative flex items-center justify-between border-b border-[#AEBFC3]/20",
+            "bg-[#F4F7F9]",
             isMobile ? "h-16 px-5" : "h-[72px] px-3"
           )}>
             <div className="flex-1 flex items-center justify-center">
@@ -240,7 +246,7 @@ export function BankAccountsClientWrapper({ children }: BankAccountsLayoutProps)
                       isMobile ? "px-3 py-3 text-base" : isCollapsed ? "justify-center py-2.5" : "px-2.5 py-2.5 text-sm",
                       isActive
                         ? "bg-gradient-to-r from-[#CE9F6B] via-[#CE9F6B] to-[#976E44] text-white shadow-lg shadow-[#CE9F6B]/30"
-                        : "text-[#5D6E73] hover:text-white hover:bg-gradient-to-r hover:from-[#E17F70] hover:to-[#CE9F6B] hover:shadow-lg hover:shadow-[#E17F70]/30"
+                        : "text-[#5D6E73] hover:text-white hover:bg-gradient-to-r hover:from-[#E17F70] hover:to-[#CE9F6B] group-hover:scale-[1.02] transition-all"
                     )}
                   >
                     {/* Active indicator line */}
@@ -253,7 +259,7 @@ export function BankAccountsClientWrapper({ children }: BankAccountsLayoutProps)
                       isMobile ? "h-10 w-10" : "h-9 w-9",
                       isActive
                         ? "bg-white/20 shadow-inner backdrop-blur-sm"
-                        : "bg-[#CE9F6B]/10 group-hover:bg-white/20 group-hover:shadow-lg group-hover:scale-110"
+                        : "bg-[#AEBFC3]/15 group-hover:bg-white group-hover:shadow-md transition-all"
                     )}>
                       <Icon className={cn(
                         "transition-all duration-300",
@@ -291,8 +297,8 @@ export function BankAccountsClientWrapper({ children }: BankAccountsLayoutProps)
 
           {/* Switch Module Button */}
           <div className={cn(
-            "relative border-t border-[#CE9F6B]/15",
-            "bg-white/90 backdrop-blur-xl",
+            "relative border-t border-[#AEBFC3]/20",
+            "bg-[#F4F7F9]",
             isMobile ? "px-4 py-2" : "px-3 py-2"
           )}>
             <button
@@ -331,8 +337,8 @@ export function BankAccountsClientWrapper({ children }: BankAccountsLayoutProps)
 
           {/* Logout */}
           <div className={cn(
-            "relative border-t border-[#CE9F6B]/15",
-            "bg-white/90 backdrop-blur-xl",
+            "relative border-t border-[#AEBFC3]/20",
+            "bg-[#F4F7F9]",
             isMobile ? "px-4 py-4" : "px-3 py-3"
           )}>
             <button
@@ -380,9 +386,9 @@ export function BankAccountsClientWrapper({ children }: BankAccountsLayoutProps)
         <header
           className={cn(
             'sticky top-0 z-50 flex-shrink-0',
-            'bg-white/95 backdrop-blur-2xl',
-            'border-b border-[#CE9F6B]/15',
-            'shadow-[0_4px_30px_-4px_rgba(206,159,107,0.12)]'
+            'bg-white/80 backdrop-blur-xl',
+            'border-b border-[#AEBFC3]/20',
+            'shadow-[0_4px_24px_-4px_rgba(111,138,157,0.08)]'
           )}
         >
           {/* Top gradient accent */}

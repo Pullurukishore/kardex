@@ -81,6 +81,10 @@ export const getAllInvoices = async (req: Request, res: Response) => {
                     deliveryDueDate: true,
                     prepaidStatus: true,
                     type: true,
+                    grnDate: true,
+                    bgDate: true,
+                    othersDate: true,
+                    agingMilestone: true,
                 }
             }),
             prisma.aRInvoice.count({ where })
@@ -106,7 +110,25 @@ export const getAllInvoices = async (req: Request, res: Response) => {
             let dueByDays = 0;
             let isOverdue = false;
 
-            if (invoice.dueDate) {
+            if (invoice.invoiceType === 'PREPAID' && invoice.agingMilestone) {
+                let baseDate = null;
+                switch (invoice.agingMilestone) {
+                    case 'ADVANCE': baseDate = invoice.advanceReceivedDate; break;
+                    case 'INVOICE': baseDate = invoice.invoiceDate; break;
+                    case 'GRN': baseDate = invoice.grnDate; break;
+                    case 'BG': baseDate = invoice.bgDate; break;
+                    case 'OTHERS': baseDate = invoice.othersDate; break;
+                }
+
+                if (baseDate) {
+                    // For prepaids, aging usually means "days since milestone"
+                    // If baseDate is Jan 1 and today is Jan 10, aging is +9
+                    dueByDays = calculateDaysBetween(new Date(baseDate), today);
+                    // For consistency with regular invoices where positive means overdue,
+                    // aging here is also positive (days since milestone).
+                    isOverdue = false; // Prepaid aging isn't necessarily "overdue" in the same sense
+                }
+            } else if (invoice.dueDate) {
                 // calculateDaysBetween should handle Date objects
                 dueByDays = calculateDaysBetween(new Date(invoice.dueDate), today);
                 isOverdue = dueByDays > 0 && invoice.status !== 'PAID';
@@ -140,15 +162,22 @@ export const getInvoiceById = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
 
-        // Try to find by UUID first, then by invoice number
-        let invoice = await prisma.aRInvoice.findUnique({
-            where: { id }
-        });
-
-        // If not found by UUID, try by invoice number
-        if (!invoice) {
+        let invoice: any;
+        if (id.length === 36) { // Likely UUID
             invoice = await prisma.aRInvoice.findUnique({
-                where: { invoiceNumber: id }
+                where: { id },
+                include: {
+                    linkedFromPrepaids: true,
+                    linkedInvoice: true
+                }
+            });
+        } else {
+            invoice = await prisma.aRInvoice.findUnique({
+                where: { invoiceNumber: id },
+                include: {
+                    linkedFromPrepaids: true,
+                    linkedInvoice: true
+                }
             });
         }
 
@@ -156,18 +185,52 @@ export const getInvoiceById = async (req: Request, res: Response) => {
             return res.status(404).json({ error: 'Invoice not found' });
         }
 
-        // Fetch payment history
+        // Fetch payment history for the main invoice
         const paymentHistory = await prisma.aRPaymentHistory.findMany({
             where: { invoiceId: invoice.id },
             orderBy: { paymentDate: 'desc' }
         });
+
+        // Fetch payment history for linked prepaids
+        if (invoice.linkedFromPrepaids && invoice.linkedFromPrepaids.length > 0) {
+            invoice.linkedFromPrepaids = await Promise.all(invoice.linkedFromPrepaids.map(async (prepaid: any) => {
+                const payments = await prisma.aRPaymentHistory.findMany({
+                    where: { invoiceId: prepaid.id },
+                    orderBy: { paymentDate: 'desc' }
+                });
+                return { ...prepaid, paymentHistory: payments };
+            }));
+        }
+
+        // Fetch payment history for linked regular invoice (if this is a prepaid)
+        if (invoice.linkedInvoice) {
+            const payments = await prisma.aRPaymentHistory.findMany({
+                where: { invoiceId: invoice.linkedInvoice.id },
+                orderBy: { paymentDate: 'desc' }
+            });
+            invoice.linkedInvoice = { ...invoice.linkedInvoice, paymentHistory: payments };
+        }
 
         // Calculate days dynamically: positive = overdue, negative = days remaining
         const today = new Date();
         let dueByDays = 0;
         let isOverdue = false;
 
-        if (invoice.dueDate) {
+        if (invoice.invoiceType === 'PREPAID' && invoice.agingMilestone) {
+            let baseDate = null;
+            switch (invoice.agingMilestone) {
+                case 'ADVANCE': baseDate = invoice.advanceReceivedDate; break;
+                case 'INVOICE': baseDate = invoice.invoiceDate; break;
+                case 'GRN': baseDate = invoice.grnDate; break;
+                case 'BG': baseDate = invoice.bgDate; break;
+                case 'OTHERS': baseDate = invoice.othersDate; break;
+            }
+
+            if (baseDate) {
+                dueByDays = calculateDaysBetween(new Date(baseDate), today);
+                isOverdue = false;
+            }
+        } else if (invoice.dueDate) {
             dueByDays = calculateDaysBetween(invoice.dueDate, today);
             isOverdue = dueByDays > 0 && invoice.status !== 'PAID';
         }
@@ -484,7 +547,11 @@ export const createInvoice = async (req: Request, res: Response) => {
             invoiceType,
             advanceReceivedDate,
             deliveryDueDate,
-            type
+            type,
+            grnDate,
+            bgDate,
+            othersDate,
+            agingMilestone
         } = req.body;
 
         if (!invoiceNumber || !customerId || !invoiceDate || !totalAmount) {
@@ -526,7 +593,11 @@ export const createInvoice = async (req: Request, res: Response) => {
                 advanceReceivedDate: advanceReceivedDate ? new Date(advanceReceivedDate) : null,
                 deliveryDueDate: deliveryDueDate ? new Date(deliveryDueDate) : null,
                 prepaidStatus: invoiceType === 'PREPAID' ? 'AWAITING_DELIVERY' : null,
-                type: type || null
+                type: type || null,
+                grnDate: grnDate ? new Date(grnDate) : null,
+                bgDate: bgDate ? new Date(bgDate) : null,
+                othersDate: othersDate ? new Date(othersDate) : null,
+                agingMilestone: agingMilestone || null
             }
         });
 
@@ -577,6 +648,21 @@ export const updateInvoice = async (req: Request, res: Response) => {
         }
         if (updateData.impactDate) {
             updateData.impactDate = new Date(updateData.impactDate);
+        }
+        if (updateData.advanceReceivedDate) {
+            updateData.advanceReceivedDate = new Date(updateData.advanceReceivedDate);
+        }
+        if (updateData.deliveryDueDate) {
+            updateData.deliveryDueDate = new Date(updateData.deliveryDueDate);
+        }
+        if (updateData.grnDate) {
+            updateData.grnDate = new Date(updateData.grnDate);
+        }
+        if (updateData.bgDate) {
+            updateData.bgDate = new Date(updateData.bgDate);
+        }
+        if (updateData.othersDate) {
+            updateData.othersDate = new Date(updateData.othersDate);
         }
 
         // Convert numeric strings to numbers
@@ -644,7 +730,11 @@ export const updateInvoice = async (req: Request, res: Response) => {
             invoiceType: 'Invoice Type',
             modeOfDelivery: 'Mode of Delivery',
             comments: 'Comments',
-            prepaidStatus: 'Prepaid Status'
+            prepaidStatus: 'Prepaid Status',
+            grnDate: 'GRN Date',
+            bgDate: 'BG Date',
+            othersDate: 'Others Date',
+            agingMilestone: 'Aging Milestone'
         };
 
         // Build detailed change description
@@ -980,7 +1070,7 @@ export const getMatchingPrepaids = async (req: Request, res: Response) => {
         // Extract base PO number (first part before any space, "Dtd:", or date suffix)
         // Examples: "3791225209 Dtd:7/2/2025" -> "3791225209", "PO-12345" -> "PO-12345"
         const basePO = invoice.poNo.split(/[\s,]+/)[0].trim();
-        console.log('Matching PO - Full:', invoice.poNo, 'Base:', basePO);
+
 
         // Find prepaid invoices with matching PO number
         // Use contains for flexible matching - either invoice might have date suffix
@@ -1011,12 +1101,13 @@ export const getMatchingPrepaids = async (req: Request, res: Response) => {
                 customerName: true,
                 bpCode: true,
                 invoiceDate: true,
-                status: true
+                status: true,
+                linkedInvoiceId: true
             },
             orderBy: { invoiceDate: 'desc' }
         });
 
-        // For each prepaid, get payment history
+        // For each prepaid, get payment history and check for already-transferred payments
         const prepaidsWithPayments = await Promise.all(
             matchingPrepaids.map(async (prepaid) => {
                 const payments = await prisma.aRPaymentHistory.findMany({
@@ -1026,15 +1117,46 @@ export const getMatchingPrepaids = async (req: Request, res: Response) => {
                         amount: true,
                         paymentDate: true,
                         paymentMode: true,
-                        referenceNo: true
+                        referenceNo: true,
+                        createdAt: true
                     },
                     orderBy: { paymentDate: 'desc' }
                 });
 
+                // If this prepaid is linked to the current invoice, check for already transferred payments
+                let transferredPaymentIds: string[] = [];
+                let untransferredPayments = 0;
+                let untransferredAmount = 0;
+
+                if (prepaid.linkedInvoiceId === id) {
+                    // Find payments on the regular invoice that came from this prepaid
+                    const transferredPayments = await prisma.aRPaymentHistory.findMany({
+                        where: {
+                            invoiceId: id,
+                            notes: { contains: `[From Prepaid ${prepaid.invoiceNumber}]` }
+                        },
+                        select: { amount: true, paymentDate: true }
+                    });
+
+                    // Calculate total transferred amount
+                    const totalTransferred = transferredPayments.reduce((sum, p) => sum + Number(p.amount), 0);
+                    const totalOnPrepaid = payments.reduce((sum, p) => sum + Number(p.amount), 0);
+
+                    // Check if there are new payments (more on prepaid than transferred)
+                    if (totalOnPrepaid > totalTransferred) {
+                        untransferredAmount = totalOnPrepaid - totalTransferred;
+                        // Estimate count by comparing totals (rough estimate)
+                        untransferredPayments = payments.length - transferredPayments.length;
+                        if (untransferredPayments < 0) untransferredPayments = 1;
+                    }
+                }
+
                 return {
                     ...prepaid,
                     payments,
-                    totalPayments: payments.reduce((sum, p) => sum + Number(p.amount), 0)
+                    totalPayments: payments.reduce((sum, p) => sum + Number(p.amount), 0),
+                    untransferredPayments,
+                    untransferredAmount
                 };
             })
         );
@@ -1076,24 +1198,40 @@ export const acceptPrepaid = async (req: Request, res: Response) => {
             if (prepaidInvoice.invoiceType !== 'PREPAID') throw new Error('Source must be a PREPAID invoice');
 
             // Compare base PO numbers (ignoring date suffixes like "Dtd:7/2/2025")
+            // Also allow matching by invoice number if prepaid's invoice number contains base PO
             const getBasePO = (po: string | null) => po ? po.split(/[\s,]+/)[0].trim() : '';
             const regularBasePO = getBasePO(regularInvoice.poNo);
             const prepaidBasePO = getBasePO(prepaidInvoice.poNo);
-            if (!regularBasePO || !prepaidBasePO || regularBasePO !== prepaidBasePO) {
-                throw new Error(`PO numbers do not match: ${regularBasePO} vs ${prepaidBasePO}`);
+
+            // Allow linking if:
+            // 1. Both POs match exactly
+            // 2. Prepaid's invoice number contains the regular invoice's PO (e.g., "PRE-REF005" contains "REF005")
+            // 3. PO fields contain each other (flexible matching)
+            const invoiceNumberContainsPO = regularBasePO && prepaidInvoice.invoiceNumber.includes(regularBasePO);
+            const posMatch = regularBasePO && prepaidBasePO && regularBasePO === prepaidBasePO;
+            const posContainEachOther = regularBasePO && prepaidBasePO &&
+                (regularBasePO.includes(prepaidBasePO) || prepaidBasePO.includes(regularBasePO));
+
+            if (!posMatch && !posContainEachOther && !invoiceNumberContainsPO) {
+                throw new Error(`PO numbers do not match: ${regularBasePO || '(empty)'} vs ${prepaidBasePO || '(empty)'}. Prepaid invoice number: ${prepaidInvoice.invoiceNumber}`);
             }
-            // Skip linkedInvoiceId check if field doesn't exist (migration not run)
+
+            // Check if this is a re-link (already linked before)
+            const isReLink = prepaidInvoice.linkedInvoiceId === id;
 
             const now = new Date();
-            await tx.aRInvoice.update({
-                where: { id: prepaidId },
-                data: { linkedInvoiceId: id, prepaidStatus: 'LINKED', prepaidAcceptedAt: now }
-            });
+            // Update prepaid invoice (only if not already linked)
+            if (!isReLink) {
+                await tx.aRInvoice.update({
+                    where: { id: prepaidId },
+                    data: { linkedInvoiceId: id, prepaidStatus: 'LINKED', prepaidAcceptedAt: now }
+                });
 
-            await tx.aRInvoice.update({
-                where: { id },
-                data: { linkedPrepaidId: prepaidId }
-            });
+                await tx.aRInvoice.update({
+                    where: { id },
+                    data: { linkedPrepaidId: prepaidId }
+                });
+            }
 
             let totalTransferred = 0;
 
@@ -1102,7 +1240,29 @@ export const acceptPrepaid = async (req: Request, res: Response) => {
                     where: { invoiceId: prepaidId }
                 });
 
+                // Get already transferred payments to avoid duplicates
+                const alreadyTransferred = await tx.aRPaymentHistory.findMany({
+                    where: {
+                        invoiceId: id,
+                        notes: { contains: `[From Prepaid ${prepaidInvoice.invoiceNumber}]` }
+                    },
+                    select: { amount: true, paymentDate: true }
+                });
+
+                // Calculate already transferred total
+                const alreadyTransferredTotal = alreadyTransferred.reduce((sum, p) => sum + Number(p.amount), 0);
+
+                // Track running total to find which payments are new
+                let runningTotal = 0;
+
                 for (const payment of prepaidPayments) {
+                    runningTotal += Number(payment.amount);
+
+                    // Skip if this payment's running total is within already transferred amount
+                    if (runningTotal <= alreadyTransferredTotal) {
+                        continue;
+                    }
+
                     await tx.aRPaymentHistory.create({
                         data: {
                             invoiceId: id,

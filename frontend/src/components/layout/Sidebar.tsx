@@ -348,10 +348,9 @@ export function Sidebar({
     <div
       className={cn(
         "flex flex-col h-full",
-        "bg-gradient-to-b from-[#AEBFC3]/10 via-white/90 to-[#AEBFC3]/20",
-        "backdrop-blur-xl",
-        "border-r border-[#6F8A9D]/15",
-        "shadow-xl shadow-[#6F8A9D]/10",
+        "bg-[#F4F7F9]",
+        "border-r border-[#AEBFC3]/30",
+        "shadow-sm",
         className
       )}
       role="navigation"
@@ -362,22 +361,12 @@ export function Sidebar({
         <div className="absolute inset-0 bg-gradient-to-r from-[#96AEC2] via-[#6F8A9D] to-[#CE9F6B] blur-sm opacity-50" />
       </div>
       
-      {/* Animated background glows - Kardex brand colors */}
-      <div className="absolute top-24 left-1/2 -translate-x-1/2 w-48 h-48 bg-[#96AEC2]/5 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-32 left-1/3 w-32 h-32 bg-[#82A094]/5 rounded-full blur-3xl pointer-events-none" />
-      
-      {/* Subtle grid pattern overlay */}
-      <div className="absolute inset-0 opacity-[0.015] pointer-events-none" 
-        style={{
-          backgroundImage: `radial-gradient(#6F8A9D 1px, transparent 1px)`,
-          backgroundSize: '20px 20px'
-        }} 
-      />
+      {/* Background accents removed for 'Slate Tint' look */}
 
       {/* Header */}
       <div className={cn(
         "relative flex items-center justify-between border-b border-[#96AEC2]/10",
-        "bg-white/50 backdrop-blur-xl",
+        "bg-[#F4F7F9]",
         isMobile ? "h-16 px-5" : "h-[76px] px-3"
       )}>
         <div suppressHydrationWarning className="flex-1 flex items-center justify-center">
@@ -515,7 +504,7 @@ export function Sidebar({
       {subModule && (
         <div className={cn(
           "relative border-t border-[#96AEC2]/15",
-          "bg-white/90 backdrop-blur-xl",
+          "bg-[#F4F7F9]",
           isMobile ? "px-4 py-2" : "px-3 py-2"
         )}>
           <button
@@ -563,7 +552,7 @@ export function Sidebar({
       {/* Logout */}
       <div className={cn(
         "relative border-t border-[#96AEC2]/15",
-        "bg-white/90 backdrop-blur-xl",
+        "bg-[#F4F7F9]",
         isMobile ? "px-4 py-4" : "px-3 py-3"
       )}>
         <button

@@ -159,9 +159,9 @@ export function Header({ onMenuClick, className, isMobile = false, sidebarOpen =
     <header
       className={cn(
         'sticky top-0 z-50 flex-shrink-0',
-        'bg-white/95 backdrop-blur-2xl',
-        'border-b border-[#6F8A9D]/15',
-        'shadow-[0_4px_30px_-4px_rgba(111,138,157,0.12)]',
+        'bg-white/80 backdrop-blur-xl',
+        'border-b border-[#AEBFC3]/20',
+        'shadow-[0_4px_24px_-4px_rgba(111,138,157,0.08)]',
         className
       )}
       suppressHydrationWarning

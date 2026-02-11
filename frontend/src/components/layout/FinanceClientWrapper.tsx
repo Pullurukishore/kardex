@@ -135,10 +135,9 @@ function FinanceSidebar({
         <aside
           className={cn(
             "fixed left-0 top-0 z-[60] flex h-screen flex-col",
-            "bg-gradient-to-b from-[#AEBFC3]/10 via-white/90 to-[#AEBFC3]/20",
-            "backdrop-blur-xl",
+            "bg-[#F4F7F9]",
             "border-r border-[#6F8A9D]/15",
-            "shadow-xl shadow-[#6F8A9D]/10",
+            "shadow-sm",
             "transition-all duration-300 ease-out",
             isMobile ? "w-80" : isCollapsed ? "w-[72px]" : "w-64",
             isMobile && !mobileMenuOpen && "-translate-x-full",
@@ -149,12 +148,11 @@ function FinanceSidebar({
             <div className="absolute inset-0 bg-gradient-to-r from-[#96AEC2] via-[#82A094] to-[#CE9F6B] blur-sm opacity-50" />
           </div>
           
-          <div className="absolute top-24 left-1/2 -translate-x-1/2 w-48 h-48 bg-[#96AEC2]/10 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute bottom-32 left-1/3 w-32 h-32 bg-[#82A094]/10 rounded-full blur-3xl pointer-events-none" />
+          {/* Background glows removed for 'Slate Tint' look */}
 
           <div className={cn(
             "relative flex items-center justify-between border-b border-[#96AEC2]/15",
-            "bg-white/90 backdrop-blur-xl",
+            "bg-[#F4F7F9]",
             isMobile ? "h-16 px-5" : "h-[72px] px-3"
           )}>
             <div className="flex-1 flex items-center justify-center">
@@ -295,7 +293,7 @@ function FinanceSidebar({
 
           <div className={cn(
             "relative border-t border-[#96AEC2]/15",
-            "bg-white/90 backdrop-blur-xl",
+            "bg-[#F4F7F9]",
             isMobile ? "px-4 py-2" : "px-3 py-2"
           )}>
             <button
@@ -334,7 +332,7 @@ function FinanceSidebar({
 
           <div className={cn(
             "relative border-t border-[#96AEC2]/15",
-            "bg-white/90 backdrop-blur-xl",
+            "bg-[#F4F7F9]",
             isMobile ? "px-4 py-4" : "px-3 py-3"
           )}>
             <button
@@ -419,9 +417,9 @@ function FinanceLayoutMain({
       <header
         className={cn(
           'sticky top-0 z-50 flex-shrink-0',
-          'bg-white/95 backdrop-blur-2xl',
-          'border-b border-[#6F8A9D]/15',
-          'shadow-[0_4px_30px_-4px_rgba(111,138,157,0.12)]'
+          'bg-white/80 backdrop-blur-xl',
+          'border-b border-[#AEBFC3]/20',
+          'shadow-[0_4px_24px_-4px_rgba(111,138,157,0.08)]'
         )}
       >
         <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[#96AEC2] via-[#82A094] to-[#CE9F6B]">
@@ -607,7 +605,7 @@ export function FinanceClientWrapper({ children }: FinanceLayoutProps) {
   };
 
   return (
-    <div className="min-h-screen bg-[#F0F4F8]">
+    <div className="min-h-screen bg-[#F8F9FB]">
       <Suspense fallback={<div className="w-64 fixed h-screen bg-white/50 backdrop-blur-xl" />}>
         <FinanceSidebar 
           isMobile={isMobile}

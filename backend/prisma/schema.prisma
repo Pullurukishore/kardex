@@ -1050,9 +1050,9 @@ enum ARDeliveryStatus {
 }
 
 enum ARServiceType {
-  SERVICE
-  SALES
-  OTHERS
+  LCS
+  NB
+  FINANCE
 }
 
 // Invoice Type for distinguishing regular vs prepaid invoices
@@ -1068,6 +1068,15 @@ enum ARPrepaidStatus {
   FULLY_DELIVERED      // All items delivered
   EXPIRED              // Prepaid period expired without delivery
   LINKED               // Prepaid has been linked to an invoice
+}
+
+// Milestone types for prepaid aging
+enum ARMilestoneType {
+  ADVANCE
+  INVOICE
+  GRN
+  BG
+  OTHERS
 }
 
 // AR Payment Terms Master
@@ -1125,7 +1134,7 @@ model ARInvoice {
   receipts            Decimal?  @db.Decimal(15, 2) // Receipts (Manual)
   adjustments         Decimal?  @db.Decimal(15, 2) // Adjustments (Manual)
   totalReceipts       Decimal?  @db.Decimal(15, 2) // Total Receipts = Receipts + Adjustments
-  type                ARServiceType?    // Type (SERVICE, SALES, OTHERS)
+  type                ARServiceType?    // Type (LCS, NB, FINANCE)
   modeOfDelivery      String?           // Mode of Delivery with Details
   sentHandoverDate    DateTime?         // Sent/Handover date
   deliveryStatus      ARDeliveryStatus @default(PENDING) // Delivered/Acknowledgement Status (Mandatory)
@@ -1154,6 +1163,14 @@ model ARInvoice {
   linkedInvoiceId     String?           // For prepaid: links to regular invoice after acceptance
   linkedPrepaidId     String?           // For regular: links to accepted prepaid invoice
   prepaidAcceptedAt   DateTime?         // When prepaid was accepted and linked
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PREPAID MILESTONES & AGING
+  // ═══════════════════════════════════════════════════════════════════════════
+  grnDate             DateTime?         // GRN Date Milestone
+  bgDate              DateTime?         // BG (Bank Guarantee) Date Milestone
+  othersDate          DateTime?         // Others Milestone Date
+  agingMilestone      ARMilestoneType?  // Which milestone to use for aging calculation
   
   // Self-referential relations for prepaid linking
   linkedInvoice       ARInvoice?        @relation("PrepaidToInvoice", fields: [linkedInvoiceId], references: [id])
@@ -1276,6 +1293,7 @@ model ARSessionActivityLog {
 
 model BankAccount {
   id                  String   @id @default(uuid())
+  bpCode              String?
   vendorName          String
   beneficiaryBankName String
   accountNumber       String   @unique
@@ -1284,6 +1302,7 @@ model BankAccount {
   beneficiaryName     String?
   nickName            String?
   isActive            Boolean  @default(true)
+  accountType         String?
   createdById         Int
   updatedById         Int
   isMSME              Boolean  @default(false)
@@ -1297,6 +1316,7 @@ model BankAccount {
   changeRequests      BankAccountChangeRequest[] @relation("BankAccountRequests")
   attachments         BankAccountAttachment[]    @relation("BankAccountToAttachments")
 
+  @@index([bpCode])
   @@index([vendorName])
   @@index([accountNumber])
   @@index([isActive])
@@ -1343,6 +1363,7 @@ model BankAccountAttachment {
   bankAccountId   String?
   changeRequestId String?
   uploadedById    Int
+  vendorType      String?  // 'DOMESTIC', 'INTERNATIONAL', 'EMPLOYEE'
   createdAt       DateTime @default(now())
 
   bankAccount     BankAccount? @relation("BankAccountToAttachments", fields: [bankAccountId], references: [id], onDelete: Cascade)

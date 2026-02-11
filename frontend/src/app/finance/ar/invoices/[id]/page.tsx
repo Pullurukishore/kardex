@@ -28,7 +28,7 @@ export default function InvoiceViewPage() {
   const [paymentForm, setPaymentForm] = useState({
     amount: '',
     paymentDate: new Date().toISOString().split('T')[0],
-    paymentMode: 'TDS',
+    paymentMode: '',
     referenceBank: '',
     notes: ''
   });
@@ -40,7 +40,7 @@ export default function InvoiceViewPage() {
     setPaymentForm({
       amount: '',
       paymentDate: new Date().toISOString().split('T')[0],
-      paymentMode: 'TDS',
+      paymentMode: '',
       referenceBank: '',
       notes: ''
     });
@@ -136,11 +136,12 @@ export default function InvoiceViewPage() {
 
   // Auto-load matching prepaids for non-prepaid invoices with PO number
   // Note: Check !== 'PREPAID' to include older imported invoices where invoiceType may be null
+  // Note: Removed linkedPrepaidId check to allow linking multiple prepaids
   useEffect(() => {
-    if (invoice?.id && invoice?.invoiceType !== 'PREPAID' && invoice?.poNo && !invoice?.linkedPrepaidId) {
+    if (invoice?.id && invoice?.invoiceType !== 'PREPAID' && invoice?.poNo) {
       loadMatchingPrepaids(invoice.id);
     }
-  }, [invoice?.id, invoice?.invoiceType, invoice?.poNo, invoice?.linkedPrepaidId]);
+  }, [invoice?.id, invoice?.invoiceType, invoice?.poNo]);
 
   // Handle linking prepaid to invoice
   const handleLinkPrepaid = async (prepaid: MatchingPrepaid, transferPayments: boolean = true) => {
@@ -657,100 +658,98 @@ export default function InvoiceViewPage() {
         </div>
       </div>
 
-      {/* Prepaid Delivery Timeline - Only for prepaid invoices */}
+      {/* Prepaid Milestones & Aging Timeline */}
       {isPrepaid && (
-        <div className="bg-white rounded-2xl border border-[#AEBFC3]/20 p-6 shadow-lg">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 rounded-xl bg-gradient-to-br from-[#CE9F6B]/20 to-[#E17F70]/20">
-              <Truck className="w-5 h-5 text-[#CE9F6B]" />
-            </div>
-            <div>
-              <h3 className="font-bold text-[#546A7A]">Prepaid Delivery Timeline</h3>
-              <p className="text-sm text-[#92A2A5]">Track advance payment and delivery status</p>
+        <div className="bg-white rounded-2xl border border-[#CE9F6B]/20 p-6 shadow-lg overflow-hidden relative">
+          <div className="absolute top-0 right-0 p-3 opacity-10">
+            <Sparkles className="w-12 h-12 text-[#CE9F6B]" />
+          </div>
+          
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-gradient-to-br from-[#CE9F6B]/20 to-[#E17F70]/20">
+                <Timer className="w-5 h-5 text-[#CE9F6B]" />
+              </div>
+              <div>
+                <h3 className="font-bold text-[#546A7A]">Milestones & Aging Tracking</h3>
+                <p className="text-sm text-[#92A2A5]">Aging is calculated based on <span className="text-[#976E44] font-bold underline capitalize">{invoice.agingMilestone?.toLowerCase() || 'invoice'} date</span></p>
+              </div>
             </div>
           </div>
           
-          {/* Timeline */}
-          <div className="relative flex items-center justify-between">
-            {/* Line connecting nodes */}
-            <div className="absolute top-6 left-12 right-12 h-1 bg-[#AEBFC3]/30 rounded-full" />
-            <div 
-              className="absolute top-6 left-12 h-1 bg-gradient-to-r from-[#82A094] to-[#CE9F6B] rounded-full transition-all duration-500"
-              style={{ 
-                width: invoice.prepaidStatus === 'FULLY_DELIVERED' ? 'calc(100% - 6rem)' 
-                     : invoice.prepaidStatus === 'PARTIALLY_DELIVERED' ? 'calc(50% - 3rem)'
-                     : invoice.advanceReceivedDate ? 'calc(25% - 1.5rem)' 
-                     : '0%' 
-              }}
-            />
+          {/* Milestone Strip */}
+          <div className="relative">
+            {/* Background Line */}
+            <div className="absolute top-8 left-6 right-6 h-1.5 bg-[#AEBFC3]/20 rounded-full" />
             
-            {/* Advance Received */}
-            <div className="flex flex-col items-center relative z-10">
-              <div className={`w-12 h-12 rounded-full flex items-center justify-center shadow-lg ${
-                invoice.advanceReceivedDate 
-                  ? 'bg-gradient-to-br from-[#82A094] to-[#4F6A64]' 
-                  : 'bg-[#AEBFC3]/30'
-              }`}>
-                <Wallet className={`w-6 h-6 ${invoice.advanceReceivedDate ? 'text-white' : 'text-[#92A2A5]'}`} />
-              </div>
-              <p className="text-sm font-semibold text-[#546A7A] mt-3">Advance Received</p>
-              <p className="text-xs text-[#92A2A5]">
-                {invoice.advanceReceivedDate ? formatARDate(invoice.advanceReceivedDate) : 'Not recorded'}
-              </p>
+            <div className="grid grid-cols-5 gap-4 relative z-10">
+              {[
+                { id: 'ADVANCE', label: 'Adv Date', date: invoice.advanceReceivedDate, icon: Wallet },
+                { id: 'INVOICE', label: 'Invoice Date', date: invoice.invoiceDate, icon: FileText },
+                { id: 'BG', label: 'BG Date', date: invoice.bgDate, icon: Shield },
+                { id: 'GRN', label: 'GRN Date', date: invoice.grnDate, icon: Package },
+                { id: 'OTHERS', label: 'Others', date: invoice.othersDate, icon: Tag },
+              ].map((m) => (
+                <div key={m.id} className="flex flex-col items-center group">
+                  <div className={`w-16 h-16 rounded-2xl flex flex-col items-center justify-center transition-all duration-300 relative ${
+                    m.date 
+                      ? invoice.agingMilestone === m.id 
+                        ? 'bg-gradient-to-br from-[#CE9F6B] to-[#976E44] shadow-xl shadow-[#CE9F6B]/30 scale-110 z-20' 
+                        : 'bg-white border-2 border-[#CE9F6B]/30'
+                      : 'bg-[#AEBFC3]/10 border-2 border-[#AEBFC3]/10 opacity-50'
+                  }`}>
+                    {invoice.agingMilestone === m.id && (
+                      <div className="absolute -top-3 -right-3 p-1 rounded-full bg-white shadow-md border border-[#CE9F6B]">
+                        <CheckCircle className="w-4 h-4 text-[#976E44]" />
+                      </div>
+                    )}
+                    <m.icon className={`w-6 h-6 mb-1 ${
+                      m.date 
+                        ? invoice.agingMilestone === m.id ? 'text-white' : 'text-[#CE9F6B]'
+                        : 'text-[#92A2A5]'
+                    }`} />
+                    {invoice.agingMilestone === m.id && (
+                      <span className="text-[8px] font-black tracking-tighter text-white uppercase opacity-80">Aging Base</span>
+                    )}
+                  </div>
+                  
+                  <div className="mt-3 text-center">
+                    <p className={`text-xs font-bold ${m.date ? 'text-[#546A7A]' : 'text-[#92A2A5]'}`}>{m.label}</p>
+                    <p className={`text-[10px] whitespace-nowrap ${
+                      m.date 
+                        ? invoice.agingMilestone === m.id ? 'text-[#976E44] font-bold' : 'text-[#92A2A5]'
+                        : 'text-[#AEBFC3]'
+                    }`}>
+                      {m.date ? formatARDate(m.date) : 'Pending'}
+                    </p>
+                  </div>
+                </div>
+              ))}
             </div>
-            
-            {/* Delivery Due */}
-            <div className="flex flex-col items-center relative z-10">
-              <div className={`w-12 h-12 rounded-full flex items-center justify-center shadow-lg ${
-                isDeliveryOverdue 
-                  ? 'bg-gradient-to-br from-[#E17F70] to-[#9E3B47] animate-pulse' 
-                  : invoice.deliveryDueDate 
-                  ? 'bg-gradient-to-br from-[#CE9F6B] to-[#976E44]' 
-                  : 'bg-[#AEBFC3]/30'
-              }`}>
-                <Calendar className={`w-6 h-6 ${invoice.deliveryDueDate ? 'text-white' : 'text-[#92A2A5]'}`} />
+          </div>
+
+          <div className="mt-8 pt-6 border-t border-[#AEBFC3]/10 flex items-center justify-between">
+            <div className="flex gap-4">
+              <div className="bg-[#AEBFC3]/10 px-4 py-2 rounded-xl">
+                <span className="text-xs text-[#92A2A5] block">Expected Delivery</span>
+                <span className="font-bold text-[#546A7A]">{invoice.deliveryDueDate ? formatARDate(invoice.deliveryDueDate) : 'N/A'}</span>
               </div>
-              <p className="text-sm font-semibold text-[#546A7A] mt-3">Delivery Due</p>
-              <p className={`text-xs ${isDeliveryOverdue ? 'text-[#E17F70] font-bold' : 'text-[#92A2A5]'}`}>
-                {invoice.deliveryDueDate ? formatARDate(invoice.deliveryDueDate) : 'Not set'}
-              </p>
-              {deliveryDueDays !== null && invoice.prepaidStatus !== 'FULLY_DELIVERED' && (
-                <span className={`text-[10px] font-bold mt-1 px-2 py-0.5 rounded ${
-                  deliveryDueDays < 0 ? 'bg-[#E17F70]/10 text-[#9E3B47]' 
-                  : 'bg-[#82A094]/10 text-[#4F6A64]'
-                }`}>
-                  {deliveryDueDays < 0 ? `${Math.abs(deliveryDueDays)}d overdue` : `${deliveryDueDays}d left`}
+              <div className={`px-4 py-2 rounded-xl ${isDeliveryOverdue ? 'bg-[#E17F70]/10' : 'bg-[#82A094]/10'}`}>
+                <span className="text-xs text-[#92A2A5] block">Delivery Status</span>
+                <span className={`font-bold ${isDeliveryOverdue ? 'text-[#9E3B47]' : 'text-[#4F6A64]'}`}>
+                  {isDeliveryOverdue ? 'Overdue' : invoice.prepaidStatus?.replace('_', ' ') || 'Pending'}
                 </span>
-              )}
+              </div>
             </div>
             
-            {/* Delivery Complete */}
-            <div className="flex flex-col items-center relative z-10">
-              <div className={`w-12 h-12 rounded-full flex items-center justify-center shadow-lg ${
-                invoice.prepaidStatus === 'FULLY_DELIVERED' 
-                  ? 'bg-gradient-to-br from-[#82A094] to-[#4F6A64]' 
-                  : invoice.prepaidStatus === 'PARTIALLY_DELIVERED'
-                  ? 'bg-gradient-to-br from-[#6F8A9D] to-[#546A7A]'
-                  : 'bg-[#AEBFC3]/30'
-              }`}>
-                <CheckCircle className={`w-6 h-6 ${
-                  invoice.prepaidStatus === 'FULLY_DELIVERED' || invoice.prepaidStatus === 'PARTIALLY_DELIVERED'
-                    ? 'text-white' 
-                    : 'text-[#92A2A5]'
-                }`} />
+            <div className="text-right">
+              <span className="text-xs text-[#92A2A5] block">Days Left / Overdue</span>
+              <div className="flex items-center gap-2">
+                <Timer className={`w-4 h-4 ${daysOverdue > 0 ? 'text-[#E17F70]' : 'text-[#82A094]'}`} />
+                <span className={`text-xl font-black ${daysOverdue > 0 ? 'text-[#9E3B47]' : 'text-[#4F6A64]'}`}>
+                  {daysOverdue > 0 ? `${daysOverdue} Days Overdue` : `${Math.abs(daysOverdue)} Days Left`}
+                </span>
               </div>
-              <p className="text-sm font-semibold text-[#546A7A] mt-3">Delivery Status</p>
-              <p className={`text-xs font-medium ${
-                invoice.prepaidStatus === 'FULLY_DELIVERED' ? 'text-[#4F6A64]' 
-                : invoice.prepaidStatus === 'PARTIALLY_DELIVERED' ? 'text-[#6F8A9D]'
-                : invoice.prepaidStatus === 'EXPIRED' ? 'text-[#E17F70]'
-                : 'text-[#92A2A5]'
-              }`}>
-                {invoice.prepaidStatus === 'FULLY_DELIVERED' ? 'Complete' 
-                 : invoice.prepaidStatus === 'PARTIALLY_DELIVERED' ? 'Partial'
-                 : invoice.prepaidStatus === 'EXPIRED' ? 'Expired'
-                 : 'Awaiting'}
-              </p>
             </div>
           </div>
         </div>
@@ -813,55 +812,119 @@ export default function InvoiceViewPage() {
       </div>
 
       {/* Matching Prepaids Banner - For regular invoices with matching prepaids */}
-      {!isPrepaid && matchingPrepaids.length > 0 && (
-        <div className="bg-gradient-to-r from-[#CE9F6B]/10 via-[#E17F70]/10 to-[#CE9F6B]/10 rounded-2xl border border-[#CE9F6B]/30 p-6 shadow-lg">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-gradient-to-br from-[#CE9F6B] to-[#E17F70] shadow-lg shadow-[#CE9F6B]/30">
-                <Wallet className="w-6 h-6 text-white" />
+      {!isPrepaid && matchingPrepaids.length > 0 && (() => {
+        const linkedCount = matchingPrepaids.filter(p => (p as any).linkedInvoiceId === invoice?.id).length;
+        const availableCount = matchingPrepaids.length - linkedCount;
+        const hasNewPaymentsCount = matchingPrepaids.filter(p => (p as any).untransferredPayments > 0).length;
+        const totalNewPaymentsAmount = matchingPrepaids.reduce((sum, p) => sum + ((p as any).untransferredAmount || 0), 0);
+        
+        // Use green theme if already linked, orange/brown if only matching found
+        const themeColor = linkedCount > 0 ? '#82A094' : '#CE9F6B';
+        const gradientFrom = linkedCount > 0 ? 'from-[#82A094]/10' : 'from-[#CE9F6B]/10';
+        const gradientTo = linkedCount > 0 ? 'to-[#4F6A64]/10' : 'to-[#E17F70]/10';
+        const iconGradient = linkedCount > 0 ? 'from-[#82A094] to-[#4F6A64]' : 'from-[#CE9F6B] to-[#E17F70]';
+        const shadowColor = linkedCount > 0 ? 'shadow-[#82A094]/30' : 'shadow-[#CE9F6B]/30';
+
+        return (
+        <div className={`bg-gradient-to-r ${gradientFrom} ${gradientTo} rounded-2xl border border-${linkedCount > 0 ? '[#82A094]/30' : '[#CE9F6B]/30'} p-6 shadow-lg mb-6`}>
+          <div className="flex items-start justify-between">
+            <div className="flex items-start gap-4">
+              <div className={`p-3 rounded-xl bg-gradient-to-br ${iconGradient} shadow-lg ${shadowColor} mt-1`}>
+                {linkedCount > 0 ? <BadgeCheck className="w-6 h-6 text-white" /> : <Wallet className="w-6 h-6 text-white" />}
               </div>
               <div>
                 <h3 className="font-bold text-[#546A7A] flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-[#CE9F6B]" />
-                  Matching Prepaid Invoice Found!
+                  {linkedCount > 0 ? <CheckCircle className="w-4 h-4 text-[#82A094]" /> : <Sparkles className="w-4 h-4 text-[#CE9F6B]" />}
+                  {hasNewPaymentsCount > 0 ? 'New Payments Available!' : linkedCount > 0 ? 'Prepaid Invoices Linked' : 'Matching Prepaid Invoice Found!'}
                 </h3>
-                <p className="text-sm text-[#5D6E73]">
-                  Found <span className="font-bold text-[#CE9F6B]">{matchingPrepaids.length}</span> prepaid invoice{matchingPrepaids.length > 1 ? 's' : ''} with 
-                  matching PO number <span className="font-mono font-bold text-[#546A7A]">{invoice.poNo}</span>
+                <p className="text-sm text-[#5D6E73] mt-1">
+                  {linkedCount > 0 ? (
+                    <>This invoice has been linked to <span className="font-bold text-[#546A7A]">{linkedCount}</span> prepaid invoice{linkedCount > 1 ? 's' : ''}.</>
+                  ) : (
+                    <>Matching prepaid invoice found with PO <span className="font-mono font-bold text-[#546A7A]">{invoice.poNo}</span>.</>
+                  )}
+                  {hasNewPaymentsCount > 0 && (
+                    <span className="text-[#E17F70] font-bold animate-pulse ml-1"> • {formatARCurrency(totalNewPaymentsAmount)} new available</span>
+                  )}
                 </p>
               </div>
             </div>
-            <button
-              onClick={() => setShowLinkModal(true)}
-              className="flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-[#CE9F6B] to-[#E17F70] text-white font-bold hover:shadow-lg hover:shadow-[#CE9F6B]/30 transition-all"
-            >
-              <Link2 className="w-5 h-5" />
-              Review & Link
-            </button>
+            <div className="flex items-center gap-3">
+              {(availableCount > 0 || hasNewPaymentsCount > 0) && (
+                <button
+                  onClick={() => setShowLinkModal(true)}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#CE9F6B] to-[#E17F70] text-white font-bold hover:shadow-lg hover:shadow-[#CE9F6B]/30 transition-all text-sm"
+                >
+                  <Link2 className="w-4 h-4" />
+                  {hasNewPaymentsCount > 0 ? 'Transfer New' : 'Link More'}
+                </button>
+              )}
+              {availableCount === 0 && hasNewPaymentsCount === 0 && linkedCount > 0 && (
+                <button
+                  onClick={() => setShowLinkModal(true)}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#82A094] text-white font-bold hover:shadow-lg transition-all text-sm"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  View Linked
+                </button>
+              )}
+            </div>
           </div>
           
-          {/* Quick preview of prepaids */}
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-            {matchingPrepaids.slice(0, 2).map((prepaid) => (
-              <div key={prepaid.id} className="flex items-center justify-between p-3 rounded-xl bg-white/80 border border-[#AEBFC3]/20">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-[#CE9F6B]/10">
-                    <Receipt className="w-4 h-4 text-[#CE9F6B]" />
+          {/* Detailed breakdown for linked invoices OR quick preview for available ones */}
+          <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+            {linkedCount > 0 ? (
+              // Detailed breakdown for linked prepaids
+              (invoice as any).linkedFromPrepaids?.map((prepaid: any) => (
+                <div key={prepaid.id} className="bg-white/60 rounded-xl border border-[#82A094]/20 p-4 shadow-sm">
+                  <div className="flex items-center justify-between mb-3 pb-2 border-b border-[#82A094]/10">
+                    <div className="flex items-center gap-2">
+                      <Receipt className="w-4 h-4 text-[#82A094]" />
+                      <span className="font-bold text-[#546A7A]">{prepaid.invoiceNumber}</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="font-bold text-[#82A094]">
+                        {formatARCurrency(prepaid.paymentHistory?.reduce((sum: number, p: any) => sum + Number(p.amount), 0) || 0)}
+                      </span>
+                      <p className="text-[10px] text-[#92A2A5] leading-none">transferred</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-bold text-sm text-[#546A7A]">{prepaid.invoiceNumber}</p>
-                    <p className="text-xs text-[#92A2A5]">{formatARDate(prepaid.invoiceDate)}</p>
+                  <div className="space-y-1.5">
+                    {prepaid.paymentHistory?.map((payment: any) => (
+                      <div key={payment.id} className="flex items-center justify-between text-xs">
+                        <span className="text-[#5D6E73] font-medium">
+                          {formatARDate(payment.paymentDate)} • {payment.paymentMode}
+                        </span>
+                        <span className="font-bold text-[#546A7A]">{formatARCurrency(payment.amount)}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="font-bold text-[#82A094]">{formatARCurrency(prepaid.totalPayments)}</p>
-                  <p className="text-xs text-[#92A2A5]">available</p>
+              ))
+            ) : (
+              // Simple preview for available prepaids
+              matchingPrepaids.slice(0, 2).map((prepaid) => (
+                <div key={prepaid.id} className="flex items-center justify-between p-4 rounded-xl border bg-white/80 border-[#AEBFC3]/20 shadow-sm">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-[#CE9F6B]/10">
+                      <Receipt className="w-4 h-4 text-[#CE9F6B]" />
+                    </div>
+                    <div>
+                      <p className="font-bold text-sm text-[#546A7A]">{prepaid.invoiceNumber}</p>
+                      <p className="text-xs text-[#92A2A5]">{formatARDate(prepaid.invoiceDate)}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-[#CE9F6B]">{formatARCurrency(prepaid.totalPayments)}</p>
+                    <p className="text-[10px] text-[#92A2A5]">available</p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
-      )}
+        );
+})()}
 
       {/* Link Prepaid Modal */}
       {showLinkModal && (
@@ -894,22 +957,49 @@ export default function InvoiceViewPage() {
                 {matchingPrepaids.map((prepaid) => (
                   <div 
                     key={prepaid.id}
-                    onClick={() => setSelectedPrepaid(prepaid)}
-                    className={`p-4 rounded-2xl border-2 cursor-pointer transition-all ${
-                      selectedPrepaid?.id === prepaid.id 
-                        ? 'border-[#CE9F6B] bg-[#CE9F6B]/5 shadow-lg' 
-                        : 'border-[#AEBFC3]/20 hover:border-[#AEBFC3]/50'
+                    onClick={() => {
+                      // Allow selection if: not linked, OR linked but has untransferred payments
+                      const isLinked = (prepaid as any).linkedInvoiceId === invoice?.id;
+                      const hasNewPayments = (prepaid as any).untransferredPayments > 0;
+                      if (!isLinked || hasNewPayments) {
+                        setSelectedPrepaid(prepaid);
+                      }
+                    }}
+                    className={`p-4 rounded-2xl border-2 transition-all ${
+                      (prepaid as any).linkedInvoiceId === invoice?.id && (prepaid as any).untransferredPayments === 0
+                        ? 'border-[#82A094]/30 bg-[#82A094]/10 cursor-not-allowed opacity-70'
+                        : (prepaid as any).linkedInvoiceId === invoice?.id && (prepaid as any).untransferredPayments > 0
+                          ? 'border-[#CE9F6B]/50 bg-[#CE9F6B]/5 cursor-pointer'
+                          : selectedPrepaid?.id === prepaid.id 
+                            ? 'border-[#CE9F6B] bg-[#CE9F6B]/5 shadow-lg cursor-pointer' 
+                            : 'border-[#AEBFC3]/20 hover:border-[#AEBFC3]/50 cursor-pointer'
                     }`}
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-3">
                         <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                          selectedPrepaid?.id === prepaid.id ? 'border-[#CE9F6B] bg-[#CE9F6B]' : 'border-[#AEBFC3]'
+                          (prepaid as any).linkedInvoiceId === invoice?.id && (prepaid as any).untransferredPayments === 0
+                            ? 'border-[#82A094] bg-[#82A094]'
+                            : selectedPrepaid?.id === prepaid.id 
+                              ? 'border-[#CE9F6B] bg-[#CE9F6B]' 
+                              : 'border-[#AEBFC3]'
                         }`}>
-                          {selectedPrepaid?.id === prepaid.id && <CheckCircle className="w-3 h-3 text-white" />}
+                          {(((prepaid as any).linkedInvoiceId === invoice?.id && (prepaid as any).untransferredPayments === 0) || selectedPrepaid?.id === prepaid.id) && <CheckCircle className="w-3 h-3 text-white" />}
                         </div>
                         <div>
-                          <p className="font-bold text-[#546A7A]">{prepaid.invoiceNumber}</p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="font-bold text-[#546A7A]">{prepaid.invoiceNumber}</p>
+                            {(prepaid as any).linkedInvoiceId === invoice?.id && (prepaid as any).untransferredPayments === 0 && (
+                              <span className="px-2 py-0.5 rounded-full bg-[#82A094] text-white text-[10px] font-bold uppercase">
+                                Fully Transferred ✓
+                              </span>
+                            )}
+                            {(prepaid as any).linkedInvoiceId === invoice?.id && (prepaid as any).untransferredPayments > 0 && (
+                              <span className="px-2 py-0.5 rounded-full bg-[#CE9F6B] text-white text-[10px] font-bold uppercase animate-pulse">
+                                {(prepaid as any).untransferredPayments} New Payment{(prepaid as any).untransferredPayments > 1 ? 's' : ''} • {formatARCurrency((prepaid as any).untransferredAmount)}
+                              </span>
+                            )}
+                          </div>
                           <p className="text-sm text-[#92A2A5]">{prepaid.customerName}</p>
                           {prepaid.poNo && (
                             <p className="text-xs text-[#CE9F6B] font-mono mt-0.5">
@@ -920,7 +1010,9 @@ export default function InvoiceViewPage() {
                       </div>
                       <div className="text-right">
                         <p className="text-xl font-bold text-[#82A094]">{formatARCurrency(prepaid.totalPayments)}</p>
-                        <p className="text-xs text-[#92A2A5] uppercase font-semibold">{prepaid.status}</p>
+                        <p className="text-xs text-[#92A2A5] uppercase font-semibold">
+                          {(prepaid as any).linkedInvoiceId === invoice?.id ? 'Transferred' : prepaid.status}
+                        </p>
                       </div>
                     </div>
                     
@@ -984,35 +1076,15 @@ export default function InvoiceViewPage() {
         </div>
       )}
 
-      {/* Linked Prepaid Info Banner - For invoices already linked */}
-      {!isPrepaid && invoice.linkedPrepaidId && (
-        <div className="bg-gradient-to-r from-[#82A094]/10 to-[#4F6A64]/10 rounded-2xl border border-[#82A094]/30 p-6 shadow-lg">
-          <div className="flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-gradient-to-br from-[#82A094] to-[#4F6A64] shadow-lg shadow-[#82A094]/30">
-              <BadgeCheck className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h3 className="font-bold text-[#546A7A] flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-[#82A094]" />
-                Prepaid Invoice Linked
-              </h3>
-              <p className="text-sm text-[#5D6E73]">
-                This invoice has been linked to a prepaid invoice and payments have been transferred.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Tabs Navigation */}
-      <div className="flex items-center gap-2 bg-white rounded-2xl border border-[#AEBFC3]/20 p-2 shadow-lg">
+      <div className="flex items-center gap-2 bg-white rounded-2xl border border-[#AEBFC3]/20 p-2 shadow-lg mb-6">
         {[
           { id: 'details', label: 'Details', icon: FileText },
           { id: 'payments', label: 'Payment History', icon: Receipt, count: invoice.paymentHistory?.length || 0 },
           { id: 'delivery', label: 'Delivery', icon: Truck },
           { id: 'remarks', label: 'Remarks', icon: MessageSquare, count: remarks.length },
           { id: 'activity', label: 'Activity Log', icon: Clock, count: activityLogs.length },
-        ].map((tab) => (
+        ].filter(tab => !isPrepaid || tab.id !== 'delivery').map((tab) => (
 
           <button
             key={tab.id}
@@ -1056,7 +1128,7 @@ export default function InvoiceViewPage() {
                       { label: 'Due Date', value: formatARDate(invoice.dueDate), icon: Calendar, highlight: isOverdue },
                       { label: 'PO Number', value: invoice.poNo || '-', icon: Hash },
                       { label: 'Payment Terms', value: invoice.actualPaymentTerms || '-', icon: CreditCard },
-                      { label: 'Type', value: invoice.type ? (invoice.type.charAt(0) + invoice.type.slice(1).toLowerCase()) : '-', icon: Tag },
+                      { label: 'Type', value: invoice.type || '-', icon: Tag },
                     ].map((item) => (
                       <div key={item.label} className="flex items-center gap-3 p-3 rounded-xl bg-[#AEBFC3]/5 hover:bg-[#AEBFC3]/10 transition-colors">
                         <item.icon className={`w-4 h-4 ${item.highlight ? 'text-[#E17F70]' : 'text-[#6F8A9D]'}`} />
@@ -1580,7 +1652,9 @@ export default function InvoiceViewPage() {
               </div>
               
               <div>
-                <label className="block text-sm font-semibold text-[#5D6E73] mb-2">Payment Date</label>
+                <label className="block text-sm font-semibold text-[#5D6E73] mb-2">
+                  Payment Date <span className="text-[#E17F70]">*</span>
+                </label>
                 <input 
                   type="date" 
                   required
@@ -1592,24 +1666,33 @@ export default function InvoiceViewPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold text-[#5D6E73] mb-2">Reference Bank</label>
+                  <label className="block text-sm font-semibold text-[#5D6E73] mb-2">
+                    Reference Bank <span className="text-[#E17F70]">*</span>
+                  </label>
                   <select 
                     value={paymentForm.referenceBank}
                     onChange={e => setPaymentForm({...paymentForm, referenceBank: e.target.value})}
                     className="w-full h-12 px-3 rounded-xl bg-[#AEBFC3]/10 border-2 border-[#AEBFC3]/30 text-[#546A7A] focus:border-[#82A094] focus:outline-none transition-all"
+                    required
                   >
-                    <option value="">None / Other</option>
+                    <option value="" disabled>Select Bank</option>
                     <option value="HDFC">HDFC Bank</option>
                     <option value="DB">Deutsche Bank (DB)</option>
+                    <option value="Other">Other</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-[#5D6E73] mb-2">Mode</label>
+                  <label className="block text-sm font-semibold text-[#5D6E73] mb-2">
+                    Mode <span className="text-[#E17F70]">*</span>
+                  </label>
                   <select 
                     value={paymentForm.paymentMode}
                     onChange={e => setPaymentForm({...paymentForm, paymentMode: e.target.value})}
                     className="w-full h-12 px-3 rounded-xl bg-[#AEBFC3]/10 border-2 border-[#AEBFC3]/30 text-[#546A7A] focus:border-[#82A094] focus:outline-none transition-all"
+                    required
                   >
+                    <option value="" disabled>Select Mode</option>
+                    <option value="Receipt">Receipt</option>
                     <option value="TDS">TDS</option>
                     <option value="LD">LD</option>
                     <option value="Other">Other</option>

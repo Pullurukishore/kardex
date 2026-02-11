@@ -2,8 +2,10 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 
+import { storageConfig } from './storage.config';
+
 // Ensure temp directory exists
-const tempDir = './storage/temp';
+const tempDir = path.join(storageConfig.root, 'temp');
 if (!fs.existsSync(tempDir)) {
     fs.mkdirSync(tempDir, { recursive: true });
 }

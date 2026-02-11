@@ -54,7 +54,7 @@ export default function VendorAccountImportPage() {
     setLoading(true);
     try {
       await arApi.importBankAccountsFromExcel(validRows);
-      setSuccess(`Successfully imported ${validRows.length} vendor accounts!`);
+      setSuccess(`Successfully imported ${validRows.length} vendor bank accounts!`);
       setTimeout(() => router.push('/finance/bank-accounts'), 2000);
     } catch (err: any) {
       setError(err.response?.data?.error || 'Import failed');
@@ -80,7 +80,7 @@ export default function VendorAccountImportPage() {
           </Link>
           <div>
             <h1 className="text-2xl font-bold text-[#546A7A] flex items-center gap-2">
-              Bulk Import Vendors
+              Bulk Import Vendor Bank Accounts
               <Sparkles className="w-5 h-5 text-[#CE9F6B]" />
             </h1>
             <p className="text-[#92A2A5] text-sm mt-1 font-medium">
@@ -206,10 +206,11 @@ export default function VendorAccountImportPage() {
                   <tr className="bg-[#F8FAFB] text-[#92A2A5] text-[11px] font-bold uppercase tracking-wider">
                     <th className="px-6 py-4">Status</th>
                     <th className="px-6 py-4 text-center">Row</th>
+                    <th className="px-6 py-4">BP Code</th>
                     <th className="px-6 py-4">Vendor Name</th>
                     <th className="px-6 py-4">Bank Name</th>
                     <th className="px-6 py-4">Account Number</th>
-                    <th className="px-6 py-4">IFSC / SWIFT</th>
+                    <th className="px-6 py-4">IFSC Code / SWIFT Code</th>
                     <th className="px-6 py-4">GST / PAN</th>
                     <th className="px-6 py-4">Beneficiary</th>
                   </tr>
@@ -241,6 +242,9 @@ export default function VendorAccountImportPage() {
                       </td>
                       <td className="px-6 py-4 text-center text-[11px] font-bold text-[#92A2A5]">
                         {row._rowNumber}
+                      </td>
+                      <td className="px-6 py-4 font-mono text-[11px] font-bold text-[#546A7A] uppercase tracking-wider">
+                        {row._parsed.bpCode || '-'}
                       </td>
                       <td className="px-6 py-4 font-bold text-[#546A7A] text-sm">{row._parsed.vendorName || '-'}</td>
                       <td className="px-6 py-4 text-[#5D6E73] text-sm">{row._parsed.beneficiaryBankName || '-'}</td>

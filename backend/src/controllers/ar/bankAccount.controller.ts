@@ -27,6 +27,7 @@ export const getAllBankAccounts = async (req: Request, res: Response) => {
         if (search) {
             where.OR = [
                 { vendorName: { contains: String(search), mode: 'insensitive' } },
+                { bpCode: { contains: String(search), mode: 'insensitive' } },
                 { beneficiaryName: { contains: String(search), mode: 'insensitive' } },
                 { nickName: { contains: String(search), mode: 'insensitive' } },
                 { accountNumber: { contains: String(search), mode: 'insensitive' } },
@@ -39,15 +40,20 @@ export const getAllBankAccounts = async (req: Request, res: Response) => {
             orderBy: { vendorName: 'asc' },
             select: {
                 id: true,
+                bpCode: true,
                 vendorName: true,
                 beneficiaryBankName: true,
                 beneficiaryName: true,
                 nickName: true,
                 accountNumber: true,
                 ifscCode: true,
+                emailId: true,
                 currency: true,
+                accountType: true,
                 isActive: true,
                 isMSME: true,
+                panNumber: true,
+                gstNumber: true,
                 _count: {
                     select: { changeRequests: true }
                 }
@@ -90,13 +96,13 @@ export const getBankAccountById = async (req: Request, res: Response) => {
 // Create bank account (FINANCE_ADMIN only)
 export const createBankAccount = async (req: Request, res: Response) => {
     try {
-        const { vendorName, beneficiaryBankName, beneficiaryName, accountNumber, ifscCode, emailId, nickName, gstNumber, panNumber } = req.body;
+        const { bpCode, vendorName, beneficiaryBankName, beneficiaryName, accountNumber, ifscCode, emailId, nickName, gstNumber, panNumber, accountType } = req.body;
         const userId = (req as any).user?.id || 1; // Get from auth context
 
         // Validate required fields
-        if (!vendorName || !beneficiaryBankName || !accountNumber || !ifscCode) {
+        if (!vendorName || !beneficiaryBankName || !accountNumber || !ifscCode || !accountType) {
             return res.status(400).json({
-                error: 'Vendor Name, Beneficiary Bank Name, Account Number, and IFSC Code are required'
+                error: 'Vendor Name, Beneficiary Bank Name, Account Number, IFSC Code, and Account Type are required'
             });
         }
 
@@ -122,6 +128,7 @@ export const createBankAccount = async (req: Request, res: Response) => {
 
         const account = await prisma.bankAccount.create({
             data: {
+                bpCode: bpCode || null,
                 vendorName,
                 beneficiaryBankName,
                 beneficiaryName: beneficiaryName || vendorName, // Default to vendorName if not provided
@@ -134,6 +141,7 @@ export const createBankAccount = async (req: Request, res: Response) => {
                 isMSME: req.body.isMSME || false,
                 udyamRegNum: req.body.isMSME ? req.body.udyamRegNum : null,
                 currency: req.body.currency || 'INR',
+                accountType: accountType || null,
                 createdById: userId,
                 updatedById: userId
             }
@@ -200,9 +208,9 @@ export const updateBankAccount = async (req: Request, res: Response) => {
 
         // Log field changes
         const fieldsToTrack = [
-            'vendorName', 'beneficiaryBankName', 'beneficiaryName', 'accountNumber',
+            'bpCode', 'vendorName', 'beneficiaryBankName', 'beneficiaryName', 'accountNumber',
             'ifscCode', 'emailId', 'nickName', 'gstNumber', 'panNumber',
-            'isMSME', 'udyamRegNum', 'currency', 'isActive'
+            'isMSME', 'udyamRegNum', 'currency', 'accountType', 'isActive'
         ];
         await logBankAccountFieldChanges(id, existing, account, req, fieldsToTrack);
 

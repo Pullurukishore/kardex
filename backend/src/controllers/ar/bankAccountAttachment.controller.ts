@@ -3,8 +3,9 @@ import prisma from '../../config/db';
 import fs from 'fs';
 import path from 'path';
 
-const STORAGE_ROOT = process.env.STORAGE_ROOT || 'C:\\Kardexremstar\\storage';
-const ATTACHMENT_DIR = process.env.BANK_DOC_UPLOAD_DIR || path.join(STORAGE_ROOT, 'bank-account-docs');
+import { storageConfig } from '../../config/storage.config';
+
+const ATTACHMENT_DIR = process.env.BANK_DOC_UPLOAD_DIR || path.join(storageConfig.root, 'bank-account-docs');
 
 // Ensure directory exists
 if (!fs.existsSync(ATTACHMENT_DIR)) {
@@ -34,6 +35,8 @@ export const uploadAttachment = async (req: Request, res: Response) => {
             return res.status(404).json({ error: 'Associated Bank Account or Request not found' });
         }
 
+        const { vendorType } = req.body;
+
         const attachment = await prisma.bankAccountAttachment.create({
             data: {
                 filename: req.file.originalname,
@@ -42,7 +45,8 @@ export const uploadAttachment = async (req: Request, res: Response) => {
                 size: req.file.size,
                 bankAccountId: bankAccount ? id : (changeRequest?.bankAccountId || null),
                 changeRequestId: changeRequest ? id : null,
-                uploadedById: userId
+                uploadedById: userId,
+                vendorType: vendorType || null
             }
         });
 
@@ -101,6 +105,30 @@ export const downloadAttachment = async (req: Request, res: Response) => {
         res.download(attachment.path, attachment.filename);
     } catch (error: any) {
         res.status(500).json({ error: 'Failed to download attachment', message: error.message });
+    }
+};
+
+export const updateAttachmentVendorType = async (req: Request, res: Response) => {
+    try {
+        const { attachmentId } = req.params;
+        const { vendorType } = req.body;
+
+        const attachment = await prisma.bankAccountAttachment.findUnique({
+            where: { id: attachmentId }
+        });
+
+        if (!attachment) {
+            return res.status(404).json({ error: 'Attachment not found' });
+        }
+
+        const updated = await prisma.bankAccountAttachment.update({
+            where: { id: attachmentId },
+            data: { vendorType }
+        });
+
+        res.json(updated);
+    } catch (error: any) {
+        res.status(500).json({ error: 'Failed to update attachment vendor type', message: error.message });
     }
 };
 

@@ -97,7 +97,7 @@ export default function ARDashboardPage() {
 
   if (loading) {
     return (
-      <div className="space-y-6 p-6">
+      <div className="space-y-6 p-4 sm:p-0">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[...Array(4)].map((_, i) => (
             <div key={i} className="bg-white rounded-2xl border p-5 animate-pulse">
@@ -123,7 +123,7 @@ export default function ARDashboardPage() {
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
+    <div className="space-y-4 sm:space-y-6 p-4 sm:p-0">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <h1 className="text-lg sm:text-xl font-bold text-[#546A7A]">AR Dashboard</h1>
@@ -217,83 +217,7 @@ export default function ARDashboardPage() {
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════════════════ */}
-      {/* ROW 2: Performance Indicators (Enhanced with Circular Gauges) */}
-      {/* ═══════════════════════════════════════════════════════════════════════════ */}
-      
-      <div className="bg-white rounded-2xl border p-6 shadow-sm">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h3 className="font-bold text-[#546A7A] text-lg">Performance Indicators</h3>
-            <p className="text-xs text-[#5D6E73] mt-1">Key AR health metrics at a glance</p>
-          </div>
-        </div>
-        
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-          {data?.performance && Object.entries(data.performance).map(([key, perf]) => {
-            const isGood = perf.status === 'GOOD';
-            const isAverage = perf.status === 'AVERAGE';
-            const isBad = perf.status === 'BAD';
-            
-            // Calculate circle progress
-            const radius = 40;
-            const circumference = 2 * Math.PI * radius;
-            const progress = (perf.value / 100) * circumference;
-            
-            // Colors based on status
-            const ringColor = isGood ? '#82A094' : isAverage ? '#CE9F6B' : '#E17F70';
-            const bgColor = isGood ? 'bg-[#82A094]/10' : isAverage ? 'bg-[#CE9F6B]/10' : 'bg-[#E17F70]/10';
-            const textColor = isGood ? 'text-[#4F6A64]' : isAverage ? 'text-[#976E44]' : 'text-[#9E3B47]';
-            const statusBg = isGood ? 'bg-[#82A094]' : isAverage ? 'bg-[#CE9F6B]' : 'bg-[#E17F70]';
-            
-            // Description for each metric
-            const descriptions: Record<string, string> = {
-              collectionRate: 'Amount collected vs invoiced',
-              overdueRate: 'Invoices past due date',
-              onTimeRate: 'Invoices within terms',
-              currentRate: 'Balance not yet due'
-            };
-            
-            return (
-              <div key={key} className={`${bgColor} rounded-2xl p-5 text-center group hover:scale-[1.02] transition-transform`}>
-                {/* Circular Progress */}
-                <div className="relative w-24 h-24 mx-auto mb-4">
-                  <svg className="w-24 h-24 transform -rotate-90" viewBox="0 0 100 100">
-                    {/* Background circle */}
-                    <circle cx="50" cy="50" r={radius} fill="none" stroke="#E5E7EB" strokeWidth="8" />
-                    {/* Progress circle */}
-                    <circle 
-                      cx="50" cy="50" r={radius} fill="none" 
-                      stroke={ringColor} strokeWidth="8" strokeLinecap="round"
-                      strokeDasharray={circumference}
-                      strokeDashoffset={circumference - progress}
-                      className="transition-all duration-1000"
-                    />
-                  </svg>
-                  {/* Center text */}
-                  <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className={`text-2xl font-bold ${textColor}`}>{perf.value}%</span>
-                  </div>
-                </div>
-                
-                {/* Label */}
-                <div className={`text-sm font-bold ${textColor} mb-1`}>{perf.label}</div>
-                <div className="text-xs text-[#5D6E73] mb-3">{descriptions[key] || ''}</div>
-                
-                {/* Status Badge */}
-                <div className={`inline-flex items-center gap-1.5 ${statusBg} text-white text-xs font-bold px-3 py-1 rounded-full`}>
-                  {isGood && <CheckCircle2 className="w-3 h-3" />}
-                  {isAverage && <Minus className="w-3 h-3" />}
-                  {isBad && <XCircle className="w-3 h-3" />}
-                  {perf.status}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* ═══════════════════════════════════════════════════════════════════════════ */}
-      {/* ROW 3: Status Counts + Aging Summary (Enhanced) */}
+      {/* ROW 2: Status Counts + Aging Summary (Enhanced) */}
       {/* ═══════════════════════════════════════════════════════════════════════════ */}
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -424,6 +348,82 @@ export default function ARDashboardPage() {
             <span>🟡 1-60 Days = Monitor</span>
             <span>🔴 60+ Days = Action Required</span>
           </div>
+        </div>
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════════════════════════ */}
+      {/* ROW 3: Performance Indicators (Enhanced with Circular Gauges) */}
+      {/* ═══════════════════════════════════════════════════════════════════════════ */}
+      
+      <div className="bg-white rounded-2xl border p-6 shadow-sm">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h3 className="font-bold text-[#546A7A] text-lg">Performance Indicators</h3>
+            <p className="text-xs text-[#5D6E73] mt-1">Key AR health metrics at a glance</p>
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+          {data?.performance && Object.entries(data.performance).map(([key, perf]) => {
+            const isGood = perf.status === 'GOOD';
+            const isAverage = perf.status === 'AVERAGE';
+            const isBad = perf.status === 'BAD';
+            
+            // Calculate circle progress
+            const radius = 40;
+            const circumference = 2 * Math.PI * radius;
+            const progress = (perf.value / 100) * circumference;
+            
+            // Colors based on status
+            const ringColor = isGood ? '#82A094' : isAverage ? '#CE9F6B' : '#E17F70';
+            const bgColor = isGood ? 'bg-[#82A094]/10' : isAverage ? 'bg-[#CE9F6B]/10' : 'bg-[#E17F70]/10';
+            const textColor = isGood ? 'text-[#4F6A64]' : isAverage ? 'text-[#976E44]' : 'text-[#9E3B47]';
+            const statusBg = isGood ? 'bg-[#82A094]' : isAverage ? 'bg-[#CE9F6B]' : 'bg-[#E17F70]';
+            
+            // Description for each metric
+            const descriptions: Record<string, string> = {
+              collectionRate: 'Amount collected vs invoiced',
+              overdueRate: 'Invoices past due date',
+              onTimeRate: 'Invoices within terms',
+              currentRate: 'Balance not yet due'
+            };
+            
+            return (
+              <div key={key} className={`${bgColor} rounded-2xl p-5 text-center group hover:scale-[1.02] transition-transform`}>
+                {/* Circular Progress */}
+                <div className="relative w-24 h-24 mx-auto mb-4">
+                  <svg className="w-24 h-24 transform -rotate-90" viewBox="0 0 100 100">
+                    {/* Background circle */}
+                    <circle cx="50" cy="50" r={radius} fill="none" stroke="#E5E7EB" strokeWidth="8" />
+                    {/* Progress circle */}
+                    <circle 
+                      cx="50" cy="50" r={radius} fill="none" 
+                      stroke={ringColor} strokeWidth="8" strokeLinecap="round"
+                      strokeDasharray={circumference}
+                      strokeDashoffset={circumference - progress}
+                      className="transition-all duration-1000"
+                    />
+                  </svg>
+                  {/* Center text */}
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className={`text-2xl font-bold ${textColor}`}>{perf.value}%</span>
+                  </div>
+                </div>
+                
+                {/* Label */}
+                <div className={`text-sm font-bold ${textColor} mb-1`}>{perf.label}</div>
+                <div className="text-xs text-[#5D6E73] mb-3">{descriptions[key] || ''}</div>
+                
+                {/* Status Badge */}
+                <div className={`inline-flex items-center gap-1.5 ${statusBg} text-white text-xs font-bold px-3 py-1 rounded-full`}>
+                  {isGood && <CheckCircle2 className="w-3 h-3" />}
+                  {isAverage && <Minus className="w-3 h-3" />}
+                  {isBad && <XCircle className="w-3 h-3" />}
+                  {perf.status}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 

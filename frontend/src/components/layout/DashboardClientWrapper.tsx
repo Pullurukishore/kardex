@@ -55,7 +55,7 @@ export function DashboardClientWrapper({ children, userRole }: DashboardClientWr
   }, [pathname]);
 
   return (
-    <div className="min-h-screen bg-[#F0F4F8]">
+    <div className="min-h-screen bg-[#F8F9FB]">
       {/* Mobile overlay */}
       {showSidebar && sidebarOpen && isMobile && (
         <div

@@ -3,7 +3,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { arApi, BankAccountActivityLog } from '@/lib/ar-api';
-import { ArrowLeft, Activity, Clock, User, Globe, Search, Filter, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { FinanceRole } from '@/types/user.types';
+import { ArrowLeft, Activity, Clock, User, Globe, Search, Filter, RefreshCw, ChevronLeft, ChevronRight, ShieldAlert, Lock } from 'lucide-react';
 
 // Kardex Brand Colors
 // Primary: #6F8A9D, #546A7A, #96AEC2, #AEBFC3
@@ -79,6 +81,7 @@ interface ActivityStats {
 }
 
 export default function BankAccountActivitiesPage() {
+    const { user, isLoading: authLoading } = useAuth();
     const [activities, setActivities] = useState<BankAccountActivityLog[]>([]);
     const [stats, setStats] = useState<ActivityStats | null>(null);
     const [loading, setLoading] = useState(true);
@@ -91,8 +94,12 @@ export default function BankAccountActivitiesPage() {
     const [actionFilter, setActionFilter] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
 
+    const isAdmin = user?.financeRole === FinanceRole.FINANCE_ADMIN;
+
     // Load activities
     const loadActivities = useCallback(async () => {
+        if (!isAdmin) return;
+        
         try {
             setLoading(true);
             setError(null);
@@ -126,11 +133,13 @@ export default function BankAccountActivitiesPage() {
         } finally {
             setLoading(false);
         }
-    }, [page, actionFilter, searchQuery]);
+    }, [page, actionFilter, searchQuery, isAdmin]);
 
     useEffect(() => {
-        loadActivities();
-    }, [loadActivities]);
+        if (isAdmin) {
+            loadActivities();
+        }
+    }, [loadActivities, isAdmin]);
 
     const handleClearFilters = () => {
         setActionFilter('');
@@ -140,6 +149,57 @@ export default function BankAccountActivitiesPage() {
 
     const groupedActivities = groupByDate(activities);
     const totalPages = Math.ceil(totalCount / limit);
+
+    if (authLoading) {
+        return (
+            <div className="min-h-screen bg-white flex flex-col items-center justify-center">
+                <div className="relative w-16 h-16 mb-4">
+                    <div className="absolute inset-0 rounded-full border-4 border-[#AEBFC3]/30"></div>
+                    <div className="absolute inset-0 rounded-full border-4 border-[#CE9F6B] border-t-transparent animate-spin"></div>
+                </div>
+                <p className="text-[#92A2A5] font-medium animate-pulse">Verifying access...</p>
+            </div>
+        );
+    }
+
+    if (!isAdmin) {
+        return (
+            <div className="min-h-screen bg-white p-6 flex items-center justify-center relative overflow-hidden">
+                {/* Decorative Background Elements */}
+                <div className="fixed inset-0 overflow-hidden pointer-events-none">
+                    <div className="absolute -top-40 -right-40 w-80 h-80 bg-[#96AEC2]/10 rounded-full blur-3xl"></div>
+                    <div className="absolute bottom-0 right-1/4 w-72 h-72 bg-[#E17F70]/10 rounded-full blur-3xl"></div>
+                </div>
+
+                <div className="relative z-10 max-w-md w-full bg-white rounded-3xl border border-[#AEBFC3]/30 p-8 shadow-2xl text-center">
+                    <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-[#E17F70] to-[#9E3B47] flex items-center justify-center shadow-lg shadow-[#E17F70]/30">
+                        <Lock className="w-10 h-10 text-white" />
+                    </div>
+                    
+                    <h2 className="text-2xl font-bold text-[#546A7A] mb-3">Access Restricted</h2>
+                    <p className="text-[#92A2A5] mb-8 leading-relaxed">
+                        This administrative section is only available to <strong>Finance Admins</strong>. 
+                        Your current role does not have permission to view activity logs.
+                    </p>
+
+                    <div className="space-y-3">
+                        <Link
+                            href="/finance/bank-accounts"
+                            className="flex items-center justify-center gap-2 w-full py-4 bg-gradient-to-r from-[#CE9F6B] to-[#976E44] text-white rounded-2xl font-bold hover:shadow-xl hover:shadow-[#CE9F6B]/30 hover:scale-[1.02] transition-all"
+                        >
+                            <ArrowLeft className="w-4 h-4" />
+                            Back to Module
+                        </Link>
+                        
+                        <div className="flex items-center justify-center gap-1.5 py-3 text-xs text-[#AEBFC3] font-medium">
+                            <ShieldAlert className="w-3.5 h-3.5" />
+                            Security Protocol Active
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-white p-6">
@@ -165,7 +225,7 @@ export default function BankAccountActivitiesPage() {
                         </div>
                         <div>
                             <h1 className="text-3xl font-bold text-[#546A7A] tracking-tight">
-                                Vendor Account Activity Center
+                                Vendor Bank Account Activity Center
                             </h1>
                             <p className="text-[#92A2A5] mt-0.5">Track all vendor bank account activities and changes</p>
                         </div>

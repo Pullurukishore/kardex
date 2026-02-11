@@ -188,6 +188,7 @@ export default function BankAccountRequestsPage() {
     const term = searchTerm.toLowerCase();
 
     const vendorName = r.requestedData.vendorName?.toLowerCase() || '';
+    const bpCode = r.requestedData.bpCode?.toLowerCase() || '';
     const bankName = r.requestedData.beneficiaryBankName?.toLowerCase() || '';
     const accountNumber = r.requestedData.accountNumber || '';
     const requesterName = r.requestedBy?.name?.toLowerCase() || '';
@@ -195,6 +196,7 @@ export default function BankAccountRequestsPage() {
 
     return (
       vendorName.includes(term) ||
+      bpCode.includes(term) ||
       bankName.includes(term) ||
       accountNumber.includes(term) ||
       requesterName.includes(term) ||
@@ -224,7 +226,7 @@ export default function BankAccountRequestsPage() {
                 <Sparkles className="w-5 h-5 text-[#CE9F6B]" />
               </h1>
               <p className="text-[#92A2A5] text-sm mt-1 font-medium">
-                {isAdmin ? 'Review and approve vendor account changes' : 'Track your submitted vendor requests'}
+                {isAdmin ? 'Review and approve vendor bank account changes' : 'Track your submitted vendor bank requests'}
               </p>
               <p className="text-[11px] text-[#AEBFC3] mt-1 font-medium">
                 Showing {filteredRequests.length} {filter.toLowerCase()} request{filteredRequests.length === 1 ? '' : 's'}
@@ -408,9 +410,9 @@ export default function BankAccountRequestsPage() {
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-1">
                         <h3 className="text-lg font-semibold text-[#546A7A] group-hover:text-[#CE9F6B] transition-colors">
-                          {request.requestType === 'CREATE' ? 'New Vendor Account Request' :
-                           request.requestType === 'UPDATE' ? 'Vendor Account Update Request' :
-                           'Vendor Account Deletion Request'}
+                          {request.requestType === 'CREATE' ? 'New Vendor Bank Account Request' :
+                           request.requestType === 'UPDATE' ? 'Vendor Bank Account Update Request' :
+                           'Vendor Bank Account Deletion Request'}
                         </h3>
                         <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${getStatusColor(request.status)}`}>
                           {request.status}
@@ -426,7 +428,7 @@ export default function BankAccountRequestsPage() {
                         {request.requestedData.vendorName && (
                           <div className="flex items-center gap-2">
                             <Building2 className="w-4 h-4 text-[#92A2A5]" />
-                            <span className="text-[#546A7A]">{request.requestedData.vendorName}</span>
+                            <span className="text-[#546A7A]">{request.requestedData.vendorName} ({request.requestedData.bpCode || '—'})</span>
                           </div>
                         )}
                         {request.requestedData.beneficiaryBankName && (

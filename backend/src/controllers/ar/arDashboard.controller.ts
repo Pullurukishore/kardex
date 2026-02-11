@@ -85,14 +85,38 @@ export const getEssentialDashboard = async (req: Request, res: Response) => {
             // All unpaid invoices for aging
             safeFindMany(prisma.aRInvoice.findMany({
                 where: { status: { not: 'PAID' } },
-                select: { dueDate: true, balance: true, totalAmount: true }
+                select: {
+                    dueDate: true,
+                    balance: true,
+                    totalAmount: true,
+                    invoiceType: true,
+                    agingMilestone: true,
+                    advanceReceivedDate: true,
+                    invoiceDate: true,
+                    grnDate: true,
+                    bgDate: true,
+                    othersDate: true
+                }
             })),
             // Critical overdue (top 5)
             safeFindMany(prisma.aRInvoice.findMany({
                 where: { status: 'OVERDUE' },
                 orderBy: { balance: 'desc' },
                 take: 5,
-                select: { id: true, invoiceNumber: true, customerName: true, balance: true, dueDate: true }
+                select: {
+                    id: true,
+                    invoiceNumber: true,
+                    customerName: true,
+                    balance: true,
+                    dueDate: true,
+                    invoiceType: true,
+                    agingMilestone: true,
+                    advanceReceivedDate: true,
+                    invoiceDate: true,
+                    grnDate: true,
+                    bgDate: true,
+                    othersDate: true
+                }
             })),
             // Invoices created this month (for collection rate)
             safeCount(prisma.aRInvoice.count({ where: { invoiceDate: { gte: startOfMonth } } })),
@@ -126,7 +150,21 @@ export const getEssentialDashboard = async (req: Request, res: Response) => {
         };
 
         allUnpaidInvoices.forEach(inv => {
-            const daysOverdue = calculateDaysBetween(inv.dueDate, today);
+            let daysOverdue = 0;
+            if (inv.invoiceType === 'PREPAID' && inv.agingMilestone) {
+                let baseDate: any = null;
+                switch (inv.agingMilestone) {
+                    case 'ADVANCE': baseDate = inv.advanceReceivedDate; break;
+                    case 'INVOICE': baseDate = inv.invoiceDate; break;
+                    case 'GRN': baseDate = inv.grnDate; break;
+                    case 'BG': baseDate = inv.bgDate; break;
+                    case 'OTHERS': baseDate = inv.othersDate; break;
+                }
+                if (baseDate) daysOverdue = calculateDaysBetween(new Date(baseDate), today);
+            } else {
+                daysOverdue = calculateDaysBetween(inv.dueDate, today);
+            }
+
             const amount = Number(inv.balance ?? inv.totalAmount ?? 0);
 
             if (daysOverdue <= 0) { aging.current.count++; aging.current.amount += amount; }
@@ -137,10 +175,27 @@ export const getEssentialDashboard = async (req: Request, res: Response) => {
         });
 
         // Calculate critical overdue with days
-        const criticalWithDays = criticalOverdue.map(inv => ({
-            ...inv,
-            daysOverdue: Math.max(0, calculateDaysBetween(inv.dueDate, today))
-        }));
+        const criticalWithDays = criticalOverdue.map(inv => {
+            let daysOverdue = 0;
+            if (inv.invoiceType === 'PREPAID' && inv.agingMilestone) {
+                let baseDate: any = null;
+                switch (inv.agingMilestone) {
+                    case 'ADVANCE': baseDate = inv.advanceReceivedDate; break;
+                    case 'INVOICE': baseDate = inv.invoiceDate; break;
+                    case 'GRN': baseDate = inv.grnDate; break;
+                    case 'BG': baseDate = inv.bgDate; break;
+                    case 'OTHERS': baseDate = inv.othersDate; break;
+                }
+                if (baseDate) daysOverdue = calculateDaysBetween(new Date(baseDate), today);
+            } else if (inv.dueDate) {
+                daysOverdue = Math.max(0, calculateDaysBetween(inv.dueDate, today));
+            }
+
+            return {
+                ...inv,
+                daysOverdue
+            };
+        });
 
         // ═══════════════════════════════════════════════════════════════════════════
         // PERFORMANCE INDICATORS (Good/Bad Percentages)

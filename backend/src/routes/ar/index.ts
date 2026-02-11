@@ -15,6 +15,7 @@ import { bankDocUpload } from '../../config/bankDocMulter';
 import * as financeUserController from '../../controllers/ar/financeUser.controller';
 import * as dashboardController from '../../controllers/ar/arDashboard.controller';
 import * as activityController from '../../controllers/ar/arTotalActivity.controller';
+import * as reportsController from '../../controllers/ar/arReports.controller';
 
 // Import auth middleware
 import { authenticate } from '../../middleware/auth.middleware';
@@ -128,6 +129,7 @@ router.post('/bank-accounts/requests/:id/reject', requireFinanceAdmin, bankAccou
 router.get('/bank-accounts/:id/attachments', requireFinanceRead, bankAccountAttachmentController.getAttachments);
 router.post('/bank-accounts/:id/attachments', requireFinanceWrite, bankDocUpload.single('file'), bankAccountAttachmentController.uploadAttachment);
 router.get('/bank-accounts/attachments/:attachmentId/download', requireFinanceRead, bankAccountAttachmentController.downloadAttachment);
+router.put('/bank-accounts/attachments/:attachmentId/vendor-type', requireFinanceWrite, bankAccountAttachmentController.updateAttachmentVendorType);
 router.delete('/bank-accounts/attachments/:attachmentId', requireFinanceAdmin, bankAccountAttachmentController.deleteAttachment);
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -169,5 +171,34 @@ router.delete('/finance-users/:id', requireFinanceAdmin, financeUserController.d
 router.get('/activities', requireFinanceAdmin, activityController.getAllActivities);
 router.get('/activities/stats', requireFinanceAdmin, activityController.getActivityStats);
 router.get('/activities/recent', requireFinanceAdmin, activityController.getRecentActivities);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// REPORTS ROUTES - Finance users can view, Admin for full access
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Aging Reports
+router.get('/reports/aging/detailed', requireFinanceRead, reportsController.getDetailedAgingReport);
+router.get('/reports/aging/summary', requireFinanceRead, reportsController.getAgingSummary);
+router.get('/reports/aging/customer', requireFinanceRead, reportsController.getCustomerAgingReport);
+router.get('/reports/aging/risk', requireFinanceRead, reportsController.getRiskAgingReport);
+
+// Collection Reports
+router.get('/reports/collections/trends', requireFinanceRead, reportsController.getCollectionTrends);
+router.get('/reports/collections/payment-modes', requireFinanceRead, reportsController.getPaymentModeAnalysis);
+router.get('/reports/collections/bankwise', requireFinanceRead, reportsController.getBankwiseCollections);
+router.get('/reports/dso', requireFinanceRead, reportsController.getDSOReport);
+
+// Customer Reports
+router.get('/reports/customers/outstanding', requireFinanceRead, reportsController.getTopOutstandingCustomers);
+router.get('/reports/customers/risk', requireFinanceRead, reportsController.getCustomerRiskReport);
+
+// Invoice Reports
+router.get('/reports/invoices/status', requireFinanceRead, reportsController.getInvoiceStatusSummary);
+router.get('/reports/invoices/prepaid', requireFinanceRead, reportsController.getPrepaidAnalysisReport);
+router.get('/reports/invoices/delivery', requireFinanceRead, reportsController.getDeliveryStatusReport);
+
+// Legacy report endpoints (backward compatibility)
+router.get('/reports/aging', requireFinanceRead, reportsController.getAgingReport);
+router.get('/reports/collection-efficiency', requireFinanceRead, reportsController.getCollectionEfficiency);
 
 export default router;

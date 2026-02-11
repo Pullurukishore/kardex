@@ -158,6 +158,13 @@ export default function RequestDetailPage() {
     
     const fields: FieldChange[] = [
       {
+        field: 'bpCode',
+        label: 'BP Code / Vendor Code',
+        oldValue: originalAccount?.bpCode || null,
+        newValue: request.requestedData.bpCode || null,
+        icon: <Shield className="w-4 h-4" />
+      },
+      {
         field: 'vendorName',
         label: 'Vendor Name',
         oldValue: originalAccount?.vendorName || null,
@@ -194,7 +201,7 @@ export default function RequestDetailPage() {
       },
       {
         field: 'ifscCode',
-        label: 'IFSC / SWIFT Code',
+        label: 'IFSC Code / SWIFT Code',
         oldValue: originalAccount?.ifscCode || null,
         newValue: request.requestedData.ifscCode || null,
         icon: <Hash className="w-4 h-4" />

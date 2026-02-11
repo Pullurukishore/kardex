@@ -77,10 +77,12 @@ export const authenticate = async (
     let accessToken: string | undefined;
     let refreshToken: string | undefined;
 
-    // Get access token from Authorization header or cookie
+    // Get access token from Authorization header, cookie, or query parameter
     const authHeader = req.headers.authorization;
     if (authHeader?.startsWith('Bearer ')) {
       accessToken = authHeader.substring(7);
+    } else if (req.query.token) {
+      accessToken = req.query.token as string;
     } else if (req.cookies?.accessToken) {
       accessToken = req.cookies.accessToken;
     } else if (req.cookies?.token) {

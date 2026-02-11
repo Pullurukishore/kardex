@@ -112,48 +112,58 @@ const StatCard = ({
 }) => {
   const variants = {
     primary: {
-      card: 'bg-gradient-to-br from-[#B18E63] to-[#7A5A38] text-white',
-      icon: 'bg-white/20 text-white',
-      label: 'text-white/70',
+      card: 'bg-gradient-to-br from-[#CE9F6B] to-[#976E44] text-white',
+      icon: 'bg-white/20 text-white shadow-sm',
+      label: 'text-white/80',
       value: 'text-white'
     },
     success: {
-      card: 'bg-gradient-to-br from-[#718E85] to-[#4F6A64] text-white',
-      icon: 'bg-white/20 text-white',
-      label: 'text-white/70',
+      card: 'bg-gradient-to-br from-[#82A094] to-[#4F6A64] text-white',
+      icon: 'bg-white/20 text-white shadow-sm',
+      label: 'text-white/80',
       value: 'text-white'
     },
     secondary: {
-      card: 'bg-white border border-[#AEBFC3]/30 shadow-sm',
-      icon: 'bg-[#6F8A9D]/10 text-[#546A7A]',
-      label: 'text-[#92A2A5]',
-      value: 'text-[#546A7A]'
+      card: 'bg-gradient-to-br from-[#6F8A9D] to-[#546A7A] text-white',
+      icon: 'bg-white/20 text-white shadow-sm',
+      label: 'text-white/80',
+      value: 'text-white'
     },
     warning: {
-      card: 'bg-white border border-[#E17F70]/30 shadow-sm hover:border-[#E17F70]/50',
-      icon: 'bg-[#E17F70]/10 text-[#E17F70]',
-      label: 'text-[#92A2A5]',
-      value: 'text-[#546A7A]'
+      card: 'bg-gradient-to-br from-[#E17F70] to-[#9E3B47] text-white',
+      icon: 'bg-white/20 text-white shadow-sm',
+      label: 'text-white/80',
+      value: 'text-white'
     }
   };
 
   const v = variants[variant];
 
   const Content = (
-    <div className={`relative rounded-xl p-4 transition-all duration-200 ${v.card} ${href ? 'cursor-pointer' : ''}`}>
-      <div className="flex items-center justify-between gap-4">
-        <div className={`w-10 h-10 rounded-lg ${v.icon} flex items-center justify-center`}>
+    <div className={`group relative rounded-xl p-4 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg ${v.card} ${href ? 'cursor-pointer' : ''}`}>
+      {/* Subtle shine effect on hover */}
+      <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-white/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+      
+      <div className="relative flex items-center justify-between gap-4">
+        <div className={`w-11 h-11 rounded-xl ${v.icon} flex items-center justify-center transition-transform duration-300 group-hover:scale-110`}>
           <Icon className="w-5 h-5" />
         </div>
         <div className="flex-1 text-right">
-          <p className={`text-xs font-medium uppercase tracking-wider ${v.label}`}>
+          <p className={`text-[10px] font-bold uppercase tracking-widest mb-1 ${v.label}`}>
             {label}
           </p>
-          <p className={`text-2xl font-bold ${v.value}`}>
-            {loading ? '...' : value}
+          <p className={`text-2xl font-bold tabular-nums ${v.value}`}>
+            {loading ? (
+              <span className="inline-block w-8 h-7 bg-current/20 rounded animate-pulse" />
+            ) : value}
           </p>
         </div>
       </div>
+      
+      {/* Bottom accent line */}
+      {href && (
+        <div className="absolute bottom-0 left-4 right-4 h-0.5 bg-white/20 rounded-full scale-x-0 group-hover:scale-x-100 transition-transform duration-300" />
+      )}
     </div>
   );
 
@@ -162,7 +172,7 @@ const StatCard = ({
 };
 
 // ============================================================================
-// PROFESSIONAL BANK ACCOUNT CARD COMPONENT
+// PROFESSIONAL BANK ACCOUNT CARD COMPONENT - WORLD CLASS DESIGN
 // ============================================================================
 const BankCard = ({ 
   account, 
@@ -178,6 +188,7 @@ const BankCard = ({
   const theme = getCardTheme(account.vendorName);
   const router = useRouter();
   const [copied, setCopied] = useState<string | null>(null);
+  const [isHovered, setIsHovered] = useState(false);
 
   const copyToClipboard = useCallback((text: string, field: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -189,173 +200,238 @@ const BankCard = ({
   return (
     <div 
       onClick={() => router.push(`/finance/bank-accounts/${account.id}`)}
-      className="group cursor-pointer"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      className="group cursor-pointer perspective-1000"
     >
-      {/* The Card Itself */}
+      {/* The Premium Card */}
       <div 
-        className="relative rounded-xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
+        className={`
+          relative rounded-2xl overflow-hidden 
+          shadow-[0_8px_30px_rgba(0,0,0,0.12)] 
+          hover:shadow-[0_20px_60px_rgba(0,0,0,0.25)] 
+          transition-all duration-500 ease-out
+          hover:-translate-y-2 hover:rotate-x-[-2deg]
+          transform-gpu
+        `}
         style={{ 
           background: theme.bg,
-          aspectRatio: '1.7 / 1' // Optimized ratio for better content fit
+          aspectRatio: '1.586 / 1'
         }}
       >
-        {/* Subtle Bank Pattern Overlay */}
+        {/* Holographic Shine Overlay */}
         <div 
-          className="absolute inset-0 opacity-5"
+          className={`
+            absolute inset-0 
+            bg-gradient-to-br from-white/30 via-transparent via-50% to-white/10
+            opacity-0 group-hover:opacity-100 
+            transition-opacity duration-700
+            pointer-events-none
+          `}
           style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='%23ffffff' stroke-width='1'%3E%3Cline x1='0' y1='50' x2='100' y2='50'/%3E%3Cline x1='0' y1='25' x2='100' y2='25'/%3E%3Cline x1='0' y1='75' x2='100' y2='75'/%3E%3C/g%3E%3C/svg%3E")`,
+            background: isHovered 
+              ? 'linear-gradient(135deg, rgba(255,255,255,0.4) 0%, transparent 40%, transparent 60%, rgba(255,255,255,0.2) 100%)'
+              : 'none'
           }}
         />
 
-        {/* Shine Effect */}
-        <div className="absolute inset-0 bg-gradient-to-br from-white/15 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+        {/* Subtle Pattern Texture */}
+        <div 
+          className="absolute inset-0 opacity-[0.03] pointer-events-none"
+          style={{
+            backgroundImage: `repeating-linear-gradient(
+              90deg,
+              transparent,
+              transparent 2px,
+              white 2px,
+              white 4px
+            )`
+          }}
+        />
 
-        {/* Action Buttons - Top Right (on hover) */}
-        <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200 z-10">
+        {/* Floating Action Buttons - Premium Glass Effect */}
+        <div className={`
+          absolute top-3 right-3 flex items-center gap-1.5 z-20
+          opacity-0 group-hover:opacity-100 
+          translate-y-2 group-hover:translate-y-0
+          transition-all duration-300 delay-100
+        `}>
           <Link
             href={`/finance/bank-accounts/${account.id}`}
             onClick={(e) => e.stopPropagation()}
-            className="p-2 rounded-lg bg-white/90 backdrop-blur-sm hover:bg-white text-[#6F8A9D] hover:scale-110 transition-all shadow-md"
+            className="p-2.5 rounded-xl bg-white/95 backdrop-blur-xl hover:bg-white text-[#6F8A9D] hover:text-[#546A7A] hover:scale-110 transition-all duration-200 shadow-lg hover:shadow-xl"
             title="View Details"
           >
-            <Eye className="w-3.5 h-3.5" />
+            <Eye className="w-4 h-4" />
           </Link>
           <Link
             href={`/finance/bank-accounts/${account.id}/edit`}
             onClick={(e) => e.stopPropagation()}
-            className="p-2 rounded-lg bg-white/90 backdrop-blur-sm hover:bg-white text-[#CE9F6B] hover:scale-110 transition-all shadow-md"
+            className="p-2.5 rounded-xl bg-white/95 backdrop-blur-xl hover:bg-white text-[#CE9F6B] hover:text-[#976E44] hover:scale-110 transition-all duration-200 shadow-lg hover:shadow-xl"
             title="Edit Account"
           >
-            <Pencil className="w-3.5 h-3.5" />
+            <Pencil className="w-4 h-4" />
           </Link>
           {isAdmin && (
             <>
               <button
                 onClick={(e) => onToggleStatus(account, e)}
-                className={`p-2 rounded-lg bg-white/90 backdrop-blur-sm hover:bg-white hover:scale-110 transition-all shadow-md ${
-                  account.isActive ? 'text-[#E17F70]' : 'text-[#82A094]'
+                className={`p-2.5 rounded-xl bg-white/95 backdrop-blur-xl hover:bg-white hover:scale-110 transition-all duration-200 shadow-lg hover:shadow-xl ${
+                  account.isActive ? 'text-[#E17F70] hover:text-[#C45C4D]' : 'text-[#82A094] hover:text-[#4F6A64]'
                 }`}
                 title={account.isActive ? "Deactivate" : "Activate"}
               >
-                <Power className="w-3.5 h-3.5" />
+                <Power className="w-4 h-4" />
               </button>
               <button
                 onClick={(e) => onDelete(account.id, e)}
-                className="p-2 rounded-lg bg-white/90 backdrop-blur-sm hover:bg-white text-[#E17F70] hover:scale-110 transition-all shadow-md"
+                className="p-2.5 rounded-xl bg-white/95 backdrop-blur-xl hover:bg-white text-[#E17F70] hover:text-[#C45C4D] hover:scale-110 transition-all duration-200 shadow-lg hover:shadow-xl"
                 title="Delete Account"
               >
-                <Trash2 className="w-3.5 h-3.5" />
+                <Trash2 className="w-4 h-4" />
               </button>
             </>
           )}
         </div>
 
         {/* Card Content */}
-        <div className="relative h-full p-4 flex flex-col justify-between">
-          {/* Header - Bank Information */}
+        <div className="relative h-full p-5 flex flex-col justify-between">
+          {/* Top Section - Bank & Chip */}
           <div className="flex items-start justify-between">
-            {/* Bank Details */}
-            <div className="flex items-center gap-2">
-              <div className="w-10 h-10 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center border border-white/10">
-                <Building2 className="w-5 h-5 text-white" />
+            {/* Bank Logo Area */}
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                {/* Card Chip - Realistic Design */}
+                <div className="w-11 h-8 rounded-md bg-gradient-to-br from-[#D4AF37] via-[#F5D982] to-[#C9A227] shadow-md overflow-hidden">
+                  <div className="absolute inset-0 grid grid-cols-3 gap-px p-1">
+                    {[...Array(6)].map((_, i) => (
+                      <div key={i} className="bg-[#B8860B]/30 rounded-sm" />
+                    ))}
+                  </div>
+                </div>
               </div>
               <div>
-                <p className="text-white text-sm font-bold truncate max-w-[130px]">
+                <p className="text-white text-sm font-bold truncate max-w-[140px] drop-shadow-md">
                   {account.beneficiaryBankName}
                 </p>
-                <p className="text-white/60 text-[10px] font-medium uppercase tracking-wide">
-                  {account.currency} Account
+                <p className="text-white/60 text-[10px] font-semibold uppercase tracking-widest mt-0.5">
+                  {account.currency}{account.accountType ? ` • ${account.accountType}` : ''} Account
                 </p>
+                {account.bpCode && (
+                  <p className="text-white/80 text-[10px] font-bold uppercase tracking-widest mt-0.5 px-1.5 py-0.5 rounded bg-white/10 w-fit">
+                    {account.bpCode}
+                  </p>
+                )}
               </div>
             </div>
 
-            {/* Status & Badges */}
-            <div className="flex flex-col items-end gap-1">
-              <div className={`w-2 h-2 rounded-full ${account.isActive ? 'bg-emerald-300' : 'bg-slate-400'} shadow-lg`}>
-                <span className={`block w-full h-full rounded-full ${account.isActive ? 'animate-ping bg-emerald-300' : ''} opacity-75`} />
+            {/* Status & NFC */}
+            <div className="flex flex-col items-end gap-2">
+              {/* NFC Icon */}
+              <Wifi className="w-5 h-5 text-white/40 rotate-90" />
+              
+              {/* Status Indicator */}
+              <div className="flex items-center gap-1.5">
+                <div className={`relative w-2.5 h-2.5 rounded-full ${account.isActive ? 'bg-emerald-400' : 'bg-slate-400'}`}>
+                  {account.isActive && (
+                    <span className="absolute inset-0 rounded-full bg-emerald-400 animate-ping opacity-50" />
+                  )}
+                </div>
+                {account.isMSME && (
+                  <span className="px-2 py-0.5 rounded-md text-[8px] font-bold bg-[#CE9F6B]/40 text-white uppercase tracking-wider backdrop-blur-sm">
+                    MSME
+                  </span>
+                )}
               </div>
-              {account.isMSME && (
-                <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-amber-400/30 text-amber-200 uppercase tracking-wider border border-amber-300/30">
-                  MSME
-                </span>
-              )}
             </div>
           </div>
 
-          {/* Middle Section - Account Details */}
-          <div className="space-y-2 mt-2">
-            {/* Account Number */}
+          {/* Middle - Account Number Section */}
+          <div className="space-y-3 my-3">
+            {/* Account Number - Hero Display */}
             <div>
-              <p className="text-white/50 text-[9px] uppercase tracking-wider font-semibold mb-0.5">
+              <p className="text-white/50 text-[9px] uppercase tracking-[0.2em] font-bold mb-1">
                 Account Number
               </p>
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-2">
                 <p 
-                  className="text-white text-base font-mono tracking-wider font-bold"
-                  style={{ textShadow: '0 2px 6px rgba(0,0,0,0.4)' }}
+                  className="text-white text-lg font-mono tracking-[0.15em] font-black"
+                  style={{ textShadow: '0 2px 8px rgba(0,0,0,0.4)' }}
                 >
                   {account.accountNumber}
                 </p>
                 <button
                   onClick={(e) => copyToClipboard(account.accountNumber, 'account', e)}
-                  className={`p-0.5 rounded-md transition-all ${
-                    copied === 'account' ? 'bg-emerald-500/40 text-emerald-200' : 'text-white/50 hover:text-white hover:bg-white/10'
+                  className={`p-1 rounded-lg transition-all duration-200 ${
+                    copied === 'account' 
+                      ? 'bg-emerald-500/50 text-white scale-110' 
+                      : 'text-white/40 hover:text-white hover:bg-white/15 hover:scale-105'
                   }`}
                 >
-                  {copied === 'account' ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                  {copied === 'account' ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                 </button>
               </div>
             </div>
 
             {/* IFSC Code */}
-            <div>
-              <p className="text-white/50 text-[9px] uppercase tracking-wider font-semibold mb-0.5">
-                IFSC/SWIFT
-              </p>
-              <div className="flex items-center gap-1.5">
-                <span 
-                  className="text-white text-xs font-mono font-bold tracking-widest"
-                  style={{ textShadow: '0 1px 3px rgba(0,0,0,0.3)' }}
-                >
-                  {account.ifscCode}
-                </span>
-                <button
-                  onClick={(e) => copyToClipboard(account.ifscCode, 'ifsc', e)}
-                  className={`p-0.5 rounded transition-all ${
-                    copied === 'ifsc' ? 'text-emerald-200' : 'text-white/50 hover:text-white'
-                  }`}
-                >
-                  {copied === 'ifsc' ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                </button>
+            <div className="flex items-center gap-3">
+              <div>
+                <p className="text-white/50 text-[9px] uppercase tracking-[0.2em] font-bold mb-1">
+                  IFSC Code / SWIFT Code
+                </p>
+                <div className="flex items-center gap-2">
+                  <span 
+                    className="text-white text-xs font-mono font-bold tracking-[0.2em]"
+                    style={{ textShadow: '0 1px 4px rgba(0,0,0,0.3)' }}
+                  >
+                    {account.ifscCode}
+                  </span>
+                  <button
+                    onClick={(e) => copyToClipboard(account.ifscCode, 'ifsc', e)}
+                    className={`p-0.5 rounded-md transition-all ${
+                      copied === 'ifsc' ? 'text-emerald-300' : 'text-white/40 hover:text-white'
+                    }`}
+                  >
+                    {copied === 'ifsc' ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Bottom - Vendor Details */}
-          <div className="mt-2 pt-2 border-t border-white/10">
-            <p className="text-white/50 text-[9px] uppercase tracking-wider mb-0.5 font-semibold">Account Holder</p>
-            <div className="flex items-center justify-between">
+          {/* Bottom - Account Holder */}
+          <div className="pt-3 border-t border-white/15">
+            <div className="flex items-end justify-between">
               <div className="flex-1 min-w-0">
+                <p className="text-white/50 text-[8px] uppercase tracking-[0.2em] font-bold mb-1">Account Holder</p>
                 <p 
-                  className="text-white text-xs font-bold uppercase tracking-wide truncate"
-                  style={{ textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}
+                  className="text-white text-sm font-bold uppercase tracking-wide truncate"
+                  style={{ textShadow: '0 1px 3px rgba(0,0,0,0.3)' }}
                   title={account.vendorName}
                 >
                   {account.vendorName}
                 </p>
                 {account.nickName && (
-                  <p className="text-white/60 text-[10px] truncate italic mt-0.5">
+                  <p className="text-white/50 text-[10px] truncate italic mt-0.5">
                     "{account.nickName}"
                   </p>
                 )}
               </div>
-              {/* Secure Badge */}
-              <div className="flex items-center gap-1 text-white/40 ml-2">
-                <Shield className="w-3.5 h-3.5" />
+              
+              {/* Security Badge */}
+              <div className="flex items-center gap-1.5 text-white/30 ml-3">
+                <Shield className="w-4 h-4" />
+                <span className="text-[9px] font-bold uppercase tracking-wider">Secure</span>
               </div>
             </div>
           </div>
         </div>
+
+        {/* Bottom Accent Line */}
+        <div 
+          className="absolute bottom-0 left-0 right-0 h-1"
+          style={{ background: `linear-gradient(90deg, ${theme.accent}40, ${theme.accent}, ${theme.accent}40)` }}
+        />
       </div>
     </div>
   );
@@ -386,33 +462,56 @@ const VendorTable = ({
   }, []);
 
   return (
-    <div className="bg-white rounded-xl border border-[#AEBFC3]/30 shadow-md overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[1000px]">
+    <div className="bg-white rounded-2xl border-0 shadow-2xl overflow-hidden">
+      <table className="w-full">
           <thead>
-            <tr className="bg-gradient-to-r from-[#B18E63]/5 via-[#82A094]/5 to-[#6F8A9D]/5 border-b-2 border-[#B18E63]/20">
-              <th className="text-left px-5 py-4 text-[10px] font-bold text-[#546A7A] uppercase tracking-widest w-20">
-                
+            <tr className="bg-gradient-to-r from-[#B18E63] via-[#82A094] to-[#6F8A9D] text-white">
+              <th className="px-4 py-3.5 text-left text-xs font-bold uppercase tracking-wider w-16">
+                <span className="sr-only">Avatar</span>
               </th>
-              <th className="text-left px-5 py-4 text-[10px] font-bold text-[#546A7A] uppercase tracking-widest">
-                Vendor / Account Holder
+              <th className="px-4 py-3.5 text-left text-xs font-bold uppercase tracking-wider">
+                <div className="flex items-center gap-1.5">
+                  <Building2 className="h-3.5 w-3.5 text-white/70" />
+                  Vendor
+                </div>
               </th>
-              <th className="text-left px-5 py-4 text-[10px] font-bold text-[#546A7A] uppercase tracking-widest">
-                Bank Details
+              <th className="px-4 py-3.5 text-left text-xs font-bold uppercase tracking-wider">
+                <div className="flex items-center gap-1.5">
+                  <Landmark className="h-3.5 w-3.5 text-white/70" />
+                  BP Code
+                </div>
               </th>
-              <th className="text-left px-5 py-4 text-[10px] font-bold text-[#546A7A] uppercase tracking-widest">
-                Account Number
+              <th className="px-4 py-3.5 text-left text-xs font-bold uppercase tracking-wider">
+                <div className="flex items-center gap-1.5">
+                  <Landmark className="h-3.5 w-3.5 text-white/70" />
+                  Vendor Bank Details
+                </div>
               </th>
-              <th className="text-center px-5 py-4 text-[10px] font-bold text-[#546A7A] uppercase tracking-widest">
-                Status
+              <th className="px-4 py-3.5 text-left text-xs font-bold uppercase tracking-wider">
+                <div className="flex items-center gap-1.5">
+                  <Wallet className="h-3.5 w-3.5 text-white/70" />
+                  Account Number
+                </div>
               </th>
-              <th className="text-center px-5 py-4 text-[10px] font-bold text-[#546A7A] uppercase tracking-widest w-40">
+              <th className="px-4 py-3.5 text-center text-xs font-bold uppercase tracking-wider">
+                <div className="flex items-center justify-center gap-1.5">
+                  <Globe className="h-3.5 w-3.5 text-white/70" />
+                  Currency
+                </div>
+              </th>
+              <th className="px-4 py-3.5 text-center text-xs font-bold uppercase tracking-wider">
+                <div className="flex items-center justify-center gap-1.5">
+                  <Shield className="h-3.5 w-3.5 text-white/70" />
+                  Status
+                </div>
+              </th>
+              <th className="px-4 py-3.5 text-center text-xs font-bold uppercase tracking-wider w-32">
                 Actions
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#AEBFC3]/10">
-            {accounts.map((account) => {
+          <tbody className="divide-y divide-gray-100">
+            {accounts.map((account, index) => {
               const theme = getCardTheme(account.vendorName);
               const initials = getInitials(account.vendorName);
 
@@ -420,113 +519,131 @@ const VendorTable = ({
                 <tr 
                   key={account.id}
                   onClick={() => router.push(`/finance/bank-accounts/${account.id}`)}
-                  className="group hover:bg-gradient-to-r hover:from-[#B18E63]/5 hover:via-transparent hover:to-transparent transition-all cursor-pointer border-b border-transparent hover:border-[#B18E63]/10"
+                  className={`
+                    ${index % 2 === 0 ? 'bg-white' : 'bg-[#AEBFC3]/5'}
+                    hover:bg-gradient-to-r hover:from-[#CE9F6B]/10 hover:to-[#CE9F6B]/5
+                    transition-all duration-200 cursor-pointer group
+                  `}
                 >
                   {/* Avatar */}
-                  <td className="px-5 py-4">
-                    <div 
-                      className="w-12 h-12 rounded-xl flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow"
-                      style={{ background: theme.bg }}
-                    >
-                      <span className="text-white font-bold text-sm">{initials}</span>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <div 
+                        className="h-9 w-9 rounded-lg flex items-center justify-center text-white font-bold text-xs shadow-sm flex-shrink-0"
+                        style={{ background: theme.bg }}
+                      >
+                        {initials}
+                      </div>
                     </div>
                   </td>
 
                   {/* Vendor Info */}
-                  <td className="px-5 py-4">
-                    <div className="flex flex-col gap-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-[#546A7A] group-hover:text-[#976E44] transition-colors text-sm">
-                          {account.vendorName}
-                        </span>
-                        {account.isMSME && (
-                          <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-400/20 text-amber-700 uppercase tracking-wider border border-amber-400/30">
-                            MSME
-                          </span>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold text-[#546A7A] text-sm truncate max-w-[180px] group-hover:text-[#976E44] transition-colors">
+                            {account.vendorName}
+                          </p>
+                          {account.isMSME && (
+                            <span className="px-1.5 py-0.5 text-[10px] font-bold bg-[#CE9F6B]/20 text-[#976E44] rounded">
+                              MSME
+                            </span>
+                          )}
+                        </div>
+                        {account.nickName && (
+                          <p className="text-xs text-[#92A2A5] truncate max-w-[180px]">"{account.nickName}"</p>
                         )}
                       </div>
-                      {account.nickName && (
-                        <span className="text-xs text-[#CE9F6B] italic">"{account.nickName}"</span>
-                      )}
-                      <span className="text-[11px] text-[#92A2A5]">
-                        {account.beneficiaryName && account.beneficiaryName !== account.vendorName
-                          ? account.beneficiaryName
-                          : 'Same as vendor'}
-                      </span>
                     </div>
                   </td>
 
+                  {/* BP Code */}
+                  <td className="px-4 py-3">
+                    <span className="inline-flex px-2 py-1 text-xs font-bold rounded-md bg-[#6F8A9D]/10 text-[#546A7A] font-mono uppercase tracking-wider">
+                      {account.bpCode || '—'}
+                    </span>
+                  </td>
+
                   {/* Bank */}
-                  <td className="px-5 py-4">
-                    <div className="flex flex-col gap-1.5">
-                      <div className="flex items-center gap-2">
-                        <Building2 className="w-4 h-4 text-[#6F8A9D]" />
-                        <span className="text-sm text-[#546A7A] font-semibold">{account.beneficiaryBankName}</span>
+                  <td className="px-4 py-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1.5">
+                        <div className="h-2 w-2 rounded-full bg-[#6F8A9D] flex-shrink-0"></div>
+                        <span className="text-[#5D6E73] text-sm font-medium">{account.beneficiaryBankName}</span>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <span className="text-[11px] font-mono font-bold text-[#976E44] bg-[#CE9F6B]/10 px-2 py-1 rounded-md border border-[#CE9F6B]/20">
+                        <span className="inline-flex px-2 py-1 text-xs font-bold rounded-md bg-[#CE9F6B]/20 text-[#976E44] font-mono">
                           {account.ifscCode}
                         </span>
                         <button 
                           onClick={(e) => copyToClipboard(account.ifscCode, `ifsc-${account.id}`, e)}
-                          className={`p-1 rounded-md transition-all ${
+                          className={`p-1 rounded transition-all ${
                             copied === `ifsc-${account.id}` 
-                              ? 'bg-emerald-500/20 text-emerald-700' 
-                              : 'text-[#AEBFC3] hover:text-[#CE9F6B] hover:bg-[#CE9F6B]/5'
+                              ? 'text-[#82A094]' 
+                              : 'text-[#AEBFC3] hover:text-[#CE9F6B]'
                           }`}
                         >
                           {copied === `ifsc-${account.id}` ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
                         </button>
                       </div>
-                      <span className="text-[10px] text-[#92A2A5] uppercase tracking-wider">
-                        {account.currency} Account
-                      </span>
                     </div>
                   </td>
 
                   {/* Account Number */}
-                  <td className="px-5 py-4">
+                  <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
-                      <Wallet className="w-4 h-4 text-[#82A094]" />
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-sm font-bold text-[#546A7A] tracking-wider bg-[#F8FAFB] px-2.5 py-1.5 rounded-lg border border-[#AEBFC3]/20">
-                          {account.accountNumber}
-                        </span>
-                        <button 
-                          onClick={(e) => copyToClipboard(account.accountNumber, `acc-${account.id}`, e)}
-                          className={`p-1.5 rounded-md transition-all ${
-                            copied === `acc-${account.id}` 
-                              ? 'bg-emerald-500/20 text-emerald-700' 
-                              : 'text-[#AEBFC3] hover:text-[#CE9F6B] hover:bg-[#CE9F6B]/5'
-                          }`}
-                        >
-                          {copied === `acc-${account.id}` ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                        </button>
-                      </div>
+                      <span className="font-mono font-bold text-[#546A7A]">{account.accountNumber}</span>
+                      <button 
+                        onClick={(e) => copyToClipboard(account.accountNumber, `acc-${account.id}`, e)}
+                        className={`p-1 rounded transition-all ${
+                          copied === `acc-${account.id}` 
+                            ? 'text-[#82A094]' 
+                            : 'text-[#AEBFC3] hover:text-[#CE9F6B]'
+                        }`}
+                      >
+                        {copied === `acc-${account.id}` ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                      </button>
                     </div>
                   </td>
 
+                  {/* Currency */}
+                  <td className="px-4 py-3 text-center">
+                    <span className={`
+                      inline-flex px-2 py-1 text-xs font-bold rounded-md
+                      ${account.currency === 'INR' 
+                        ? 'bg-[#82A094]/20 text-[#4F6A64]' 
+                        : account.currency === 'USD'
+                        ? 'bg-[#6F8A9D]/20 text-[#546A7A]'
+                        : account.currency === 'EUR'
+                        ? 'bg-[#CE9F6B]/20 text-[#976E44]'
+                        : 'bg-[#AEBFC3]/20 text-[#5D6E73]'
+                      }
+                    `}>
+                      {account.currency}
+                    </span>
+                  </td>
+
                   {/* Status */}
-                  <td className="px-5 py-4 text-center">
-                    <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm ${
-                      account.isActive 
-                        ? 'bg-gradient-to-r from-[#82A094]/15 to-[#4F6A64]/15 text-[#4F6A64] border border-[#82A094]/20' 
-                        : 'bg-[#AEBFC3]/10 text-[#92A2A5] border border-[#AEBFC3]/20'
-                    }`}>
-                      <span className={`w-2 h-2 rounded-full ${
-                        account.isActive ? 'bg-[#82A094] animate-pulse' : 'bg-[#AEBFC3]'
-                      }`} />
+                  <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                    <span className={`
+                      inline-flex px-2.5 py-1 text-xs font-bold rounded-full shadow-sm
+                      ${account.isActive 
+                        ? 'bg-gradient-to-r from-[#82A094] to-[#4F6A64] text-white' 
+                        : 'bg-gradient-to-r from-[#AEBFC3] to-[#92A2A5] text-white'
+                      }
+                    `}>
                       {account.isActive ? 'Active' : 'Inactive'}
                     </span>
                   </td>
 
                   {/* Actions */}
-                  <td className="px-5 py-4">
+                  <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-center gap-1">
                       <Link
                         href={`/finance/bank-accounts/${account.id}`}
                         onClick={(e) => e.stopPropagation()}
-                        className="p-2 rounded-lg hover:bg-[#6F8A9D]/10 text-[#92A2A5] hover:text-[#6F8A9D] transition-all hover:scale-110"
+                        className="p-2 rounded-lg hover:bg-[#92A2A5]/20 text-[#5D6E73] transition-colors"
                         title="View Details"
                       >
                         <Eye className="w-4 h-4" />
@@ -534,7 +651,7 @@ const VendorTable = ({
                       <Link
                         href={`/finance/bank-accounts/${account.id}/edit`}
                         onClick={(e) => e.stopPropagation()}
-                        className="p-2 rounded-lg hover:bg-[#CE9F6B]/10 text-[#92A2A5] hover:text-[#CE9F6B] transition-all hover:scale-110"
+                        className="p-2 rounded-lg hover:bg-[#CE9F6B]/20 text-[#5D6E73] hover:text-[#CE9F6B] transition-colors"
                         title="Edit Account"
                       >
                         <Pencil className="w-4 h-4" />
@@ -543,10 +660,10 @@ const VendorTable = ({
                         <>
                           <button
                             onClick={(e) => onToggleStatus(account, e)}
-                            className={`p-2 rounded-lg transition-all hover:scale-110 ${
+                            className={`p-2 rounded-lg transition-colors ${
                               account.isActive 
-                                ? 'hover:bg-[#E17F70]/10 text-[#92A2A5] hover:text-[#E17F70]' 
-                                : 'hover:bg-[#82A094]/10 text-[#92A2A5] hover:text-[#82A094]'
+                                ? 'hover:bg-[#E17F70]/20 text-[#5D6E73] hover:text-[#E17F70]' 
+                                : 'hover:bg-[#82A094]/20 text-[#5D6E73] hover:text-[#82A094]'
                             }`}
                             title={account.isActive ? "Deactivate" : "Activate"}
                           >
@@ -554,7 +671,7 @@ const VendorTable = ({
                           </button>
                           <button
                             onClick={(e) => onDelete(account.id, e)}
-                            className="p-2 rounded-lg hover:bg-[#E17F70]/10 text-[#92A2A5] hover:text-[#E17F70] transition-all hover:scale-110"
+                            className="p-2 rounded-lg hover:bg-[#E17F70]/20 text-[#5D6E73] hover:text-[#E17F70] transition-colors"
                             title="Delete Account"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -568,7 +685,6 @@ const VendorTable = ({
             })}
           </tbody>
         </table>
-      </div>
     </div>
   );
 };
@@ -630,7 +746,7 @@ export default function BankAccountsPage() {
 
   const handleDelete = useCallback(async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!confirm('Are you sure you want to delete this bank account?')) return;
+    if (!confirm('Are you sure you want to delete this vendor bank account?')) return;
     
     try {
       await arApi.deleteBankAccount(id);
@@ -647,6 +763,7 @@ export default function BankAccountsPage() {
     const search = searchTerm.toLowerCase();
     return accounts.filter(account => 
       account.vendorName.toLowerCase().includes(search) ||
+      account.bpCode?.toLowerCase().includes(search) ||
       account.beneficiaryName?.toLowerCase().includes(search) ||
       account.nickName?.toLowerCase().includes(search) ||
       account.accountNumber.includes(searchTerm) ||
@@ -664,20 +781,28 @@ export default function BankAccountsPage() {
   return (
     <div className="h-full flex flex-col">
       {/* Fixed Header Section */}
-      <div className="shrink-0 space-y-4 pb-4">
-        {/* Page Header */}
+      <div className="shrink-0 space-y-5 pb-5">
+        {/* Page Header - Enhanced */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div 
-              className="w-11 h-11 rounded-xl flex items-center justify-center shadow-lg"
-              style={{ background: 'linear-gradient(135deg, #B18E63 0%, #7A5A38 100%)' }}
-            >
-              <CreditCard className="w-5 h-5 text-white" />
+          <div className="flex items-center gap-4">
+            <div className="relative group">
+              {/* Glow effect */}
+              <div className="absolute -inset-1 bg-gradient-to-br from-[#CE9F6B]/30 to-[#82A094]/30 rounded-xl blur-lg opacity-0 group-hover:opacity-100 transition-all duration-500" />
+              <div 
+                className="relative w-12 h-12 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300"
+                style={{ background: 'linear-gradient(135deg, #B18E63 0%, #7A5A38 100%)' }}
+              >
+                <CreditCard className="w-6 h-6 text-white" />
+              </div>
             </div>
             <div>
-              <h1 className="text-xl font-bold text-[#546A7A]">Bank Accounts</h1>
-              <p className="text-sm text-[#92A2A5]">
-                Vendor payment destinations
+              <h1 className="text-2xl font-bold">
+                <span className="bg-gradient-to-r from-[#546A7A] via-[#6F8A9D] to-[#82A094] bg-clip-text text-transparent">
+                  Vendor Bank Accounts
+                </span>
+              </h1>
+              <p className="text-sm text-[#92A2A5] mt-0.5">
+                Manage vendor payment destinations
               </p>
             </div>
           </div>
@@ -685,20 +810,29 @@ export default function BankAccountsPage() {
             {isAdmin && (
               <Link
                 href="/finance/bank-accounts/import"
-                className="flex items-center gap-2 px-3 py-2 rounded-lg border border-[#AEBFC3]/30 text-[#5D6E73] hover:bg-[#F8FAFB] text-sm font-medium transition-colors"
+                className="group flex items-center gap-2 px-4 py-2.5 rounded-xl border border-[#AEBFC3]/30 text-[#5D6E73] hover:bg-white hover:border-[#CE9F6B]/30 hover:shadow-md text-sm font-medium transition-all"
               >
-                <FileSpreadsheet className="w-4 h-4" />
+                <FileSpreadsheet className="w-4 h-4 group-hover:text-[#CE9F6B] transition-colors" />
                 <span className="hidden sm:inline">Import</span>
               </Link>
             )}
+            <Link
+              href="/finance/bank-accounts/payments"
+              className="group flex items-center gap-2 px-5 py-2.5 rounded-xl text-white font-medium shadow-lg hover:shadow-xl transition-all text-sm hover:scale-[1.02]"
+              style={{ background: 'linear-gradient(135deg, #B18E63 0%, #7A5A38 100%)' }}
+            >
+              <CreditCard className="w-4 h-4 group-hover:rotate-12 transition-transform duration-300" />
+              <span className="hidden sm:inline">Bulk Payments</span>
+            </Link>
             <Link 
               href="/finance/bank-accounts/new"
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-white font-medium shadow-lg transition-all text-sm"
+              className="group flex items-center gap-2 px-5 py-2.5 rounded-xl text-white font-medium shadow-lg hover:shadow-xl transition-all text-sm hover:scale-[1.02]"
               style={{ background: 'linear-gradient(135deg, #82A094 0%, #4F6A64 100%)' }}
             >
-              <Plus className="w-4 h-4" />
-              <span className="hidden sm:inline">{isAdmin ? 'Add Account' : 'Request'}</span>
+              <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform duration-300" />
+              <span className="hidden sm:inline">{isAdmin ? 'Add Account' : 'Request New'}</span>
             </Link>
+
           </div>
         </div>
 
@@ -735,34 +869,42 @@ export default function BankAccountsPage() {
           />
         </div>
 
-        {/* Controls Bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white rounded-xl border border-[#AEBFC3]/20 p-3 shadow-sm">
-          <div className="flex items-center gap-2 flex-1">
-            {/* Search */}
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#92A2A5]" />
+        {/* Controls Bar - Enhanced */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white rounded-xl border border-[#AEBFC3]/20 p-4 shadow-sm">
+          <div className="flex items-center gap-3 flex-1">
+            {/* Search - Improved */}
+            <div className="relative flex-1 max-w-md group">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#92A2A5] group-focus-within:text-[#CE9F6B] transition-colors" />
               <input
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search accounts..."
-                className="w-full pl-9 pr-4 py-2 bg-[#F8FAFB] border border-[#AEBFC3]/20 rounded-lg text-sm text-[#546A7A] placeholder:text-[#92A2A5] focus:outline-none focus:border-[#CE9F6B]/50 focus:ring-1 focus:ring-[#CE9F6B]/20 focus:bg-white transition-all"
+                placeholder="Search by vendor, bank, or account..."
+                className="w-full pl-10 pr-4 py-2.5 bg-[#F8F9FB] border border-[#AEBFC3]/20 rounded-xl text-sm text-[#546A7A] placeholder:text-[#92A2A5]/70 focus:outline-none focus:border-[#CE9F6B]/50 focus:ring-2 focus:ring-[#CE9F6B]/10 focus:bg-white transition-all"
               />
+              {searchTerm && (
+                <button
+                  onClick={() => setSearchTerm('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-[#AEBFC3]/20 text-[#92A2A5] hover:text-[#546A7A] transition-all"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
 
-            {/* Inactive Toggle */}
+            {/* Inactive Toggle - Enhanced */}
             {isAdmin && (
               <button
                 onClick={() => setShowInactive(!showInactive)}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-all ${
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-all ${
                   showInactive 
-                    ? 'bg-[#AEBFC3]/20 border-[#AEBFC3] text-[#546A7A]' 
-                    : 'bg-white border-[#AEBFC3]/20 text-[#92A2A5] hover:border-[#CE9F6B]/30'
+                    ? 'bg-gradient-to-r from-[#AEBFC3]/20 to-[#AEBFC3]/10 border-[#AEBFC3]/40 text-[#546A7A] shadow-sm' 
+                    : 'bg-white border-[#AEBFC3]/20 text-[#92A2A5] hover:border-[#CE9F6B]/30 hover:text-[#5D6E73]'
                 }`}
               >
                 <EyeOff className="w-4 h-4" />
                 <span className="hidden md:inline">
-                  {showInactive ? 'All' : 'Inactive'}
+                  {showInactive ? 'Showing All' : 'Show Inactive'}
                 </span>
               </button>
             )}
@@ -846,30 +988,53 @@ export default function BankAccountsPage() {
             ))}
           </div>
         ) : filteredAccounts.length === 0 ? (
-          // Empty State
-          <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
-            <div 
-              className="w-20 h-20 rounded-2xl flex items-center justify-center mb-6 shadow-xl"
-              style={{ background: 'linear-gradient(135deg, #B18E63 0%, #7A5A38 100%)' }}
-            >
-              <CreditCard className="w-10 h-10 text-white/80" />
+          // Empty State - Premium Design
+          <div className="flex flex-col items-center justify-center py-24 px-6 text-center">
+            {/* Decorative background */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-30">
+              <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-[#CE9F6B]/10 rounded-full blur-3xl" />
+              <div className="absolute bottom-1/4 right-1/4 w-48 h-48 bg-[#82A094]/10 rounded-full blur-3xl" />
             </div>
-            <h3 className="text-lg font-semibold text-[#546A7A] mb-2">
-              {searchTerm ? 'No matching accounts' : 'No bank accounts'}
+            
+            <div className="relative">
+              {/* Glow effect */}
+              <div className="absolute -inset-4 bg-gradient-to-br from-[#CE9F6B]/20 to-[#82A094]/20 rounded-3xl blur-2xl" />
+              <div 
+                className="relative w-24 h-24 rounded-2xl flex items-center justify-center mb-8 shadow-2xl"
+                style={{ background: 'linear-gradient(135deg, #B18E63 0%, #7A5A38 100%)' }}
+              >
+                <CreditCard className="w-12 h-12 text-white/90" />
+              </div>
+            </div>
+
+            <h3 className="text-xl font-bold text-[#546A7A] mb-3">
+              {searchTerm ? 'No matching accounts found' : 'No vendor bank accounts yet'}
             </h3>
-            <p className="text-sm text-[#92A2A5] max-w-sm mb-6">
-              {searchTerm 
-                ? 'Try adjusting your search terms'
-                : 'Add your first bank account to start managing vendor payments'}
-            </p>
-            <Link 
-              href="/finance/bank-accounts/new"
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white font-medium shadow-lg"
-              style={{ background: 'linear-gradient(135deg, #82A094 0%, #4F6A64 100%)' }}
-            >
-              <Plus className="w-4 h-4" />
-              Add Bank Account
-            </Link>
+              <p className="text-[#AEBFC3] text-sm md:text-base max-w-sm mx-auto leading-relaxed">
+                {searchTerm
+                ? 'Try adjusting your search filters to find what you looking for.'
+                : 'Add your first vendor bank account to start managing vendor payment destinations securely.'}
+              </p>
+
+            {!searchTerm && (
+              <Link
+                href="/finance/bank-accounts/new"
+                className="group flex items-center gap-2 px-6 py-3 rounded-xl text-white font-medium shadow-xl hover:shadow-2xl transition-all hover:scale-[1.02]"
+                style={{ background: 'linear-gradient(135deg, #82A094 0%, #4F6A64 100%)' }}
+              >
+                <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
+                Add Your First Account
+              </Link>
+            )}
+            
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm('')}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-[#AEBFC3]/30 text-[#5D6E73] hover:bg-white hover:shadow-md font-medium transition-all"
+              >
+                Clear Search
+              </button>
+            )}
           </div>
         ) : viewMode === 'grid' ? (
           // Grid View - Premium Bank Cards

@@ -22,6 +22,7 @@ function getValue(row: BankAccountImportRow, ...keys: string[]): any {
 function validateRow(row: BankAccountImportRow, index: number) {
     const errors: { field: string; message: string }[] = [];
 
+    const bpCode = getValue(row, 'BP Code', 'BPCode', 'Customer Code', 'CustomerCode', 'Vendor Code');
     const vendorName = getValue(row, 'Vendor Name', 'VendorName', 'Vendor');
     const bankName = getValue(row, 'Bank Name', 'BankName', 'Bank', 'Beneficiary Bank Name');
     const accountNumber = getValue(row, 'Account Number', 'AccountNumber', 'Account No', 'Account');
@@ -36,6 +37,7 @@ function validateRow(row: BankAccountImportRow, index: number) {
         isValid: errors.length === 0,
         errors,
         data: {
+            bpCode,
             vendorName,
             beneficiaryBankName: bankName,
             accountNumber,
@@ -153,6 +155,7 @@ export const importFromExcel = async (req: Request, res: Response) => {
                 const account = await tx.bankAccount.upsert({
                     where: { accountNumber: row.accountNumber },
                     create: {
+                        bpCode: row.bpCode || null,
                         vendorName: row.vendorName,
                         beneficiaryBankName: row.beneficiaryBankName,
                         accountNumber: row.accountNumber,
@@ -166,6 +169,7 @@ export const importFromExcel = async (req: Request, res: Response) => {
                         updatedById: userId
                     },
                     update: {
+                        bpCode: row.bpCode || null,
                         vendorName: row.vendorName,
                         beneficiaryBankName: row.beneficiaryBankName,
                         ifscCode: row.ifscCode,
@@ -198,6 +202,7 @@ export const importFromExcel = async (req: Request, res: Response) => {
 export const downloadTemplate = async (req: Request, res: Response) => {
     try {
         const headers = [
+            'BP Code',
             'Vendor Name',
             'Bank Name',
             'Account Number',
@@ -210,8 +215,8 @@ export const downloadTemplate = async (req: Request, res: Response) => {
         ];
 
         const sampleData = [
-            ['Domestic Vendor Pvt Ltd', 'HDFC Bank', '50100123456789', 'HDFC0001234', 'Domestic Vendor Pvt Ltd', 'finance@domestic.com', 'Local Account', '22AAAAA0000A1Z5', 'ABCDE1234F'],
-            ['International Vendor GmBH', 'Deutsche Bank', 'DE1234567890', 'DEUTDEFFFF', 'International Vendor GmBH', 'finance@german-vendor.com', 'Foreign Account', '', '']
+            ['VEN001', 'Domestic Vendor Pvt Ltd', 'HDFC Bank', '50100123456789', 'HDFC0001234', 'Domestic Vendor Pvt Ltd', 'finance@domestic.com', 'Local Account', '22AAAAA0000A1Z5', 'ABCDE1234F'],
+            ['VEN002', 'International Vendor GmBH', 'Deutsche Bank', 'DE1234567890', 'DEUTDEFFFF', 'International Vendor GmBH', 'finance@german-vendor.com', 'Foreign Account', '', '']
         ];
 
         const workbook = XLSX.utils.book_new();
@@ -219,7 +224,7 @@ export const downloadTemplate = async (req: Request, res: Response) => {
 
         // Column widths
         worksheet['!cols'] = [
-            { wch: 25 }, { wch: 20 }, { wch: 20 }, { wch: 15 }, { wch: 25 }, { wch: 25 }, { wch: 15 }, { wch: 20 }, { wch: 15 }
+            { wch: 15 }, { wch: 25 }, { wch: 20 }, { wch: 20 }, { wch: 15 }, { wch: 25 }, { wch: 25 }, { wch: 15 }, { wch: 20 }, { wch: 15 }
         ];
 
         XLSX.utils.book_append_sheet(workbook, worksheet, 'Vendor Accounts Template');

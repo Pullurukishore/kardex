@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 
 interface FormData {
+  bpCode: string;
   vendorName: string;
   beneficiaryBankName: string;
   accountNumber: string;
@@ -38,6 +39,7 @@ export default function EditRequestPage() {
   const [success, setSuccess] = useState('');
   
   const [formData, setFormData] = useState<FormData>({
+    bpCode: '',
     vendorName: '',
     beneficiaryBankName: '',
     accountNumber: '',
@@ -74,6 +76,7 @@ export default function EditRequestPage() {
       setOriginalRequest(request);
       const data = request.requestedData as any;
       setFormData({
+        bpCode: data.bpCode || '',
         vendorName: data.vendorName || '',
         beneficiaryBankName: data.beneficiaryBankName || '',
         accountNumber: data.accountNumber || '',
@@ -243,7 +246,21 @@ export default function EditRequestPage() {
               )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div className="md:col-span-2 space-y-2">
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 text-sm font-semibold text-[#5D6E73]">
+                    BP Code / Vendor Code <span className="text-[#E17F70]">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="bpCode"
+                    value={formData.bpCode}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3.5 bg-[#F8FAFB] border border-[#AEBFC3]/30 rounded-xl text-[#546A7A] uppercase font-bold tracking-wider"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
                   <label className="flex items-center gap-2 text-sm font-semibold text-[#5D6E73]">
                     Vendor Name <span className="text-[#E17F70]">*</span>
                   </label>
@@ -416,7 +433,7 @@ export default function EditRequestPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-semibold text-[#5D6E73]">IFSC / SWIFT Code *</label>
+                  <label className="text-sm font-semibold text-[#5D6E73]">IFSC Code / SWIFT Code *</label>
                   <input
                     type="text"
                     name="ifscCode"
@@ -504,6 +521,10 @@ export default function EditRequestPage() {
               </div>
               <h4 className="text-lg font-bold text-[#546A7A] mb-1">{formData.vendorName || 'Vendor Name'}</h4>
               <div className="space-y-2 text-sm border-t border-[#AEBFC3]/10 pt-4">
+                <div className="flex justify-between">
+                  <span className="text-[#92A2A5]">BP Code:</span>
+                  <span className="text-[#546A7A] font-medium">{formData.bpCode || '-'}</span>
+                </div>
                 <div className="flex justify-between">
                   <span className="text-[#92A2A5]">Bank:</span>
                   <span className="text-[#546A7A] font-medium">{formData.beneficiaryBankName || '-'}</span>

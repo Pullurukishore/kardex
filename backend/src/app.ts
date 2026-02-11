@@ -99,6 +99,7 @@ const corsOptions: cors.CorsOptions = {
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" },
   contentSecurityPolicy: false, // Disabled for development to avoid blocking local assets
+  frameguard: false, // Allow iframes for file previews
 }));
 
 // Enable CORS with options

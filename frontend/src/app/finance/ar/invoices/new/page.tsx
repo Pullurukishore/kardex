@@ -10,6 +10,13 @@ export default function NewInvoicePage() {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [checkedMilestones, setCheckedMilestones] = useState({
+    ADVANCE: true,
+    INVOICE: true,
+    GRN: false,
+    BG: false,
+    OTHERS: false,
+  });
 
   const [formData, setFormData] = useState({
     invoiceNumber: '',
@@ -26,6 +33,10 @@ export default function NewInvoicePage() {
     invoiceType: 'PREPAID' as 'REGULAR' | 'PREPAID',
     advanceReceivedDate: '',
     deliveryDueDate: '',
+    grnDate: '',
+    bgDate: '',
+    othersDate: '',
+    agingMilestone: 'INVOICE' as 'ADVANCE' | 'INVOICE' | 'GRN' | 'BG' | 'OTHERS',
     actualPaymentTerms: '',
     type: '' as any,
   });
@@ -94,6 +105,10 @@ export default function NewInvoicePage() {
         invoiceType: formData.invoiceType,
         advanceReceivedDate: formData.advanceReceivedDate || undefined,
         deliveryDueDate: formData.deliveryDueDate || undefined,
+        grnDate: formData.grnDate || undefined,
+        bgDate: formData.bgDate || undefined,
+        othersDate: formData.othersDate || undefined,
+        agingMilestone: formData.agingMilestone,
         actualPaymentTerms: (formData as any).actualPaymentTerms || undefined,
         type: formData.type,
       } as any);
@@ -284,6 +299,67 @@ export default function NewInvoicePage() {
                   </div>
                 </div>
               </div>
+
+              {/* Milestones & Aging Configuration */}
+              <div className="p-5 rounded-xl bg-white border border-[#CE9F6B]/20 shadow-inner">
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="text-sm font-bold text-[#546A7A] flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-[#CE9F6B]" />
+                    Prepaging Milestones & Aging Tracking
+                  </h4>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-[#92A2A5]">Aging Base:</span>
+                    <select
+                      name="agingMilestone"
+                      value={formData.agingMilestone}
+                      onChange={handleChange}
+                      className="text-xs font-bold py-1 px-2 rounded-lg bg-[#CE9F6B]/10 border border-[#CE9F6B]/30 text-[#976E44] focus:outline-none"
+                    >
+                      {Object.entries(checkedMilestones).filter(([_, checked]) => checked).map(([key]) => (
+                        <option key={key} value={key}>{key}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  {[
+                    { id: 'ADVANCE', label: 'Adv Date', field: 'advanceReceivedDate' },
+                    { id: 'INVOICE', label: 'Invoice Date', field: 'invoiceDate' },
+                    { id: 'GRN', label: 'GRN Date', field: 'grnDate' },
+                    { id: 'BG', label: 'BG Date', field: 'bgDate' },
+                    { id: 'OTHERS', label: 'Others', field: 'othersDate' },
+                  ].map((m) => (
+                    <div key={m.id} className={`flex items-center gap-4 p-3 rounded-lg transition-all ${checkedMilestones[m.id as keyof typeof checkedMilestones] ? 'bg-[#CE9F6B]/5 border border-[#CE9F6B]/20' : 'opacity-60'}`}>
+                      <label className="flex items-center gap-3 cursor-pointer min-w-[120px]">
+                        <input
+                          type="checkbox"
+                          checked={checkedMilestones[m.id as keyof typeof checkedMilestones]}
+                          onChange={(e) => setCheckedMilestones(prev => ({ ...prev, [m.id]: e.target.checked }))}
+                          className="w-4 h-4 rounded border-2 border-[#CE9F6B] text-[#CE9F6B] focus:ring-[#CE9F6B]/20"
+                        />
+                        <span className="text-sm font-bold text-[#546A7A]">{m.label}</span>
+                      </label>
+                      
+                      {checkedMilestones[m.id as keyof typeof checkedMilestones] && (
+                        <div className="flex-1 flex items-center gap-2">
+                          {m.id !== 'INVOICE' && m.id !== 'ADVANCE' ? (
+                            <input
+                              type="date"
+                              name={m.field}
+                              value={(formData as any)[m.field]}
+                              onChange={handleChange}
+                              className="flex-1 h-9 px-3 rounded-lg bg-white border border-[#CE9F6B]/30 text-xs font-medium focus:border-[#CE9F6B] transition-all"
+                            />
+                          ) : (
+                            <span className="text-xs text-[#92A2A5] italic font-medium">Synced with {m.label} field above</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -328,9 +404,9 @@ export default function NewInvoicePage() {
                 required
               >
                 <option value="">Select Type</option>
-                <option value="SERVICE">Service</option>
-                <option value="SALES">Sales</option>
-                <option value="OTHERS">Others</option>
+                <option value="LCS">LCS</option>
+                <option value="NB">NB</option>
+                <option value="FINANCE">Finance</option>
               </select>
             </div>
 

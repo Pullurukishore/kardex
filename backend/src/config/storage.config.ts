@@ -46,6 +46,8 @@ export function initializeStorage(): void {
     defaultConfig.spareParts,
     path.join(defaultConfig.images, 'tickets'),
     path.join(defaultConfig.images, 'activities'),
+    path.join(defaultConfig.root, 'bank-account-docs'),
+    path.join(defaultConfig.root, 'temp'),
   ];
 
   dirs.forEach(dir => {
