@@ -735,6 +735,14 @@ export const adminOffersNavigation: NavItem[] = [
     iconBgColor: "bg-[#6F8A9D]/10"
   },
   {
+    title: "Forecast Reports",
+    href: "/admin/reports?module=forecast",
+    icon: FileText,
+    roles: [UserRole.ADMIN],
+    iconColor: "text-[#4F6A64]",
+    iconBgColor: "bg-[#82A094]/10"
+  },
+  {
     title: "Activity Log",
     href: "/admin/offer-activity-log",
     icon: History,

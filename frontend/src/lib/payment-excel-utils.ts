@@ -1,6 +1,3 @@
-import ExcelJS from 'exceljs';
-import { saveAs } from 'file-saver';
-import { format } from 'date-fns';
 
 export interface PaymentRow {
     vendorName: string;
@@ -19,6 +16,13 @@ export interface PaymentRow {
  * Format 1: ICICI CMS (Wide)
  */
 export const downloadICICICMS = async (payments: PaymentRow[]) => {
+    // Dynamic imports to reduce bundle size
+    const ExcelJSModule = await import('exceljs');
+    const ExcelJS = (ExcelJSModule as any).default || ExcelJSModule;
+    const FileSaver = await import('file-saver');
+    const saveAs = (FileSaver as any).saveAs || (FileSaver as any).default || FileSaver;
+    const { format } = await import('date-fns');
+
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('ICICI CMS');
 
@@ -60,13 +64,13 @@ export const downloadICICICMS = async (payments: PaymentRow[]) => {
     const headerBg = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD3D3D3' } }; // Light Grey
     const redFont = { color: { argb: 'FFFF0000' }, bold: true, size: 9 };
     const blackFont = { color: { argb: 'FF000000' }, bold: true, size: 9 };
-    const borderStyle: Partial<ExcelJS.Border> = { style: 'thin', color: { argb: 'FF000000' } };
+    const borderStyle: any = { style: 'thin', color: { argb: 'FF000000' } };
 
     // Add Rows
     [row1, row2, row3, row4].forEach((rowData, idx) => {
         const row = worksheet.addRow(rowData);
         row.height = 20;
-        row.eachCell({ includeEmpty: true }, (cell) => {
+        row.eachCell({ includeEmpty: true }, (cell: any) => {
             cell.fill = headerBg as any;
             cell.border = { top: borderStyle, left: borderStyle, bottom: borderStyle, right: borderStyle };
             cell.alignment = { vertical: 'middle', horizontal: 'center' };
@@ -100,15 +104,10 @@ export const downloadICICICMS = async (payments: PaymentRow[]) => {
         rowData[29] = p.emailId;
 
         const row = worksheet.addRow(rowData);
-        row.eachCell({ includeEmpty: true }, (cell) => {
+        row.eachCell({ includeEmpty: true }, (cell: any) => {
             cell.border = { top: borderStyle, left: borderStyle, bottom: borderStyle, right: borderStyle };
             cell.alignment = { vertical: 'middle' };
             cell.font = { size: 10 };
-
-            // Highlight email column (blue/underline like in screenshot)
-            if (cell.address.startsWith('AD') || cell.address.includes('30')) {
-                // Actually AD is col 30
-            }
         });
     });
 
@@ -124,6 +123,13 @@ export const downloadICICICMS = async (payments: PaymentRow[]) => {
  * Format 2: Standard NEFT/RTGS
  */
 export const downloadStandardPayment = async (payments: PaymentRow[]) => {
+    // Dynamic imports to reduce bundle size
+    const ExcelJSModule = await import('exceljs');
+    const ExcelJS = (ExcelJSModule as any).default || ExcelJSModule;
+    const FileSaver = await import('file-saver');
+    const saveAs = (FileSaver as any).saveAs || (FileSaver as any).default || FileSaver;
+    const { format } = await import('date-fns');
+
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Payments');
 
@@ -136,7 +142,7 @@ export const downloadStandardPayment = async (payments: PaymentRow[]) => {
 
     const headerRow = worksheet.addRow(headers);
     headerRow.height = 25;
-    headerRow.eachCell({ includeEmpty: true }, (cell) => {
+    headerRow.eachCell({ includeEmpty: true }, (cell: any) => {
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF444444' } }; // Dark Grey
         cell.font = { color: { argb: 'FFFFFFFF' }, bold: true };
         cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
@@ -166,7 +172,7 @@ export const downloadStandardPayment = async (payments: PaymentRow[]) => {
             ref
         ]);
 
-        row.eachCell({ includeEmpty: true }, (cell) => {
+        row.eachCell({ includeEmpty: true }, (cell: any) => {
             cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
             cell.alignment = { vertical: 'middle' };
         });
@@ -180,3 +186,4 @@ export const downloadStandardPayment = async (payments: PaymentRow[]) => {
     const buffer = await workbook.xlsx.writeBuffer();
     saveAs(new Blob([buffer]), `Standard_Bulk_Payment_${format(new Date(), 'yyyyMMdd')}.xlsx`);
 };
+

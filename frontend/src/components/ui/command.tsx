@@ -54,10 +54,10 @@ const CommandList = React.forwardRef<
 CommandList.displayName = "CommandList"
 
 const CommandEmpty = React.forwardRef<
-  HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
+  React.ElementRef<typeof CommandPrimitive.Empty>,
+  React.ComponentPropsWithoutRef<typeof CommandPrimitive.Empty>
 >(({ className, ...props }, ref) => (
-  <div
+  <CommandPrimitive.Empty
     ref={ref}
     className={cn("py-6 text-center text-sm", className)}
     {...props}
@@ -94,24 +94,17 @@ const CommandSeparator = React.forwardRef<
 ))
 CommandSeparator.displayName = "CommandSeparator"
 
-interface CommandItemProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'onSelect'> {
-  value?: string
-  onSelect?: (value: string) => void
-}
-
 const CommandItem = React.forwardRef<
-  HTMLDivElement,
-  CommandItemProps
->(({ className, value, onSelect, ...props }, ref) => (
+  React.ElementRef<typeof CommandPrimitive.Item>,
+  React.ComponentPropsWithoutRef<typeof CommandPrimitive.Item>
+>(({ className, ...props }, ref) => (
   <CommandPrimitive.Item
     ref={ref}
-    value={value}
-    onSelect={onSelect}
     className={cn(
       "relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none aria-selected:bg-accent aria-selected:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
       className
     )}
-    {...(onSelect ? {} : props)}
+    {...props}
   />
 ))
 

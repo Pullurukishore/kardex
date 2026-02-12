@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { arApi, BankAccount } from '@/lib/ar-api';
 import { 
   Plus, Search, Trash2, Download, Landmark, CreditCard, 
   Calendar as CalendarIcon, ArrowLeft, Loader2, CheckCircle2,
   X, Info, Wallet, DollarSign, ChevronDown, RefreshCcw, Check, Building2,
-  Shield, Globe, Power, Eye, Pencil, List
+  Shield, Globe, Power, Eye, Pencil, List, Hash, Send, FileSpreadsheet,
+  ArrowUpRight, Zap, AlertCircle, IndianRupee, Clock
 } from 'lucide-react';
 import { format } from 'date-fns';
 import Link from 'next/link';
@@ -29,19 +30,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
 import { toast } from 'sonner';
 
 
@@ -51,7 +39,7 @@ interface PendingPayment extends Partial<PaymentRow> {
 }
 
 // ============================================================================
-// STAT CARD COMPONENT
+// ANIMATED STAT CARD COMPONENT
 // ============================================================================
 const StatCard = ({ 
   icon: Icon, 
@@ -59,83 +47,131 @@ const StatCard = ({
   value, 
   loading,
   variant,
-  href
+  subtitle,
 }: { 
   icon: React.ElementType; 
   label: string; 
   value: number | string; 
   loading: boolean;
-  variant: 'primary' | 'success' | 'secondary' | 'warning';
-  href?: string;
+  variant: 'gold' | 'emerald' | 'steel' | 'coral';
+  subtitle?: string;
 }) => {
   const variants = {
-    primary: {
-      card: 'bg-gradient-to-br from-[#CE9F6B] to-[#976E44] text-white',
-      icon: 'bg-white/20 text-white shadow-sm',
-      label: 'text-white/80',
-      value: 'text-white'
+    gold: {
+      card: 'from-[#CE9F6B] via-[#B18E63] to-[#976E44]',
+      iconBg: 'bg-white/20 backdrop-blur-sm',
+      glow: 'shadow-[0_8px_30px_rgba(206,159,107,0.3)]',
     },
-    success: {
-      card: 'bg-gradient-to-br from-[#82A094] to-[#4F6A64] text-white',
-      icon: 'bg-white/20 text-white shadow-sm',
-      label: 'text-white/80',
-      value: 'text-white'
+    emerald: {
+      card: 'from-[#82A094] via-[#718E85] to-[#4F6A64]',
+      iconBg: 'bg-white/20 backdrop-blur-sm',
+      glow: 'shadow-[0_8px_30px_rgba(130,160,148,0.3)]',
     },
-    secondary: {
-      card: 'bg-gradient-to-br from-[#6F8A9D] to-[#546A7A] text-white',
-      icon: 'bg-white/20 text-white shadow-sm',
-      label: 'text-white/80',
-      value: 'text-white'
+    steel: {
+      card: 'from-[#6F8A9D] via-[#5E7788] to-[#546A7A]',
+      iconBg: 'bg-white/20 backdrop-blur-sm',
+      glow: 'shadow-[0_8px_30px_rgba(111,138,157,0.3)]',
     },
-    warning: {
-      card: 'bg-gradient-to-br from-[#E17F70] to-[#9E3B47] text-white',
-      icon: 'bg-white/20 text-white shadow-sm',
-      label: 'text-white/80',
-      value: 'text-white'
+    coral: {
+      card: 'from-[#E17F70] via-[#D06A5C] to-[#C45C4D]',
+      iconBg: 'bg-white/20 backdrop-blur-sm',
+      glow: 'shadow-[0_8px_30px_rgba(225,127,112,0.3)]',
     }
   };
 
   const v = variants[variant];
 
-  const Content = (
-    <div className={`group relative rounded-xl p-4 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg ${v.card} ${href ? 'cursor-pointer' : ''}`}>
-      <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-white/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+  return (
+    <div className={`group relative rounded-2xl p-5 bg-gradient-to-br ${v.card} ${v.glow} hover:shadow-xl transition-all duration-500 hover:scale-[1.02] hover:-translate-y-0.5 overflow-hidden`}>
+      {/* Shine effect */}
+      <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/15 via-transparent to-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
       
-      <div className="relative flex items-center justify-between gap-4">
-        <div className={`w-11 h-11 rounded-xl ${v.icon} flex items-center justify-center transition-transform duration-300 group-hover:scale-110`}>
-          <Icon className="w-5 h-5" />
+      {/* Decorative circle */}
+      <div className="absolute -right-6 -bottom-6 w-24 h-24 rounded-full bg-white/[0.07] pointer-events-none" />
+      <div className="absolute -right-2 -bottom-2 w-16 h-16 rounded-full bg-white/[0.05] pointer-events-none" />
+      
+      <div className="relative flex items-start justify-between gap-3">
+        <div className={`w-12 h-12 rounded-xl ${v.iconBg} flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:rotate-3`}>
+          <Icon className="w-5.5 h-5.5 text-white drop-shadow-sm" />
         </div>
         <div className="flex-1 text-right">
-          <p className={`text-[10px] font-bold uppercase tracking-widest mb-1 ${v.label}`}>
+          <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-white/70 mb-1.5">
             {label}
           </p>
-          <p className={`text-2xl font-bold tabular-nums ${v.value}`}>
+          <p className="text-3xl font-black tabular-nums text-white tracking-tight drop-shadow-sm">
             {loading ? (
-              <span className="inline-block w-8 h-7 bg-current/20 rounded animate-pulse" />
+              <span className="inline-block w-12 h-8 bg-white/20 rounded-lg animate-pulse" />
             ) : value}
           </p>
+          {subtitle && (
+            <p className="text-[10px] text-white/50 mt-1 font-medium">{subtitle}</p>
+          )}
         </div>
       </div>
-      
-      {href && (
-        <div className="absolute bottom-0 left-4 right-4 h-0.5 bg-white/20 rounded-full scale-x-0 group-hover:scale-x-100 transition-transform duration-300" />
-      )}
     </div>
   );
+};
 
-  if (href) return <Link href={href}>{Content}</Link>;
-  return Content;
+// ============================================================================
+// MODE BADGE COMPONENT
+// ============================================================================
+const ModeBadge = ({ mode }: { mode: string }) => {
+  const config = {
+    'NFT': { label: 'NEFT', color: 'bg-blue-50 text-blue-700 border-blue-200', dot: 'bg-blue-500' },
+    'RTI': { label: 'RTGS', color: 'bg-purple-50 text-purple-700 border-purple-200', dot: 'bg-purple-500' },
+    'FT': { label: 'Fund Transfer', color: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-500' },
+  }[mode] || { label: mode, color: 'bg-gray-50 text-gray-700 border-gray-200', dot: 'bg-gray-500' };
+
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-lg border ${config.color}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${config.dot}`} />
+      {config.label}
+    </span>
+  );
 };
 
 export default function PaymentsPage() {
     const [accounts, setAccounts] = useState<BankAccount[]>([]);
     const [loading, setLoading] = useState(true);
     const [pendingPayments, setPendingPayments] = useState<PendingPayment[]>([]);
-    const [searchQuery, setSearchQuery] = useState('');
+    const [vendorSearchQuery, setVendorSearchQuery] = useState('');
     const [openDropdown, setOpenDropdown] = useState(false);
     const [globalDate, setGlobalDate] = useState(format(new Date(), 'yyyy-MM-dd'));
     const [globalMode, setGlobalMode] = useState<'NFT' | 'RTI' | 'FT'>('NFT');
+    const [downloadingFormat, setDownloadingFormat] = useState<string | null>(null);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+    const searchInputRef = useRef<HTMLInputElement>(null);
 
+    // Click outside handler for vendor dropdown
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setOpenDropdown(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    // Focus search input when dropdown opens
+    useEffect(() => {
+        if (openDropdown && searchInputRef.current) {
+            searchInputRef.current.focus();
+        }
+    }, [openDropdown]);
+
+    // Filtered accounts based on search
+    const filteredAccounts = useMemo(() => {
+        if (!vendorSearchQuery.trim()) return accounts;
+        const q = vendorSearchQuery.toLowerCase();
+        return accounts.filter(a =>
+            a.vendorName.toLowerCase().includes(q) ||
+            (a.bpCode || '').toLowerCase().includes(q) ||
+            a.accountNumber.includes(vendorSearchQuery) ||
+            (a.beneficiaryBankName || '').toLowerCase().includes(q) ||
+            (a.ifscCode || '').toLowerCase().includes(q)
+        );
+    }, [accounts, vendorSearchQuery]);
 
     useEffect(() => {
         loadBankAccounts();
@@ -170,7 +206,7 @@ export default function PaymentsPage() {
             accountType: account.accountType || 'Current'
         };
         setPendingPayments(prev => [...prev, newPayment]);
-        setSearchQuery('');
+        setVendorSearchQuery('');
         toast.success(`Added ${account.vendorName}`);
     };
 
@@ -199,13 +235,13 @@ export default function PaymentsPage() {
             return;
         }
 
-        // Validate amounts
         const invalid = pendingPayments.some(p => !p.amount || p.amount <= 0);
         if (invalid) {
             toast.error('All payments must have an amount greater than zero');
             return;
         }
 
+        setDownloadingFormat(formatType);
         const data: PaymentRow[] = pendingPayments.map(p => ({
             vendorName: p.vendorName!,
             bpCode: p.bpCode!,
@@ -225,365 +261,622 @@ export default function PaymentsPage() {
             } else {
                 await downloadStandardPayment(data);
             }
-            toast.success(`${formatType === 'ICICI' ? 'ICICI CMS' : 'Standard'} format downloaded`);
+            toast.success(`${formatType === 'ICICI' ? 'ICICI CMS' : 'Standard'} format downloaded successfully`);
         } catch (error) {
             console.error('Download failed:', error);
             toast.error('Failed to generate Excel file');
+        } finally {
+            setDownloadingFormat(null);
         }
     };
-
-
-
 
     const stats = useMemo(() => ({
         totalRecords: pendingPayments.length,
         selectedVendors: new Set(pendingPayments.map(p => p.bankAccount.id)).size,
-        totalAmount: pendingPayments.reduce((acc, p) => acc + (p.amount || 0), 0)
+        totalAmount: pendingPayments.reduce((acc, p) => acc + (p.amount || 0), 0),
+        validPayments: pendingPayments.filter(p => p.amount && p.amount > 0).length,
     }), [pendingPayments]);
 
     if (loading) {
         return (
             <div className="h-full flex items-center justify-center">
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                <div className="flex flex-col items-center gap-4">
+                    <div className="relative">
+                        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#B18E63] to-[#7A5A38] flex items-center justify-center shadow-lg">
+                            <Loader2 className="w-7 h-7 animate-spin text-white" />
+                        </div>
+                        <div className="absolute -inset-2 bg-gradient-to-br from-[#CE9F6B]/20 to-[#82A094]/20 rounded-3xl blur-xl animate-pulse" />
+                    </div>
+                    <div className="text-center">
+                        <p className="font-bold text-slate-600">Loading Vendors</p>
+                        <p className="text-xs text-slate-400 mt-1">Fetching bank account data...</p>
+                    </div>
+                </div>
             </div>
         );
     }
 
     return (
-        <div className="p-6 max-w-[1600px] mx-auto space-y-8 animate-in fade-in duration-500">
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="p-6 max-w-[1700px] mx-auto space-y-6 animate-in fade-in duration-500">
+            {/* ================================================================ */}
+            {/* HEADER SECTION */}
+            {/* ================================================================ */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                 <div className="flex items-center gap-4">
                     <div className="relative group">
-                        <div className="absolute -inset-1 bg-gradient-to-br from-[#CE9F6B]/30 to-[#82A094]/30 rounded-xl blur-lg opacity-0 group-hover:opacity-100 transition-all duration-500" />
+                        <div className="absolute -inset-1.5 bg-gradient-to-br from-[#CE9F6B]/40 to-[#82A094]/40 rounded-2xl blur-lg opacity-0 group-hover:opacity-100 transition-all duration-500" />
                         <div 
-                            className="relative w-12 h-12 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300"
+                            className="relative w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-105"
                             style={{ background: 'linear-gradient(135deg, #B18E63 0%, #7A5A38 100%)' }}
                         >
-                            <CreditCard className="w-6 h-6 text-white" />
+                            <Send className="w-6 h-6 text-white" />
                         </div>
                     </div>
                     <div className="space-y-1">
-                        <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                            <Link href="/finance/bank-accounts" className="hover:text-primary transition-colors flex items-center gap-1 text-sm font-medium">
-                                <ArrowLeft className="w-3.5 h-3.5" /> Back to Accounts
+                        <div className="flex items-center gap-2 text-muted-foreground mb-0.5">
+                            <Link href="/finance/bank-accounts" className="hover:text-[#B18E63] transition-colors flex items-center gap-1 text-xs font-semibold">
+                                <ArrowLeft className="w-3 h-3" /> Back to Bank Accounts
                             </Link>
                         </div>
-                        <h1 className="text-2xl font-bold tracking-tight">
+                        <h1 className="text-3xl font-black tracking-tight">
                             <span className="bg-gradient-to-r from-[#546A7A] via-[#6F8A9D] to-[#82A094] bg-clip-text text-transparent">
                                 Bulk Payments
                             </span>
                         </h1>
-                        <p className="text-xs text-muted-foreground font-medium">
-                            Execute batch transfers and reporting with ICICI CMS & Standard formats
+                        <p className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
+                            <Zap className="w-3 h-3 text-[#CE9F6B]" />
+                            Generate batch payment files for ICICI CMS & Standard NEFT/RTGS formats
                         </p>
                     </div>
                 </div>
 
+                {/* Download Actions */}
                 <div className="flex items-center gap-3">
                     <Button 
                         variant="outline" 
                         size="lg" 
                         onClick={() => handleDownload('ICICI')}
-                        className="bg-background hover:bg-[#CE9F6B]/10 hover:text-[#976E44] border-[#CE9F6B]/30 border-dashed"
+                        disabled={!!downloadingFormat}
+                        className="relative bg-white hover:bg-[#CE9F6B]/5 hover:text-[#976E44] border-[#CE9F6B]/30 border-dashed hover:border-[#CE9F6B]/60 transition-all group rounded-xl h-12"
                     >
-                        <Download className="w-4 h-4 mr-2" /> ICICI CMS
+                        {downloadingFormat === 'ICICI' ? (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                            <FileSpreadsheet className="w-4 h-4 mr-2 text-[#CE9F6B] group-hover:scale-110 transition-transform" />
+                        )}
+                        <span className="font-bold text-sm">ICICI CMS</span>
                     </Button>
                     <Button 
                         size="lg" 
                         onClick={() => handleDownload('STANDARD')}
-                        className="bg-gradient-to-r from-[#B18E63] to-[#7A5A38] text-white shadow-lg hover:shadow-xl transition-all border-0"
+                        disabled={!!downloadingFormat}
+                        className="bg-gradient-to-r from-[#B18E63] to-[#7A5A38] text-white shadow-lg hover:shadow-xl transition-all border-0 rounded-xl hover:scale-[1.02] h-12 font-bold"
                     >
-                        <Download className="w-4 h-4 mr-2" /> Standard Format
+                        {downloadingFormat === 'STANDARD' ? (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                            <Download className="w-4 h-4 mr-2" />
+                        )}
+                        <span className="text-sm">Standard Format</span>
                     </Button>
                 </div>
             </div>
 
-            {/* Quick Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* ================================================================ */}
+            {/* STATS GRID */}
+            {/* ================================================================ */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard 
-                    icon={List} 
+                    icon={Hash} 
                     label="Total Records" 
                     value={stats.totalRecords} 
                     loading={false}
-                    variant="primary"
+                    variant="gold"
+                    subtitle="payment entries added"
                 />
                 <StatCard 
                     icon={Building2} 
-                    label="Selected Vendors" 
+                    label="Unique Vendors" 
                     value={stats.selectedVendors} 
                     loading={false}
-                    variant="secondary"
+                    variant="steel"
+                    subtitle="distinct beneficiaries"
                 />
                 <StatCard 
-                    icon={DollarSign} 
+                    icon={IndianRupee} 
                     label="Total Amount" 
-                    value={`₹${stats.totalAmount.toLocaleString()}`} 
+                    value={`₹${stats.totalAmount.toLocaleString('en-IN')}`} 
                     loading={false}
-                    variant="success"
+                    variant="emerald"
+                    subtitle="total disbursement"
+                />
+                <StatCard 
+                    icon={CheckCircle2} 
+                    label="Ready to Export" 
+                    value={stats.validPayments} 
+                    loading={false}
+                    variant="coral"
+                    subtitle={`of ${stats.totalRecords} have valid amounts`}
                 />
             </div>
 
-            {/* Main Content Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-                {/* Left Side: Controls & Selection */}
-                <div className="lg:col-span-1 space-y-6">
-                    {/* Add Vendor Card */}
-                    <div className="bg-white rounded-2xl border-0 shadow-[0_8px_30px_rgba(0,0,0,0.04)] overflow-hidden">
-                        <div className="bg-gradient-to-r from-[#B18E63] to-[#976E44] px-5 py-4 flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
-                                    <Plus className="w-4 h-4 text-white" />
+            {/* ================================================================ */}
+            {/* TOP CONTROLS ROW: Add Vendor + Batch Settings */}
+            {/* ================================================================ */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                
+                {/* Add Vendor Card — takes more space */}
+                <div className="lg:col-span-7 relative z-30">
+                    <div className="bg-white rounded-2xl border border-slate-100 shadow-[0_4px_24px_rgba(0,0,0,0.04)] overflow-visible">
+                        <div className="bg-gradient-to-r from-[#B18E63] to-[#976E44] px-6 py-4 flex items-center justify-between rounded-t-2xl">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                                    <Plus className="w-5 h-5 text-white" />
                                 </div>
-                                <h3 className="font-bold text-white text-sm">Add Vendor</h3>
+                                <div>
+                                    <h3 className="font-bold text-white text-base">Add Vendor</h3>
+                                    <p className="text-[10px] text-white/60 font-medium">Search & select beneficiary to add to payment batch</p>
+                                </div>
                             </div>
-                            <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-8 w-8 text-white/70 hover:text-white hover:bg-white/10"
-                                onClick={loadBankAccounts}
-                                disabled={loading}
-                                title="Refresh Vendors"
-                            >
-                                <RefreshCcw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-                            </Button>
+                            <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm">
+                                    <div className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                    <p className="text-[10px] text-white/80 font-semibold">
+                                        {accounts.length} vendors
+                                    </p>
+                                </div>
+                                <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="h-9 w-9 text-white/60 hover:text-white hover:bg-white/10 rounded-lg"
+                                    onClick={loadBankAccounts}
+                                    disabled={loading}
+                                    title="Refresh Vendors"
+                                >
+                                    <RefreshCcw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                                </Button>
+                            </div>
                         </div>
                         
-                        <div className="p-5 space-y-4">
-                            <Popover open={openDropdown} onOpenChange={setOpenDropdown}>
-                                <PopoverTrigger asChild>
-                                    <Button 
-                                        variant="outline" 
-                                        role="combobox"
-                                        aria-expanded={openDropdown}
-                                        className="w-full justify-between bg-slate-50 border-dashed border-slate-200 hover:border-[#B18E63]/50 transition-all font-medium text-slate-500 h-11"
+                        <div className="p-6">
+                            {/* Custom Vendor Search Dropdown */}
+                            <div ref={dropdownRef} className="relative">
+                                {/* Search Trigger / Input */}
+                                <div
+                                    className={cn(
+                                        "w-full flex items-center gap-3 bg-slate-50/80 border rounded-xl h-14 px-4 cursor-pointer transition-all",
+                                        openDropdown ? 'border-[#B18E63] ring-2 ring-[#B18E63]/20 bg-white shadow-lg' : 'border-slate-200 hover:border-[#B18E63]/50 hover:bg-white hover:shadow-md'
+                                    )}
+                                    onClick={() => setOpenDropdown(true)}
+                                >
+                                    {loading ? (
+                                        <Loader2 className="w-5 h-5 animate-spin text-[#B18E63] shrink-0" />
+                                    ) : (
+                                        <Search className="w-5 h-5 text-slate-400 shrink-0" />
+                                    )}
+                                    <input
+                                        ref={searchInputRef}
+                                        type="text"
+                                        placeholder={loading ? 'Loading vendors...' : 'Search by vendor name, BP code, account number, bank name, or IFSC...'}
+                                        className="flex-1 bg-transparent text-sm font-medium text-slate-700 placeholder:text-slate-400 outline-none"
+                                        value={vendorSearchQuery}
+                                        onChange={(e) => {
+                                            setVendorSearchQuery(e.target.value);
+                                            if (!openDropdown) setOpenDropdown(true);
+                                        }}
+                                        onFocus={() => setOpenDropdown(true)}
                                         disabled={loading}
-                                    >
-                                        <div className="flex items-center gap-2">
-                                            {loading ? (
-                                                <Loader2 className="w-4 h-4 animate-spin" />
-                                            ) : (
-                                                <Search className="w-4 h-4 text-slate-400" />
-                                            )}
-                                            <span className="text-xs">{loading ? 'Loading Vendors...' : 'Search vendor name...'}</span>
-                                        </div>
-                                        <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-[300px] p-0" align="start">
-                                    <Command>
-                                        <CommandInput placeholder="Type vendor name or BP code..." className="h-10 text-xs" />
-                                        <CommandList className="max-h-[300px]">
-                                            <CommandEmpty>No matching vendors found</CommandEmpty>
-                                            <CommandGroup>
-                                                {accounts.map(a => (
-                                                    <CommandItem
+                                    />
+                                    {vendorSearchQuery && (
+                                        <button 
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setVendorSearchQuery('');
+                                            }}
+                                            className="p-1 rounded-lg hover:bg-slate-200 transition-colors"
+                                        >
+                                            <X className="w-4 h-4 text-slate-400" />
+                                        </button>
+                                    )}
+                                    <ChevronDown className={cn(
+                                        "h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200",
+                                        openDropdown && 'rotate-180'
+                                    )} />
+                                </div>
+
+                                {/* Dropdown List */}
+                                {openDropdown && (
+                                    <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-2xl z-[100] overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200">
+                                        <div className="max-h-[400px] overflow-y-auto">
+                                            {filteredAccounts.length > 0 ? (
+                                                filteredAccounts.map((a, idx) => (
+                                                    <div
                                                         key={a.id}
-                                                        value={`${a.vendorName} ${a.bpCode} ${a.accountNumber} ${a.beneficiaryBankName || ''}`}
-                                                        onSelect={() => {
+                                                        onClick={() => {
                                                             addVendor(a);
                                                             setOpenDropdown(false);
+                                                            setVendorSearchQuery('');
                                                         }}
-                                                        className="flex flex-col items-start gap-1 py-3 cursor-pointer border-b border-slate-50 last:border-0 hover:bg-slate-50"
-                                                    >
-                                                        <div className="w-full flex justify-between items-start gap-2">
-                                                            <span className="font-bold text-xs text-slate-700 leading-tight">{a.vendorName}</span>
-                                                            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[#B18E63]/10 text-[#976E44] font-bold uppercase tracking-wider shrink-0">
-                                                                {a.accountType || 'Domestic'}
-                                                            </span>
-                                                        </div>
-                                                        <div className="w-full flex items-center gap-2 text-[10px] text-slate-400">
-                                                            <div className="flex items-center gap-1 font-mono">
-                                                                <Building2 className="w-3 h-3" />
-                                                                <span className="truncate max-w-[120px]">{a.beneficiaryBankName}</span>
-                                                            </div>
-                                                            <span className="text-slate-200">|</span>
-                                                            <span className="font-mono">{a.accountNumber}</span>
-                                                        </div>
-                                                        {a.bpCode && (
-                                                            <span className="text-[9px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded font-bold uppercase tracking-tighter">
-                                                                BP: {a.bpCode}
-                                                            </span>
+                                                        className={cn(
+                                                            "px-5 py-3.5 cursor-pointer transition-all hover:bg-[#B18E63]/5 group/item",
+                                                            idx < filteredAccounts.length - 1 && 'border-b border-slate-50'
                                                         )}
-                                                    </CommandItem>
-                                                ))}
-                                            </CommandGroup>
-                                        </CommandList>
-                                    </Command>
-                                </PopoverContent>
-                            </Popover>
-                            <p className="text-[10px] text-slate-400 text-center italic">
-                                Total {accounts.length} verified vendors available
-                            </p>
+                                                    >
+                                                        {/* Row 1: Vendor Name + Account Type Badge */}
+                                                        <div className="flex items-center justify-between gap-3 mb-1.5">
+                                                            <span className="font-bold text-sm text-slate-700 group-hover/item:text-[#976E44] transition-colors truncate">
+                                                                {a.vendorName}
+                                                            </span>
+                                                        </div>
+
+                                                        {/* Row 2: Bank Name + Account Number + IFSC */}
+                                                        <div className="flex items-center gap-3 text-[11px] text-slate-400 mb-1.5">
+                                                            <div className="flex items-center gap-1.5">
+                                                                <Building2 className="w-3.5 h-3.5 shrink-0 text-slate-300" />
+                                                                <span className="font-medium truncate max-w-[160px]">{a.beneficiaryBankName}</span>
+                                                            </div>
+                                                            <span className="text-slate-200">•</span>
+                                                            <span className="font-mono text-slate-500">{a.accountNumber}</span>
+                                                            <span className="text-slate-200">•</span>
+                                                            <span className="font-mono text-[#6F8A9D] font-semibold">{a.ifscCode}</span>
+                                                        </div>
+
+                                                        {/* Row 3: BP Code + Currency */}
+                                                        <div className="flex items-center gap-2">
+                                                            {a.bpCode && (
+                                                                <span className="text-[10px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md font-bold uppercase tracking-tight">
+                                                                    BP: {a.bpCode}
+                                                                </span>
+                                                            )}
+                                                            <span className="text-[10px] text-[#4F6A64] bg-[#82A094]/10 px-2 py-0.5 rounded-md font-bold uppercase">
+                                                                {a.currency || 'INR'}
+                                                            </span>
+                                                            {a.isMSME && (
+                                                                <span className="text-[10px] text-[#CE9F6B] bg-[#CE9F6B]/10 px-2 py-0.5 rounded-md font-bold uppercase">
+                                                                    MSME
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <div className="flex flex-col items-center gap-2 py-10">
+                                                    <Search className="w-10 h-10 text-slate-200" />
+                                                    <p className="text-sm text-slate-400 font-medium">No matching vendors found</p>
+                                                    <p className="text-xs text-slate-300">Try a different search term</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                        {/* Footer */}
+                                        <div className="border-t border-slate-100 px-5 py-2.5 bg-slate-50/50">
+                                            <p className="text-[11px] text-slate-400 font-medium">
+                                                Showing {filteredAccounts.length} of {accounts.length} vendors
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
+                </div>
 
-                    {/* Global Settings Card */}
-                    <div className="bg-white rounded-2xl border-0 shadow-[0_8px_30px_rgba(0,0,0,0.04)] overflow-hidden">
-                        <div className="bg-gradient-to-r from-[#E17F70] to-[#C45C4D] px-5 py-4 flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
-                                <Info className="w-4 h-4 text-white" />
+                {/* Batch Settings Card */}
+                <div className="lg:col-span-5">
+                    <div className="bg-white rounded-2xl border border-slate-100 shadow-[0_4px_24px_rgba(0,0,0,0.04)] overflow-hidden h-full">
+                        <div className="bg-gradient-to-r from-[#6F8A9D] to-[#546A7A] px-6 py-4 flex items-center gap-3 rounded-t-2xl">
+                            <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                                <Clock className="w-5 h-5 text-white" />
                             </div>
-                            <h3 className="font-bold text-white text-sm">Bulk Settings</h3>
+                            <div>
+                                <h3 className="font-bold text-white text-base">Batch Settings</h3>
+                                <p className="text-[10px] text-white/60 font-medium">Apply to all payment rows at once</p>
+                            </div>
                         </div>
                         
-                        <div className="p-5 space-y-4">
-                            <div className="space-y-1.5">
-                                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Default Value Date</label>
-                                <Input 
-                                    type="date" 
-                                    className="bg-slate-50 border-slate-100 h-10 text-xs font-medium"
-                                    value={globalDate}
-                                    onChange={(e) => setGlobalDate(e.target.value)}
-                                />
-                            </div>
-                            <div className="space-y-1.5">
-                                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Default Mode</label>
-                                <Select value={globalMode} onValueChange={(v: any) => setGlobalMode(v)}>
-                                    <SelectTrigger className="bg-slate-50 border-slate-100 h-10 text-xs font-medium">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="NFT" className="text-xs">NEFT (NFT)</SelectItem>
-                                        <SelectItem value="RTI" className="text-xs">RTGS (RTI)</SelectItem>
-                                        <SelectItem value="FT" className="text-xs">Internal (FT)</SelectItem>
-                                    </SelectContent>
-                                </Select>
+                        <div className="p-6">
+                            <div className="grid grid-cols-2 gap-4 mb-4">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400 flex items-center gap-1.5">
+                                        <CalendarIcon className="w-3 h-3" />
+                                        Value Date
+                                    </label>
+                                    <Input 
+                                        type="date" 
+                                        className="bg-slate-50/80 border-slate-200 h-12 text-sm font-medium rounded-xl hover:border-[#6F8A9D]/40 transition-colors"
+                                        value={globalDate}
+                                        onChange={(e) => setGlobalDate(e.target.value)}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400 flex items-center gap-1.5">
+                                        <Zap className="w-3 h-3" />
+                                        Transaction Mode
+                                    </label>
+                                    <Select value={globalMode} onValueChange={(v: any) => setGlobalMode(v)}>
+                                        <SelectTrigger className="bg-slate-50/80 border-slate-200 h-12 text-sm font-medium rounded-xl hover:border-[#6F8A9D]/40 transition-colors">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="NFT" className="text-sm">NEFT (NFT)</SelectItem>
+                                            <SelectItem value="RTI" className="text-sm">RTGS (RTI)</SelectItem>
+                                            <SelectItem value="FT" className="text-sm">Internal Transfer (FT)</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
                             </div>
                             <Button 
                                 variant="secondary" 
-                                className="w-full bg-[#E17F70]/10 hover:bg-[#E17F70]/20 text-[#C45C4D] border-0 font-bold text-xs" 
+                                className="w-full bg-[#6F8A9D]/10 hover:bg-[#6F8A9D]/20 text-[#546A7A] border-0 font-bold text-sm h-12 rounded-xl transition-all hover:scale-[1.01]" 
                                 onClick={applyGlobalSettings}
+                                disabled={pendingPayments.length === 0}
                             >
-                                <RefreshCcw className="w-3.5 h-3.5 mr-2" />
+                                <RefreshCcw className="w-4 h-4 mr-2" />
                                 Apply to All Rows
                             </Button>
                         </div>
                     </div>
                 </div>
+            </div>
 
-                {/* Right Side: Payment Table */}
-                <div className="lg:col-span-3 space-y-6">
-                    <div className="bg-white rounded-2xl border-0 shadow-[0_8px_30px_rgba(0,0,0,0.04)] overflow-hidden">
-                        <Table>
-                            <TableHeader className="bg-slate-50">
-                                <TableRow className="border-slate-100 hover:bg-slate-50">
-                                    <TableHead className="w-[240px] text-slate-500 font-bold uppercase text-[10px] tracking-wider py-4">Vendor & Account</TableHead>
-                                    <TableHead className="w-[140px] text-slate-500 font-bold uppercase text-[10px] tracking-wider py-4">Amount (₹)</TableHead>
-                                    <TableHead className="w-[160px] text-slate-500 font-bold uppercase text-[10px] tracking-wider py-4">Value Date</TableHead>
-                                    <TableHead className="w-[120px] text-slate-500 font-bold uppercase text-[10px] tracking-wider py-4 text-center">Mode</TableHead>
-                                    <TableHead className="text-right w-[80px] text-slate-500 font-bold uppercase text-[10px] tracking-wider py-4">Action</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {pendingPayments.length > 0 ? (
-                                    pendingPayments.map((p) => (
-                                        <TableRow key={p.tempId} className="group hover:bg-slate-50/50 transition-colors border-slate-50">
-                                            <TableCell className="py-4">
-                                                <div className="flex flex-col gap-0.5">
-                                                    <span className="font-bold text-sm text-slate-700">{p.vendorName}</span>
-                                                    <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-mono">
-                                                        <Wallet className="w-3 h-3" /> {p.accountNumber}
-                                                        <span className="text-slate-200">|</span>
-                                                        <Landmark className="w-3 h-3" /> {p.ifscCode}
-                                                    </div>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="py-4">
-                                                <div className="relative group/input">
-                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold transition-colors group-focus-within/input:text-[#B18E63]">₹</span>
-                                                    <Input 
-                                                        type="number" 
-                                                        className="pl-7 h-10 text-sm font-bold tabular-nums bg-slate-50/50 border-slate-100 focus:bg-white transition-all shadow-none"
-                                                        value={p.amount}
-                                                        onChange={(e) => updatePayment(p.tempId, { amount: parseFloat(e.target.value) })}
-                                                    />
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="py-4">
-                                                <Input 
-                                                    type="date" 
-                                                    className="h-10 text-xs font-medium bg-slate-50/50 border-slate-100 focus:bg-white transition-all shadow-none"
-                                                    value={p.valueDate ? format(p.valueDate, 'yyyy-MM-dd') : ''}
-                                                    onChange={(e) => updatePayment(p.tempId, { valueDate: new Date(e.target.value) })}
-                                                />
-                                            </TableCell>
-                                            <TableCell className="py-4">
-                                                <Select 
-                                                    value={p.transactionMode} 
-                                                    onValueChange={(v: any) => updatePayment(p.tempId, { transactionMode: v })}
-                                                >
-                                                    <SelectTrigger className="h-10 text-xs font-bold bg-slate-50/50 border-slate-100 focus:bg-white transition-all shadow-none">
-                                                        <SelectValue />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="NFT" className="text-xs font-medium">NEFT</SelectItem>
-                                                        <SelectItem value="RTI" className="text-xs font-medium">RTGS</SelectItem>
-                                                        <SelectItem value="FT" className="text-xs font-medium">Fund Trf</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
-                                            </TableCell>
-                                            <TableCell className="text-right py-4">
-                                                <Button 
-                                                    variant="ghost" 
-                                                    size="icon" 
-                                                    className="h-9 w-9 text-slate-300 hover:text-red-500 hover:bg-red-50 transition-all rounded-xl"
-                                                    onClick={() => removePayment(p.tempId)}
-                                                >
-                                                    <X className="w-4 h-4" />
-                                                </Button>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))
-                                ) : (
-                                    <TableRow>
-                                        <TableCell colSpan={5} className="h-64 text-center">
-                                            <div className="flex flex-col items-center justify-center space-y-4">
-                                                <div className="w-20 h-20 rounded-3xl bg-slate-50 flex items-center justify-center border-2 border-dashed border-slate-100">
-                                                    <DollarSign className="w-8 h-8 text-slate-200" />
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <p className="font-bold text-slate-400">Ready to prepare payments?</p>
-                                                    <p className="text-xs text-slate-300">Select vendors from the sidebar to populate this list.</p>
-                                                </div>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
-                    </div>
-
-                    {pendingPayments.length > 0 && (
-                        <div className="flex items-center justify-between p-6 bg-slate-50/50 rounded-2xl border-2 border-dashed border-slate-100">
-                            <div className="flex items-center gap-10">
-                                <div className="space-y-1">
-                                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Total Entries</p>
-                                    <p className="font-black text-2xl text-slate-700 tabular-nums">{pendingPayments.length}</p>
+            {/* ================================================================ */}
+            {/* PAYMENT TABLE — Full Width */}
+            {/* ================================================================ */}
+            <div className="space-y-5">
+                    <div className="bg-white rounded-2xl border border-slate-100 shadow-[0_4px_24px_rgba(0,0,0,0.04)] overflow-hidden">
+                        
+                        {/* Table Header Bar */}
+                        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                            <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#B18E63] to-[#976E44] flex items-center justify-center">
+                                    <List className="w-4 h-4 text-white" />
                                 </div>
-                                <div className="space-y-1">
-                                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Total Disbursement</p>
-                                    <p className="font-black text-2xl text-[#B18E63] tabular-nums">
-                                        ₹{pendingPayments.reduce((acc, p) => acc + (p.amount || 0), 0).toLocaleString()}
-                                    </p>
+                                <div>
+                                    <h3 className="font-bold text-sm text-slate-700">Payment Queue</h3>
+                                    <p className="text-[10px] text-slate-400">{pendingPayments.length} entries pending</p>
                                 </div>
                             </div>
-                            <Button 
-                                variant="ghost" 
-                                className="text-red-400 hover:text-red-500 hover:bg-red-50 font-bold text-xs" 
-                                onClick={() => {
-                                    if(confirm('Are you sure you want to clear all pending payments?')) {
-                                        setPendingPayments([]);
-                                        toast.success('All payments cleared');
-                                    }
-                                }}
-                            >
-                                <Trash2 className="w-3.5 h-3.5 mr-2" />
-                                Clear All
-                            </Button>
+                            {pendingPayments.length > 0 && (
+                                <Button 
+                                    variant="ghost" 
+                                    size="sm"
+                                    className="text-red-400 hover:text-red-600 hover:bg-red-50 font-bold text-[11px] rounded-lg h-8"
+                                    onClick={() => {
+                                        if(confirm('Are you sure you want to clear all pending payments?')) {
+                                            setPendingPayments([]);
+                                            toast.success('All payments cleared');
+                                        }
+                                    }}
+                                >
+                                    <Trash2 className="w-3 h-3 mr-1.5" />
+                                    Clear All
+                                </Button>
+                            )}
+                        </div>
+
+                        {/* Table Content */}
+                        <div className="overflow-x-auto">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow className="bg-slate-50/80 border-slate-100 hover:bg-slate-50/80">
+                                        <TableHead className="w-[50px] text-slate-400 font-bold uppercase text-[10px] tracking-wider py-3.5 text-center">#</TableHead>
+                                        <TableHead className="w-[260px] text-slate-400 font-bold uppercase text-[10px] tracking-wider py-3.5">
+                                            <div className="flex items-center gap-1.5">
+                                                <Building2 className="w-3 h-3" /> Vendor & Account
+                                            </div>
+                                        </TableHead>
+                                        <TableHead className="w-[160px] text-slate-400 font-bold uppercase text-[10px] tracking-wider py-3.5">
+                                            <div className="flex items-center gap-1.5">
+                                                <IndianRupee className="w-3 h-3" /> Amount
+                                            </div>
+                                        </TableHead>
+                                        <TableHead className="w-[160px] text-slate-400 font-bold uppercase text-[10px] tracking-wider py-3.5">
+                                            <div className="flex items-center gap-1.5">
+                                                <CalendarIcon className="w-3 h-3" /> Value Date
+                                            </div>
+                                        </TableHead>
+                                        <TableHead className="w-[140px] text-slate-400 font-bold uppercase text-[10px] tracking-wider py-3.5 text-center">
+                                            <div className="flex items-center gap-1.5 justify-center">
+                                                <Zap className="w-3 h-3" /> Mode
+                                            </div>
+                                        </TableHead>
+                                        <TableHead className="text-right w-[70px] text-slate-400 font-bold uppercase text-[10px] tracking-wider py-3.5">Action</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {pendingPayments.length > 0 ? (
+                                        pendingPayments.map((p, index) => (
+                                            <TableRow 
+                                                key={p.tempId} 
+                                                className={cn(
+                                                    "group transition-all duration-200 border-slate-50",
+                                                    index % 2 === 0 ? 'bg-white' : 'bg-slate-25',
+                                                    "hover:bg-gradient-to-r hover:from-[#CE9F6B]/[0.03] hover:to-transparent"
+                                                )}
+                                            >
+                                                {/* Row Number */}
+                                                <TableCell className="py-4 text-center">
+                                                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-slate-100 text-[11px] font-bold text-slate-400 group-hover:bg-[#B18E63]/10 group-hover:text-[#B18E63] transition-colors">
+                                                        {index + 1}
+                                                    </span>
+                                                </TableCell>
+
+                                                {/* Vendor & Account */}
+                                                <TableCell className="py-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#6F8A9D] to-[#546A7A] flex items-center justify-center text-white text-[10px] font-bold shrink-0 shadow-sm">
+                                                            {p.vendorName?.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()}
+                                                        </div>
+                                                        <div className="flex flex-col gap-0.5 min-w-0">
+                                                            <span className="font-bold text-sm text-slate-700 truncate">{p.vendorName}</span>
+                                                            <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-mono">
+                                                                <Wallet className="w-3 h-3 shrink-0" /> 
+                                                                <span className="truncate">{p.accountNumber}</span>
+                                                                <span className="text-slate-200">•</span>
+                                                                <span className="text-[#B18E63] font-bold">{p.ifscCode}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </TableCell>
+
+                                                {/* Amount */}
+                                                <TableCell className="py-4">
+                                                    <div className="relative group/input">
+                                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold transition-colors group-focus-within/input:text-[#B18E63]">₹</span>
+                                                        <Input 
+                                                            type="number" 
+                                                            className={cn(
+                                                                "pl-7 h-11 text-sm font-bold tabular-nums border-slate-200 transition-all shadow-none rounded-xl",
+                                                                "bg-slate-50/50 focus:bg-white focus:border-[#B18E63]/40 focus:ring-1 focus:ring-[#B18E63]/20",
+                                                                (p.amount ?? 0) > 0 ? "text-slate-800" : "text-slate-400"
+                                                            )}
+                                                            placeholder="0.00"
+                                                            value={p.amount || ''}
+                                                            onChange={(e) => updatePayment(p.tempId, { amount: parseFloat(e.target.value) || 0 })}
+                                                        />
+                                                        {(p.amount ?? 0) > 0 && (
+                                                            <CheckCircle2 className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-emerald-400" />
+                                                        )}
+                                                    </div>
+                                                </TableCell>
+
+                                                {/* Value Date */}
+                                                <TableCell className="py-4">
+                                                    <Input 
+                                                        type="date" 
+                                                        className="h-11 text-xs font-medium bg-slate-50/50 border-slate-200 focus:bg-white focus:border-[#6F8A9D]/40 focus:ring-1 focus:ring-[#6F8A9D]/20 transition-all shadow-none rounded-xl"
+                                                        value={p.valueDate ? format(p.valueDate, 'yyyy-MM-dd') : ''}
+                                                        onChange={(e) => updatePayment(p.tempId, { valueDate: new Date(e.target.value) })}
+                                                    />
+                                                </TableCell>
+
+                                                {/* Mode */}
+                                                <TableCell className="py-4">
+                                                    <Select 
+                                                        value={p.transactionMode} 
+                                                        onValueChange={(v: any) => updatePayment(p.tempId, { transactionMode: v })}
+                                                    >
+                                                        <SelectTrigger className="h-11 text-xs font-bold bg-slate-50/50 border-slate-200 focus:bg-white transition-all shadow-none rounded-xl">
+                                                            <SelectValue />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="NFT" className="text-xs font-medium">NEFT</SelectItem>
+                                                            <SelectItem value="RTI" className="text-xs font-medium">RTGS</SelectItem>
+                                                            <SelectItem value="FT" className="text-xs font-medium">Fund Transfer</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                </TableCell>
+
+                                                {/* Action */}
+                                                <TableCell className="text-right py-4">
+                                                    <Button 
+                                                        variant="ghost" 
+                                                        size="icon" 
+                                                        className="h-9 w-9 text-slate-300 hover:text-red-500 hover:bg-red-50 transition-all rounded-xl opacity-50 group-hover:opacity-100"
+                                                        onClick={() => removePayment(p.tempId)}
+                                                    >
+                                                        <X className="w-4 h-4" />
+                                                    </Button>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))
+                                    ) : (
+                                        <TableRow>
+                                            <TableCell colSpan={6} className="h-72 text-center">
+                                                <div className="flex flex-col items-center justify-center space-y-5">
+                                                    <div className="relative">
+                                                        <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center border-2 border-dashed border-slate-200">
+                                                            <Send className="w-10 h-10 text-slate-200" />
+                                                        </div>
+                                                        <div className="absolute -top-1 -right-1 w-8 h-8 rounded-xl bg-[#B18E63]/10 flex items-center justify-center">
+                                                            <Plus className="w-4 h-4 text-[#B18E63]" />
+                                                        </div>
+                                                    </div>
+                                                    <div className="space-y-2 text-center">
+                                                        <p className="font-bold text-slate-500 text-base">No payments added yet</p>
+                                                        <p className="text-xs text-slate-400 leading-relaxed max-w-[280px]">
+                                                            Select vendors from the sidebar to start building your batch payment file.
+                                                        </p>
+                                                    </div>
+                                                    <Button 
+                                                        variant="outline" 
+                                                        size="sm"
+                                                        className="text-[#B18E63] border-[#B18E63]/30 hover:bg-[#B18E63]/5 rounded-xl font-bold text-xs"
+                                                        onClick={() => setOpenDropdown(true)}
+                                                    >
+                                                        <Plus className="w-3.5 h-3.5 mr-1.5" />
+                                                        Add First Vendor
+                                                    </Button>
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </div>
+
+                    {/* -------------------------------------------------------- */}
+                    {/* SUMMARY FOOTER BAR */}
+                    {/* -------------------------------------------------------- */}
+                    {pendingPayments.length > 0 && (
+                        <div className="relative bg-white rounded-2xl border border-slate-100 shadow-[0_4px_24px_rgba(0,0,0,0.04)] overflow-hidden">
+                            {/* Accent top bar */}
+                            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#B18E63] via-[#82A094] to-[#6F8A9D]" />
+                            
+                            <div className="flex items-center justify-between p-5 pt-6">
+                                <div className="flex items-center gap-8 lg:gap-14">
+                                    <div className="space-y-1">
+                                        <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400 flex items-center gap-1">
+                                            <Hash className="w-3 h-3" /> Total Entries
+                                        </p>
+                                        <p className="font-black text-2xl text-slate-700 tabular-nums">{pendingPayments.length}</p>
+                                    </div>
+                                    <div className="w-px h-10 bg-slate-100" />
+                                    <div className="space-y-1">
+                                        <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400 flex items-center gap-1">
+                                            <Building2 className="w-3 h-3" /> Vendors
+                                        </p>
+                                        <p className="font-black text-2xl text-[#6F8A9D] tabular-nums">{stats.selectedVendors}</p>
+                                    </div>
+                                    <div className="w-px h-10 bg-slate-100" />
+                                    <div className="space-y-1">
+                                        <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400 flex items-center gap-1">
+                                            <IndianRupee className="w-3 h-3" /> Total Disbursement
+                                        </p>
+                                        <p className="font-black text-2xl text-[#B18E63] tabular-nums">
+                                            ₹{stats.totalAmount.toLocaleString('en-IN')}
+                                        </p>
+                                    </div>
+                                    {stats.validPayments < stats.totalRecords && (
+                                        <>
+                                            <div className="w-px h-10 bg-slate-100" />
+                                            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-50 border border-amber-100">
+                                                <AlertCircle className="w-4 h-4 text-amber-500" />
+                                                <p className="text-[11px] text-amber-700 font-bold">
+                                                    {stats.totalRecords - stats.validPayments} row{stats.totalRecords - stats.validPayments > 1 ? 's' : ''} missing amount
+                                                </p>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <Button 
+                                        variant="ghost" 
+                                        className="text-red-400 hover:text-red-500 hover:bg-red-50 font-bold text-xs rounded-xl h-10" 
+                                        onClick={() => {
+                                            if(confirm('Clear all pending payments?')) {
+                                                setPendingPayments([]);
+                                                toast.success('All payments cleared');
+                                            }
+                                        }}
+                                    >
+                                        <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                                        Clear
+                                    </Button>
+                                </div>
+                            </div>
                         </div>
                     )}
-                </div>
             </div>
         </div>
     );
