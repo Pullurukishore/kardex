@@ -88,7 +88,7 @@ export default function NewOfferPage() {
     assetIds: [] as string[], // Changed to array for multiple assets
     zoneId: '',
     
-    // Spare Parts for SPP (only if productType is SPP)
+    // Spare Parts for SPARE_PARTS (only if productType is SPARE_PARTS)
     spareParts: [] as Array<{
       name: string;
       photo: string;
@@ -140,9 +140,9 @@ export default function NewOfferPage() {
     }
   }, [user])
 
-  // Fetch spare parts when product type changes to SPP
+  // Fetch spare parts when product type changes to SPARE_PARTS
   useEffect(() => {
-    if (formData.productType === 'SPP') {
+    if (formData.productType === 'SPARE_PARTS') {
       fetchSpareParts()
     }
   }, [formData.productType])
@@ -362,13 +362,13 @@ export default function NewOfferPage() {
       return
     }
     
-    // Validate spare parts if product type is SPP
-    if (formData.productType === 'SPP' && formData.spareParts.length === 0) {
-      toast.error('At least one spare part is required for SPP product type')
+    // Validate spare parts if product type is SPARE_PARTS
+    if (formData.productType === 'SPARE_PARTS' && formData.spareParts.length === 0) {
+      toast.error('At least one spare part is required for SPARE_PARTS product type')
       return
     }
     
-    if (formData.productType === 'SPP') {
+    if (formData.productType === 'SPARE_PARTS') {
       for (const part of formData.spareParts) {
         if (!part.name.trim()) {
           toast.error('All spare parts must have a name')
@@ -409,8 +409,8 @@ export default function NewOfferPage() {
             return asset?.machineSerialNumber || asset?.assetName;
           }).filter(Boolean).join(', ') : null,
           
-        // Include spare parts if SPP
-        ...(formData.productType === 'SPP' && {
+        // Include spare parts if SPARE_PARTS
+        ...(formData.productType === 'SPARE_PARTS' && {
           spareParts: formData.spareParts.map(part => ({
             ...part,
             price: parseFloat(part.price)
@@ -842,12 +842,12 @@ export default function NewOfferPage() {
                   <SelectContent>
                     <SelectItem value="RELOCATION">Relocation</SelectItem>
                     <SelectItem value="CONTRACT">Contract</SelectItem>
-                    <SelectItem value="SPP">SPP (Spare Parts)</SelectItem>
+                    <SelectItem value="SPARE_PARTS">Spare Parts</SelectItem>
+                    <SelectItem value="KARDEX_CONNECT">Kardex Connect</SelectItem>
                     <SelectItem value="UPGRADE_KIT">Upgrade Kit</SelectItem>
                     <SelectItem value="SOFTWARE">Software</SelectItem>
-                    <SelectItem value="BD_CHARGES">BD Charges</SelectItem>
+                    <SelectItem value="OTHERS">Others</SelectItem>
                     <SelectItem value="BD_SPARE">BD Spare</SelectItem>
-                    <SelectItem value="MIDLIFE_UPGRADE">Midlife Upgrade</SelectItem>
                     <SelectItem value="RETROFIT_KIT">Retrofit Kit</SelectItem>
                   </SelectContent>
                 </Select>
@@ -872,8 +872,8 @@ export default function NewOfferPage() {
           </CardContent>
         </Card>
 
-        {/* Spare Parts Section - Only for SPP */}
-        {formData.productType === 'SPP' && (
+        {/* Spare Parts Section - Only for SPARE_PARTS */}
+        {formData.productType === 'SPARE_PARTS' && (
           <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm hover:shadow-xl transition-all duration-300">
             <CardHeader className="bg-gradient-to-r from-[#EEC1BF]/10 to-red-50 rounded-t-xl border-b border-[#EEC1BF]/20">
               <CardTitle className="flex items-center gap-3 text-xl">
@@ -882,7 +882,7 @@ export default function NewOfferPage() {
                 </div>
                 Spare Parts Information
               </CardTitle>
-              <CardDescription className="text-[#5D6E73] ml-12">Add spare parts details for SPP product type</CardDescription>
+              <CardDescription className="text-[#5D6E73] ml-12">Add spare parts details for SPARE_PARTS product type</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-4">

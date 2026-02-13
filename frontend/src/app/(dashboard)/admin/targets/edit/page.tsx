@@ -36,12 +36,12 @@ interface Target {
 const PRODUCT_TYPE_LABELS: { [key: string]: { label: string; icon: string; color: string; gradient: string } } = {
   'RELOCATION': { label: 'Relocation', icon: '🚚', color: 'blue', gradient: 'from-[#6F8A9D] to-[#6F8A9D]' },
   'CONTRACT': { label: 'Contract', icon: '📋', color: 'emerald', gradient: 'from-[#82A094] to-[#82A094]' },
-  'SPP': { label: 'SPP', icon: '🔧', color: 'purple', gradient: 'from-[#6F8A9D] to-[#6F8A9D]' },
+  'SPARE_PARTS': { label: 'Spare Parts', icon: '🔧', color: 'purple', gradient: 'from-[#6F8A9D] to-[#6F8A9D]' },
+  'KARDEX_CONNECT': { label: 'Kardex Connect', icon: '🔒', color: 'cyan', gradient: 'from-[#6F8A9D] to-cyan-600' },
   'UPGRADE_KIT': { label: 'Upgrade Kit', icon: '⬆️', color: 'amber', gradient: 'from-[#CE9F6B] to-[#976E44]' },
   'SOFTWARE': { label: 'Software', icon: '💻', color: 'cyan', gradient: 'from-[#6F8A9D] to-cyan-600' },
-  'BD_CHARGES': { label: 'BD Charges', icon: '💰', color: 'rose', gradient: 'from-[#E17F70] to-[#9E3B47]' },
+  'OTHERS': { label: 'Others', icon: '💰', color: 'rose', gradient: 'from-[#E17F70] to-[#9E3B47]' },
   'BD_SPARE': { label: 'BD Spare', icon: '🔩', color: 'indigo', gradient: 'from-[#6F8A9D] to-[#6F8A9D]' },
-  'MIDLIFE_UPGRADE': { label: 'Midlife Upgrade', icon: '🔄', color: 'teal', gradient: 'from-[#82A094] to-[#82A094]' },
   'RETROFIT_KIT': { label: 'Retrofit Kit', icon: '🛠️', color: 'orange', gradient: 'from-[#CE9F6B] to-[#976E44]' },
 };
 
@@ -66,7 +66,7 @@ export default function EditTargetPage() {
   const [showProductTypes, setShowProductTypes] = useState(true);
   
   // Product types from backend enum
-  const productTypes = ['RELOCATION', 'CONTRACT', 'SPP', 'UPGRADE_KIT', 'SOFTWARE', 'BD_CHARGES', 'BD_SPARE', 'MIDLIFE_UPGRADE', 'RETROFIT_KIT'];
+  const productTypes = ['RELOCATION', 'CONTRACT', 'SPARE_PARTS', 'KARDEX_CONNECT', 'UPGRADE_KIT', 'SOFTWARE', 'OTHERS', 'BD_SPARE', 'RETROFIT_KIT'];
   const [productTargets, setProductTargets] = useState<{ [key: string]: string }>({});
   
   // NEW: Track input values as strings to prevent automatic value changes while typing
@@ -184,11 +184,26 @@ export default function EditTargetPage() {
     }
   };
 
+  // Only allow numbers, dots, and empty string
+  const sanitizeNumericInput = (value: string): string => {
+    // Allow empty string
+    if (value === '') return '';
+    // Remove any character that is not a digit or dot
+    let sanitized = value.replace(/[^0-9.]/g, '');
+    // Ensure only one dot
+    const parts = sanitized.split('.');
+    if (parts.length > 2) {
+      sanitized = parts[0] + '.' + parts.slice(1).join('');
+    }
+    return sanitized;
+  };
+
   // Update input value (string) - only updates the display
   const updateInputValue = (targetId: number, value: string) => {
+    const sanitized = sanitizeNumericInput(value);
     setInputValues(prev => ({
       ...prev,
-      [targetId]: value
+      [targetId]: sanitized
     }));
   };
   
@@ -407,14 +422,14 @@ export default function EditTargetPage() {
   // If no targets exist, we'll create a form to set new targets
   const isCreatingNew = targets.length === 0;
 
-  // Calculate summary for existing targets
-  const totalTarget = targets.reduce((sum, t) => sum + t.targetValue, 0);
+  // Calculate summary for existing targets - use inputValues (user-typed) for target values
+  const totalTarget = targets.reduce((sum, t) => sum + getTargetNumericValue(t.id), 0);
   const totalActual = targets.reduce((sum, t) => sum + (t.actualValue || 0), 0);
   const overallAchievement = totalTarget > 0 ? (totalActual / totalTarget) * 100 : 0;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#AEBFC3]/10 via-blue-50/30 to-[#96AEC2]/10/50">
-      <div className="p-6 max-w-5xl mx-auto">
+      <div className="w-full">
         {/* Back Button */}
         <button
           onClick={() => router.back()}
@@ -501,13 +516,12 @@ export default function EditTargetPage() {
                   <div className="relative">
                     <span className="absolute left-5 top-1/2 -translate-y-1/2 text-[#979796] font-bold text-2xl">₹</span>
                     <input
-                      type="number"
+                      type="text"
+                      inputMode="numeric"
                       value={newTargetValue}
-                      onChange={(e) => setNewTargetValue(e.target.value)}
+                      onChange={(e) => setNewTargetValue(sanitizeNumericInput(e.target.value))}
                       className="w-full pl-14 pr-6 py-5 border-2 border-[#92A2A5] rounded-xl focus:ring-4 focus:ring-[#82A094]/20 focus:border-[#82A094] text-2xl font-bold transition-all hover:border-emerald-300"
-                      min="0"
-                      step="1"
-                      placeholder="50,00,000"
+                      placeholder="5000000"
                     />
                   </div>
                   {newTargetValue && (
@@ -558,15 +572,14 @@ export default function EditTargetPage() {
                           <div className="relative">
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#979796] font-medium">₹</span>
                             <input
-                              type="number"
+                              type="text"
+                              inputMode="numeric"
                               value={productTargets[productType] || ''}
                               onChange={(e) => setProductTargets({
                                 ...productTargets,
-                                [productType]: e.target.value
+                                [productType]: sanitizeNumericInput(e.target.value)
                               })}
                               className="w-full pl-8 pr-3 py-3 border-2 border-[#92A2A5] rounded-lg focus:ring-2 focus:ring-[#6F8A9D] focus:border-[#6F8A9D] font-semibold transition-all hover:border-[#6F8A9D]"
-                              min="0"
-                              step="1"
                               placeholder="Enter yearly target"
                             />
                           </div>
@@ -651,13 +664,12 @@ export default function EditTargetPage() {
                       <div className="relative">
                         <span className="absolute left-5 top-1/2 -translate-y-1/2 text-[#979796] font-bold text-2xl">₹</span>
                         <input
-                          type="number"
+                          type="text"
+                          inputMode="numeric"
                           value={inputValues[target.id] ?? ''}
                           onChange={(e) => updateInputValue(target.id, e.target.value)}
                           className="w-full pl-14 pr-6 py-5 border-2 border-[#92A2A5] rounded-xl focus:ring-4 focus:ring-[#82A094]/20 focus:border-[#82A094] text-2xl font-bold transition-all hover:border-emerald-300"
                           required
-                          min="0"
-                          step="1"
                         />
                       </div>
                       <div className="flex items-center gap-4 mt-4 text-sm">
@@ -753,23 +765,23 @@ export default function EditTargetPage() {
                             <div className="relative">
                               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#979796] text-sm">₹</span>
                               <input
-                                type="number"
+                                type="text"
+                                inputMode="numeric"
                                 value={targetInputValue}
                                 onChange={(e) => {
+                                  const sanitized = sanitizeNumericInput(e.target.value);
                                   if (hasTarget && existingTarget) {
-                                    updateInputValue(existingTarget.id, e.target.value);
+                                    updateInputValue(existingTarget.id, sanitized);
                                   } else {
                                     // Store new product target value
                                     setProductTargets(prev => ({
                                       ...prev,
-                                      [productType]: e.target.value
+                                      [productType]: sanitized
                                     }));
                                   }
                                 }}
                                 className="w-full pl-8 pr-3 py-3 border-2 rounded-lg font-semibold text-sm transition-all border-[#92A2A5] focus:ring-2 focus:ring-[#6F8A9D] focus:border-[#6F8A9D] hover:border-[#6F8A9D] bg-white"
                                 required={hasTarget}
-                                min="0"
-                                step="1"
                                 placeholder={hasTarget ? "Enter value" : "Enter to create new target"}
                               />
                             </div>

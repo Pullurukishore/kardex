@@ -28,12 +28,12 @@ interface ReportsFiltersProps {
 const PRODUCT_TYPES = [
   { value: 'RELOCATION', label: 'Relocation' },
   { value: 'CONTRACT', label: 'Contract' },
-  { value: 'SPP', label: 'SPP' },
-  { value: 'UPGRADE_KIT', label: 'Upgrade Kit' },
+  { value: 'SPARE_PARTS', label: 'Spare Parts' },
+  { value: 'KARDEX_CONNECT', label: 'Kardex Connect' },
+  { value: 'UPGRADE_KIT', label: 'Optilife Upgrade and Repairs' },
   { value: 'SOFTWARE', label: 'Software' },
-  { value: 'BD_CHARGES', label: 'BD Charges' },
+  { value: 'OTHERS', label: '& Others' },
   { value: 'BD_SPARE', label: 'BD Spare' },
-  { value: 'MIDLIFE_UPGRADE', label: 'Midlife Upgrade' },
   { value: 'RETROFIT_KIT', label: 'Retrofit Kit' },
 ];
 

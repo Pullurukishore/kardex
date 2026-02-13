@@ -413,11 +413,15 @@ export const STAGE_COLORS: Record<string, string> = {
 };
 
 export const PRODUCT_TYPE_COLORS: Record<string, string> = {
-  RELOCATION: '#96AEC2',  // Blue 1
-  CONTRACT: '#A2B9AF',    // Green 1
-  SPP: '#EEC18F',         // Sand 1
-  UPGRADE_KIT: '#6F8A9D', // Blue 2
-  SOFTWARE: '#82A094',    // Green 2
+  RELOCATION: '#96AEC2',     // Blue 1
+  CONTRACT: '#A2B9AF',       // Green 1
+  SPARE_PARTS: '#EEC18F',    // Sand 1
+  KARDEX_CONNECT: '#6F8A9D', // Blue 2
+  UPGRADE_KIT: '#82A094',    // Green 2
+  SOFTWARE: '#546A7A',       // Blue 3
+  OTHERS: '#E17F70',         // Red 1
+  BD_SPARE: '#4F6A64',       // Green 3
+  RETROFIT_KIT: '#92A2A5',   // Silver 2
 };
 
 // Comprehensive Dashboard Types

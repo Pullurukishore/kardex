@@ -1235,12 +1235,12 @@ export class TargetController {
       const allPossibleProductTypes = [
         'RELOCATION',
         'CONTRACT',
-        'SPP',
+        'SPARE_PARTS',
+        'KARDEX_CONNECT',
         'UPGRADE_KIT',
         'SOFTWARE',
-        'BD_CHARGES',
+        'OTHERS',
         'BD_SPARE',
-        'MIDLIFE_UPGRADE',
         'RETROFIT_KIT'
       ];
 
@@ -1435,12 +1435,12 @@ export class TargetController {
       const allPossibleProductTypes = [
         'RELOCATION',
         'CONTRACT',
-        'SPP',
+        'SPARE_PARTS',
+        'KARDEX_CONNECT',
         'UPGRADE_KIT',
         'SOFTWARE',
-        'BD_CHARGES',
+        'OTHERS',
         'BD_SPARE',
-        'MIDLIFE_UPGRADE',
         'RETROFIT_KIT'
       ];
 
@@ -2331,12 +2331,12 @@ export class TargetController {
       const allProductTypes = [
         'RELOCATION',
         'CONTRACT',
-        'SPP',
+        'SPARE_PARTS',
+        'KARDEX_CONNECT',
         'UPGRADE_KIT',
         'SOFTWARE',
-        'BD_CHARGES',
+        'OTHERS',
         'BD_SPARE',
-        'MIDLIFE_UPGRADE',
         'RETROFIT_KIT'
       ];
 

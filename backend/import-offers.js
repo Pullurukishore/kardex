@@ -15,18 +15,20 @@ const productMapping = {
     'mc': 'CONTRACT',
     'contarct': 'CONTRACT',
     'ccontarct': 'CONTRACT',
-    'spp': 'SPP',
+    'spp': 'SPARE_PARTS',
+    'spareparts': 'SPARE_PARTS',
+    'kardexconnect': 'KARDEX_CONNECT',
     'relocation': 'RELOCATION',
     'upgradekit': 'UPGRADE_KIT',
     'upgrade': 'UPGRADE_KIT',
     'software': 'SOFTWARE',
-    'bdcharges': 'BD_CHARGES',
-    'bdcharges': 'BD_CHARGES', // Already covered but just in case
+    'others': 'OTHERS',
+    'bdcharges': 'OTHERS',
     'bdspare': 'BD_SPARE',
-    'midlifeupgrade': 'MIDLIFE_UPGRADE',
-    'mlu': 'MIDLIFE_UPGRADE',
     'retrofitkit': 'RETROFIT_KIT',
-    'retrofit': 'RETROFIT_KIT'
+    'retrofit': 'RETROFIT_KIT',
+    'midlifeupgrade': 'UPGRADE_KIT',
+    'midlife': 'UPGRADE_KIT'
 };
 
 function normalizeProductType(type) {

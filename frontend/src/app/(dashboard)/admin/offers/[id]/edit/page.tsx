@@ -47,7 +47,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 
-const PRODUCT_TYPES = ['RELOCATION', 'CONTRACT', 'SPP', 'UPGRADE_KIT', 'SOFTWARE', 'BD_CHARGES', 'BD_SPARE', 'MIDLIFE_UPGRADE', 'RETROFIT_KIT']
+const PRODUCT_TYPES = ['RELOCATION', 'CONTRACT', 'SPARE_PARTS', 'KARDEX_CONNECT', 'UPGRADE_KIT', 'SOFTWARE', 'OTHERS', 'BD_SPARE', 'RETROFIT_KIT']
 const STAGES = ['INITIAL', 'PROPOSAL_SENT', 'NEGOTIATION', 'PO_RECEIVED', 'WON', 'LOST']
 const PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']
 
@@ -132,7 +132,7 @@ export default function EditOfferPage() {
   }, [offerId])
 
   useEffect(() => {
-    if (formData.productType === 'SPP') {
+    if (formData.productType === 'SPARE_PARTS') {
       fetchSpareParts()
     }
   }, [formData.productType])
@@ -276,7 +276,7 @@ export default function EditOfferPage() {
         email: formData.email || null,
         machineSerialNumber: formData.machineSerialNumber || null,
         // Include spare parts for update
-        spareParts: formData.productType === 'SPP' ? selectedSpareParts.map(sp => ({
+        spareParts: formData.productType === 'SPARE_PARTS' ? selectedSpareParts.map(sp => ({
           sparePartId: sp.sparePartId,
           quantity: sp.quantity,
           unitPrice: sp.unitPrice,
@@ -565,8 +565,8 @@ export default function EditOfferPage() {
             </CardContent>
           </Card>
 
-          {/* Spare Parts Section - Only for SPP */}
-          {formData.productType === 'SPP' && (
+          {/* Spare Parts Section - Only for SPARE_PARTS */}
+          {formData.productType === 'SPARE_PARTS' && (
             <Card className="border-0 shadow-lg overflow-hidden">
               <CardHeader className="bg-gradient-to-r from-[#CE9F6B] to-[#E17F70] text-white py-4">
                 <div className="flex items-center justify-between">

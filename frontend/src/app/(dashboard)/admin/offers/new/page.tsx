@@ -95,7 +95,7 @@ export default function NewOfferPage() {
     assetIds: [] as string[], // Changed to array for multiple assets
     zoneId: '',
     
-    // Spare Parts for SPP (only if productType is SPP)
+    // Spare Parts for SPARE_PARTS (only if productType is SPARE_PARTS)
     spareParts: [] as Array<{
       name: string;
       photo: string;
@@ -110,9 +110,9 @@ export default function NewOfferPage() {
     fetchZones()
   }, [])
 
-  // Fetch spare parts when product type changes to SPP
+  // Fetch spare parts when product type changes to SPARE_PARTS
   useEffect(() => {
-    if (formData.productType === 'SPP') {
+    if (formData.productType === 'SPARE_PARTS') {
       fetchSpareParts()
     }
   }, [formData.productType])
@@ -327,13 +327,13 @@ export default function NewOfferPage() {
       return
     }
     
-    // Validate spare parts if product type is SPP
-    if (formData.productType === 'SPP' && formData.spareParts.length === 0) {
-      toast.error('At least one spare part is required for SPP product type')
+    // Validate spare parts if product type is SPARE_PARTS
+    if (formData.productType === 'SPARE_PARTS' && formData.spareParts.length === 0) {
+      toast.error('At least one spare part is required for SPARE_PARTS product type')
       return
     }
     
-    if (formData.productType === 'SPP') {
+    if (formData.productType === 'SPARE_PARTS') {
       for (const part of formData.spareParts) {
         if (!part.name.trim()) {
           toast.error('All spare parts must have a name')
@@ -375,8 +375,8 @@ export default function NewOfferPage() {
             return asset?.serialNo || asset?.machineId || asset?.assetName;
           }).filter(Boolean).join(', ') : null,
           
-        // Include spare parts if SPP
-        ...(formData.productType === 'SPP' && {
+        // Include spare parts if SPARE_PARTS
+        ...(formData.productType === 'SPARE_PARTS' && {
           spareParts: formData.spareParts.map(part => ({
             ...part,
             price: parseFloat(part.price)
@@ -918,12 +918,21 @@ export default function NewOfferPage() {
                         </div>
                       </div>
                     </SelectItem>
-                    <SelectItem value="SPP" className="py-3 rounded-lg focus:bg-[#CE9F6B]/10">
+                    <SelectItem value="SPARE_PARTS" className="py-3 rounded-lg focus:bg-[#CE9F6B]/10">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-[#CE9F6B]/20 flex items-center justify-center text-[#976E44] font-bold shadow-sm">SP</div>
                         <div>
-                          <span className="font-bold text-[#546A7A]">SPP (Spare Parts)</span>
+                          <span className="font-bold text-[#546A7A]">Spare Parts</span>
                           <p className="text-xs text-[#AEBFC3]0 mt-0.5">Spare parts package</p>
+                        </div>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="KARDEX_CONNECT" className="py-3 rounded-lg focus:bg-[#6F8A9D]/10">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-[#6F8A9D]/20 flex items-center justify-center text-[#546A7A] font-bold shadow-sm">KC</div>
+                        <div>
+                          <span className="font-bold text-[#546A7A]">Kardex Connect</span>
+                          <p className="text-xs text-[#AEBFC3]0 mt-0.5">Kardex Connect services</p>
                         </div>
                       </div>
                     </SelectItem>
@@ -945,12 +954,12 @@ export default function NewOfferPage() {
                         </div>
                       </div>
                     </SelectItem>
-                    <SelectItem value="BD_CHARGES" className="py-3 rounded-lg focus:bg-[#E17F70]/10">
+                    <SelectItem value="OTHERS" className="py-3 rounded-lg focus:bg-[#E17F70]/10">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-[#E17F70]/20 flex items-center justify-center text-[#9E3B47] font-bold shadow-sm">BD</div>
+                        <div className="w-10 h-10 rounded-xl bg-[#E17F70]/20 flex items-center justify-center text-[#9E3B47] font-bold shadow-sm">OT</div>
                         <div>
-                          <span className="font-bold text-[#546A7A]">BD Charges</span>
-                          <p className="text-xs text-[#AEBFC3]0 mt-0.5">Breakdown service charges</p>
+                          <span className="font-bold text-[#546A7A]">Others</span>
+                          <p className="text-xs text-[#AEBFC3]0 mt-0.5">Other service charges</p>
                         </div>
                       </div>
                     </SelectItem>
@@ -963,15 +972,7 @@ export default function NewOfferPage() {
                         </div>
                       </div>
                     </SelectItem>
-                    <SelectItem value="MIDLIFE_UPGRADE" className="py-3 rounded-lg focus:bg-[#96AEC2]/10">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-[#96AEC2]/20 flex items-center justify-center text-[#546A7A] font-bold shadow-sm">MU</div>
-                        <div>
-                          <span className="font-bold text-[#546A7A]">Midlife Upgrade</span>
-                          <p className="text-xs text-[#AEBFC3]0 mt-0.5">Equipment midlife upgrade</p>
-                        </div>
-                      </div>
-                    </SelectItem>
+
                     <SelectItem value="RETROFIT_KIT" className="py-3 rounded-lg focus:bg-[#82A094]/10">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-[#82A094]/20 flex items-center justify-center text-[#4F6A64] font-bold shadow-sm">RK</div>
@@ -1039,7 +1040,7 @@ export default function NewOfferPage() {
           </CardContent>
         </Card>
 
-        {formData.productType === 'SPP' && (
+        {formData.productType === 'SPARE_PARTS' && (
           <Card className="shadow-xl border-0 bg-white overflow-hidden">
             {/* Top accent bar */}
             <div className="h-1.5 w-full bg-gradient-to-r from-[#CE9F6B] via-red-500 to-[#E17F70]"></div>

@@ -767,14 +767,14 @@ export default function OfferDetailPage() {
                   <dd>
                     <Badge className={`
                       text-xs sm:text-sm px-3 py-1.5 font-bold shadow-sm
-                      ${offer.productType === 'SPP' ? 'bg-gradient-to-r from-[#CE9F6B] to-[#976E44] text-white border-0' : ''}
+                      ${offer.productType === 'SPARE_PARTS' ? 'bg-gradient-to-r from-[#CE9F6B] to-[#976E44] text-white border-0' : ''}
+                      ${offer.productType === 'KARDEX_CONNECT' ? 'bg-gradient-to-r from-cyan-400 to-blue-600 text-white border-0' : ''}
                       ${offer.productType === 'CONTRACT' ? 'bg-gradient-to-r from-[#82A094] to-[#82A094] text-white border-0' : ''}
                       ${offer.productType === 'RELOCATION' ? 'bg-gradient-to-r from-[#6F8A9D] to-[#6F8A9D] text-white border-0' : ''}
                       ${offer.productType === 'UPGRADE_KIT' ? 'bg-gradient-to-r from-[#6F8A9D] to-[#6F8A9D] text-white border-0' : ''}
                       ${offer.productType === 'SOFTWARE' ? 'bg-gradient-to-r from-[#6F8A9D] to-[#6F8A9D] text-white border-0' : ''}
-                      ${offer.productType === 'MIDLIFE_UPGRADE' ? 'bg-gradient-to-r from-[#82A094] to-[#82A094] text-white border-0' : ''}
                       ${offer.productType === 'RETROFIT_KIT' ? 'bg-gradient-to-r from-[#E17F70] to-[#9E3B47] text-white border-0' : ''}
-                      ${offer.productType === 'BD_CHARGES' ? 'bg-gradient-to-r from-[#6F8A9D] to-cyan-600 text-white border-0' : ''}
+                      ${offer.productType === 'OTHERS' ? 'bg-gradient-to-r from-[#6F8A9D] to-cyan-600 text-white border-0' : ''}
                       ${offer.productType === 'BD_SPARE' ? 'bg-gradient-to-r from-[#CE9F6B] to-[#976E44] text-white border-0' : ''}
                     `}>
                       {offer.productType?.replace(/_/g, ' ')}
@@ -863,9 +863,9 @@ export default function OfferDetailPage() {
               </CardContent>
             </Card>
           )}
-          {/* Spare Parts - Show for SPP or if parts exist */}
-          {(offer.productType === 'SPP' || (offer.offerSpareParts && offer.offerSpareParts.length > 0)) && (
-            <Card className={`shadow-xl overflow-hidden border-0 ${offer.productType === 'SPP' ? 'ring-2 ring-[#CE9F6B]/50' : ''}`}>
+          {/* Spare Parts - Show for SPARE_PARTS or if parts exist */}
+          {(offer.productType === 'SPARE_PARTS' || (offer.offerSpareParts && offer.offerSpareParts.length > 0)) && (
+            <Card className={`shadow-xl overflow-hidden border-0 ${offer.productType === 'SPARE_PARTS' ? 'ring-2 ring-[#CE9F6B]/50' : ''}`}>
               <CardHeader className="bg-gradient-to-r from-[#CE9F6B] to-[#976E44] text-white border-b-0 py-4 sm:py-6">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
@@ -878,28 +878,28 @@ export default function OfferDetailPage() {
                         </Badge>
                       )}
                     </CardTitle>
-                    <CardDescription className="text-white/70 text-xs sm:text-sm mt-1">
-                      {offer.productType === 'SPP' 
-                        ? 'Spare parts configured for this SPP offer' 
+                     <CardDescription className="text-white/70 text-xs sm:text-sm mt-1">
+                      {offer.productType === 'SPARE_PARTS' 
+                        ? 'Spare parts configured for this SPARE PARTS offer' 
                         : 'Items included in this offer'}
                     </CardDescription>
                   </div>
-                  {offer.productType === 'SPP' && (
+                  {offer.productType === 'SPARE_PARTS' && (
                     <Badge className="bg-white text-[#976E44] border-0 self-start sm:self-center font-bold text-[10px] sm:text-xs px-3 py-1">
-                      SPP Product
+                      SPARE PARTS Product
                     </Badge>
                   )}
                 </div>
               </CardHeader>
               <CardContent className="pt-6 pb-6 sm:pb-8 bg-gradient-to-br from-[#AEBFC3]/5 to-white p-4 sm:p-6">
-                {(!offer.offerSpareParts || offer.offerSpareParts.length === 0) && offer.productType === 'SPP' ? (
+                {(!offer.offerSpareParts || offer.offerSpareParts.length === 0) && offer.productType === 'SPARE_PARTS' ? (
                   <div className="text-center py-10 sm:py-16">
                     <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-[#CE9F6B]/10 mb-4 sm:mb-6">
                       <Wrench className="h-8 w-8 sm:h-10 sm:w-10 text-[#976E44]" />
                     </div>
                     <h3 className="text-lg sm:text-xl font-bold text-[#546A7A] mb-2">No Spare Parts Added Yet</h3>
                     <p className="text-[#5D6E73] mb-8 max-w-sm mx-auto text-sm">
-                      This is an SPP (Spare Parts) offer. Please add spare parts to complete the offer details.
+                      This is a SPARE PARTS offer. Please add spare parts to complete the offer details.
                     </p>
                     <Button 
                       onClick={() => router.push(`/admin/offers/${offer.id}/edit`)}

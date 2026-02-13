@@ -64,7 +64,7 @@ import { toast } from 'sonner'
 
 // Note: PO_RECEIVED leads directly to WON (ORDER_BOOKED stage removed)
 const stages = ['All Stage', 'INITIAL', 'PROPOSAL_SENT', 'NEGOTIATION', 'PO_RECEIVED', 'WON', 'LOST']
-const productTypes = ['All Product Types', 'RELOCATION', 'CONTRACT', 'SPP', 'UPGRADE_KIT', 'SOFTWARE', 'BD_CHARGES', 'BD_SPARE', 'MIDLIFE_UPGRADE', 'RETROFIT_KIT']
+const productTypes = ['All Product Types', 'RELOCATION', 'CONTRACT', 'SPARE_PARTS', 'KARDEX_CONNECT', 'UPGRADE_KIT', 'SOFTWARE', 'OTHERS', 'BD_SPARE', 'RETROFIT_KIT']
 
 export default function OfferManagement() {
   const router = useRouter()
@@ -572,14 +572,14 @@ export default function OfferManagement() {
                     <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                       <span className={`
                         inline-flex px-2 py-1 text-xs font-bold rounded-md
-                        ${offer.productType === 'SPP' ? 'bg-[#CE9F6B]/20 text-[#976E44]' :
+                        ${offer.productType === 'SPARE_PARTS' ? 'bg-[#CE9F6B]/20 text-[#976E44]' :
+                          offer.productType === 'KARDEX_CONNECT' ? 'bg-[#96AEC2]/20 text-[#546A7A]' :
                           offer.productType === 'CONTRACT' ? 'bg-[#82A094]/20 text-[#4F6A64]' :
                           offer.productType === 'RELOCATION' ? 'bg-[#96AEC2]/20 text-[#546A7A]' :
                           offer.productType === 'UPGRADE_KIT' ? 'bg-[#6F8A9D]/20 text-[#546A7A]' :
                           offer.productType === 'SOFTWARE' ? 'bg-[#546A7A]/20 text-[#546A7A]' :
-                          offer.productType === 'BD_CHARGES' ? 'bg-[#CE9F6B]/20 text-[#976E44]' :
+                          offer.productType === 'OTHERS' ? 'bg-[#CE9F6B]/20 text-[#976E44]' :
                           offer.productType === 'BD_SPARE' ? 'bg-[#EEC1BF]/20 text-[#9E3B47]' :
-                          offer.productType === 'MIDLIFE_UPGRADE' ? 'bg-[#96AEC2]/20 text-[#546A7A]' :
                           offer.productType === 'RETROFIT_KIT' ? 'bg-[#82A094]/20 text-[#4F6A64]' :
                           'bg-[#AEBFC3]/20 text-[#5D6E73]'}
                       `}>

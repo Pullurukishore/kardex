@@ -379,10 +379,12 @@ export default function ZoneForecastDashboard({ zoneId, zoneName }: Props) {
   }
 
   const formatCurrencyCompact = (value: number) => {
-    if (value >= 10000000) {
-      return `₹${(value / 10000000).toFixed(2)}Cr`
-    } else if (value >= 100000) {
-      return `₹${(value / 100000).toFixed(2)}L`
+    const abs = Math.abs(value)
+    const sign = value < 0 ? '-' : ''
+    if (abs >= 10000000) {
+      return `${sign}₹${(abs / 10000000).toFixed(2)}Cr`
+    } else if (abs >= 100000) {
+      return `${sign}₹${(abs / 100000).toFixed(2)}L`
     }
     return formatCurrency(value)
   }
@@ -831,11 +833,16 @@ export default function ZoneForecastDashboard({ zoneId, zoneName }: Props) {
                                 </span>
                               </td>
                               <td className="px-2 py-2 text-right">
-                                <span className={`font-mono font-medium ${
-                                  zone.yearlyTarget - zone.ordersReceived <= 0 ? 'text-[#4F6A64] dark:text-[#82A094]' : 'text-[#9E3B47] dark:text-[#E17F70]'
-                                }`}>
-                                  {formatCurrencyCompact(zone.yearlyTarget - zone.ordersReceived)}
-                                </span>
+                                {(() => {
+                                  const bal = zone.yearlyTarget - zone.ordersReceived
+                                  return (
+                                    <span className={`font-mono font-medium ${
+                                      bal <= 0 ? 'text-[#4F6A64] dark:text-[#82A094]' : 'text-[#9E3B47] dark:text-[#E17F70]'
+                                    }`}>
+                                      {bal <= 0 ? `Surplus ${formatCurrencyCompact(Math.abs(bal))}` : formatCurrencyCompact(bal)}
+                                    </span>
+                                  )
+                                })()}
                               </td>
                               <td className="px-2 py-2">
                                 <div className="flex items-center gap-1.5">

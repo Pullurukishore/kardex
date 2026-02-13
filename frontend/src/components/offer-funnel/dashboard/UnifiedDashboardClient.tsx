@@ -251,12 +251,12 @@ export default function UnifiedDashboardClient({ mode }: UnifiedDashboardClientP
     const ALL_PRODUCT_TYPES = [
       'RELOCATION',
       'CONTRACT',
-      'SPP',
+      'SPARE_PARTS',
+      'KARDEX_CONNECT',
       'UPGRADE_KIT',
       'SOFTWARE',
-      'BD_CHARGES',
+      'OTHERS',
       'BD_SPARE',
-      'MIDLIFE_UPGRADE',
       'RETROFIT_KIT',
     ]
     

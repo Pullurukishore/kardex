@@ -60,12 +60,12 @@ interface TargetDetail {
 const PRODUCT_TYPE_CONFIG: { [key: string]: { label: string; icon: string; gradient: string; bg: string; border: string } } = {
   'RELOCATION': { label: 'Relocation', icon: '🚚', gradient: 'from-[#6F8A9D] to-[#6F8A9D]', bg: 'bg-[#96AEC2]/10', border: 'border-[#96AEC2]' },
   'CONTRACT': { label: 'Contract', icon: '📋', gradient: 'from-[#82A094] to-[#82A094]', bg: 'bg-[#82A094]/10', border: 'border-[#A2B9AF]/40' },
-  'SPP': { label: 'SPP', icon: '🔧', gradient: 'from-[#6F8A9D] to-[#6F8A9D]', bg: 'bg-[#6F8A9D]/10', border: 'border-[#6F8A9D]' },
+  'SPARE_PARTS': { label: 'Spare Parts', icon: '🔧', gradient: 'from-[#6F8A9D] to-[#6F8A9D]', bg: 'bg-[#6F8A9D]/10', border: 'border-[#6F8A9D]' },
+  'KARDEX_CONNECT': { label: 'Kardex Connect', icon: '🔒', gradient: 'from-[#6F8A9D] to-cyan-600', bg: 'bg-[#96AEC2]/10', border: 'border-[#96AEC2]/40' },
   'UPGRADE_KIT': { label: 'Upgrade Kit', icon: '⬆️', gradient: 'from-[#CE9F6B] to-[#976E44]', bg: 'bg-[#CE9F6B]/10', border: 'border-[#CE9F6B]/40' },
   'SOFTWARE': { label: 'Software', icon: '💻', gradient: 'from-[#6F8A9D] to-cyan-600', bg: 'bg-[#96AEC2]/10', border: 'border-[#96AEC2]/40' },
-  'BD_CHARGES': { label: 'BD Charges', icon: '💰', gradient: 'from-[#E17F70] to-[#9E3B47]', bg: 'bg-[#EEC1BF]/10', border: 'border-[#EEC1BF]/40' },
+  'OTHERS': { label: 'Others', icon: '💰', gradient: 'from-[#E17F70] to-[#9E3B47]', bg: 'bg-[#EEC1BF]/10', border: 'border-[#EEC1BF]/40' },
   'BD_SPARE': { label: 'BD Spare', icon: '🔩', gradient: 'from-[#6F8A9D] to-[#6F8A9D]', bg: 'bg-[#546A7A]/10', border: 'border-[#546A7A]' },
-  'MIDLIFE_UPGRADE': { label: 'Midlife Upgrade', icon: '🔄', gradient: 'from-[#82A094] to-[#82A094]', bg: 'bg-[#82A094]/10', border: 'border-[#A2B9AF]/40' },
   'RETROFIT_KIT': { label: 'Retrofit Kit', icon: '🛠️', gradient: 'from-[#CE9F6B] to-[#976E44]', bg: 'bg-[#CE9F6B]/10', border: 'border-[#CE9F6B]' },
   'Overall': { label: 'Overall', icon: '🎯', gradient: 'from-slate-600 to-slate-700', bg: 'bg-[#AEBFC3]/10', border: 'border-[#92A2A5]' },
 };
@@ -85,7 +85,7 @@ export default function TargetViewPage() {
   const [entityName, setEntityName] = useState('');
 
   // Product types from backend enum
-  const productTypes = ['RELOCATION', 'CONTRACT', 'SPP', 'UPGRADE_KIT', 'SOFTWARE', 'BD_CHARGES', 'BD_SPARE', 'MIDLIFE_UPGRADE', 'RETROFIT_KIT'];
+  const productTypes = ['RELOCATION', 'CONTRACT', 'SPARE_PARTS', 'KARDEX_CONNECT', 'UPGRADE_KIT', 'SOFTWARE', 'OTHERS', 'BD_SPARE', 'RETROFIT_KIT'];
 
   // Protect this page - only ADMIN can access
   useEffect(() => {
@@ -202,7 +202,7 @@ export default function TargetViewPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#AEBFC3]/10 via-blue-50/30 to-[#96AEC2]/10/50">
-      <div className="p-6 max-w-6xl mx-auto">
+      <div className="w-full">
         {/* Back Button */}
         <button
           onClick={() => router.back()}

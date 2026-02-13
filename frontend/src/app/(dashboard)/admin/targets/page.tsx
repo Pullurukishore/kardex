@@ -65,19 +65,19 @@ interface ProductTypeBreakdown {
 type TargetType = 'ZONE' | 'USER';
 
 const PRODUCT_TYPES = [
-  'RELOCATION', 'CONTRACT', 'SPP', 'UPGRADE_KIT', 'SOFTWARE', 
-  'BD_CHARGES', 'BD_SPARE', 'MIDLIFE_UPGRADE', 'RETROFIT_KIT'
+  'RELOCATION', 'CONTRACT', 'SPARE_PARTS', 'KARDEX_CONNECT', 'UPGRADE_KIT', 'SOFTWARE', 
+  'OTHERS', 'BD_SPARE', 'RETROFIT_KIT'
 ];
 
 const PRODUCT_TYPE_COLORS: { [key: string]: string } = {
   'RELOCATION': 'bg-[#96AEC2]/20 text-[#546A7A] border-[#96AEC2]',
   'CONTRACT': 'bg-[#82A094]/20 text-[#4F6A64] border-[#A2B9AF]/40',
-  'SPP': 'bg-[#6F8A9D]/20 text-[#546A7A] border-[#6F8A9D]',
+  'SPARE_PARTS': 'bg-[#6F8A9D]/20 text-[#546A7A] border-[#6F8A9D]',
+  'KARDEX_CONNECT': 'bg-[#96AEC2]/20 text-[#546A7A] border-[#96AEC2]/40',
   'UPGRADE_KIT': 'bg-[#CE9F6B]/20 text-[#976E44] border-[#CE9F6B]/40',
   'SOFTWARE': 'bg-[#96AEC2]/20 text-[#546A7A] border-[#96AEC2]/40',
-  'BD_CHARGES': 'bg-[#EEC1BF]/20 text-[#9E3B47] border-[#EEC1BF]/40',
+  'OTHERS': 'bg-[#EEC1BF]/20 text-[#9E3B47] border-[#EEC1BF]/40',
   'BD_SPARE': 'bg-[#546A7A]/20 text-[#546A7A] border-[#546A7A]',
-  'MIDLIFE_UPGRADE': 'bg-[#82A094]/20 text-[#4F6A64] border-[#A2B9AF]/40',
   'RETROFIT_KIT': 'bg-[#CE9F6B]/20 text-[#976E44] border-[#CE9F6B]',
   'Overall': 'bg-[#AEBFC3]/20 text-[#5D6E73] border-[#92A2A5]',
 };

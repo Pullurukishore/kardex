@@ -217,10 +217,12 @@ export default function UserForecastDashboard({ userId, userName, zoneName }: Pr
   }
 
   const formatCurrencyCompact = (value: number) => {
-    if (value >= 10000000) {
-      return `₹${(value / 10000000).toFixed(2)}Cr`
-    } else if (value >= 100000) {
-      return `₹${(value / 100000).toFixed(2)}L`
+    const abs = Math.abs(value)
+    const sign = value < 0 ? '-' : ''
+    if (abs >= 10000000) {
+      return `${sign}₹${(abs / 10000000).toFixed(2)}Cr`
+    } else if (abs >= 100000) {
+      return `${sign}₹${(abs / 100000).toFixed(2)}L`
     }
     return formatCurrency(value)
   }

@@ -3563,7 +3563,7 @@ const generateProductTypeAnalysisReport = async (res: Response, whereClause: any
 
 
     // Define all product types
-    const allProductTypes = ['RELOCATION', 'CONTRACT', 'SPP', 'UPGRADE_KIT', 'SOFTWARE', 'BD_CHARGES', 'BD_SPARE', 'MIDLIFE_UPGRADE', 'RETROFIT_KIT'];
+    const allProductTypes = ['RELOCATION', 'CONTRACT', 'SPARE_PARTS', 'KARDEX_CONNECT', 'UPGRADE_KIT', 'SOFTWARE', 'OTHERS', 'BD_SPARE', 'RETROFIT_KIT'];
 
     // Create maps for easy lookup
     const metricsMap = new Map(productTypeMetrics.map(m => [m.productType || 'UNKNOWN', m]));
@@ -3798,7 +3798,7 @@ export const getProductTypeAnalysis = async (req: Request, res: Response) => {
     });
 
     // Define all product types
-    const allProductTypes = ['RELOCATION', 'CONTRACT', 'SPP', 'UPGRADE_KIT', 'SOFTWARE', 'BD_CHARGES', 'BD_SPARE', 'MIDLIFE_UPGRADE', 'RETROFIT_KIT'];
+    const allProductTypes = ['RELOCATION', 'CONTRACT', 'SPARE_PARTS', 'KARDEX_CONNECT', 'UPGRADE_KIT', 'SOFTWARE', 'OTHERS', 'BD_SPARE', 'RETROFIT_KIT'];
 
     // Create maps for easy lookup
     const metricsMap = new Map(productTypeMetrics.map(m => [m.productType || 'UNKNOWN', m]));

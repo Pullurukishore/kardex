@@ -799,13 +799,13 @@ export class ForecastController {
                 const productTypes = [
                     { key: 'CONTRACT', label: 'Contract' },
                     { key: 'BD_SPARE', label: 'BD Spare' },
-                    { key: 'SPP', label: 'SPP' },
+                    { key: 'SPARE_PARTS', label: 'Spare Parts' },
+                    { key: 'KARDEX_CONNECT', label: 'Kardex Connect' },
                     { key: 'RELOCATION', label: 'Relocation' },
                     { key: 'SOFTWARE', label: 'Software' },
-                    { key: 'BD_CHARGES', label: 'BD Charges' },
+                    { key: 'OTHERS', label: 'Others' },
                     { key: 'RETROFIT_KIT', label: 'Retrofit Kit' },
                     { key: 'UPGRADE_KIT', label: 'Upgrade Kit' },
-                    { key: 'MIDLIFE_UPGRADE', label: 'Midlife Upgrade' },
                 ];
 
                 const productBreakdown = await Promise.all(productTypes.map(async (productType) => {
@@ -921,7 +921,7 @@ export class ForecastController {
                         offersValue: allOffersValue,
                         orderReceived: allOrdersReceived,
                         ordersBooked: allOrdersReceived, // Same as orderReceived
-                        ordersInHand: allOffersValue - allOrdersReceived, // Recalculate based on all offers
+                        ordersInHand: allOffersValue - allOrdersReceived, // Recalculate based on all offers (Old logic)
                         buMonthly: totalBUMonthly,
                         offerBUMonth: totalOfferBUMonth,
                     },
@@ -1203,13 +1203,13 @@ export class ForecastController {
                 const productTypes = [
                     { key: 'CONTRACT', label: 'Contract' },
                     { key: 'BD_SPARE', label: 'BD Spare' },
-                    { key: 'SPP', label: 'SPP' },
+                    { key: 'SPARE_PARTS', label: 'Spare Parts' },
+                    { key: 'KARDEX_CONNECT', label: 'Kardex Connect' },
                     { key: 'RELOCATION', label: 'Relocation' },
                     { key: 'SOFTWARE', label: 'Software' },
-                    { key: 'BD_CHARGES', label: 'BD Charges' },
+                    { key: 'OTHERS', label: 'Others' },
                     { key: 'RETROFIT_KIT', label: 'Retrofit Kit' },
                     { key: 'UPGRADE_KIT', label: 'Upgrade Kit' },
-                    { key: 'MIDLIFE_UPGRADE', label: 'Midlife Upgrade' },
                 ];
 
                 const productBreakdown = await Promise.all(productTypes.map(async (productType) => {
@@ -1372,8 +1372,8 @@ export class ForecastController {
 
             // All product types
             const productTypes = [
-                'CONTRACT', 'BD_SPARE', 'SPP', 'RELOCATION', 'SOFTWARE',
-                'BD_CHARGES', 'RETROFIT_KIT', 'UPGRADE_KIT', 'MIDLIFE_UPGRADE'
+                'CONTRACT', 'BD_SPARE', 'SPARE_PARTS', 'KARDEX_CONNECT', 'RELOCATION', 'SOFTWARE',
+                'OTHERS', 'RETROFIT_KIT', 'UPGRADE_KIT'
             ];
 
             // Get zones (filtered by zoneId if provided)
@@ -1524,14 +1524,14 @@ export class ForecastController {
             const productTypes = [
                 { key: 'CONTRACT', label: 'Contract' },
                 { key: 'BD_SPARE', label: 'BD Spare' },
-                { key: 'SPP', label: 'SPP' },
+                { key: 'SPARE_PARTS', label: 'Spare Parts' },
+                { key: 'KARDEX_CONNECT', label: 'Kardex Connect' },
                 { key: 'RELOCATION', label: 'Relocation' },
                 { key: 'SOFTWARE', label: 'Software' },
-                { key: 'BD_CHARGES', label: 'BD Charges' },
+                { key: 'OTHERS', label: 'Others' },
                 { key: 'RETROFIT_KIT', label: 'Retrofit kit' },
                 { key: 'UPGRADE_KIT', label: 'Upgrade kit' },
                 { key: 'TRAINING', label: 'Training' },
-                { key: 'MIDLIFE_UPGRADE', label: 'Midlife Upgrade' },
             ];
 
             // Get zones (filtered by zoneId if provided)

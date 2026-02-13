@@ -117,7 +117,8 @@ export class OfferController {
 
           // Product type mapping to match your company format
           const productTypeMap: Record<string, string> = {
-            'SPP': 'SPP',           // Spare Parts -> SPP (same as company format)
+            'SPARE_PARTS': 'SPP',   // Spare Parts -> SPP (same as company format)
+            'KARDEX_CONNECT': 'KCN', // Kardex Connect -> KCN
             'CONTRACT': 'CON',      // Contract -> CON
             'RELOCATION': 'REL',    // Relocation -> REL
             'UPGRADE_KIT': 'UPG',   // Upgrade Kit -> UPG
@@ -649,7 +650,7 @@ export class OfferController {
       });
 
       // Create OfferSparePart entries if SPP product type and spare parts provided
-      if (productType === 'SPP' && spareParts && Array.isArray(spareParts) && spareParts.length > 0) {
+      if (productType === 'SPARE_PARTS' && spareParts && Array.isArray(spareParts) && spareParts.length > 0) {
         const sparePartEntries = spareParts.map((part: any) => {
           const quantity = parseInt(part.quantity) || 1;
           const unitPrice = parseFloat(part.price) || 0;

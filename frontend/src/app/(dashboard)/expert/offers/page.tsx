@@ -77,7 +77,7 @@ const DynamicEditOfferDialog = dynamic(() => import('@/components/offers/EditOff
 
 // Note: PO_RECEIVED leads directly to WON (ORDER_BOOKED stage removed)
 const stages = ['All Stage', 'INITIAL', 'PROPOSAL_SENT', 'NEGOTIATION', 'PO_RECEIVED', 'WON', 'LOST']
-const productTypes = ['All Product Types', 'RELOCATION', 'CONTRACT', 'SPP', 'UPGRADE_KIT', 'SOFTWARE', 'BD_CHARGES', 'BD_SPARE', 'MIDLIFE_UPGRADE', 'RETROFIT_KIT']
+const productTypes = ['All Product Types', 'RELOCATION', 'CONTRACT', 'SPARE_PARTS', 'KARDEX_CONNECT', 'UPGRADE_KIT', 'SOFTWARE', 'OTHERS', 'BD_SPARE', 'RETROFIT_KIT']
 
 export default function OfferManagement() {
   const router = useRouter()
@@ -568,14 +568,14 @@ export default function OfferManagement() {
                     </td>
                     <td className="px-6 py-4">
                       <Badge className={`${
-                        offer.productType === 'SPP' ? 'bg-gradient-to-r from-orange-100 to-[#EEC1BF]/10 text-[#976E44] border-[#CE9F6B] shadow-sm' :
+                        offer.productType === 'SPARE_PARTS' ? 'bg-gradient-to-r from-orange-100 to-[#EEC1BF]/10 text-[#976E44] border-[#CE9F6B] shadow-sm' :
+                        offer.productType === 'KARDEX_CONNECT' ? 'bg-gradient-to-r from-[#96AEC2]/20 to-[#96AEC2]/10 text-[#546A7A] border-[#96AEC2] shadow-sm' :
                         offer.productType === 'CONTRACT' ? 'bg-gradient-to-r from-emerald-100 to-[#A2B9AF]/10 text-[#4F6A64] border-emerald-300 shadow-sm' :
                         offer.productType === 'RELOCATION' ? 'bg-gradient-to-r from-[#96AEC2]/20 to-[#96AEC2]/10 text-[#546A7A] border-[#96AEC2] shadow-sm' :
                         offer.productType === 'UPGRADE_KIT' ? 'bg-gradient-to-r from-[#96AEC2]/20 to-[#96AEC2]/10 text-[#546A7A] border-[#6F8A9D] shadow-sm' :
                         offer.productType === 'SOFTWARE' ? 'bg-gradient-to-r from-[#96AEC2]/20 to-[#96AEC2]/10 text-[#546A7A] border-indigo-300 shadow-sm' :
-                        offer.productType === 'BD_CHARGES' ? 'bg-gradient-to-r from-amber-100 to-[#EEC1BF]/10 text-[#976E44] border-amber-300 shadow-sm' :
+                        offer.productType === 'OTHERS' ? 'bg-gradient-to-r from-amber-100 to-[#EEC1BF]/10 text-[#976E44] border-amber-300 shadow-sm' :
                         offer.productType === 'BD_SPARE' ? 'bg-gradient-to-r from-rose-100 to-[#EEC1BF]/10 text-[#75242D] border-rose-300 shadow-sm' :
-                        offer.productType === 'MIDLIFE_UPGRADE' ? 'bg-gradient-to-r from-cyan-100 to-[#96AEC2]/10 text-[#546A7A] border-cyan-300 shadow-sm' :
                         offer.productType === 'RETROFIT_KIT' ? 'bg-gradient-to-r from-teal-100 to-[#A2B9AF]/10 text-[#4F6A64] border-teal-300 shadow-sm' :
                         'bg-gradient-to-r from-gray-100 to-gray-50 text-[#546A7A] border-[#92A2A5] shadow-sm'
                       } font-semibold px-3 py-1`}>
