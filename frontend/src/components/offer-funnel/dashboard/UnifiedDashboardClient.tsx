@@ -15,6 +15,7 @@ import {
   XCircle, Award, CheckCircle, Clock, Zap, ShoppingCart, RefreshCw
 } from 'lucide-react'
 import { apiService } from '@/services/api'
+import { PRODUCT_TYPE_LABELS } from '@/types/reports'
 
 interface DashboardStats {
   totalOffers: number
@@ -81,6 +82,7 @@ interface DashboardData {
   zoneTarget?: { zoneName: string; period: string; targetValue: number; achievement: number; actualValue: number }
   zoneYearlyTarget?: { zoneName: string; period: string; targetValue: number; achievement: number; actualValue: number }
 }
+
 
 interface UnifiedDashboardClientProps {
   mode: 'admin' | 'zoneManager' | 'zoneUser'
@@ -1433,7 +1435,7 @@ export default function UnifiedDashboardClient({ mode }: UnifiedDashboardClientP
                               <td className="px-3 py-3 whitespace-nowrap">
                                 <div className="flex items-center gap-3">
                                   <span className="inline-block h-3 w-3 rounded-full" style={{ backgroundColor: color }} />
-                                  <span className="font-medium text-[#546A7A]">{p.productType}</span>
+                                 <span className="font-medium text-[#546A7A]">{PRODUCT_TYPE_LABELS[p.productType] || p.productType.replace(/_/g, ' ')}</span>
                                 </div>
                               </td>
                               <td className="px-3 py-3">{p.count}</td>
@@ -1765,7 +1767,7 @@ export default function UnifiedDashboardClient({ mode }: UnifiedDashboardClientP
                     <Bar 
                       key={pt} 
                       dataKey={pt} 
-                      name={pt.replace(/_/g, ' ')} 
+                      name={PRODUCT_TYPE_LABELS[pt] || pt.replace(/_/g, ' ')} 
                       stackId="a" 
                       fill={productTypeData.productStackColors[idx % productTypeData.productStackColors.length]} 
                       radius={[6,6,0,0]} 
@@ -1841,7 +1843,7 @@ export default function UnifiedDashboardClient({ mode }: UnifiedDashboardClientP
                             <td className="px-3 py-3 whitespace-nowrap">
                               <div className="flex items-center gap-3">
                                 <span className="inline-block h-3 w-3 rounded-full" style={{ backgroundColor: color }} />
-                                <span className="font-medium text-[#546A7A]">{p.productType}</span>
+                                <span className="font-medium text-[#546A7A]">{PRODUCT_TYPE_LABELS[p.productType] || p.productType.replace(/_/g, ' ')}</span>
                               </div>
                             </td>
                             <td className="px-3 py-3">{p.count}</td>

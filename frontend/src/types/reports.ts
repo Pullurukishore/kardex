@@ -424,6 +424,20 @@ export const PRODUCT_TYPE_COLORS: Record<string, string> = {
   RETROFIT_KIT: '#92A2A5',   // Silver 2
 };
 
+export const PRODUCT_TYPE_LABELS: Record<string, string> = {
+  RELOCATION: 'Relocation',
+  CONTRACT: 'Contract',
+  SPARE_PARTS: 'Spare Parts',
+  KARDEX_CONNECT: 'Kardex Connect',
+  UPGRADE_KIT: 'Optilife Upgrade',
+  SOFTWARE: 'Software',
+  OTHERS: 'Repairs & Others',
+  BD_SPARE: 'BD Spare',
+  RETROFIT_KIT: 'Retrofit Kit',
+};
+
+export const PRODUCT_TYPES = Object.keys(PRODUCT_TYPE_LABELS);
+
 // Comprehensive Dashboard Types
 export interface ComprehensiveDashboardData {
   summary: {

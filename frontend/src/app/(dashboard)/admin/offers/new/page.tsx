@@ -25,6 +25,7 @@ const AddAssetDialog = dynamic(() => import('@/components/offers/AddAssetDialog'
 import { ArrowLeft, Save, Loader2, Plus, Users, HardDrive, Search, X, Building2, MapPin, FileText, Calendar, DollarSign, Target, MessageSquare, Image } from 'lucide-react'
 import { apiService } from '@/services/api'
 import { toast } from 'sonner'
+import { PRODUCT_TYPE_LABELS } from '@/types/reports'
 
 
 export default function NewOfferPage() {
@@ -359,7 +360,7 @@ export default function NewOfferPage() {
         zoneId: parseInt(formData.zoneId),
         
         // Auto-generate title based on customer and product type
-        title: `${formData.productType} - ${selectedCustomer?.companyName}`,
+        title: `${PRODUCT_TYPE_LABELS[formData.productType] || formData.productType} - ${selectedCustomer?.companyName}`,
         
         // Add customer/contact/asset info for easy access
         company: selectedCustomer?.companyName,
@@ -940,7 +941,7 @@ export default function NewOfferPage() {
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-[#96AEC2]/20 flex items-center justify-center text-[#546A7A] font-bold shadow-sm">UK</div>
                         <div>
-                          <span className="font-bold text-[#546A7A]">Upgrade Kit</span>
+                          <span className="font-bold text-[#546A7A]">Optilife Upgrade</span>
                           <p className="text-xs text-[#AEBFC3]0 mt-0.5">Hardware upgrade package</p>
                         </div>
                       </div>
@@ -958,7 +959,7 @@ export default function NewOfferPage() {
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-[#E17F70]/20 flex items-center justify-center text-[#9E3B47] font-bold shadow-sm">OT</div>
                         <div>
-                          <span className="font-bold text-[#546A7A]">Others</span>
+                          <span className="font-bold text-[#546A7A]">Repairs & Others</span>
                           <p className="text-xs text-[#AEBFC3]0 mt-0.5">Other service charges</p>
                         </div>
                       </div>

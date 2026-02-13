@@ -10,6 +10,8 @@ import {
   Building2, Users, CheckCircle, Sparkles, Zap, Crown, DollarSign, Activity, RefreshCw
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { PRODUCT_TYPES, PRODUCT_TYPE_LABELS as CENTRAL_PRODUCT_TYPE_LABELS } from '@/types/reports';
+import { Label } from '@/components/ui/label';
 
 interface Target {
   id: number;
@@ -33,16 +35,16 @@ interface Target {
   };
 }
 
-const PRODUCT_TYPE_LABELS: { [key: string]: { label: string; icon: string; color: string; gradient: string } } = {
-  'RELOCATION': { label: 'Relocation', icon: '🚚', color: 'blue', gradient: 'from-[#6F8A9D] to-[#6F8A9D]' },
-  'CONTRACT': { label: 'Contract', icon: '📋', color: 'emerald', gradient: 'from-[#82A094] to-[#82A094]' },
-  'SPARE_PARTS': { label: 'Spare Parts', icon: '🔧', color: 'purple', gradient: 'from-[#6F8A9D] to-[#6F8A9D]' },
-  'KARDEX_CONNECT': { label: 'Kardex Connect', icon: '🔒', color: 'cyan', gradient: 'from-[#6F8A9D] to-cyan-600' },
-  'UPGRADE_KIT': { label: 'Upgrade Kit', icon: '⬆️', color: 'amber', gradient: 'from-[#CE9F6B] to-[#976E44]' },
-  'SOFTWARE': { label: 'Software', icon: '💻', color: 'cyan', gradient: 'from-[#6F8A9D] to-cyan-600' },
-  'OTHERS': { label: 'Others', icon: '💰', color: 'rose', gradient: 'from-[#E17F70] to-[#9E3B47]' },
-  'BD_SPARE': { label: 'BD Spare', icon: '🔩', color: 'indigo', gradient: 'from-[#6F8A9D] to-[#6F8A9D]' },
-  'RETROFIT_KIT': { label: 'Retrofit Kit', icon: '🛠️', color: 'orange', gradient: 'from-[#CE9F6B] to-[#976E44]' },
+const PRODUCT_TYPE_CONFIG: { [key: string]: { label: string; icon: string; color: string; gradient: string } } = {
+  'RELOCATION': { label: CENTRAL_PRODUCT_TYPE_LABELS.RELOCATION, icon: '🚚', color: 'blue', gradient: 'from-[#6F8A9D] to-[#6F8A9D]' },
+  'CONTRACT': { label: CENTRAL_PRODUCT_TYPE_LABELS.CONTRACT, icon: '📋', color: 'emerald', gradient: 'from-[#82A094] to-[#82A094]' },
+  'SPARE_PARTS': { label: CENTRAL_PRODUCT_TYPE_LABELS.SPARE_PARTS, icon: '🔧', color: 'purple', gradient: 'from-[#6F8A9D] to-[#6F8A9D]' },
+  'KARDEX_CONNECT': { label: CENTRAL_PRODUCT_TYPE_LABELS.KARDEX_CONNECT, icon: '🔒', color: 'cyan', gradient: 'from-[#6F8A9D] to-cyan-600' },
+  'UPGRADE_KIT': { label: CENTRAL_PRODUCT_TYPE_LABELS.UPGRADE_KIT, icon: '⬆️', color: 'amber', gradient: 'from-[#CE9F6B] to-[#976E44]' },
+  'SOFTWARE': { label: CENTRAL_PRODUCT_TYPE_LABELS.SOFTWARE, icon: '💻', color: 'cyan', gradient: 'from-[#6F8A9D] to-cyan-600' },
+  'OTHERS': { label: CENTRAL_PRODUCT_TYPE_LABELS.OTHERS, icon: '💰', color: 'rose', gradient: 'from-[#E17F70] to-[#9E3B47]' },
+  'BD_SPARE': { label: CENTRAL_PRODUCT_TYPE_LABELS.BD_SPARE, icon: '🔩', color: 'indigo', gradient: 'from-[#6F8A9D] to-[#6F8A9D]' },
+  'RETROFIT_KIT': { label: CENTRAL_PRODUCT_TYPE_LABELS.RETROFIT_KIT, icon: '🛠️', color: 'orange', gradient: 'from-[#CE9F6B] to-[#976E44]' },
 };
 
 export default function EditTargetPage() {
@@ -66,7 +68,6 @@ export default function EditTargetPage() {
   const [showProductTypes, setShowProductTypes] = useState(true);
   
   // Product types from backend enum
-  const productTypes = ['RELOCATION', 'CONTRACT', 'SPARE_PARTS', 'KARDEX_CONNECT', 'UPGRADE_KIT', 'SOFTWARE', 'OTHERS', 'BD_SPARE', 'RETROFIT_KIT'];
   const [productTargets, setProductTargets] = useState<{ [key: string]: string }>({});
   
   // NEW: Track input values as strings to prevent automatic value changes while typing
@@ -551,8 +552,8 @@ export default function EditTargetPage() {
                 
                 <div className="p-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {productTypes.map((productType) => {
-                      const config = PRODUCT_TYPE_LABELS[productType];
+                    {PRODUCT_TYPES.map((productType) => {
+                      const config = PRODUCT_TYPE_CONFIG[productType];
                       return (
                         <div 
                           key={productType} 
@@ -701,7 +702,7 @@ export default function EditTargetPage() {
                 
                 <div className="p-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {productTypes.map((productType) => {
+                    {PRODUCT_TYPES.map((productType) => {
                       const existingTarget = targets.find(t => t.productType === productType);
                       const hasTarget = !!existingTarget;
                       // For existing targets, use inputValues; for new targets, use productTargets
@@ -713,7 +714,7 @@ export default function EditTargetPage() {
                         : (parseFloat(productTargets[productType] || '0') || 0);
                       const actualValue = existingTarget?.actualValue || 0;
                       const achievement = targetValue > 0 ? (actualValue / targetValue) * 100 : 0;
-                      const config = PRODUCT_TYPE_LABELS[productType];
+                      const config = PRODUCT_TYPE_CONFIG[productType];
                       const hasNewValue = !hasTarget && productTargets[productType] && parseFloat(productTargets[productType]) > 0;
                       
                       return (

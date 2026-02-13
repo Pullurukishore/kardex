@@ -24,6 +24,7 @@ import {
 import { ArrowLeft, Save, Loader2, Plus, Users, HardDrive, Search, X, Building2, MapPin, FileText, Calendar, DollarSign, Target, MessageSquare, Image } from 'lucide-react'
 import { apiService } from '@/services/api'
 import { toast } from 'sonner'
+import { PRODUCT_TYPE_LABELS } from '@/types/reports'
 
 
 export default function NewOfferPage() {
@@ -367,7 +368,7 @@ export default function NewOfferPage() {
         zoneId: parseInt(formData.zoneId),
         
         // Auto-generate title based on customer and product type
-        title: `${formData.productType} - ${selectedCustomer?.companyName}`,
+        title: `${PRODUCT_TYPE_LABELS[formData.productType] || formData.productType} - ${selectedCustomer?.companyName}`,
         
         // Add customer/contact/asset info for easy access
         company: selectedCustomer?.companyName,
@@ -810,9 +811,9 @@ export default function NewOfferPage() {
                     <SelectItem value="CONTRACT">Contract</SelectItem>
                     <SelectItem value="SPARE_PARTS">Spare Parts</SelectItem>
                     <SelectItem value="KARDEX_CONNECT">Kardex Connect</SelectItem>
-                    <SelectItem value="UPGRADE_KIT">Upgrade Kit</SelectItem>
+                    <SelectItem value="UPGRADE_KIT">Optilife Upgrade</SelectItem>
                     <SelectItem value="SOFTWARE">Software</SelectItem>
-                    <SelectItem value="OTHERS">Others</SelectItem>
+                    <SelectItem value="OTHERS">Repairs & Others</SelectItem>
                     <SelectItem value="BD_SPARE">BD Spare</SelectItem>
                     <SelectItem value="RETROFIT_KIT">Retrofit Kit</SelectItem>
                   </SelectContent>

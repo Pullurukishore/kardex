@@ -17,6 +17,7 @@ import type {
   ForecastPdfData, ForecastReportFilter, ForecastPdfZone, ForecastPdfTotals,
   ForecastPdfZoneMonthly, ForecastPdfUserMonthly,
 } from '@/lib/forecast-pdf-utils'
+import { PRODUCT_TYPE_LABELS } from '@/types/reports'
 
 interface Zone {
   id: number
@@ -78,7 +79,7 @@ export default function ForecastReportsClient({ zones: initialZones }: { zones: 
             if (!prodTotalsMap[p.productType]) {
               prodTotalsMap[p.productType] = {
                 productType: p.productType,
-                productLabel: p.productLabel,
+                productLabel: PRODUCT_TYPE_LABELS[p.productType] || p.productLabel,
                 offersValue: 0,
                 orderReceived: 0,
                 ordersInHand: 0,
@@ -115,7 +116,7 @@ export default function ForecastReportsClient({ zones: initialZones }: { zones: 
               if (!zoneProductMatrix[p.productType]) {
                 zoneProductMatrix[p.productType] = {
                   productType: p.productType,
-                  productLabel: p.productLabel,
+                  productLabel: PRODUCT_TYPE_LABELS[p.productType] || p.productLabel,
                   monthlyValues: {} as Record<string, number>,
                   total: 0
                 }
@@ -129,7 +130,7 @@ export default function ForecastReportsClient({ zones: initialZones }: { zones: 
 
           zm.productBreakdown = Object.values(zoneProductMatrix).map((p: any) => ({
             productType: p.productType,
-            productLabel: p.productLabel,
+            productLabel: PRODUCT_TYPE_LABELS[p.productType] || p.productLabel,
             yearlyTarget: 0,
             hitRate: 0,
             monthlyData: monthKeys.map((mKey, idx) => ({
@@ -166,7 +167,7 @@ export default function ForecastReportsClient({ zones: initialZones }: { zones: 
         if (userProdData) {
           u.productBreakdown = userProdData.products.map((p: any) => ({
             productType: p.productType,
-            productLabel: p.productLabel,
+            productLabel: PRODUCT_TYPE_LABELS[p.productType] || p.productLabel,
             yearlyTarget: 0,
             hitRate: 0,
             monthlyData: monthKeys.map((mKey, idx) => ({

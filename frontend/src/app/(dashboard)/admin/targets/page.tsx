@@ -11,6 +11,7 @@ import {
   Percent, Zap, Loader2, Trophy, Flame, Star, ArrowUpRight, ArrowDownRight
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { PRODUCT_TYPE_LABELS, PRODUCT_TYPES } from '@/types/reports';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -63,11 +64,6 @@ interface ProductTypeBreakdown {
 }
 
 type TargetType = 'ZONE' | 'USER';
-
-const PRODUCT_TYPES = [
-  'RELOCATION', 'CONTRACT', 'SPARE_PARTS', 'KARDEX_CONNECT', 'UPGRADE_KIT', 'SOFTWARE', 
-  'OTHERS', 'BD_SPARE', 'RETROFIT_KIT'
-];
 
 const PRODUCT_TYPE_COLORS: { [key: string]: string } = {
   'RELOCATION': 'bg-[#96AEC2]/20 text-[#546A7A] border-[#96AEC2]',
@@ -455,7 +451,7 @@ export default function TargetsPage() {
                     >
                       <div className="flex items-center justify-between mb-3">
                         <span className={`px-2 py-1 text-xs font-bold rounded-lg border ${PRODUCT_TYPE_COLORS[item.productType] || 'bg-[#AEBFC3]/20 text-[#5D6E73] border-[#92A2A5]'}`}>
-                          {item.productType.replace(/_/g, ' ')}
+                          {PRODUCT_TYPE_LABELS[item.productType] || item.productType.replace(/_/g, ' ')}
                         </span>
                       </div>
                       <div className="space-y-2">

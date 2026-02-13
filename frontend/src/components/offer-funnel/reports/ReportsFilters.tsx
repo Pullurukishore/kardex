@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { format } from 'date-fns';
 import type { ReportFilters, DateRange } from '@/types/reports';
-import { REPORT_TYPES } from '@/types/reports';
+import { REPORT_TYPES, PRODUCT_TYPE_LABELS } from '@/types/reports';
 
 interface ReportsFiltersProps {
   filters: ReportFilters;
@@ -24,17 +24,10 @@ interface ReportsFiltersProps {
   isLoadingCustomers?: boolean;
 }
 
-const PRODUCT_TYPES = [
-  { value: 'RELOCATION', label: 'Relocation' },
-  { value: 'CONTRACT', label: 'Contract' },
-  { value: 'SPARE_PARTS', label: 'Spare Parts' },
-  { value: 'KARDEX_CONNECT', label: 'Kardex Connect' },
-  { value: 'UPGRADE_KIT', label: 'Upgrade Kit' },
-  { value: 'SOFTWARE', label: 'Software' },
-  { value: 'OTHERS', label: 'Others' },
-  { value: 'BD_SPARE', label: 'BD Spare' },
-  { value: 'RETROFIT_KIT', label: 'Retrofit Kit' },
-];
+const PRODUCT_TYPES = Object.entries(PRODUCT_TYPE_LABELS).map(([value, label]) => ({
+  value,
+  label,
+}));
 
 const OFFER_STAGES = [
   { value: 'INITIAL', label: 'Initial' },

@@ -14,7 +14,7 @@ import { apiService } from '@/services/api';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { formatCrLakh, formatINRFull, formatDateSafe } from '@/lib/format';
-import { STATUS_COLORS, STAGE_COLORS, PRODUCT_TYPE_COLORS } from '@/types/reports';
+import { STATUS_COLORS, STAGE_COLORS, PRODUCT_TYPE_COLORS, PRODUCT_TYPE_LABELS } from '@/types/reports';
 
 interface OfferDetailsDialogProps {
   offerId: number;
@@ -270,7 +270,7 @@ const OfferDetailsDialog: React.FC<OfferDetailsDialogProps> = ({
                         style={{ backgroundColor: productColor, color: 'white' }}
                         className="text-sm px-4 py-1.5 font-semibold shadow-md"
                       >
-                        {offer.productType || 'N/A'}
+                        {offer.productType ? (PRODUCT_TYPE_LABELS[offer.productType] || offer.productType) : 'N/A'}
                       </Badge>
                     </div>
                   </div>
@@ -443,7 +443,7 @@ const OfferDetailsDialog: React.FC<OfferDetailsDialogProps> = ({
                         <dt className="text-xs text-[#AEBFC3]0 font-semibold uppercase mb-1">Product Type</dt>
                         <dd>
                           <Badge style={{ backgroundColor: productColor, color: 'white' }}>
-                            {offer.productType || 'N/A'}
+                            {offer.productType ? (PRODUCT_TYPE_LABELS[offer.productType] || offer.productType) : 'N/A'}
                           </Badge>
                         </dd>
                       </div>

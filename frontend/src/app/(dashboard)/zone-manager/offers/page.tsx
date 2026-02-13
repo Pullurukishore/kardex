@@ -62,6 +62,7 @@ import {
 } from 'lucide-react'
 import { apiService } from '@/services/api'
 import { toast } from 'sonner'
+import { PRODUCT_TYPE_LABELS } from '@/types/reports'
 
 // Note: PO_RECEIVED leads directly to WON (ORDER_BOOKED stage removed)
 const stages = ['All Stage', 'INITIAL', 'PROPOSAL_SENT', 'NEGOTIATION', 'PO_RECEIVED', 'WON', 'LOST']
@@ -319,7 +320,7 @@ export default function ZoneManagerOffers() {
                   </SelectTrigger>
                   <SelectContent className="max-h-[300px] overflow-y-auto">
                     {productTypes.map(type => (
-                      <SelectItem key={type} value={type}>{type === 'All Product Types' ? type : type.replace(/_/g, ' ')}</SelectItem>
+                      <SelectItem key={type} value={type}>{type === 'All Product Types' ? type : (PRODUCT_TYPE_LABELS[type] || type.replace(/_/g, ' '))}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -489,7 +490,7 @@ export default function ZoneManagerOffers() {
                           offer.productType === 'RETROFIT_KIT' ? 'bg-[#82A094]/20 text-[#4F6A64]' :
                           'bg-[#AEBFC3]/20 text-[#5D6E73]'}
                       `}>
-                        {offer.productType?.replace(/_/g, ' ')}
+                        {PRODUCT_TYPE_LABELS[offer.productType] || offer.productType?.replace(/_/g, ' ')}
                       </span>
                     </td>
                     <td className="px-4 py-3">

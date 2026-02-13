@@ -46,8 +46,10 @@ import {
   Clock
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { PRODUCT_TYPE_LABELS } from '@/types/reports'
 
 const PRODUCT_TYPES = ['RELOCATION', 'CONTRACT', 'SPARE_PARTS', 'KARDEX_CONNECT', 'UPGRADE_KIT', 'SOFTWARE', 'OTHERS', 'BD_SPARE', 'RETROFIT_KIT']
+
 const STAGES = ['INITIAL', 'PROPOSAL_SENT', 'NEGOTIATION', 'PO_RECEIVED', 'WON', 'LOST']
 const PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']
 
@@ -362,7 +364,7 @@ export default function EditOfferPage() {
                     </span>
                     {offer?.productType && (
                       <Badge className="bg-white/20 text-white border-0 backdrop-blur-sm">
-                        {offer.productType.replace(/_/g, ' ')}
+                        {PRODUCT_TYPE_LABELS[offer.productType] || offer.productType.replace(/_/g, ' ')}
                       </Badge>
                     )}
                   </div>
@@ -485,7 +487,7 @@ export default function EditOfferPage() {
                     </SelectTrigger>
                     <SelectContent>
                       {PRODUCT_TYPES.map(type => (
-                        <SelectItem key={type} value={type}>{type.replace(/_/g, ' ')}</SelectItem>
+                        <SelectItem key={type} value={type}>{PRODUCT_TYPE_LABELS[type] || type.replace(/_/g, ' ')}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>

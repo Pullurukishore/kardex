@@ -65,6 +65,7 @@ import {
 import dynamic from 'next/dynamic'
 import { apiService } from '@/services/api'
 import { toast } from 'sonner'
+import { PRODUCT_TYPE_LABELS } from '@/types/reports'
 
 const DynamicOfferStats = dynamic(() => import('@/components/offers/OfferStats'), {
   loading: () => <div className="h-32 w-full animate-pulse bg-gray-100 rounded-2xl mb-6" />,
@@ -413,7 +414,7 @@ export default function OfferManagement() {
                   </SelectTrigger>
                   <SelectContent className="max-h-[300px] overflow-y-auto">
                     {productTypes.map(type => (
-                      <SelectItem key={type} value={type}>{type === 'All Product Types' ? type : type.replace(/_/g, ' ')}</SelectItem>
+                      <SelectItem key={type} value={type}>{type === 'All Product Types' ? type : (PRODUCT_TYPE_LABELS[type] || type.replace(/_/g, ' '))}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -579,7 +580,7 @@ export default function OfferManagement() {
                         offer.productType === 'RETROFIT_KIT' ? 'bg-gradient-to-r from-teal-100 to-[#A2B9AF]/10 text-[#4F6A64] border-teal-300 shadow-sm' :
                         'bg-gradient-to-r from-gray-100 to-gray-50 text-[#546A7A] border-[#92A2A5] shadow-sm'
                       } font-semibold px-3 py-1`}>
-                        {offer.productType?.replace(/_/g, ' ')}
+                        {PRODUCT_TYPE_LABELS[offer.productType] || offer.productType?.replace(/_/g, ' ')}
                       </Badge>
                     </td>
                     <td className="px-6 py-4">

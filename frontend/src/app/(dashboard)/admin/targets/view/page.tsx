@@ -5,11 +5,13 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { UserRole } from '@/types/user.types';
 import { apiService } from '@/services/api';
+import { toast } from 'sonner';
 import { 
   ArrowLeft, Target, TrendingUp, Package, Building2, Users, 
   Award, BarChart3, Sparkles, Zap, ArrowUpRight, ArrowDownRight,
   CheckCircle, AlertCircle, Crown, Activity, RefreshCw
 } from 'lucide-react';
+import { PRODUCT_TYPES, PRODUCT_TYPE_LABELS } from '@/types/reports';
 
 // Custom hook for animated counter
 function useAnimatedCounter(end: number, duration: number = 1000, enabled: boolean = true) {
@@ -58,15 +60,15 @@ interface TargetDetail {
 }
 
 const PRODUCT_TYPE_CONFIG: { [key: string]: { label: string; icon: string; gradient: string; bg: string; border: string } } = {
-  'RELOCATION': { label: 'Relocation', icon: '🚚', gradient: 'from-[#6F8A9D] to-[#6F8A9D]', bg: 'bg-[#96AEC2]/10', border: 'border-[#96AEC2]' },
-  'CONTRACT': { label: 'Contract', icon: '📋', gradient: 'from-[#82A094] to-[#82A094]', bg: 'bg-[#82A094]/10', border: 'border-[#A2B9AF]/40' },
-  'SPARE_PARTS': { label: 'Spare Parts', icon: '🔧', gradient: 'from-[#6F8A9D] to-[#6F8A9D]', bg: 'bg-[#6F8A9D]/10', border: 'border-[#6F8A9D]' },
-  'KARDEX_CONNECT': { label: 'Kardex Connect', icon: '🔒', gradient: 'from-[#6F8A9D] to-cyan-600', bg: 'bg-[#96AEC2]/10', border: 'border-[#96AEC2]/40' },
-  'UPGRADE_KIT': { label: 'Upgrade Kit', icon: '⬆️', gradient: 'from-[#CE9F6B] to-[#976E44]', bg: 'bg-[#CE9F6B]/10', border: 'border-[#CE9F6B]/40' },
-  'SOFTWARE': { label: 'Software', icon: '💻', gradient: 'from-[#6F8A9D] to-cyan-600', bg: 'bg-[#96AEC2]/10', border: 'border-[#96AEC2]/40' },
-  'OTHERS': { label: 'Others', icon: '💰', gradient: 'from-[#E17F70] to-[#9E3B47]', bg: 'bg-[#EEC1BF]/10', border: 'border-[#EEC1BF]/40' },
-  'BD_SPARE': { label: 'BD Spare', icon: '🔩', gradient: 'from-[#6F8A9D] to-[#6F8A9D]', bg: 'bg-[#546A7A]/10', border: 'border-[#546A7A]' },
-  'RETROFIT_KIT': { label: 'Retrofit Kit', icon: '🛠️', gradient: 'from-[#CE9F6B] to-[#976E44]', bg: 'bg-[#CE9F6B]/10', border: 'border-[#CE9F6B]' },
+  'RELOCATION': { label: PRODUCT_TYPE_LABELS.RELOCATION, icon: '🚚', gradient: 'from-[#6F8A9D] to-[#6F8A9D]', bg: 'bg-[#96AEC2]/10', border: 'border-[#96AEC2]' },
+  'CONTRACT': { label: PRODUCT_TYPE_LABELS.CONTRACT, icon: '📋', gradient: 'from-[#82A094] to-[#82A094]', bg: 'bg-[#82A094]/10', border: 'border-[#A2B9AF]/40' },
+  'SPARE_PARTS': { label: PRODUCT_TYPE_LABELS.SPARE_PARTS, icon: '🔧', gradient: 'from-[#6F8A9D] to-[#6F8A9D]', bg: 'bg-[#6F8A9D]/10', border: 'border-[#6F8A9D]' },
+  'KARDEX_CONNECT': { label: PRODUCT_TYPE_LABELS.KARDEX_CONNECT, icon: '🔒', gradient: 'from-[#6F8A9D] to-cyan-600', bg: 'bg-[#96AEC2]/10', border: 'border-[#96AEC2]/40' },
+  'UPGRADE_KIT': { label: PRODUCT_TYPE_LABELS.UPGRADE_KIT, icon: '⬆️', gradient: 'from-[#CE9F6B] to-[#976E44]', bg: 'bg-[#CE9F6B]/10', border: 'border-[#CE9F6B]/40' },
+  'SOFTWARE': { label: PRODUCT_TYPE_LABELS.SOFTWARE, icon: '💻', gradient: 'from-[#6F8A9D] to-cyan-600', bg: 'bg-[#96AEC2]/10', border: 'border-[#96AEC2]/40' },
+  'OTHERS': { label: PRODUCT_TYPE_LABELS.OTHERS, icon: '💰', gradient: 'from-[#E17F70] to-[#9E3B47]', bg: 'bg-[#EEC1BF]/10', border: 'border-[#EEC1BF]/40' },
+  'BD_SPARE': { label: PRODUCT_TYPE_LABELS.BD_SPARE, icon: '🔩', gradient: 'from-[#6F8A9D] to-[#6F8A9D]', bg: 'bg-[#546A7A]/10', border: 'border-[#546A7A]' },
+  'RETROFIT_KIT': { label: PRODUCT_TYPE_LABELS.RETROFIT_KIT, icon: '🛠️', gradient: 'from-[#CE9F6B] to-[#976E44]', bg: 'bg-[#CE9F6B]/10', border: 'border-[#CE9F6B]' },
   'Overall': { label: 'Overall', icon: '🎯', gradient: 'from-slate-600 to-slate-700', bg: 'bg-[#AEBFC3]/10', border: 'border-[#92A2A5]' },
 };
 
@@ -85,7 +87,6 @@ export default function TargetViewPage() {
   const [entityName, setEntityName] = useState('');
 
   // Product types from backend enum
-  const productTypes = ['RELOCATION', 'CONTRACT', 'SPARE_PARTS', 'KARDEX_CONNECT', 'UPGRADE_KIT', 'SOFTWARE', 'OTHERS', 'BD_SPARE', 'RETROFIT_KIT'];
 
   // Protect this page - only ADMIN can access
   useEffect(() => {
@@ -403,13 +404,13 @@ export default function TargetViewPage() {
                     </div>
                   </div>
                   <div className="px-5 py-2 bg-white/20 backdrop-blur-xl rounded-xl border border-white/30 font-bold">
-                    {productTargets.length} / {productTypes.length} Products Have Targets
+                    {productTargets.length} / {PRODUCT_TYPES.length} Products Have Targets
                   </div>
                 </div>
               </div>
               <div className="p-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                  {productTypes.map((productType) => {
+                  {PRODUCT_TYPES.map((productType) => {
                     const target = productTargets.find(t => t.productType === productType);
                     const hasTarget = !!target;
                     const targetValue = target?.targetValue || 0;

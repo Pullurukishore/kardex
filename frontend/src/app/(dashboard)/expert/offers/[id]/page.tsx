@@ -46,6 +46,7 @@ import {
 } from 'lucide-react'
 import { apiService } from '@/services/api'
 import { toast } from 'sonner'
+import { PRODUCT_TYPE_LABELS } from '@/types/reports'
 
 // Main progression stages (excludes LOST as it's a separate outcome)
 // Note: PO_RECEIVED leads directly to WON (ORDER_BOOKED stage removed)
@@ -780,7 +781,7 @@ export default function OfferDetailPage() {
                       ${offer.productType === 'OTHERS' ? 'bg-gradient-to-r from-[#6F8A9D] to-cyan-600 text-white border-0' : ''}
                       ${offer.productType === 'BD_SPARE' ? 'bg-gradient-to-r from-[#CE9F6B] to-[#976E44] text-white border-0' : ''}
                     `}>
-                      {offer.productType?.replace(/_/g, ' ')}
+                      {PRODUCT_TYPE_LABELS[offer.productType] || offer.productType?.replace(/_/g, ' ')}
                     </Badge>
                   </dd>
                 </div>
