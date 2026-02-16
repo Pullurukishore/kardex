@@ -607,12 +607,22 @@ export default function CleanAttendanceWidget({
               </div>
               <div>
                 <h2 className="text-2xl font-black tracking-tighter leading-none">Attendance</h2>
-                <p className="text-white/70 text-[10px] font-black uppercase tracking-widest mt-1">Operational Telemetry</p>
+                <div className="flex flex-col">
+                  <p className="text-white/70 text-[10px] font-black uppercase tracking-widest mt-1">Operational Telemetry</p>
+                  {attendanceData?.attendance && (
+                    <p className="text-white/40 text-[9px] font-bold truncate max-w-[150px] mt-0.5 flex items-center gap-1">
+                      <div className={`w-1 h-1 rounded-full ${attendanceData.isCheckedIn ? 'bg-[#A2B9AF]' : 'bg-[#E17F70]'}`}></div>
+                      {attendanceData.isCheckedIn
+                        ? (attendanceData.attendance.checkInAddress || 'Checked In')
+                        : (attendanceData.attendance.checkOutAddress || 'Checked Out')}
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
             <div className={`px-5 py-2.5 rounded-2xl border-2 backdrop-blur-xl font-black text-[10px] uppercase tracking-widest transition-all ${attendanceData?.isCheckedIn
-                ? 'bg-[#82A094]/30 border-[#A2B9AF]/60 text-white shadow-2xl animate-pulse'
-                : 'bg-white/10 border-white/40 text-white/90 shadow-xl'
+              ? 'bg-[#82A094]/30 border-[#A2B9AF]/60 text-white shadow-2xl animate-pulse'
+              : 'bg-white/10 border-white/40 text-white/90 shadow-xl'
               }`}>
               <span className="flex items-center gap-2">
                 {attendanceData?.isCheckedIn ? 'Status: Active' : 'Status: Off Duty'}
@@ -635,19 +645,17 @@ export default function CleanAttendanceWidget({
                       </div>
                     </div>
 
-                    {attendanceData.attendance.checkInAddress && (
-                      <div className="flex items-start gap-2.5 p-3 rounded-xl bg-white/10 border border-white/10 group hover:bg-white/20 transition-all duration-300">
-                        <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0">
-                          <MapPin className="w-4 h-4 text-white/70" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-0.5">Check-in Location</p>
-                          <p className="text-[11px] text-white/90 leading-tight font-medium break-words">
-                            {attendanceData.attendance.checkInAddress}
-                          </p>
-                        </div>
+                    <div className="flex items-start gap-2.5 p-3 rounded-xl bg-white/10 border border-white/10 group hover:bg-white/20 transition-all duration-300">
+                      <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0">
+                        <MapPin className="w-4 h-4 text-white/70" />
                       </div>
-                    )}
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-0.5">Check-in Location</p>
+                        <p className="text-[11px] text-white/90 leading-tight font-medium break-words">
+                          {attendanceData.attendance.checkInAddress || 'Address not captured'}
+                        </p>
+                      </div>
+                    </div>
                   </div>
 
                   {/* Check-out Details (Only shown if checked out) */}
@@ -661,19 +669,17 @@ export default function CleanAttendanceWidget({
                         </div>
                       </div>
 
-                      {attendanceData.attendance.checkOutAddress && (
-                        <div className="flex items-start gap-2.5 p-3 rounded-xl bg-[#E17F70]/10 border border-[#E17F70]/20 group hover:bg-[#E17F70]/20 transition-all duration-300">
-                          <div className="w-8 h-8 rounded-lg bg-[#E17F70]/20 flex items-center justify-center flex-shrink-0">
-                            <MapPin className="w-4 h-4 text-[#E17F70]" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-[9px] font-black text-[#E17F70]/60 uppercase tracking-widest mb-0.5">Check-out Location</p>
-                            <p className="text-[11px] text-white/90 leading-tight font-medium break-words">
-                              {attendanceData.attendance.checkOutAddress}
-                            </p>
-                          </div>
+                      <div className="flex items-start gap-2.5 p-3 rounded-xl bg-[#E17F70]/10 border border-[#E17F70]/20 group hover:bg-[#E17F70]/20 transition-all duration-300">
+                        <div className="w-8 h-8 rounded-lg bg-[#E17F70]/20 flex items-center justify-center flex-shrink-0">
+                          <MapPin className="w-4 h-4 text-[#E17F70]" />
                         </div>
-                      )}
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[9px] font-black text-[#E17F70]/60 uppercase tracking-widest mb-0.5">Check-out Location</p>
+                          <p className="text-[11px] text-white/90 leading-tight font-medium break-words">
+                            {attendanceData.attendance.checkOutAddress || 'Address not captured'}
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>

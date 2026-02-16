@@ -141,8 +141,8 @@ export const createServicePerson = async (req: ServicePersonRequest, res: Respon
   try {
     const { name, email, phone, password, serviceZoneIds = [] } = req.body;
     // Validate input
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required' });
+    if (!email || !password || !phone) {
+      return res.status(400).json({ error: 'Email, password, and phone number are required' });
     }
 
     // Check if email already exists
@@ -208,6 +208,11 @@ export const updateServicePerson = async (req: ServicePersonRequest, res: Respon
 
     if (!existingPerson) {
       return res.status(404).json({ error: 'Service person not found' });
+    }
+
+    // Validate phone for update
+    if (phone !== undefined && !phone) {
+      return res.status(400).json({ error: 'Phone number cannot be empty' });
     }
 
     // Validate service zones if provided

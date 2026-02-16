@@ -2,16 +2,16 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { 
-  ArrowLeft, 
-  Save, 
-  User, 
-  Mail, 
-  Phone, 
-  Shield, 
-  MapPin, 
-  CheckCircle, 
-  XCircle, 
+import {
+  ArrowLeft,
+  Save,
+  User,
+  Mail,
+  Phone,
+  Shield,
+  MapPin,
+  CheckCircle,
+  XCircle,
   RefreshCw,
   Eye,
   EyeOff,
@@ -67,7 +67,7 @@ const updateServicePersonSchema = z.object({
   id: z.number(),
   email: z.string().email('Please enter a valid email address'),
   name: z.string().min(1, 'Name is required'),
-  phone: z.string().optional(),
+  phone: z.string().min(1, 'Phone number is required'),
   password: z.string().min(6, 'Password must be at least 6 characters').optional().or(z.literal('')),
   confirmPassword: z.string().optional(),
   serviceZoneIds: z.array(z.number()).optional(),
@@ -87,7 +87,7 @@ export default function EditZoneServicePersonPage() {
   const params = useParams();
   const router = useRouter();
   const servicePersonId = Number(params.id);
-  
+
   const [servicePerson, setServicePerson] = useState<ServicePerson | null>(null);
   const [zones, setZones] = useState<ServiceZone[]>([]);
   const [selectedZones, setSelectedZones] = useState<number[]>([]);
@@ -119,10 +119,10 @@ export default function EditZoneServicePersonPage() {
     try {
       // Use zone-specific endpoint to get only zones the current user has access to
       const response = await apiClient.get('/zone/attendance/service-zones');
-      const zones = Array.isArray(response.data) 
-        ? response.data 
+      const zones = Array.isArray(response.data)
+        ? response.data
         : response.data.data || [];
-      
+
       setZones(zones);
     } catch (error) {
       toast({
@@ -146,11 +146,11 @@ export default function EditZoneServicePersonPage() {
         setServicePerson(null);
         return;
       }
-      
+
       // Use a strongly typed variable for the rest of the function
       const sp: ServicePerson = unwrapped as ServicePerson;
       setServicePerson(sp);
-      
+
       // Extract service zones, handling different possible structures
       const serviceZones: any[] = (sp as any).serviceZones || [];
       // Extract zone IDs from serviceZones array
@@ -163,7 +163,7 @@ export default function EditZoneServicePersonPage() {
           return null;
         })
         .filter((id: number | null): id is number => id !== null);
-        
+
       // Reset form with service person data
       reset({
         id: sp.id,
@@ -174,11 +174,11 @@ export default function EditZoneServicePersonPage() {
         confirmPassword: '',
         serviceZoneIds: zoneIds,
       });
-      
+
       // Set selected zones based on the service person's zones
       setSelectedZones(zoneIds);
       setValue('serviceZoneIds', zoneIds);
-      
+
     } catch (error) {
       toast({
         title: 'Error',
@@ -205,7 +205,7 @@ export default function EditZoneServicePersonPage() {
     setSelectedZones((prevSelected) => {
       // Single selection: if clicking the same zone, deselect it; otherwise select only this zone
       const newSelectedZones = prevSelected.includes(zoneId) ? [] : [zoneId];
-      
+
       setValue('serviceZoneIds', newSelectedZones, { shouldValidate: false, shouldDirty: true });
       return newSelectedZones;
     });
@@ -221,7 +221,7 @@ export default function EditZoneServicePersonPage() {
       });
       return;
     }
-    
+
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(data.email)) {
@@ -232,7 +232,7 @@ export default function EditZoneServicePersonPage() {
       });
       return;
     }
-    
+
     // Validate password if provided
     if (data.password && data.password.length > 0) {
       if (data.password.length < 6) {
@@ -243,7 +243,7 @@ export default function EditZoneServicePersonPage() {
         });
         return;
       }
-      
+
       if (data.password !== data.confirmPassword) {
         toast({
           title: 'Validation Error',
@@ -253,10 +253,10 @@ export default function EditZoneServicePersonPage() {
         return;
       }
     }
-    
+
     try {
       setLoading(true);
-      
+
       // Prepare update data
       const updateData = {
         email: data.email,
@@ -265,25 +265,25 @@ export default function EditZoneServicePersonPage() {
         password: data.password && data.password.length > 0 ? data.password : undefined,
         serviceZoneIds: data.serviceZoneIds,
       };
-      
+
       // Use general service person update endpoint (backend will handle zone restrictions)
       const response = await apiClient.put(`/service-persons/${servicePersonId}`, updateData);
-      
+
       if (response.data && !response.data.success && response.data.error) {
         throw new Error(response.data.error || 'Failed to update service person');
       }
-      
+
       toast({
         title: 'Success!',
         description: 'Service person updated successfully',
       });
-      
+
       // Redirect to zone service persons list after a short delay
       setTimeout(() => {
         router.push('/zone/service-persons');
         router.refresh();
       }, 1500);
-      
+
     } catch (error: any) {
       let errorMessage = 'Failed to update service person';
       if (error.response?.data?.error) {
@@ -291,7 +291,7 @@ export default function EditZoneServicePersonPage() {
       } else if (error.message) {
         errorMessage = error.message;
       }
-      
+
       toast({
         title: 'Update Failed',
         description: errorMessage,
@@ -331,8 +331,8 @@ export default function EditZoneServicePersonPage() {
         <div className="absolute inset-0 bg-black/20"></div>
         <div className="relative">
           <div className="flex items-center justify-between mb-4">
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               size="sm"
               onClick={() => router.push('/zone/service-persons')}
               className="text-white hover:bg-white/20 hover:text-white"
@@ -340,10 +340,10 @@ export default function EditZoneServicePersonPage() {
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Zone Service Persons
             </Button>
-            <Badge 
+            <Badge
               variant={servicePerson.isActive ? 'default' : 'secondary'}
-              className={servicePerson.isActive 
-                ? 'bg-white/20 text-white hover:bg-white/30' 
+              className={servicePerson.isActive
+                ? 'bg-white/20 text-white hover:bg-white/30'
                 : 'bg-[#5D6E73] text-[#AEBFC3] hover:bg-[#5D6E73]'
               }
             >
@@ -378,8 +378,8 @@ export default function EditZoneServicePersonPage() {
       {/* Mobile Header */}
       <div className="md:hidden">
         <div className="flex items-center justify-between mb-4">
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             size="sm"
             onClick={() => router.push('/zone/service-persons')}
             className="text-[#5D6E73] hover:text-[#546A7A]"
@@ -387,10 +387,10 @@ export default function EditZoneServicePersonPage() {
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back
           </Button>
-          <Badge 
+          <Badge
             variant={servicePerson.isActive ? 'default' : 'secondary'}
-            className={servicePerson.isActive 
-              ? 'bg-[#A2B9AF]/20 text-[#4F6A64]' 
+            className={servicePerson.isActive
+              ? 'bg-[#A2B9AF]/20 text-[#4F6A64]'
               : 'bg-[#AEBFC3]/20 text-[#5D6E73]'
             }
           >
@@ -431,7 +431,7 @@ export default function EditZoneServicePersonPage() {
               type="hidden"
               {...register('id')}
             />
-            
+
             {/* Email Field */}
             <div className="space-y-3">
               <Label htmlFor="email" className="flex items-center gap-2 text-sm font-semibold text-[#5D6E73]">
@@ -443,11 +443,10 @@ export default function EditZoneServicePersonPage() {
                 type="email"
                 placeholder="Enter email address"
                 {...register('email')}
-                className={`h-12 text-base transition-all duration-200 ${
-                  errors.email 
-                    ? 'border-[#9E3B47] focus:border-[#9E3B47] focus:ring-[#E17F70]/50' 
+                className={`h-12 text-base transition-all duration-200 ${errors.email
+                    ? 'border-[#9E3B47] focus:border-[#9E3B47] focus:ring-[#E17F70]/50'
                     : 'border-[#92A2A5] focus:border-[#6F8A9D] focus:ring-indigo-200'
-                }`}
+                  }`}
               />
               {errors.email && (
                 <p className="text-sm text-[#E17F70] flex items-center gap-1">
@@ -469,11 +468,10 @@ export default function EditZoneServicePersonPage() {
                   type="text"
                   placeholder="Enter full name"
                   {...register('name')}
-                  className={`h-12 text-base transition-all duration-200 ${
-                    errors.name 
-                      ? 'border-[#9E3B47] focus:border-[#9E3B47] focus:ring-[#E17F70]/50' 
+                  className={`h-12 text-base transition-all duration-200 ${errors.name
+                      ? 'border-[#9E3B47] focus:border-[#9E3B47] focus:ring-[#E17F70]/50'
                       : 'border-[#92A2A5] focus:border-[#6F8A9D] focus:ring-indigo-200'
-                  }`}
+                    }`}
                 />
                 {errors.name && (
                   <p className="text-sm text-[#E17F70] flex items-center gap-1">
@@ -486,18 +484,17 @@ export default function EditZoneServicePersonPage() {
               <div className="space-y-3">
                 <Label htmlFor="phone" className="flex items-center gap-2 text-sm font-semibold text-[#5D6E73]">
                   <Phone className="h-4 w-4 text-[#546A7A]" />
-                  Phone Number
+                  Phone Number *
                 </Label>
                 <Input
                   id="phone"
                   type="tel"
                   placeholder="Enter phone number"
                   {...register('phone')}
-                  className={`h-12 text-base transition-all duration-200 ${
-                    errors.phone 
-                      ? 'border-[#9E3B47] focus:border-[#9E3B47] focus:ring-[#E17F70]/50' 
+                  className={`h-12 text-base transition-all duration-200 ${errors.phone
+                      ? 'border-[#9E3B47] focus:border-[#9E3B47] focus:ring-[#E17F70]/50'
                       : 'border-[#92A2A5] focus:border-[#6F8A9D] focus:ring-indigo-200'
-                  }`}
+                    }`}
                 />
                 {errors.phone && (
                   <p className="text-sm text-[#E17F70] flex items-center gap-1">
@@ -521,11 +518,10 @@ export default function EditZoneServicePersonPage() {
                     type={showPassword ? 'text' : 'password'}
                     placeholder="Leave blank to keep current password"
                     {...register('password')}
-                    className={`h-12 text-base pr-12 transition-all duration-200 ${
-                      errors.password 
-                        ? 'border-[#9E3B47] focus:border-[#9E3B47] focus:ring-[#E17F70]/50' 
+                    className={`h-12 text-base pr-12 transition-all duration-200 ${errors.password
+                        ? 'border-[#9E3B47] focus:border-[#9E3B47] focus:ring-[#E17F70]/50'
                         : 'border-[#92A2A5] focus:border-[#6F8A9D] focus:ring-indigo-200'
-                    }`}
+                      }`}
                   />
                   <Button
                     type="button"
@@ -559,11 +555,10 @@ export default function EditZoneServicePersonPage() {
                     type={showConfirmPassword ? 'text' : 'password'}
                     placeholder="Confirm new password"
                     {...register('confirmPassword')}
-                    className={`h-12 text-base pr-12 transition-all duration-200 ${
-                      errors.confirmPassword 
-                        ? 'border-[#9E3B47] focus:border-[#9E3B47] focus:ring-[#E17F70]/50' 
+                    className={`h-12 text-base pr-12 transition-all duration-200 ${errors.confirmPassword
+                        ? 'border-[#9E3B47] focus:border-[#9E3B47] focus:ring-[#E17F70]/50'
                         : 'border-[#92A2A5] focus:border-[#6F8A9D] focus:ring-indigo-200'
-                    }`}
+                      }`}
                   />
                   <Button
                     type="button"
@@ -592,10 +587,10 @@ export default function EditZoneServicePersonPage() {
               <div className="flex-1">
                 <label className="text-xs font-medium text-[#AEBFC3]0 uppercase tracking-wide">Account Status</label>
                 <div className="mt-1">
-                  <Badge 
+                  <Badge
                     variant={servicePerson.isActive ? 'default' : 'secondary'}
-                    className={servicePerson.isActive 
-                      ? 'bg-[#A2B9AF]/20 text-[#4F6A64] hover:bg-[#82A094]/30' 
+                    className={servicePerson.isActive
+                      ? 'bg-[#A2B9AF]/20 text-[#4F6A64] hover:bg-[#82A094]/30'
                       : 'bg-[#AEBFC3]/20 text-[#5D6E73] hover:bg-[#92A2A5]/30'
                     }
                   >
@@ -650,7 +645,7 @@ export default function EditZoneServicePersonPage() {
                 </Button>
               </div>
             </div>
-            
+
             <div className="space-y-3">
               {zones.length === 0 ? (
                 <div className="text-center py-8">
@@ -667,13 +662,12 @@ export default function EditZoneServicePersonPage() {
                   {zones
                     .filter((z) => z.isActive)
                     .map((zone) => (
-                      <div 
-                        key={zone.id} 
-                        className={`relative p-4 rounded-lg border-2 transition-all duration-200 hover:shadow-md ${
-                          selectedZones.includes(zone.id)
+                      <div
+                        key={zone.id}
+                        className={`relative p-4 rounded-lg border-2 transition-all duration-200 hover:shadow-md ${selectedZones.includes(zone.id)
                             ? 'border-[#6F8A9D] bg-[#546A7A]/10 shadow-sm'
                             : 'border-[#92A2A5] bg-white hover:border-indigo-300'
-                        }`}
+                          }`}
                       >
                         <div className="flex items-start gap-3">
                           <Checkbox
@@ -689,8 +683,8 @@ export default function EditZoneServicePersonPage() {
                               </div>
                               <div>
                                 <h4 className="font-semibold text-[#546A7A]">{zone.name}</h4>
-                                <Badge 
-                                  variant="outline" 
+                                <Badge
+                                  variant="outline"
                                   className="text-xs bg-[#A2B9AF]/10 text-[#4F6A64] border-[#A2B9AF]"
                                 >
                                   <CheckCircle className="mr-1 h-2 w-2" />
@@ -705,7 +699,7 @@ export default function EditZoneServicePersonPage() {
                             )}
                           </div>
                         </div>
-                        
+
                         {selectedZones.includes(zone.id) && (
                           <div className="absolute top-2 right-2">
                             <div className="h-6 w-6 rounded-full bg-[#546A7A]/100 flex items-center justify-center">
@@ -718,7 +712,7 @@ export default function EditZoneServicePersonPage() {
                 </div>
               )}
             </div>
-            
+
             <p className="text-sm text-[#5D6E73] mt-4">
               Select a service zone to assign to this person. Service persons can manage tickets and activities within their assigned zone.
             </p>
@@ -730,17 +724,17 @@ export default function EditZoneServicePersonPage() {
           <div className="flex items-center gap-2 text-sm text-[#5D6E73]">
             <MapPin className="h-4 w-4" />
             <span>
-              {selectedZones.length === 0 
-                ? 'No zone selected (can be assigned later)' 
+              {selectedZones.length === 0
+                ? 'No zone selected (can be assigned later)'
                 : `${selectedZones.length} zone selected`
               }
             </span>
           </div>
-          
+
           <div className="flex items-center gap-3">
             <Link href="/zone/service-persons">
-              <Button 
-                type="button" 
+              <Button
+                type="button"
                 variant="outline"
                 className="border-[#92A2A5] text-[#5D6E73] hover:bg-[#AEBFC3]/10"
               >
@@ -748,8 +742,8 @@ export default function EditZoneServicePersonPage() {
                 Cancel
               </Button>
             </Link>
-            <Button 
-              type="submit" 
+            <Button
+              type="submit"
               disabled={loading}
               className="bg-gradient-to-r from-[#6F8A9D] to-[#6F8A9D] hover:from-[#546A7A] hover:to-[#546A7A] shadow-lg min-w-[120px]"
             >

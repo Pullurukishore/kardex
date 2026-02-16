@@ -2,17 +2,17 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { 
-  ArrowLeft, 
-  Save, 
-  CheckCircle, 
-  User, 
-  Mail, 
-  Phone, 
-  Shield, 
-  MapPin, 
-  UserPlus, 
-  Eye, 
+import {
+  ArrowLeft,
+  Save,
+  CheckCircle,
+  User,
+  Mail,
+  Phone,
+  Shield,
+  MapPin,
+  UserPlus,
+  Eye,
   EyeOff,
   Sparkles,
   Users,
@@ -44,7 +44,7 @@ interface ServiceZone {
 const createServicePersonSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   email: z.string().email('Please enter a valid email address'),
-  phone: z.string().optional(),
+  phone: z.string().min(1, 'Phone number is required'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
   confirmPassword: z.string(),
   serviceZoneIds: z.array(z.number()).optional(),
@@ -86,18 +86,18 @@ export default function NewServicePersonPage() {
     const fetchServiceZones = async () => {
       try {
         const response = await apiClient.get('/service-zones', {
-          params: { 
+          params: {
             limit: 100,
             includeInactive: true
           }
         });
-        
+
         if (response?.data) {
           // The API returns { data: [...], pagination: {...} }
-          const zones = Array.isArray(response.data) 
-            ? response.data 
+          const zones = Array.isArray(response.data)
+            ? response.data
             : response.data.data || [];
-          
+
           setServiceZones(zones);
         }
       } catch (error) {
@@ -108,7 +108,7 @@ export default function NewServicePersonPage() {
         });
       }
     };
-    
+
     fetchServiceZones();
   }, []);
 
@@ -116,7 +116,7 @@ export default function NewServicePersonPage() {
     setSelectedZones((prevSelected) => {
       // Single selection: if clicking the same zone, deselect it; otherwise select only this zone
       const newSelectedZones = prevSelected.includes(zoneId) ? [] : [zoneId];
-      
+
       setValue('serviceZoneIds', newSelectedZones, { shouldValidate: false, shouldDirty: true });
       return newSelectedZones;
     });
@@ -135,7 +135,7 @@ export default function NewServicePersonPage() {
       };
 
       const response = await apiClient.post('/service-persons', payload);
-      
+
       // Check if the response indicates success
       if (response && (response.success !== false)) {
         toast({
@@ -195,15 +195,15 @@ export default function NewServicePersonPage() {
             </CardHeader>
             <CardContent className="pt-2">
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-                <Button 
+                <Button
                   onClick={handleImmediateRedirect}
                   className="bg-gradient-to-r from-[#6F8A9D] to-[#6F8A9D] hover:from-[#546A7A] hover:to-[#546A7A] shadow-lg"
                 >
                   <Users className="mr-2 h-4 w-4" />
                   Go to Service Persons
                 </Button>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={() => window.location.reload()}
                   className="border-[#96AEC2] text-[#546A7A] hover:bg-[#96AEC2]/10"
                 >
@@ -228,8 +228,8 @@ export default function NewServicePersonPage() {
         <div className="relative">
           <div className="flex items-center justify-between mb-6">
             <Link href="/admin/service-person">
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="sm"
                 className="text-white hover:bg-white/20 hover:text-white border border-white/30"
               >
@@ -261,8 +261,8 @@ export default function NewServicePersonPage() {
       <div className="md:hidden mb-6">
         <div className="flex items-center justify-between mb-4">
           <Link href="/admin/service-person">
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               size="sm"
               className="text-[#5D6E73] hover:text-[#546A7A]"
             >
@@ -310,11 +310,10 @@ export default function NewServicePersonPage() {
                   type="text"
                   placeholder="Enter service person's full name"
                   {...register('name')}
-                  className={`h-12 text-base transition-all duration-200 ${
-                    errors.name 
-                      ? 'border-[#9E3B47] focus:border-[#9E3B47] focus:ring-[#E17F70]/50' 
+                  className={`h-12 text-base transition-all duration-200 ${errors.name
+                      ? 'border-[#9E3B47] focus:border-[#9E3B47] focus:ring-[#E17F70]/50'
                       : 'border-[#92A2A5] focus:border-[#6F8A9D] focus:ring-indigo-200'
-                  }`}
+                    }`}
                 />
                 {errors.name && (
                   <p className="text-sm text-[#E17F70] flex items-center gap-1">
@@ -323,7 +322,7 @@ export default function NewServicePersonPage() {
                   </p>
                 )}
               </div>
-              
+
               <div className="space-y-3">
                 <Label htmlFor="email" className="flex items-center gap-2 text-sm font-semibold text-[#5D6E73]">
                   <Mail className="h-4 w-4 text-[#4F6A64]" />
@@ -334,11 +333,10 @@ export default function NewServicePersonPage() {
                   type="email"
                   placeholder="user@example.com"
                   {...register('email')}
-                  className={`h-12 text-base transition-all duration-200 ${
-                    errors.email 
-                      ? 'border-[#9E3B47] focus:border-[#9E3B47] focus:ring-[#E17F70]/50' 
+                  className={`h-12 text-base transition-all duration-200 ${errors.email
+                      ? 'border-[#9E3B47] focus:border-[#9E3B47] focus:ring-[#E17F70]/50'
                       : 'border-[#92A2A5] focus:border-[#6F8A9D] focus:ring-indigo-200'
-                  }`}
+                    }`}
                 />
                 {errors.email && (
                   <p className="text-sm text-[#E17F70] flex items-center gap-1">
@@ -353,18 +351,17 @@ export default function NewServicePersonPage() {
             <div className="space-y-3">
               <Label htmlFor="phone" className="flex items-center gap-2 text-sm font-semibold text-[#5D6E73]">
                 <Phone className="h-4 w-4 text-[#546A7A]" />
-                Phone Number
+                Phone Number *
               </Label>
               <Input
                 id="phone"
                 type="tel"
                 placeholder="Enter phone number (e.g., 9876543210)"
                 {...register('phone')}
-                className={`h-12 text-base transition-all duration-200 ${
-                  errors.phone 
-                    ? 'border-[#9E3B47] focus:border-[#9E3B47] focus:ring-[#E17F70]/50' 
+                className={`h-12 text-base transition-all duration-200 ${errors.phone
+                    ? 'border-[#9E3B47] focus:border-[#9E3B47] focus:ring-[#E17F70]/50'
                     : 'border-[#92A2A5] focus:border-[#6F8A9D] focus:ring-indigo-200'
-                }`}
+                  }`}
               />
               <p className="text-sm text-[#5D6E73] bg-[#96AEC2]/10 p-3 rounded-lg border border-[#96AEC2]">
                 <Phone className="h-4 w-4 inline mr-2 text-[#546A7A]" />
@@ -391,11 +388,10 @@ export default function NewServicePersonPage() {
                     type={showPassword ? 'text' : 'password'}
                     placeholder="Enter a strong password"
                     {...register('password')}
-                    className={`h-12 text-base pr-12 transition-all duration-200 ${
-                      errors.password 
-                        ? 'border-[#9E3B47] focus:border-[#9E3B47] focus:ring-[#E17F70]/50' 
+                    className={`h-12 text-base pr-12 transition-all duration-200 ${errors.password
+                        ? 'border-[#9E3B47] focus:border-[#9E3B47] focus:ring-[#E17F70]/50'
                         : 'border-[#92A2A5] focus:border-[#6F8A9D] focus:ring-indigo-200'
-                    }`}
+                      }`}
                   />
                   <Button
                     type="button"
@@ -429,11 +425,10 @@ export default function NewServicePersonPage() {
                     type={showConfirmPassword ? 'text' : 'password'}
                     placeholder="Confirm the password"
                     {...register('confirmPassword')}
-                    className={`h-12 text-base pr-12 transition-all duration-200 ${
-                      errors.confirmPassword 
-                        ? 'border-[#9E3B47] focus:border-[#9E3B47] focus:ring-[#E17F70]/50' 
+                    className={`h-12 text-base pr-12 transition-all duration-200 ${errors.confirmPassword
+                        ? 'border-[#9E3B47] focus:border-[#9E3B47] focus:ring-[#E17F70]/50'
                         : 'border-[#92A2A5] focus:border-[#6F8A9D] focus:ring-indigo-200'
-                    }`}
+                      }`}
                   />
                   <Button
                     type="button"
@@ -508,55 +503,54 @@ export default function NewServicePersonPage() {
                   {serviceZones
                     .filter((zone) => zone.isActive)
                     .map((zone) => (
-                    <div
-                      key={zone.id}
-                      className={`relative p-6 rounded-2xl border-2 transition-all duration-300 hover:shadow-lg ${
-                        selectedZones.includes(zone.id)
-                          ? 'border-[#6F8A9D] bg-[#546A7A]/10 shadow-md ring-2 ring-indigo-200'
-                          : 'border-[#92A2A5] bg-white hover:border-indigo-300 hover:bg-[#546A7A]/10/50'
-                      }`}
-                    >
-                      <div className="flex items-start gap-4">
-                        <Checkbox
-                          id={`zone-${zone.id}`}
-                          checked={selectedZones.includes(zone.id)}
-                          onCheckedChange={() => handleZoneToggle(zone.id)}
-                          className="mt-1 data-[state=checked]:bg-[#546A7A] data-[state=checked]:border-[#6F8A9D]"
-                          disabled={!zone.isActive}
-                        />
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-3">
-                            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-[#6F8A9D] to-[#6F8A9D] flex items-center justify-center text-white font-bold text-sm shadow-md">
-                              {zone.name.charAt(0).toUpperCase()}
+                      <div
+                        key={zone.id}
+                        className={`relative p-6 rounded-2xl border-2 transition-all duration-300 hover:shadow-lg ${selectedZones.includes(zone.id)
+                            ? 'border-[#6F8A9D] bg-[#546A7A]/10 shadow-md ring-2 ring-indigo-200'
+                            : 'border-[#92A2A5] bg-white hover:border-indigo-300 hover:bg-[#546A7A]/10/50'
+                          }`}
+                      >
+                        <div className="flex items-start gap-4">
+                          <Checkbox
+                            id={`zone-${zone.id}`}
+                            checked={selectedZones.includes(zone.id)}
+                            onCheckedChange={() => handleZoneToggle(zone.id)}
+                            className="mt-1 data-[state=checked]:bg-[#546A7A] data-[state=checked]:border-[#6F8A9D]"
+                            disabled={!zone.isActive}
+                          />
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-3">
+                              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-[#6F8A9D] to-[#6F8A9D] flex items-center justify-center text-white font-bold text-sm shadow-md">
+                                {zone.name.charAt(0).toUpperCase()}
+                              </div>
+                              <div>
+                                <h4 className="font-semibold text-[#546A7A] text-base">{zone.name}</h4>
+                                <Badge
+                                  variant="outline"
+                                  className="text-xs bg-[#96AEC2]/10 text-[#546A7A] border-[#96AEC2] mt-1"
+                                >
+                                  <CheckCircle className="mr-1 h-2 w-2" />
+                                  Active Zone
+                                </Badge>
+                              </div>
                             </div>
-                            <div>
-                              <h4 className="font-semibold text-[#546A7A] text-base">{zone.name}</h4>
-                              <Badge 
-                                variant="outline" 
-                                className="text-xs bg-[#96AEC2]/10 text-[#546A7A] border-[#96AEC2] mt-1"
-                              >
-                                <CheckCircle className="mr-1 h-2 w-2" />
-                                Active Zone
-                              </Badge>
+                            {zone.description && (
+                              <p className="text-sm text-[#5D6E73] leading-relaxed bg-[#AEBFC3]/10 p-3 rounded-lg">
+                                {zone.description}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        {selectedZones.includes(zone.id) && (
+                          <div className="absolute top-3 right-3">
+                            <div className="h-8 w-8 rounded-full bg-gradient-to-r from-[#6F8A9D] to-[#6F8A9D] flex items-center justify-center shadow-lg">
+                              <CheckCircle className="h-5 w-5 text-white" />
                             </div>
                           </div>
-                          {zone.description && (
-                            <p className="text-sm text-[#5D6E73] leading-relaxed bg-[#AEBFC3]/10 p-3 rounded-lg">
-                              {zone.description}
-                            </p>
-                          )}
-                        </div>
+                        )}
                       </div>
-                      
-                      {selectedZones.includes(zone.id) && (
-                        <div className="absolute top-3 right-3">
-                          <div className="h-8 w-8 rounded-full bg-gradient-to-r from-[#6F8A9D] to-[#6F8A9D] flex items-center justify-center shadow-lg">
-                            <CheckCircle className="h-5 w-5 text-white" />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                    ))}
                 </div>
 
                 {selectedZones.length > 0 && (
@@ -586,17 +580,17 @@ export default function NewServicePersonPage() {
               <MapPin className="h-4 w-4 text-[#5D6E73]" />
             </div>
             <span className="font-medium">
-              {selectedZones.length === 0 
-                ? 'No zones selected (service person can be assigned zones later)' 
+              {selectedZones.length === 0
+                ? 'No zones selected (service person can be assigned zones later)'
                 : `${selectedZones.length} zone${selectedZones.length === 1 ? '' : 's'} selected for assignment`
               }
             </span>
           </div>
-          
+
           <div className="flex items-center gap-4">
             <Link href="/admin/service-person">
-              <Button 
-                type="button" 
+              <Button
+                type="button"
                 variant="outline"
                 className="border-[#92A2A5] text-[#5D6E73] hover:bg-[#AEBFC3]/10 h-12 px-6"
               >
@@ -604,8 +598,8 @@ export default function NewServicePersonPage() {
                 Cancel
               </Button>
             </Link>
-            <Button 
-              type="submit" 
+            <Button
+              type="submit"
               disabled={loading}
               className="bg-gradient-to-r from-[#6F8A9D] to-[#6F8A9D] hover:from-[#546A7A] hover:to-[#546A7A] shadow-lg h-12 px-8 min-w-[180px]"
             >

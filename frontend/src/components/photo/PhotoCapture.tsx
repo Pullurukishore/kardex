@@ -5,15 +5,16 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
-import { 
-  Camera, 
-  RotateCcw, 
-  Check, 
-  X, 
+import {
+  Camera,
+  RotateCcw,
+  Check,
+  X,
   Loader2,
   AlertTriangle,
   Image as ImageIcon,
-  Trash2
+  Trash2,
+  Upload
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -40,22 +41,24 @@ const PhotoCapture: React.FC<PhotoCaptureProps> = ({
   required = false,
   className,
   label = "Photo Verification",
-  description = "Take photos for verification"
+  description = "Take photos or upload from gallery"
 }) => {
   const { toast } = useToast();
   const [isCapturing, setIsCapturing] = useState(false);
   const [capturedPhotos, setCapturedPhotos] = useState<CapturedPhoto[]>([]);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
-  
+  const [isProcessingUpload, setIsProcessingUpload] = useState(false);
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Start camera
   const startCamera = useCallback(async () => {
     try {
       setIsCapturing(true);
-      
+
       // Stop existing stream if any
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
@@ -70,7 +73,7 @@ const PhotoCapture: React.FC<PhotoCaptureProps> = ({
       });
 
       setStream(mediaStream);
-      
+
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
         await videoRef.current.play();
@@ -113,7 +116,7 @@ const PhotoCapture: React.FC<PhotoCaptureProps> = ({
 
     // Convert to data URL
     const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-    
+
     // Calculate approximate size
     const sizeInBytes = Math.round((dataUrl.length * 3) / 4);
 
@@ -140,12 +143,135 @@ const PhotoCapture: React.FC<PhotoCaptureProps> = ({
     }
   }, [capturedPhotos, maxPhotos, onPhotoCapture, stopCamera, toast]);
 
+  // Handle file upload from gallery
+  const handleFileUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    const remainingSlots = maxPhotos - capturedPhotos.length;
+    if (remainingSlots <= 0) {
+      toast({
+        title: 'Maximum Photos Reached',
+        description: `You can only upload up to ${maxPhotos} photos.`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsProcessingUpload(true);
+
+    const filesToProcess = Array.from(files).slice(0, remainingSlots);
+    const newPhotos: CapturedPhoto[] = [];
+
+    for (const file of filesToProcess) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        toast({
+          title: 'Invalid File',
+          description: `"${file.name}" is not an image file.`,
+          variant: 'destructive',
+        });
+        continue;
+      }
+
+      // Validate file size (max 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        toast({
+          title: 'File Too Large',
+          description: `"${file.name}" exceeds 10MB limit.`,
+          variant: 'destructive',
+        });
+        continue;
+      }
+
+      try {
+        const dataUrl = await processImageFile(file);
+        const sizeInBytes = Math.round((dataUrl.length * 3) / 4);
+
+        newPhotos.push({
+          id: `photo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          dataUrl,
+          timestamp: new Date().toISOString(),
+          filename: `upload_${new Date().toISOString().split('T')[0]}_${Date.now()}.webp`,
+          size: sizeInBytes,
+        });
+      } catch (err) {
+        toast({
+          title: 'Upload Error',
+          description: `Failed to process "${file.name}".`,
+          variant: 'destructive',
+        });
+      }
+    }
+
+    if (newPhotos.length > 0) {
+      const updatedPhotos = [...capturedPhotos, ...newPhotos];
+      setCapturedPhotos(updatedPhotos);
+      onPhotoCapture(updatedPhotos);
+
+      toast({
+        title: 'Photos Uploaded',
+        description: `${newPhotos.length} photo${newPhotos.length > 1 ? 's' : ''} uploaded successfully.`,
+      });
+    }
+
+    setIsProcessingUpload(false);
+
+    // Reset file input so the same file can be selected again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  }, [capturedPhotos, maxPhotos, onPhotoCapture, toast]);
+
+  // Process image file: resize and convert to JPEG dataUrl
+  const processImageFile = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new window.Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            reject(new Error('Canvas context unavailable'));
+            return;
+          }
+
+          // Resize to max 1920px on the longest side
+          const MAX_DIM = 1920;
+          let width = img.width;
+          let height = img.height;
+          if (width > MAX_DIM || height > MAX_DIM) {
+            if (width > height) {
+              height = Math.round((height * MAX_DIM) / width);
+              width = MAX_DIM;
+            } else {
+              width = Math.round((width * MAX_DIM) / height);
+              height = MAX_DIM;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          ctx.drawImage(img, 0, 0, width, height);
+
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+          resolve(dataUrl);
+        };
+        img.onerror = () => reject(new Error('Failed to load image'));
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.readAsDataURL(file);
+    });
+  };
+
   // Delete photo
   const deletePhoto = useCallback((photoId: string) => {
     const updatedPhotos = capturedPhotos.filter(photo => photo.id !== photoId);
     setCapturedPhotos(updatedPhotos);
     onPhotoCapture(updatedPhotos);
-    
+
     toast({
       title: 'Photo Deleted',
       description: 'Photo removed successfully',
@@ -160,6 +286,11 @@ const PhotoCapture: React.FC<PhotoCaptureProps> = ({
       setTimeout(() => startCamera(), 100);
     }
   }, [isCapturing, startCamera]);
+
+  // Trigger file input click
+  const openFilePicker = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
 
   // Format file size
   const formatFileSize = (bytes: number): string => {
@@ -198,15 +329,46 @@ const PhotoCapture: React.FC<PhotoCaptureProps> = ({
       </div>
 
       <div className="p-4 space-y-4">
-        {/* Camera Controls - Start Button */}
+        {/* Hidden file input for gallery upload */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          className="hidden"
+          onChange={handleFileUpload}
+        />
+
+        {/* Camera & Upload Buttons */}
         {!isCapturing && capturedPhotos.length < maxPhotos && (
-          <Button
-            onClick={startCamera}
-            className="w-full h-12 bg-[#546A7A] hover:bg-[#546A7A] text-white font-medium rounded-lg shadow-sm"
-          >
-            <Camera className="h-5 w-5 mr-2" />
-            Open Camera
-          </Button>
+          <div className="flex gap-3">
+            <Button
+              onClick={startCamera}
+              disabled={isProcessingUpload}
+              className="flex-1 h-12 bg-[#546A7A] hover:bg-[#3d5260] text-white font-medium rounded-lg shadow-sm"
+            >
+              <Camera className="h-5 w-5 mr-2" />
+              Open Camera
+            </Button>
+            <Button
+              onClick={openFilePicker}
+              disabled={isProcessingUpload}
+              variant="outline"
+              className="flex-1 h-12 border-[#6F8A9D] text-[#546A7A] hover:bg-[#6F8A9D]/10 font-medium rounded-lg"
+            >
+              {isProcessingUpload ? (
+                <>
+                  <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <Upload className="h-5 w-5 mr-2" />
+                  Upload from Gallery
+                </>
+              )}
+            </Button>
+          </div>
         )}
 
         {/* Camera View */}
@@ -219,7 +381,7 @@ const PhotoCapture: React.FC<PhotoCaptureProps> = ({
                 playsInline
                 muted
               />
-              
+
               {/* Camera mode indicator */}
               <div className="absolute top-3 left-3 px-2 py-1 bg-black/60 backdrop-blur-sm rounded-md text-white text-xs font-medium">
                 {facingMode === 'environment' ? '📷 Back' : '🤳 Front'}
@@ -233,7 +395,7 @@ const PhotoCapture: React.FC<PhotoCaptureProps> = ({
                 >
                   <RotateCcw className="h-5 w-5" />
                 </button>
-                
+
                 <button
                   onClick={capturePhoto}
                   disabled={capturedPhotos.length >= maxPhotos}
@@ -243,7 +405,7 @@ const PhotoCapture: React.FC<PhotoCaptureProps> = ({
                     <Camera className="h-6 w-6 text-white" />
                   </div>
                 </button>
-                
+
                 <button
                   onClick={stopCamera}
                   className="w-10 h-10 flex items-center justify-center bg-white/20 backdrop-blur-sm rounded-full text-white hover:bg-white/30 transition-colors"
@@ -263,10 +425,10 @@ const PhotoCapture: React.FC<PhotoCaptureProps> = ({
                 <Check className="h-3 w-3 text-[#4F6A64]" />
               </div>
               <span className="text-sm font-medium text-[#5D6E73]">
-                {capturedPhotos.length} photo{capturedPhotos.length > 1 ? 's' : ''} captured
+                {capturedPhotos.length} photo{capturedPhotos.length > 1 ? 's' : ''} added
               </span>
             </div>
-            
+
             <div className="flex gap-2 overflow-x-auto pb-2">
               {capturedPhotos.map((photo, index) => (
                 <div
@@ -280,7 +442,7 @@ const PhotoCapture: React.FC<PhotoCaptureProps> = ({
                       className="w-full h-full object-cover"
                     />
                   </div>
-                  
+
                   {/* Delete button */}
                   <button
                     onClick={() => deletePhoto(photo.id)}
@@ -288,23 +450,38 @@ const PhotoCapture: React.FC<PhotoCaptureProps> = ({
                   >
                     <X className="h-3 w-3" />
                   </button>
-                  
-                  {/* Photo number */}
-                  <div className="absolute bottom-1 left-1 px-1.5 py-0.5 bg-black/60 rounded text-white text-xs font-medium">
+
+                  {/* Photo source & number badge */}
+                  <div className="absolute bottom-1 left-1 px-1.5 py-0.5 bg-black/60 rounded text-white text-xs font-medium flex items-center gap-0.5">
+                    {photo.filename.startsWith('upload_') ? (
+                      <Upload className="h-2 w-2" />
+                    ) : (
+                      <Camera className="h-2 w-2" />
+                    )}
                     {index + 1}
                   </div>
                 </div>
               ))}
-              
-              {/* Add more button */}
+
+              {/* Add more buttons */}
               {capturedPhotos.length < maxPhotos && !isCapturing && (
-                <button
-                  onClick={startCamera}
-                  className="w-20 h-20 flex-shrink-0 flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-[#92A2A5] text-[#979796] hover:border-[#6F8A9D] hover:text-[#6F8A9D] hover:bg-[#6F8A9D]/10 transition-colors"
-                >
-                  <Camera className="h-5 w-5" />
-                  <span className="text-xs mt-1">Add</span>
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={startCamera}
+                    className="w-20 h-20 flex-shrink-0 flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-[#92A2A5] text-[#979796] hover:border-[#6F8A9D] hover:text-[#6F8A9D] hover:bg-[#6F8A9D]/10 transition-colors"
+                  >
+                    <Camera className="h-4 w-4" />
+                    <span className="text-[10px] mt-1">Camera</span>
+                  </button>
+                  <button
+                    onClick={openFilePicker}
+                    disabled={isProcessingUpload}
+                    className="w-20 h-20 flex-shrink-0 flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-[#92A2A5] text-[#979796] hover:border-[#6F8A9D] hover:text-[#6F8A9D] hover:bg-[#6F8A9D]/10 transition-colors disabled:opacity-50"
+                  >
+                    <Upload className="h-4 w-4" />
+                    <span className="text-[10px] mt-1">Upload</span>
+                  </button>
+                </div>
               )}
             </div>
           </div>
@@ -317,7 +494,7 @@ const PhotoCapture: React.FC<PhotoCaptureProps> = ({
               <AlertTriangle className="h-4 w-4 text-[#976E44]" />
             </div>
             <p className="text-sm text-[#976E44]">
-              Photo verification is required to continue
+              Photo verification is required — capture with camera or upload from gallery
             </p>
           </div>
         )}
