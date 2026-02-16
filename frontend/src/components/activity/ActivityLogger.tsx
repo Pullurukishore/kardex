@@ -121,7 +121,7 @@ const ACTIVITY_STAGE_TEMPLATES: Record<string, Array<{
     { stage: 'DOCUMENTATION', label: 'Documentation', description: 'Document discussion outcomes', required: true, icon: '📝' },
     { stage: 'COMPLETED', label: 'Completed', description: 'Complete PO discussion', required: true, icon: '✅' }
   ],
-  
+
   SPARE_REPLACEMENT: [
     { stage: 'STARTED', label: 'Started', description: 'Begin spare replacement', required: true, icon: '🚀' },
     { stage: 'TRAVELING', label: 'Traveling', description: 'Travel to location', required: true, icon: '🚗' },
@@ -132,7 +132,7 @@ const ACTIVITY_STAGE_TEMPLATES: Record<string, Array<{
     { stage: 'CUSTOMER_HANDOVER', label: 'Customer Handover', description: 'Customer handover', required: false, icon: '🤝' },
     { stage: 'COMPLETED', label: 'Completed', description: 'Complete replacement', required: true, icon: '✅' }
   ],
-  
+
   INSTALLATION: [
     { stage: 'STARTED', label: 'Started', description: 'Begin installation', required: true, icon: '🚀' },
     { stage: 'TRAVELING', label: 'Traveling', description: 'Travel to location', required: true, icon: '🚗' },
@@ -234,13 +234,13 @@ function ActivityLoggerComponent({
   );
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isMobile, setIsMobile] = useState(false);
-  
+
   // Dual-flow system state
   const [selectedActivityType, setSelectedActivityType] = useState<string>('');
   const [currentStage, setCurrentStage] = useState<string>('');
   const [stageTemplate, setStageTemplate] = useState<any[]>([]);
   const [activityFlow, setActivityFlow] = useState<'TICKET_STATUS_FLOW' | 'ACTIVITY_STAGE_FLOW'>('ACTIVITY_STAGE_FLOW');
-  
+
   const { toast } = useToast();
 
   // Detect mobile screen size
@@ -248,7 +248,7 @@ function ActivityLoggerComponent({
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768); // md breakpoint
     };
-    
+
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
@@ -340,7 +340,7 @@ function ActivityLoggerComponent({
 
       const { latitude, longitude } = position.coords;
       const accuracy = position.coords.accuracy || 999999;
-      
+
       // Provide accuracy feedback only for extreme cases (> 2000m threshold)
       if (accuracy > 2000) {
         toast({
@@ -354,20 +354,20 @@ function ActivityLoggerComponent({
       let address = '';
       try {
         const response = await apiClient.get(`/geocoding/reverse?latitude=${latitude}&longitude=${longitude}`);
-        
+
         if (response.data?.success && response.data?.data?.address) {
           address = response.data.data.address;
-          } else {
-          }
-      } catch (geocodeError) {
+        } else {
         }
+      } catch (geocodeError) {
+      }
 
-      const locationData = { 
-        lat: latitude, 
-        lng: longitude, 
-        address: address || `${latitude.toFixed(6)}, ${longitude.toFixed(6)}` 
+      const locationData = {
+        lat: latitude,
+        lng: longitude,
+        address: address || `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`
       };
-      
+
       setActivityLocation(locationData);
       setLocationError(null);
 
@@ -384,13 +384,13 @@ function ActivityLoggerComponent({
       }
 
       setLocationError(errorMessage);
-      
+
       toast({
         title: "Location Error",
         description: errorMessage,
         variant: "destructive",
       });
-      
+
       return null;
     } finally {
       setLocationLoading(false);
@@ -418,7 +418,7 @@ function ActivityLoggerComponent({
 
       // Handle the response structure - could be direct data or wrapped in ApiResponse
       const activitiesData = (responseData as any)?.activities || responseData || [];
-      
+
       // Debug logging to help diagnose stage issues
       console.log('Fetched activities:', activitiesData.length);
       activitiesData.forEach((activity: any) => {
@@ -448,9 +448,8 @@ function ActivityLoggerComponent({
         "Failed to load activities";
       toast({
         title: "Error Loading Activities",
-        description: `${errorMessage} (Status: ${
-          error.response?.status || "Unknown"
-        })`,
+        description: `${errorMessage} (Status: ${error.response?.status || "Unknown"
+          })`,
         variant: "destructive",
       });
 
@@ -550,7 +549,7 @@ function ActivityLoggerComponent({
       // Get current location if not already available
       let locationData = activityLocation;
       let enhancedLocationData = enhancedLocation;
-      
+
       if (!locationData && !enhancedLocationData) {
         locationData = await getCurrentLocationForActivity();
         if (!locationData) {
@@ -761,7 +760,7 @@ function ActivityLoggerComponent({
       const diffMs = now.getTime() - start.getTime();
       const diffMinutes = Math.floor(diffMs / (1000 * 60));
       const diffSeconds = Math.floor((diffMs % (1000 * 60)) / 1000);
-      
+
       if (diffMinutes < 60) {
         return `${diffMinutes}m ${diffSeconds}s`;
       }
@@ -769,17 +768,17 @@ function ActivityLoggerComponent({
       const mins = diffMinutes % 60;
       return `${hours}h ${mins}m ${diffSeconds}s`;
     }
-    
+
     // If not ongoing, try to calculate duration from start/end times if duration is not provided
     if (!ongoing && startTime && endTime && (!minutes || minutes <= 0)) {
       const start = new Date(startTime);
       const end = new Date(endTime);
       const diffMs = end.getTime() - start.getTime();
       const diffMinutes = Math.ceil(diffMs / (1000 * 60)); // Use ceil to round up to at least 1 minute
-      
+
       // Always show at least 1 minute for any completed activity
       const finalMinutes = Math.max(diffMinutes, 1);
-      
+
       if (finalMinutes < 60) {
         return `${finalMinutes}m`;
       }
@@ -787,7 +786,7 @@ function ActivityLoggerComponent({
       const mins = finalMinutes % 60;
       return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
     }
-    
+
     if (ongoing) return "Ongoing";
 
     // Check for valid duration - must be a positive number
@@ -823,9 +822,9 @@ function ActivityLoggerComponent({
       // Check if activities actually changed to prevent unnecessary updates
       const currentIds = activities.map(a => a.id).sort();
       const newIds = propActivities.map(a => a.id).sort();
-      const hasChanged = currentIds.length !== newIds.length || 
-                        currentIds.some((id, index) => id !== newIds[index]);
-      
+      const hasChanged = currentIds.length !== newIds.length ||
+        currentIds.some((id, index) => id !== newIds[index]);
+
       if (hasChanged || !initialLoadComplete.current) {
         setActivities([...propActivities]); // Create new array to force re-render
         setLoading(false);
@@ -888,7 +887,7 @@ function ActivityLoggerComponent({
 
       // Add small delay to ensure parent component finishes loading first
       await new Promise(resolve => setTimeout(resolve, 100));
-      
+
       if (!mounted) return;
 
       // Only fetch activities if no props are provided
@@ -967,8 +966,8 @@ function ActivityLoggerComponent({
                 }}
               >
                 <DialogTrigger asChild>
-                  <Button 
-                    size={isMobile ? "default" : "sm"} 
+                  <Button
+                    size={isMobile ? "default" : "sm"}
                     disabled={!!activeActivity}
                     className={`${isMobile ? 'flex-1 h-11' : 'h-9'} bg-[#546A7A] hover:bg-[#546A7A] font-medium rounded-lg`}
                   >
@@ -985,7 +984,7 @@ function ActivityLoggerComponent({
                       <div className="absolute -bottom-6 -left-6 w-24 h-24 bg-white/15 rounded-full blur-2xl"></div>
                       <div className="absolute top-1/2 right-1/4 w-16 h-16 bg-white/5 rounded-full blur-xl"></div>
                       {/* Subtle grid pattern */}
-                      <div className="absolute inset-0 opacity-[0.03]" style={{backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '16px 16px'}}></div>
+                      <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '16px 16px' }}></div>
                     </div>
                     <DialogHeader className="relative z-10 p-0">
                       <div className="flex items-center gap-4">
@@ -1064,7 +1063,10 @@ function ActivityLoggerComponent({
                             }))
                           }
                         >
-                          <SelectTrigger className={`${isMobile ? 'h-14 text-base' : 'h-12'} rounded-xl border-2 border-[#AEBFC3] focus:border-[#6F8A9D] bg-white shadow-sm hover:border-[#92A2A5] transition-colors`}>
+                          <SelectTrigger
+                            id="activityScheduleId"
+                            className={`${isMobile ? 'h-14 text-base' : 'h-12'} rounded-xl border-2 border-[#AEBFC3] focus:border-[#6F8A9D] bg-white shadow-sm hover:border-[#92A2A5] transition-colors`}
+                          >
                             <SelectValue placeholder="Select scheduled activity" />
                           </SelectTrigger>
                           <SelectContent>
@@ -1095,13 +1097,12 @@ function ActivityLoggerComponent({
                                         </Badge>
                                         {schedule.priority && (
                                           <Badge
-                                            className={`text-xs ${
-                                              schedule.priority === "HIGH"
-                                                ? "bg-[#E17F70]/20 text-[#75242D]"
-                                                : schedule.priority === "MEDIUM"
+                                            className={`text-xs ${schedule.priority === "HIGH"
+                                              ? "bg-[#E17F70]/20 text-[#75242D]"
+                                              : schedule.priority === "MEDIUM"
                                                 ? "bg-[#CE9F6B]/20 text-[#976E44]"
                                                 : "bg-[#A2B9AF]/20 text-[#4F6A64]"
-                                            }`}
+                                              }`}
                                           >
                                             {schedule.priority}
                                           </Badge>
@@ -1139,7 +1140,7 @@ function ActivityLoggerComponent({
                         <span className="w-6 h-6 bg-gradient-to-br from-[#82A094] to-[#4F6A64] rounded-lg flex items-center justify-center text-white text-xs font-bold shadow-sm">3</span>
                         Location
                       </Label>
-                      
+
                       {/* Show location capture dialog when needed */}
                       {showLocationCapture ? (
                         <div className="bg-gradient-to-br from-[#96AEC2]/10 to-[#6F8A9D]/10 border-2 border-[#96AEC2] rounded-2xl p-4 space-y-4">
@@ -1241,8 +1242,8 @@ function ActivityLoggerComponent({
                               </div>
                               <div className="bg-white/60 rounded-lg p-3 space-y-1">
                                 <p className="text-sm text-[#5D6E73] break-words">
-                                  📍 {(enhancedLocation?.address || activityLocation?.address) || 
-                                   `${(enhancedLocation?.latitude || activityLocation?.lat)?.toFixed(6)}, ${(enhancedLocation?.longitude || activityLocation?.lng)?.toFixed(6)}`}
+                                  📍 {(enhancedLocation?.address || activityLocation?.address) ||
+                                    `${(enhancedLocation?.latitude || activityLocation?.lat)?.toFixed(6)}, ${(enhancedLocation?.longitude || activityLocation?.lng)?.toFixed(6)}`}
                                 </p>
                                 <p className="text-xs text-[#AEBFC3]0">
                                   🕒 {enhancedLocation ? new Date(enhancedLocation.timestamp).toLocaleTimeString() : new Date().toLocaleTimeString()}
@@ -1285,7 +1286,7 @@ function ActivityLoggerComponent({
                       >
                         Cancel
                       </Button>
-                      
+
                       {/* Show message if location not captured */}
                       {!activityLocation && !enhancedLocation ? (
                         <div className={`${isMobile ? 'w-full order-1' : ''} flex items-center justify-center gap-2 px-4 py-3 bg-[#CE9F6B]/15 border-2 border-[#CE9F6B] rounded-xl text-[#976E44]`}>
@@ -1296,8 +1297,8 @@ function ActivityLoggerComponent({
                         <Button
                           onClick={handleStartActivity}
                           disabled={
-                            submitting || 
-                            !formData.activityType || 
+                            submitting ||
+                            !formData.activityType ||
                             // Only require schedule for non-ad-hoc activity types
                             (!AD_HOC_ACTIVITY_TYPES.includes(formData.activityType) && !formData.activityScheduleId)
                           }
@@ -1337,7 +1338,7 @@ function ActivityLoggerComponent({
                   Started {new Date(activeActivity.startTime).toLocaleTimeString()}
                 </span>
               </div>
-              
+
               {/* Activity content */}
               <div className="p-4">
                 <div className="flex items-start gap-3">
@@ -1358,7 +1359,7 @@ function ActivityLoggerComponent({
                     )}
                   </div>
                 </div>
-                
+
                 {activeActivity.location && (
                   <div className="flex items-start gap-2 mt-3 pt-3 border-t border-[#AEBFC3]/30">
                     <MapPin className="h-4 w-4 text-[#979796] flex-shrink-0 mt-0.5" />
@@ -1379,30 +1380,28 @@ function ActivityLoggerComponent({
                     </div>
                     <div className="flex gap-1">
                       <Badge
-                        className={`text-xs ${
-                          activeActivity.ticket.status === "OPEN"
-                            ? "bg-[#96AEC2]/20 text-[#546A7A]"
-                            : activeActivity.ticket.status === "IN_PROGRESS"
+                        className={`text-xs ${activeActivity.ticket.status === "OPEN"
+                          ? "bg-[#96AEC2]/20 text-[#546A7A]"
+                          : activeActivity.ticket.status === "IN_PROGRESS"
                             ? "bg-[#CE9F6B]/20 text-[#976E44]"
                             : activeActivity.ticket.status === "ASSIGNED"
-                            ? "bg-[#6F8A9D]/20 text-[#546A7A]"
-                            : activeActivity.ticket.status === "RESOLVED"
-                            ? "bg-[#A2B9AF]/20 text-[#4F6A64]"
-                            : "bg-[#AEBFC3]/20 text-[#546A7A]"
-                        }`}
+                              ? "bg-[#6F8A9D]/20 text-[#546A7A]"
+                              : activeActivity.ticket.status === "RESOLVED"
+                                ? "bg-[#A2B9AF]/20 text-[#4F6A64]"
+                                : "bg-[#AEBFC3]/20 text-[#546A7A]"
+                          }`}
                       >
                         {activeActivity.ticket.status || "OPEN"}
                       </Badge>
                       <Badge
-                        className={`text-xs ${
-                          activeActivity.ticket.priority === "CRITICAL"
-                            ? "bg-[#E17F70]/20 text-[#75242D]"
-                            : activeActivity.ticket.priority === "HIGH"
+                        className={`text-xs ${activeActivity.ticket.priority === "CRITICAL"
+                          ? "bg-[#E17F70]/20 text-[#75242D]"
+                          : activeActivity.ticket.priority === "HIGH"
                             ? "bg-[#CE9F6B]/20 text-[#976E44]"
                             : activeActivity.ticket.priority === "MEDIUM"
-                            ? "bg-[#96AEC2]/20 text-[#546A7A]"
-                            : "bg-[#AEBFC3]/20 text-[#546A7A]"
-                        }`}
+                              ? "bg-[#96AEC2]/20 text-[#546A7A]"
+                              : "bg-[#AEBFC3]/20 text-[#546A7A]"
+                          }`}
                       >
                         {activeActivity.ticket.priority || "MEDIUM"}
                       </Badge>
@@ -1428,11 +1427,11 @@ function ActivityLoggerComponent({
               const now = new Date();
               const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
               const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
-              
+
               const recentActivities = activities.filter((activity) => {
                 // Exclude active activity
                 if (activity.id === activeActivity?.id) return false;
-                
+
                 // Filter for today and yesterday only
                 const activityDate = new Date(activity.startTime);
                 return activityDate >= yesterday;
@@ -1464,117 +1463,115 @@ function ActivityLoggerComponent({
                     recentActivities
                       .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()) // Most recent first
                       .map((activity) => {
-                  const isOngoing = !activity.endTime || activity.endTime === null || activity.endTime === '';
-                  return (
-                    <div
-                      key={activity.id}
-                      className={`${isMobile ? 'p-3' : 'p-3'} border rounded-lg hover:bg-[#AEBFC3]/10 touch-manipulation`}
-                    >
-                      <div className={`flex items-center justify-between mb-2 ${isMobile ? 'flex-col gap-2' : 'flex-row'}`}>
-                        <div className={`flex items-center gap-2 ${isMobile ? 'flex-wrap w-full justify-center' : ''}`}>
-                          <span className={isMobile ? "text-base" : "text-sm"}>
-                            {getActivityTypeInfo(activity.activityType).icon}
-                          </span>
-                          <Badge variant="outline" className={isMobile ? "text-sm" : "text-xs"}>
-                            {getActivityTypeInfo(activity.activityType).label}
-                          </Badge>
-                          {isOngoing ? (
-                            <Badge
-                              variant="outline"
-                              className="text-xs bg-[#CE9F6B]/20 text-[#976E44] border-[#CE9F6B]"
-                            >
-                              {formatDuration(undefined, true, activity.startTime)}
-                            </Badge>
-                          ) : (
-                            <Badge variant="secondary" className="text-xs">
-                              {formatDuration(activity.duration, false, activity.startTime, activity.endTime)}
-                            </Badge>
-                          )}
-                        </div>
-                        <span className={`${isMobile ? 'text-sm w-full text-center' : 'text-xs'} text-muted-foreground`}>
-                          {new Date(activity.startTime).toLocaleDateString()}
-                        </span>
-                      </div>
-                      <h5 className={`${isMobile ? 'text-base' : 'text-sm'} font-medium ${isMobile ? 'text-center' : ''}`}>{activity.title}</h5>
-                      {activity.description && (
-                        <p className={`${isMobile ? 'text-sm text-center' : 'text-xs'} text-muted-foreground mt-1`}>
-                          {activity.description}
-                        </p>
-                      )}
-                      <div className={`flex items-center gap-4 mt-2 text-muted-foreground ${isMobile ? 'flex-col gap-2 text-sm' : 'text-xs flex-row'}`}>
-                        <div className="flex items-center gap-1">
-                          <Clock className={isMobile ? "h-4 w-4" : "h-3 w-3"} />
-                          <span>
-                            {new Date(activity.startTime).toLocaleTimeString()}
-                          </span>
-                          {activity.endTime && (
-                            <span>
-                              {" "}
-                              -{" "}
-                              {new Date(activity.endTime).toLocaleTimeString()}
-                            </span>
-                          )}
-                        </div>
-                        {activity.location && (
-                          <div className="flex items-start gap-1">
-                            <MapPin className={`flex-shrink-0 mt-0.5 ${isMobile ? "h-4 w-4" : "h-3 w-3"}`} />
-                            <span className="break-words leading-relaxed text-xs">
-                              {activity.location}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                      {activity.ticket && (
-                        <div className="mt-2 p-2 bg-[#96AEC2]/10 border border-[#96AEC2] rounded">
-                          <div className="flex items-start justify-between mb-1">
-                            <div className="flex items-center gap-1">
-                              <FileText className="h-3 w-3 text-[#546A7A]" />
-                              <span className="text-xs font-medium text-[#546A7A]">
-                                Ticket #{activity.ticket.id}
+                        const isOngoing = !activity.endTime || activity.endTime === null || activity.endTime === '';
+                        return (
+                          <div
+                            key={activity.id}
+                            className={`${isMobile ? 'p-3' : 'p-3'} border rounded-lg hover:bg-[#AEBFC3]/10 touch-manipulation`}
+                          >
+                            <div className={`flex items-center justify-between mb-2 ${isMobile ? 'flex-col gap-2' : 'flex-row'}`}>
+                              <div className={`flex items-center gap-2 ${isMobile ? 'flex-wrap w-full justify-center' : ''}`}>
+                                <span className={isMobile ? "text-base" : "text-sm"}>
+                                  {getActivityTypeInfo(activity.activityType).icon}
+                                </span>
+                                <Badge variant="outline" className={isMobile ? "text-sm" : "text-xs"}>
+                                  {getActivityTypeInfo(activity.activityType).label}
+                                </Badge>
+                                {isOngoing ? (
+                                  <Badge
+                                    variant="outline"
+                                    className="text-xs bg-[#CE9F6B]/20 text-[#976E44] border-[#CE9F6B]"
+                                  >
+                                    {formatDuration(undefined, true, activity.startTime)}
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="secondary" className="text-xs">
+                                    {formatDuration(activity.duration, false, activity.startTime, activity.endTime)}
+                                  </Badge>
+                                )}
+                              </div>
+                              <span className={`${isMobile ? 'text-sm w-full text-center' : 'text-xs'} text-muted-foreground`}>
+                                {new Date(activity.startTime).toLocaleDateString()}
                               </span>
                             </div>
-                            <div className="flex gap-1">
-                              <Badge
-                                className={`text-xs ${
-                                  activity.ticket.status === "OPEN"
-                                    ? "bg-[#96AEC2]/20 text-[#546A7A]"
-                                    : activity.ticket.status === "IN_PROGRESS"
-                                    ? "bg-[#CE9F6B]/20 text-[#976E44]"
-                                    : activity.ticket.status === "ASSIGNED"
-                                    ? "bg-[#6F8A9D]/20 text-[#546A7A]"
-                                    : activity.ticket.status === "RESOLVED"
-                                    ? "bg-[#A2B9AF]/20 text-[#4F6A64]"
-                                    : "bg-[#AEBFC3]/20 text-[#546A7A]"
-                                }`}
-                              >
-                                {activity.ticket.status || "OPEN"}
-                              </Badge>
-                              <Badge
-                                className={`text-xs ${
-                                  activity.ticket.priority === "CRITICAL"
-                                    ? "bg-[#E17F70]/20 text-[#75242D]"
-                                    : activity.ticket.priority === "HIGH"
-                                    ? "bg-[#CE9F6B]/20 text-[#976E44]"
-                                    : activity.ticket.priority === "MEDIUM"
-                                    ? "bg-[#96AEC2]/20 text-[#546A7A]"
-                                    : "bg-[#AEBFC3]/20 text-[#546A7A]"
-                                }`}
-                              >
-                                {activity.ticket.priority || "MEDIUM"}
-                              </Badge>
+                            <h5 className={`${isMobile ? 'text-base' : 'text-sm'} font-medium ${isMobile ? 'text-center' : ''}`}>{activity.title}</h5>
+                            {activity.description && (
+                              <p className={`${isMobile ? 'text-sm text-center' : 'text-xs'} text-muted-foreground mt-1`}>
+                                {activity.description}
+                              </p>
+                            )}
+                            <div className={`flex items-center gap-4 mt-2 text-muted-foreground ${isMobile ? 'flex-col gap-2 text-sm' : 'text-xs flex-row'}`}>
+                              <div className="flex items-center gap-1">
+                                <Clock className={isMobile ? "h-4 w-4" : "h-3 w-3"} />
+                                <span>
+                                  {new Date(activity.startTime).toLocaleTimeString()}
+                                </span>
+                                {activity.endTime && (
+                                  <span>
+                                    {" "}
+                                    -{" "}
+                                    {new Date(activity.endTime).toLocaleTimeString()}
+                                  </span>
+                                )}
+                              </div>
+                              {activity.location && (
+                                <div className="flex items-start gap-1">
+                                  <MapPin className={`flex-shrink-0 mt-0.5 ${isMobile ? "h-4 w-4" : "h-3 w-3"}`} />
+                                  <span className="break-words leading-relaxed text-xs">
+                                    {activity.location}
+                                  </span>
+                                </div>
+                              )}
                             </div>
+                            {activity.ticket && (
+                              <div className="mt-2 p-2 bg-[#96AEC2]/10 border border-[#96AEC2] rounded">
+                                <div className="flex items-start justify-between mb-1">
+                                  <div className="flex items-center gap-1">
+                                    <FileText className="h-3 w-3 text-[#546A7A]" />
+                                    <span className="text-xs font-medium text-[#546A7A]">
+                                      Ticket #{activity.ticket.id}
+                                    </span>
+                                  </div>
+                                  <div className="flex gap-1">
+                                    <Badge
+                                      className={`text-xs ${activity.ticket.status === "OPEN"
+                                        ? "bg-[#96AEC2]/20 text-[#546A7A]"
+                                        : activity.ticket.status === "IN_PROGRESS"
+                                          ? "bg-[#CE9F6B]/20 text-[#976E44]"
+                                          : activity.ticket.status === "ASSIGNED"
+                                            ? "bg-[#6F8A9D]/20 text-[#546A7A]"
+                                            : activity.ticket.status === "RESOLVED"
+                                              ? "bg-[#A2B9AF]/20 text-[#4F6A64]"
+                                              : "bg-[#AEBFC3]/20 text-[#546A7A]"
+                                        }`}
+                                    >
+                                      {activity.ticket.status || "OPEN"}
+                                    </Badge>
+                                    <Badge
+                                      className={`text-xs ${activity.ticket.priority === "CRITICAL"
+                                        ? "bg-[#E17F70]/20 text-[#75242D]"
+                                        : activity.ticket.priority === "HIGH"
+                                          ? "bg-[#CE9F6B]/20 text-[#976E44]"
+                                          : activity.ticket.priority === "MEDIUM"
+                                            ? "bg-[#96AEC2]/20 text-[#546A7A]"
+                                            : "bg-[#AEBFC3]/20 text-[#546A7A]"
+                                        }`}
+                                    >
+                                      {activity.ticket.priority || "MEDIUM"}
+                                    </Badge>
+                                  </div>
+                                </div>
+                                <p className="text-xs text-[#546A7A] font-medium mb-1">
+                                  {activity.ticket.title}
+                                </p>
+                                <p className="text-xs text-[#546A7A]">
+                                  {activity.ticket.customer?.companyName ||
+                                    "Unknown Customer"}
+                                </p>
+                              </div>
+                            )}
                           </div>
-                          <p className="text-xs text-[#546A7A] font-medium mb-1">
-                            {activity.ticket.title}
-                          </p>
-                          <p className="text-xs text-[#546A7A]">
-                            {activity.ticket.customer?.companyName ||
-                              "Unknown Customer"}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  );
+                        );
                       })
                   )}
                 </>
@@ -1595,10 +1592,16 @@ function ActivityLoggerComponent({
       locationLoading,
       locationError,
       allTickets,
+      acceptedSchedules,
+      showLocationCapture,
+      enhancedLocation,
+      isMobile,
+      currentTime,
       fetchActivities,
       handleEndActivity,
       handleStartActivity,
       getCurrentLocationForActivity,
+      toast,
     ]
   );
 

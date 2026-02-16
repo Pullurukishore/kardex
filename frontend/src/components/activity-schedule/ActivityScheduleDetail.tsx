@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { 
+import {
   Calendar,
   Clock,
   MapPin,
@@ -282,7 +282,7 @@ export default function ActivityScheduleDetail({
                       <Clock className="h-4 w-4" />
                       {schedule.estimatedDuration ? (
                         <>
-                          {schedule.estimatedDuration >= 1 
+                          {schedule.estimatedDuration >= 1
                             ? `${Math.floor(schedule.estimatedDuration)} hour${Math.floor(schedule.estimatedDuration) !== 1 ? 's' : ''} ${(schedule.estimatedDuration % 1) * 60 > 0 ? `${Math.round((schedule.estimatedDuration % 1) * 60)} min` : ''}`
                             : `${Math.round(schedule.estimatedDuration * 60)} minutes`
                           }
@@ -325,7 +325,7 @@ export default function ActivityScheduleDetail({
               {((schedule.zone || schedule.customer) || (schedule.assets && schedule.assets.length > 0)) && (
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold text-[#546A7A] border-b pb-2">Zone, Customer & Assets</h3>
-                  
+
                   {/* Zone & Customer Cards */}
                   {(schedule.zone || schedule.customer) && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -345,45 +345,66 @@ export default function ActivityScheduleDetail({
                   )}
 
                   {/* Assets */}
-                  {(schedule.assets && schedule.assets.length > 0) && (
+                  {(schedule.assets?.length > 0 || schedule.ticket?.asset || schedule.activityType === 'TICKET_WORK') && (
                     <div className="space-y-3">
                       <h4 className="text-sm font-semibold text-[#5D6E73] flex items-center gap-2">
                         <Layers className="h-4 w-4" />
-                        Assets ({schedule.assets.length})
+                        {schedule.activityType === 'TICKET_WORK' ? 'Work Assets' : 'Assets'} ({
+                          (schedule.assets?.length || 0) + (schedule.ticket?.asset ? (schedule.assets?.some((a: any) => a.id === schedule.ticket.asset.id) ? 0 : 1) : 0)
+                        })
                       </h4>
-                      {schedule.assets.map((asset: any, index: number) => (
-                        <div key={asset.id} className="p-4 bg-gradient-to-r from-[#A2B9AF]/10 to-[#A2B9AF]/10 rounded-lg border border-[#A2B9AF]">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-3 mb-2">
-                                <div className="p-2 bg-[#4F6A64] rounded-lg">
-                                  <Layers className="h-5 w-5 text-white" />
-                                </div>
-                                <div>
-                                  <p className="font-bold text-[#546A7A]">{asset.model}</p>
-                                  <p className="text-sm text-[#5D6E73]">Serial: {asset.serialNo}</p>
-                                </div>
-                              </div>
-                              
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
-                                <div>
-                                  <label className="text-xs font-medium text-[#AEBFC3]0">Serial Number</label>
-                                  <p className="text-sm font-mono text-[#546A7A] mt-1">{asset.serialNo}</p>
-                                </div>
-                                {asset.location && (
-                                  <div>
-                                    <label className="text-xs font-medium text-[#AEBFC3]0">Asset Location</label>
-                                    <p className="text-sm text-[#546A7A] mt-1 flex items-center gap-1">
-                                      <MapPin className="h-3 w-3" />
-                                      {asset.location}
-                                    </p>
+
+                      {(() => {
+                        const displayAssets = [...(schedule.assets || [])];
+                        if (schedule.ticket?.asset) {
+                          const ticketAssetId = schedule.ticket.asset.id;
+                          if (!displayAssets.some((a: any) => a.id === ticketAssetId)) {
+                            displayAssets.push(schedule.ticket.asset);
+                          }
+                        }
+
+                        if (displayAssets.length > 0) {
+                          return displayAssets.map((asset: any) => (
+                            <div key={asset.id} className="p-4 bg-gradient-to-r from-[#A2B9AF]/10 to-[#A2B9AF]/10 rounded-lg border border-[#A2B9AF]">
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-3 mb-2">
+                                    <div className="p-2 bg-[#4F6A64] rounded-lg">
+                                      <Layers className="h-5 w-5 text-white" />
+                                    </div>
+                                    <div>
+                                      <p className="font-bold text-[#546A7A]">{asset.model}</p>
+                                      <p className="text-sm text-[#5D6E73]">Serial: {asset.serialNo}</p>
+                                    </div>
                                   </div>
-                                )}
+
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                                    <div>
+                                      <label className="text-xs font-medium text-[#AEBFC3]0">Serial Number</label>
+                                      <p className="text-sm font-mono text-[#546A7A] mt-1">{asset.serialNo}</p>
+                                    </div>
+                                    {asset.location && (
+                                      <div>
+                                        <label className="text-xs font-medium text-[#AEBFC3]0">Asset Location</label>
+                                        <p className="text-sm text-[#546A7A] mt-1 flex items-center gap-1">
+                                          <MapPin className="h-3 w-3" />
+                                          {asset.location}
+                                        </p>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        </div>
-                      ))}
+                          ));
+                        } else {
+                          return (
+                            <div className="p-4 bg-gray-50 rounded-lg border border-dashed border-gray-200 text-center">
+                              <p className="text-[#AEBFC3]0 text-sm">No asset assigned</p>
+                            </div>
+                          );
+                        }
+                      })()}
                     </div>
                   )}
                 </div>
@@ -517,7 +538,7 @@ export default function ActivityScheduleDetail({
                 <div className="p-2 bg-[#6F8A9D] rounded-lg">
                   <Clock className="h-5 w-5 text-white" />
                 </div>
-                        Status Timeline
+                Status Timeline
               </CardTitle>
             </CardHeader>
             <CardContent className="p-6">
@@ -650,8 +671,8 @@ export default function ActivityScheduleDetail({
                             const accuracy = typeof accuracyRaw === 'number'
                               ? accuracyRaw
                               : accuracyRaw
-                              ? parseFloat(accuracyRaw)
-                              : undefined;
+                                ? parseFloat(accuracyRaw)
+                                : undefined;
                             const photos = Array.isArray(meta.photos) ? meta.photos : [];
 
                             return (

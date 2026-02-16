@@ -2,9 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter, usePathname } from 'next/navigation';
-import { 
-  ArrowLeft, 
-  Loader2, 
+import {
+  ArrowLeft,
+  Loader2,
   Activity,
   Calendar,
   Clock,
@@ -57,7 +57,7 @@ export default function ActivityScheduleDetailPageShared() {
   const isAdmin = pathname.includes('/admin/');
   const isZone = pathname.includes('/zone/');
   const isExpert = pathname.includes('/expert/');
-  
+
   const [schedule, setSchedule] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -158,42 +158,42 @@ export default function ActivityScheduleDetailPageShared() {
   const getPriorityConfig = (priority: string) => {
     switch (priority) {
       case 'URGENT':
-        return { 
-          gradient: 'from-[#E17F70] to-red-600', 
-          bg: 'bg-gradient-to-r from-[#EEC1BF]/10 to-[#E17F70]/10', 
-          text: 'text-[#9E3B47]', 
+        return {
+          gradient: 'from-[#E17F70] to-red-600',
+          bg: 'bg-gradient-to-r from-[#EEC1BF]/10 to-[#E17F70]/10',
+          text: 'text-[#9E3B47]',
           border: 'border-[#EEC1BF]/50',
           icon: <Zap className="h-3.5 w-3.5" />
         };
       case 'HIGH':
-        return { 
-          gradient: 'from-[#CE9F6B] to-[#CE9F6B]', 
-          bg: 'bg-gradient-to-r from-[#EEC1BF]/10 to-[#EEC1BF]/10', 
-          text: 'text-[#976E44]', 
+        return {
+          gradient: 'from-[#CE9F6B] to-[#CE9F6B]',
+          bg: 'bg-gradient-to-r from-[#EEC1BF]/10 to-[#EEC1BF]/10',
+          text: 'text-[#976E44]',
           border: 'border-[#CE9F6B]',
           icon: <Target className="h-3.5 w-3.5" />
         };
       case 'MEDIUM':
-        return { 
-          gradient: 'from-[#6F8A9D] to-[#6F8A9D]', 
-          bg: 'bg-gradient-to-r from-[#96AEC2]/10 to-[#6F8A9D]/10', 
-          text: 'text-[#546A7A]', 
+        return {
+          gradient: 'from-[#6F8A9D] to-[#6F8A9D]',
+          bg: 'bg-gradient-to-r from-[#96AEC2]/10 to-[#6F8A9D]/10',
+          text: 'text-[#546A7A]',
           border: 'border-[#96AEC2]',
           icon: <Activity className="h-3.5 w-3.5" />
         };
       case 'LOW':
-        return { 
-          gradient: 'from-[#82A094] to-[#82A094]', 
-          bg: 'bg-gradient-to-r from-[#A2B9AF]/10 to-[#A2B9AF]/10', 
-          text: 'text-[#4F6A64]', 
+        return {
+          gradient: 'from-[#82A094] to-[#82A094]',
+          bg: 'bg-gradient-to-r from-[#A2B9AF]/10 to-[#A2B9AF]/10',
+          text: 'text-[#4F6A64]',
           border: 'border-[#82A094]/50',
           icon: <CheckCircle className="h-3.5 w-3.5" />
         };
       default:
-        return { 
-          gradient: 'from-[#AEBFC3]/100 to-[#AEBFC3]/100', 
-          bg: 'bg-[#AEBFC3]/10', 
-          text: 'text-[#5D6E73]', 
+        return {
+          gradient: 'from-[#AEBFC3]/100 to-[#AEBFC3]/100',
+          bg: 'bg-[#AEBFC3]/10',
+          text: 'text-[#5D6E73]',
           border: 'border-[#92A2A5]',
           icon: null
         };
@@ -375,7 +375,7 @@ export default function ActivityScheduleDetailPageShared() {
           <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-white/10 rounded-full blur-3xl animate-pulse" />
           <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-[#6F8A9D]/20 rounded-full blur-3xl animate-pulse" />
         </div>
-        
+
         <div className="relative text-center space-y-6">
           <div className="relative mx-auto w-24 h-24">
             <div className="absolute inset-0 rounded-full border-4 border-white/20" />
@@ -407,7 +407,7 @@ export default function ActivityScheduleDetailPageShared() {
               <p className="text-[#AEBFC3] mt-2">The schedule you're looking for doesn't exist.</p>
             </div>
             <CardContent className="p-6 text-center bg-white">
-              <Button 
+              <Button
                 onClick={() => router.push(`${getBasePath()}/activity-scheduling`)}
                 className="bg-gradient-to-r from-[#546A7A] to-[#546A7A] hover:from-[#546A7A] hover:to-[#546A7A] text-white shadow-lg"
               >
@@ -478,7 +478,7 @@ export default function ActivityScheduleDetailPageShared() {
                   <p className="text-white/80 max-w-2xl text-lg">
                     {schedule.description || 'Scheduled activity for service operations'}
                   </p>
-                  
+
                   {/* Meta Info */}
                   <div className="flex flex-wrap items-center gap-4 mt-4">
                     <div className="flex items-center gap-2 text-white/90 bg-white/10 backdrop-blur-sm px-3 py-1.5 rounded-full">
@@ -529,7 +529,7 @@ export default function ActivityScheduleDetailPageShared() {
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back to List
               </Button>
-              
+
               <Button
                 variant="outline"
                 size="sm"
@@ -539,7 +539,7 @@ export default function ActivityScheduleDetailPageShared() {
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Refresh
               </Button>
-              
+
               {schedule.ticket && (
                 <Button
                   variant="outline"
@@ -563,7 +563,7 @@ export default function ActivityScheduleDetailPageShared() {
                 <Edit3 className="h-4 w-4 mr-2" />
                 Edit Schedule
               </Button>
-              
+
               {canComplete && (
                 <Button
                   size="sm"
@@ -574,7 +574,7 @@ export default function ActivityScheduleDetailPageShared() {
                   Mark Complete
                 </Button>
               )}
-              
+
               {canCancel && (
                 <Button
                   size="sm"
@@ -617,7 +617,7 @@ export default function ActivityScheduleDetailPageShared() {
                     </div>
                     <p className="text-[#546A7A] font-semibold ml-11">{formatDate(schedule.scheduledDate)}</p>
                   </div>
-                  
+
                   <div className="p-4 bg-gradient-to-br from-[#6F8A9D]/10 to-[#6F8A9D]/10 rounded-xl border border-[#6F8A9D]/30">
                     <div className="flex items-center gap-3 mb-2">
                       <div className="p-2 bg-[#546A7A]/100 rounded-lg text-white">
@@ -627,7 +627,7 @@ export default function ActivityScheduleDetailPageShared() {
                     </div>
                     <p className="text-[#546A7A] font-semibold ml-11">{formatTime(schedule.scheduledDate)}</p>
                   </div>
-                  
+
                   <div className="p-4 bg-gradient-to-br from-[#6F8A9D]/10 to-[#EEC1BF]/10 rounded-xl border border-[#6F8A9D]/30">
                     <div className="flex items-center gap-3 mb-2">
                       <div className="p-2 bg-[#6F8A9D]/100 rounded-lg text-white">
@@ -637,7 +637,7 @@ export default function ActivityScheduleDetailPageShared() {
                     </div>
                     <p className="text-[#546A7A] font-semibold ml-11">{schedule.activityType.replace(/_/g, ' ')}</p>
                   </div>
-                  
+
                   <div className="p-4 bg-gradient-to-br from-[#EEC1BF]/10 to-[#EEC1BF]/10 rounded-xl border border-[#EEC1BF]/30">
                     <div className="flex items-center gap-3 mb-2">
                       <div className="p-2 bg-[#CE9F6B]/100 rounded-lg text-white">
@@ -723,30 +723,36 @@ export default function ActivityScheduleDetailPageShared() {
                     </div>
                   )}
 
-                  {displayAssets.length > 0 && (
+                  {(displayAssets.length > 0 || schedule.activityType === 'TICKET_WORK') && (
                     <div>
                       <label className="text-sm font-medium text-[#5D6E73] mb-3 block flex items-center gap-2">
                         <Layers className="h-4 w-4 text-[#979796]" />
-                        Linked Assets ({displayAssets.length})
+                        {schedule.activityType === 'TICKET_WORK' ? 'Work Assets' : 'Linked Assets'} ({displayAssets.length})
                       </label>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {displayAssets.map((asset: any) => (
-                          <div key={asset.id} className="p-4 bg-gradient-to-br from-[#96AEC2]/10 to-[#96AEC2]/10 rounded-xl border border-cyan-100">
-                            <div className="flex items-start gap-3">
-                              <div className="p-2 bg-gradient-to-br from-[#6F8A9D] to-[#6F8A9D] rounded-lg text-white">
-                                <Layers className="h-4 w-4" />
-                              </div>
-                              <div>
-                                <p className="font-semibold text-[#546A7A]">{asset.model}</p>
-                                <p className="text-sm text-[#AEBFC3]0 font-mono">S/N: {asset.serialNo}</p>
-                                {asset.location && (
-                                  <p className="text-sm text-[#979796] mt-1">{asset.location}</p>
-                                )}
+                      {displayAssets.length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {displayAssets.map((asset: any) => (
+                            <div key={asset.id} className="p-4 bg-gradient-to-br from-[#96AEC2]/10 to-[#96AEC2]/10 rounded-xl border border-cyan-100">
+                              <div className="flex items-start gap-3">
+                                <div className="p-2 bg-gradient-to-br from-[#6F8A9D] to-[#6F8A9D] rounded-lg text-white">
+                                  <Layers className="h-4 w-4" />
+                                </div>
+                                <div>
+                                  <p className="font-semibold text-[#546A7A]">{asset.model}</p>
+                                  <p className="text-sm text-[#AEBFC3]0 font-mono">S/N: {asset.serialNo}</p>
+                                  {asset.location && (
+                                    <p className="text-sm text-[#979796] mt-1">{asset.location}</p>
+                                  )}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        ))}
-                      </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="p-4 bg-gray-50 rounded-xl border border-dashed border-gray-200 text-center">
+                          <p className="text-[#AEBFC3]0 text-sm">No asset assigned</p>
+                        </div>
+                      )}
                     </div>
                   )}
                 </CardContent>
@@ -779,7 +785,7 @@ export default function ActivityScheduleDetailPageShared() {
                         )}
                       </div>
                       <p className="text-[#5D6E73] text-lg">{schedule.ticket.title}</p>
-                      
+
                       {(schedule.ticket.customer || schedule.ticket.contact) && (
                         <div className="flex flex-wrap items-center gap-4 mt-4 text-sm text-[#AEBFC3]0">
                           {schedule.ticket.customer && (
@@ -797,7 +803,7 @@ export default function ActivityScheduleDetailPageShared() {
                         </div>
                       )}
                     </div>
-                    
+
                     <Button
                       onClick={() => router.push(`${isAdmin ? '/admin' : '/zone'}/tickets/${schedule.ticket.id}`)}
                       className="bg-gradient-to-r from-sky-500 to-[#546A7A] hover:from-sky-600 hover:to-[#546A7A] text-white"
@@ -828,8 +834,8 @@ export default function ActivityScheduleDetailPageShared() {
                 </CardHeader>
                 <CardContent className="p-6 space-y-6">
                   {schedule.relatedActivities.map((activity: any, actIndex: number) => (
-                    <div 
-                      key={activity.id} 
+                    <div
+                      key={activity.id}
                       className="p-6 bg-gradient-to-br from-[#A2B9AF]/10 to-[#82A094]/10 rounded-2xl border border-[#A2B9AF]/30"
                     >
                       {/* Activity Header */}
@@ -871,17 +877,15 @@ export default function ActivityScheduleDetailPageShared() {
 
                             return (
                               <div key={stage.id} className="relative">
-                                <div className={`absolute -left-[29px] top-2 w-4 h-4 rounded-full border-4 border-white shadow-md ${
-                                  isTicketStatus 
-                                    ? 'bg-gradient-to-br from-[#6F8A9D] to-[#6F8A9D]' 
+                                <div className={`absolute -left-[29px] top-2 w-4 h-4 rounded-full border-4 border-white shadow-md ${isTicketStatus
+                                    ? 'bg-gradient-to-br from-[#6F8A9D] to-[#6F8A9D]'
                                     : 'bg-gradient-to-br from-[#82A094] to-[#82A094]'
-                                }`} />
-                                
-                                <div className={`rounded-xl p-5 shadow-sm ml-2 ${
-                                  isTicketStatus 
-                                    ? `bg-gradient-to-br ${stageStyle.bg} border border-[#96AEC2]` 
+                                  }`} />
+
+                                <div className={`rounded-xl p-5 shadow-sm ml-2 ${isTicketStatus
+                                    ? `bg-gradient-to-br ${stageStyle.bg} border border-[#96AEC2]`
                                     : 'bg-white border border-[#A2B9AF]/30'
-                                }`}>
+                                  }`}>
                                   <div className="flex flex-wrap items-center gap-3 mb-3">
                                     {isTicketStatus && (
                                       <span className="text-xl">{stageStyle.icon}</span>
@@ -906,7 +910,7 @@ export default function ActivityScheduleDetailPageShared() {
                                       </Badge>
                                     )}
                                   </div>
-                                  
+
                                   <div className="flex flex-wrap items-center gap-4 text-sm text-[#5D6E73]">
                                     <span className="flex items-center gap-1">
                                       <Clock className="h-4 w-4 text-[#979796]" />
@@ -1022,7 +1026,7 @@ export default function ActivityScheduleDetailPageShared() {
                     </div>
                     <span className="text-[#5D6E73] text-sm truncate">{schedule.servicePerson.email}</span>
                   </a>
-                  
+
                   {schedule.servicePerson.phone && (
                     <a
                       href={`tel:${schedule.servicePerson.phone}`}

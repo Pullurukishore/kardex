@@ -135,6 +135,7 @@ export const getDashboardData = async (req: Request, res: Response) => {
               'OPEN',
               'ASSIGNED',
               'IN_PROGRESS',
+              'IN_PROCESS', // Support legacy/alternate status
               'WAITING_CUSTOMER',
               'ONSITE_VISIT',
               'ONSITE_VISIT_PLANNED',
@@ -148,10 +149,6 @@ export const getDashboardData = async (req: Request, res: Response) => {
               'ESCALATED',
               'PENDING'
             ]
-          },
-          createdAt: {
-            gte: currentPeriodStart,
-            lte: currentPeriodEnd
           }
         }
       }),
@@ -164,6 +161,7 @@ export const getDashboardData = async (req: Request, res: Response) => {
               'OPEN',
               'ASSIGNED',
               'IN_PROGRESS',
+              'IN_PROCESS', // Support legacy/alternate status
               'WAITING_CUSTOMER',
               'ONSITE_VISIT_PLANNED',
               'PO_NEEDED',
@@ -172,10 +170,6 @@ export const getDashboardData = async (req: Request, res: Response) => {
               'ON_HOLD',
               'PENDING'
             ]
-          },
-          createdAt: {
-            gte: currentPeriodStart,
-            lte: currentPeriodEnd
           }
         }
       }),
@@ -185,14 +179,11 @@ export const getDashboardData = async (req: Request, res: Response) => {
           status: {
             in: [
               'IN_PROGRESS',
+              'IN_PROCESS', // Support legacy/alternate status
               'ONSITE_VISIT',
               'SPARE_PARTS_BOOKED',
               'SPARE_PARTS_DELIVERED'
             ]
-          },
-          createdAt: {
-            gte: currentPeriodStart,
-            lte: currentPeriodEnd
           }
         }
       }),
@@ -317,12 +308,6 @@ export const getDashboardData = async (req: Request, res: Response) => {
       // Get status distribution
       prisma.ticket.groupBy({
         by: ['status'],
-        where: {
-          createdAt: {
-            gte: currentPeriodStart,
-            lte: currentPeriodEnd
-          }
-        },
         _count: {
           status: true
         }
@@ -415,6 +400,7 @@ export const getDashboardData = async (req: Request, res: Response) => {
                   'OPEN',
                   'ASSIGNED',
                   'IN_PROGRESS',
+                  'IN_PROCESS', // Support legacy/alternate status
                   'WAITING_CUSTOMER',
                   'ONSITE_VISIT',
                   'ONSITE_VISIT_PLANNED',
@@ -451,6 +437,7 @@ export const getDashboardData = async (req: Request, res: Response) => {
                 in: [
                   'ASSIGNED',
                   'IN_PROGRESS',
+                  'IN_PROCESS', // Support legacy/alternate status
                   'ONSITE_VISIT',
                   'ONSITE_VISIT_PLANNED',
                   'ONSITE_VISIT_STARTED',
@@ -1415,15 +1402,8 @@ async function calculateAverageOnsiteResolutionTime_OLD(startDate: Date, endDate
 // Additional endpoint for status distribution
 export const getStatusDistribution = async (req: Request, res: Response) => {
   try {
-    const thirtyDaysAgo = subDays(new Date(), 30);
-
     const distribution = await prisma.ticket.groupBy({
       by: ['status'],
-      where: {
-        createdAt: {
-          gte: thirtyDaysAgo
-        }
-      },
       _count: {
         status: true
       }

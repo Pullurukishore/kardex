@@ -48,11 +48,13 @@ export interface CustomerFormData {
   companyName: string;
   industry?: string;
   address?: string;
-  status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
+  status?: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED'; // Used internally in forms
+  isActive?: boolean; // What the backend API actually expects
   serviceZoneId: number;
   // Contact information (stored in contacts table)
   contactName: string;
   contactPhone: string;
+  contactEmail?: string;
 }
 
 export interface CustomerStats {

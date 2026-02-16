@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { createCustomer, updateCustomer } from '@/services/customer.service';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useState, useEffect } from 'react';
 import { getServiceZones } from '@/services/zone.service';
@@ -26,7 +26,7 @@ const customerFormSchema = z.object({
   address: z.string().optional(),
   status: z.enum(['ACTIVE', 'INACTIVE', 'SUSPENDED']).default('ACTIVE'),
   serviceZoneId: z.number().min(1, 'Service zone is required'),
-  
+
   // Contact Information
   contactName: z.string().min(2, 'Contact name is required'),
   contactPhone: z.string().regex(/^\d{10}$/, 'Contact phone must be exactly 10 digits'),
@@ -40,60 +40,35 @@ interface CustomerFormComponentProps {
     companyName: string;
     industry?: string;
     address?: string;
-    status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
+    status?: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
     serviceZoneId: number;
     contactName: string;
     contactPhone: string;
+    contactEmail?: string;
   };
   customerId?: number;
 }
 
 export default function CustomerFormComponent({ customer, customerId }: CustomerFormComponentProps) {
   const router = useRouter();
-  const { toast } = useToast();
   const [serviceZones, setServiceZones] = useState<ServiceZone[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const loadServiceZones = async () => {
-      try {
-        // Fetch all service zones with a high limit to get all records
-        const response = await getServiceZones(1, 100);
-        // The response has a data property that contains the array of service zones
-        setServiceZones(response.data || []);
-        
-        // If no service zones were found, show a warning
-        if (!response.data || response.data.length === 0) {
-          toast({
-            title: 'No Service Zones',
-            description: 'No service zones found. Please create service zones first.',
-            variant: 'destructive',
-          });
-        }
-      } catch (error) {
-        console.error('Error loading service zones:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to load service zones. Please try again later.',
-          variant: 'destructive',
-        });
-      }
-    };
 
-    loadServiceZones();
-  }, []);
 
   const form = useForm<CustomerFormValues>({
     resolver: zodResolver(customerFormSchema),
+    mode: 'onChange',
     defaultValues: customer ? {
       companyName: customer.companyName,
       industry: customer.industry || '',
       address: customer.address || '',
-      status: customer.status,
+      status: customer.status || 'ACTIVE',
       serviceZoneId: customer.serviceZoneId,
       contactName: customer.contactName,
       contactPhone: customer.contactPhone,
+      contactEmail: customer.contactEmail || '',
     } : {
       companyName: '',
       industry: '',
@@ -101,60 +76,76 @@ export default function CustomerFormComponent({ customer, customerId }: Customer
       status: 'ACTIVE',
       serviceZoneId: 0,
       contactName: '',
-      contactPhone: ''
+      contactPhone: '',
+      contactEmail: ''
     }
   });
 
-  const onSubmit = async (data: CustomerFormValues) => {
-    if (customer && customerId) {
-      // Handle update logic here
-      } else {
-      // Handle create logic here
+  useEffect(() => {
+    const loadServiceZones = async () => {
+      try {
+        // Fetch all service zones with a high limit to get all records
+        const response = await getServiceZones(1, 100);
+        const zones = response.data || [];
+        setServiceZones(zones);
+
+        // Auto-select first zone if none is selected and we have zones
+        const currentZoneId = form.getValues('serviceZoneId');
+        if ((!currentZoneId || currentZoneId === 0) && zones.length > 0) {
+          form.setValue('serviceZoneId', zones[0].id, { shouldValidate: true });
+        }
+
+        // If no service zones were found, show a warning
+        if (zones.length === 0) {
+          toast.warning('No Service Zones', {
+            description: 'No service zones found. Please create service zones first.',
+          });
+        }
+      } catch (error) {
+        console.error('Error loading service zones:', error);
+        toast.error('Error loading service zones', {
+          description: 'Failed to load service zones. Please try again later.',
+        });
       }
+    };
+
+    loadServiceZones();
+  }, [form]);
+
+  const onSubmit = async (data: CustomerFormValues) => {
     try {
       setFormError(null);
       setIsLoading(true);
-      
-      // Prepare customer data
-      const customerData = {
+
+      // Convert status to isActive for the backend (Prisma uses isActive: Boolean)
+      const isActive = data.status === 'ACTIVE';
+
+      // Prepare request data with all fields
+      const requestData = {
         companyName: data.companyName,
         address: data.address,
         industry: data.industry,
-        status: data.status,
+        isActive,
         serviceZoneId: data.serviceZoneId,
-      };
-
-      // Include contact information
-      const requestData = {
-        ...customerData,
         contactName: data.contactName,
         contactPhone: data.contactPhone,
+        contactEmail: data.contactEmail,
       };
 
       if (customer && customerId) {
         await updateCustomer(customerId, requestData);
-        toast({
-          title: 'Success',
-          description: (
-            <div className="flex items-center space-x-2">
-              <CheckCircle2 className="h-5 w-5 text-[#82A094]" />
-              <span>Customer updated successfully</span>
-            </div>
-          ),
+        toast.success('Customer updated successfully', {
+          description: 'The customer details have been updated.',
+          icon: <CheckCircle2 className="h-5 w-5 text-[#82A094]" />,
         });
       } else {
         await createCustomer(requestData);
-        toast({
-          title: 'Success',
-          description: (
-            <div className="flex items-center space-x-2">
-              <CheckCircle2 className="h-5 w-5 text-[#82A094]" />
-              <span>Customer and contact created successfully</span>
-            </div>
-          ),
+        toast.success('Customer created successfully', {
+          description: 'The customer and their contact have been registered.',
+          icon: <CheckCircle2 className="h-5 w-5 text-[#82A094]" />,
         });
       }
-      
+
       const currentPath = window.location.pathname;
       if (currentPath.includes('/expert/')) {
         router.push('/expert/customers');
@@ -163,21 +154,17 @@ export default function CustomerFormComponent({ customer, customerId }: Customer
       }
     } catch (error: any) {
       const errorMessage = error.response?.data?.error || 'Failed to process customer. Please try again.';
-      
+
       setFormError(errorMessage);
-      
-      toast({
-        title: 'Error',
-        description: errorMessage,
-        variant: 'destructive',
-      });
+
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="w-full">
       <Card>
         <CardContent className="pt-6">
           <div className="space-y-6">
@@ -231,8 +218,8 @@ export default function CustomerFormComponent({ customer, customerId }: Customer
                           <FormItem>
                             <FormLabel className="text-sm font-medium">Company Name *</FormLabel>
                             <FormControl>
-                              <Input 
-                                placeholder="Enter company name" 
+                              <Input
+                                placeholder="Enter company name"
                                 {...field}
                                 className="transition-all duration-200 focus:ring-2 focus:ring-[#96AEC2]"
                               />
@@ -248,8 +235,8 @@ export default function CustomerFormComponent({ customer, customerId }: Customer
                           <FormItem>
                             <FormLabel className="text-sm font-medium">Industry *</FormLabel>
                             <FormControl>
-                              <Input 
-                                placeholder="e.g., Technology, Healthcare" 
+                              <Input
+                                placeholder="e.g., Technology, Healthcare"
                                 {...field}
                                 className="transition-all duration-200 focus:ring-2 focus:ring-[#96AEC2]"
                               />
@@ -267,8 +254,8 @@ export default function CustomerFormComponent({ customer, customerId }: Customer
                         <FormItem>
                           <FormLabel className="text-sm font-medium">Address *</FormLabel>
                           <FormControl>
-                            <Textarea 
-                              placeholder="Enter complete address" 
+                            <Textarea
+                              placeholder="Enter complete address"
                               {...field}
                               className="transition-all duration-200 focus:ring-2 focus:ring-[#96AEC2]"
                             />
@@ -281,47 +268,40 @@ export default function CustomerFormComponent({ customer, customerId }: Customer
                     <FormField
                       control={form.control}
                       name="serviceZoneId"
-                      render={({ field }) => {
-                        // Ensure field.value is a number and exists in the serviceZones array
-                        const value = serviceZones.some(zone => zone.id === field.value) 
-                          ? field.value 
-                          : serviceZones[0]?.id || '';
-
-                        return (
-                          <FormItem>
-                            <FormLabel className="text-sm font-medium">Service Zone *</FormLabel>
-                            <Select 
-                              value={value ? value.toString() : ''}
-                              onValueChange={(val) => field.onChange(parseInt(val))}
-                            >
-                              <FormControl>
-                                <SelectTrigger className="transition-all duration-200 focus:ring-2 focus:ring-[#96AEC2]">
-                                  <SelectValue placeholder="Select a service zone" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {serviceZones.length > 0 ? (
-                                  serviceZones.map((zone) => (
-                                    <SelectItem key={zone.id} value={zone.id.toString()}>
-                                      {zone.name}
-                                    </SelectItem>
-                                  ))
-                                ) : (
-                                  <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                                    No service zones available
-                                  </div>
-                                )}
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                            {serviceZones.length === 0 && (
-                              <p className="text-xs text-[#E17F70] mt-1">
-                                No service zones found. Please create service zones first.
-                              </p>
-                            )}
-                          </FormItem>
-                        );
-                      }}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-sm font-medium">Service Zone *</FormLabel>
+                          <Select
+                            value={field.value ? String(field.value) : ''}
+                            onValueChange={(val) => field.onChange(Number(val))}
+                          >
+                            <FormControl>
+                              <SelectTrigger className="transition-all duration-200 focus:ring-2 focus:ring-[#96AEC2]">
+                                <SelectValue placeholder="Select a service zone" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {serviceZones.length > 0 ? (
+                                serviceZones.map((zone) => (
+                                  <SelectItem key={zone.id} value={zone.id.toString()}>
+                                    {zone.name}
+                                  </SelectItem>
+                                ))
+                              ) : (
+                                <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                                  No service zones available
+                                </div>
+                              )}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                          {serviceZones.length === 0 && (
+                            <p className="text-xs text-[#E17F70] mt-1">
+                              No service zones found. Please create service zones first.
+                            </p>
+                          )}
+                        </FormItem>
+                      )}
                     />
 
                     <FormField
@@ -381,8 +361,8 @@ export default function CustomerFormComponent({ customer, customerId }: Customer
                           <FormItem>
                             <FormLabel className="text-sm font-medium">Contact Name *</FormLabel>
                             <FormControl>
-                              <Input 
-                                placeholder="Full name" 
+                              <Input
+                                placeholder="Full name"
                                 {...field}
                                 className="transition-all duration-200 focus:ring-2 focus:ring-[#96AEC2]"
                               />
@@ -398,9 +378,10 @@ export default function CustomerFormComponent({ customer, customerId }: Customer
                           <FormItem>
                             <FormLabel className="text-sm font-medium">Contact Phone *</FormLabel>
                             <FormControl>
-                              <Input 
-                                placeholder="Phone number" 
+                              <Input
+                                placeholder="Phone number"
                                 {...field}
+                                maxLength={10}
                                 className="transition-all duration-200 focus:ring-2 focus:ring-[#96AEC2]"
                               />
                             </FormControl>
@@ -414,16 +395,16 @@ export default function CustomerFormComponent({ customer, customerId }: Customer
                 </Card>
 
                 <div className="flex justify-end space-x-3 pt-4">
-                  <Button 
-                    type="button" 
-                    variant="outline" 
+                  <Button
+                    type="button"
+                    variant="outline"
                     onClick={() => router.back()}
                     className="h-11 px-6"
                   >
                     Cancel
                   </Button>
-                  <Button 
-                    type="submit" 
+                  <Button
+                    type="submit"
                     disabled={isLoading}
                     className="min-w-[140px] h-11 bg-gradient-to-r from-[#546A7A] to-[#546A7A] hover:from-[#546A7A] hover:to-blue-800 shadow-lg"
                   >

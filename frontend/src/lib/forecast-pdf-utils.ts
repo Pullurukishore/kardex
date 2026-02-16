@@ -52,8 +52,7 @@ const COLORS = {
 }
 
 const filterLabels: Record<string, string> = {
-    'zone-wise': 'Zone-wise Analysis',
-    'zone-users': 'Zone Users Analysis',
+    'zone-wise': 'Zone & User Analysis',
 }
 
 const ZONE_COLORS: [number, number, number][] = [
@@ -187,7 +186,7 @@ export interface ForecastPdfData {
     }[]
 }
 
-export type ForecastReportFilter = 'zone-wise' | 'zone-users'
+export type ForecastReportFilter = 'zone-wise'
 
 // ============ Currency & Number Formatting (ASCII-safe, no Rs.) ============
 const fmtCrLakh = (value: number): string => {
@@ -425,9 +424,9 @@ function drawBarChart(
     const chartY = y + 10
     const chartH = h - 18
     const maxVal = Math.max(...data.map(d => d.value), 1)
-    const barGap = 5
+    const barGap = data.length > 7 ? 2 : data.length > 5 ? 3 : 5
     const totalGap = (data.length - 1) * barGap
-    const barW = Math.min((w - totalGap) / data.length, 25)
+    const barW = Math.max(Math.min((w - totalGap) / data.length, 25), 8)
     const startX = x + (w - (data.length * barW + totalGap)) / 2
 
     // Horizontal grid lines
@@ -587,15 +586,15 @@ function drawProductPerformanceRow(
     const startX = x + 58
     const colGap = 23
     const fields = [
-        { l: 'OFF', v: data.noOfOffers },
-        { l: 'VAL', v: data.offersValue },
-        { l: 'TAR', v: data.target },
-        { l: 'WON', v: data.orderReceived },
-        { l: 'FUN', v: data.ordersInHand },
-        { l: 'BU/M', v: data.buMonthly },
-        { l: '% DEV', v: data.percentDev },
-        { l: 'O-BU', v: data.offerBUMonth },
-        { l: '% DEV', v: data.offerBUMonthDev }
+        { l: 'No.Offers', v: data.noOfOffers },
+        { l: 'Offers Val', v: data.offersValue },
+        { l: 'Target', v: data.target },
+        { l: 'Orders Won', v: data.orderReceived },
+        { l: 'Funnel', v: data.ordersInHand },
+        { l: 'BU Monthly', v: data.buMonthly },
+        { l: '% Dev', v: data.percentDev },
+        { l: 'Offer BU', v: data.offerBUMonth },
+        { l: '% Dev', v: data.offerBUMonthDev }
     ]
 
     fields.forEach((f, fi) => {
@@ -610,7 +609,7 @@ function drawProductPerformanceRow(
         doc.setFontSize(6.5)
 
         // Color coding for percentages
-        if (f.l.includes('%') || f.l.includes('DV')) {
+        if (f.l.includes('%') || f.l.includes('Dev')) {
             if (f.v.startsWith('+')) doc.setTextColor(...COLORS.positive)
             else if (f.v.startsWith('-')) doc.setTextColor(...COLORS.negative)
             else doc.setTextColor(...COLORS.textDark)
@@ -875,7 +874,7 @@ export async function generateForecastPdf(
     y += 4
 
     // ===== Zone Performance Cards =====
-    if (filter === 'zone-wise') {
+    {
         y = drawSectionTitle(doc, y, 'ZONE PERFORMANCE SUMMARY')
         y += 2
 
@@ -1386,7 +1385,7 @@ export async function generateForecastPdf(
             // Single zone analytics - dashboard style
             const zone = data.zones.find(z => z.zoneId === selectedZoneId)
             if (zone) {
-                const [ay, npn] = needsNewPage(doc, y, 90, pageNum, data, filter, filterLabels, zone.zoneName, logoBase64)
+                const [ay, npn] = needsNewPage(doc, y, 120, pageNum, data, filter, filterLabels, zone.zoneName, logoBase64)
                 let dAY = ay
                 pageNum.val = npn
 
@@ -1397,13 +1396,14 @@ export async function generateForecastPdf(
 
                 // Large gauge for single zone
                 const cx = pageW / 5 + 5
-                const cy = dAY + 42
-                const gr = 30
+                const cy = dAY + 38
+                const gr = 28
+                const gaugeCardH = 105
                 doc.setFillColor(...COLORS.cardBg)
-                doc.roundedRect(cx - 45, dAY, 90, 90, 3, 3, 'F')
+                doc.roundedRect(cx - 45, dAY, 90, gaugeCardH, 3, 3, 'F')
                 doc.setDrawColor(...COLORS.cardBorder)
                 doc.setLineWidth(0.3)
-                doc.roundedRect(cx - 45, dAY, 90, 90, 3, 3, 'S')
+                doc.roundedRect(cx - 45, dAY, 90, gaugeCardH, 3, 3, 'S')
 
                 const segments = 50
                 doc.setDrawColor(...COLORS.darkTrack)
@@ -1429,27 +1429,48 @@ export async function generateForecastPdf(
                 doc.setFont('helvetica', 'bold')
                 doc.setFontSize(9)
                 doc.setTextColor(...COLORS.textDark)
-                doc.text(`${zone.zoneName} Achievement`, cx, cy + gr + 12, { align: 'center' })
+                doc.text(`${zone.zoneName} Achievement`, cx, cy + gr + 10, { align: 'center' })
                 doc.setFont('helvetica', 'normal')
-                doc.setFontSize(7)
+                doc.setFontSize(6.5)
                 doc.setTextColor(...COLORS.textMuted)
-                doc.text(`Target: ${fmtCrLakh(zone.yearlyTarget)}  |  Won: ${fmtCrLakh(zone.ordersReceived)}`, cx, cy + gr + 18, { align: 'center' })
-                doc.text(`Hit Rate: ${zone.hitRatePercent.toFixed(1)}%`, cx, cy + gr + 23, { align: 'center' })
+                doc.text(`Target: ${fmtCrLakh(zone.yearlyTarget)}  |  Won: ${fmtCrLakh(zone.ordersReceived)}`, cx, cy + gr + 16, { align: 'center' })
+                doc.text(`Hit Rate: ${zone.hitRatePercent.toFixed(1)}%`, cx, cy + gr + 22, { align: 'center' })
 
                 // --- Product Breakdown Bar Chart on Right ---
                 const zm = data.zoneMonthly.find(z => z.zoneId === selectedZoneId)
-                if (zm && zm.productBreakdown) {
-                    const prodBarData = zm.productBreakdown.map((pb, i) => ({
-                        label: pb.productLabel,
-                        value: pb.totals.orderReceived,
-                        color: getZoneColor(pb.productLabel, i + 3)
-                    }))
-                    const barX = cx + 55
-                    const barW = pageW - barX - 25
-                    drawBarChart(doc, barX, dAY + 10, barW, 80, prodBarData, `${zone.zoneName} - Product Category Won`)
+                {
+                    // Use all product types from productTotals, fill in 0 for missing
+                    const allProductLabels = data.productTotals?.map(pt => pt.productLabel) || []
+                    const zoneProducts = zm?.productBreakdown || []
+
+                    const prodBarData = allProductLabels.map((label, i) => {
+                        const found = zoneProducts.find(pb => pb.productLabel === label)
+                        return {
+                            label,
+                            value: found ? found.totals.orderReceived : 0,
+                            color: getZoneColor(label, i + 3)
+                        }
+                    })
+
+                    // If there are extra products in zone breakdown not in productTotals, add them too
+                    zoneProducts.forEach((pb, i) => {
+                        if (!allProductLabels.includes(pb.productLabel)) {
+                            prodBarData.push({
+                                label: pb.productLabel,
+                                value: pb.totals.orderReceived,
+                                color: getZoneColor(pb.productLabel, i + 3)
+                            })
+                        }
+                    })
+
+                    if (prodBarData.length > 0) {
+                        const barX = cx + 55
+                        const barW = pageW - barX - 20
+                        drawBarChart(doc, barX, dAY + 5, barW, 95, prodBarData, `${zone.zoneName} - Product Category Won`)
+                    }
                 }
 
-                y = dAY + 100
+                y = dAY + gaugeCardH + 8
             }
         }
 
@@ -1584,8 +1605,8 @@ export async function generateForecastPdf(
 
             y = (doc as any).lastAutoTable?.finalY || y + 50
 
-            // Product Breakdown for this zone
-            if (zone.productBreakdown && zone.productBreakdown.length > 0) {
+            // Product Breakdown for this zone - show ALL product types even with 0
+            {
                 y += 6;
                 [y, pageNum.val] = needsNewPage(doc, y, 30, pageNum, data, filter, filterLabels, selectedZone?.zoneName, logoBase64)
                 doc.setFont('helvetica', 'bold')
@@ -1594,7 +1615,35 @@ export async function generateForecastPdf(
                 doc.text(`${zone.zoneName} - Product Performance Breakdown`, 18, y)
                 y += 3
 
-                const zoneProdBody = zone.productBreakdown.map(p => {
+                // Get all product labels from productTotals as master list
+                const allProductLabels = data.productTotals?.map(pt => pt.productLabel) || []
+                const zoneProductBreakdown = zone.productBreakdown || []
+
+                // Add any extra products from zone breakdown not in productTotals
+                zoneProductBreakdown.forEach(p => {
+                    if (!allProductLabels.includes(p.productLabel)) {
+                        allProductLabels.push(p.productLabel)
+                    }
+                })
+
+                const zoneProdBody = allProductLabels.map(productLabel => {
+                    const p = zoneProductBreakdown.find(pb => pb.productLabel === productLabel)
+
+                    if (!p) {
+                        // Product not in zone data — show all zeros
+                        return [
+                            productLabel,
+                            '0',
+                            fmtCrLakh(0),
+                            fmtCrLakh(0),
+                            fmtCrLakh(0),
+                            fmtCrLakh(0),
+                            '-',
+                            fmtCrLakh(0),
+                            '-',
+                        ]
+                    }
+
                     const pFilteredMonths = monthName
                         ? p.monthlyData.filter(m =>
                             m.monthLabel.toLowerCase().includes(monthName.toLowerCase()) ||
@@ -1610,7 +1659,7 @@ export async function generateForecastPdf(
                     const pOfferBUMonth = pFilteredMonths.reduce((sum, m) => sum + (m.offerBUMonth || 0), 0)
 
                     return [
-                        p.productLabel,
+                        productLabel,
                         pNoOfOffers.toString(),
                         fmtCrLakh(pOffersValue),
                         fmtCrLakh(pOrderReceived),
@@ -1815,7 +1864,12 @@ export async function generateForecastPdf(
     }
 
     // ===== Zone Users Breakdown =====
-    if (filter === 'zone-users') {
+    {
+        // Start zone users section on a new page
+        drawFooter(doc, pageNum.val)
+        pageNum.val++
+        doc.addPage()
+        y = drawHeader(doc, data.year, 'Zone Users Analysis' + (monthName ? ` (${monthName})` : ''), selectedZone?.zoneName, logoBase64)
 
         const usersToShow = selectedZoneId
             ? data.userMonthly.filter(u => {
@@ -2118,7 +2172,7 @@ export async function generateForecastPdf(
                 const totalSectionH = uniqueCategories.length * 14 + 20
                     ;[y, pageNum.val] = needsNewPage(doc, y, totalSectionH, pageNum, data, filter, filterLabels, user.zoneName, logoBase64)
 
-                y = drawSectionTitle(doc, y + 4, 'PRODUCT PERFORMANCE ANALYSIS', COLORS.kardexMid)
+                y = drawSectionTitle(doc, y + 4, `PRODUCT PERFORMANCE ANALYSIS - ${user.userName.toUpperCase()}`, COLORS.kardexMid)
                 y += 2
 
                 uniqueCategories.forEach((catLabel) => {
@@ -2488,15 +2542,14 @@ export async function generateForecastPdf(
             })
             uAY += 8
         }
-    }
+    }  // end zone-users block
 
     // Final footer
     drawFooter(doc, pageNum.val)
 
     // Generate filename
-    const filterSlug = filter.replace(/-/g, '_')
     const zoneSlug = selectedZone ? `_${selectedZone.zoneName}` : ''
-    const filename = `Forecast_Report_${data.year}_${filterSlug}${zoneSlug}_${new Date().toISOString().slice(0, 10)}.pdf`
+    const filename = `Forecast_Report_${data.year}${zoneSlug}_${new Date().toISOString().slice(0, 10)}.pdf`
 
     doc.save(filename)
 }

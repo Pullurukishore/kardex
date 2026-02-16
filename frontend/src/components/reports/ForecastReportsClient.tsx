@@ -27,7 +27,7 @@ interface Zone {
 export default function ForecastReportsClient({ zones: initialZones }: { zones: Zone[] }) {
   const [zones, setZones] = useState<Zone[]>(initialZones || [])
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
-  const [selectedFilter, setSelectedFilter] = useState<ForecastReportFilter>('zone-wise')
+  const [selectedFilter] = useState<ForecastReportFilter>('zone-wise')
   const [selectedZoneId, setSelectedZoneId] = useState<number | undefined>(undefined)
   const [selectedMonth, setSelectedMonth] = useState<number | undefined>(new Date().getMonth())
   const [loading, setLoading] = useState(false)
@@ -44,7 +44,7 @@ export default function ForecastReportsClient({ zones: initialZones }: { zones: 
       apiService.getZones().then((res: any) => {
         const z = Array.isArray(res) ? res : res.data || []
         setZones(z.map((zone: any) => ({ id: zone.id, name: zone.name })))
-      }).catch(() => {})
+      }).catch(() => { })
     }
   }, [zones.length])
 
@@ -69,7 +69,7 @@ export default function ForecastReportsClient({ zones: initialZones }: { zones: 
 
       // Process product totals for global analysis
       const prodTotalsMap: Record<string, any> = {}
-      
+
       // If productRes is available, it might have a more exhaustive list of products
       // otherwise we aggregate from monthlyRes
       const zonesWithProducts = monthlyRes?.zones || []
@@ -159,11 +159,11 @@ export default function ForecastReportsClient({ zones: initialZones }: { zones: 
       const usersWithProducts = allUsers.map((u: any) => {
         if (u.productBreakdown && u.productBreakdown.length > 0) return u
 
-        const zoneProdData = productRes?.zones?.find((pz: any) => 
+        const zoneProdData = productRes?.zones?.find((pz: any) =>
           pz.zoneName.toUpperCase() === u.zoneName.toUpperCase()
         )
         const userProdData = zoneProdData?.users?.find((pu: any) => pu.userId === u.userId)
-        
+
         if (userProdData) {
           u.productBreakdown = userProdData.products.map((p: any) => ({
             productType: p.productType,
@@ -256,10 +256,6 @@ export default function ForecastReportsClient({ zones: initialZones }: { zones: 
 
   const formatNumber = (v: number) => new Intl.NumberFormat('en-IN').format(v)
 
-  const filterOptions: { value: ForecastReportFilter; label: string; icon: React.ReactNode; desc: string }[] = [
-    { value: 'zone-wise', label: 'Zone Wise Report', icon: <Building2 className="w-4 h-4" />, desc: 'Detailed per-zone analysis with monthly performance breakdown' },
-    { value: 'zone-users', label: 'Zone Users Report', icon: <Users className="w-4 h-4" />, desc: 'Individual user performance within each zone' },
-  ]
 
   const months = [
     "January", "February", "March", "April", "May", "June",
@@ -329,25 +325,23 @@ export default function ForecastReportsClient({ zones: initialZones }: { zones: 
               </div>
 
               {/* Month Selector */}
-              {(selectedFilter === 'zone-wise' || selectedFilter === 'zone-users') && (
-                <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-xl px-4 py-2.5 border border-white/10">
-                  <Activity className="h-4 w-4 text-white/70" />
-                  <Select 
-                    value={selectedMonth === undefined ? "all" : String(selectedMonth)} 
-                    onValueChange={(v) => setSelectedMonth(v === "all" ? undefined : parseInt(v))}
-                  >
-                    <SelectTrigger className="w-[130px] border-0 bg-transparent text-white font-semibold focus:ring-0 focus:ring-offset-0 h-auto p-0">
-                      <SelectValue placeholder="Full Year" />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-xl shadow-2xl">
-                      <SelectItem value="all" className="font-medium">Full Year</SelectItem>
-                      {months.map((m, idx) => (
-                        <SelectItem key={m} value={String(idx)} className="font-medium">{m}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
+              <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-xl px-4 py-2.5 border border-white/10">
+                <Activity className="h-4 w-4 text-white/70" />
+                <Select
+                  value={selectedMonth === undefined ? "all" : String(selectedMonth)}
+                  onValueChange={(v) => setSelectedMonth(v === "all" ? undefined : parseInt(v))}
+                >
+                  <SelectTrigger className="w-[130px] border-0 bg-transparent text-white font-semibold focus:ring-0 focus:ring-offset-0 h-auto p-0">
+                    <SelectValue placeholder="Full Year" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl shadow-2xl">
+                    <SelectItem value="all" className="font-medium">Full Year</SelectItem>
+                    {months.map((m, idx) => (
+                      <SelectItem key={m} value={String(idx)} className="font-medium">{m}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
               {/* Preview Button */}
               <Button
@@ -363,86 +357,40 @@ export default function ForecastReportsClient({ zones: initialZones }: { zones: 
         </div>
       </div>
 
-      {/* Filter Selection Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {filterOptions.map(opt => (
-          <button
-            key={opt.value}
-            onClick={() => setSelectedFilter(opt.value)}
-            className={`group relative overflow-hidden p-4 rounded-2xl border-2 transition-all duration-300 text-left ${
-              selectedFilter === opt.value
-                ? 'border-[#546A7A] bg-gradient-to-br from-[#546A7A]/10 to-[#96AEC2]/10 shadow-lg shadow-[#546A7A]/10 scale-[1.02]'
-                : 'border-[#92A2A5]/30 bg-white dark:bg-[#546A7A]/30 hover:border-[#92A2A5] hover:shadow-md'
-            }`}
-          >
-            <div className="flex items-start gap-3">
-              <div className={`p-2.5 rounded-xl transition-colors ${
-                selectedFilter === opt.value
-                  ? 'bg-gradient-to-br from-[#546A7A] to-[#6F8A9D] text-white shadow-md'
-                  : 'bg-[#AEBFC3]/20 text-[#5D6E73] dark:text-[#92A2A5] group-hover:bg-[#AEBFC3]/30'
-              }`}>
-                {opt.icon}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className={`font-bold text-sm ${
-                  selectedFilter === opt.value ? 'text-[#546A7A] dark:text-white' : 'text-[#5D6E73] dark:text-[#AEBFC3]'
-                }`}>
-                  {opt.label}
-                </p>
-                <p className="text-xs text-[#757777] dark:text-[#979796] mt-0.5 line-clamp-2">
-                  {opt.desc}
-                </p>
-              </div>
+      {/* Zone Filter */}
+      <Card className="overflow-hidden border border-[#92A2A5]/40 dark:border-[#5D6E73]/40 shadow-md rounded-2xl">
+        <CardContent className="p-4">
+          <div className="flex items-center gap-4 flex-wrap">
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-[#5D6E73]" />
+              <span className="text-sm font-semibold text-[#5D6E73] dark:text-[#AEBFC3]">Filter by Zone:</span>
             </div>
-            {selectedFilter === opt.value && (
-              <div className="absolute top-2 right-2">
-                <div className="w-5 h-5 rounded-full bg-gradient-to-br from-[#546A7A] to-[#6F8A9D] flex items-center justify-center">
-                  <CheckCircle2 className="w-3 h-3 text-white" />
-                </div>
-              </div>
-            )}
-          </button>
-        ))}
-      </div>
-
-      {/* Zone Filter (for zone-wise and zone-users) */}
-      {(selectedFilter === 'zone-wise' || selectedFilter === 'zone-users') && (
-        <Card className="overflow-hidden border border-[#92A2A5]/40 dark:border-[#5D6E73]/40 shadow-md rounded-2xl">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-4 flex-wrap">
-              <div className="flex items-center gap-2">
-                <Filter className="h-4 w-4 text-[#5D6E73]" />
-                <span className="text-sm font-semibold text-[#5D6E73] dark:text-[#AEBFC3]">Filter by Zone:</span>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={() => setSelectedZoneId(undefined)}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 ${
-                    !selectedZoneId
-                      ? 'bg-gradient-to-r from-[#546A7A] to-[#5D6E73] text-white shadow-md'
-                      : 'bg-[#AEBFC3]/20 text-[#5D6E73] dark:text-[#92A2A5] hover:bg-[#AEBFC3]/30'
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setSelectedZoneId(undefined)}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 ${!selectedZoneId
+                  ? 'bg-gradient-to-r from-[#546A7A] to-[#5D6E73] text-white shadow-md'
+                  : 'bg-[#AEBFC3]/20 text-[#5D6E73] dark:text-[#92A2A5] hover:bg-[#AEBFC3]/30'
                   }`}
-                >
-                  All Zones
-                </button>
-                {zones.map(z => (
-                  <button
-                    key={z.id}
-                    onClick={() => setSelectedZoneId(z.id)}
-                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 ${
-                      selectedZoneId === z.id
-                        ? 'bg-gradient-to-r from-[#546A7A] to-[#5D6E73] text-white shadow-md'
-                        : 'bg-[#AEBFC3]/20 text-[#5D6E73] dark:text-[#92A2A5] hover:bg-[#AEBFC3]/30'
+              >
+                All Zones
+              </button>
+              {zones.map(z => (
+                <button
+                  key={z.id}
+                  onClick={() => setSelectedZoneId(z.id)}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 ${selectedZoneId === z.id
+                    ? 'bg-gradient-to-r from-[#546A7A] to-[#5D6E73] text-white shadow-md'
+                    : 'bg-[#AEBFC3]/20 text-[#5D6E73] dark:text-[#92A2A5] hover:bg-[#AEBFC3]/30'
                     }`}
-                  >
-                    {z.name}
-                  </button>
-                ))}
-              </div>
+                >
+                  {z.name}
+                </button>
+              ))}
             </div>
-          </CardContent>
-        </Card>
-      )}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Download Button */}
       <div className="flex items-center justify-center">
@@ -457,281 +405,282 @@ export default function ForecastReportsClient({ zones: initialZones }: { zones: 
           ) : (
             <Download className="h-5 w-5 mr-3" />
           )}
-          {generating ? 'Generating PDF...' : `Download ${filterOptions.find(f => f.value === selectedFilter)?.label || 'Report'} PDF`}
+          {generating ? 'Generating PDF...' : 'Download Forecast Report PDF'}
         </Button>
       </div>
 
       {/* Preview Section */}
-      {previewData && (
-        <div className="space-y-5">
-          {/* Quick Stats Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            {/* Total Offers */}
-            <Card className="group relative overflow-hidden bg-white dark:bg-[#546A7A] border border-[#92A2A5]/60 shadow-md hover:shadow-lg transition-all duration-300 rounded-xl">
-              <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-[#6F8A9D]/10 to-transparent rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
-              <CardContent className="p-4 relative">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-semibold text-[#757777] dark:text-[#979796] uppercase tracking-wider">Total Offers</p>
-                    <p className="text-2xl font-black text-[#546A7A] dark:text-white tracking-tight">
-                      {formatNumber(previewData.totals.noOfOffers)}
-                    </p>
+      {
+        previewData && (
+          <div className="space-y-5">
+            {/* Quick Stats Cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {/* Total Offers */}
+              <Card className="group relative overflow-hidden bg-white dark:bg-[#546A7A] border border-[#92A2A5]/60 shadow-md hover:shadow-lg transition-all duration-300 rounded-xl">
+                <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-[#6F8A9D]/10 to-transparent rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                <CardContent className="p-4 relative">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-semibold text-[#757777] dark:text-[#979796] uppercase tracking-wider">Total Offers</p>
+                      <p className="text-2xl font-black text-[#546A7A] dark:text-white tracking-tight">
+                        {formatNumber(previewData.totals.noOfOffers)}
+                      </p>
+                    </div>
+                    <div className="p-2.5 bg-gradient-to-br from-[#6F8A9D] to-[#546A7A] rounded-xl shadow-md group-hover:scale-110 transition-transform">
+                      <Target className="h-4 w-4 text-white" />
+                    </div>
                   </div>
-                  <div className="p-2.5 bg-gradient-to-br from-[#6F8A9D] to-[#546A7A] rounded-xl shadow-md group-hover:scale-110 transition-transform">
-                    <Target className="h-4 w-4 text-white" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
 
-            {/* Offers Value */}
-            <Card className="group relative overflow-hidden bg-white dark:bg-[#546A7A] border border-[#92A2A5]/60 shadow-md hover:shadow-lg transition-all duration-300 rounded-xl">
-              <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-[#82A094]/10 to-transparent rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
-              <CardContent className="p-4 relative">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-semibold text-[#757777] dark:text-[#979796] uppercase tracking-wider">Offers Value</p>
-                    <p className="text-xl font-black text-[#546A7A] dark:text-[#6F8A9D] tracking-tight">
-                      {formatCurrency(previewData.totals.offersValue)}
-                    </p>
+              {/* Offers Value */}
+              <Card className="group relative overflow-hidden bg-white dark:bg-[#546A7A] border border-[#92A2A5]/60 shadow-md hover:shadow-lg transition-all duration-300 rounded-xl">
+                <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-[#82A094]/10 to-transparent rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                <CardContent className="p-4 relative">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-semibold text-[#757777] dark:text-[#979796] uppercase tracking-wider">Offers Value</p>
+                      <p className="text-xl font-black text-[#546A7A] dark:text-[#6F8A9D] tracking-tight">
+                        {formatCurrency(previewData.totals.offersValue)}
+                      </p>
+                    </div>
+                    <div className="p-2.5 bg-gradient-to-br from-[#82A094] to-[#4F6A64] rounded-xl shadow-md group-hover:scale-110 transition-transform">
+                      <IndianRupee className="h-4 w-4 text-white" />
+                    </div>
                   </div>
-                  <div className="p-2.5 bg-gradient-to-br from-[#82A094] to-[#4F6A64] rounded-xl shadow-md group-hover:scale-110 transition-transform">
-                    <IndianRupee className="h-4 w-4 text-white" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
 
-            {/* Orders Won */}
-            <Card className="group relative overflow-hidden bg-white dark:bg-[#546A7A] border border-[#92A2A5]/60 shadow-md hover:shadow-lg transition-all duration-300 rounded-xl">
-              <CardContent className="p-4 relative">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-semibold text-[#757777] dark:text-[#979796] uppercase tracking-wider">Orders Won</p>
-                    <p className="text-xl font-black text-[#4F6A64] dark:text-[#82A094] tracking-tight">
-                      {formatCurrency(previewData.totals.ordersReceived)}
-                    </p>
-                    {previewData.totals.yearlyTarget > 0 && (
-                      <div className="flex items-center gap-1.5">
-                        <div className="flex-1 h-1.5 bg-[#92A2A5]/30 rounded-full overflow-hidden max-w-[50px]">
-                          <div
-                            className={`h-full rounded-full transition-all duration-500 ${getAchievementBg(
-                              (previewData.totals.ordersReceived / previewData.totals.yearlyTarget) * 100
-                            )}`}
-                            style={{ width: `${Math.min((previewData.totals.ordersReceived / previewData.totals.yearlyTarget) * 100, 100)}%` }}
-                          />
+              {/* Orders Won */}
+              <Card className="group relative overflow-hidden bg-white dark:bg-[#546A7A] border border-[#92A2A5]/60 shadow-md hover:shadow-lg transition-all duration-300 rounded-xl">
+                <CardContent className="p-4 relative">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-semibold text-[#757777] dark:text-[#979796] uppercase tracking-wider">Orders Won</p>
+                      <p className="text-xl font-black text-[#4F6A64] dark:text-[#82A094] tracking-tight">
+                        {formatCurrency(previewData.totals.ordersReceived)}
+                      </p>
+                      {previewData.totals.yearlyTarget > 0 && (
+                        <div className="flex items-center gap-1.5">
+                          <div className="flex-1 h-1.5 bg-[#92A2A5]/30 rounded-full overflow-hidden max-w-[50px]">
+                            <div
+                              className={`h-full rounded-full transition-all duration-500 ${getAchievementBg(
+                                (previewData.totals.ordersReceived / previewData.totals.yearlyTarget) * 100
+                              )}`}
+                              style={{ width: `${Math.min((previewData.totals.ordersReceived / previewData.totals.yearlyTarget) * 100, 100)}%` }}
+                            />
+                          </div>
+                          <span className={`text-[10px] font-bold ${getAchievementColor(
+                            (previewData.totals.ordersReceived / previewData.totals.yearlyTarget) * 100
+                          )}`}>
+                            {((previewData.totals.ordersReceived / previewData.totals.yearlyTarget) * 100).toFixed(0)}%
+                          </span>
                         </div>
-                        <span className={`text-[10px] font-bold ${getAchievementColor(
-                          (previewData.totals.ordersReceived / previewData.totals.yearlyTarget) * 100
-                        )}`}>
-                          {((previewData.totals.ordersReceived / previewData.totals.yearlyTarget) * 100).toFixed(0)}%
-                        </span>
-                      </div>
-                    )}
+                      )}
+                    </div>
+                    <div className="p-2.5 bg-gradient-to-br from-[#6F8A9D] to-[#9E3B47] rounded-xl shadow-md group-hover:scale-110 transition-transform">
+                      <Award className="h-4 w-4 text-white" />
+                    </div>
                   </div>
-                  <div className="p-2.5 bg-gradient-to-br from-[#6F8A9D] to-[#9E3B47] rounded-xl shadow-md group-hover:scale-110 transition-transform">
-                    <Award className="h-4 w-4 text-white" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
 
-            {/* Yearly Target */}
-            <Card className="group relative overflow-hidden bg-white dark:bg-[#546A7A] border border-[#92A2A5]/60 shadow-md hover:shadow-lg transition-all duration-300 rounded-xl">
-              <CardContent className="p-4 relative">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-semibold text-[#757777] dark:text-[#979796] uppercase tracking-wider">Yearly Target</p>
-                    <p className="text-xl font-black text-[#976E44] dark:text-[#CE9F6B] tracking-tight">
-                      {formatCurrency(previewData.totals.yearlyTarget)}
-                    </p>
-                    <p className="text-[10px] text-[#757777]">
-                      Hit Rate: {previewData.totals.hitRatePercent?.toFixed(1) ?? '0'}%
-                    </p>
+              {/* Yearly Target */}
+              <Card className="group relative overflow-hidden bg-white dark:bg-[#546A7A] border border-[#92A2A5]/60 shadow-md hover:shadow-lg transition-all duration-300 rounded-xl">
+                <CardContent className="p-4 relative">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-semibold text-[#757777] dark:text-[#979796] uppercase tracking-wider">Yearly Target</p>
+                      <p className="text-xl font-black text-[#976E44] dark:text-[#CE9F6B] tracking-tight">
+                        {formatCurrency(previewData.totals.yearlyTarget)}
+                      </p>
+                      <p className="text-[10px] text-[#757777]">
+                        Hit Rate: {previewData.totals.hitRatePercent?.toFixed(1) ?? '0'}%
+                      </p>
+                    </div>
+                    <div className="p-2.5 bg-gradient-to-br from-[#CE9F6B] to-[#976E44] rounded-xl shadow-md group-hover:scale-110 transition-transform">
+                      <Sparkles className="h-4 w-4 text-white" />
+                    </div>
                   </div>
-                  <div className="p-2.5 bg-gradient-to-br from-[#CE9F6B] to-[#976E44] rounded-xl shadow-md group-hover:scale-110 transition-transform">
-                    <Sparkles className="h-4 w-4 text-white" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+                </CardContent>
+              </Card>
+            </div>
 
-          {/* Zone Summary Table */}
-          <Card className="overflow-hidden border border-[#92A2A5]/60 shadow-lg bg-white dark:bg-[#546A7A] rounded-xl">
-            <CardHeader className="bg-gradient-to-r from-slate-800 to-[#5D6E73] py-3 px-4 border-b border-[#5D6E73]/50">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-[#96AEC2]/20 rounded-lg">
-                    <Building2 className="h-4 w-4 text-[#96AEC2]" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-sm font-bold text-white">Zone Performance Preview</CardTitle>
-                    <p className="text-[#979796] text-xs">Data preview for {selectedYear} • Will be included in PDF</p>
-                  </div>
-                </div>
-                <Badge className="bg-[#96AEC2]/20 text-[#96AEC2] border-[#6F8A9D]/30 font-bold px-2 py-0.5 text-[10px]">
-                  {previewData.zones.length} Zones
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="bg-[#AEBFC3]/10 dark:bg-[#546A7A]/80 border-b border-[#92A2A5]">
-                      <th className="px-3 py-2 text-left font-bold text-[#5D6E73] dark:text-slate-200 uppercase tracking-wide">Zone</th>
-                      <th className="px-2 py-2 text-right font-bold text-[#5D6E73] dark:text-[#92A2A5] uppercase tracking-wide">Offers</th>
-                      <th className="px-2 py-2 text-right font-bold text-[#5D6E73] dark:text-[#92A2A5] uppercase tracking-wide">Offers Value</th>
-                      <th className="px-2 py-2 text-right font-bold text-[#5D6E73] dark:text-[#92A2A5] uppercase tracking-wide">Orders Won</th>
-                      <th className="px-2 py-2 text-right font-bold text-[#5D6E73] dark:text-[#92A2A5] uppercase tracking-wide">Open Funnel</th>
-                      <th className="px-2 py-2 text-right font-bold text-sky-700 dark:text-sky-300 uppercase tracking-wide bg-sky-50/50 dark:bg-sky-900/20">Target</th>
-                      <th className="px-2 py-2 text-center font-bold text-[#5D6E73] dark:text-[#92A2A5] uppercase tracking-wide">Hit Rate</th>
-                      <th className="px-2 py-2 text-center font-bold text-[#5D6E73] dark:text-[#92A2A5] uppercase tracking-wide">Achievement</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
-                    {previewData.zones.map((zone, idx) => {
-                      const ach = zone.yearlyTarget > 0 ? (zone.ordersReceived / zone.yearlyTarget) * 100 : 0
-                      return (
-                        <tr key={zone.zoneId}
-                          className={`hover:bg-[#AEBFC3]/10 transition-colors ${idx % 2 === 0 ? 'bg-white dark:bg-[#546A7A]/50' : 'bg-[#AEBFC3]/5 dark:bg-[#546A7A]/20'}`}
-                        >
-                          <td className="px-3 py-2">
-                            <span className="font-bold text-[#546A7A] dark:text-white text-xs">{zone.zoneName}</span>
-                          </td>
-                          <td className="px-2 py-2 text-right font-mono font-bold text-[#5D6E73]">{zone.noOfOffers}</td>
-                          <td className="px-2 py-2 text-right font-mono text-[#546A7A] dark:text-[#6F8A9D]">{formatCurrency(zone.offersValue)}</td>
-                          <td className="px-2 py-2 text-right font-mono text-[#4F6A64] dark:text-[#82A094]">{formatCurrency(zone.ordersReceived)}</td>
-                          <td className="px-2 py-2 text-right font-mono text-[#976E44] dark:text-[#CE9F6B]">{formatCurrency(zone.openFunnel)}</td>
-                          <td className="px-2 py-2 text-right bg-sky-50/30 dark:bg-sky-900/10 font-mono text-sky-700 dark:text-sky-400">{formatCurrency(zone.yearlyTarget)}</td>
-                          <td className="px-2 py-2 text-center">
-                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                              zone.hitRatePercent >= 50
-                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-                                : zone.hitRatePercent >= 30
-                                  ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-                                  : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                            }`}>
-                              {zone.hitRatePercent.toFixed(1)}%
-                            </span>
-                          </td>
-                          <td className="px-2 py-2">
-                            <div className="flex items-center gap-1.5 justify-center">
-                              <div className="flex-1 h-1.5 bg-[#92A2A5]/30 rounded-full overflow-hidden max-w-[40px]">
-                                <div
-                                  className={`h-full rounded-full transition-all duration-500 ${getAchievementBg(ach)}`}
-                                  style={{ width: `${Math.min(ach, 100)}%` }}
-                                />
-                              </div>
-                              <span className={`text-[10px] font-bold ${getAchievementColor(ach)}`}>
-                                {ach.toFixed(0)}%
-                              </span>
-                              {getStatusIcon(ach)}
-                            </div>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                  <tfoot>
-                    <tr className="bg-gradient-to-r from-slate-800 to-[#5D6E73] text-white">
-                      <td className="px-3 py-2 font-bold text-sm">Total</td>
-                      <td className="px-2 py-2 text-right font-mono font-bold">{previewData.totals.noOfOffers}</td>
-                      <td className="px-2 py-2 text-right font-mono font-bold text-[#96AEC2]">{formatCurrency(previewData.totals.offersValue)}</td>
-                      <td className="px-2 py-2 text-right font-mono font-bold text-[#82A094]">{formatCurrency(previewData.totals.ordersReceived)}</td>
-                      <td className="px-2 py-2 text-right font-mono font-bold text-[#EEC1BF]">{formatCurrency(previewData.totals.openFunnel)}</td>
-                      <td className="px-2 py-2 text-right font-mono font-bold text-sky-300">{formatCurrency(previewData.totals.yearlyTarget)}</td>
-                      <td className="px-2 py-2 text-center font-bold">{previewData.totals.hitRatePercent?.toFixed(1) ?? '0'}%</td>
-                      <td className="px-2 py-2 text-center font-bold">
-                        {previewData.totals.yearlyTarget > 0
-                          ? ((previewData.totals.ordersReceived / previewData.totals.yearlyTarget) * 100).toFixed(1)
-                          : '0'}%
-                      </td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Users Preview (for zone-users filter) */}
-          {selectedFilter === 'zone-users' && previewData.userMonthly.length > 0 && (
+            {/* Zone Summary Table */}
             <Card className="overflow-hidden border border-[#92A2A5]/60 shadow-lg bg-white dark:bg-[#546A7A] rounded-xl">
-              <CardHeader className="bg-gradient-to-r from-[#4F6A64] to-[#5D6E73] py-3 px-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-white/10 rounded-lg">
-                    <Users className="h-4 w-4 text-white" />
+              <CardHeader className="bg-gradient-to-r from-slate-800 to-[#5D6E73] py-3 px-4 border-b border-[#5D6E73]/50">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-[#96AEC2]/20 rounded-lg">
+                      <Building2 className="h-4 w-4 text-[#96AEC2]" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-sm font-bold text-white">Zone Performance Preview</CardTitle>
+                      <p className="text-[#979796] text-xs">Data preview for {selectedYear} • Will be included in PDF</p>
+                    </div>
                   </div>
-                  <div>
-                    <CardTitle className="text-sm font-bold text-white">User Performance Preview</CardTitle>
-                    <p className="text-white/60 text-xs">{previewData.userMonthly.length} users across all zones</p>
-                  </div>
+                  <Badge className="bg-[#96AEC2]/20 text-[#96AEC2] border-[#6F8A9D]/30 font-bold px-2 py-0.5 text-[10px]">
+                    {previewData.zones.length} Zones
+                  </Badge>
                 </div>
               </CardHeader>
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
                     <thead>
-                      <tr className="bg-[#AEBFC3]/10 border-b border-[#92A2A5]">
-                        <th className="px-3 py-2 text-left font-bold text-[#5D6E73] uppercase">User</th>
-                        <th className="px-2 py-2 text-center font-bold text-[#5D6E73] uppercase">Zone</th>
-                        <th className="px-2 py-2 text-right font-bold text-[#5D6E73] uppercase">Offers Value</th>
-                        <th className="px-2 py-2 text-right font-bold text-[#5D6E73] uppercase">Orders Won</th>
-                        <th className="px-2 py-2 text-right font-bold text-[#5D6E73] uppercase">Target</th>
-                        <th className="px-2 py-2 text-center font-bold text-[#5D6E73] uppercase">Hit Rate</th>
-                        <th className="px-2 py-2 text-center font-bold text-[#5D6E73] uppercase">Achievement</th>
+                      <tr className="bg-[#AEBFC3]/10 dark:bg-[#546A7A]/80 border-b border-[#92A2A5]">
+                        <th className="px-3 py-2 text-left font-bold text-[#5D6E73] dark:text-slate-200 uppercase tracking-wide">Zone</th>
+                        <th className="px-2 py-2 text-right font-bold text-[#5D6E73] dark:text-[#92A2A5] uppercase tracking-wide">Offers</th>
+                        <th className="px-2 py-2 text-right font-bold text-[#5D6E73] dark:text-[#92A2A5] uppercase tracking-wide">Offers Value</th>
+                        <th className="px-2 py-2 text-right font-bold text-[#5D6E73] dark:text-[#92A2A5] uppercase tracking-wide">Orders Won</th>
+                        <th className="px-2 py-2 text-right font-bold text-[#5D6E73] dark:text-[#92A2A5] uppercase tracking-wide">Open Funnel</th>
+                        <th className="px-2 py-2 text-right font-bold text-sky-700 dark:text-sky-300 uppercase tracking-wide bg-sky-50/50 dark:bg-sky-900/20">Target</th>
+                        <th className="px-2 py-2 text-center font-bold text-[#5D6E73] dark:text-[#92A2A5] uppercase tracking-wide">Hit Rate</th>
+                        <th className="px-2 py-2 text-center font-bold text-[#5D6E73] dark:text-[#92A2A5] uppercase tracking-wide">Achievement</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {previewData.userMonthly
-                        .filter(u => !selectedZoneId || previewData.zones.find(z => z.zoneId === selectedZoneId)?.zoneName === u.zoneName)
-                        .map((user, idx) => {
-                          const ach = user.yearlyTarget > 0 ? (user.totals.orderReceived / user.yearlyTarget) * 100 : 0
-                          return (
-                            <tr key={user.userId} className={idx % 2 === 0 ? 'bg-white' : 'bg-[#AEBFC3]/5'}>
-                              <td className="px-3 py-2 font-bold text-[#546A7A]">{user.userName}</td>
-                              <td className="px-2 py-2 text-center">
-                                <Badge variant="outline" className="text-[10px] font-bold">{user.zoneName}</Badge>
-                              </td>
-                              <td className="px-2 py-2 text-right font-mono">{formatCurrency(user.totals.offersValue)}</td>
-                              <td className="px-2 py-2 text-right font-mono text-[#4F6A64]">{formatCurrency(user.totals.orderReceived)}</td>
-                              <td className="px-2 py-2 text-right font-mono">{formatCurrency(user.yearlyTarget)}</td>
-                              <td className="px-2 py-2 text-center font-bold">{user.hitRate.toFixed(1)}%</td>
-                              <td className="px-2 py-2">
-                                <div className="flex items-center gap-1.5 justify-center">
-                                  <span className={`text-[10px] font-bold ${getAchievementColor(ach)}`}>
-                                    {ach.toFixed(1)}%
-                                  </span>
-                                  {getStatusIcon(ach)}
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
+                      {previewData.zones.map((zone, idx) => {
+                        const ach = zone.yearlyTarget > 0 ? (zone.ordersReceived / zone.yearlyTarget) * 100 : 0
+                        return (
+                          <tr key={zone.zoneId}
+                            className={`hover:bg-[#AEBFC3]/10 transition-colors ${idx % 2 === 0 ? 'bg-white dark:bg-[#546A7A]/50' : 'bg-[#AEBFC3]/5 dark:bg-[#546A7A]/20'}`}
+                          >
+                            <td className="px-3 py-2">
+                              <span className="font-bold text-[#546A7A] dark:text-white text-xs">{zone.zoneName}</span>
+                            </td>
+                            <td className="px-2 py-2 text-right font-mono font-bold text-[#5D6E73]">{zone.noOfOffers}</td>
+                            <td className="px-2 py-2 text-right font-mono text-[#546A7A] dark:text-[#6F8A9D]">{formatCurrency(zone.offersValue)}</td>
+                            <td className="px-2 py-2 text-right font-mono text-[#4F6A64] dark:text-[#82A094]">{formatCurrency(zone.ordersReceived)}</td>
+                            <td className="px-2 py-2 text-right font-mono text-[#976E44] dark:text-[#CE9F6B]">{formatCurrency(zone.openFunnel)}</td>
+                            <td className="px-2 py-2 text-right bg-sky-50/30 dark:bg-sky-900/10 font-mono text-sky-700 dark:text-sky-400">{formatCurrency(zone.yearlyTarget)}</td>
+                            <td className="px-2 py-2 text-center">
+                              <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold ${zone.hitRatePercent >= 50
+                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                                : zone.hitRatePercent >= 30
+                                  ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                                  : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                                }`}>
+                                {zone.hitRatePercent.toFixed(1)}%
+                              </span>
+                            </td>
+                            <td className="px-2 py-2">
+                              <div className="flex items-center gap-1.5 justify-center">
+                                <div className="flex-1 h-1.5 bg-[#92A2A5]/30 rounded-full overflow-hidden max-w-[40px]">
+                                  <div
+                                    className={`h-full rounded-full transition-all duration-500 ${getAchievementBg(ach)}`}
+                                    style={{ width: `${Math.min(ach, 100)}%` }}
+                                  />
                                 </div>
-                              </td>
-                            </tr>
-                          )
-                        })}
+                                <span className={`text-[10px] font-bold ${getAchievementColor(ach)}`}>
+                                  {ach.toFixed(0)}%
+                                </span>
+                                {getStatusIcon(ach)}
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })}
                     </tbody>
+                    <tfoot>
+                      <tr className="bg-gradient-to-r from-slate-800 to-[#5D6E73] text-white">
+                        <td className="px-3 py-2 font-bold text-sm">Total</td>
+                        <td className="px-2 py-2 text-right font-mono font-bold">{previewData.totals.noOfOffers}</td>
+                        <td className="px-2 py-2 text-right font-mono font-bold text-[#96AEC2]">{formatCurrency(previewData.totals.offersValue)}</td>
+                        <td className="px-2 py-2 text-right font-mono font-bold text-[#82A094]">{formatCurrency(previewData.totals.ordersReceived)}</td>
+                        <td className="px-2 py-2 text-right font-mono font-bold text-[#EEC1BF]">{formatCurrency(previewData.totals.openFunnel)}</td>
+                        <td className="px-2 py-2 text-right font-mono font-bold text-sky-300">{formatCurrency(previewData.totals.yearlyTarget)}</td>
+                        <td className="px-2 py-2 text-center font-bold">{previewData.totals.hitRatePercent?.toFixed(1) ?? '0'}%</td>
+                        <td className="px-2 py-2 text-center font-bold">
+                          {previewData.totals.yearlyTarget > 0
+                            ? ((previewData.totals.ordersReceived / previewData.totals.yearlyTarget) * 100).toFixed(1)
+                            : '0'}%
+                        </td>
+                      </tr>
+                    </tfoot>
                   </table>
                 </div>
               </CardContent>
             </Card>
-          )}
 
-          {/* Info Banner */}
-          <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-[#96AEC2]/10 to-[#A2B9AF]/10 rounded-2xl border border-[#96AEC2]/20">
-            <div className="p-2 bg-[#96AEC2]/20 rounded-xl">
-              <FileText className="h-5 w-5 text-[#546A7A]" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-[#546A7A] dark:text-[#AEBFC3]">
-                PDF Ready to Download
-              </p>
-              <p className="text-xs text-[#757777]">
-                Your report will include KPI cards, zone performance tables, {selectedFilter === 'zone-users' ? 'user performance data, ' : ''}bar charts, pie charts, and detailed analytics — all in a premium, print-ready design.
-              </p>
+            {/* Users Preview */}
+            {previewData.userMonthly.length > 0 && (
+              <Card className="overflow-hidden border border-[#92A2A5]/60 shadow-lg bg-white dark:bg-[#546A7A] rounded-xl">
+                <CardHeader className="bg-gradient-to-r from-[#4F6A64] to-[#5D6E73] py-3 px-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-white/10 rounded-lg">
+                      <Users className="h-4 w-4 text-white" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-sm font-bold text-white">User Performance Preview</CardTitle>
+                      <p className="text-white/60 text-xs">{previewData.userMonthly.length} users across all zones</p>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="bg-[#AEBFC3]/10 border-b border-[#92A2A5]">
+                          <th className="px-3 py-2 text-left font-bold text-[#5D6E73] uppercase">User</th>
+                          <th className="px-2 py-2 text-center font-bold text-[#5D6E73] uppercase">Zone</th>
+                          <th className="px-2 py-2 text-right font-bold text-[#5D6E73] uppercase">Offers Value</th>
+                          <th className="px-2 py-2 text-right font-bold text-[#5D6E73] uppercase">Orders Won</th>
+                          <th className="px-2 py-2 text-right font-bold text-[#5D6E73] uppercase">Target</th>
+                          <th className="px-2 py-2 text-center font-bold text-[#5D6E73] uppercase">Hit Rate</th>
+                          <th className="px-2 py-2 text-center font-bold text-[#5D6E73] uppercase">Achievement</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {previewData.userMonthly
+                          .filter(u => !selectedZoneId || previewData.zones.find(z => z.zoneId === selectedZoneId)?.zoneName === u.zoneName)
+                          .map((user, idx) => {
+                            const ach = user.yearlyTarget > 0 ? (user.totals.orderReceived / user.yearlyTarget) * 100 : 0
+                            return (
+                              <tr key={user.userId} className={idx % 2 === 0 ? 'bg-white' : 'bg-[#AEBFC3]/5'}>
+                                <td className="px-3 py-2 font-bold text-[#546A7A]">{user.userName}</td>
+                                <td className="px-2 py-2 text-center">
+                                  <Badge variant="outline" className="text-[10px] font-bold">{user.zoneName}</Badge>
+                                </td>
+                                <td className="px-2 py-2 text-right font-mono">{formatCurrency(user.totals.offersValue)}</td>
+                                <td className="px-2 py-2 text-right font-mono text-[#4F6A64]">{formatCurrency(user.totals.orderReceived)}</td>
+                                <td className="px-2 py-2 text-right font-mono">{formatCurrency(user.yearlyTarget)}</td>
+                                <td className="px-2 py-2 text-center font-bold">{user.hitRate.toFixed(1)}%</td>
+                                <td className="px-2 py-2">
+                                  <div className="flex items-center gap-1.5 justify-center">
+                                    <span className={`text-[10px] font-bold ${getAchievementColor(ach)}`}>
+                                      {ach.toFixed(1)}%
+                                    </span>
+                                    {getStatusIcon(ach)}
+                                  </div>
+                                </td>
+                              </tr>
+                            )
+                          })}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Info Banner */}
+            <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-[#96AEC2]/10 to-[#A2B9AF]/10 rounded-2xl border border-[#96AEC2]/20">
+              <div className="p-2 bg-[#96AEC2]/20 rounded-xl">
+                <FileText className="h-5 w-5 text-[#546A7A]" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-[#546A7A] dark:text-[#AEBFC3]">
+                  PDF Ready to Download
+                </p>
+                <p className="text-xs text-[#757777]">
+                  Your report will include KPI cards, zone performance tables, user performance data, bar charts, pie charts, and detailed analytics — all in a premium, print-ready design.
+                </p>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )
+      }
+    </div >
   )
 }

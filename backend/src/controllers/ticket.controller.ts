@@ -627,11 +627,19 @@ export const getTickets = async (req: TicketRequest, res: Response) => {
           priority: true,
           assignmentStatus: true,
           createdAt: true,
+          assetId: true,
           customer: {
             select: {
               id: true,
               companyName: true,
               address: true
+            }
+          },
+          asset: {
+            select: {
+              id: true,
+              model: true,
+              serialNo: true
             }
           },
           zone: {

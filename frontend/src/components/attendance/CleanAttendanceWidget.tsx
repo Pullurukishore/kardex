@@ -4,11 +4,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
-import { 
-  Clock, 
-  MapPin, 
-  CheckCircle, 
-  LogIn, 
+import {
+  Clock,
+  MapPin,
+  CheckCircle,
+  LogIn,
   LogOut,
   Loader2,
   AlertCircle,
@@ -75,7 +75,7 @@ interface EnhancedLocationCaptureState {
   showLocationCapture: boolean;
 }
 
-export default function CleanAttendanceWidget({ 
+export default function CleanAttendanceWidget({
   onStatusChange,
   initialData
 }: CleanAttendanceWidgetProps) {
@@ -90,7 +90,7 @@ export default function CleanAttendanceWidget({
     capturedLocation: null,
     error: null
   });
-  
+
   // Enhanced location state
   const [enhancedLocationState, setEnhancedLocationState] = useState<EnhancedLocationCaptureState>({
     isCapturing: false,
@@ -98,7 +98,7 @@ export default function CleanAttendanceWidget({
     error: null,
     showLocationCapture: false
   });
-  
+
   const [lastKnownLocation, setLastKnownLocation] = useState<AttendanceLocationData | null>(null);
   const { toast } = useToast();
 
@@ -155,14 +155,14 @@ export default function CleanAttendanceWidget({
       timestamp: location.timestamp,
       source: location.source === 'network' ? 'gps' : location.source
     };
-    
+
     setEnhancedLocationState(prev => ({
       ...prev,
       capturedLocation: attendanceLocation,
       error: null,
       showLocationCapture: false
     }));
-    
+
     setLastKnownLocation(attendanceLocation);
   };
 
@@ -184,12 +184,12 @@ export default function CleanAttendanceWidget({
         try {
           const reading = await getSingleLocationReading();
           readings.push(reading);
-          
+
           // If we get a very accurate reading early, we can use it
           if (reading.accuracy <= 50 && i > 0) {
             break;
           }
-          
+
           // Wait before next reading (except for last one)
           if (i < maxReadings - 1) {
             await new Promise(resolve => setTimeout(resolve, readingDelay));
@@ -203,7 +203,7 @@ export default function CleanAttendanceWidget({
       }
 
       const bestReading = selectBestLocationReading(readings);
-      
+
       setLocationState({
         isCapturing: false,
         capturedLocation: bestReading,
@@ -256,8 +256,8 @@ export default function CleanAttendanceWidget({
     const R = 6371000;
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
   };
 
@@ -280,7 +280,7 @@ export default function CleanAttendanceWidget({
             const response = await apiClient.get(`/geocoding/reverse?latitude=${latitude}&longitude=${longitude}`);
             if (response.data?.address) address = response.data.address;
             else if (response.data?.success && response.data?.data?.address) address = response.data.data.address;
-          } catch (error) {}
+          } catch (error) { }
           const locationData = { latitude, longitude, accuracy, address, timestamp: new Date().toISOString() };
           setLocationState({ isCapturing: false, capturedLocation: locationData, error: null });
           resolve(locationData);
@@ -335,13 +335,13 @@ export default function CleanAttendanceWidget({
           status: 'CHECKED_IN'
         }
       };
-      
+
       setAttendanceData(newData);
       if (onStatusChange) onStatusChange(newData);
-      
+
       setActionLoading(false);
       setEnhancedLocationState({ isCapturing: false, capturedLocation: null, error: null, showLocationCapture: false });
-      fetchAttendanceStats().catch(() => {});
+      fetchAttendanceStats().catch(() => { });
     } catch (error: any) {
       setActionLoading(false);
       let errorMessage = 'Failed to check in. Please try again.';
@@ -382,9 +382,9 @@ export default function CleanAttendanceWidget({
       await fetchAttendanceStatus();
       await fetchAttendanceStats();
     } catch (error: any) {
-      if (error.response?.status === 400 && 
-          (error.response?.data?.error === 'Already checked in' || 
-           error.response?.data?.message?.includes('already checked in'))) {
+      if (error.response?.status === 400 &&
+        (error.response?.data?.error === 'Already checked in' ||
+          error.response?.data?.message?.includes('already checked in'))) {
         toast({ title: 'Already Checked In', description: 'Refreshing status...', variant: 'destructive' });
         await fetchAttendanceStatus();
       } else {
@@ -431,7 +431,7 @@ export default function CleanAttendanceWidget({
       if (onStatusChange) onStatusChange(newData);
       setActionLoading(false);
       setEnhancedLocationState({ isCapturing: false, capturedLocation: null, error: null, showLocationCapture: false });
-      fetchAttendanceStats().catch(() => {});
+      fetchAttendanceStats().catch(() => { });
     } catch (error: any) {
       setActionLoading(false);
       if (error.response?.status === 400 && error.response.data?.requiresConfirmation) {
@@ -488,7 +488,7 @@ export default function CleanAttendanceWidget({
       if (onStatusChange) onStatusChange(newData);
       setActionLoading(false);
       setEnhancedLocationState({ isCapturing: false, capturedLocation: null, error: null, showLocationCapture: false });
-      fetchAttendanceStats().catch(() => {});
+      fetchAttendanceStats().catch(() => { });
     } catch (error: any) {
       setActionLoading(false);
       toast({ title: 'Re-Check-in Failed', description: error.response?.data?.message || 'Failed', variant: 'destructive' });
@@ -554,7 +554,7 @@ export default function CleanAttendanceWidget({
     }
     const isCheckedIn = attendanceData.isCheckedIn;
     const hasAttendanceToday = attendanceData.attendance && (attendanceData.attendance.status === 'CHECKED_OUT' || attendanceData.attendance.status === 'EARLY_CHECKOUT');
-    
+
     if (isCheckedIn) {
       return (
         <Button onClick={handleCheckOut} disabled={actionLoading} className="w-full h-14 min-h-[56px] bg-gradient-to-r from-[#E17F70] to-[#9E3B47] text-white font-bold rounded-xl shadow-lg active:scale-[0.98] transition-transform">
@@ -598,7 +598,7 @@ export default function CleanAttendanceWidget({
           {/* Subtle grid pattern */}
           <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:20px_20px]"></div>
         </div>
-        
+
         <div className="relative z-10">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-4">
@@ -610,26 +610,85 @@ export default function CleanAttendanceWidget({
                 <p className="text-white/70 text-[10px] font-black uppercase tracking-widest mt-1">Operational Telemetry</p>
               </div>
             </div>
-            <div className={`px-5 py-2.5 rounded-2xl border-2 backdrop-blur-xl font-black text-[10px] uppercase tracking-widest transition-all ${
-              attendanceData?.isCheckedIn 
-                ? 'bg-[#82A094]/30 border-[#A2B9AF]/60 text-white shadow-2xl animate-pulse' 
+            <div className={`px-5 py-2.5 rounded-2xl border-2 backdrop-blur-xl font-black text-[10px] uppercase tracking-widest transition-all ${attendanceData?.isCheckedIn
+                ? 'bg-[#82A094]/30 border-[#A2B9AF]/60 text-white shadow-2xl animate-pulse'
                 : 'bg-white/10 border-white/40 text-white/90 shadow-xl'
-            }`}>
+              }`}>
               <span className="flex items-center gap-2">
                 {attendanceData?.isCheckedIn ? 'Status: Active' : 'Status: Off Duty'}
               </span>
             </div>
           </div>
-          
+
           {/* Check-in time display */}
           {attendanceData?.attendance?.checkInAt && (
             <div className="mt-5 pt-4 border-t border-white/20">
               <div className="bg-white/15 backdrop-blur-md p-5 rounded-2xl border border-white/20 shadow-inner">
-                <p className="text-white/50 text-[10px] font-black uppercase tracking-[0.2em]">Shift Commencement</p>
-                <div className="flex items-baseline gap-2 mt-1">
-                  <p className="text-3xl font-black tracking-tighter">{formatTime(attendanceData.attendance.checkInAt)}</p>
-                  <p className="text-white/40 text-[10px] font-black uppercase tracking-widest">Local Time</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Check-in Details */}
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-white/50 text-[10px] font-black uppercase tracking-[0.2em]">Shift Commencement</p>
+                      <div className="flex items-baseline gap-2 mt-1">
+                        <p className="text-3xl font-black tracking-tighter">{formatTime(attendanceData.attendance.checkInAt)}</p>
+                        <p className="text-white/40 text-[10px] font-black uppercase tracking-widest">In</p>
+                      </div>
+                    </div>
+
+                    {attendanceData.attendance.checkInAddress && (
+                      <div className="flex items-start gap-2.5 p-3 rounded-xl bg-white/10 border border-white/10 group hover:bg-white/20 transition-all duration-300">
+                        <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0">
+                          <MapPin className="w-4 h-4 text-white/70" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-0.5">Check-in Location</p>
+                          <p className="text-[11px] text-white/90 leading-tight font-medium break-words">
+                            {attendanceData.attendance.checkInAddress}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Check-out Details (Only shown if checked out) */}
+                  {attendanceData.attendance.checkOutAt && (
+                    <div className="space-y-3 pt-6 md:pt-0 border-t md:border-t-0 md:border-l border-white/10 md:pl-6">
+                      <div>
+                        <p className="text-white/50 text-[10px] font-black uppercase tracking-[0.2em]">Shift Conclusion</p>
+                        <div className="flex items-baseline gap-2 mt-1">
+                          <p className="text-3xl font-black tracking-tighter tracking-tighter text-[#E17F70]">{formatTime(attendanceData.attendance.checkOutAt)}</p>
+                          <p className="text-white/40 text-[10px] font-black uppercase tracking-widest">Out</p>
+                        </div>
+                      </div>
+
+                      {attendanceData.attendance.checkOutAddress && (
+                        <div className="flex items-start gap-2.5 p-3 rounded-xl bg-[#E17F70]/10 border border-[#E17F70]/20 group hover:bg-[#E17F70]/20 transition-all duration-300">
+                          <div className="w-8 h-8 rounded-lg bg-[#E17F70]/20 flex items-center justify-center flex-shrink-0">
+                            <MapPin className="w-4 h-4 text-[#E17F70]" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[9px] font-black text-[#E17F70]/60 uppercase tracking-widest mb-0.5">Check-out Location</p>
+                            <p className="text-[11px] text-white/90 leading-tight font-medium break-words">
+                              {attendanceData.attendance.checkOutAddress}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
+
+                {/* Duration/Total Hours Banner (if checked out) */}
+                {attendanceData.attendance.checkOutAt && attendanceData.attendance.totalHours && (
+                  <div className="mt-5 flex items-center justify-center border-t border-white/10 pt-4">
+                    <div className="px-4 py-2 rounded-full bg-white/5 border border-white/10 flex items-center gap-3">
+                      <Clock className="w-4 h-4 text-white/40" />
+                      <p className="text-xs font-black uppercase tracking-widest text-white/60">
+                        Total Shift Duration: <span className="text-white text-sm ml-1">{formatHours(attendanceData.attendance.totalHours)} hrs</span>
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -646,7 +705,7 @@ export default function CleanAttendanceWidget({
             />
           </div>
         )}
-        
+
         {/* Captured Location Preview */}
         {enhancedLocationState.capturedLocation && !enhancedLocationState.showLocationCapture && (
           <div className="mb-4 bg-gradient-to-br from-[#A2B9AF]/15 to-[#82A094]/10 border-2 border-[#82A094]/40 rounded-2xl p-4 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
@@ -657,7 +716,7 @@ export default function CleanAttendanceWidget({
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-[10px] font-black text-[#546A7A] uppercase tracking-widest flex items-center gap-2">
-                    Security Telemetry Validated 
+                    Security Telemetry Validated
                     <div className="w-4 h-4 rounded-full bg-[#82A094] flex items-center justify-center">
                       <CheckCircle className="w-2.5 h-2.5 text-white" />
                     </div>
@@ -697,10 +756,10 @@ export default function CleanAttendanceWidget({
                   variant="ghost"
                   size="icon"
                   onClick={() => {
-                    setEnhancedLocationState(prev => ({ 
-                      ...prev, 
-                      capturedLocation: null, 
-                      showLocationCapture: false 
+                    setEnhancedLocationState(prev => ({
+                      ...prev,
+                      capturedLocation: null,
+                      showLocationCapture: false
                     }));
                     setLastKnownLocation(null);
                     toast({
@@ -719,15 +778,15 @@ export default function CleanAttendanceWidget({
           </div>
         )}
         {renderActionButton()}
-        <Button 
-          variant="ghost" 
-          onClick={() => { fetchAttendanceStatus(); fetchAttendanceStats(); }} 
+        <Button
+          variant="ghost"
+          onClick={() => { fetchAttendanceStatus(); fetchAttendanceStats(); }}
           className="w-full mt-4 text-[#5D6E73] hover:bg-[#AEBFC3]/15 rounded-xl h-11 border border-transparent hover:border-[#AEBFC3]/30 transition-all"
         >
           <RotateCcw className="w-4 h-4 mr-2" /> Refresh Status
         </Button>
       </div>
-      
+
       {showEarlyCheckoutConfirm && earlyCheckoutData && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white p-6 rounded-3xl max-w-sm w-full shadow-2xl border border-[#AEBFC3]/30">

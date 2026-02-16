@@ -90,12 +90,12 @@ export default function ActivityScheduleForm({
 }: ActivityScheduleFormProps) {
   const { user } = useAuth();
   const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
-  
+
   // Determine role from user object first, fallback to pathname
   const isAdmin = user?.role === 'ADMIN' || pathname.includes('/admin/');
   const isZone = user?.role === 'ZONE_MANAGER' || user?.role === 'ZONE_USER' || pathname.includes('/zone/');
   const isExpert = user?.role === 'EXPERT_HELPDESK' || pathname.includes('/expert/');
-  
+
   const [formData, setFormData] = useState({
     servicePersonIds: initialData?.servicePersonIds || (initialData?.servicePersonId ? [initialData.servicePersonId] : []),
     description: initialData?.description || '',
@@ -114,7 +114,7 @@ export default function ActivityScheduleForm({
 
   const [servicePersons, setServicePersons] = useState<ServicePerson[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(initialData?.ticket || null);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -134,12 +134,12 @@ export default function ActivityScheduleForm({
       try {
         setLoading(true);
         console.log('Fetching initial data, isAdmin:', isAdmin);
-        
+
         // Fetch service persons
         const personsResponse = await getServicePersons();
         let persons: ServicePerson[] = [];
         const responseData = personsResponse as any;
-        
+
         if (responseData.success && responseData.data) {
           persons = responseData.data;
         } else if (Array.isArray(responseData.users)) {
@@ -151,10 +151,10 @@ export default function ActivityScheduleForm({
         } else if (responseData.data?.data && Array.isArray(responseData.data.data)) {
           persons = responseData.data.data;
         }
-        
+
         console.log('Fetched service persons:', persons);
         setServicePersons(persons);
-        
+
         // Fetch zones - for admin, zone users, zone managers, expert helpdesk, or when editing
         if (isAdmin || isZone || isExpert || isEditing) {
           console.log('Fetching zones...');
@@ -179,7 +179,7 @@ export default function ActivityScheduleForm({
   useEffect(() => {
     if (isEditing && initialData) {
       console.log('Editing mode, initial data:', initialData);
-      
+
       // Set zone, customer, and assets from initial data
       if (initialData.zoneId && formData.zoneId !== initialData.zoneId.toString()) {
         setFormData(prev => ({
@@ -187,14 +187,14 @@ export default function ActivityScheduleForm({
           zoneId: initialData.zoneId.toString(),
         }));
       }
-      
+
       if (initialData.customerId && formData.customerId !== initialData.customerId.toString()) {
         setFormData(prev => ({
           ...prev,
           customerId: initialData.customerId.toString(),
         }));
       }
-      
+
       // Ensure zones list contains the initial zone (so Select has an option to show)
       if (initialData.zone && initialData.zone.id) {
         setZones(prev => {
@@ -239,7 +239,7 @@ export default function ActivityScheduleForm({
   useEffect(() => {
     const fetchZoneCustomers = async () => {
       console.log('Zone changed to:', formData.zoneId);
-      
+
       if (!formData.zoneId) {
         console.log('No zone selected, clearing customers');
         // Don't clear if we have initial data (editing mode)
@@ -253,7 +253,7 @@ export default function ActivityScheduleForm({
       try {
         setCustomersLoading(true);
         console.log('Fetching customers for zone:', formData.zoneId);
-        
+
         let customersRes;
         if (formData.zoneId === 'all') {
           // Fetch all customers from all zones
@@ -262,26 +262,26 @@ export default function ActivityScheduleForm({
           // Use the customers endpoint with zone filter
           customersRes = await api.get(`/customers?serviceZoneId=${formData.zoneId}&include=contacts,assets`);
         }
-        
+
         console.log('Customers API response:', customersRes);
-        
+
         // API returns array directly, not wrapped in data property
         let customersData = Array.isArray(customersRes.data) ? customersRes.data : customersRes.data?.data || [];
-        
+
         console.log('Formatted customers data:', customersData);
-        
+
         // Map the API response to match our expected format
         let formattedCustomers = customersData.map((customer: any) => ({
           ...customer,
           contacts: customer.contacts || [],
           assets: customer.assets || []
         }));
-        
+
         // When editing, ensure the initial customer is in the list and has the correct assets
         if (isEditing && initialData?.customer && initialData.customer.id) {
           const initialCustomerIndex = formattedCustomers.findIndex((c: any) => c.id === initialData.customer.id);
           const initialAssets = Array.isArray(initialData.assets) ? initialData.assets : [];
-          
+
           if (initialCustomerIndex === -1) {
             // Customer not in list, add it with initial assets
             formattedCustomers = [
@@ -296,7 +296,7 @@ export default function ActivityScheduleForm({
             // Prioritize initial assets to ensure selected assets are available
             const existingCustomer = formattedCustomers[initialCustomerIndex];
             const existingAssets = existingCustomer.assets || [];
-            
+
             // Combine initial assets with fetched assets, avoiding duplicates
             const mergedAssets = [...initialAssets];
             existingAssets.forEach((asset: any) => {
@@ -304,24 +304,24 @@ export default function ActivityScheduleForm({
                 mergedAssets.push(asset);
               }
             });
-            
+
             formattedCustomers[initialCustomerIndex] = {
               ...existingCustomer,
               assets: mergedAssets,
             };
           }
         }
-        
+
         console.log('Setting customers:', formattedCustomers);
         setCustomers(formattedCustomers);
-        
+
         // Only clear assets if not editing or if zone actually changed from initial
         if (!isEditing || (initialData?.zoneId && formData.zoneId !== initialData.zoneId.toString())) {
           setAssets([]);
         }
       } catch (error) {
         console.error('Error fetching customers:', error);
-        toast.error(formData.zoneId === 'all' 
+        toast.error(formData.zoneId === 'all'
           ? 'Failed to load customers from all zones'
           : 'Failed to load customers for selected zone');
         // Don't clear customers if we have initial data
@@ -352,10 +352,10 @@ export default function ActivityScheduleForm({
 
     const isInitialCustomer = isEditing && initialData?.customerId?.toString() === formData.customerId;
     const selectedCustomer = customers.find(c => c.id.toString() === formData.customerId);
-    
+
     // Determine which assets to use
     let assetsToUse: any[] = [];
-    
+
     if (isInitialCustomer && initialData?.assets?.length) {
       // When editing and customer hasn't changed, always use initial assets
       // This ensures the backend-fetched asset details are preserved
@@ -367,9 +367,9 @@ export default function ActivityScheduleForm({
       // Fallback for editing mode: use initial assets if available
       assetsToUse = initialData?.assets || [];
     }
-    
+
     setAssets(assetsToUse);
-    
+
     // Preserve initial asset IDs when editing and customer hasn't changed
     if (isInitialCustomer && initialData?.assetIds?.length) {
       setFormData(prev => ({
@@ -394,7 +394,7 @@ export default function ActivityScheduleForm({
           // it returns only tickets assigned to them
           const response: any = await apiClient.get('/tickets?limit=100');
           let ticketData: Ticket[] = [];
-          
+
           if (response.data && Array.isArray(response.data)) {
             ticketData = response.data;
           } else if (Array.isArray(response)) {
@@ -402,15 +402,15 @@ export default function ActivityScheduleForm({
           } else if (response.tickets && Array.isArray(response.tickets)) {
             ticketData = response.tickets;
           }
-          
+
           // Filter tickets:
           // 1. Must be ACCEPTED (user has accepted the assignment)
           // 2. Must not be CLOSED or CANCELLED
-          ticketData = ticketData.filter((ticket: any) => 
+          ticketData = ticketData.filter((ticket: any) =>
             ticket.assignmentStatus === 'ACCEPTED' &&
             !['CLOSED', 'CANCELLED'].includes(ticket.status)
           );
-          
+
           setTickets(ticketData);
         } else {
           setTickets([]);
@@ -442,7 +442,7 @@ export default function ActivityScheduleForm({
         ...prev,
         [name]: value,
       };
-      
+
       // When a ticket is selected in TICKET_WORK mode, auto-populate zone, customer, asset
       if (name === 'ticketId' && value && prev.activityType === 'TICKET_WORK') {
         const ticket = tickets.find(t => t.id.toString() === value);
@@ -469,22 +469,22 @@ export default function ActivityScheduleForm({
           }
         }
       }
-      
+
       // When activity type changes from TICKET_WORK, clear selected ticket
       if (name === 'activityType' && value !== 'TICKET_WORK') {
         setSelectedTicket(null);
         newData.ticketId = '';
       }
-      
+
       if (name === 'zoneId' && !selectedTicket) {
         newData.customerId = '';
         newData.assetIds = [];
       }
-      
+
       if (name === 'customerId' && !selectedTicket) {
         newData.assetIds = [];
       }
-      
+
       return newData;
     });
   };
@@ -574,13 +574,13 @@ export default function ActivityScheduleForm({
             <p className="text-sm text-[#AEBFC3]0 mt-1">Select one or more service persons to assign this activity</p>
           </div>
         </div>
-        
+
         <div className="space-y-2">
           <Label className="flex items-center gap-2">
             <User className="h-4 w-4" />
             Service Persons * (Select one or more)
           </Label>
-          
+
           <div className="relative">
             <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-[#6F8A9D]" />
             <Input
@@ -624,7 +624,7 @@ export default function ActivityScheduleForm({
           {/* Count indicator */}
           <div className="flex items-center justify-between text-xs text-[#AEBFC3]0 px-1">
             <span>
-              {servicePersons.filter(sp => 
+              {servicePersons.filter(sp =>
                 (sp.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
                 sp.email.toLowerCase().includes(searchQuery.toLowerCase())
               ).length} of {servicePersons.length} service persons
@@ -641,7 +641,7 @@ export default function ActivityScheduleForm({
                 <Loader className="h-5 w-5 animate-spin mx-auto mb-2" />
                 <p className="text-sm">Loading service persons...</p>
               </div>
-            ) : servicePersons.filter(sp => 
+            ) : servicePersons.filter(sp =>
               (sp.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
               sp.email.toLowerCase().includes(searchQuery.toLowerCase())
             ).length === 0 ? (
@@ -650,7 +650,7 @@ export default function ActivityScheduleForm({
               </div>
             ) : (
               servicePersons
-                .filter(sp => 
+                .filter(sp =>
                   (sp.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
                   sp.email.toLowerCase().includes(searchQuery.toLowerCase())
                 )
@@ -690,7 +690,7 @@ export default function ActivityScheduleForm({
             <p className="text-sm text-[#AEBFC3]0 mt-1">Provide information about the activity to be scheduled</p>
           </div>
         </div>
-        
+
         <div className="space-y-2">
           <Label htmlFor="description" className="text-[#5D6E73] font-semibold">Description</Label>
           <Textarea
@@ -761,12 +761,11 @@ export default function ActivityScheduleForm({
                         <span className="font-medium">#{ticket.ticketNumber ?? ticket.id}</span>
                         <span className="text-[#5D6E73]">-</span>
                         <span className="truncate max-w-[200px]">{ticket.title}</span>
-                        <span className={`ml-auto text-xs px-2 py-0.5 rounded-full ${
-                          ticket.status === 'ASSIGNED' ? 'bg-[#96AEC2]/20 text-[#546A7A]' :
-                          ticket.status === 'OPEN' ? 'bg-[#CE9F6B]/20 text-[#976E44]' :
-                          ticket.status === 'IN_PROGRESS' ? 'bg-[#6F8A9D]/20 text-[#546A7A]' :
-                          'bg-[#AEBFC3]/20 text-[#5D6E73]'
-                        }`}>
+                        <span className={`ml-auto text-xs px-2 py-0.5 rounded-full ${ticket.status === 'ASSIGNED' ? 'bg-[#96AEC2]/20 text-[#546A7A]' :
+                            ticket.status === 'OPEN' ? 'bg-[#CE9F6B]/20 text-[#976E44]' :
+                              ticket.status === 'IN_PROGRESS' ? 'bg-[#6F8A9D]/20 text-[#546A7A]' :
+                                'bg-[#AEBFC3]/20 text-[#5D6E73]'
+                          }`}>
                           {ticket.status.replace(/_/g, ' ')}
                         </span>
                       </div>
@@ -888,7 +887,7 @@ export default function ActivityScheduleForm({
             <div className="p-4 bg-gradient-to-r from-[#EEC1BF]/10 to-[#EEC1BF]/10 rounded-xl border-2 border-[#CE9F6B] md:col-span-2">
               <div className="flex items-center gap-2 text-[#976E44] text-xs font-medium mb-1">
                 <Settings className="h-3 w-3" />
-                Asset
+                {formData.activityType === 'TICKET_WORK' ? 'Work Asset' : 'Asset'}
               </div>
               <div className="font-semibold text-[#546A7A]">
                 {selectedTicket.asset ? (
@@ -920,8 +919,8 @@ export default function ActivityScheduleForm({
                 <MapPin className="h-4 w-4" />
                 Zone {isAdmin && '*'}
               </Label>
-              <Select 
-                value={formData.zoneId} 
+              <Select
+                value={formData.zoneId}
                 onValueChange={(value) => handleSelectChange('zoneId', value)}
                 disabled={loading}
               >
@@ -944,16 +943,16 @@ export default function ActivityScheduleForm({
               <Building2 className="h-4 w-4" />
               Customer
             </Label>
-            <Select 
-              value={formData.customerId} 
+            <Select
+              value={formData.customerId}
               onValueChange={(value) => handleSelectChange('customerId', value)}
               disabled={customersLoading || (!isAdmin && !isEditing && !formData.zoneId)}
             >
               <SelectTrigger id="customerId" className="border-2 border-[#92A2A5] focus:border-[#CE9F6B] focus:ring-2 focus:ring-orange-200 h-11 rounded-lg transition-all disabled:opacity-50">
                 <SelectValue placeholder={
-                  customersLoading ? 'Loading customers...' : 
-                  (!isAdmin && !isEditing && !formData.zoneId) ? 'Select a zone first' :
-                  'Select a customer'
+                  customersLoading ? 'Loading customers...' :
+                    (!isAdmin && !isEditing && !formData.zoneId) ? 'Select a zone first' :
+                      'Select a customer'
                 } />
               </SelectTrigger>
               <SelectContent>

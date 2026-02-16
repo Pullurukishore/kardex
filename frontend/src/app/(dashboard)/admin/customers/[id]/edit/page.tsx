@@ -59,12 +59,13 @@ export default function EditCustomerPage() {
     companyName: customer.companyName || '',
     industry: customer.industry,
     address: customer.address,
-    status: customer.status || 'ACTIVE', // Use status directly from customer
+    status: customer.isActive ? 'ACTIVE' : 'INACTIVE', // Derive status from isActive boolean
     serviceZoneId: customer.serviceZoneId || 0, // Ensure serviceZoneId is not undefined
     // Contact information - map from first contact if available
     contactName: customer.contacts?.[0]?.name || '',
     contactPhone: customer.contacts?.[0]?.phone || '',
+    contactEmail: customer.contacts?.[0]?.email || '',
   };
-  
+
   return <CustomerFormComponent customer={formData} customerId={customer.id} />;
 }
