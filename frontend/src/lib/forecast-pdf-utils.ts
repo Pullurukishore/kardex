@@ -1924,13 +1924,13 @@ export async function generateForecastPdf(
         }
     }
 
-    // ===== Zone Users Breakdown =====
+    // ===== Zone Personnel Breakdown =====
     {
         // Start zone users section on a new page
         drawFooter(doc, pageNum.val)
         pageNum.val++
         doc.addPage()
-        y = drawHeader(doc, data.year, 'Zone Users Analysis' + (monthName ? ` (${monthName})` : ''), selectedZone?.zoneName, logoBase64, selectedMonth)
+        y = drawHeader(doc, data.year, 'Zone Performance Analysis' + (monthName ? ` (${monthName})` : ''), selectedZone?.zoneName, logoBase64, selectedMonth)
 
         const usersToShow = selectedZoneId
             ? data.userMonthly.filter(u => {
@@ -1942,7 +1942,7 @@ export async function generateForecastPdf(
                 : data.userMonthly
 
         // ===== User Performance Summary (Page 1 Overview) =====
-        y = drawSectionTitle(doc, y, 'USER PERFORMANCE SUMMARY')
+        y = drawSectionTitle(doc, y, 'PERFORMANCE SUMMARY')
         y += 2
 
         const userCardData = usersToShow.map(u => {
@@ -1978,7 +1978,7 @@ export async function generateForecastPdf(
         doc.setTextColor(...COLORS.white)
 
         const colTitleX = [22, 60, 118, 168, 222]
-        const colTitles = ['USER', 'ACHIEVEMENT', 'OFFR. PIPE.', 'TARGET', 'PERFORMANCE']
+        const colTitles = ['NAME', 'ACHIEVEMENT', 'OFFR. PIPE.', 'TARGET', 'PERFORMANCE']
         colTitles.forEach((title, i) => {
             doc.text(title, colTitleX[i], y + 5.5)
         })
@@ -2051,7 +2051,7 @@ export async function generateForecastPdf(
             y += rowH;
         })
 
-        // ===== Zone Users Breakdown (One User Per Page) =====
+        // ===== Zone Personnel Breakdown (One Person Per Page) =====
         usersToShow.forEach((user, userIdx) => {
             drawFooter(doc, pageNum.val)
             pageNum.val++
@@ -2314,7 +2314,7 @@ export async function generateForecastPdf(
             }
         })
 
-        // ===== Zone Users Global Analytics =====
+        // ===== Zone Personnel Global Analytics =====
         if (usersToShow.length > 1) {
             drawFooter(doc, pageNum.val)
             pageNum.val++
@@ -2323,7 +2323,7 @@ export async function generateForecastPdf(
 
             uAY += 5
 
-            uAY = drawSectionTitle(doc, uAY, 'USER PERFORMANCE ANALYTICS')
+            uAY = drawSectionTitle(doc, uAY, 'PERFORMANCE ANALYTICS')
             uAY += 15
 
             // Bar chart — orders by user
@@ -2333,7 +2333,7 @@ export async function generateForecastPdf(
                 value: u.totals.orderReceived,
                 color: getZoneColor(u.zoneName, i),
             }))
-            drawBarChart(doc, 18, uAY, userChartHalfW - 5, 110, userBarData, 'Orders Won by User')
+            drawBarChart(doc, 18, uAY, userChartHalfW - 5, 110, userBarData, 'Orders Won')
 
             // Pie — offers value by user (Group 'Others' if > 12)
             let userPieData = usersToShow.map((u, i) => ({
@@ -2346,13 +2346,13 @@ export async function generateForecastPdf(
                 const othersValue = userPieData.slice(11).reduce((sum, item) => sum + item.value, 0)
                 userPieData = [...topItems, { label: 'Others', value: othersValue, color: [150, 150, 150] }]
             }
-            drawPieChart(doc, pageW / 2 + 30, uAY + 48, 28, userPieData, 'Offers Value by User')
+            drawPieChart(doc, pageW / 2 + 30, uAY + 48, 28, userPieData, 'Offers Value')
 
             uAY += 135
 
                 // ===== User Achievement Gauge Meters =====
                 ;[uAY, pageNum.val] = needsNewPage(doc, uAY, 60, pageNum, data, filter, filterLabels, selectedZone?.zoneName, logoBase64, selectedMonth)
-            uAY = drawSectionTitle(doc, uAY, 'USER ACHIEVEMENT GAUGES', COLORS.kardexGreen)
+            uAY = drawSectionTitle(doc, uAY, 'ACHIEVEMENT GAUGES', COLORS.kardexGreen)
             uAY += 2
 
             const sortedUsersForGauges = [...usersToShow].sort((a, b) => {
@@ -2449,15 +2449,17 @@ export async function generateForecastPdf(
 
                 // ===== Offers vs Orders Comparison =====
                 ;[uAY, pageNum.val] = needsNewPage(doc, uAY, 65, pageNum, data, filter, filterLabels, selectedZone?.zoneName, logoBase64, selectedMonth)
-            uAY = drawSectionTitle(doc, uAY, 'USER COMPARISON: OFFERS vs ORDERS vs TARGET', COLORS.accentCyan)
-            uAY += 2
+            uAY = drawSectionTitle(doc, uAY, 'COMPARISON: OFFERS vs ORDERS vs TARGET', COLORS.accentCyan)
+            const gcY = uAY + 2
+            uAY = gcY
 
             // Dark card bg
+            const gcCardH = usersToShow.length * 15 + 14
             doc.setFillColor(...COLORS.cardBg)
-            doc.roundedRect(15, uAY, pageW - 30, usersToShow.length * 13 + 14, 3, 3, 'F')
+            doc.roundedRect(15, uAY, pageW - 30, gcCardH, 3, 3, 'F')
             doc.setDrawColor(...COLORS.cardBorder)
             doc.setLineWidth(0.3)
-            doc.roundedRect(15, uAY, pageW - 30, usersToShow.length * 13 + 14, 3, 3, 'S')
+            doc.roundedRect(15, uAY, pageW - 30, gcCardH, 3, 3, 'S')
 
             // Legend
             const legendStartX = pageW - 120
@@ -2520,10 +2522,11 @@ export async function generateForecastPdf(
 
                 uAY += 15
             })
+            uAY = gcY + gcCardH + 12 // Ensure next section starts well below the card bottom
 
                 // ===== Hit Rate Analysis =====
-                ;[uAY, pageNum.val] = needsNewPage(doc, uAY, 60, pageNum, data, filter, filterLabels, selectedZone?.zoneName, logoBase64)
-            const startUay = uAY
+                ;[uAY, pageNum.val] = needsNewPage(doc, uAY, 75, pageNum, data, filter, filterLabels, selectedZone?.zoneName, logoBase64, selectedMonth)
+            const startUayWithTitle = uAY
             uAY = drawSectionTitle(doc, uAY, 'HIT RATE ANALYSIS & FUNNEL DISTRIBUTION', COLORS.kardexMid)
             uAY += 2
 
@@ -2539,7 +2542,7 @@ export async function generateForecastPdf(
             doc.setFont('helvetica', 'bold')
             doc.setFontSize(7.5)
             doc.setTextColor(...COLORS.textDark)
-            doc.text('Hit Rate by User', 20, uAY + 7)
+            doc.text('Hit Rate', 20, uAY + 7)
 
             uAY += 10 // Prevent overlap with first user row
 
@@ -2580,16 +2583,15 @@ export async function generateForecastPdf(
                 const othersValue = funnelPieData.slice(11).reduce((sum, item) => sum + item.value, 0)
                 funnelPieData = [...topItems, { label: 'Others', value: othersValue, color: [150, 150, 150] }]
             }
-            drawPieChart(doc, pageW / 2 + 30, startUay + 35, 22, funnelPieData, 'Offer Funnel Distribution')
-
-            uAY = Math.max(uAY, startUay + 72)
+            drawPieChart(doc, pageW / 2 + 30, startUayWithTitle + 48, 22, funnelPieData, 'Offer Funnel Distribution')
+            uAY = Math.max(uAY, startUayWithTitle + 80)
 
 
             // User achievement visual list
             // Dynamic section height: (11.5mm row + 1.5mm gap) per user + title overhead
             const uAchSectionH = usersToShow.length * 13 + 15
                 ;[uAY, pageNum.val] = needsNewPage(doc, uAY, uAchSectionH, pageNum, data, filter, filterLabels, selectedZone?.zoneName, logoBase64)
-            uAY = drawSectionTitle(doc, uAY, 'USER ACHIEVEMENT COMPARISON', COLORS.kardexGreen)
+            uAY = drawSectionTitle(doc, uAY, 'ACHIEVEMENT COMPARISON', COLORS.kardexGreen)
             uAY += 2
 
             usersToShow.forEach((user) => {
