@@ -803,9 +803,9 @@ export class ForecastController {
                     { key: 'KARDEX_CONNECT', label: 'Kardex Connect' },
                     { key: 'RELOCATION', label: 'Relocation' },
                     { key: 'SOFTWARE', label: 'Software' },
-                    { key: 'OTHERS', label: 'Others' },
+                    { key: 'OTHERS', label: 'Repairs & Others' },
                     { key: 'RETROFIT_KIT', label: 'Retrofit Kit' },
-                    { key: 'UPGRADE_KIT', label: 'Upgrade Kit' },
+                    { key: 'UPGRADE_KIT', label: 'Optilife Upgrade' },
                 ];
 
                 const productBreakdown = await Promise.all(productTypes.map(async (productType) => {
@@ -1207,9 +1207,9 @@ export class ForecastController {
                     { key: 'KARDEX_CONNECT', label: 'Kardex Connect' },
                     { key: 'RELOCATION', label: 'Relocation' },
                     { key: 'SOFTWARE', label: 'Software' },
-                    { key: 'OTHERS', label: 'Others' },
+                    { key: 'OTHERS', label: 'Repairs & Others' },
                     { key: 'RETROFIT_KIT', label: 'Retrofit Kit' },
-                    { key: 'UPGRADE_KIT', label: 'Upgrade Kit' },
+                    { key: 'UPGRADE_KIT', label: 'Optilife Upgrade' },
                 ];
 
                 const productBreakdown = await Promise.all(productTypes.map(async (productType) => {
@@ -1370,10 +1370,17 @@ export class ForecastController {
             const filterZoneId = zoneId ? parseInt(zoneId as string) : null;
             const filterUserId = userId ? parseInt(userId as string) : null;
 
-            // All product types
+            // All product types with proper labels
             const productTypes = [
-                'CONTRACT', 'BD_SPARE', 'SPARE_PARTS', 'KARDEX_CONNECT', 'RELOCATION', 'SOFTWARE',
-                'OTHERS', 'RETROFIT_KIT', 'UPGRADE_KIT'
+                { key: 'CONTRACT', label: 'Contract' },
+                { key: 'BD_SPARE', label: 'BD Spare' },
+                { key: 'SPARE_PARTS', label: 'Spare Parts' },
+                { key: 'KARDEX_CONNECT', label: 'Kardex Connect' },
+                { key: 'RELOCATION', label: 'Relocation' },
+                { key: 'SOFTWARE', label: 'Software' },
+                { key: 'OTHERS', label: 'Repairs & Others' },
+                { key: 'RETROFIT_KIT', label: 'Retrofit Kit' },
+                { key: 'UPGRADE_KIT', label: 'Optilife Upgrade' }
             ];
 
             // Get zones (filtered by zoneId if provided)
@@ -1453,10 +1460,10 @@ export class ForecastController {
                     userTotals[u.id] = 0;
                 });
 
-                for (const productType of productTypes) {
+                for (const product of productTypes) {
                     const row: any = {
-                        productType,
-                        productLabel: productType.replace(/_/g, ' '),
+                        productType: product.key,
+                        productLabel: product.label,
                         userValues: {},
                         total: 0,
                     };
@@ -1464,7 +1471,7 @@ export class ForecastController {
                     // Calculate value for each user
                     for (const user of usersInZone) {
                         const userOffers = offers.filter(o =>
-                            o.productType === productType &&
+                            o.productType === product.key &&
                             (o.assignedToId === user.id || o.createdById === user.id)
                         );
                         const value = userOffers.reduce((sum, o) => sum + toNumber(o.offerValue), 0);
@@ -1492,10 +1499,7 @@ export class ForecastController {
 
             return res.json({
                 year: targetYear,
-                productTypes: productTypes.map(p => ({
-                    key: p,
-                    label: p.replace(/_/g, ' '),
-                })),
+                productTypes: productTypes,
                 zones: zoneBreakdowns,
             });
         } catch (error: any) {

@@ -13,6 +13,7 @@ import { Loader2, Users, DollarSign, TrendingUp, TrendingDown, Package, Mail } f
 import { apiService } from '@/services/api';
 import { toast } from 'sonner';
 import { formatCrLakh, formatINRFull } from '@/lib/format';
+import { PRODUCT_TYPE_LABELS } from '@/types/reports';
 
 interface UserTargetDetailsDialogProps {
   userId: number;
@@ -59,7 +60,7 @@ const UserTargetDetailsDialog: React.FC<UserTargetDetailsDialogProps> = ({
     try {
       setLoading(true);
       console.log('Fetching user target details for:', { userId, targetPeriod, periodType });
-      
+
       const response = await apiService.getUserTargetDetails(
         userId,
         { targetPeriod, periodType }
@@ -168,9 +169,8 @@ const UserTargetDetailsDialog: React.FC<UserTargetDetailsDialogProps> = ({
                   </div>
                   <div className="bg-white rounded-lg border border-[#92A2A5] p-4">
                     <div className="text-sm font-medium text-[#5D6E73] mb-2">Variance</div>
-                    <div className={`text-2xl font-bold flex items-center gap-1 ${
-                      (summary.totalActualValue - summary.totalTargetValue) >= 0 ? 'text-[#4F6A64]' : 'text-[#9E3B47]'
-                    }`}>
+                    <div className={`text-2xl font-bold flex items-center gap-1 ${(summary.totalActualValue - summary.totalTargetValue) >= 0 ? 'text-[#4F6A64]' : 'text-[#9E3B47]'
+                      }`}>
                       {(summary.totalActualValue - summary.totalTargetValue) >= 0 ? (
                         <TrendingUp className="h-5 w-5" />
                       ) : (
@@ -204,7 +204,7 @@ const UserTargetDetailsDialog: React.FC<UserTargetDetailsDialogProps> = ({
                         {/* Product Type Header */}
                         <div className="flex items-center justify-between mb-4">
                           <Badge variant="outline" className="text-sm">
-                            {target.productType || 'All Products'}
+                            {target.productType ? (PRODUCT_TYPE_LABELS[target.productType] || target.productType) : 'Overall'}
                           </Badge>
                           <div className="text-xs text-[#AEBFC3]0">
                             {target.actualOfferCount || 0} offers
@@ -241,15 +241,12 @@ const UserTargetDetailsDialog: React.FC<UserTargetDetailsDialogProps> = ({
                           </div>
 
                           {/* Variance */}
-                          <div className={`rounded p-2 ${
-                            target.variance >= 0 ? 'bg-[#82A094]/10' : 'bg-[#E17F70]/10'
-                          }`}>
-                            <div className={`text-xs font-medium mb-1 ${
-                              target.variance >= 0 ? 'text-[#4F6A64]' : 'text-[#75242D]'
-                            }`}>Variance</div>
-                            <div className={`text-xs font-bold flex items-center gap-1 ${
-                              target.variance >= 0 ? 'text-[#4F6A64]' : 'text-[#75242D]'
+                          <div className={`rounded p-2 ${target.variance >= 0 ? 'bg-[#82A094]/10' : 'bg-[#E17F70]/10'
                             }`}>
+                            <div className={`text-xs font-medium mb-1 ${target.variance >= 0 ? 'text-[#4F6A64]' : 'text-[#75242D]'
+                              }`}>Variance</div>
+                            <div className={`text-xs font-bold flex items-center gap-1 ${target.variance >= 0 ? 'text-[#4F6A64]' : 'text-[#75242D]'
+                              }`}>
                               {target.variance >= 0 ? (
                                 <TrendingUp className="h-3 w-3" />
                               ) : (

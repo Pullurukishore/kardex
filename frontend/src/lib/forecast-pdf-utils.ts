@@ -1742,7 +1742,7 @@ export async function generateForecastPdf(
 
             // Initialize with product labels from global totals to ensure order
             data.productTotals.forEach(p => {
-                productStatsMap.set(p.productLabel, {
+                productStatsMap.set(p.productType, {
                     label: p.productLabel,
                     ordersReceived: 0,
                     offersValue: 0,
@@ -1755,7 +1755,7 @@ export async function generateForecastPdf(
             targetZones.forEach(z => {
                 if (z.productBreakdown) {
                     z.productBreakdown.forEach(pb => {
-                        let stats = productStatsMap.get(pb.productLabel)
+                        let stats = productStatsMap.get(pb.productType)
                         if (!stats) {
                             stats = {
                                 label: pb.productLabel,
@@ -1764,7 +1764,7 @@ export async function generateForecastPdf(
                                 ordersInHand: 0,
                                 target: 0
                             }
-                            productStatsMap.set(pb.productLabel, stats)
+                            productStatsMap.set(pb.productType, stats)
                         }
 
                         let pOrdersReceived = 0

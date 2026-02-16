@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { PRODUCT_TYPE_LABELS } from '@/types/reports';
 
 interface ZoneTarget {
   id: number;
@@ -116,9 +117,9 @@ const TargetReportClient: React.FC<TargetReportClientProps> = ({
   const fetchTargetReport = useCallback(async () => {
     try {
       setLoading(true);
-      
+
       // Use same API methods as target pages for consistency
-      const params = { 
+      const params = {
         targetPeriod: periodType === 'MONTHLY' ? targetPeriod.split('-')[0] : targetPeriod,
         periodType: 'YEARLY', // Always fetch yearly targets
         grouped: 'true',
@@ -128,7 +129,7 @@ const TargetReportClient: React.FC<TargetReportClientProps> = ({
       // Fetch zone targets
       const zoneResponse = await apiService.getZoneTargets(params);
       let zoneTargetsData = Array.isArray(zoneResponse) ? zoneResponse : (zoneResponse?.targets || []);
-      
+
       // Filter by zone if selected
       if (zoneId && zoneId !== 'all') {
         zoneTargetsData = zoneTargetsData.filter((t: any) => t.serviceZoneId === parseInt(zoneId));
@@ -137,10 +138,10 @@ const TargetReportClient: React.FC<TargetReportClientProps> = ({
       // Fetch user targets
       const userResponse = await apiService.getUserTargets(params);
       let userTargetsData = Array.isArray(userResponse) ? userResponse : (userResponse?.targets || []);
-      
+
       // Filter by zone if selected
       if (zoneId && zoneId !== 'all') {
-        userTargetsData = userTargetsData.filter((t: any) => 
+        userTargetsData = userTargetsData.filter((t: any) =>
           t.user?.serviceZones?.some?.((sz: any) => sz?.serviceZone?.id === parseInt(zoneId))
         );
       }
@@ -268,8 +269,8 @@ const TargetReportClient: React.FC<TargetReportClientProps> = ({
                 Configure your target report parameters
               </CardDescription>
             </div>
-            <Button 
-              onClick={fetchTargetReport} 
+            <Button
+              onClick={fetchTargetReport}
               disabled={loading}
               className="w-full sm:w-auto bg-[#6F8A9D] hover:bg-[#546A7A] text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-all duration-200 hover:shadow-xl hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
             >
@@ -336,216 +337,218 @@ const TargetReportClient: React.FC<TargetReportClientProps> = ({
       {summary && (zoneTargets.length > 0 || userTargets.length > 0) ? (
         <div className="space-y-6">
           {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-[#5D6E73]">Zone Targets</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-[#546A7A]">{summary.totalZoneTargets || 0}</div>
-              <div className="text-sm text-[#AEBFC3]0 mt-1">
-                Achievement: {summary.totalZoneAchievement?.toFixed(2) || 0}%
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-[#5D6E73]">Zone Target Value</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-[#546A7A]">
-                ₹{((summary.totalZoneTargetValue || 0) / 100000).toFixed(2)}L
-              </div>
-              <div className="text-sm text-[#AEBFC3]0 mt-1">
-                Actual: ₹{((summary.totalZoneActualValue || 0) / 100000).toFixed(2)}L
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-[#5D6E73]">User Targets</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-[#546A7A]">{summary.totalUserTargets || 0}</div>
-              <div className="text-sm text-[#AEBFC3]0 mt-1">
-                Achievement: {summary.totalUserAchievement?.toFixed(2) || 0}%
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-[#5D6E73]">User Target Value</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-[#4F6A64]">
-                ₹{((summary.totalUserTargetValue || 0) / 100000).toFixed(2)}L
-              </div>
-              <div className="text-sm text-[#AEBFC3]0 mt-1">
-                Actual: ₹{((summary.totalUserActualValue || 0) / 100000).toFixed(2)}L
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Zone Targets Table */}
-        <div className="mb-8">
-          <div className="flex items-center gap-2 mb-4">
-            <MapPin className="h-5 w-5 text-[#546A7A]" />
-            <h2 className="text-xl font-bold text-[#546A7A]">Zone Targets ({zoneTargets.length})</h2>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-[#5D6E73]">Zone Targets</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-[#546A7A]">{summary.totalZoneTargets || 0}</div>
+                <div className="text-sm text-[#AEBFC3]0 mt-1">
+                  Achievement: {summary.totalZoneAchievement?.toFixed(2) || 0}%
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-[#5D6E73]">Zone Target Value</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-[#546A7A]">
+                  ₹{((summary.totalZoneTargetValue || 0) / 100000).toFixed(2)}L
+                </div>
+                <div className="text-sm text-[#AEBFC3]0 mt-1">
+                  Actual: ₹{((summary.totalZoneActualValue || 0) / 100000).toFixed(2)}L
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-[#5D6E73]">User Targets</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-[#546A7A]">{summary.totalUserTargets || 0}</div>
+                <div className="text-sm text-[#AEBFC3]0 mt-1">
+                  Achievement: {summary.totalUserAchievement?.toFixed(2) || 0}%
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-[#5D6E73]">User Target Value</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-[#4F6A64]">
+                  ₹{((summary.totalUserTargetValue || 0) / 100000).toFixed(2)}L
+                </div>
+                <div className="text-sm text-[#AEBFC3]0 mt-1">
+                  Actual: ₹{((summary.totalUserActualValue || 0) / 100000).toFixed(2)}L
+                </div>
+              </CardContent>
+            </Card>
           </div>
-          <div className="bg-white rounded-xl border border-[#92A2A5] overflow-hidden shadow-sm">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="bg-gradient-to-r from-[#96AEC2]/10 to-[#96AEC2]/20 border-b border-[#92A2A5]">
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-[#5D6E73]">Zone</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-[#5D6E73]">Product Type</th>
-                    <th className="px-4 py-3 text-right text-sm font-semibold text-[#5D6E73]">Target</th>
-                    <th className="px-4 py-3 text-right text-sm font-semibold text-[#5D6E73]">Actual</th>
-                    <th className="px-4 py-3 text-right text-sm font-semibold text-[#5D6E73]">Achievement</th>
-                    <th className="px-4 py-3 text-right text-sm font-semibold text-[#5D6E73]">Expected Ach %</th>
-                    <th className="px-4 py-3 text-right text-sm font-semibold text-[#5D6E73]">Variance</th>
-                    <th className="px-4 py-3 text-center text-sm font-semibold text-[#5D6E73]">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {zoneTargets.map((target: any, idx: number) => (
-                    <tr key={`zone-${target.serviceZoneId}-${idx}`} className="hover:bg-[#96AEC2]/10 transition-colors">
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <div className="h-2 w-2 rounded-full bg-[#6F8A9D]"></div>
-                          <span className="font-semibold text-[#546A7A]">{target.serviceZone?.name || 'N/A'}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-[#5D6E73]">{target.productType || 'Overall'}</td>
-                      <td className="px-4 py-3 text-right text-sm font-semibold text-[#546A7A]">₹{((target.targetValue || 0) / 100000).toFixed(2)}L</td>
-                      <td className="px-4 py-3 text-right text-sm font-semibold text-[#4F6A64]">₹{((target.actualValue || 0) / 100000).toFixed(2)}L</td>
-                      <td className="px-4 py-3 text-right">
-                        <Badge className={`${getAchievementColor(target.achievement || 0)} text-xs font-bold`}>
-                          {(target.achievement || 0).toFixed(1)}%
-                        </Badge>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <Badge className={`${getAchievementColor(target.expectedAchievement)} text-xs font-bold`}>
-                          {target.expectedAchievement?.toFixed(1) || 0}%
-                        </Badge>
-                      </td>
-                      <td className={`px-4 py-3 text-right text-sm font-semibold flex items-center justify-end gap-1 ${
-                        (target.variance || 0) >= 0 ? 'text-[#4F6A64]' : 'text-[#75242D]'
-                      }`}>
-                        {(target.variance || 0) >= 0 ? (
-                          <TrendingUp className="h-4 w-4" />
-                        ) : (
-                          <TrendingDown className="h-4 w-4" />
-                        )}
-                        ₹{(Math.abs(target.variance || 0) / 100000).toFixed(2)}L
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <button
-                          onClick={() => handleOpenZoneDetails(target)}
-                          className="h-8 w-8 p-0 text-[#546A7A] hover:bg-[#96AEC2]/20 hover:text-[#546A7A] rounded inline-flex items-center justify-center"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+
+          {/* Zone Targets Table */}
+          <div className="mb-8">
+            <div className="flex items-center gap-2 mb-4">
+              <MapPin className="h-5 w-5 text-[#546A7A]" />
+              <h2 className="text-xl font-bold text-[#546A7A]">Zone Targets ({zoneTargets.length})</h2>
             </div>
-            {zoneTargets.length === 0 && (
-              <div className="px-6 py-12 text-center">
-                <MapPin className="h-12 w-12 text-[#92A2A5] mx-auto mb-3" />
-                <p className="text-[#AEBFC3]0 font-medium">No zone targets found</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* User Targets Table */}
-        <div className="mb-8">
-          <div className="flex items-center gap-2 mb-4">
-            <Users className="h-5 w-5 text-[#546A7A]" />
-            <h2 className="text-xl font-bold text-[#546A7A]">Zone User Targets ({userTargets.length})</h2>
-          </div>
-          <div className="bg-white rounded-xl border border-[#92A2A5] overflow-hidden shadow-sm">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="bg-gradient-to-r from-[#6F8A9D]/10 to-[#EEC1BF]/20 border-b border-[#92A2A5]">
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-[#5D6E73]">User</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-[#5D6E73]">Zone</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-[#5D6E73]">Product Type</th>
-                    <th className="px-4 py-3 text-right text-sm font-semibold text-[#5D6E73]">Target</th>
-                    <th className="px-4 py-3 text-right text-sm font-semibold text-[#5D6E73]">Actual</th>
-                    <th className="px-4 py-3 text-right text-sm font-semibold text-[#5D6E73]">Achievement</th>
-                    <th className="px-4 py-3 text-right text-sm font-semibold text-[#5D6E73]">Expected Ach %</th>
-                    <th className="px-4 py-3 text-right text-sm font-semibold text-[#5D6E73]">Variance</th>
-                    <th className="px-4 py-3 text-center text-sm font-semibold text-[#5D6E73]">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {userTargets.map((target: any, idx: number) => (
-                    <tr key={`user-${target.userId}-${idx}`} className="hover:bg-[#6F8A9D]/10 transition-colors">
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <div className="h-2 w-2 rounded-full bg-[#546A7A]"></div>
-                          <div>
-                            <div className="font-semibold text-[#546A7A]">{target.user?.name || 'N/A'}</div>
-                            <div className="text-xs text-[#AEBFC3]0">{target.user?.email || ''}</div>
+            <div className="bg-white rounded-xl border border-[#92A2A5] overflow-hidden shadow-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-gradient-to-r from-[#96AEC2]/10 to-[#96AEC2]/20 border-b border-[#92A2A5]">
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-[#5D6E73]">Zone</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-[#5D6E73]">Product Type</th>
+                      <th className="px-4 py-3 text-right text-sm font-semibold text-[#5D6E73]">Target</th>
+                      <th className="px-4 py-3 text-right text-sm font-semibold text-[#5D6E73]">Actual</th>
+                      <th className="px-4 py-3 text-right text-sm font-semibold text-[#5D6E73]">Achievement</th>
+                      <th className="px-4 py-3 text-right text-sm font-semibold text-[#5D6E73]">Expected Ach %</th>
+                      <th className="px-4 py-3 text-right text-sm font-semibold text-[#5D6E73]">Variance</th>
+                      <th className="px-4 py-3 text-center text-sm font-semibold text-[#5D6E73]">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {zoneTargets.map((target: any, idx: number) => (
+                      <tr key={`zone-${target.serviceZoneId}-${idx}`} className="hover:bg-[#96AEC2]/10 transition-colors">
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <div className="h-2 w-2 rounded-full bg-[#6F8A9D]"></div>
+                            <span className="font-semibold text-[#546A7A]">{target.serviceZone?.name || 'N/A'}</span>
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-[#5D6E73]">
-                        {target.user?.serviceZones?.length > 0 
-                          ? target.user.serviceZones.map((sz: any) => sz.serviceZone?.name).join(', ')
-                          : 'N/A'
-                        }
-                      </td>
-                      <td className="px-4 py-3 text-sm text-[#5D6E73]">{target.productType || 'Overall'}</td>
-                      <td className="px-4 py-3 text-right text-sm font-semibold text-[#546A7A]">₹{((target.targetValue || 0) / 100000).toFixed(2)}L</td>
-                      <td className="px-4 py-3 text-right text-sm font-semibold text-[#4F6A64]">₹{((target.actualValue || 0) / 100000).toFixed(2)}L</td>
-                      <td className="px-4 py-3 text-right">
-                        <Badge className={`${getAchievementColor(target.achievement || 0)} text-xs font-bold`}>
-                          {(target.achievement || 0).toFixed(1)}%
-                        </Badge>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <Badge className={`${getAchievementColor(target.expectedAchievement)} text-xs font-bold`}>
-                          {target.expectedAchievement?.toFixed(1) || 0}%
-                        </Badge>
-                      </td>
-                      <td className={`px-4 py-3 text-right text-sm font-semibold flex items-center justify-end gap-1 ${
-                        (target.variance || 0) >= 0 ? 'text-[#4F6A64]' : 'text-[#75242D]'
-                      }`}>
-                        {(target.variance || 0) >= 0 ? (
-                          <TrendingUp className="h-4 w-4" />
-                        ) : (
-                          <TrendingDown className="h-4 w-4" />
-                        )}
-                        ₹{(Math.abs(target.variance || 0) / 100000).toFixed(2)}L
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <button
-                          onClick={() => handleOpenUserDetails(target)}
-                          className="h-8 w-8 p-0 text-[#546A7A] hover:bg-[#6F8A9D]/20 hover:text-[#546A7A] rounded inline-flex items-center justify-center"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {userTargets.length === 0 && (
-              <div className="px-6 py-12 text-center">
-                <Users className="h-12 w-12 text-[#92A2A5] mx-auto mb-3" />
-                <p className="text-[#AEBFC3]0 font-medium">No user targets found</p>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-[#5D6E73]">
+                          {target.productType ? (PRODUCT_TYPE_LABELS[target.productType] || target.productType) : 'Overall'}
+                        </td>
+                        <td className="px-4 py-3 text-right text-sm font-semibold text-[#546A7A]">₹{((target.targetValue || 0) / 100000).toFixed(2)}L</td>
+                        <td className="px-4 py-3 text-right text-sm font-semibold text-[#4F6A64]">₹{((target.actualValue || 0) / 100000).toFixed(2)}L</td>
+                        <td className="px-4 py-3 text-right">
+                          <Badge className={`${getAchievementColor(target.achievement || 0)} text-xs font-bold`}>
+                            {(target.achievement || 0).toFixed(1)}%
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <Badge className={`${getAchievementColor(target.expectedAchievement)} text-xs font-bold`}>
+                            {target.expectedAchievement?.toFixed(1) || 0}%
+                          </Badge>
+                        </td>
+                        <td className={`px-4 py-3 text-right text-sm font-semibold flex items-center justify-end gap-1 ${(target.variance || 0) >= 0 ? 'text-[#4F6A64]' : 'text-[#75242D]'
+                          }`}>
+                          {(target.variance || 0) >= 0 ? (
+                            <TrendingUp className="h-4 w-4" />
+                          ) : (
+                            <TrendingDown className="h-4 w-4" />
+                          )}
+                          ₹{(Math.abs(target.variance || 0) / 100000).toFixed(2)}L
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <button
+                            onClick={() => handleOpenZoneDetails(target)}
+                            className="h-8 w-8 p-0 text-[#546A7A] hover:bg-[#96AEC2]/20 hover:text-[#546A7A] rounded inline-flex items-center justify-center"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            )}
+              {zoneTargets.length === 0 && (
+                <div className="px-6 py-12 text-center">
+                  <MapPin className="h-12 w-12 text-[#92A2A5] mx-auto mb-3" />
+                  <p className="text-[#AEBFC3]0 font-medium">No zone targets found</p>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+
+          {/* User Targets Table */}
+          <div className="mb-8">
+            <div className="flex items-center gap-2 mb-4">
+              <Users className="h-5 w-5 text-[#546A7A]" />
+              <h2 className="text-xl font-bold text-[#546A7A]">Zone User Targets ({userTargets.length})</h2>
+            </div>
+            <div className="bg-white rounded-xl border border-[#92A2A5] overflow-hidden shadow-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-gradient-to-r from-[#6F8A9D]/10 to-[#EEC1BF]/20 border-b border-[#92A2A5]">
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-[#5D6E73]">User</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-[#5D6E73]">Zone</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-[#5D6E73]">Product Type</th>
+                      <th className="px-4 py-3 text-right text-sm font-semibold text-[#5D6E73]">Target</th>
+                      <th className="px-4 py-3 text-right text-sm font-semibold text-[#5D6E73]">Actual</th>
+                      <th className="px-4 py-3 text-right text-sm font-semibold text-[#5D6E73]">Achievement</th>
+                      <th className="px-4 py-3 text-right text-sm font-semibold text-[#5D6E73]">Expected Ach %</th>
+                      <th className="px-4 py-3 text-right text-sm font-semibold text-[#5D6E73]">Variance</th>
+                      <th className="px-4 py-3 text-center text-sm font-semibold text-[#5D6E73]">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {userTargets.map((target: any, idx: number) => (
+                      <tr key={`user-${target.userId}-${idx}`} className="hover:bg-[#6F8A9D]/10 transition-colors">
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <div className="h-2 w-2 rounded-full bg-[#546A7A]"></div>
+                            <div>
+                              <div className="font-semibold text-[#546A7A]">{target.user?.name || 'N/A'}</div>
+                              <div className="text-xs text-[#AEBFC3]0">{target.user?.email || ''}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-[#5D6E73]">
+                          {target.user?.serviceZones?.length > 0
+                            ? target.user.serviceZones.map((sz: any) => sz.serviceZone?.name).join(', ')
+                            : 'N/A'
+                          }
+                        </td>
+                        <td className="px-4 py-3 text-sm text-[#5D6E73]">
+                          {target.productType ? (PRODUCT_TYPE_LABELS[target.productType] || target.productType) : 'Overall'}
+                        </td>
+                        <td className="px-4 py-3 text-right text-sm font-semibold text-[#546A7A]">₹{((target.targetValue || 0) / 100000).toFixed(2)}L</td>
+                        <td className="px-4 py-3 text-right text-sm font-semibold text-[#4F6A64]">₹{((target.actualValue || 0) / 100000).toFixed(2)}L</td>
+                        <td className="px-4 py-3 text-right">
+                          <Badge className={`${getAchievementColor(target.achievement || 0)} text-xs font-bold`}>
+                            {(target.achievement || 0).toFixed(1)}%
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <Badge className={`${getAchievementColor(target.expectedAchievement)} text-xs font-bold`}>
+                            {target.expectedAchievement?.toFixed(1) || 0}%
+                          </Badge>
+                        </td>
+                        <td className={`px-4 py-3 text-right text-sm font-semibold flex items-center justify-end gap-1 ${(target.variance || 0) >= 0 ? 'text-[#4F6A64]' : 'text-[#75242D]'
+                          }`}>
+                          {(target.variance || 0) >= 0 ? (
+                            <TrendingUp className="h-4 w-4" />
+                          ) : (
+                            <TrendingDown className="h-4 w-4" />
+                          )}
+                          ₹{(Math.abs(target.variance || 0) / 100000).toFixed(2)}L
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <button
+                            onClick={() => handleOpenUserDetails(target)}
+                            className="h-8 w-8 p-0 text-[#546A7A] hover:bg-[#6F8A9D]/20 hover:text-[#546A7A] rounded inline-flex items-center justify-center"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {userTargets.length === 0 && (
+                <div className="px-6 py-12 text-center">
+                  <Users className="h-12 w-12 text-[#92A2A5] mx-auto mb-3" />
+                  <p className="text-[#AEBFC3]0 font-medium">No user targets found</p>
+                </div>
+              )}
+            </div>
+          </div>
 
         </div>
       ) : (
