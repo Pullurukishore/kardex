@@ -29,7 +29,7 @@ const api: AxiosInstance = axios.create({
     'Content-Type': 'application/json',
   },
   withCredentials: true,
-  timeout: 15000, // 15 second timeout to prevent hanging requests
+  timeout: 30000, // 30 second timeout to prevent hanging requests
 });
 
 // Track refresh promise to prevent multiple simultaneous refresh attempts

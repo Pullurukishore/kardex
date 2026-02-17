@@ -3,6 +3,7 @@ import { prisma } from '../config/db';
 import { logger } from '../utils/logger';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
 import { ActivityController } from './activityController';
+import { OfferImportService } from '../services/offerImport.service';
 
 export class OfferController {
   // Wrapper methods for routes without authentication
@@ -48,6 +49,14 @@ export class OfferController {
 
   static async getOfferActivityLogWrapper(req: any, res: Response) {
     return OfferController.getOfferActivityLog(req as AuthenticatedRequest, res);
+  }
+
+  static async importOffersWrapper(req: any, res: Response) {
+    return OfferController.importOffers(req as AuthenticatedRequest, res);
+  }
+
+  static async previewImportOffersWrapper(req: any, res: Response) {
+    return OfferController.previewImportOffers(req as AuthenticatedRequest, res);
   }
 
   // Get next offer reference number (for preview)
@@ -1481,7 +1490,57 @@ export class OfferController {
       return;
     } catch (error) {
       logger.error('Get offer activity log error:', error);
-      res.status(500).json({ error: 'Failed to fetch offer activity log' });
+      return;
+    }
+  }
+
+  // Import offers from Excel
+  static async importOffers(req: AuthenticatedRequest, res: Response) {
+    try {
+      if (req.user?.role !== 'ADMIN') {
+        return res.status(403).json({ error: 'Access denied: Only admins can import offers' });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ error: 'No file uploaded' });
+      }
+
+      const results = await OfferImportService.importFromExcel(req.file.buffer, req.user.id);
+
+      res.json({
+        success: true,
+        message: 'Import completed',
+        ...results
+      });
+      return;
+    } catch (error: any) {
+      logger.error('Import offers error:', error);
+      res.status(500).json({ error: 'Failed to import offers', details: error.message });
+      return;
+    }
+  }
+
+  // Preview import from Excel
+  static async previewImportOffers(req: AuthenticatedRequest, res: Response) {
+    try {
+      if (req.user?.role !== 'ADMIN') {
+        return res.status(403).json({ error: 'Access denied: Only admins can preview imports' });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ error: 'No file uploaded' });
+      }
+
+      const results = await OfferImportService.previewFromExcel(req.file.buffer);
+
+      res.json({
+        success: true,
+        ...results
+      });
+      return;
+    } catch (error: any) {
+      logger.error('Preview import offers error:', error);
+      res.status(500).json({ error: 'Failed to preview offers', details: error.message });
       return;
     }
   }

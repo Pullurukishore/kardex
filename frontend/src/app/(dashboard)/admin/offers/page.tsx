@@ -29,11 +29,11 @@ import dynamic from 'next/dynamic'
 const EditOfferDialog = dynamic(() => import('@/components/offers/EditOfferDialog'), {
   ssr: false
 })
-import { 
-  Search, 
-  MoreHorizontal, 
-  Pencil as Edit, 
-  Trash2, 
+import {
+  Search,
+  MoreHorizontal,
+  Pencil as Edit,
+  Trash2,
   Plus,
   RefreshCw,
   Loader2,
@@ -56,9 +56,12 @@ import {
   Percent,
   Calendar,
   Sparkles,
-  Users
+  Users,
+  FileDown,
+  FileUp
 } from 'lucide-react'
 import OfferStats from '@/components/offers/OfferStats'
+
 import { apiService } from '@/services/api'
 import { toast } from 'sonner'
 import { PRODUCT_TYPE_LABELS } from '@/types/reports'
@@ -70,7 +73,7 @@ const productTypes = ['All Product Types', 'RELOCATION', 'CONTRACT', 'SPARE_PART
 export default function OfferManagement() {
   const router = useRouter()
   const { user, isAuthenticated, isLoading: authLoading } = useAuth()
-  
+
   // All hooks MUST be declared before any conditional returns
   const [offers, setOffers] = useState<any[]>([])
   const [zones, setZones] = useState<any[]>([])
@@ -78,6 +81,7 @@ export default function OfferManagement() {
   const [loading, setLoading] = useState(true)
   const [editingOffer, setEditingOffer] = useState<any>(null)
   const [showEditDialog, setShowEditDialog] = useState(false)
+
   const [pagination, setPagination] = useState({ page: 1, limit: 100, total: 0, pages: 0 })
   const [summary, setSummary] = useState<any>(null)
 
@@ -121,7 +125,7 @@ export default function OfferManagement() {
       const response = await apiService.getUsers({ isActive: 'true' })
       // Handle both response formats: { data: { users: [...] } } and direct array
       const usersData = response.data?.users || response.users || response.data || response || []
-      const filteredUsers = Array.isArray(usersData) 
+      const filteredUsers = Array.isArray(usersData)
         ? usersData.filter((u: any) => u.role === UserRole.ZONE_USER || u.role === UserRole.ZONE_MANAGER)
         : []
       setUsers(filteredUsers)
@@ -139,7 +143,7 @@ export default function OfferManagement() {
         page: pagination.page,
         limit: pagination.limit,
       }
-      
+
       if (searchTerm) params.search = searchTerm
       if (selectedZone !== 'All Zones') {
         const zid = parseInt(selectedZone)
@@ -167,7 +171,7 @@ export default function OfferManagement() {
   // Debounce search to prevent excessive API calls
   useEffect(() => {
     if (authLoading || !isAuthenticated || user?.role !== UserRole.ADMIN) return
-    
+
     const timeoutId = setTimeout(() => {
       fetchOffers()
     }, searchTerm ? 500 : 0) // 500ms delay for search, immediate for other filters
@@ -184,11 +188,11 @@ export default function OfferManagement() {
   // Sort offers
   const sortedOffers = useMemo(() => {
     if (!sortField) return offers
-    
+
     return [...offers].sort((a, b) => {
       let aValue = a[sortField]
       let bValue = b[sortField]
-      
+
       // Handle nested properties
       if (sortField === 'customer') {
         aValue = a.customer?.companyName || a.company || ''
@@ -206,7 +210,7 @@ export default function OfferManagement() {
         aValue = Number(a.probabilityPercentage || 0)
         bValue = Number(b.probabilityPercentage || 0)
       }
-      
+
       if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1
       if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1
       return 0
@@ -293,11 +297,11 @@ export default function OfferManagement() {
     <div className="min-h-screen bg-[#AEBFC3]/10">
       <div className="w-full p-2 sm:p-4 lg:p-4 space-y-6">
         {/* Compact Header with Stats */}
-        <OfferStats stats={stats} createPath="/admin/offers/new" />
+        <OfferStats stats={stats} createPath="/admin/offers/new" onImport={() => router.push('/admin/offers/import')} />
 
         {/* Filters */}
-        <Card className="border-0 shadow-lg bg-white" style={{backgroundColor: 'white'}}>
-          <CardHeader className="bg-white border-b border-[#92A2A5]" style={{backgroundColor: 'white'}}>
+        <Card className="border-0 shadow-lg bg-white" style={{ backgroundColor: 'white' }}>
+          <CardHeader className="bg-white border-b border-[#92A2A5]" style={{ backgroundColor: 'white' }}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Filter className="h-5 w-5 text-[#546A7A]" />
@@ -314,7 +318,7 @@ export default function OfferManagement() {
               )}
             </div>
           </CardHeader>
-          <CardContent className="pt-6 bg-white" style={{backgroundColor: 'white'}}>
+          <CardContent className="pt-6 bg-white" style={{ backgroundColor: 'white' }}>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
               {/* Search */}
               <div className="space-y-2">
@@ -540,148 +544,148 @@ export default function OfferManagement() {
                   </tr>
                 ) : (
                   sortedOffers.map((offer: any, index: number) => (
-                  <tr 
-                    key={offer.id} 
-                    className={`
+                    <tr
+                      key={offer.id}
+                      className={`
                       ${index % 2 === 0 ? 'bg-white' : 'bg-[#AEBFC3]/10/50'}
                       hover:bg-gradient-to-r hover:from-[#96AEC2]/10 hover:to-[#96AEC2]/10/50 
                       transition-all duration-200 cursor-pointer group
                     `}
-                    onClick={() => router.push(`/admin/offers/${offer.id}`)}
-                  >
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono font-bold text-[#546A7A] group-hover:text-[#546A7A] text-sm">
-                          {offer.offerReferenceNumber}
-                        </span>
-                        {offer.stage === 'INITIAL' && (
-                          <span className="px-1.5 py-0.5 text-[10px] font-bold bg-[#96AEC2]/20 text-[#546A7A] rounded">NEW</span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-[#82A094] to-[#82A094] flex items-center justify-center text-white font-bold text-xs shadow-sm flex-shrink-0">
-                          {(offer.customer?.companyName || offer.company || 'U')?.charAt(0).toUpperCase()}
+                      onClick={() => router.push(`/admin/offers/${offer.id}`)}
+                    >
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-bold text-[#546A7A] group-hover:text-[#546A7A] text-sm">
+                            {offer.offerReferenceNumber}
+                          </span>
+                          {offer.stage === 'INITIAL' && (
+                            <span className="px-1.5 py-0.5 text-[10px] font-bold bg-[#96AEC2]/20 text-[#546A7A] rounded">NEW</span>
+                          )}
                         </div>
-                        <div className="min-w-0">
-                          <p className="font-semibold text-[#546A7A] text-sm truncate max-w-[160px]">{offer.customer?.companyName || offer.company}</p>
-                          {offer.location && <p className="text-xs text-[#979796] truncate max-w-[160px]">{offer.location}</p>}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-[#82A094] to-[#82A094] flex items-center justify-center text-white font-bold text-xs shadow-sm flex-shrink-0">
+                            {(offer.customer?.companyName || offer.company || 'U')?.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-semibold text-[#546A7A] text-sm truncate max-w-[160px]">{offer.customer?.companyName || offer.company}</p>
+                            {offer.location && <p className="text-xs text-[#979796] truncate max-w-[160px]">{offer.location}</p>}
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                      <span className={`
+                      </td>
+                      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                        <span className={`
                         inline-flex px-2 py-1 text-xs font-bold rounded-md
                         ${offer.productType === 'SPARE_PARTS' ? 'bg-[#CE9F6B]/20 text-[#976E44]' :
-                          offer.productType === 'KARDEX_CONNECT' ? 'bg-[#96AEC2]/20 text-[#546A7A]' :
-                          offer.productType === 'CONTRACT' ? 'bg-[#82A094]/20 text-[#4F6A64]' :
-                          offer.productType === 'RELOCATION' ? 'bg-[#96AEC2]/20 text-[#546A7A]' :
-                          offer.productType === 'UPGRADE_KIT' ? 'bg-[#6F8A9D]/20 text-[#546A7A]' :
-                          offer.productType === 'SOFTWARE' ? 'bg-[#546A7A]/20 text-[#546A7A]' :
-                          offer.productType === 'OTHERS' ? 'bg-[#CE9F6B]/20 text-[#976E44]' :
-                          offer.productType === 'BD_SPARE' ? 'bg-[#EEC1BF]/20 text-[#9E3B47]' :
-                          offer.productType === 'RETROFIT_KIT' ? 'bg-[#82A094]/20 text-[#4F6A64]' :
-                          'bg-[#AEBFC3]/20 text-[#5D6E73]'}
+                            offer.productType === 'KARDEX_CONNECT' ? 'bg-[#96AEC2]/20 text-[#546A7A]' :
+                              offer.productType === 'CONTRACT' ? 'bg-[#82A094]/20 text-[#4F6A64]' :
+                                offer.productType === 'RELOCATION' ? 'bg-[#96AEC2]/20 text-[#546A7A]' :
+                                  offer.productType === 'UPGRADE_KIT' ? 'bg-[#6F8A9D]/20 text-[#546A7A]' :
+                                    offer.productType === 'SOFTWARE' ? 'bg-[#546A7A]/20 text-[#546A7A]' :
+                                      offer.productType === 'OTHERS' ? 'bg-[#CE9F6B]/20 text-[#976E44]' :
+                                        offer.productType === 'BD_SPARE' ? 'bg-[#EEC1BF]/20 text-[#9E3B47]' :
+                                          offer.productType === 'RETROFIT_KIT' ? 'bg-[#82A094]/20 text-[#4F6A64]' :
+                                            'bg-[#AEBFC3]/20 text-[#5D6E73]'}
                       `}>
-                        {PRODUCT_TYPE_LABELS[offer.productType] || offer.productType?.replace(/_/g, ' ')}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1.5">
-                        <div className="h-2 w-2 rounded-full bg-[#96AEC2]/100 flex-shrink-0"></div>
-                        <span className="text-[#5D6E73] text-sm font-medium">{offer.zone?.name}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      {offer.offerValue ? (
-                        <span className="font-bold text-[#546A7A]">{formatCurrency(Number(offer.offerValue))}</span>
-                      ) : (
-                        <span className="text-[#979796] text-sm italic">TBD</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      {offer.probabilityPercentage != null ? (
+                          {PRODUCT_TYPE_LABELS[offer.productType] || offer.productType?.replace(/_/g, ' ')}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
                         <div className="flex items-center gap-1.5">
-                          <div className={`h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white
-                            ${offer.probabilityPercentage >= 70 ? 'bg-gradient-to-br from-[#82A094] to-[#82A094]' :
-                              offer.probabilityPercentage >= 40 ? 'bg-gradient-to-br from-[#CE9F6B] to-[#976E44]' :
-                              'bg-gradient-to-br from-red-400 to-[#E17F70]'}`}
-                          >
-                            {offer.probabilityPercentage}
-                          </div>
-                          <span className="text-xs text-[#AEBFC3]0">%</span>
+                          <div className="h-2 w-2 rounded-full bg-[#96AEC2]/100 flex-shrink-0"></div>
+                          <span className="text-[#5D6E73] text-sm font-medium">{offer.zone?.name}</span>
                         </div>
-                      ) : (
-                        <span className="text-[#979796] text-xs">-</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                      <span className={`
+                      </td>
+                      <td className="px-4 py-3">
+                        {offer.offerValue ? (
+                          <span className="font-bold text-[#546A7A]">{formatCurrency(Number(offer.offerValue))}</span>
+                        ) : (
+                          <span className="text-[#979796] text-sm italic">TBD</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        {offer.probabilityPercentage != null ? (
+                          <div className="flex items-center gap-1.5">
+                            <div className={`h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white
+                            ${offer.probabilityPercentage >= 70 ? 'bg-gradient-to-br from-[#82A094] to-[#82A094]' :
+                                offer.probabilityPercentage >= 40 ? 'bg-gradient-to-br from-[#CE9F6B] to-[#976E44]' :
+                                  'bg-gradient-to-br from-red-400 to-[#E17F70]'}`}
+                            >
+                              {offer.probabilityPercentage}
+                            </div>
+                            <span className="text-xs text-[#AEBFC3]0">%</span>
+                          </div>
+                        ) : (
+                          <span className="text-[#979796] text-xs">-</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                        <span className={`
                         inline-flex px-2.5 py-1 text-xs font-bold rounded-full shadow-sm
                         ${offer.stage === 'INITIAL' ? 'bg-gradient-to-r from-[#96AEC2] to-[#6F8A9D] text-white' :
-                          offer.stage === 'WON' ? 'bg-gradient-to-r from-[#82A094] to-[#4F6A64] text-white' :
-                          offer.stage === 'LOST' ? 'bg-gradient-to-r from-[#E17F70] to-[#9E3B47] text-white' :
-                          offer.stage === 'PROPOSAL_SENT' ? 'bg-gradient-to-r from-[#6F8A9D] to-[#546A7A] text-white' :
-                          offer.stage === 'NEGOTIATION' ? 'bg-gradient-to-r from-[#EEC18F] to-[#CE9F6B] text-white' :
-                          offer.stage === 'FINAL_APPROVAL' ? 'bg-gradient-to-r from-[#CE9F6B] to-[#976E44] text-white' :
-                          offer.stage === 'PO_RECEIVED' ? 'bg-gradient-to-r from-[#A2B9AF] to-[#82A094] text-white' :
-                          'bg-gradient-to-r from-[#979796] to-[#757777] text-white'}
+                            offer.stage === 'WON' ? 'bg-gradient-to-r from-[#82A094] to-[#4F6A64] text-white' :
+                              offer.stage === 'LOST' ? 'bg-gradient-to-r from-[#E17F70] to-[#9E3B47] text-white' :
+                                offer.stage === 'PROPOSAL_SENT' ? 'bg-gradient-to-r from-[#6F8A9D] to-[#546A7A] text-white' :
+                                  offer.stage === 'NEGOTIATION' ? 'bg-gradient-to-r from-[#EEC18F] to-[#CE9F6B] text-white' :
+                                    offer.stage === 'FINAL_APPROVAL' ? 'bg-gradient-to-r from-[#CE9F6B] to-[#976E44] text-white' :
+                                      offer.stage === 'PO_RECEIVED' ? 'bg-gradient-to-r from-[#A2B9AF] to-[#82A094] text-white' :
+                                        'bg-gradient-to-r from-[#979796] to-[#757777] text-white'}
                       `}>
-                        {offer.stage?.replace(/_/g, ' ')}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <div className="h-6 w-6 rounded-full bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center text-[#5D6E73] font-semibold text-[10px] flex-shrink-0">
-                          {offer.createdBy?.name?.charAt(0).toUpperCase() || 'U'}
+                          {offer.stage?.replace(/_/g, ' ')}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <div className="h-6 w-6 rounded-full bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center text-[#5D6E73] font-semibold text-[10px] flex-shrink-0">
+                            {offer.createdBy?.name?.charAt(0).toUpperCase() || 'U'}
+                          </div>
+                          <span className="text-[#5D6E73] text-sm truncate max-w-[80px]">{offer.createdBy?.name?.split(' ')[0]}</span>
                         </div>
-                        <span className="text-[#5D6E73] text-sm truncate max-w-[80px]">{offer.createdBy?.name?.split(' ')[0]}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-[#AEBFC3]0 text-sm">{new Date(offer.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}</span>
-                    </td>
-                    <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-[#92A2A5]/30 rounded-lg">
-                            <MoreHorizontal className="h-4 w-4 text-[#5D6E73]" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-44 rounded-xl shadow-xl border-[#92A2A5]">
-                          <DropdownMenuItem 
-                            onClick={() => router.push(`/admin/offers/${offer.id}`)}
-                            className="cursor-pointer rounded-lg"
-                          >
-                            <Eye className="h-4 w-4 mr-2 text-[#546A7A]" />
-                            View Details
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            onClick={() => router.push(`/admin/offers/${offer.id}/edit`)}
-                            className="cursor-pointer rounded-lg"
-                          >
-                            <Edit className="h-4 w-4 mr-2 text-[#546A7A]" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem 
-                            onClick={() => handleDeleteOffer(offer.id)}
-                            className="text-[#9E3B47] cursor-pointer rounded-lg"
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </td>
-                  </tr>
-                ))
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-[#AEBFC3]0 text-sm">{new Date(offer.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}</span>
+                      </td>
+                      <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-[#92A2A5]/30 rounded-lg">
+                              <MoreHorizontal className="h-4 w-4 text-[#5D6E73]" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-44 rounded-xl shadow-xl border-[#92A2A5]">
+                            <DropdownMenuItem
+                              onClick={() => router.push(`/admin/offers/${offer.id}`)}
+                              className="cursor-pointer rounded-lg"
+                            >
+                              <Eye className="h-4 w-4 mr-2 text-[#546A7A]" />
+                              View Details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => router.push(`/admin/offers/${offer.id}/edit`)}
+                              className="cursor-pointer rounded-lg"
+                            >
+                              <Edit className="h-4 w-4 mr-2 text-[#546A7A]" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => handleDeleteOffer(offer.id)}
+                              className="text-[#9E3B47] cursor-pointer rounded-lg"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </td>
+                    </tr>
+                  ))
                 )}
               </tbody>
             </table>
           </div>
-          
+
           {/* Pagination */}
           {!loading && offers.length > 0 && (
             <div className="bg-gradient-to-r from-[#AEBFC3]/10 via-blue-50 to-[#96AEC2]/10/30 px-6 py-4 border-t border-[#92A2A5]">
@@ -722,6 +726,8 @@ export default function OfferManagement() {
           onOpenChange={setShowEditDialog}
           editingOffer={editingOffer}
         />
+
+
       </div>
     </div>
   )

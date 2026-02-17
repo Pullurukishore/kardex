@@ -694,8 +694,6 @@ export class ActivityController {
       }
 
       await prisma.auditLog.create({ data });
-
-      logger.info(`Activity logged: ${params.action} on ${params.entityType} ${params.entityId}`);
     } catch (error) {
       logger.error('Log activity error:', error);
       // Don't throw error to prevent blocking main operations

@@ -2,10 +2,22 @@ import { Router } from 'express';
 import { OfferController } from '../controllers/offerController';
 import { authenticate } from '../middleware/auth.middleware';
 
+import multer from 'multer';
+
 const router = Router();
+
+// Configure multer for offer imports (using memory storage for buffer access)
+const importUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 50 * 1024 * 1024 } // 50MB limit
+});
 
 // Apply authentication middleware to all routes
 router.use(authenticate);
+
+// Import offers from Excel (admin only)
+router.post('/import', importUpload.single('file'), OfferController.importOffersWrapper);
+router.post('/import/preview', importUpload.single('file'), OfferController.previewImportOffersWrapper);
 
 // Get next offer reference number (for preview)
 router.get('/next-reference', OfferController.getNextOfferReferenceNumberWrapper);

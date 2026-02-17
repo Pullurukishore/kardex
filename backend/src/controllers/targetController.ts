@@ -165,7 +165,6 @@ export class TargetController {
         });
       }
 
-      logger.info(`Zone target ${existingTarget ? 'updated' : 'created'} for zone ${serviceZoneId} by ${req.user?.email}`);
 
       // Log activity
       await ActivityController.logActivity({
@@ -537,7 +536,6 @@ export class TargetController {
         }
       });
 
-      logger.info(`Zone target ${targetId} updated by ${req.user?.email}`);
 
       // Log activity
       await ActivityController.logActivity({
@@ -580,7 +578,6 @@ export class TargetController {
         where: { id: parseInt(targetId) }
       });
 
-      logger.info(`Zone target ${targetId} deleted by ${req.user?.email}`);
 
       // Log activity
       await ActivityController.logActivity({

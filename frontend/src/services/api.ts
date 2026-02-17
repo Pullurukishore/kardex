@@ -58,6 +58,26 @@ class ApiService {
     return response.data;
   }
 
+  async importOffers(file: File): Promise<any> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await api.post(`${this.baseURL}/offers/import`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 300000 // 5 min for import (many DB writes)
+    });
+    return response.data;
+  }
+
+  async previewOfferImport(file: File): Promise<any> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await api.post(`${this.baseURL}/offers/import/preview`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 120000 // 120s for preview (large files)
+    });
+    return response.data;
+  }
+
   async getOfferForQuoteAdmin(id: number) {
     const response = await api.get(`${this.baseURL}/offers/quote/admin/${id}`);
     return response.data;
