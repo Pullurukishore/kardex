@@ -18,12 +18,12 @@ export default function PinGuard({ children }: PinGuardProps) {
 
   useEffect(() => {
     setIsMounted(true);
-    
+
     const checkPinAccess = async () => {
       if (!pathname) return;
-      
-      const publicRoutes = ['/pin-access', '/admin/pin-management', '/favicon.ico', '/_next', '/api/auth', '/auth'];
-      const isPublicRoute = pathname === '/' || publicRoutes.some(route => route !== '/' && pathname.startsWith(route));
+
+      const publicRoutes = ['/pin-access', '/admin/pin-management', '/favicon.ico', '/_next', '/api/auth'];
+      const isPublicRoute = pathname === '/pin-access' || publicRoutes.some(route => route !== '/pin-access' && pathname.startsWith(route));
 
       if (isPublicRoute) {
         setIsValidated(true);
@@ -37,7 +37,7 @@ export default function PinGuard({ children }: PinGuardProps) {
         const localSession = localStorage.getItem('pinAccessSession');
         const urlParams = new URL(window.location.href).searchParams;
         const forceBypass = urlParams.get('forceBypass');
-        
+
         if (pinSession || localSession || forceBypass === 'true') {
           setIsValidated(true);
         } else {

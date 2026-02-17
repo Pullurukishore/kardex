@@ -49,6 +49,21 @@ import { Textarea } from '@/components/ui/textarea';
 
 export const dynamic = 'force-dynamic';
 
+// Helper to resolve image URLs (handles local storage paths)
+const resolveImageUrl = (url: string) => {
+  if (!url) return '';
+  if (url.startsWith('data:') || url.startsWith('http')) return url;
+
+  // Get backend base URL (strip /api if present)
+  // Note: Backend runs on port 5003 as per terminal logs
+  const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5003/api';
+  const baseUrl = rawApiUrl.replace(/\/(api)\/?$/, '');
+
+  // Ensure url starts with /
+  const path = url.startsWith('/') ? url : `/${url}`;
+  return `${baseUrl}${path}`;
+};
+
 export default function ActivityScheduleDetailPageShared() {
   const params = useParams();
   const router = useRouter();
@@ -818,176 +833,279 @@ export default function ActivityScheduleDetailPageShared() {
 
             {/* Field Execution Timeline */}
             {schedule.relatedActivities && schedule.relatedActivities.length > 0 && (
-              <Card className="shadow-lg border-0 overflow-hidden">
-                <CardHeader className="bg-gradient-to-r from-[#4F6A64] to-[#4F6A64] text-white p-6">
+              <Card className="shadow-xl border-0 overflow-hidden">
+                <CardHeader className="bg-gradient-to-r from-[#4F6A64] to-[#546A7A] text-white p-6">
                   <div className="flex items-center justify-between">
                     <CardTitle className="flex items-center gap-3 text-xl">
-                      <div className="p-2 bg-white/20 rounded-lg">
+                      <div className="p-2.5 bg-white/20 rounded-xl backdrop-blur-sm">
                         <Sparkles className="h-5 w-5" />
                       </div>
                       Field Execution Timeline
                     </CardTitle>
-                    <Badge className="bg-white/20 text-white border-0 backdrop-blur-sm text-base px-4 py-1">
-                      {schedule.relatedActivities.length} Activities
-                    </Badge>
+                    <div className="flex items-center gap-3">
+                      <Badge className="bg-white/20 text-white border-0 backdrop-blur-sm text-sm px-3 py-1.5">
+                        {schedule.relatedActivities.reduce((count: number, a: any) => count + (a.ActivityStage?.length || 0), 0)} Stages
+                      </Badge>
+                      <Badge className="bg-white/25 text-white border-0 backdrop-blur-sm text-base px-4 py-1.5 font-semibold">
+                        {schedule.relatedActivities.length} {schedule.relatedActivities.length === 1 ? 'Activity' : 'Activities'}
+                      </Badge>
+                    </div>
                   </div>
                 </CardHeader>
-                <CardContent className="p-6 space-y-6">
-                  {schedule.relatedActivities.map((activity: any, actIndex: number) => (
-                    <div
-                      key={activity.id}
-                      className="p-6 bg-gradient-to-br from-[#A2B9AF]/10 to-[#82A094]/10 rounded-2xl border border-[#A2B9AF]/30"
-                    >
-                      {/* Activity Header */}
-                      <div className="flex items-start justify-between mb-5">
-                        <div className="flex items-center gap-4">
-                          <div className="p-3 bg-gradient-to-br from-[#82A094] to-[#82A094] rounded-xl text-white shadow-md">
-                            <Activity className="h-5 w-5" />
-                          </div>
-                          <div>
-                            <h4 className="font-bold text-[#546A7A] text-lg">
-                              {activity.title || activity.activityType?.replace(/_/g, ' ') || 'Activity'}
-                            </h4>
-                            <p className="text-sm text-[#4F6A64]">
-                              {activity.activityType?.replace(/_/g, ' ')}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-sm font-medium text-[#546A7A]">{formatDateTime(activity.startTime)}</p>
-                          <div className="flex items-center justify-end gap-2 mt-1 text-sm text-[#4F6A64]">
-                            <Timer className="h-4 w-4" />
-                            <span className="font-medium">{formatDurationFromTimes(activity.startTime, activity.endTime)}</span>
-                          </div>
-                        </div>
-                      </div>
+                <CardContent className="p-6 space-y-8">
+                  {schedule.relatedActivities.map((activity: any, actIndex: number) => {
+                    const totalStages = activity.ActivityStage?.length || 0;
+                    const completedStages = activity.ActivityStage?.filter((s: any) => s.endTime).length || 0;
+                    const progressPercent = totalStages > 0 ? Math.round((completedStages / totalStages) * 100) : 0;
+                    const allPhotos = (activity.ActivityStage || []).reduce((acc: any[], s: any) => {
+                      const meta = s.metadata || {};
+                      const photos = Array.isArray(meta.photos) ? meta.photos : [];
+                      return [...acc, ...photos];
+                    }, []);
 
-                      {/* Activity Stages */}
-                      {activity.ActivityStage && activity.ActivityStage.length > 0 && (
-                        <div className="mt-5 pl-5 border-l-2 border-[#82A094] space-y-4">
-                          {activity.ActivityStage.map((stage: any, stageIndex: number) => {
-                            const meta = stage.metadata || {};
-                            const isTicketStatus = meta.isTicketStatus === true;
-                            const locationSource = meta.locationSource as string | undefined;
-                            const accuracyRaw = (meta.accuracy as any) ?? undefined;
-                            const accuracy = typeof accuracyRaw === 'number' ? accuracyRaw : accuracyRaw ? parseFloat(accuracyRaw) : undefined;
-                            const photos = Array.isArray(meta.photos) ? meta.photos : [];
-                            const stageStyle = getStageStyle(stage.stage, isTicketStatus);
-                            const changedBy = meta.changedBy;
-
-                            return (
-                              <div key={stage.id} className="relative">
-                                <div className={`absolute -left-[29px] top-2 w-4 h-4 rounded-full border-4 border-white shadow-md ${isTicketStatus
-                                    ? 'bg-gradient-to-br from-[#6F8A9D] to-[#6F8A9D]'
-                                    : 'bg-gradient-to-br from-[#82A094] to-[#82A094]'
-                                  }`} />
-
-                                <div className={`rounded-xl p-5 shadow-sm ml-2 ${isTicketStatus
-                                    ? `bg-gradient-to-br ${stageStyle.bg} border border-[#96AEC2]`
-                                    : 'bg-white border border-[#A2B9AF]/30'
-                                  }`}>
-                                  <div className="flex flex-wrap items-center gap-3 mb-3">
-                                    {isTicketStatus && (
-                                      <span className="text-xl">{stageStyle.icon}</span>
-                                    )}
-                                    <span className={`font-semibold text-lg ${isTicketStatus ? stageStyle.text : 'text-[#546A7A]'}`}>
-                                      {getStageLabel(stage.stage, isTicketStatus)}
+                    return (
+                      <div
+                        key={activity.id}
+                        className="rounded-2xl border border-[#A2B9AF]/40 overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+                      >
+                        {/* Activity Header - Gradient bar */}
+                        <div className="bg-gradient-to-r from-[#82A094]/15 via-[#A2B9AF]/10 to-[#96AEC2]/10 p-5 border-b border-[#A2B9AF]/20">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex items-center gap-4">
+                              <div className="relative">
+                                <div className="p-3 bg-gradient-to-br from-[#82A094] to-[#4F6A64] rounded-xl text-white shadow-lg">
+                                  <Activity className="h-6 w-6" />
+                                </div>
+                                <div className="absolute -top-1 -right-1 w-5 h-5 bg-white rounded-full flex items-center justify-center shadow text-[10px] font-bold text-[#4F6A64]">
+                                  {actIndex + 1}
+                                </div>
+                              </div>
+                              <div>
+                                <h4 className="font-bold text-[#546A7A] text-lg leading-tight">
+                                  {activity.title || activity.activityType?.replace(/_/g, ' ') || 'Activity'}
+                                </h4>
+                                <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                                  <span className="text-xs font-medium text-[#4F6A64] bg-[#82A094]/15 px-2.5 py-0.5 rounded-full">
+                                    {activity.activityType?.replace(/_/g, ' ')}
+                                  </span>
+                                  {totalStages > 0 && (
+                                    <span className="text-xs font-medium text-[#546A7A] bg-[#96AEC2]/15 px-2.5 py-0.5 rounded-full">
+                                      {totalStages} {totalStages === 1 ? 'stage' : 'stages'}
                                     </span>
-                                    {isTicketStatus && (
-                                      <Badge className="bg-gradient-to-r from-[#96AEC2]/20 to-[#6F8A9D]/20 text-[#546A7A] border-[#96AEC2] border text-xs">
-                                        Ticket Status
-                                      </Badge>
-                                    )}
-                                    {!isTicketStatus && locationSource === 'gps' && typeof accuracy === 'number' && (
-                                      <Badge className="bg-gradient-to-r from-[#A2B9AF]/20 to-[#A2B9AF]/20 text-[#4F6A64] border-[#A2B9AF] border">
-                                        <Navigation className="h-3 w-3 mr-1" />
-                                        GPS ±{Math.round(accuracy)}m
-                                      </Badge>
-                                    )}
-                                    {!isTicketStatus && locationSource === 'manual' && (
-                                      <Badge className="bg-gradient-to-r from-[#96AEC2]/20 to-sky-100 text-[#546A7A] border-[#96AEC2] border">
-                                        Manual Location
-                                      </Badge>
-                                    )}
-                                  </div>
-
-                                  <div className="flex flex-wrap items-center gap-4 text-sm text-[#5D6E73]">
-                                    <span className="flex items-center gap-1">
-                                      <Clock className="h-4 w-4 text-[#979796]" />
-                                      {formatTime(stage.startTime)}
-                                      {stage.endTime && ` → ${formatTime(stage.endTime)}`}
+                                  )}
+                                  {allPhotos.length > 0 && (
+                                    <span className="text-xs font-medium text-[#976E44] bg-[#CE9F6B]/15 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                                      <Camera className="h-3 w-3" />
+                                      {allPhotos.length} {allPhotos.length === 1 ? 'photo' : 'photos'}
                                     </span>
-                                    {formatDurationFromTimes(stage.startTime, stage.endTime) && (
-                                      <span className="flex items-center gap-1 bg-[#AEBFC3]/20 px-2 py-0.5 rounded">
-                                        <Timer className="h-3 w-3" />
-                                        {formatDurationFromTimes(stage.startTime, stage.endTime)}
-                                      </span>
-                                    )}
-                                    {isTicketStatus && changedBy?.name && (
-                                      <span className="flex items-center gap-1 bg-[#96AEC2]/10 px-2 py-0.5 rounded text-[#546A7A]">
-                                        <User className="h-3 w-3" />
-                                        by {changedBy.name}
-                                      </span>
-                                    )}
-                                  </div>
-
-                                  {stage.location && (
-                                    <p className="text-sm text-[#5D6E73] mt-3 flex items-start gap-2 bg-[#AEBFC3]/10 p-2 rounded-lg">
-                                      <MapPin className="h-4 w-4 text-[#979796] mt-0.5 flex-shrink-0" />
-                                      {stage.location}
-                                    </p>
-                                  )}
-
-                                  {stage.notes && (
-                                    <div className="mt-3 p-3 bg-[#CE9F6B]/10 rounded-lg border border-[#EEC1BF]/30">
-                                      <p className="text-sm text-[#976E44]">{stage.notes}</p>
-                                    </div>
-                                  )}
-
-                                  {photos.length > 0 && (
-                                    <div className="mt-4">
-                                      <p className="text-sm font-medium text-[#5D6E73] mb-3 flex items-center gap-2">
-                                        <Camera className="h-4 w-4" />
-                                        Photos ({photos.length})
-                                      </p>
-                                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-                                        {photos.map((photo: any, photoIndex: number) => (
-                                          <div
-                                            key={photoIndex}
-                                            className="relative aspect-square rounded-xl overflow-hidden border-2 border-[#AEBFC3]/30 bg-[#AEBFC3]/10 cursor-pointer hover:border-[#82A094] hover:shadow-md transition-all group"
-                                            onClick={() => photo.dataUrl && setSelectedPhoto(photo.dataUrl)}
-                                          >
-                                            {photo.dataUrl ? (
-                                              <>
-                                                <img
-                                                  src={photo.dataUrl}
-                                                  alt={photo.filename || `Photo ${photoIndex + 1}`}
-                                                  className="w-full h-full object-cover"
-                                                />
-                                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                                                  <div className="opacity-0 group-hover:opacity-100 transition-opacity p-2 bg-white rounded-full">
-                                                    <ExternalLink className="h-4 w-4 text-[#5D6E73]" />
-                                                  </div>
-                                                </div>
-                                              </>
-                                            ) : (
-                                              <div className="w-full h-full flex items-center justify-center">
-                                                <Camera className="h-8 w-8 text-[#92A2A5]" />
-                                              </div>
-                                            )}
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </div>
                                   )}
                                 </div>
                               </div>
-                            );
-                          })}
+                            </div>
+                            <div className="text-right flex-shrink-0">
+                              <p className="text-sm font-semibold text-[#546A7A]">{formatDateTime(activity.startTime)}</p>
+                              {formatDurationFromTimes(activity.startTime, activity.endTime) && (
+                                <div className="flex items-center justify-end gap-1.5 mt-1.5">
+                                  <div className="px-2.5 py-1 bg-[#4F6A64]/10 rounded-lg flex items-center gap-1.5">
+                                    <Timer className="h-3.5 w-3.5 text-[#4F6A64]" />
+                                    <span className="text-sm font-bold text-[#4F6A64]">{formatDurationFromTimes(activity.startTime, activity.endTime)}</span>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Progress bar */}
+                          {totalStages > 1 && (
+                            <div className="mt-4">
+                              <div className="flex items-center justify-between mb-1.5">
+                                <span className="text-xs font-medium text-[#5D6E73]">Stage Progress</span>
+                                <span className="text-xs font-semibold text-[#4F6A64]">{completedStages}/{totalStages} completed</span>
+                              </div>
+                              <div className="h-2 bg-[#AEBFC3]/20 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full bg-gradient-to-r from-[#82A094] to-[#4F6A64] rounded-full transition-all duration-500"
+                                  style={{ width: `${progressPercent}%` }}
+                                />
+                              </div>
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  ))}
+
+                        {/* Activity Stages */}
+                        {activity.ActivityStage && activity.ActivityStage.length > 0 && (
+                          <div className="p-5">
+                            <div className="relative pl-6 border-l-[3px] border-gradient-to-b border-[#82A094]/40 space-y-5">
+                              {activity.ActivityStage.map((stage: any, stageIndex: number) => {
+                                const meta = stage.metadata || {};
+                                const isTicketStatus = meta.isTicketStatus === true;
+                                const locationSource = stage.locationSource || meta.locationSource as string | undefined;
+                                const accuracyRaw = stage.accuracy ?? (meta.accuracy as any) ?? undefined;
+                                const accuracy = typeof accuracyRaw === 'number' ? accuracyRaw : accuracyRaw ? parseFloat(accuracyRaw) : undefined;
+                                const photos = Array.isArray(meta.photos) ? meta.photos : [];
+                                const stageStyle = getStageStyle(stage.stage, isTicketStatus);
+                                const changedBy = meta.changedBy;
+                                const isLast = stageIndex === activity.ActivityStage.length - 1;
+                                const isFirst = stageIndex === 0;
+
+                                return (
+                                  <div key={stage.id} className="relative group">
+                                    {/* Timeline dot with pulse on first/last */}
+                                    <div className={`absolute -left-[33px] top-3 w-5 h-5 rounded-full border-[3px] border-white shadow-lg z-10 transition-transform group-hover:scale-110 ${isTicketStatus
+                                      ? 'bg-gradient-to-br from-[#6F8A9D] to-[#546A7A]'
+                                      : isFirst
+                                        ? 'bg-gradient-to-br from-[#82A094] to-[#4F6A64]'
+                                        : isLast
+                                          ? 'bg-gradient-to-br from-[#82A094] to-[#4F6A64]'
+                                          : 'bg-gradient-to-br from-[#82A094] to-[#82A094]'
+                                      }`}>
+                                      {(isFirst || isLast) && !isTicketStatus && (
+                                        <div className="absolute inset-0 rounded-full bg-[#82A094]/30 animate-ping" />
+                                      )}
+                                    </div>
+
+                                    <div className={`rounded-xl p-4 ml-3 transition-all hover:shadow-md ${isTicketStatus
+                                      ? `bg-gradient-to-br ${stageStyle.bg} border border-[#96AEC2]/40`
+                                      : 'bg-white border border-[#A2B9AF]/25 hover:border-[#A2B9AF]/50'
+                                      }`}>
+                                      {/* Stage header row */}
+                                      <div className="flex flex-wrap items-center justify-between gap-2">
+                                        <div className="flex items-center gap-2.5">
+                                          {isTicketStatus && (
+                                            <span className="text-lg leading-none">{stageStyle.icon}</span>
+                                          )}
+                                          {!isTicketStatus && (
+                                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shadow-sm ${stage.endTime
+                                              ? 'bg-[#82A094]/15 text-[#4F6A64]'
+                                              : 'bg-[#CE9F6B]/15 text-[#976E44]'
+                                              }`}>
+                                              {stageIndex + 1}
+                                            </div>
+                                          )}
+                                          <span className={`font-semibold text-[15px] ${isTicketStatus ? stageStyle.text : 'text-[#546A7A]'}`}>
+                                            {getStageLabel(stage.stage, isTicketStatus)}
+                                          </span>
+                                          {stage.endTime && !isTicketStatus && (
+                                            <CheckCircle className="h-4 w-4 text-[#82A094]" />
+                                          )}
+                                        </div>
+
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                          {isTicketStatus && (
+                                            <Badge className="bg-gradient-to-r from-[#96AEC2]/20 to-[#6F8A9D]/20 text-[#546A7A] border-[#96AEC2]/50 border text-[10px] px-2 py-0.5">
+                                              Ticket Status
+                                            </Badge>
+                                          )}
+                                          {!isTicketStatus && locationSource === 'gps' && typeof accuracy === 'number' && (
+                                            <Badge className="bg-[#A2B9AF]/15 text-[#4F6A64] border-[#A2B9AF]/40 border text-[10px] px-2 py-0.5">
+                                              <Navigation className="h-2.5 w-2.5 mr-1" />
+                                              ±{Math.round(accuracy)}m
+                                            </Badge>
+                                          )}
+                                          {!isTicketStatus && locationSource === 'manual' && (
+                                            <Badge className="bg-[#96AEC2]/15 text-[#546A7A] border-[#96AEC2]/40 border text-[10px] px-2 py-0.5">
+                                              Manual
+                                            </Badge>
+                                          )}
+                                        </div>
+                                      </div>
+
+                                      {/* Time & duration row */}
+                                      <div className="flex flex-wrap items-center gap-3 mt-2.5 text-sm text-[#5D6E73]">
+                                        <span className="flex items-center gap-1.5 font-medium">
+                                          <Clock className="h-3.5 w-3.5 text-[#92A2A5]" />
+                                          {formatTime(stage.startTime)}
+                                          {stage.endTime && (
+                                            <>
+                                              <span className="text-[#92A2A5]">→</span>
+                                              {formatTime(stage.endTime)}
+                                            </>
+                                          )}
+                                        </span>
+                                        {formatDurationFromTimes(stage.startTime, stage.endTime) && (
+                                          <span className="flex items-center gap-1 bg-[#4F6A64]/8 px-2 py-0.5 rounded-md text-[#4F6A64] font-semibold text-xs">
+                                            <Timer className="h-3 w-3" />
+                                            {formatDurationFromTimes(stage.startTime, stage.endTime)}
+                                          </span>
+                                        )}
+                                        {isTicketStatus && changedBy?.name && (
+                                          <span className="flex items-center gap-1 bg-[#96AEC2]/10 px-2 py-0.5 rounded-md text-[#546A7A] text-xs">
+                                            <User className="h-3 w-3" />
+                                            {changedBy.name}
+                                          </span>
+                                        )}
+                                      </div>
+
+                                      {/* Location */}
+                                      {stage.location && (
+                                        <div className="mt-3 flex items-start gap-2 bg-[#AEBFC3]/8 p-2.5 rounded-lg">
+                                          <MapPin className="h-3.5 w-3.5 text-[#92A2A5] mt-0.5 flex-shrink-0" />
+                                          <span className="text-xs text-[#5D6E73] leading-relaxed">{stage.location}</span>
+                                        </div>
+                                      )}
+
+                                      {/* Notes */}
+                                      {stage.notes && (
+                                        <div className="mt-3 p-3 bg-gradient-to-r from-[#CE9F6B]/8 to-[#EEC1BF]/8 rounded-lg border border-[#CE9F6B]/20">
+                                          <div className="flex items-start gap-2">
+                                            <FileText className="h-3.5 w-3.5 text-[#CE9F6B] mt-0.5 flex-shrink-0" />
+                                            <p className="text-xs text-[#976E44] leading-relaxed">{stage.notes}</p>
+                                          </div>
+                                        </div>
+                                      )}
+
+                                      {/* Photos */}
+                                      {photos.length > 0 && (
+                                        <div className="mt-4">
+                                          <p className="text-xs font-semibold text-[#5D6E73] mb-2.5 flex items-center gap-1.5 uppercase tracking-wide">
+                                            <Camera className="h-3.5 w-3.5 text-[#82A094]" />
+                                            Photos ({photos.length})
+                                          </p>
+                                          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
+                                            {photos.map((photo: any, photoIndex: number) => {
+                                              const rawSrc = photo.url || photo.dataUrl || photo.thumbnailUrl || '';
+                                              const imgSrc = resolveImageUrl(rawSrc);
+                                              return (
+                                                <div
+                                                  key={photoIndex}
+                                                  className="relative aspect-square rounded-lg overflow-hidden border-2 border-[#AEBFC3]/20 bg-gradient-to-br from-[#AEBFC3]/10 to-[#96AEC2]/5 cursor-pointer hover:border-[#82A094] hover:shadow-lg transition-all duration-200 group"
+                                                  onClick={() => imgSrc && setSelectedPhoto(imgSrc)}
+                                                >
+                                                  {imgSrc ? (
+                                                    <>
+                                                      <img
+                                                        src={imgSrc}
+                                                        alt={photo.filename || `Photo ${photoIndex + 1}`}
+                                                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                                      />
+                                                      <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                                        <div className="absolute bottom-1.5 right-1.5 p-1 bg-white/90 rounded-md shadow-sm">
+                                                          <ExternalLink className="h-3 w-3 text-[#546A7A]" />
+                                                        </div>
+                                                      </div>
+                                                    </>
+                                                  ) : (
+                                                    <div className="w-full h-full flex flex-col items-center justify-center gap-1">
+                                                      <Camera className="h-6 w-6 text-[#92A2A5]" />
+                                                      <span className="text-[9px] text-[#92A2A5]">No preview</span>
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              );
+                                            })}
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </CardContent>
               </Card>
             )}

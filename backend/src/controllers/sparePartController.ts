@@ -50,6 +50,10 @@ export class SparePartController {
     return SparePartController.downloadImportTemplate(req as AuthenticatedRequest, res);
   }
 
+  static async uploadImageWrapper(req: any, res: Response) {
+    return SparePartController.uploadImage(req as AuthenticatedRequest, res);
+  }
+
   // Get all spare parts
   static async getSpareParts(req: AuthenticatedRequest, res: Response) {
     try {
@@ -245,7 +249,15 @@ export class SparePartController {
   static async updateSparePart(req: AuthenticatedRequest, res: Response) {
     try {
       const { id } = req.params;
-      const updates = req.body;
+      const {
+        id: _id,
+        createdAt: _createdAt,
+        updatedAt: _updatedAt,
+        createdBy: _createdBy,
+        updatedBy: _updatedBy,
+        offerSpareParts: _offerSpareParts,
+        ...updates
+      } = req.body;
 
       const existingSparePart = await prisma.sparePart.findUnique({
         where: { id: parseInt(id) },
@@ -274,8 +286,8 @@ export class SparePartController {
       }
 
       // Convert basePrice to float if provided
-      if (updates.basePrice) {
-        updates.basePrice = parseFloat(updates.basePrice);
+      if (updates.basePrice !== undefined) {
+        updates.basePrice = parseFloat(updates.basePrice.toString());
       }
 
       const sparePart = await prisma.sparePart.update({
@@ -365,6 +377,29 @@ export class SparePartController {
     } catch (error) {
       logger.error('Delete spare part error:', error);
       res.status(500).json({ error: 'Failed to delete spare part' });
+      return;
+    }
+  }
+
+  // Upload spare part image
+  static async uploadImage(req: AuthenticatedRequest, res: Response) {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'No image file uploaded' });
+      }
+
+      // The file is already saved by multer to STORAGE_DIR
+      const filename = req.file.filename;
+      const imageUrl = `/storage/images/spare-parts/${filename}`;
+
+      res.status(200).json({
+        message: 'Image uploaded successfully',
+        imageUrl
+      });
+      return;
+    } catch (error) {
+      logger.error('Upload spare part image error:', error);
+      res.status(500).json({ error: 'Failed to upload image' });
       return;
     }
   }

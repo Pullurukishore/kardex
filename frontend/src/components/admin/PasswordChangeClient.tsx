@@ -50,7 +50,7 @@ export default function PasswordChangeClient({ admin }: PasswordChangeClientProp
     }
 
     try {
-      const response = await apiClient.post(`/admin/users/${admin.id}/reset-password`, {
+      const response = await apiClient.post(`/admin/${admin.id}/reset-password`, {
         newPassword: formData.newPassword
       });
 
@@ -59,7 +59,7 @@ export default function PasswordChangeClient({ admin }: PasswordChangeClientProp
         setMessage({ type: 'success', text: 'Password changed successfully! Redirecting...' });
         toast.success('Password changed successfully!');
         setFormData({ currentPassword: '', newPassword: '', confirmPassword: '' });
-        
+
         // Refresh the router cache and redirect back to admin list
         router.refresh();
         router.push('/admin/manage-admins');
@@ -68,8 +68,8 @@ export default function PasswordChangeClient({ admin }: PasswordChangeClientProp
       }
     } catch (error: any) {
       const errorMessage = error?.response?.data?.message || error?.message || 'Failed to change password';
-      setMessage({ 
-        type: 'error', 
+      setMessage({
+        type: 'error',
         text: errorMessage
       });
       toast.error(errorMessage);
@@ -93,7 +93,7 @@ export default function PasswordChangeClient({ admin }: PasswordChangeClientProp
     <div className="space-y-6">
       {/* Back Navigation */}
       <div className="flex items-center space-x-3">
-        <Link 
+        <Link
           href="/admin/manage-admins"
           className="flex items-center space-x-2 text-[#5D6E73] hover:text-[#4F6A64] transition-colors"
         >
@@ -112,14 +112,12 @@ export default function PasswordChangeClient({ admin }: PasswordChangeClientProp
             <h3 className="text-xl font-bold text-[#546A7A]">{admin.name || 'Administrator'}</h3>
             <p className="text-[#5D6E73]">{admin.email}</p>
             <div className="mt-2">
-              <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
-                admin.isActive 
-                  ? 'bg-[#A2B9AF]/20 text-[#4F6A64] border border-[#A2B9AF]' 
+              <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${admin.isActive
+                  ? 'bg-[#A2B9AF]/20 text-[#4F6A64] border border-[#A2B9AF]'
                   : 'bg-[#E17F70]/20 text-[#75242D] border border-[#E17F70]'
-              }`}>
-                <div className={`w-2 h-2 rounded-full mr-2 ${
-                  admin.isActive ? 'bg-[#82A094]' : 'bg-[#E17F70]'
-                }`}></div>
+                }`}>
+                <div className={`w-2 h-2 rounded-full mr-2 ${admin.isActive ? 'bg-[#82A094]' : 'bg-[#E17F70]'
+                  }`}></div>
                 {admin.isActive ? 'Active' : 'Inactive'}
               </span>
             </div>
@@ -144,14 +142,12 @@ export default function PasswordChangeClient({ admin }: PasswordChangeClientProp
 
           <form onSubmit={handleSubmit} className="p-6 space-y-6">
             {message && (
-              <div className={`p-4 rounded-lg flex items-center space-x-3 ${
-                message.type === 'success' 
-                  ? 'bg-[#A2B9AF]/10 text-[#4F6A64] border border-[#A2B9AF]' 
+              <div className={`p-4 rounded-lg flex items-center space-x-3 ${message.type === 'success'
+                  ? 'bg-[#A2B9AF]/10 text-[#4F6A64] border border-[#A2B9AF]'
                   : 'bg-[#E17F70]/10 text-[#75242D] border border-[#E17F70]'
-              }`}>
-                <div className={`h-5 w-5 rounded-full flex items-center justify-center ${
-                  message.type === 'success' ? 'bg-[#82A094]/30' : 'bg-[#E17F70]/30'
                 }`}>
+                <div className={`h-5 w-5 rounded-full flex items-center justify-center ${message.type === 'success' ? 'bg-[#82A094]/30' : 'bg-[#E17F70]/30'
+                  }`}>
                   {message.type === 'success' ? '✓' : '⚠'}
                 </div>
                 <span className="font-medium">{message.text}</span>
@@ -278,14 +274,12 @@ export default function PasswordChangeClient({ admin }: PasswordChangeClientProp
         <MobileCard>
           <form onSubmit={handleSubmit} className="space-y-6">
             {message && (
-              <div className={`p-4 rounded-lg flex items-center space-x-3 ${
-                message.type === 'success' 
-                  ? 'bg-[#A2B9AF]/10 text-[#4F6A64] border border-[#A2B9AF]' 
+              <div className={`p-4 rounded-lg flex items-center space-x-3 ${message.type === 'success'
+                  ? 'bg-[#A2B9AF]/10 text-[#4F6A64] border border-[#A2B9AF]'
                   : 'bg-[#E17F70]/10 text-[#75242D] border border-[#E17F70]'
-              }`}>
-                <div className={`h-5 w-5 rounded-full flex items-center justify-center ${
-                  message.type === 'success' ? 'bg-[#82A094]/30' : 'bg-[#E17F70]/30'
                 }`}>
+                <div className={`h-5 w-5 rounded-full flex items-center justify-center ${message.type === 'success' ? 'bg-[#82A094]/30' : 'bg-[#E17F70]/30'
+                  }`}>
                   {message.type === 'success' ? '✓' : '⚠'}
                 </div>
                 <span className="font-medium text-sm">{message.text}</span>

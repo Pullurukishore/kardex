@@ -1,7 +1,11 @@
-'use client'
+'use client';
 
 import SparePartsListPage from '@/components/spare-parts/SparePartsListPage'
+import { useAuth } from '@/contexts/AuthContext'
 
 export default function AdminSparePartsPage() {
-  return <SparePartsListPage />
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'ADMIN';
+
+  return <SparePartsListPage readOnly={!isAdmin} />
 }

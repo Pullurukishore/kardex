@@ -31,11 +31,11 @@ interface ExternalUserClientProps {
   };
 }
 
-export default function ExternalUserClient({ 
-  initialExternalUsers, 
-  initialStats, 
+export default function ExternalUserClient({
+  initialExternalUsers,
+  initialStats,
   initialPagination,
-  searchParams 
+  searchParams
 }: ExternalUserClientProps) {
   const router = useRouter();
   const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; user: ExternalUser | null }>({
@@ -50,16 +50,16 @@ export default function ExternalUserClient({
 
   const handleDeleteConfirm = async () => {
     if (!deleteConfirm.user) return;
-    
+
     const userToDelete = deleteConfirm.user;
     setDeleting(userToDelete.id);
-    
+
     try {
-      await apiClient.delete(`/admin/users/${userToDelete.id}`);
-      
+      await apiClient.delete(`/admin/${userToDelete.id}`);
+
       toast.success(`External user "${userToDelete.name || userToDelete.email}" deleted successfully`);
       setDeleteConfirm({ show: false, user: null });
-      
+
       // Refresh the page to show updated data
       router.refresh();
     } catch (error: any) {
@@ -138,7 +138,7 @@ export default function ExternalUserClient({
             </span>
           </div>
         </div>
-        
+
         <div className="divide-y divide-gray-200">
           {initialExternalUsers?.length > 0 ? (
             initialExternalUsers.map((user) => (
@@ -171,35 +171,33 @@ export default function ExternalUserClient({
                       )}
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center justify-between">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      user.isActive 
-                        ? 'bg-[#A2B9AF]/20 text-[#4F6A64] border border-[#A2B9AF]' 
-                        : 'bg-[#E17F70]/20 text-[#75242D] border border-[#E17F70]'
-                    }`}>
-                      <div className={`w-1.5 h-1.5 rounded-full mr-1.5 ${
-                        user.isActive ? 'bg-[#82A094]' : 'bg-[#E17F70]'
-                      }`}></div>
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${user.isActive
+                      ? 'bg-[#A2B9AF]/20 text-[#4F6A64] border border-[#A2B9AF]'
+                      : 'bg-[#E17F70]/20 text-[#75242D] border border-[#E17F70]'
+                      }`}>
+                      <div className={`w-1.5 h-1.5 rounded-full mr-1.5 ${user.isActive ? 'bg-[#82A094]' : 'bg-[#E17F70]'
+                        }`}></div>
                       {user.isActive ? 'Active' : 'Inactive'}
                     </span>
-                    
+
                     <div className="flex items-center space-x-1">
-                      <Link 
+                      <Link
                         href={`/admin/manage-external/${user.id}/edit`}
                         className="p-3 text-[#979796] hover:text-[#546A7A] hover:bg-[#96AEC2]/10 rounded-lg transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
                         title="Edit External User"
                       >
                         ✏️
                       </Link>
-                      <Link 
+                      <Link
                         href={`/admin/manage-external/${user.id}/password`}
                         className="p-3 text-[#979796] hover:text-[#4F6A64] hover:bg-[#A2B9AF]/10 rounded-lg transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
                         title="Change Password"
                       >
                         🔑
                       </Link>
-                      <button 
+                      <button
                         onClick={() => handleDeleteClick(user)}
                         disabled={deleting === user.id}
                         className="p-3 text-[#979796] hover:text-[#9E3B47] hover:bg-[#E17F70]/10 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] min-w-[44px] flex items-center justify-center"
@@ -240,36 +238,34 @@ export default function ExternalUserClient({
                         </div>
                       )}
                       <div className="mt-2">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          user.isActive 
-                            ? 'bg-[#A2B9AF]/20 text-[#4F6A64] border border-[#A2B9AF]' 
-                            : 'bg-[#E17F70]/20 text-[#75242D] border border-[#E17F70]'
-                        }`}>
-                          <div className={`w-1.5 h-1.5 rounded-full mr-1.5 ${
-                            user.isActive ? 'bg-[#82A094]' : 'bg-[#E17F70]'
-                          }`}></div>
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${user.isActive
+                          ? 'bg-[#A2B9AF]/20 text-[#4F6A64] border border-[#A2B9AF]'
+                          : 'bg-[#E17F70]/20 text-[#75242D] border border-[#E17F70]'
+                          }`}>
+                          <div className={`w-1.5 h-1.5 rounded-full mr-1.5 ${user.isActive ? 'bg-[#82A094]' : 'bg-[#E17F70]'
+                            }`}></div>
                           {user.isActive ? 'Active' : 'Inactive'}
                         </span>
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center space-x-2">
-                    <Link 
+                    <Link
                       href={`/admin/manage-external/${user.id}/edit`}
                       className="p-2 text-[#979796] hover:text-[#546A7A] hover:bg-[#96AEC2]/10 rounded-lg transition-colors"
                       title="Edit External User"
                     >
                       ✏️
                     </Link>
-                    <Link 
+                    <Link
                       href={`/admin/manage-external/${user.id}/password`}
                       className="p-2 text-[#979796] hover:text-[#4F6A64] hover:bg-[#A2B9AF]/10 rounded-lg transition-colors"
                       title="Change Password"
                     >
                       🔑
                     </Link>
-                    <button 
+                    <button
                       onClick={() => handleDeleteClick(user)}
                       disabled={deleting === user.id}
                       className="p-2 text-[#979796] hover:text-[#9E3B47] hover:bg-[#E17F70]/10 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -279,7 +275,7 @@ export default function ExternalUserClient({
                     </button>
                   </div>
                 </div>
-                
+
                 {user.lastActiveAt && (
                   <div className="mt-3 text-xs text-[#AEBFC3]0 sm:mt-3">
                     Last active: {new Date(user.lastActiveAt).toLocaleDateString('en-US', {
@@ -317,7 +313,7 @@ export default function ExternalUserClient({
                   <p className="text-sm text-[#5D6E73]">This action cannot be undone</p>
                 </div>
               </div>
-              
+
               <div className="bg-[#E17F70]/10 border border-[#E17F70] rounded-lg p-4 mb-6">
                 <p className="text-sm text-[#75242D]">
                   <span className="font-medium">Are you sure you want to delete:</span>

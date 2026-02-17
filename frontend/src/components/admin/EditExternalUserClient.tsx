@@ -15,7 +15,7 @@ interface EditExternalUserClientProps {
 
 export default function EditExternalUserClient({ externalUser }: EditExternalUserClientProps) {
   const router = useRouter();
-  
+
   const [formData, setFormData] = useState({
     email: externalUser.email || '',
     name: externalUser.name || '',
@@ -45,13 +45,13 @@ export default function EditExternalUserClient({ externalUser }: EditExternalUse
         phone: formData.phone || null
       };
 
-      const response = await apiClient.put(`/admin/users/${externalUser.id}`, updateData);
+      const response = await apiClient.put(`/admin/${externalUser.id}`, updateData);
 
       // Backend returns { user: userData } on success (200 OK means success)
       if ((response as any).user || response.data) {
         setMessage({ type: 'success', text: 'User updated successfully! Redirecting...' });
         toast.success('User updated successfully!');
-        
+
         // Refresh the router cache and redirect back to external users list
         router.refresh();
         router.push('/admin/manage-external');
@@ -60,8 +60,8 @@ export default function EditExternalUserClient({ externalUser }: EditExternalUse
       }
     } catch (error: any) {
       const errorMessage = error?.response?.data?.message || error?.message || 'Failed to update user';
-      setMessage({ 
-        type: 'error', 
+      setMessage({
+        type: 'error',
         text: errorMessage
       });
       toast.error(errorMessage);
@@ -78,7 +78,7 @@ export default function EditExternalUserClient({ externalUser }: EditExternalUse
     <div className="space-y-6">
       {/* Back Navigation */}
       <div className="flex items-center space-x-3">
-        <Link 
+        <Link
           href="/admin/manage-external"
           className="flex items-center space-x-2 text-[#5D6E73] hover:text-[#546A7A] transition-colors"
         >
@@ -97,14 +97,12 @@ export default function EditExternalUserClient({ externalUser }: EditExternalUse
             <h3 className="text-xl font-bold text-[#546A7A]">{externalUser.name || 'User'}</h3>
             <p className="text-[#5D6E73]">{externalUser.email}</p>
             <div className="mt-2">
-              <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
-                externalUser.isActive 
-                  ? 'bg-[#A2B9AF]/20 text-[#4F6A64] border border-[#A2B9AF]' 
+              <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${externalUser.isActive
+                  ? 'bg-[#A2B9AF]/20 text-[#4F6A64] border border-[#A2B9AF]'
                   : 'bg-[#E17F70]/20 text-[#75242D] border border-[#E17F70]'
-              }`}>
-                <div className={`w-2 h-2 rounded-full mr-2 ${
-                  externalUser.isActive ? 'bg-[#82A094]' : 'bg-[#E17F70]'
-                }`}></div>
+                }`}>
+                <div className={`w-2 h-2 rounded-full mr-2 ${externalUser.isActive ? 'bg-[#82A094]' : 'bg-[#E17F70]'
+                  }`}></div>
                 {externalUser.isActive ? 'Active' : 'Inactive'}
               </span>
             </div>
@@ -129,14 +127,12 @@ export default function EditExternalUserClient({ externalUser }: EditExternalUse
 
           <form onSubmit={handleSubmit} className="p-6 space-y-6">
             {message && (
-              <div className={`p-4 rounded-lg flex items-center space-x-3 ${
-                message.type === 'success' 
-                  ? 'bg-[#A2B9AF]/10 text-[#4F6A64] border border-[#A2B9AF]' 
+              <div className={`p-4 rounded-lg flex items-center space-x-3 ${message.type === 'success'
+                  ? 'bg-[#A2B9AF]/10 text-[#4F6A64] border border-[#A2B9AF]'
                   : 'bg-[#E17F70]/10 text-[#75242D] border border-[#E17F70]'
-              }`}>
-                <div className={`h-5 w-5 rounded-full flex items-center justify-center ${
-                  message.type === 'success' ? 'bg-[#82A094]/30' : 'bg-[#E17F70]/30'
                 }`}>
+                <div className={`h-5 w-5 rounded-full flex items-center justify-center ${message.type === 'success' ? 'bg-[#82A094]/30' : 'bg-[#E17F70]/30'
+                  }`}>
                   {message.type === 'success' ? '✓' : '⚠'}
                 </div>
                 <span className="font-medium">{message.text}</span>
@@ -232,14 +228,12 @@ export default function EditExternalUserClient({ externalUser }: EditExternalUse
         <MobileCard>
           <form onSubmit={handleSubmit} className="space-y-6">
             {message && (
-              <div className={`p-4 rounded-lg flex items-center space-x-3 ${
-                message.type === 'success' 
-                  ? 'bg-[#A2B9AF]/10 text-[#4F6A64] border border-[#A2B9AF]' 
+              <div className={`p-4 rounded-lg flex items-center space-x-3 ${message.type === 'success'
+                  ? 'bg-[#A2B9AF]/10 text-[#4F6A64] border border-[#A2B9AF]'
                   : 'bg-[#E17F70]/10 text-[#75242D] border border-[#E17F70]'
-              }`}>
-                <div className={`h-5 w-5 rounded-full flex items-center justify-center ${
-                  message.type === 'success' ? 'bg-[#82A094]/30' : 'bg-[#E17F70]/30'
                 }`}>
+                <div className={`h-5 w-5 rounded-full flex items-center justify-center ${message.type === 'success' ? 'bg-[#82A094]/30' : 'bg-[#E17F70]/30'
+                  }`}>
                   {message.type === 'success' ? '✓' : '⚠'}
                 </div>
                 <span className="font-medium text-sm">{message.text}</span>

@@ -14,7 +14,7 @@ interface ChangePasswordClientProps {
 
 export default function ChangePasswordClient({ expert }: ChangePasswordClientProps) {
   const router = useRouter();
-  
+
   const [formData, setFormData] = useState({
     newPassword: '',
     confirmPassword: ''
@@ -55,14 +55,14 @@ export default function ChangePasswordClient({ expert }: ChangePasswordClientPro
     setLoading(true);
 
     try {
-      const response = await apiClient.put(`/admin/users/${expert.id}/password`, {
-        password: formData.newPassword
+      const response = await apiClient.post(`/admin/${expert.id}/reset-password`, {
+        newPassword: formData.newPassword
       });
 
-      if ((response as any).user || response.data || (response as any).success) {
+      if ((response as any).user || response.data || (response as any).success || (response as any).message || (response as any).newPassword) {
         setMessage({ type: 'success', text: 'Password changed successfully! Redirecting...' });
         toast.success('Password changed successfully!');
-        
+
         setTimeout(() => {
           router.push('/admin/manage-expert-helpdesk');
         }, 1500);
@@ -71,8 +71,8 @@ export default function ChangePasswordClient({ expert }: ChangePasswordClientPro
       }
     } catch (error: any) {
       const errorMessage = error?.response?.data?.message || error?.message || 'Failed to change password';
-      setMessage({ 
-        type: 'error', 
+      setMessage({
+        type: 'error',
         text: errorMessage
       });
       toast.error(errorMessage);
@@ -89,7 +89,7 @@ export default function ChangePasswordClient({ expert }: ChangePasswordClientPro
     <div className="space-y-6">
       {/* Back Navigation */}
       <div className="flex items-center space-x-3">
-        <Link 
+        <Link
           href="/admin/manage-expert-helpdesk"
           className="flex items-center space-x-2 text-[#5D6E73] hover:text-[#546A7A] transition-colors"
         >
@@ -128,11 +128,10 @@ export default function ChangePasswordClient({ expert }: ChangePasswordClientPro
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           {/* Message Display */}
           {message && (
-            <div className={`p-4 rounded-lg border ${
-              message.type === 'success' 
-                ? 'bg-[#A2B9AF]/10 border-[#A2B9AF] text-[#4F6A64]' 
-                : 'bg-[#E17F70]/10 border-[#E17F70] text-[#75242D]'
-            }`}>
+            <div className={`p-4 rounded-lg border ${message.type === 'success'
+              ? 'bg-[#A2B9AF]/10 border-[#A2B9AF] text-[#4F6A64]'
+              : 'bg-[#E17F70]/10 border-[#E17F70] text-[#75242D]'
+              }`}>
               <p className="text-sm font-medium">{message.text}</p>
             </div>
           )}

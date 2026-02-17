@@ -43,6 +43,18 @@ export default function Home() {
     const redirectTimer = setTimeout(() => {
       // Only redirect after auth state is fully initialized
       if (!isLoading) {
+        // PRIORITY: Check for PIN first as requested by USER
+        // This ensures shared devices/kiosks go to PIN before Login
+        const hasPinCookie = typeof document !== 'undefined' && document.cookie.split('; ').find(row => row.startsWith('pinSession='));
+        const hasPinLocal = typeof window !== 'undefined' && localStorage.getItem('pinAccessSession');
+
+        if (!hasPinCookie && !hasPinLocal) {
+          if (typeof window !== 'undefined') {
+            window.location.href = '/pin-access';
+          }
+          return;
+        }
+
         if (isAuthenticated && user) {
           const redirectPath = getRoleBasedRedirect(user.role as any, user.financeRole as any);
           if (typeof window !== 'undefined') {
@@ -68,29 +80,29 @@ export default function Home() {
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-kardex-blue-1/10 rounded-full blur-3xl animate-pulse" />
         <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-kardex-green-2/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-br from-kardex-sand-2/5 to-kardex-green-1/5 rounded-full blur-3xl" />
-        
+
         {/* Decorative dots */}
         <div className="absolute top-20 right-20 w-3 h-3 rounded-full bg-kardex-blue-1/40 animate-pulse" />
         <div className="absolute bottom-32 left-32 w-2 h-2 rounded-full bg-kardex-green-2/40 animate-pulse" style={{ animationDelay: '0.5s' }} />
         <div className="absolute top-1/3 right-1/3 w-2 h-2 rounded-full bg-kardex-sand-2/40 animate-pulse" style={{ animationDelay: '1s' }} />
-        
+
         {/* Grid pattern overlay */}
         <div className="absolute inset-0 opacity-40" style={{
           backgroundImage: 'linear-gradient(rgba(150,174,194,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(150,174,194,0.1) 1px, transparent 1px)',
           backgroundSize: '40px 40px'
         }} />
       </div>
-      
+
       <div className="max-w-lg w-full relative z-10 animate-in fade-in slide-in-from-bottom-4 duration-700 ease-out">
         {/* Main Card with Glass Effect */}
         <div className="relative">
           {/* Glow effect behind card */}
           <div className="absolute -inset-1 bg-gradient-to-r from-kardex-blue-1/20 via-kardex-green-2/20 to-kardex-sand-2/20 rounded-[2rem] blur-xl opacity-60" />
-          
+
           <div className="relative bg-white/95 backdrop-blur-xl rounded-[2rem] shadow-2xl shadow-kardex-blue-1/20 border border-kardex-blue-1/20 p-10 overflow-hidden">
             {/* Decorative top gradient bar */}
             <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-kardex-blue-1 via-kardex-green-2 to-kardex-sand-2" />
-            
+
             {/* Content */}
             <div className="relative">
               {/* Logo with enhanced presentation and shimmer loading */}
@@ -113,7 +125,7 @@ export default function Home() {
                   />
                 </div>
               </div>
-              
+
               {/* Elegant divider with icon */}
               <div className="relative mb-8">
                 <div className="h-px bg-gradient-to-r from-transparent via-kardex-grey-1/50 to-transparent" />
@@ -123,7 +135,7 @@ export default function Home() {
                   </div>
                 </div>
               </div>
-              
+
               {/* Typography */}
               <div className="text-center mb-10">
                 <h1 className="text-3xl font-extrabold tracking-tight text-kardex-blue-3 mb-3">
@@ -133,7 +145,7 @@ export default function Home() {
                   Streamlined service management solutions
                 </p>
               </div>
-              
+
               {/* Loading Section */}
               <div className="space-y-6">
                 {/* Status with animated icon */}
@@ -146,12 +158,12 @@ export default function Home() {
                   </div>
                   <span className="text-kardex-blue-3 font-bold text-lg tracking-tight">{statusText}</span>
                 </div>
-                
+
                 {/* Enhanced Progress Bar */}
                 <div className="relative">
                   <div className="h-3 bg-kardex-grey-1/20 rounded-full overflow-hidden shadow-inner">
                     {/* Animated progress fill */}
-                    <div 
+                    <div
                       className="h-full bg-gradient-to-r from-kardex-blue-1 via-kardex-green-2 to-kardex-blue-2 rounded-full transition-all duration-500 ease-out relative"
                       style={{ width: `${Math.min(progress, 100)}%` }}
                     >
@@ -159,21 +171,21 @@ export default function Home() {
                       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent animate-shimmer" />
                     </div>
                   </div>
-                  
+
                   {/* Progress percentage */}
                   <div className="flex justify-between mt-2.5 text-xs font-bold text-kardex-grey-2 uppercase tracking-widest">
                     <span>Loading</span>
                     <span className="text-kardex-blue-2">{Math.round(Math.min(progress, 100))}%</span>
                   </div>
                 </div>
-                
+
                 {/* Animated dots */}
                 <div className="flex justify-center items-center gap-2 pt-2">
                   {[0, 1, 2, 3, 4].map((i) => (
                     <div
                       key={i}
                       className="w-1.5 h-1.5 rounded-full animate-bounce shadow-sm"
-                      style={{ 
+                      style={{
                         background: i % 2 === 0 ? '#96AEC2' : '#82A094',
                         animationDelay: `${i * 0.1}s`,
                       }}
@@ -184,7 +196,7 @@ export default function Home() {
             </div>
           </div>
         </div>
-        
+
         {/* Feature Pills */}
         <div className="flex justify-center gap-3 mt-10 flex-wrap animate-in fade-in slide-in-from-bottom-2 duration-1000 delay-300">
           <div className="inline-flex items-center gap-2 bg-white/80 backdrop-blur-md rounded-full px-4 py-2 border border-kardex-blue-1/20 shadow-xl shadow-kardex-blue-1/5">
@@ -200,7 +212,7 @@ export default function Home() {
             <span className="text-kardex-blue-3 text-xs font-bold uppercase tracking-wider">Auto Redirect</span>
           </div>
         </div>
-        
+
         {/* Footer */}
         <div className="text-center mt-10 animate-in fade-in duration-1000 delay-500">
           <div className="inline-flex items-center gap-2.5 px-6 py-3 bg-white/60 backdrop-blur-sm rounded-full border border-kardex-grey-1/20 shadow-lg">

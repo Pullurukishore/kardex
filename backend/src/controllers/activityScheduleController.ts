@@ -621,6 +621,69 @@ export const getActivityScheduleById = async (req: Request, res: Response) => {
       // Merge and deduplicate results
       const allActivities = [...activitiesByScheduleId, ...activitiesByTicketId];
 
+      // Helper to transform stage photos from metadata and notes
+      const transformStagePhotos = (stage: any) => {
+        const meta = stage.metadata || {};
+        let photos: any[] = [];
+
+        // 1. Extract from structured metadata if present
+        if (Array.isArray(meta.photos)) {
+          photos = meta.photos.map((photo: any) => {
+            const photoUrl = photo.url || photo.thumbnailUrl || photo.cloudinaryUrl || photo.dataUrl || '';
+            return {
+              id: photo.id || Math.random(),
+              filename: photo.filename || photo.name || 'photo',
+              url: photoUrl,
+              thumbnailUrl: photo.thumbnailUrl || photoUrl,
+              dataUrl: photo.dataUrl || photoUrl,
+              createdAt: photo.createdAt || photo.timestamp || stage.createdAt || new Date().toISOString(),
+            };
+          });
+        }
+        // 2. Fallback: extract from localUrls array if that's the structure
+        else if (meta.photos?.localUrls && Array.isArray(meta.photos.localUrls)) {
+          meta.photos.localUrls.forEach((url: string, index: number) => {
+            photos.push({
+              id: `${stage.id}_${index}`,
+              filename: `photo_${index + 1}.webp`,
+              url: url,
+              thumbnailUrl: url,
+              dataUrl: url,
+              createdAt: stage.startTime || stage.createdAt || new Date().toISOString(),
+            });
+          });
+        }
+
+        // 3. Extract from notes text (common for Ticket Status changes)
+        if (stage.notes && stage.notes.includes('/storage/images/')) {
+          const urlRegex = /\/storage\/images\/[^\s,]+/g;
+          const urls = stage.notes.match(urlRegex) || [];
+          urls.forEach((url: string, index: number) => {
+            // Avoid duplicates
+            if (!photos.some((p: any) => p.url === url)) {
+              photos.push({
+                id: `${stage.id}_note_${index}`,
+                filename: `note_photo_${index + 1}.webp`,
+                url: url,
+                thumbnailUrl: url,
+                dataUrl: url,
+                createdAt: stage.startTime || stage.createdAt || new Date().toISOString(),
+              });
+            }
+          });
+        }
+
+        return {
+          ...stage,
+          accuracy: stage.accuracy ?? meta.accuracy,
+          locationSource: stage.locationSource ?? meta.locationSource,
+          metadata: {
+            ...meta,
+            photos: photos,
+          },
+        };
+      };
+
       // Deduplicate by activity ID and enhance with ticket status history as stages
       const seenIds = new Set<number>();
       relatedActivities = allActivities.filter(activity => {
@@ -630,6 +693,9 @@ export const getActivityScheduleById = async (req: Request, res: Response) => {
         seenIds.add(activity.id);
         return true;
       }).map(activity => {
+        // Transform all activity stages to extract photos from metadata
+        const transformedStages = (activity.ActivityStage || []).map(transformStagePhotos);
+
         // For TICKET_WORK activities, merge ticket status history into stages for timeline display
         if (activity.activityType === 'TICKET_WORK' && activity.ticket?.statusHistory) {
           const ticketStatusStages = activity.ticket.statusHistory.map((history: any) => ({
@@ -638,20 +704,22 @@ export const getActivityScheduleById = async (req: Request, res: Response) => {
             startTime: history.changedAt,
             endTime: null,
             duration: null,
-            location: null,
-            latitude: null,
-            longitude: null,
+            location: history.location,
+            latitude: history.latitude,
+            longitude: history.longitude,
             notes: history.notes,
             metadata: {
               isTicketStatus: true,
               changedBy: history.changedBy,
+              accuracy: history.accuracy,
+              locationSource: history.locationSource,
             },
             createdAt: history.changedAt,
             updatedAt: history.changedAt,
-          }));
+          })).map(transformStagePhotos);
 
           // Merge activity stages and ticket status changes, sorted by time
-          const allStages = [...(activity.ActivityStage || []), ...ticketStatusStages]
+          const allStages = [...transformedStages, ...ticketStatusStages]
             .sort((a: any, b: any) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
 
           return {
@@ -659,7 +727,10 @@ export const getActivityScheduleById = async (req: Request, res: Response) => {
             ActivityStage: allStages,
           };
         }
-        return activity;
+        return {
+          ...activity,
+          ActivityStage: transformedStages,
+        };
       });
     }
 

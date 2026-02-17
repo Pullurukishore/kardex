@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import { 
+import {
   ArrowLeft,
   Activity,
   Clock,
@@ -33,7 +33,8 @@ import {
   MapPin,
   Wrench,
   Package,
-  MessageSquare
+  MessageSquare,
+  Box
 } from 'lucide-react'
 import { apiService } from '@/services/api'
 import { toast } from 'sonner'
@@ -89,7 +90,7 @@ interface FilterUser {
 }
 
 // Activity action configuration with icons and colors
-const ACTION_CONFIG: Record<string, { 
+const ACTION_CONFIG: Record<string, {
   icon: any
   color: string
   bgColor: string
@@ -110,6 +111,10 @@ const ACTION_CONFIG: Record<string, {
   'ONSITE_VISIT_STARTED': { icon: MapPin, color: 'text-[#546A7A]', bgColor: 'bg-[#6F8A9D]/20' },
   'ONSITE_VISIT_REACHED': { icon: MapPin, color: 'text-[#4F6A64]', bgColor: 'bg-[#A2B9AF]/20' },
   'ONSITE_VISIT_COMPLETED': { icon: CheckCircle, color: 'text-[#4F6A64]', bgColor: 'bg-[#A2B9AF]/20' },
+  'TICKET_CLOSED': { icon: CheckCircle, color: 'text-[#4F6A64]', bgColor: 'bg-[#A2B9AF]/20' },
+  'UPDATE_SPARE_PARTS_STATUS': { icon: Box, color: 'text-[#546A7A]', bgColor: 'bg-[#96AEC2]/20' },
+  'ASSIGNMENT_ACCEPTED': { icon: CheckCircle, color: 'text-[#4F6A64]', bgColor: 'bg-[#A2B9AF]/20' },
+  'ASSIGNMENT_REJECTED': { icon: XCircle, color: 'text-[#9E3B47]', bgColor: 'bg-[#E17F70]/20' },
 }
 
 const DATE_FILTERS = [
@@ -125,27 +130,30 @@ const ACTION_FILTERS = [
   { value: 'TICKET_CREATED', label: 'Ticket Created' },
   { value: 'TICKET_UPDATED', label: 'Ticket Updated' },
   { value: 'STATUS_CHANGE', label: 'Status Changes' },
-  { value: 'TICKET_ASSIGNED', label: 'Assignments' },
-  { value: 'SCHEDULED', label: 'Scheduled' },
+  { value: 'TICKET_ASSIGNED,ASSIGNMENT_ACCEPTED,ASSIGNMENT_REJECTED', label: 'Assignments' },
+  { value: 'SCHEDULED,ONSITE_VISIT_STARTED,ONSITE_VISIT_REACHED,ONSITE_VISIT_COMPLETED', label: 'Onsite Visits' },
   { value: 'PO_REQUESTED,PO_APPROVED', label: 'PO Actions' },
+  { value: 'NOTE_ADDED', label: 'Notes' },
+  { value: 'REPORT_UPLOADED', label: 'Reports' },
+  { value: 'TICKET_CLOSED', label: 'Closures' },
 ]
 
 export default function TicketActivityLogPage() {
   const router = useRouter()
-  
+
   const [activities, setActivities] = useState<Activity[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
   const [users, setUsers] = useState<FilterUser[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [expandedActivities, setExpandedActivities] = useState<Set<number>>(new Set())
-  
+
   // Filters
   const [dateFilter, setDateFilter] = useState('7days')
   const [actionFilter, setActionFilter] = useState('all')
   const [userFilter, setUserFilter] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
-  
+
   // Pagination
   const [pagination, setPagination] = useState({
     page: 1,
@@ -190,7 +198,7 @@ export default function TicketActivityLogPage() {
       }
 
       const response = await apiService.getTicketActivityLogs(params)
-      
+
       if (response.success) {
         setActivities(response.activities || [])
         setPagination(prev => ({
@@ -256,10 +264,10 @@ export default function TicketActivityLogPage() {
   }
 
   const getActionConfig = (action: string) => {
-    return ACTION_CONFIG[action] || { 
-      icon: Activity, 
-      color: 'text-[#5D6E73]', 
-      bgColor: 'bg-[#AEBFC3]/20' 
+    return ACTION_CONFIG[action] || {
+      icon: Activity,
+      color: 'text-[#5D6E73]',
+      bgColor: 'bg-[#AEBFC3]/20'
     }
   }
 
@@ -271,10 +279,9 @@ export default function TicketActivityLogPage() {
 
     return (
       <div key={activity.id} className="group">
-        <div 
-          className={`flex items-start gap-4 p-4 rounded-xl border bg-white hover:shadow-md hover:border-[#979796]/50 transition-all ${
-            hasDetails ? 'cursor-pointer' : ''
-          }`}
+        <div
+          className={`flex items-start gap-4 p-4 rounded-xl border bg-white hover:shadow-md hover:border-[#979796]/50 transition-all ${hasDetails ? 'cursor-pointer' : ''
+            }`}
           onClick={() => hasDetails && toggleActivity(activity.id)}
         >
           {/* Icon */}
@@ -294,7 +301,7 @@ export default function TicketActivityLogPage() {
                     </Badge>
                   )}
                 </div>
-                
+
                 <p className="text-sm text-[#5D6E73] mb-2">{activity.description}</p>
 
                 {/* User info */}

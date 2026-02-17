@@ -54,7 +54,7 @@ export default function LoginPage() {
     const selectedModule = moduleParam || localStorage.getItem('selectedModule');
     if (selectedModule === 'finance') return '/finance/select';
     if (selectedModule === 'fsm') return '/fsm/select';
-    
+
     // Fall back to role-based redirection which respects module access
     return getRoleBasedRedirect(user?.role, user?.financeRole);
   };
@@ -113,14 +113,14 @@ export default function LoginPage() {
           localStorage.removeItem('rememberedPassword');
           localStorage.removeItem('wasRemembered');
         }
-        
+
         // Mark login as successful
         setLoginSuccess(true);
-        
+
         // Determine redirect path based on returned user (not React state which may have stale data)
         const loggedInUser = result.user;
         const selectedModule = moduleParam || localStorage.getItem('selectedModule');
-        
+
         let redirectPath: string;
         if (selectedModule === 'finance') {
           redirectPath = '/finance/select';
@@ -130,7 +130,7 @@ export default function LoginPage() {
           // Use the returned user's role for redirect
           redirectPath = getRoleBasedRedirect(loggedInUser.role, loggedInUser.financeRole);
         }
-        
+
         // Quick delay to show the success animation, then redirect
         setTimeout(() => {
           router.replace(redirectPath);
@@ -164,10 +164,10 @@ export default function LoginPage() {
           <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-[#E17F70]/15 rounded-full blur-[120px] animate-pulse" style={{ animationDuration: '3s' }}></div>
           <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-[#CE9F6B]/15 rounded-full blur-[120px] animate-pulse" style={{ animationDuration: '4s', animationDelay: '1s' }}></div>
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] bg-[#82A094]/10 rounded-full blur-[150px] animate-pulse" style={{ animationDuration: '5s', animationDelay: '0.5s' }}></div>
-          
+
           {/* Grid Pattern */}
           <div className="absolute inset-0 bg-[linear-gradient(rgba(225,127,112,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(225,127,112,0.02)_1px,transparent_1px)] bg-[size:80px_80px]"></div>
-          
+
           {/* Floating Particles */}
           {[...Array(20)].map((_, i) => (
             <div
@@ -191,14 +191,14 @@ export default function LoginPage() {
         <div className="relative">
           {/* Outer Glow Ring */}
           <div className="absolute -inset-1 bg-gradient-to-r from-[#E17F70] via-[#CE9F6B] to-[#82A094] rounded-[2rem] opacity-30 blur-xl animate-pulse" style={{ animationDuration: '2s' }}></div>
-          
+
           <div className="relative text-center p-12 bg-gradient-to-br from-white/10 via-white/5 to-transparent backdrop-blur-3xl rounded-[2rem] border border-white/20 shadow-2xl overflow-hidden min-w-[380px]">
             {/* Top Gradient Line */}
             <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-[#E17F70] to-transparent"></div>
-            
+
             {/* Shimmer Effect */}
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full animate-shimmer"></div>
-            
+
             {/* Corner Decorations */}
             <div className="absolute top-4 right-4 w-20 h-20 bg-gradient-to-br from-[#E17F70]/20 to-transparent rounded-full blur-2xl"></div>
             <div className="absolute bottom-4 left-4 w-20 h-20 bg-gradient-to-br from-[#82A094]/20 to-transparent rounded-full blur-2xl"></div>
@@ -208,23 +208,23 @@ export default function LoginPage() {
               <div className="absolute inset-0 bg-gradient-to-r from-[#E17F70]/20 via-transparent to-[#82A094]/20 blur-xl rounded-full"></div>
               <Image src="/kardex.png" alt="Kardex" width={200} height={80} className="mx-auto brightness-0 invert relative z-10" priority />
             </div>
-            
+
             {/* Animated Success Icon */}
             <div className="w-28 h-28 mx-auto mb-8 relative">
               {/* Outer Pulsing Rings */}
               <div className="absolute inset-0 rounded-full border-2 border-[#E17F70]/30 animate-ping" style={{ animationDuration: '2s' }}></div>
               <div className="absolute -inset-4 rounded-full border border-[#CE9F6B]/20 animate-ping" style={{ animationDuration: '2.5s', animationDelay: '0.5s' }}></div>
-              
+
               {/* Gradient Ring */}
               <div className="absolute inset-0 rounded-full p-1 bg-gradient-to-r from-[#E17F70] via-[#CE9F6B] to-[#82A094]">
                 <div className="w-full h-full rounded-full bg-[#0f1629]"></div>
               </div>
-              
+
               {/* Spinning Gradient Overlay */}
               <div className="absolute inset-0 rounded-full overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-conic from-[#E17F70] via-[#CE9F6B] via-[#82A094] to-[#E17F70] animate-spin opacity-40" style={{ animationDuration: '3s' }}></div>
               </div>
-              
+
               {/* Inner Circle with Icon */}
               <div className="absolute inset-2 rounded-full bg-gradient-to-br from-[#0f1629] to-[#1a2438] flex items-center justify-center shadow-inner">
                 <div className="relative">
@@ -233,7 +233,7 @@ export default function LoginPage() {
                 </div>
               </div>
             </div>
-            
+
             {/* Welcome Text */}
             <div className="space-y-3 mb-8">
               <h3 className="text-4xl font-bold bg-gradient-to-r from-white via-white to-white/80 bg-clip-text text-transparent">
@@ -243,7 +243,7 @@ export default function LoginPage() {
                 Hello, <span className="text-[#E17F70] font-semibold">{user?.name || user?.email?.split('@')[0]}</span>
               </p>
             </div>
-            
+
             {/* Loading Indicator */}
             <div className="flex flex-col items-center gap-4">
               <div className="flex items-center gap-2">
@@ -262,7 +262,7 @@ export default function LoginPage() {
                 Preparing your dashboard...
               </p>
             </div>
-            
+
             {/* Bottom Security Badge */}
             <div className="mt-10 pt-6 border-t border-white/10">
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#82A094]/10 border border-[#82A094]/20">
@@ -272,7 +272,7 @@ export default function LoginPage() {
             </div>
           </div>
         </div>
-        
+
         {/* Additional CSS for animations */}
         <style jsx global>{`
           @keyframes float {
@@ -304,10 +304,10 @@ export default function LoginPage() {
           <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#E17F70]/20 rounded-full blur-3xl animate-pulse" style={{ animationDuration: '4s' }}></div>
           <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-[#CE9F6B]/20 rounded-full blur-3xl animate-pulse" style={{ animationDuration: '6s' }}></div>
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[#82A094]/10 rounded-full blur-3xl animate-pulse" style={{ animationDuration: '8s' }}></div>
-          
+
           {/* Grid Pattern */}
           <div className="absolute inset-0 bg-[linear-gradient(rgba(225,127,112,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(225,127,112,0.03)_1px,transparent_1px)] bg-[size:60px_60px]"></div>
-          
+
           {/* Floating Orbs */}
           {[...Array(6)].map((_, i) => (
             <div
@@ -332,14 +332,14 @@ export default function LoginPage() {
           <div className="mb-12">
             <Image src="/kardex.png" alt="Kardex" width={220} height={88} className="brightness-0 invert drop-shadow-2xl" priority />
           </div>
-          
+
           <h1 className="text-5xl font-bold text-white mb-6 leading-tight">
             Welcome to <br />
             <span className="bg-gradient-to-r from-[#E17F70] via-[#CE9F6B] to-[#82A094] bg-clip-text text-transparent">
               Service Management
             </span>
           </h1>
-          
+
           <p className="text-xl text-white/60 mb-12 leading-relaxed">
             Manage service tickets, track offers, and streamline your finance operations.
           </p>
@@ -351,11 +351,11 @@ export default function LoginPage() {
               { icon: Shield, title: 'Finance Module', desc: 'AR, vendor bank accounts & invoices', color: '#CE9F6B' },
               { icon: Users, title: 'Offers & Targets', desc: 'Track sales funnel & forecasts', color: '#82A094' },
             ].map((feature, i) => (
-              <div 
+              <div
                 key={i}
                 className="flex items-center gap-4 p-4 rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-all duration-300 group"
               >
-                <div 
+                <div
                   className="w-12 h-12 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110"
                   style={{ backgroundColor: `${feature.color}20` }}
                 >
@@ -402,7 +402,7 @@ export default function LoginPage() {
           <div className={`relative bg-white/5 backdrop-blur-2xl rounded-3xl border border-white/10 overflow-hidden transition-all duration-500 ${shake ? 'animate-shake' : ''}`}>
             {/* Top Gradient Bar */}
             <div className="h-1 bg-gradient-to-r from-[#E17F70] via-[#CE9F6B] to-[#82A094]"></div>
-            
+
             {/* Glow Effect */}
             <div className="absolute -top-20 -right-20 w-40 h-40 bg-[#E17F70]/30 rounded-full blur-3xl pointer-events-none"></div>
             <div className="absolute -bottom-20 -left-20 w-40 h-40 bg-[#CE9F6B]/30 rounded-full blur-3xl pointer-events-none"></div>
@@ -415,7 +415,7 @@ export default function LoginPage() {
                   <span className="text-sm font-semibold text-[#E17F70]">{moduleLabels[moduleParam]}</span>
                 </div>
               )}
-              
+
               <div className="w-16 h-16 mx-auto mb-5 rounded-2xl flex items-center justify-center bg-gradient-to-br from-[#E17F70] to-[#CE9F6B] shadow-xl shadow-[#E17F70]/30">
                 <Lock className="h-8 w-8 text-white" />
               </div>
@@ -467,11 +467,10 @@ export default function LoginPage() {
                               {...field}
                               placeholder="you@example.com"
                               type="email"
-                              className={`h-14 pl-12 pr-4 rounded-xl bg-white/5 border-2 text-white placeholder:text-white/30 transition-all duration-300 ${
-                                focusedField === 'email'
-                                  ? 'border-[#E17F70] bg-white/10 shadow-lg shadow-[#E17F70]/20'
-                                  : 'border-white/10 hover:border-white/20'
-                              }`}
+                              className={`h-14 pl-12 pr-4 rounded-xl bg-white/5 border-2 text-white placeholder:text-white/30 transition-all duration-300 ${focusedField === 'email'
+                                ? 'border-[#E17F70] bg-white/10 shadow-lg shadow-[#E17F70]/20'
+                                : 'border-white/10 hover:border-white/20'
+                                }`}
                               disabled={isLoading || isSubmitting}
                               onFocus={() => setFocusedField('email')}
                               onBlur={() => { field.onBlur(); setFocusedField(null); }}
@@ -496,11 +495,10 @@ export default function LoginPage() {
                               {...field}
                               placeholder="••••••••"
                               type={showPassword ? "text" : "password"}
-                              className={`h-14 pl-12 pr-12 rounded-xl bg-white/5 border-2 text-white placeholder:text-white/30 transition-all duration-300 ${
-                                focusedField === 'password'
-                                  ? 'border-[#E17F70] bg-white/10 shadow-lg shadow-[#E17F70]/20'
-                                  : 'border-white/10 hover:border-white/20'
-                              }`}
+                              className={`h-14 pl-12 pr-12 rounded-xl bg-white/5 border-2 text-white placeholder:text-white/30 transition-all duration-300 ${focusedField === 'password'
+                                ? 'border-[#E17F70] bg-white/10 shadow-lg shadow-[#E17F70]/20'
+                                : 'border-white/10 hover:border-white/20'
+                                }`}
                               disabled={isLoading || isSubmitting}
                               onFocus={() => setFocusedField('password')}
                               onBlur={() => { field.onBlur(); setFocusedField(null); }}
@@ -529,11 +527,10 @@ export default function LoginPage() {
                             type="button"
                             onClick={() => field.onChange(!field.value)}
                             disabled={isLoading || isSubmitting}
-                            className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all duration-200 ${
-                              field.value
-                                ? 'bg-gradient-to-br from-[#E17F70] to-[#CE9F6B] border-transparent'
-                                : 'border-white/30 hover:border-[#E17F70]'
-                            }`}
+                            className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all duration-200 ${field.value
+                              ? 'bg-gradient-to-br from-[#E17F70] to-[#CE9F6B] border-transparent'
+                              : 'border-white/30 hover:border-[#E17F70]'
+                              }`}
                           >
                             {field.value && (
                               <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>

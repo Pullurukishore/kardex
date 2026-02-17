@@ -8,7 +8,7 @@ import {
   Ticket,
   Calendar,
   Activity,
-  DollarSign,
+  IndianRupee,
   FileText,
   Zap,
   Clock,
@@ -41,7 +41,7 @@ export const adminNavigation: NavItem[] = [
   {
     title: "Sales & Offers",
     href: "/admin/offers",
-    icon: DollarSign,
+    icon: IndianRupee,
     roles: [UserRole.ADMIN],
     iconColor: "text-[#546A7A]",
     iconBgColor: "bg-[#6F8A9D]/10",
@@ -49,7 +49,7 @@ export const adminNavigation: NavItem[] = [
       {
         title: "Offers",
         href: "/admin/offers",
-        icon: DollarSign,
+        icon: IndianRupee,
         roles: [UserRole.ADMIN],
         iconColor: "text-[#546A7A]",
         iconBgColor: "bg-[#6F8A9D]/10"
@@ -223,7 +223,7 @@ export const zoneManagerNavigation: NavItem[] = [
   {
     title: "Sales & Offers",
     href: "/zone-manager/offers",
-    icon: DollarSign,
+    icon: IndianRupee,
     roles: [UserRole.ZONE_MANAGER],
     iconColor: "text-[#546A7A]",
     iconBgColor: "bg-[#6F8A9D]/10",
@@ -231,7 +231,7 @@ export const zoneManagerNavigation: NavItem[] = [
       {
         title: "Offers",
         href: "/zone-manager/offers",
-        icon: DollarSign,
+        icon: IndianRupee,
         roles: [UserRole.ZONE_MANAGER],
         iconColor: "text-[#546A7A]",
         iconBgColor: "bg-[#6F8A9D]/10"
@@ -337,7 +337,7 @@ export const zoneUserNavigation: NavItem[] = [
   {
     title: "Sales & Offers",
     href: "/zone/offers",
-    icon: DollarSign,
+    icon: IndianRupee,
     roles: [UserRole.ZONE_USER],
     iconColor: "text-[#546A7A]",
     iconBgColor: "bg-[#6F8A9D]/10",
@@ -345,7 +345,7 @@ export const zoneUserNavigation: NavItem[] = [
       {
         title: "Offers",
         href: "/zone/offers",
-        icon: DollarSign,
+        icon: IndianRupee,
         roles: [UserRole.ZONE_USER],
         iconColor: "text-[#546A7A]",
         iconBgColor: "bg-[#6F8A9D]/10"
@@ -452,7 +452,7 @@ export const expertHelpdeskNavigation: NavItem[] = [
   {
     title: "Sales & Offers",
     href: "/expert/offers",
-    icon: DollarSign,
+    icon: IndianRupee,
     roles: [UserRole.EXPERT_HELPDESK],
     iconColor: "text-[#546A7A]",
     iconBgColor: "bg-[#6F8A9D]/10",
@@ -460,7 +460,7 @@ export const expertHelpdeskNavigation: NavItem[] = [
       {
         title: "Offers",
         href: "/expert/offers",
-        icon: DollarSign,
+        icon: IndianRupee,
         roles: [UserRole.EXPERT_HELPDESK],
         iconColor: "text-[#546A7A]",
         iconBgColor: "bg-[#6F8A9D]/10"
@@ -673,7 +673,7 @@ export const adminOffersNavigation: NavItem[] = [
   {
     title: "Offers",
     href: "/admin/offers",
-    icon: DollarSign,
+    icon: IndianRupee,
     roles: [UserRole.ADMIN],
     iconColor: "text-[#546A7A]",
     iconBgColor: "bg-[#6F8A9D]/10"
@@ -817,7 +817,7 @@ export const zoneManagerOffersNavigation: NavItem[] = [
   {
     title: "Offers",
     href: "/zone-manager/offers",
-    icon: DollarSign,
+    icon: IndianRupee,
     roles: [UserRole.ZONE_MANAGER],
     iconColor: "text-[#546A7A]",
     iconBgColor: "bg-[#6F8A9D]/10"
@@ -921,7 +921,7 @@ export const zoneUserOffersNavigation: NavItem[] = [
   {
     title: "Offers",
     href: "/zone/offers",
-    icon: DollarSign,
+    icon: IndianRupee,
     roles: [UserRole.ZONE_USER],
     iconColor: "text-[#546A7A]",
     iconBgColor: "bg-[#6F8A9D]/10"
@@ -1033,7 +1033,7 @@ export const expertHelpdeskOffersNavigation: NavItem[] = [
   {
     title: "Offers",
     href: "/expert/offers",
-    icon: DollarSign,
+    icon: IndianRupee,
     roles: [UserRole.EXPERT_HELPDESK],
     iconColor: "text-[#546A7A]",
     iconBgColor: "bg-[#6F8A9D]/10"

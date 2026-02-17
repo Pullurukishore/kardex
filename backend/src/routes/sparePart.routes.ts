@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { SparePartController } from '../controllers/sparePartController';
 import { authenticate, requireRole } from '../middleware/auth.middleware';
 import { sparePartsUpload } from '../config/sparePartsMulter';
+import { sparePartImageUpload } from '../config/sparePartImageMulter';
 
 const router = Router();
 
@@ -29,6 +30,9 @@ router.post('/import', requireRole(['ADMIN', 'EXPERT_HELPDESK']), sparePartsUplo
 
 // Download import template
 router.get('/import/template', requireRole(['ADMIN', 'EXPERT_HELPDESK']), SparePartController.downloadImportTemplateWrapper);
+
+// Image upload for single spare part
+router.post('/upload', requireRole(['ADMIN', 'EXPERT_HELPDESK']), sparePartImageUpload.single('image'), SparePartController.uploadImageWrapper);
 
 // ═══════════════════════════════════════════════════════════════════════════
 

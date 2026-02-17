@@ -32,11 +32,11 @@ interface ExpertHelpdeskClientProps {
   };
 }
 
-export default function ExpertHelpdeskClient({ 
-  initialExperts, 
-  initialStats, 
+export default function ExpertHelpdeskClient({
+  initialExperts,
+  initialStats,
   initialPagination,
-  searchParams 
+  searchParams
 }: ExpertHelpdeskClientProps) {
   const router = useRouter();
   const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; expert: ExpertHelpdesk | null }>({
@@ -52,16 +52,16 @@ export default function ExpertHelpdeskClient({
 
   const handleDeleteConfirm = async () => {
     if (!deleteConfirm.expert) return;
-    
+
     const expertToDelete = deleteConfirm.expert;
     setDeleting(expertToDelete.id);
-    
+
     try {
-      await apiClient.delete(`/admin/users/${expertToDelete.id}`);
-      
+      await apiClient.delete(`/admin/${expertToDelete.id}`);
+
       toast.success(`Expert Helpdesk "${expertToDelete.name || expertToDelete.email}" deleted successfully`);
       setDeleteConfirm({ show: false, expert: null });
-      
+
       router.refresh();
     } catch (error: any) {
       const errorMessage = error?.response?.data?.message || error?.message || 'Failed to delete expert';
@@ -168,7 +168,7 @@ export default function ExpertHelpdeskClient({
             </span>
           </div>
         </div>
-        
+
         <div className="divide-y divide-gray-200">
           {initialExperts?.length > 0 ? (
             initialExperts.map((expert) => (
@@ -201,35 +201,33 @@ export default function ExpertHelpdeskClient({
                       )}
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center justify-between">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      expert.isActive 
-                        ? 'bg-[#A2B9AF]/20 text-[#4F6A64] border border-[#A2B9AF]' 
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${expert.isActive
+                        ? 'bg-[#A2B9AF]/20 text-[#4F6A64] border border-[#A2B9AF]'
                         : 'bg-[#E17F70]/20 text-[#75242D] border border-[#E17F70]'
-                    }`}>
-                      <div className={`w-1.5 h-1.5 rounded-full mr-1.5 ${
-                        expert.isActive ? 'bg-[#82A094]' : 'bg-[#E17F70]'
-                      }`}></div>
+                      }`}>
+                      <div className={`w-1.5 h-1.5 rounded-full mr-1.5 ${expert.isActive ? 'bg-[#82A094]' : 'bg-[#E17F70]'
+                        }`}></div>
                       {expert.isActive ? 'Active' : 'Inactive'}
                     </span>
-                    
+
                     <div className="flex items-center space-x-1">
-                      <Link 
+                      <Link
                         href={`/admin/manage-expert-helpdesk/${expert.id}/edit`}
                         className="p-3 text-[#979796] hover:text-[#546A7A] hover:bg-[#96AEC2]/10 rounded-lg transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
                         title="Edit Expert"
                       >
                         <Edit2 className="h-4 w-4" />
                       </Link>
-                      <Link 
+                      <Link
                         href={`/admin/manage-expert-helpdesk/${expert.id}/password`}
                         className="p-3 text-[#979796] hover:text-[#4F6A64] hover:bg-[#A2B9AF]/10 rounded-lg transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
                         title="Change Password"
                       >
                         <Lock className="h-4 w-4" />
                       </Link>
-                      <button 
+                      <button
                         onClick={() => handleDeleteClick(expert)}
                         disabled={deleting === expert.id}
                         className="p-3 text-[#979796] hover:text-[#9E3B47] hover:bg-[#E17F70]/10 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] min-w-[44px] flex items-center justify-center"
@@ -270,36 +268,34 @@ export default function ExpertHelpdeskClient({
                         </div>
                       )}
                       <div className="mt-2">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          expert.isActive 
-                            ? 'bg-[#A2B9AF]/20 text-[#4F6A64] border border-[#A2B9AF]' 
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${expert.isActive
+                            ? 'bg-[#A2B9AF]/20 text-[#4F6A64] border border-[#A2B9AF]'
                             : 'bg-[#E17F70]/20 text-[#75242D] border border-[#E17F70]'
-                        }`}>
-                          <div className={`w-1.5 h-1.5 rounded-full mr-1.5 ${
-                            expert.isActive ? 'bg-[#82A094]' : 'bg-[#E17F70]'
-                          }`}></div>
+                          }`}>
+                          <div className={`w-1.5 h-1.5 rounded-full mr-1.5 ${expert.isActive ? 'bg-[#82A094]' : 'bg-[#E17F70]'
+                            }`}></div>
                           {expert.isActive ? 'Active' : 'Inactive'}
                         </span>
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center space-x-2">
-                    <Link 
+                    <Link
                       href={`/admin/manage-expert-helpdesk/${expert.id}/edit`}
                       className="p-2 text-[#979796] hover:text-[#546A7A] hover:bg-[#96AEC2]/10 rounded-lg transition-colors"
                       title="Edit Expert"
                     >
                       <Edit2 className="h-4 w-4" />
                     </Link>
-                    <Link 
+                    <Link
                       href={`/admin/manage-expert-helpdesk/${expert.id}/password`}
                       className="p-2 text-[#979796] hover:text-[#4F6A64] hover:bg-[#A2B9AF]/10 rounded-lg transition-colors"
                       title="Change Password"
                     >
                       <Lock className="h-4 w-4" />
                     </Link>
-                    <button 
+                    <button
                       onClick={() => handleDeleteClick(expert)}
                       disabled={deleting === expert.id}
                       className="p-2 text-[#979796] hover:text-[#9E3B47] hover:bg-[#E17F70]/10 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -309,7 +305,7 @@ export default function ExpertHelpdeskClient({
                     </button>
                   </div>
                 </div>
-                
+
                 {expert.lastActiveAt && (
                   <div className="mt-3 text-xs text-[#AEBFC3]0 sm:mt-3">
                     Last active: {new Date(expert.lastActiveAt).toLocaleDateString('en-US', {
@@ -347,7 +343,7 @@ export default function ExpertHelpdeskClient({
                   <p className="text-sm text-[#5D6E73]">This action cannot be undone</p>
                 </div>
               </div>
-              
+
               <div className="bg-[#E17F70]/10 border border-[#E17F70] rounded-lg p-4 mb-6">
                 <p className="text-sm text-[#75242D]">
                   <span className="font-medium">Are you sure you want to delete:</span>

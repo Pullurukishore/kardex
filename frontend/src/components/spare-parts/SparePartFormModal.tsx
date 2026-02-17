@@ -1,11 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
   DialogDescription,
   DialogFooter
 } from '@/components/ui/dialog'
@@ -13,24 +13,24 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { 
-  Select, 
-  SelectTrigger, 
-  SelectValue, 
-  SelectContent, 
-  SelectItem 
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem
 } from '@/components/ui/select'
-import { 
-  Package, 
-  Camera, 
-  Save, 
-  X, 
-  RefreshCw 
+import {
+  Package,
+  Camera,
+  Save,
+  X,
+  RefreshCw
 } from 'lucide-react'
-import { 
-  SparePart, 
-  SPARE_PART_STATUSES, 
-  SPARE_PART_CATEGORIES 
+import {
+  SparePart,
+  SPARE_PART_STATUSES,
+  SPARE_PART_CATEGORIES
 } from '@/lib/constants/spare-parts'
 
 interface SparePartFormModalProps {
@@ -135,15 +135,18 @@ export default function SparePartFormModal({
                 <div className="relative aspect-square rounded-3xl bg-slate-100 border-2 border-dashed border-slate-200 overflow-hidden group">
                   {formData.imageUrl ? (
                     <>
-                      <img 
-                        src={getImageUrl(formData.imageUrl)} 
-                        alt="Preview" 
+                      <img
+                        src={getImageUrl(formData.imageUrl)}
+                        alt="Preview"
                         className="w-full h-full object-cover"
                       />
                       <button
                         type="button"
-                        onClick={() => handleInputChange('imageUrl', '')}
-                        className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-xl opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleInputChange('imageUrl', '');
+                        }}
+                        className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-xl opacity-0 group-hover:opacity-100 transition-opacity z-20"
                       >
                         <X className="w-4 h-4" />
                       </button>
@@ -156,7 +159,7 @@ export default function SparePartFormModal({
                   )}
                   <input
                     type="file"
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                     onChange={handleFileChange}
                     accept="image/*"
                   />

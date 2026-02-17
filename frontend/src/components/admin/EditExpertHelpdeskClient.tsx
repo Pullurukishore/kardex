@@ -14,7 +14,7 @@ interface EditExpertHelpdeskClientProps {
 
 export default function EditExpertHelpdeskClient({ expert }: EditExpertHelpdeskClientProps) {
   const router = useRouter();
-  
+
   const [formData, setFormData] = useState({
     email: expert.email || '',
     name: expert.name || '',
@@ -43,12 +43,12 @@ export default function EditExpertHelpdeskClient({ expert }: EditExpertHelpdeskC
         phone: formData.phone || null
       };
 
-      const response = await apiClient.put(`/admin/users/${expert.id}`, updateData);
+      const response = await apiClient.put(`/admin/${expert.id}`, updateData);
 
       if ((response as any).user || response.data) {
         setMessage({ type: 'success', text: 'Expert updated successfully! Redirecting...' });
         toast.success('Expert updated successfully!');
-        
+
         router.refresh();
         router.push('/admin/manage-expert-helpdesk');
       } else {
@@ -56,8 +56,8 @@ export default function EditExpertHelpdeskClient({ expert }: EditExpertHelpdeskC
       }
     } catch (error: any) {
       const errorMessage = error?.response?.data?.message || error?.message || 'Failed to update expert';
-      setMessage({ 
-        type: 'error', 
+      setMessage({
+        type: 'error',
         text: errorMessage
       });
       toast.error(errorMessage);
@@ -74,7 +74,7 @@ export default function EditExpertHelpdeskClient({ expert }: EditExpertHelpdeskC
     <div className="space-y-6">
       {/* Back Navigation */}
       <div className="flex items-center space-x-3">
-        <Link 
+        <Link
           href="/admin/manage-expert-helpdesk"
           className="flex items-center space-x-2 text-[#5D6E73] hover:text-[#546A7A] transition-colors"
         >
@@ -93,14 +93,12 @@ export default function EditExpertHelpdeskClient({ expert }: EditExpertHelpdeskC
             <h3 className="text-xl font-bold text-[#546A7A]">{expert.name || 'Expert'}</h3>
             <p className="text-[#5D6E73]">{expert.email}</p>
             <div className="mt-2">
-              <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
-                expert.isActive 
-                  ? 'bg-[#A2B9AF]/20 text-[#4F6A64] border border-[#A2B9AF]' 
+              <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${expert.isActive
+                  ? 'bg-[#A2B9AF]/20 text-[#4F6A64] border border-[#A2B9AF]'
                   : 'bg-[#E17F70]/20 text-[#75242D] border border-[#E17F70]'
-              }`}>
-                <div className={`w-1.5 h-1.5 rounded-full mr-1.5 ${
-                  expert.isActive ? 'bg-[#82A094]' : 'bg-[#E17F70]'
-                }`}></div>
+                }`}>
+                <div className={`w-1.5 h-1.5 rounded-full mr-1.5 ${expert.isActive ? 'bg-[#82A094]' : 'bg-[#E17F70]'
+                  }`}></div>
                 {expert.isActive ? 'Active' : 'Inactive'}
               </span>
             </div>
@@ -117,11 +115,10 @@ export default function EditExpertHelpdeskClient({ expert }: EditExpertHelpdeskC
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           {/* Message Display */}
           {message && (
-            <div className={`p-4 rounded-lg border ${
-              message.type === 'success'
+            <div className={`p-4 rounded-lg border ${message.type === 'success'
                 ? 'bg-[#A2B9AF]/10 border-[#A2B9AF] text-[#4F6A64]'
                 : 'bg-[#E17F70]/10 border-[#E17F70] text-[#75242D]'
-            }`}>
+              }`}>
               {message.text}
             </div>
           )}

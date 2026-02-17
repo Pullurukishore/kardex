@@ -15,10 +15,10 @@ import { toast } from 'sonner';
 import { authService } from '@/services/auth.service';
 import { UserRole, FinanceRole, type User } from '@/types/user.types';
 import { isBrowser, safeLocalStorage, safeSessionStorage } from '@/lib/browser';
-import { 
-  manualGetCookie, 
-  manualSetCookie, 
-  getDevToken, 
+import {
+  manualGetCookie,
+  manualSetCookie,
+  getDevToken,
   coerceOptionalNumber,
   getSafeUser
 } from '@/lib/auth-utils';
@@ -72,21 +72,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loadUser = useCallback(async (currentPath?: string): Promise<User | null> => {
     const pathToCheck = currentPath || pathname;
     if (pathToCheck.startsWith('/auth/')) return null;
-    
+
     try {
       // SECURITY: In production, accessToken is httpOnly and cannot be read by JavaScript
       // We check for role cookies to determine if user might be authenticated
       // The actual auth happens when API client makes requests with withCredentials: true
       const role = getCookie('userRole') || manualGetCookie('userRole');
       const financeRole = getCookie('financeRole') || manualGetCookie('financeRole');
-      
+
       // Development fallback: check localStorage tokens
       const hasDevToken = process.env.NODE_ENV === 'development' && (
-        localStorage.getItem('accessToken') || 
+        localStorage.getItem('accessToken') ||
         localStorage.getItem('token') ||
         getDevToken()
       );
-                   
+
       // If no role cookies and no dev token, user is not authenticated
       if (!role && !financeRole && !hasDevToken) return null;
 
@@ -130,12 +130,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setAccessToken(null);
     setError(null);
     lastValidUser.current = null;
-    
+
     deleteCookie('accessToken');
     deleteCookie('refreshToken');
     deleteCookie('userRole');
     deleteCookie('financeRole');
-    
+
     safeLocalStorage.removeItem('auth_token');
     safeLocalStorage.removeItem('refresh_token');
     safeLocalStorage.removeItem('cookie_accessToken');
@@ -152,7 +152,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     safeLocalStorage.removeItem('selectedModule');
     safeLocalStorage.removeItem('selectedSubModule');
     safeSessionStorage.removeItem('currentUser');
-    
+
     if (process.env.NODE_ENV === 'development') {
       safeLocalStorage.removeItem('dev_accessToken');
       safeLocalStorage.removeItem('dev_userRole');
@@ -180,14 +180,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isInitializing.current = false;
       return;
     }
-    
+
     // Restore state from storage on mount to avoid hydration mismatch
     const role = getCookie('userRole') || manualGetCookie('userRole');
     const financeRole = getCookie('financeRole') || manualGetCookie('financeRole');
-    
+
     // Development fallback
     const devToken = process.env.NODE_ENV === 'development' ? getDevToken() : null;
-    
+
     if (role || financeRole || devToken) {
       const cachedUser = safeSessionStorage.getItem('currentUser');
       if (cachedUser) {
@@ -199,7 +199,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             lastValidUser.current = parsedUser;
             setIsLoading(false);
           }
-        } catch (e) {}
+        } catch (e) { }
       }
       if (devToken) setAccessToken(devToken);
     } else {
@@ -208,9 +208,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsLoading(false);
       }
     }
-    
+
     setIsOnline(navigator.onLine);
-    
+
     // Tiny delay to ensure refs are set before checkAuth runs
     setTimeout(() => {
       isInitializing.current = false;
@@ -225,45 +225,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       if (!isOnline || authCheckInProgress.current) return;
-      
+
       const now = Date.now();
       if (now - lastAuthCheckTime.current < 2000) return;
       lastAuthCheckTime.current = now;
-      
+
       try {
         authCheckInProgress.current = true;
-        
+
         if (user && user.email && initialAuthCheck.current && !pathname.startsWith('/auth/')) {
           setIsLoading(false);
           return;
         }
-        
+
         // SECURITY: accessToken is httpOnly, so we check role cookies for auth state
         const role = getCookie('userRole') || manualGetCookie('userRole');
         const financeRole = getCookie('financeRole') || manualGetCookie('financeRole');
-        
+
         // Development fallback
         const hasDevToken = process.env.NODE_ENV === 'development' && getDevToken();
-        
+
         if (!role && !financeRole && !hasDevToken) {
           if (user || accessToken) await clearAuthState();
           setIsLoading(false);
           initialAuthCheck.current = true;
           return;
         }
-        
+
         // Only show loading if we really don't have enough data to show the page
         if (!pathname.startsWith('/auth/') && !user && !initialAuthCheck.current) {
           setIsLoading(true);
         }
-        
+
         if (user && user.role === role && !pathname.startsWith('/auth/')) {
           setIsLoading(false);
           initialAuthCheck.current = true;
           // We still want to verify in background occasionally
           if (now - lastAuthCheckTime.current < 30000) return;
         }
-        
+
         try {
           const userData = await loadUser(pathname);
           if (userData) {
@@ -294,7 +294,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         authCheckInProgress.current = false;
       }
     };
-    
+
     if (isBrowser && !pathname.startsWith('/auth/')) {
       const timer = setTimeout(checkAuth, 50);
       const safetyTimer = setTimeout(() => { setIsLoading(false); initialAuthCheck.current = true; }, 3000);
@@ -314,14 +314,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // SECURITY: accessToken and refreshToken are set by the backend with httpOnly flag
       // Frontend should NOT set these cookies as it would make them accessible to JavaScript (XSS risk)
-      
+
       // Only set role cookies for UI purposes (non-sensitive, read by client for routing)
       const maxAge = rememberMe ? 60 * 60 * 24 * 30 : 60 * 60 * 24 * 7;
-      const roleOptions = { 
-        path: '/', 
-        secure: process.env.NODE_ENV === 'production', 
-        sameSite: 'lax' as const, 
-        maxAge 
+      const roleOptions = {
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax' as const,
+        maxAge
       };
 
       // Set role cookies (non-sensitive, needed for client-side routing)
@@ -331,13 +331,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Fallback for development or when cookies are blocked
       manualSetCookie('userRole', safeUser.role, roleOptions);
       if (safeUser.financeRole) manualSetCookie('financeRole', safeUser.financeRole, roleOptions);
-      
+
       // Store user in state and session storage (for fast access, not for auth)
       setUser(safeUser);
       setAccessToken(response.accessToken); // Keep in memory for API calls
       lastValidUser.current = safeUser;
       safeSessionStorage.setItem('currentUser', JSON.stringify(safeUser));
-      
+
       toast.success(`Welcome back, ${safeUser.name}!`);
 
       // Note: Redirect is handled by the calling component (login page) to allow for module-specific redirects
@@ -356,7 +356,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     try {
       await authService.logout();
-    } catch (err) {} finally {
+    } catch (err) { } finally {
       await clearAuthState();
       if (typeof window !== 'undefined') window.location.href = '/auth/login';
     }

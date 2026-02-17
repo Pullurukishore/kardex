@@ -30,7 +30,7 @@ export function getRoleBasedRedirect(role?: UserRole | string, financeRole?: Fin
 
 export function isRouteAccessible(route: string, userRole?: UserRole | string, financeRole?: FinanceRole | string): boolean {
   // Public routes accessible to everyone
-  const publicRoutes = ['/auth/login', '/auth/forgot-password', '/auth/reset-password'];
+  const publicRoutes = ['/auth/login', '/auth/forgot-password', '/auth/reset-password', '/pin-access'];
   if (publicRoutes.includes(route)) return true;
 
   // Normalize roles (handle string "undefined" from cookies)
@@ -62,6 +62,6 @@ export function isRouteAccessible(route: string, userRole?: UserRole | string, f
 }
 
 export function shouldRedirectToLogin(route: string): boolean {
-  const publicRoutes = ['/auth/login', '/auth/forgot-password', '/auth/reset-password', '/_next', '/favicon.ico', '/api/auth', '/'];
+  const publicRoutes = ['/auth/login', '/auth/forgot-password', '/auth/reset-password', '/pin-access', '/_next', '/favicon.ico', '/api/auth', '/'];
   return !publicRoutes.some(publicRoute => route.startsWith(publicRoute));
 }

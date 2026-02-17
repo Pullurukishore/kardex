@@ -2,13 +2,13 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { 
-  Plus, 
-  Upload, 
-  RefreshCw, 
-  Package, 
-  Sparkles, 
-  ChevronLeft, 
+import {
+  Plus,
+  Upload,
+  RefreshCw,
+  Package,
+  Sparkles,
+  ChevronLeft,
   ChevronRight,
   TrendingUp,
   Tag
@@ -117,13 +117,13 @@ export default function SparePartsListPage({ readOnly = false }: SparePartsListP
   }
 
   const handleSelectPart = (id: number) => {
-    setSelectedParts(prev => 
+    setSelectedParts(prev =>
       prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
     )
   }
 
   const handleSelectAll = () => {
-    setSelectedParts(prev => 
+    setSelectedParts(prev =>
       prev.length === spareParts.length ? [] : spareParts.map(p => p.id)
     )
   }
@@ -158,23 +158,23 @@ export default function SparePartsListPage({ readOnly = false }: SparePartsListP
               <p className="text-blue-100 opacity-80">Spare parts catalog and pricing control</p>
             </div>
           </div>
-          
+
           {!readOnly && (
             <div className="flex items-center gap-3">
-              <Button 
-                onClick={() => setShowBulkPriceModal(true)} 
+              <Button
+                onClick={() => setShowBulkPriceModal(true)}
                 disabled={selectedParts.length === 0}
                 className="bg-white/10 hover:bg-white/20 text-white border-white/10 h-12 rounded-xl"
               >
                 ₹ Bulk Pricing ({selectedParts.length})
               </Button>
-              <Button 
+              <Button
                 onClick={() => setShowImportModal(true)}
                 className="bg-white/10 hover:bg-white/20 text-white border-white/10 h-12 rounded-xl"
               >
                 <Upload className="w-5 h-5 mr-2" /> Import
               </Button>
-              <Button 
+              <Button
                 onClick={() => { setSelectedPart(null); setShowFormModal(true); }}
                 className="bg-white text-[#546A7A] hover:bg-blue-50 h-12 px-6 rounded-xl font-bold shadow-lg"
               >
@@ -185,13 +185,13 @@ export default function SparePartsListPage({ readOnly = false }: SparePartsListP
         </div>
       </div>
 
-      <SparePartsStats 
-        total={pagination.total} 
-        spareParts={spareParts} 
-        loading={loading} 
+      <SparePartsStats
+        total={pagination.total}
+        spareParts={spareParts}
+        loading={loading}
       />
 
-      <SparePartsFilters 
+      <SparePartsFilters
         searchTerm={searchTerm}
         setSearchTerm={setSearchTerm}
         selectedStatus={selectedStatus}
@@ -220,7 +220,7 @@ export default function SparePartsListPage({ readOnly = false }: SparePartsListP
           <p className="text-slate-400 mt-2">Try adjusting your filters or search terms.</p>
         </div>
       ) : viewMode === 'list' ? (
-        <SparePartsTable 
+        <SparePartsTable
           spareParts={spareParts}
           selectedParts={selectedParts}
           handleSelectPart={handleSelectPart}
@@ -233,9 +233,10 @@ export default function SparePartsListPage({ readOnly = false }: SparePartsListP
             fetchSpareParts();
           }}
           getImageUrl={getImageUrl}
+          readOnly={readOnly}
         />
       ) : (
-        <SparePartsGrid 
+        <SparePartsGrid
           spareParts={spareParts}
           selectedParts={selectedParts}
           handleSelectPart={handleSelectPart}
@@ -247,6 +248,7 @@ export default function SparePartsListPage({ readOnly = false }: SparePartsListP
             fetchSpareParts();
           }}
           getImageUrl={getImageUrl}
+          readOnly={readOnly}
         />
       )}
 
@@ -279,7 +281,7 @@ export default function SparePartsListPage({ readOnly = false }: SparePartsListP
       {!readOnly && (
         <>
           {showFormModal && (
-            <SparePartFormModal 
+            <SparePartFormModal
               open={showFormModal}
               onOpenChange={setShowFormModal}
               part={selectedPart}
@@ -299,7 +301,7 @@ export default function SparePartsListPage({ readOnly = false }: SparePartsListP
           )}
 
           {showBulkPriceModal && (
-            <SparePartsBulkPriceModal 
+            <SparePartsBulkPriceModal
               open={showBulkPriceModal}
               onOpenChange={setShowBulkPriceModal}
               selectedParts={selectedParts}
@@ -314,7 +316,7 @@ export default function SparePartsListPage({ readOnly = false }: SparePartsListP
           )}
 
           {showImportModal && (
-            <SparePartsImportModal 
+            <SparePartsImportModal
               open={showImportModal}
               onOpenChange={setShowImportModal}
               onDownloadTemplate={() => apiService.downloadSparePartImportTemplate()}

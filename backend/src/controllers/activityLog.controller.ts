@@ -100,6 +100,13 @@ const ACTION_CONFIG: Record<string, {
     'NOTE_ADDED': { label: 'Note Added', category: 'ticket', color: 'blue' },
     'SCHEDULED': { label: 'Activity Scheduled', category: 'ticket', color: 'orange' },
     'REPORT_UPLOADED': { label: 'Report Uploaded', category: 'ticket', color: 'blue' },
+    'TICKET_CLOSED': { label: 'Ticket Closed', category: 'ticket', color: 'green' },
+    'UPDATE_SPARE_PARTS_STATUS': { label: 'Spare Parts Updated', category: 'ticket', color: 'blue' },
+    'ASSIGNMENT_ACCEPTED': { label: 'Assignment Accepted', category: 'ticket', color: 'green' },
+    'ASSIGNMENT_REJECTED': { label: 'Assignment Rejected', category: 'ticket', color: 'red' },
+    'ONSITE_VISIT_STARTED': { label: 'Onsite Visit Started', category: 'ticket', color: 'blue' },
+    'ONSITE_VISIT_REACHED': { label: 'Onsite Visit Reached', category: 'ticket', color: 'green' },
+    'ONSITE_VISIT_COMPLETED': { label: 'Onsite Visit Completed', category: 'ticket', color: 'green' },
 
     // Offer actions
     'OFFER_CREATED': { label: 'Offer Created', category: 'offer', color: 'green' },
@@ -149,7 +156,7 @@ export const getTicketActivityLogs = async (req: AuthenticatedRequest, res: Resp
         // Build where clause
         const where: any = {
             OR: [
-                { entityType: 'Ticket' },
+                { entityType: { in: ['Ticket', 'TICKET'] } },
                 { action: { in: AUTH_ACTIONS } }
             ]
         };
@@ -308,7 +315,7 @@ export const getTicketActivityStats = async (req: AuthenticatedRequest, res: Res
             prisma.auditLog.count({
                 where: {
                     OR: [
-                        { entityType: 'Ticket' },
+                        { entityType: { in: ['Ticket', 'TICKET'] } },
                         { action: { in: AUTH_ACTIONS } }
                     ]
                 }
@@ -323,7 +330,7 @@ export const getTicketActivityStats = async (req: AuthenticatedRequest, res: Res
             // Ticket updates today
             prisma.auditLog.count({
                 where: {
-                    entityType: 'Ticket',
+                    entityType: { in: ['Ticket', 'TICKET'] },
                     createdAt: { gte: today }
                 }
             }),
@@ -659,6 +666,20 @@ function getActivityDescription(activity: any): string {
             return `${userName} added a note`;
         case 'SCHEDULED':
             return `${userName} scheduled an activity`;
+        case 'TICKET_CLOSED':
+            return `${userName} closed the ticket`;
+        case 'UPDATE_SPARE_PARTS_STATUS':
+            return `${userName} updated spare parts status`;
+        case 'ASSIGNMENT_ACCEPTED':
+            return `${userName} accepted the assignment`;
+        case 'ASSIGNMENT_REJECTED':
+            return `${userName} rejected the assignment`;
+        case 'ONSITE_VISIT_STARTED':
+            return `${userName} started onsite visit`;
+        case 'ONSITE_VISIT_REACHED':
+            return `${userName} reached onsite location`;
+        case 'ONSITE_VISIT_COMPLETED':
+            return `${userName} completed onsite visit`;
         case 'REPORT_UPLOADED':
             return `${userName} uploaded a report`;
         case 'OFFER_CREATED':

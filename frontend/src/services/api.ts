@@ -425,7 +425,7 @@ class ApiService {
   }
 
   async getUser(id: number) {
-    const response = await api.get(`${this.baseURL}/admin/users/${id}`);
+    const response = await api.get(`${this.baseURL}/admin/${id}`);
     return response.data;
   }
 
@@ -435,12 +435,12 @@ class ApiService {
   }
 
   async updateUser(id: number, userData: any) {
-    const response = await api.put(`${this.baseURL}/admin/users/${id}`, userData);
+    const response = await api.put(`${this.baseURL}/admin/${id}`, userData);
     return response.data;
   }
 
   async deleteUser(id: number) {
-    const response = await api.delete(`${this.baseURL}/admin/users/${id}`);
+    const response = await api.delete(`${this.baseURL}/admin/${id}`);
     return response.data;
   }
 

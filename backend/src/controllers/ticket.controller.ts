@@ -438,7 +438,7 @@ export const createTicket = async (req: TicketRequest, res: Response) => {
     await prisma.auditLog.create({
       data: {
         action: 'TICKET_CREATED',
-        entityType: 'TICKET',
+        entityType: 'Ticket',
         entityId: ticket.id,
         userId: user.id,
         metadata: {
@@ -1043,8 +1043,8 @@ export const updateStatus = async (req: Request, res: Response) => {
     try {
       await ActivityController.logActivity({
         userId: user.id,
-        action: `TICKET_STATUS_CHANGED`,
-        entityType: 'TICKET',
+        action: 'STATUS_CHANGE',
+        entityType: 'Ticket',
         entityId: Number(id).toString(),
         details: {
           oldStatus: currentTicket.status,
@@ -1347,8 +1347,8 @@ export const assignTicket = async (req: TicketRequest, res: Response) => {
       // 3. Create audit log
       await tx.auditLog.create({
         data: {
-          action: 'ASSIGN_TO_SERVICE_PERSON',
-          entityType: 'TICKET',
+          action: 'TICKET_ASSIGNED',
+          entityType: 'Ticket',
           entityId: Number(ticketId),
           userId: user.id,
           performedById: user.id,
@@ -1395,8 +1395,8 @@ export const assignTicket = async (req: TicketRequest, res: Response) => {
     // Create audit log
     await prisma.auditLog.create({
       data: {
-        action: 'ASSIGN_TO_SERVICE_PERSON',
-        entityType: 'TICKET',
+        action: 'TICKET_ASSIGNED',
+        entityType: 'Ticket',
         entityId: Number(ticketId),
         userId: user.id,
         performedById: user.id,
@@ -1468,8 +1468,8 @@ export const planOnsiteVisit = async (req: TicketRequest, res: Response) => {
     // Create audit log
     await prisma.auditLog.create({
       data: {
-        action: 'PLAN_ONSITE_VISIT',
-        entityType: 'TICKET',
+        action: 'SCHEDULED',
+        entityType: 'Ticket',
         entityId: Number(ticketId),
         userId: user.id,
         performedById: user.id,
@@ -1614,8 +1614,8 @@ export const assignToZoneUser = async (req: TicketRequest, res: Response) => {
     // Create audit log
     await prisma.auditLog.create({
       data: {
-        action: 'ASSIGN_TO_ZONE_USER',
-        entityType: 'TICKET',
+        action: 'TICKET_ASSIGNED',
+        entityType: 'Ticket',
         entityId: Number(ticketId),
         userId: user.id,
         performedById: user.id,
@@ -1676,7 +1676,7 @@ export const completeOnsiteVisit = async (req: TicketRequest, res: Response) => 
     await prisma.auditLog.create({
       data: {
         action: 'UPDATE_SPARE_PARTS_STATUS',
-        entityType: 'TICKET',
+        entityType: 'Ticket',
         entityId: Number(ticketId),
         userId: user.id,
         performedById: user.id,
@@ -1753,12 +1753,12 @@ export const requestPO = async (req: TicketRequest, res: Response) => {
     // Create audit log
     await prisma.auditLog.create({
       data: {
-        action: 'CREATE_PO_REQUEST',
-        entityType: 'PO_REQUEST',
-        entityId: poRequest.id,
+        action: 'PO_REQUESTED',
+        entityType: 'Ticket',
+        entityId: Number(ticketId),
         userId: user.id,
         performedById: user.id,
-        details: `Created PO request: ${description}`,
+        details: { description },
         updatedAt: new Date()
       }
     });
@@ -1826,6 +1826,19 @@ export const approvePO = async (req: TicketRequest, res: Response) => {
       },
     });
 
+    // Create audit log
+    await prisma.auditLog.create({
+      data: {
+        action: 'PO_APPROVED',
+        entityType: 'Ticket',
+        entityId: Number(ticketId),
+        userId: user.id,
+        performedById: user.id,
+        details: { poNumber, notes },
+        updatedAt: new Date()
+      }
+    });
+
     res.json(updatedTicket);
   } catch (error) {
     res.status(500).json({ error: 'Error approving PO' });
@@ -1873,6 +1886,19 @@ export const updateSparePartsStatus = async (req: TicketRequest, res: Response) 
         changedById: user.id,
         notes: `Spare parts ${sparePartsStatus.toLowerCase()}`,
       },
+    });
+
+    // Create audit log
+    await prisma.auditLog.create({
+      data: {
+        action: 'UPDATE_SPARE_PARTS_STATUS',
+        entityType: 'Ticket',
+        entityId: Number(ticketId),
+        userId: user.id,
+        performedById: user.id,
+        details: { status: sparePartsStatus, details },
+        updatedAt: new Date()
+      }
     });
 
     res.json(updatedTicket);
@@ -1923,6 +1949,19 @@ export const closeTicket = async (req: TicketRequest, res: Response) => {
           changedById: user.id,
           notes: 'Ticket closed by zone owner',
         },
+      });
+
+      // 4. Create audit log
+      await tx.auditLog.create({
+        data: {
+          action: 'TICKET_CLOSED',
+          entityType: 'Ticket',
+          entityId: Number(ticketId),
+          userId: user.id,
+          performedById: user.id,
+          details: { feedback, rating },
+          updatedAt: new Date()
+        }
       });
 
       return ticket;
@@ -2030,7 +2069,7 @@ export const getTicketActivity = async (req: TicketRequest, res: Response) => {
         where: {
           OR: [
             { ticketId },
-            { entityType: 'TICKET', entityId: ticketId }
+            { entityType: 'Ticket', entityId: ticketId }
           ]
         },
         orderBy: { createdAt: 'desc' },
@@ -2269,8 +2308,8 @@ export const addNote = async (req: TicketRequest, res: Response) => {
     // Create audit log
     await prisma.auditLog.create({
       data: {
-        action: 'ADD_NOTE',
-        entityType: 'TICKET',
+        action: 'NOTE_ADDED',
+        entityType: 'Ticket',
         entityId: Number(ticketId),
         userId: user.id,
         performedById: user.id,
@@ -2356,7 +2395,7 @@ export const uploadTicketReports = async (req: TicketRequest, res: Response) => 
       await prisma.auditLog.create({
         data: {
           action: 'REPORT_UPLOADED',
-          entityType: 'TICKET',
+          entityType: 'Ticket',
           entityId: Number(ticketId),
           userId: user.id,
           performedById: user.id,
@@ -2627,7 +2666,7 @@ export const startOnsiteVisit = async (req: TicketRequest, res: Response) => {
     await prisma.auditLog.create({
       data: {
         action: 'ONSITE_VISIT_STARTED',
-        entityType: 'TICKET',
+        entityType: 'Ticket',
         entityId: Number(ticketId),
         userId: user.id,
         performedById: user.id,
@@ -3161,8 +3200,8 @@ export const updateStatusWithLifecycle = async (req: Request, res: Response) => 
     try {
       await ActivityController.logActivity({
         userId: user.id,
-        action: `TICKET_STATUS_CHANGED`,
-        entityType: 'TICKET',
+        action: 'STATUS_CHANGE',
+        entityType: 'Ticket',
         entityId: Number(id).toString(),
         details: {
           oldStatus: currentTicket.status,
@@ -3339,7 +3378,7 @@ export const respondToAssignment = async (req: TicketRequest, res: Response) => 
     await prisma.auditLog.create({
       data: {
         action: action === 'ACCEPT' ? 'ASSIGNMENT_ACCEPTED' : 'ASSIGNMENT_REJECTED',
-        entityType: 'TICKET',
+        entityType: 'Ticket',
         entityId: Number(ticketId),
         userId: user.id,
         details: action === 'ACCEPT'
