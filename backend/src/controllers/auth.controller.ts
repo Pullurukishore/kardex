@@ -97,10 +97,13 @@ export const register = async (req: Request, res: Response) => {
       data: { refreshToken }
     });
 
+    const isProduction = process.env.NODE_ENV === 'production';
+    const isLocal = req.headers.host?.includes('172.28.91.10') || req.headers.host?.includes('localhost');
+
     // Set HTTP-only cookies
     res.cookie('accessToken', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isProduction && !isLocal,
       sameSite: 'lax',
       maxAge: 1 * 60 * 60 * 1000, // 1 hour (matches JWT expiry)
       path: '/'
@@ -301,9 +304,9 @@ export const login = async (req: Request, res: Response) => {
       path: string;
     } = {
       httpOnly: true,
-      secure: isProduction,
-      sameSite: 'lax', // Using 'lax' for better compatibility
-      maxAge: 1 * 60 * 60 * 1000, // 1 hour for access token (matches JWT expiry)
+      secure: isProduction && !req.headers.host?.includes('172.28.91.10') && !req.headers.host?.includes('localhost'),
+      sameSite: 'lax',
+      maxAge: 1 * 60 * 60 * 1000,
       path: '/'
     };
 
@@ -719,9 +722,10 @@ export const refreshToken = async (req: Request, res: Response) => {
     }
 
     // Set cookies with new tokens
+    const isProduction = process.env.NODE_ENV === 'production';
     const cookieOptions = {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isProduction && !req.headers.host?.includes('172.28.91.10') && !req.headers.host?.includes('localhost'),
       sameSite: 'lax' as const,
       maxAge: 1 * 60 * 60 * 1000, // 1 hour for access token (matches JWT expiry)
       path: '/'

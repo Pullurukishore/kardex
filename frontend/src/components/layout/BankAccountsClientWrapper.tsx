@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 import { 
   Building2, Plus, Clock, ArrowLeft, LogOut, ChevronDown, 
   Bell, Menu, X, HelpCircle, ChevronLeft, ChevronRight, Activity,
-  CreditCard
+  CreditCard, Shield
 } from 'lucide-react';
 import { FinanceRole } from '@/types/user.types';
 
@@ -18,10 +18,11 @@ interface BankAccountsLayoutProps {
 }
 
 const allNavItems = [
-  { href: '/finance/bank-accounts', label: 'All Vendors', icon: Building2, description: 'View all vendor accounts' },
-  { href: '/finance/bank-accounts/new', label: 'Add Vendor', icon: Plus, description: 'Create vendor account' },
-  { href: '/finance/bank-accounts/requests', label: 'Requests', icon: Clock, description: 'Vendor approvals' },
-  { href: '/finance/bank-accounts/payments', label: 'Bulk Payments', icon: CreditCard, description: 'Excel bulk payments' },
+  { href: '/finance/bank-accounts', label: 'All Vendors', icon: Building2, description: 'View all vendor accounts', roles: [FinanceRole.FINANCE_ADMIN, FinanceRole.FINANCE_USER, FinanceRole.FINANCE_VIEWER] },
+  { href: '/finance/bank-accounts/new', label: 'Add Vendor', icon: Plus, description: 'Create vendor account', roles: [FinanceRole.FINANCE_ADMIN, FinanceRole.FINANCE_USER] },
+  { href: '/finance/bank-accounts/requests', label: 'Requests', icon: Clock, description: 'Vendor approvals', roles: [FinanceRole.FINANCE_ADMIN, FinanceRole.FINANCE_USER, FinanceRole.FINANCE_VIEWER] },
+  { href: '/finance/bank-accounts/payments', label: 'Bulk Payments', icon: CreditCard, description: 'Excel bulk payments', roles: [FinanceRole.FINANCE_ADMIN, FinanceRole.FINANCE_USER] },
+  { href: '/finance/bank-accounts/payment-batches', label: 'Payment Approvals', icon: Shield, description: 'Review & approve batches' },
   { href: '/finance/bank-accounts/activities', label: 'Activities', icon: Activity, description: 'Audit trail & logs', roles: [FinanceRole.FINANCE_ADMIN] },
 ];
 
@@ -38,8 +39,13 @@ export function BankAccountsClientWrapper({ children }: BankAccountsLayoutProps)
   const { user, logout } = useAuth();
 
   const navItems = (allNavItems as any[]).filter(item => {
+    const financeRole = user?.financeRole as FinanceRole | undefined;
+    // Finance Approver can only see Payment Approvals
+    if (financeRole === FinanceRole.FINANCE_APPROVER) {
+      return item.href === '/finance/bank-accounts/payment-batches';
+    }
     if (!item.roles) return true;
-    return user?.financeRole && item.roles.includes(user.financeRole);
+    return financeRole && item.roles.includes(financeRole);
   });
 
   useEffect(() => {

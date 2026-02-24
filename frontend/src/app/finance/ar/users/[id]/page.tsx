@@ -15,7 +15,8 @@ import {
   Activity, 
   Settings,
   Crown,
-  Eye as ViewIcon
+  Eye as ViewIcon,
+  ClipboardCheck
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -89,6 +90,8 @@ export default function FinanceUserDetailPage() {
         return <User className="h-5 w-5" />;
       case 'FINANCE_VIEWER':
         return <ViewIcon className="h-5 w-5" />;
+      case 'FINANCE_APPROVER':
+        return <ClipboardCheck className="h-5 w-5" />;
       default:
         return <Shield className="h-5 w-5" />;
     }

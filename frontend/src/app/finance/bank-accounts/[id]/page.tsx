@@ -187,8 +187,19 @@ export default function BankAccountDetailPage() {
           </Button>
           <div className="min-w-0">
             <h1 className="text-2xl sm:text-3xl font-bold text-[#546A7A] truncate">{account.vendorName}</h1>
-            <p className="text-[#5D6E73] mt-1 text-sm sm:text-base truncate">
+            <p className="text-[#5D6E73] mt-1 text-sm sm:text-base flex items-center gap-2 flex-wrap">
               {account?.vendorName} • <span className="font-bold text-[#CE9F6B]">{account?.currency} {account?.accountType || ''} Account</span>
+              {account?.accountCategory && (
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${
+                  account.accountCategory === 'DOMESTIC' ? 'bg-[#82A094]/10 text-[#4F6A64] border-[#82A094]/20' :
+                  account.accountCategory === 'INTERNATIONAL' ? 'bg-[#6F8A9D]/10 text-[#6F8A9D] border-[#6F8A9D]/20' :
+                  'bg-[#CE9F6B]/10 text-[#976E44] border-[#CE9F6B]/20'
+                }`}>
+                  {account.accountCategory === 'DOMESTIC' ? '🏠 Domestic' :
+                   account.accountCategory === 'INTERNATIONAL' ? '🌐 International' :
+                   '👤 Employee'}
+                </span>
+              )}
             </p>
           </div>
         </div>
@@ -238,6 +249,26 @@ export default function BankAccountDetailPage() {
             </CardHeader>
             <CardContent className="pt-6 bg-gradient-to-br from-[#AEBFC3]/5 to-white p-4 sm:p-6">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Account Category */}
+                <div className={`relative overflow-hidden p-4 sm:p-6 rounded-xl shadow-lg hover:shadow-2xl transition-all transform hover:scale-105 ${
+                  account.accountCategory === 'DOMESTIC' ? 'bg-gradient-to-br from-[#82A094] to-[#4F6A64]' :
+                  account.accountCategory === 'INTERNATIONAL' ? 'bg-gradient-to-br from-[#6F8A9D] to-[#546A7A]' :
+                  'bg-gradient-to-br from-[#CE9F6B] to-[#976E44]'
+                }`}>
+                  <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -mr-10 -mt-10"></div>
+                  <div className="relative">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Sparkles className="h-4 w-4 sm:h-5 sm:w-5 text-white/70" />
+                      <p className="text-xs sm:text-sm text-white/70 font-semibold">Category</p>
+                    </div>
+                    <p className="text-xl sm:text-2xl font-bold text-white uppercase flex items-center gap-2">
+                      {account.accountCategory === 'DOMESTIC' ? 'Domestic' :
+                       account.accountCategory === 'INTERNATIONAL' ? 'International' :
+                       'Employee'}
+                    </p>
+                  </div>
+                </div>
+
                 {/* Currency */}
                 <div className="relative overflow-hidden p-4 sm:p-6 bg-gradient-to-br from-[#6F8A9D] to-[#546A7A] rounded-xl shadow-lg hover:shadow-2xl transition-all transform hover:scale-105">
                   <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -mr-10 -mt-10"></div>
@@ -251,6 +282,7 @@ export default function BankAccountDetailPage() {
                     </p>
                   </div>
                 </div>
+
                 {/* MSME Status */}
                 <div className={`relative overflow-hidden p-4 sm:p-6 rounded-xl shadow-lg hover:shadow-2xl transition-all transform hover:scale-105 ${
                   account.isMSME 
@@ -265,19 +297,6 @@ export default function BankAccountDetailPage() {
                     </div>
                     <p className="text-2xl sm:text-3xl font-bold text-white">
                       {account.isMSME ? 'MSME' : 'Non-MSME'}
-                    </p>
-                  </div>
-                </div>
-                {/* Verification */}
-                <div className="relative overflow-hidden p-4 sm:p-6 bg-gradient-to-br from-[#82A094] to-[#4F6A64] rounded-xl shadow-lg hover:shadow-2xl transition-all transform hover:scale-105">
-                  <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -mr-10 -mt-10"></div>
-                  <div className="relative">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Shield className="h-4 w-4 sm:h-5 sm:w-5 text-[#A2B9AF]" />
-                      <p className="text-xs sm:text-sm text-[#A2B9AF] font-semibold">Verification</p>
-                    </div>
-                    <p className="text-2xl sm:text-3xl font-bold text-white">
-                      Verified
                     </p>
                   </div>
                 </div>

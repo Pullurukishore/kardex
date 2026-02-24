@@ -95,6 +95,8 @@ model User {
   createdSchedules                ActivitySchedule[]       @relation("CreatedSchedules")
   
   bankAccountAttachments          BankAccountAttachment[]  @relation("UserBankAccountAttachments")
+  requestedPaymentBatches         PaymentBatch[]           @relation("PaymentBatchRequester")
+  reviewedPaymentBatches          PaymentBatch[]           @relation("PaymentBatchReviewer")
 
   @@index([role])
   @@index([isActive])
@@ -820,6 +822,7 @@ enum FinanceRole {
   FINANCE_ADMIN
   FINANCE_USER
   FINANCE_VIEWER
+  FINANCE_APPROVER
 }
 
 enum ContactRole {
@@ -1310,6 +1313,7 @@ model BankAccount {
   gstNumber           String?
   panNumber           String?
   currency            String   @default("INR")
+  accountCategory     String?  @default("DOMESTIC") // 'DOMESTIC', 'INTERNATIONAL', 'EMPLOYEE'
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
@@ -1402,4 +1406,79 @@ model BankAccountActivityLog {
   @@index([createdAt])
   @@index([performedById])
   @@map("bank_account_activity_logs")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PAYMENT BATCH MODULE - Bulk Payment Request & Approval
+// ═══════════════════════════════════════════════════════════════════════════
+
+enum PaymentBatchStatus {
+  PENDING
+  PARTIALLY_APPROVED
+  APPROVED
+  REJECTED
+  DOWNLOADED
+}
+
+enum PaymentItemStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model PaymentBatch {
+  id              String              @id @default(uuid())
+  batchNumber     String              @unique
+  currency        String              @default("INR")
+  exportFormat    String?             // 'ICICI' | 'STANDARD'
+  status          PaymentBatchStatus  @default(PENDING)
+  totalAmount     Decimal             @db.Decimal(15, 2)
+  approvedAmount  Decimal?            @db.Decimal(15, 2)
+  totalItems      Int
+  approvedItems   Int?
+  notes           String?             // Requester notes
+  reviewNotes     String?             // Admin review notes
+
+  requestedById   Int
+  requestedAt     DateTime            @default(now())
+  reviewedById    Int?
+  reviewedAt      DateTime?
+  downloadedAt    DateTime?
+
+  requestedBy     User                @relation("PaymentBatchRequester", fields: [requestedById], references: [id])
+  reviewedBy      User?               @relation("PaymentBatchReviewer", fields: [reviewedById], references: [id])
+  items           PaymentBatchItem[]
+
+  @@index([status])
+  @@index([requestedById])
+  @@index([currency])
+  @@index([requestedAt])
+  @@map("payment_batches")
+}
+
+model PaymentBatchItem {
+  id              String            @id @default(uuid())
+  batchId         String
+  bankAccountId   String
+
+  vendorName      String
+  accountNumber   String
+  ifscCode        String
+  bankName        String
+  bpCode          String?
+  emailId         String?
+  accountType     String?
+
+  amount          Decimal           @db.Decimal(15, 2)
+  transactionMode String            // 'NFT' | 'RTI' | 'FT'
+  valueDate       DateTime
+
+  status          PaymentItemStatus @default(PENDING)
+  rejectReason    String?
+
+  batch           PaymentBatch      @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@index([batchId])
+  @@index([status])
+  @@map("payment_batch_items")
 }

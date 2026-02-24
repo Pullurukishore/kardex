@@ -53,9 +53,10 @@ export default function VendorAccountImportPage() {
 
     setLoading(true);
     try {
-      await arApi.importBankAccountsFromExcel(validRows);
-      setSuccess(`Successfully imported ${validRows.length} vendor bank accounts!`);
-      setTimeout(() => router.push('/finance/bank-accounts'), 2000);
+      const response = await arApi.importBankAccountsFromExcel(validRows);
+      setSuccess(response.message || `Successfully processed ${validRows.length} accounts!`);
+      const targetPath = response.isRequest ? '/finance/bank-accounts/requests' : '/finance/bank-accounts';
+      setTimeout(() => router.push(targetPath), 2000);
     } catch (err: any) {
       setError(err.response?.data?.error || 'Import failed');
     } finally {
@@ -209,9 +210,10 @@ export default function VendorAccountImportPage() {
                     <th className="px-6 py-4">BP Code</th>
                     <th className="px-6 py-4">Vendor Name</th>
                     <th className="px-6 py-4">Bank Name</th>
+                    <th className="px-6 py-4 text-center">Currency</th>
                     <th className="px-6 py-4">Account Number</th>
                     <th className="px-6 py-4">IFSC Code / SWIFT Code</th>
-                    <th className="px-6 py-4">GST / PAN</th>
+                    <th className="px-6 py-4">GST / PAN / MSME</th>
                     <th className="px-6 py-4">Beneficiary</th>
                   </tr>
                 </thead>
@@ -246,14 +248,33 @@ export default function VendorAccountImportPage() {
                       <td className="px-6 py-4 font-mono text-[11px] font-bold text-[#546A7A] uppercase tracking-wider">
                         {row._parsed.bpCode || '-'}
                       </td>
-                      <td className="px-6 py-4 font-bold text-[#546A7A] text-sm">{row._parsed.vendorName || '-'}</td>
-                      <td className="px-6 py-4 text-[#5D6E73] text-sm">{row._parsed.beneficiaryBankName || '-'}</td>
-                      <td className="px-6 py-4 font-mono text-xs font-bold text-[#CE9F6B]">{row._parsed.accountNumber || '-'}</td>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col">
+                          <span className="font-bold text-[#546A7A] text-sm">{row._parsed.vendorName || '-'}</span>
+                          {row._parsed.nickName && <span className="text-[10px] text-[#92A2A5]">"{row._parsed.nickName}"</span>}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col">
+                          <span className="text-[#5D6E73] text-sm font-medium">{row._parsed.beneficiaryBankName || '-'}</span>
+                          {row._parsed.accountType && <span className="text-[10px] text-[#92A2A5]">{row._parsed.accountType}</span>}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <span className="inline-flex px-2 py-0.5 rounded bg-[#82A094]/10 text-[#82A094] text-[10px] font-bold">
+                          {row._parsed.currency || 'INR'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 font-mono text-xs font-bold text-[#CE9F6B] truncate max-w-[150px]">{row._parsed.accountNumber || '-'}</td>
                       <td className="px-6 py-4 font-mono text-xs text-[#5D6E73]">{row._parsed.ifscCode || '-'}</td>
                       <td className="px-6 py-4">
                         <div className="flex flex-col gap-1">
                           <span className="text-[10px] text-[#92A2A5] font-bold">GST: {row._parsed.gstNumber || '-'}</span>
                           <span className="text-[10px] text-[#92A2A5] font-bold">PAN: {row._parsed.panNumber || '-'}</span>
+                          <span className="text-[10px] text-[#92A2A5] font-bold">
+                            MSME: {row._parsed.isMSME ? 'YES' : 'NO'} 
+                            {row._parsed.udyamRegNum ? ` (${row._parsed.udyamRegNum})` : ''}
+                          </span>
                         </div>
                       </td>
                       <td className="px-6 py-4 text-[#92A2A5] text-xs">{row._parsed.beneficiaryName || '-'}</td>

@@ -14,7 +14,8 @@ import {
   Trash2,
   Crown,
   User,
-  Eye as ViewIcon
+  Eye as ViewIcon,
+  ClipboardCheck
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -135,6 +136,8 @@ export default function FinanceUsersPage() {
         return <User className="h-3 w-3" />;
       case 'FINANCE_VIEWER':
         return <ViewIcon className="h-3 w-3" />;
+      case 'FINANCE_APPROVER':
+        return <ClipboardCheck className="h-3 w-3" />;
       default:
         return <Shield className="h-3 w-3" />;
     }

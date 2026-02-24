@@ -8,6 +8,10 @@ export function getRoleBasedRedirect(role?: UserRole | string, financeRole?: Fin
 
   // If user only has a finance role
   if (financeRole && (!role || !Object.values(UserRole).includes(role as UserRole))) {
+    // Finance Approver goes directly to payment approvals
+    if (financeRole === FinanceRole.FINANCE_APPROVER) {
+      return '/finance/bank-accounts/payment-batches';
+    }
     return '/finance/select';
   }
 

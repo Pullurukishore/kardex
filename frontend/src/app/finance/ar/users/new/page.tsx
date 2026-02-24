@@ -16,7 +16,8 @@ import {
   Sparkles,
   Users,
   Crown,
-  Eye as ViewIcon
+  Eye as ViewIcon,
+  ClipboardCheck
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -41,7 +42,7 @@ const createFinanceUserSchema = z.object({
   phone: z.string().optional(),
   password: z.string().min(6, 'Password must be at least 6 characters'),
   confirmPassword: z.string(),
-  financeRole: z.enum(['FINANCE_ADMIN', 'FINANCE_USER', 'FINANCE_VIEWER']),
+  financeRole: z.enum(['FINANCE_ADMIN', 'FINANCE_USER', 'FINANCE_VIEWER', 'FINANCE_APPROVER']),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ["confirmPassword"],
@@ -67,6 +68,12 @@ const financeRoles: { value: FinanceRoleType; label: string; description: string
     label: 'Finance Viewer', 
     description: 'Read-only access to finance data and reports',
     icon: <ViewIcon className="h-5 w-5" />
+  },
+  { 
+    value: 'FINANCE_APPROVER', 
+    label: 'Finance Approver', 
+    description: 'Can only review and approve payment batches',
+    icon: <ClipboardCheck className="h-5 w-5" />
   },
 ];
 
@@ -417,7 +424,7 @@ export default function NewFinanceUserPage() {
             </div>
           </CardHeader>
           <CardContent className="p-8">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {financeRoles.map((role) => (
                 <div
                   key={role.value}

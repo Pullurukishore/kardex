@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Batch {{batchNumber}} – Approval Required</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background-color: #f0f4f8;
+            color: #2d3748;
+            padding: 30px 10px;
+        }
+
+        .wrapper {
+            max-width: 600px;
+            margin: 0 auto;
+            background: #ffffff;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1a56a0 0%, #0e3a72 100%);
+            padding: 32px 36px;
+            text-align: center;
+        }
+
+        .header h1 {
+            color: #ffffff;
+            font-size: 22px;
+            font-weight: 700;
+        }
+
+        .header .batch-num {
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.2);
+            color: #fff;
+            padding: 4px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 700;
+            margin-top: 10px;
+            letter-spacing: 1px;
+        }
+
+        .summary-strip {
+            display: flex;
+            background: #ebf4ff;
+            border-bottom: 1px solid #bee3f8;
+        }
+
+        .summary-cell {
+            flex: 1;
+            padding: 16px;
+            text-align: center;
+            border-right: 1px solid #bee3f8;
+        }
+
+        .summary-cell:last-child {
+            border-right: none;
+        }
+
+        .summary-label {
+            font-size: 11px;
+            color: #4a90d9;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+        }
+
+        .summary-value {
+            font-size: 20px;
+            font-weight: 800;
+            color: #1a56a0;
+            margin-top: 4px;
+        }
+
+        .content {
+            padding: 28px 36px;
+        }
+
+        .greeting {
+            font-size: 15px;
+            color: #4a5568;
+            margin-bottom: 18px;
+        }
+
+        .info-card {
+            background: #f7fafc;
+            border: 1px solid #e2e8f0;
+            border-left: 4px solid #1a56a0;
+            border-radius: 6px;
+            padding: 18px 20px;
+            margin: 20px 0;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 7px 0;
+            border-bottom: 1px solid #edf2f7;
+            font-size: 14px;
+        }
+
+        .info-row:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            color: #718096;
+            font-weight: 600;
+            min-width: 140px;
+        }
+
+        .info-value {
+            color: #2d3748;
+            text-align: right;
+            font-weight: 500;
+        }
+
+        .cta-wrapper {
+            text-align: center;
+            margin: 28px 0;
+        }
+
+        .btn {
+            display: inline-block;
+            background: linear-gradient(135deg, #1a56a0, #0e3a72);
+            color: #ffffff !important;
+            text-decoration: none;
+            padding: 13px 32px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .urgent-note {
+            background: #fffbeb;
+            border: 1px solid #fcd34d;
+            border-radius: 6px;
+            padding: 12px 16px;
+            font-size: 13px;
+            color: #92400e;
+            margin-top: 18px;
+            line-height: 1.6;
+        }
+
+        .footer {
+            background: #f7fafc;
+            border-top: 1px solid #e2e8f0;
+            text-align: center;
+            padding: 18px 36px;
+            font-size: 12px;
+            color: #a0aec0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="wrapper">
+        <div class="header">
+            <h1>💳 Payment Batch – Approval Required</h1>
+            <div class="batch-num">{{batchNumber}}</div>
+        </div>
+
+        <!-- Summary strip -->
+        <div class="summary-strip">
+            <div class="summary-cell">
+                <div class="summary-label">Total Items</div>
+                <div class="summary-value">{{totalItems}}</div>
+            </div>
+            <div class="summary-cell">
+                <div class="summary-label">Total Amount</div>
+                <div class="summary-value">{{currency}} {{totalAmount}}</div>
+            </div>
+        </div>
+
+        <div class="content">
+            <p class="greeting">Hello <strong>{{approverName}}</strong>,</p>
+            <p style="font-size:14px;color:#4a5568;line-height:1.7;">
+                A new payment batch has been submitted and is awaiting your approval. Please review all items carefully
+                before approving or rejecting.
+            </p>
+
+            <div class="info-card">
+                <div class="info-row">
+                    <span class="info-label">Batch Number</span>
+                    <span class="info-value">{{batchNumber}}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Total Items</span>
+                    <span class="info-value">{{totalItems}}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Total Amount</span>
+                    <span class="info-value">{{currency}} {{totalAmount}}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Submitted By</span>
+                    <span class="info-value">{{submittedBy}}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Submitter Email</span>
+                    <span class="info-value">{{submittedByEmail}}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Submitted At</span>
+                    <span class="info-value">{{submittedAt}}</span>
+                </div>
+            </div>
+
+            <div class="cta-wrapper">
+                <a href="{{actionUrl}}" class="btn">Review Batch Now →</a>
+            </div>
+
+            <div class="urgent-note">
+                ⚠️ This batch is pending. Please approve or reject the items at your earliest convenience to avoid
+                payment delays.
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>This is an automated message – please do not reply directly to this email.</p>
+            <p>© {{currentYear}} KardexCare. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+
+</html>

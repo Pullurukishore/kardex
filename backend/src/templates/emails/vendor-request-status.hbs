@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Vendor Request has been {{decision}}</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background-color: #f0f4f8;
+            color: #2d3748;
+            padding: 30px 10px;
+        }
+
+        .wrapper {
+            max-width: 600px;
+            margin: 0 auto;
+            background: #ffffff;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1a56a0 0%, #0e3a72 100%);
+            padding: 32px 36px;
+            text-align: center;
+        }
+
+        .header h1 {
+            color: #ffffff;
+            font-size: 22px;
+            font-weight: 700;
+        }
+
+        .header p {
+            color: rgba(255, 255, 255, 0.75);
+            font-size: 13px;
+            margin-top: 6px;
+        }
+
+        .status-banner {
+            padding: 20px 36px;
+            text-align: center;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 8px 22px;
+            border-radius: 24px;
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .badge-approved {
+            background-color: #d1fae5;
+            color: #065f46;
+        }
+
+        .badge-rejected {
+            background-color: #fee2e2;
+            color: #991b1b;
+        }
+
+        .content {
+            padding: 8px 36px 28px;
+        }
+
+        .greeting {
+            font-size: 15px;
+            color: #4a5568;
+            margin-bottom: 18px;
+        }
+
+        .info-card {
+            background: #f7fafc;
+            border: 1px solid #e2e8f0;
+            border-left: 4px solid #1a56a0;
+            border-radius: 6px;
+            padding: 18px 20px;
+            margin: 20px 0;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 7px 0;
+            border-bottom: 1px solid #edf2f7;
+            font-size: 14px;
+        }
+
+        .info-row:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            color: #718096;
+            font-weight: 600;
+            min-width: 130px;
+        }
+
+        .info-value {
+            color: #2d3748;
+            text-align: right;
+            font-weight: 500;
+        }
+
+        .notes-box {
+            background: #fffbeb;
+            border: 1px solid #fcd34d;
+            border-radius: 6px;
+            padding: 14px 18px;
+            margin: 18px 0;
+            font-size: 14px;
+            color: #92400e;
+            line-height: 1.6;
+        }
+
+        .notes-box strong {
+            display: block;
+            margin-bottom: 6px;
+        }
+
+        .note {
+            font-size: 13px;
+            color: #718096;
+            margin-top: 18px;
+            line-height: 1.6;
+        }
+
+        .footer {
+            background: #f7fafc;
+            border-top: 1px solid #e2e8f0;
+            text-align: center;
+            padding: 18px 36px;
+            font-size: 12px;
+            color: #a0aec0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="wrapper">
+        <div class="header">
+            <h1>🏦 Vendor Request Update</h1>
+            <p>KardexCare Finance Portal</p>
+        </div>
+
+        <div class="status-banner">
+            {{#if isApproved}}
+            <span class="badge badge-approved">✅ Approved</span>
+            {{else}}
+            <span class="badge badge-rejected">❌ Rejected</span>
+            {{/if}}
+        </div>
+
+        <div class="content">
+            <p class="greeting">Hello <strong>{{requesterName}}</strong>,</p>
+            <p style="font-size:14px;color:#4a5568;line-height:1.7;">
+                Your vendor bank account <strong>{{requestType}}</strong> request has been
+                <strong>{{decision}}</strong> by the Finance Admin.
+            </p>
+
+            <div class="info-card">
+                <div class="info-row">
+                    <span class="info-label">Request Type</span>
+                    <span class="info-value">{{requestType}}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Vendor Name</span>
+                    <span class="info-value">{{vendorName}}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Decision</span>
+                    <span class="info-value">{{decision}}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Decided At</span>
+                    <span class="info-value">{{decidedAt}}</span>
+                </div>
+            </div>
+
+            {{#if reviewNotes}}
+            <div class="notes-box">
+                <strong>💬 Review Notes from Admin:</strong>
+                {{reviewNotes}}
+            </div>
+            {{/if}}
+
+            <p class="note">
+                {{#if isApproved}}
+                The vendor record has been created / updated in the system. You may now proceed with payment processing.
+                {{else}}
+                Please review the admin notes above and re-submit a corrected request if needed. Contact your Finance
+                Admin for further clarification.
+                {{/if}}
+            </p>
+        </div>
+
+        <div class="footer">
+            <p>This is an automated message – please do not reply directly to this email.</p>
+            <p>© {{currentYear}} KardexCare. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+
+</html>

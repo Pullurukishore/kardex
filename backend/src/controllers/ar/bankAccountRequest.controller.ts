@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../../config/db';
+import { sendEmail } from '../../utils/email';
 import {
     logBankAccountActivity,
     getUserFromRequest,
@@ -37,9 +38,10 @@ export const createChangeRequest = async (req: Request, res: Response) => {
                 });
             }
 
-            // Smart Mandatory Validation for GST/PAN (only for INR)
+            // Smart Mandatory Validation for GST/PAN (only for non-International with INR)
             const currency = requestedData?.currency || 'INR';
-            if (currency === 'INR') {
+            const category = requestedData?.accountCategory || 'DOMESTIC';
+            if (currency === 'INR' && category !== 'INTERNATIONAL') {
                 if (!requestedData?.gstNumber) {
                     return res.status(400).json({ error: 'GST Number is required for INR transactions' });
                 }
@@ -113,6 +115,47 @@ export const createChangeRequest = async (req: Request, res: Response) => {
             userAgent: req.headers['user-agent'] || null,
             metadata: { requestId: changeRequest.id, requestType }
         });
+
+        // ── Email: Notify all FINANCE_ADMINs about the new request ──
+        try {
+            const admins = await prisma.user.findMany({
+                where: { financeRole: 'FINANCE_ADMIN', isActive: true },
+                select: { email: true, name: true }
+            });
+            const requester = await prisma.user.findUnique({
+                where: { id: userId },
+                select: { name: true, email: true }
+            });
+            const typeLabel = requestType === 'CREATE' ? 'Add'
+                : requestType === 'UPDATE' ? 'Edit' : 'Delete';
+            const vendorName = requestedData?.vendorName
+                || changeRequest.bankAccount?.vendorName
+                || 'Unknown';
+
+            for (const admin of admins) {
+                await sendEmail({
+                    to: admin.email,
+                    subject: `[Action Required] Vendor ${typeLabel} Request – ${vendorName}`,
+                    template: 'vendor-request',
+                    context: {
+                        adminName: admin.name || 'Admin',
+                        requestType: typeLabel,
+                        vendorName,
+                        requestedBy: requester?.name || 'Unknown',
+                        requestedByEmail: requester?.email || '',
+                        requestedAt: new Date().toLocaleString('en-IN'),
+                        isAdd: requestType === 'CREATE',
+                        isEdit: requestType === 'UPDATE',
+                        isDelete: requestType === 'DELETE',
+                        actionUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/finance/bank-accounts/requests`,
+                        currentYear: new Date().getFullYear()
+                    }
+                });
+            }
+        } catch (emailError) {
+            // Email failure should not break the request
+            console.error('[Email] Failed to send vendor request notification:', emailError);
+        }
 
         res.status(201).json(changeRequest);
     } catch (error: any) {
@@ -297,6 +340,8 @@ export const approveRequest = async (req: Request, res: Response) => {
                     isMSME: requestedData.isMSME || false,
                     udyamRegNum: requestedData.isMSME ? requestedData.udyamRegNum : null,
                     currency: requestedData.currency || 'INR',
+                    accountType: requestedData.accountType || null,
+                    accountCategory: requestedData.accountCategory || 'DOMESTIC',
                     createdById: request.requestedById,
                     updatedById: userId
                 }
@@ -380,6 +425,34 @@ export const approveRequest = async (req: Request, res: Response) => {
             metadata: { requestId: id, requestType: request.requestType, reviewNotes }
         });
 
+        // ── Email: Notify the requester about the approval ──
+        try {
+            const requester = await prisma.user.findUnique({
+                where: { id: request.requestedById },
+                select: { email: true, name: true }
+            });
+            if (requester?.email) {
+                await sendEmail({
+                    to: requester.email,
+                    subject: `Your Vendor Request has been APPROVED`,
+                    template: 'vendor-request-status',
+                    context: {
+                        requesterName: requester.name || 'User',
+                        requestType: request.requestType,
+                        vendorName: bankAccount?.vendorName || (request.requestedData as any)?.vendorName || '-',
+                        decision: 'APPROVED',
+                        decidedAt: new Date().toLocaleString('en-IN'),
+                        isApproved: true,
+                        isRejected: false,
+                        reviewNotes: reviewNotes || '',
+                        currentYear: new Date().getFullYear()
+                    }
+                });
+            }
+        } catch (emailError) {
+            console.error('[Email] Failed to send vendor approval notification:', emailError);
+        }
+
         res.json({
             message: 'Request approved successfully',
             bankAccount,
@@ -442,6 +515,35 @@ export const rejectRequest = async (req: Request, res: Response) => {
             userAgent: req.headers['user-agent'] || null,
             metadata: { requestId: id, requestType: updatedRequest.requestType, reviewNotes }
         });
+
+        // ── Email: Notify the requester about the rejection ──
+        try {
+            const requester = await prisma.user.findUnique({
+                where: { id: updatedRequest.requestedById },
+                select: { email: true, name: true }
+            });
+            if (requester?.email) {
+                await sendEmail({
+                    to: requester.email,
+                    subject: `Your Vendor Request has been REJECTED`,
+                    template: 'vendor-request-status',
+                    context: {
+                        requesterName: requester.name || 'User',
+                        requestType: updatedRequest.requestType,
+                        vendorName: updatedRequest.bankAccount?.vendorName
+                            || (updatedRequest.requestedData as any)?.vendorName || '-',
+                        decision: 'REJECTED',
+                        decidedAt: new Date().toLocaleString('en-IN'),
+                        isApproved: false,
+                        isRejected: true,
+                        reviewNotes: reviewNotes || '',
+                        currentYear: new Date().getFullYear()
+                    }
+                });
+            }
+        } catch (emailError) {
+            console.error('[Email] Failed to send vendor rejection notification:', emailError);
+        }
 
         res.json({
             message: 'Request rejected',

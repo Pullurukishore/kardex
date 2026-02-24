@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vendor {{requestType}} Request – Action Required</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background-color: #f0f4f8;
+            color: #2d3748;
+            padding: 30px 10px;
+        }
+
+        .wrapper {
+            max-width: 600px;
+            margin: 0 auto;
+            background: #ffffff;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1a56a0 0%, #0e3a72 100%);
+            padding: 32px 36px;
+            text-align: center;
+        }
+
+        .header h1 {
+            color: #ffffff;
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+        }
+
+        .header p {
+            color: rgba(255, 255, 255, 0.75);
+            font-size: 13px;
+            margin-top: 6px;
+        }
+
+        .badge-row {
+            display: flex;
+            justify-content: center;
+            padding: 20px 36px 0;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 6px 18px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .badge-add {
+            background-color: #d1fae5;
+            color: #065f46;
+        }
+
+        .badge-edit {
+            background-color: #dbeafe;
+            color: #1e40af;
+        }
+
+        .badge-delete {
+            background-color: #fee2e2;
+            color: #991b1b;
+        }
+
+        .content {
+            padding: 28px 36px;
+        }
+
+        .greeting {
+            font-size: 15px;
+            color: #4a5568;
+            margin-bottom: 18px;
+        }
+
+        .info-card {
+            background: #f7fafc;
+            border: 1px solid #e2e8f0;
+            border-left: 4px solid #1a56a0;
+            border-radius: 6px;
+            padding: 18px 20px;
+            margin: 20px 0;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 7px 0;
+            border-bottom: 1px solid #edf2f7;
+            font-size: 14px;
+        }
+
+        .info-row:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            color: #718096;
+            font-weight: 600;
+            min-width: 130px;
+        }
+
+        .info-value {
+            color: #2d3748;
+            text-align: right;
+            font-weight: 500;
+        }
+
+        .cta-wrapper {
+            text-align: center;
+            margin: 28px 0;
+        }
+
+        .btn {
+            display: inline-block;
+            background: linear-gradient(135deg, #1a56a0, #0e3a72);
+            color: #ffffff !important;
+            text-decoration: none;
+            padding: 13px 32px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+        }
+
+        .note {
+            font-size: 13px;
+            color: #718096;
+            margin-top: 18px;
+            line-height: 1.6;
+        }
+
+        .footer {
+            background: #f7fafc;
+            border-top: 1px solid #e2e8f0;
+            text-align: center;
+            padding: 18px 36px;
+            font-size: 12px;
+            color: #a0aec0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="wrapper">
+        <div class="header">
+            <h1>🏦 Vendor Request – Action Required</h1>
+            <p>KardexCare Finance Portal</p>
+        </div>
+
+        <div class="badge-row">
+            {{#if isAdd}}<span class="badge badge-add">➕ New Vendor Request</span>{{/if}}
+            {{#if isEdit}}<span class="badge badge-edit">✏️ Edit Vendor Request</span>{{/if}}
+            {{#if isDelete}}<span class="badge badge-delete">🗑️ Delete Vendor Request</span>{{/if}}
+        </div>
+
+        <div class="content">
+            <p class="greeting">Hello <strong>{{adminName}}</strong>,</p>
+            <p style="font-size:14px; color:#4a5568; line-height:1.7;">
+                A new vendor bank account <strong>{{requestType}}</strong> request has been submitted and is awaiting
+                your review and approval.
+            </p>
+
+            <div class="info-card">
+                <div class="info-row">
+                    <span class="info-label">Request Type</span>
+                    <span class="info-value">{{requestType}}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Vendor Name</span>
+                    <span class="info-value">{{vendorName}}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Requested By</span>
+                    <span class="info-value">{{requestedBy}}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Email</span>
+                    <span class="info-value">{{requestedByEmail}}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Submitted At</span>
+                    <span class="info-value">{{requestedAt}}</span>
+                </div>
+            </div>
+
+            <div class="cta-wrapper">
+                <a href="{{actionUrl}}" class="btn">Review Request Now →</a>
+            </div>
+
+            <p class="note">
+                Please log into the KardexCare Finance Portal to approve or reject this request. If this request seems
+                suspicious, contact your system administrator.
+            </p>
+        </div>
+
+        <div class="footer">
+            <p>This is an automated message – please do not reply directly to this email.</p>
+            <p>© {{currentYear}} KardexCare. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+
+</html>

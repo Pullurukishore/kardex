@@ -105,7 +105,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Update role cookies from server response
       setCookie('userRole', safeUser.role, {
         path: '/',
-        secure: process.env.NODE_ENV === 'production',
+        secure: process.env.NODE_ENV === 'production' && !window.location.hostname.includes('172.28.91.10') && window.location.hostname !== 'localhost',
         sameSite: 'lax',
         maxAge: 60 * 60 * 24 * 30,
       });
@@ -113,7 +113,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (safeUser.financeRole) {
         setCookie('financeRole', safeUser.financeRole, {
           path: '/',
-          secure: process.env.NODE_ENV === 'production',
+          secure: process.env.NODE_ENV === 'production' && !window.location.hostname.includes('172.28.91.10') && window.location.hostname !== 'localhost',
           sameSite: 'lax',
           maxAge: 60 * 60 * 24 * 30,
         });
@@ -319,7 +319,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const maxAge = rememberMe ? 60 * 60 * 24 * 30 : 60 * 60 * 24 * 7;
       const roleOptions = {
         path: '/',
-        secure: process.env.NODE_ENV === 'production',
+        secure: process.env.NODE_ENV === 'production' && !window.location.hostname.includes('172.28.91.10') && window.location.hostname !== 'localhost',
         sameSite: 'lax' as const,
         maxAge
       };

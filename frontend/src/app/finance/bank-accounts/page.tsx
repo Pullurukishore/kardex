@@ -702,7 +702,11 @@ export default function BankAccountsPage() {
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('table');
   const [showInactive, setShowInactive] = useState(false);
 
-  const isAdmin = user?.financeRole === FinanceRole.FINANCE_ADMIN;
+  const isFinanceAdmin = user?.financeRole === FinanceRole.FINANCE_ADMIN;
+  const isFinanceUser = user?.financeRole === FinanceRole.FINANCE_USER;
+  const isAdmin = isFinanceAdmin; // Keep isAdmin for backward compatibility in the component
+  const canImport = isFinanceAdmin || isFinanceUser;
+
 
   useEffect(() => {
     loadBankAccounts();
@@ -807,7 +811,8 @@ export default function BankAccountsPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {isAdmin && (
+            {canImport && (
+
               <Link
                 href="/finance/bank-accounts/import"
                 className="group flex items-center gap-2 px-4 py-2.5 rounded-xl border border-[#AEBFC3]/30 text-[#5D6E73] hover:bg-white hover:border-[#CE9F6B]/30 hover:shadow-md text-sm font-medium transition-all"
@@ -823,6 +828,13 @@ export default function BankAccountsPage() {
             >
               <CreditCard className="w-4 h-4 group-hover:rotate-12 transition-transform duration-300" />
               <span className="hidden sm:inline">Bulk Payments</span>
+            </Link>
+            <Link
+              href="/finance/bank-accounts/payment-batches"
+              className="group flex items-center gap-2 px-4 py-2.5 rounded-xl border border-[#AEBFC3]/30 text-[#5D6E73] hover:bg-white hover:border-[#CE9F6B]/30 hover:shadow-md text-sm font-medium transition-all"
+            >
+              <Shield className="w-4 h-4 group-hover:text-[#CE9F6B] transition-colors" />
+              <span className="hidden sm:inline">Payment Approvals</span>
             </Link>
             <Link 
               href="/finance/bank-accounts/new"
@@ -893,7 +905,8 @@ export default function BankAccountsPage() {
             </div>
 
             {/* Inactive Toggle - Enhanced */}
-            {isAdmin && (
+            {canImport && (
+
               <button
                 onClick={() => setShowInactive(!showInactive)}
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-all ${
@@ -913,7 +926,8 @@ export default function BankAccountsPage() {
           {/* View Toggle & Actions */}
           <div className="flex items-center gap-2">
             {/* Pending Badge */}
-            {isAdmin && pendingCount > 0 && (
+            {canImport && pendingCount > 0 && (
+
               <Link
                 href="/finance/bank-accounts/requests"
                 className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#E17F70]/10 text-[#E17F70] font-medium text-sm hover:bg-[#E17F70]/20 transition-colors"

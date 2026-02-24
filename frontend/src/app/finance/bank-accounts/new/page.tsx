@@ -12,9 +12,16 @@ import {
   ArrowLeft, Building2, Sparkles, Save, AlertCircle, 
   CheckCircle2, Mail, CreditCard, Hash, User, Loader2,
   Info, FileText, Upload, X, ArrowRight, Shield, Landmark,
-  Globe, BadgeCheck, ChevronRight, Wallet, Eye
+  Globe, BadgeCheck, ChevronRight, Wallet, Eye, ChevronDown
 } from 'lucide-react';
 import FilePreview from '@/components/FilePreview';
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from '@/components/ui/select';
 
 interface FormData {
   bpCode: string;
@@ -33,6 +40,7 @@ interface FormData {
   currency: string;
   accountType: string;
   otherCurrency?: string;
+  accountCategory: string;
 }
 
 export default function NewBankAccountPage() {
@@ -40,6 +48,7 @@ export default function NewBankAccountPage() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [success, setSuccess] = useState('');
   const [currentStep, setCurrentStep] = useState(1);
   const [activeStep, setActiveStep] = useState(1);
@@ -65,7 +74,8 @@ export default function NewBankAccountPage() {
     panNumber: '',
     currency: 'INR',
     accountType: '',
-    otherCurrency: ''
+    otherCurrency: '',
+    accountCategory: ''
   });
 
   const [selectedFiles, setSelectedFiles] = useState<{file: File, vendorType: string}[]>([]);
@@ -85,9 +95,121 @@ export default function NewBankAccountPage() {
     }
   }, [formData]);
 
+  // Validation helpers
+  const isNumericOnly = (val: string) => /^[0-9]*$/.test(val);
+  const isLettersOnly = (val: string) => /^[A-Za-z\s.\-&'(),/]*$/.test(val);
+  const isAlphanumeric = (val: string) => /^[A-Za-z0-9]*$/.test(val);
+  const isAlphanumericWithHyphen = (val: string) => /^[A-Za-z0-9\-]*$/.test(val);
+  const isValidEmail = (val: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
+  const isValidGST = (val: string) => /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[0-9A-Z]{1}[Z]{1}[0-9A-Z]{1}$/.test(val);
+  const isValidPAN = (val: string) => /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(val);
+  const isValidIFSC = (val: string) => /^[A-Z]{4}0[A-Z0-9]{6}$/.test(val);
+  const isLettersOnlyStrict = (val: string) => /^[A-Za-z]*$/.test(val);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
     const checked = (e.target as HTMLInputElement).checked;
+
+    // Real-time input filtering
+    if (name === 'bpCode') {
+      // Numbers only for Vendor Code
+      if (value !== '' && !isNumericOnly(value)) {
+        setFieldErrors(prev => ({ ...prev, bpCode: 'Vendor Code accepts numbers only' }));
+        return;
+      }
+      setFieldErrors(prev => ({ ...prev, bpCode: '' }));
+    }
+
+    if (name === 'vendorName') {
+      // Letters, spaces, dots, hyphens, ampersands — no numbers
+      if (value !== '' && !isLettersOnly(value)) {
+        setFieldErrors(prev => ({ ...prev, vendorName: 'Vendor Name should contain letters only (no numbers)' }));
+        return;
+      }
+      setFieldErrors(prev => ({ ...prev, vendorName: '' }));
+    }
+
+    if (name === 'nickName') {
+      // Letters, spaces — no numbers
+      if (value !== '' && !isLettersOnly(value)) {
+        setFieldErrors(prev => ({ ...prev, nickName: 'Nick Name should contain letters only (no numbers)' }));
+        return;
+      }
+      setFieldErrors(prev => ({ ...prev, nickName: '' }));
+    }
+
+    if (name === 'emailId') {
+      // Clear error on typing, validate on blur or submit
+      if (value === '' || isValidEmail(value)) {
+        setFieldErrors(prev => ({ ...prev, emailId: '' }));
+      } else {
+        setFieldErrors(prev => ({ ...prev, emailId: 'Please enter a valid email address (e.g. vendor@company.com)' }));
+      }
+    }
+
+    if (name === 'beneficiaryBankName') {
+      if (value !== '' && !isLettersOnly(value)) {
+        setFieldErrors(prev => ({ ...prev, beneficiaryBankName: 'Bank Name should contain letters only (no numbers)' }));
+        return;
+      }
+      setFieldErrors(prev => ({ ...prev, beneficiaryBankName: '' }));
+    }
+
+    if (name === 'beneficiaryName') {
+      if (value !== '' && !isLettersOnly(value)) {
+        setFieldErrors(prev => ({ ...prev, beneficiaryName: 'Beneficiary Name should contain letters only (no numbers)' }));
+        return;
+      }
+      setFieldErrors(prev => ({ ...prev, beneficiaryName: '' }));
+    }
+
+    if (name === 'accountNumber' || name === 'confirmAccountNumber') {
+      if (value !== '' && !isNumericOnly(value)) {
+        setFieldErrors(prev => ({ ...prev, [name]: 'Account Number must contain numbers only' }));
+        return;
+      }
+      setFieldErrors(prev => ({ ...prev, [name]: '' }));
+    }
+
+    if (name === 'ifscCode') {
+      if (value !== '' && !isAlphanumeric(value)) {
+        setFieldErrors(prev => ({ ...prev, ifscCode: 'IFSC/SWIFT Code must be alphanumeric' }));
+        return;
+      }
+      setFieldErrors(prev => ({ ...prev, ifscCode: '' }));
+    }
+
+    if (name === 'gstNumber') {
+      if (value !== '' && !isAlphanumeric(value)) {
+        setFieldErrors(prev => ({ ...prev, gstNumber: 'GST Number must be alphanumeric' }));
+        return;
+      }
+      setFieldErrors(prev => ({ ...prev, gstNumber: '' }));
+    }
+
+    if (name === 'panNumber') {
+      if (value !== '' && !isAlphanumeric(value)) {
+        setFieldErrors(prev => ({ ...prev, panNumber: 'PAN Number must be alphanumeric' }));
+        return;
+      }
+      setFieldErrors(prev => ({ ...prev, panNumber: '' }));
+    }
+
+    if (name === 'udyamRegNum') {
+      if (value !== '' && !isAlphanumericWithHyphen(value)) {
+        setFieldErrors(prev => ({ ...prev, udyamRegNum: 'Only letters, numbers and hyphens are allowed' }));
+        return;
+      }
+      setFieldErrors(prev => ({ ...prev, udyamRegNum: '' }));
+    }
+
+    if (name === 'otherCurrency') {
+      if (value !== '' && !isLettersOnlyStrict(value)) {
+        setFieldErrors(prev => ({ ...prev, otherCurrency: 'Currency code must contain letters only (e.g. GBP)' }));
+        return;
+      }
+      setFieldErrors(prev => ({ ...prev, otherCurrency: '' }));
+    }
     
     setFormData(prev => {
       const val = type === 'checkbox' ? checked : value;
@@ -228,8 +350,20 @@ export default function NewBankAccountPage() {
       if (!formData.bpCode) {
         return { valid: false, message: 'BP Code / Vendor Code is required' };
       }
+      if (!isNumericOnly(formData.bpCode)) {
+        return { valid: false, message: 'Vendor Code must contain numbers only' };
+      }
       if (!formData.vendorName) {
         return { valid: false, message: 'Vendor name is required' };
+      }
+      if (!isLettersOnly(formData.vendorName)) {
+        return { valid: false, message: 'Vendor Name should contain letters only (no numbers)' };
+      }
+      if (formData.nickName && !isLettersOnly(formData.nickName)) {
+        return { valid: false, message: 'Nick Name should contain letters only (no numbers)' };
+      }
+      if (formData.emailId && !isValidEmail(formData.emailId)) {
+        return { valid: false, message: 'Please enter a valid email address' };
       }
       if (formData.isMSME && !formData.udyamRegNum) {
         return { valid: false, message: 'Udyam Registration Number is required for MSME vendors' };
@@ -237,14 +371,32 @@ export default function NewBankAccountPage() {
       return { valid: true };
     }
     if (step === 2) {
+      // Account category must be selected first
+      const selectedCategory = formData.accountCategory;
+      if (!selectedCategory) {
+        return { valid: false, message: 'Please select an Account Category first' };
+      }
+
       if (!formData.beneficiaryBankName) {
         return { valid: false, message: 'Beneficiary Bank Name is required' };
+      }
+      if (!isLettersOnly(formData.beneficiaryBankName)) {
+        return { valid: false, message: 'Beneficiary Bank Name should contain letters only (no numbers)' };
+      }
+      if (formData.beneficiaryName && !isLettersOnly(formData.beneficiaryName)) {
+        return { valid: false, message: 'Beneficiary Name should contain letters only (no numbers)' };
       }
       if (!formData.accountNumber) {
         return { valid: false, message: 'Account Number is required' };
       }
+      if (!isNumericOnly(formData.accountNumber)) {
+        return { valid: false, message: 'Account Number must contain numbers only' };
+      }
       if (!formData.ifscCode) {
         return { valid: false, message: 'IFSC/SWIFT Code is required' };
+      }
+      if (formData.ifscCode.length >= 11 && !isValidIFSC(formData.ifscCode.toUpperCase())) {
+        return { valid: false, message: 'Invalid IFSC Code format (e.g. SBIN0001234)' };
       }
       if (!formData.confirmAccountNumber) {
         return { valid: false, message: 'Please confirm the account number' };
@@ -252,30 +404,42 @@ export default function NewBankAccountPage() {
       if (formData.accountNumber !== formData.confirmAccountNumber) {
         return { valid: false, message: 'Account numbers do not match' };
       }
-      if (formData.currency === 'INR') {
-        if (!formData.gstNumber) {
-          return { valid: false, message: 'GST Number is required for INR transactions' };
-        }
-        if (!formData.panNumber) {
-          return { valid: false, message: 'PAN Number is required for INR transactions' };
+      // GST/PAN required only for DOMESTIC and EMPLOYEE with INR currency
+      if (selectedCategory !== 'INTERNATIONAL') {
+        if (formData.currency === 'INR') {
+          if (!formData.gstNumber) {
+            return { valid: false, message: 'GST Number is required for INR transactions' };
+          }
+          if (!formData.panNumber) {
+            return { valid: false, message: 'PAN Number is required for INR transactions' };
+          }
         }
       }
       if (formData.currency === 'Other' && !formData.otherCurrency) {
         return { valid: false, message: 'Please specify the currency code' };
       }
+      if (formData.otherCurrency && !isLettersOnlyStrict(formData.otherCurrency)) {
+        return { valid: false, message: 'Currency code must contain letters only' };
+      }
       return { valid: true };
     }
     if (step === 3) {
-      const selectedTypes = (formData as any).selectedTypes || [];
-      if (selectedTypes.length === 0) {
-        return { valid: false, message: 'Please select at least one account category' };
+      const selectedCategory = formData.accountCategory;
+      if (!selectedCategory) {
+        return { valid: false, message: 'Please go back and select an Account Category in Step 2' };
       }
-      
-      const missingType = selectedTypes.find((typeId: string) => !selectedFiles.some(f => f.vendorType === typeId));
-      if (missingType) {
-        const label = missingType.charAt(0) + missingType.slice(1).toLowerCase();
-        return { valid: false, message: `Please upload the verification document for ${label} account` };
+
+      // Single-select: validate the one selected type
+      const hasFile = selectedFiles.some(f => f.vendorType === selectedCategory);
+      if (!hasFile) {
+        const messages: Record<string, string> = {
+          'DOMESTIC': 'Step 3: Domestic requires a Bank Letter or Cancelled Cheque upload',
+          'INTERNATIONAL': 'Step 3: International requires a Bank Letter upload',
+          'EMPLOYEE': 'Step 3: Employee requires one verification document'
+        };
+        return { valid: false, message: messages[selectedCategory] || 'Step 3: Please upload the required document' };
       }
+
       return { valid: true };
     }
     return { valid: true };
@@ -498,11 +662,21 @@ export default function NewBankAccountPage() {
                   name="bpCode"
                   value={formData.bpCode}
                   onChange={handleChange}
-                  placeholder="e.g. VEN001 or V12345"
+                  placeholder="e.g. 12345 or 001"
                   maxLength={15}
-                  className="w-full px-4 py-2.5 rounded-xl text-sm font-bold uppercase tracking-wider transition-all focus:outline-none border-2 border-[#AEBFC3] bg-[#F8FAFB] text-[#546A7A] focus:border-[#CE9F6B]/50"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  className={`w-full px-4 py-2.5 rounded-xl text-sm font-bold uppercase tracking-wider transition-all focus:outline-none border-2 bg-[#F8FAFB] text-[#546A7A] ${
+                    fieldErrors.bpCode ? 'border-[#E17F70] focus:border-[#E17F70]' : 'border-[#AEBFC3] focus:border-[#CE9F6B]/50'
+                  }`}
                   required
                 />
+                {fieldErrors.bpCode && (
+                  <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
+                    <AlertCircle className="w-3 h-3" />
+                    {fieldErrors.bpCode}
+                  </p>
+                )}
               </div>
 
               {/* Vendor Name */}
@@ -518,9 +692,17 @@ export default function NewBankAccountPage() {
                   onChange={handleChange}
                   placeholder="Enter vendor/company name"
                   maxLength={100}
-                  className="w-full px-4 py-2.5 rounded-xl text-sm font-medium transition-all focus:outline-none border-2 border-[#AEBFC3] bg-[#F8FAFB] text-[#546A7A] focus:border-[#CE9F6B]/50"
+                  className={`w-full px-4 py-2.5 rounded-xl text-sm font-medium transition-all focus:outline-none border-2 bg-[#F8FAFB] text-[#546A7A] ${
+                    fieldErrors.vendorName ? 'border-[#E17F70] focus:border-[#E17F70]' : 'border-[#AEBFC3] focus:border-[#CE9F6B]/50'
+                  }`}
                   required
                 />
+                {fieldErrors.vendorName && (
+                  <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
+                    <AlertCircle className="w-3 h-3" />
+                    {fieldErrors.vendorName}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2.5">
@@ -535,8 +717,16 @@ export default function NewBankAccountPage() {
                   onChange={handleChange}
                   placeholder="Short reference name"
                   maxLength={30}
-                  className="w-full px-4 py-2.5 rounded-xl text-sm font-medium transition-all focus:outline-none border-2 border-[#AEBFC3] bg-[#F8FAFB] text-[#546A7A] focus:border-[#CE9F6B]/50"
+                  className={`w-full px-4 py-2.5 rounded-xl text-sm font-medium transition-all focus:outline-none border-2 bg-[#F8FAFB] text-[#546A7A] ${
+                    fieldErrors.nickName ? 'border-[#E17F70] focus:border-[#E17F70]' : 'border-[#AEBFC3] focus:border-[#CE9F6B]/50'
+                  }`}
                 />
+                {fieldErrors.nickName && (
+                  <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
+                    <AlertCircle className="w-3 h-3" />
+                    {fieldErrors.nickName}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-3">
@@ -551,8 +741,16 @@ export default function NewBankAccountPage() {
                   onChange={handleChange}
                   placeholder="vendor@company.com"
                   maxLength={50}
-                  className="w-full px-4 py-2.5 rounded-xl text-sm font-medium transition-all focus:outline-none border-2 border-[#AEBFC3] bg-[#F8FAFB] text-[#546A7A] focus:border-[#CE9F6B]/50"
+                  className={`w-full px-4 py-2.5 rounded-xl text-sm font-medium transition-all focus:outline-none border-2 bg-[#F8FAFB] text-[#546A7A] ${
+                    fieldErrors.emailId ? 'border-[#E17F70] focus:border-[#E17F70]' : 'border-[#AEBFC3] focus:border-[#CE9F6B]/50'
+                  }`}
                 />
+                {fieldErrors.emailId && (
+                  <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
+                    <AlertCircle className="w-3 h-3" />
+                    {fieldErrors.emailId}
+                  </p>
+                )}
               </div>
 
 
@@ -614,9 +812,17 @@ export default function NewBankAccountPage() {
                     onChange={handleChange}
                     placeholder="UDYAM-XX-00-0000000"
                     maxLength={19}
-                    className="w-full px-4 py-3 rounded-xl font-mono font-bold text-base tracking-widest transition-all focus:outline-none border-2 border-[#CE9F6B] bg-white text-[#546A7A]"
+                    className={`w-full px-4 py-3 rounded-xl font-mono font-bold text-base tracking-widest transition-all focus:outline-none border-2 bg-white text-[#546A7A] ${
+                      fieldErrors.udyamRegNum ? 'border-[#E17F70]' : 'border-[#CE9F6B]'
+                    }`}
                     required={formData.isMSME}
                   />
+                  {fieldErrors.udyamRegNum && (
+                    <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {fieldErrors.udyamRegNum}
+                    </p>
+                  )}
               </div>
               )}
             </div>
@@ -644,6 +850,63 @@ export default function NewBankAccountPage() {
             </div>
           </CardHeader>
           <CardContent className="p-8 md:p-10 space-y-8">
+            {/* Account Category Selection - FIRST */}
+            <div className="mb-2">
+              <h3 className="text-sm font-black uppercase tracking-widest flex items-center gap-2 mb-6 text-[#546A7A]">
+                <Sparkles className="w-4 h-4 text-[#CE9F6B]" />
+                Select Account Category <span className="text-[#E17F70]">*</span>
+              </h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {[
+                  { id: 'DOMESTIC', label: 'Domestic', icon: Building2, color: '#82A094', desc: 'GST & PAN required for INR' },
+                  { id: 'INTERNATIONAL', label: 'International', icon: Globe, color: '#6F8A9D', desc: 'GST & PAN not required' },
+                  { id: 'EMPLOYEE', label: 'Employee', icon: User, color: '#CE9F6B', desc: 'GST & PAN required for INR' }
+                ].map((type) => {
+                  const isSelected = formData.accountCategory === type.id;
+                  return (
+                    <button
+                      key={type.id}
+                      type="button"
+                      onClick={() => {
+                        if (isSelected) return;
+                        setFormData(prev => ({ ...prev, accountCategory: type.id }));
+                        // Clear GST/PAN if switching to international
+                        if (type.id === 'INTERNATIONAL') {
+                          setFormData(prev => ({ ...prev, accountCategory: type.id, gstNumber: '', panNumber: '' }));
+                        }
+                        setSelectedFiles([]);
+                      }}
+                      className={`relative p-5 rounded-2xl border-2 transition-all text-left flex flex-col gap-3 group ${
+                        isSelected 
+                          ? 'border-[#CE9F6B] bg-white shadow-xl shadow-[#CE9F6B]/10' 
+                          : 'border-[#AEBFC3]/30 bg-[#F8FAFB] hover:border-[#CE9F6B]/30'
+                      }`}
+                    >
+                      <div className={`p-3 rounded-xl w-fit transition-colors ${isSelected ? 'bg-[#CE9F6B] text-white' : 'bg-white text-[#AEBFC3] group-hover:text-[#CE9F6B]'}`}>
+                        <type.icon className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <p className={`font-black uppercase tracking-tight ${isSelected ? 'text-[#546A7A]' : 'text-[#92A2A5]'}`}>
+                          {type.label}
+                        </p>
+                        <p className="text-[10px] font-bold text-[#AEBFC3] mt-0.5 leading-tight">{type.desc}</p>
+                      </div>
+                      
+                      {isSelected && (
+                        <div className="absolute top-4 right-4">
+                          <CheckCircle2 className="w-5 h-5 text-[#82A094]" />
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Show bank details fields only after category is selected */}
+            {formData.accountCategory && (
+            <div className="space-y-8 animate-in fade-in slide-in-from-top-4 duration-500">
             {/* Currency & Account Type */}
             <div 
               className="grid grid-cols-1 md:grid-cols-2 gap-8 p-6 rounded-3xl border"
@@ -711,15 +974,22 @@ export default function NewBankAccountPage() {
                     onChange={handleChange}
                     placeholder="e.g., GBP, JPY"
                     maxLength={3}
-                    className="w-full px-5 py-4 rounded-2xl uppercase tracking-widest font-bold text-lg transition-all focus:outline-none"
-                    style={{ background: 'white', border: '2px solid #96AEC2', color: '#546A7A' }}
+                    className={`w-full px-5 py-4 rounded-2xl uppercase tracking-widest font-bold text-lg transition-all focus:outline-none`}
+                    style={{ background: 'white', border: `2px solid ${fieldErrors.otherCurrency ? '#E17F70' : '#96AEC2'}`, color: '#546A7A' }}
                     required={formData.currency === 'Other'}
                   />
+                  {fieldErrors.otherCurrency && (
+                    <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {fieldErrors.otherCurrency}
+                    </p>
+                  )}
                 </div>
               )}
             </div>
 
-            {/* Tax Details - Conditional UI for INR */}
+            {/* Tax Details - Only for DOMESTIC and EMPLOYEE */}
+            {formData.accountCategory !== 'INTERNATIONAL' && (
             <div 
               className="grid grid-cols-1 md:grid-cols-2 gap-8 p-6 rounded-3xl border"
               style={{ background: 'linear-gradient(135deg, rgba(206,159,107,0.08) 0%, rgba(151,110,68,0.04) 100%)', borderColor: 'rgba(206,159,107,0.2)' }}
@@ -736,9 +1006,15 @@ export default function NewBankAccountPage() {
                   onChange={handleChange}
                   placeholder="22AAAAA0000A1Z5"
                   maxLength={15}
-                  className="w-full px-5 py-4 rounded-2xl font-mono font-bold uppercase transition-all focus:outline-none"
-                  style={{ background: 'white', border: '2px solid #AEBFC3', color: '#546A7A' }}
+                  className={`w-full px-5 py-4 rounded-2xl font-mono font-bold uppercase transition-all focus:outline-none`}
+                  style={{ background: 'white', border: `2px solid ${fieldErrors.gstNumber ? '#E17F70' : '#AEBFC3'}`, color: '#546A7A' }}
                 />
+                {fieldErrors.gstNumber && (
+                  <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
+                    <AlertCircle className="w-3 h-3" />
+                    {fieldErrors.gstNumber}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-3">
@@ -753,11 +1029,18 @@ export default function NewBankAccountPage() {
                   onChange={handleChange}
                   placeholder="ABCDE1234F"
                   maxLength={10}
-                  className="w-full px-5 py-4 rounded-2xl font-mono font-bold uppercase transition-all focus:outline-none"
-                  style={{ background: 'white', border: '2px solid #AEBFC3', color: '#546A7A' }}
+                  className={`w-full px-5 py-4 rounded-2xl font-mono font-bold uppercase transition-all focus:outline-none`}
+                  style={{ background: 'white', border: `2px solid ${fieldErrors.panNumber ? '#E17F70' : '#AEBFC3'}`, color: '#546A7A' }}
                 />
+                {fieldErrors.panNumber && (
+                  <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
+                    <AlertCircle className="w-3 h-3" />
+                    {fieldErrors.panNumber}
+                  </p>
+                )}
               </div>
             </div>
+            )}
             {/* Bank Details */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="space-y-3">
@@ -772,10 +1055,16 @@ export default function NewBankAccountPage() {
                   onChange={handleChange}
                   placeholder="e.g., State Bank of India"
                   maxLength={50}
-                  className="w-full px-5 py-4 rounded-2xl font-medium transition-all focus:outline-none"
-                  style={{ background: '#F8FAFB', border: '2px solid #AEBFC3', color: '#546A7A' }}
+                  className={`w-full px-5 py-4 rounded-2xl font-medium transition-all focus:outline-none`}
+                  style={{ background: '#F8FAFB', border: `2px solid ${fieldErrors.beneficiaryBankName ? '#E17F70' : '#AEBFC3'}`, color: '#546A7A' }}
                   required
                 />
+                {fieldErrors.beneficiaryBankName && (
+                  <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
+                    <AlertCircle className="w-3 h-3" />
+                    {fieldErrors.beneficiaryBankName}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-3">
@@ -791,9 +1080,15 @@ export default function NewBankAccountPage() {
                   onChange={handleChange}
                   placeholder="Full name as per bank records"
                   maxLength={50}
-                  className="w-full px-5 py-4 rounded-2xl font-medium transition-all focus:outline-none"
-                  style={{ background: '#F8FAFB', border: '2px solid #AEBFC3', color: '#546A7A' }}
+                  className={`w-full px-5 py-4 rounded-2xl font-medium transition-all focus:outline-none`}
+                  style={{ background: '#F8FAFB', border: `2px solid ${fieldErrors.beneficiaryName ? '#E17F70' : '#AEBFC3'}`, color: '#546A7A' }}
                 />
+                {fieldErrors.beneficiaryName && (
+                  <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
+                    <AlertCircle className="w-3 h-3" />
+                    {fieldErrors.beneficiaryName}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -837,9 +1132,19 @@ export default function NewBankAccountPage() {
                       onChange={handleChange}
                       placeholder="Enter account number"
                       maxLength={18}
-                      className="w-full px-4 py-3 rounded-xl font-mono font-bold text-base tracking-wider transition-all focus:outline-none bg-white/10 border-2 border-white/20 text-white focus:border-white/40"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      className={`w-full px-4 py-3 rounded-xl font-mono font-bold text-base tracking-wider transition-all focus:outline-none border-2 text-white ${
+                        fieldErrors.accountNumber ? 'bg-[#E17F70]/20 border-[#E17F70]' : 'bg-white/10 border-white/20 focus:border-white/40'
+                      }`}
                       required
                     />
+                    {fieldErrors.accountNumber && (
+                      <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
+                        <AlertCircle className="w-3 h-3" />
+                        {fieldErrors.accountNumber}
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-3">
@@ -853,9 +1158,17 @@ export default function NewBankAccountPage() {
                       onChange={handleChange}
                       placeholder="e.g., SBIN0001234 or SWIFT-BIC"
                       maxLength={11}
-                      className="w-full px-4 py-3 rounded-xl font-mono font-black text-base tracking-widest uppercase transition-all focus:outline-none bg-white/10 border-2 border-white/20 text-[#CE9F6B] focus:border-[#CE9F6B]/50"
+                      className={`w-full px-4 py-3 rounded-xl font-mono font-black text-base tracking-widest uppercase transition-all focus:outline-none border-2 ${
+                        fieldErrors.ifscCode ? 'bg-[#E17F70]/20 border-[#E17F70] text-[#EEC1BF]' : 'bg-white/10 border-white/20 text-[#CE9F6B] focus:border-[#CE9F6B]/50'
+                      }`}
                       required
                     />
+                    {fieldErrors.ifscCode && (
+                      <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
+                        <AlertCircle className="w-3 h-3" />
+                        {fieldErrors.ifscCode}
+                      </p>
+                    )}
                   </div>
 
                   <div className="md:col-span-2 space-y-3">
@@ -870,13 +1183,23 @@ export default function NewBankAccountPage() {
                         onChange={handleChange}
                         placeholder="Re-type account number for verification"
                         maxLength={18}
+                        inputMode="numeric"
+                        pattern="[0-9]*"
                         className={`w-full px-4 py-3 rounded-xl font-mono font-bold text-base tracking-wider transition-all focus:outline-none border-2 ${
-                          formData.confirmAccountNumber && formData.accountNumber !== formData.confirmAccountNumber
+                          fieldErrors.confirmAccountNumber
+                            ? 'bg-[#E17F70]/20 border-[#E17F70] text-[#EEC1BF]'
+                            : formData.confirmAccountNumber && formData.accountNumber !== formData.confirmAccountNumber
                             ? 'bg-[#E17F70]/20 border-[#E17F70] text-[#EEC1BF]'
                             : 'bg-white/10 border-white/20 text-white focus:border-white/40'
                         }`}
                         required
                       />
+                      {fieldErrors.confirmAccountNumber && (
+                        <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
+                          <AlertCircle className="w-3 h-3" />
+                          {fieldErrors.confirmAccountNumber}
+                        </p>
+                      )}
                       {formData.confirmAccountNumber && formData.accountNumber === formData.confirmAccountNumber && (
                         <div className="absolute right-4 top-1/2 -translate-y-1/2">
                           <CheckCircle2 className="w-6 h-6" style={{ color: '#82A094' }} />
@@ -898,6 +1221,8 @@ export default function NewBankAccountPage() {
                 </div>
               </div>
             </div>
+            </div>
+            )}
           </CardContent>
         </Card>
         )}
@@ -913,7 +1238,7 @@ export default function NewBankAccountPage() {
                 </div>
                 <div>
                   <CardTitle className="text-xl text-white font-black">Verification Documents</CardTitle>
-                  <CardDescription className="text-white/80">Select types and upload supporting documentation</CardDescription>
+                  <CardDescription className="text-white/80">Upload supporting documentation for {formData.accountCategory?.charAt(0) + formData.accountCategory?.slice(1).toLowerCase()} account</CardDescription>
                 </div>
               </div>
               <span className="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest bg-white/20 text-white border border-white/30">
@@ -922,83 +1247,18 @@ export default function NewBankAccountPage() {
             </div>
           </CardHeader>
           <CardContent className="p-8 md:p-10">
-            {/* Stage 1: Select Vendor Types */}
-            <div className="mb-10">
-              <h3 className="text-sm font-black uppercase tracking-widest flex items-center gap-2 mb-6 text-[#546A7A]">
-                <Sparkles className="w-4 h-4 text-[#CE9F6B]" />
-                1. Select Account Categories <span className="text-[#E17F70]">*</span>
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {[
-                  { id: 'DOMESTIC', label: 'Domestic', icon: Building2, desc: 'Local vendor bank details', color: '#82A094' },
-                  { id: 'INTERNATIONAL', label: 'International', icon: Globe, desc: 'Foreign currency / SWIFT', color: '#6F8A9D' },
-                  { id: 'EMPLOYEE', label: 'Employee', icon: User, desc: 'Personal account verification', color: '#CE9F6B' }
-                ].map((type) => {
-                  const isSelected = selectedFiles.some(f => f.vendorType === type.id) || 
-                                   (formData as any).selectedTypes?.includes(type.id);
-                  return (
-                    <button
-                      key={type.id}
-                      type="button"
-                      onClick={() => {
-                        setFormData(prev => {
-                          const currentTypes = (prev as any).selectedTypes || [];
-                          const updatedTypes = currentTypes.includes(type.id)
-                            ? currentTypes.filter((t: string) => t !== type.id)
-                            : [...currentTypes, type.id];
-                          
-                          // If removing a type, also remove associated files
-                          if (currentTypes.includes(type.id)) {
-                            setSelectedFiles(files => files.filter(f => f.vendorType !== type.id));
-                          }
-                          
-                          return { ...prev, selectedTypes: updatedTypes };
-                        });
-                      }}
-                      className={`relative p-6 rounded-3xl border-2 transition-all text-left group ${
-                        (formData as any).selectedTypes?.includes(type.id)
-                          ? 'bg-white border-[#CE9F6B] shadow-xl translate-y-[-4px]'
-                          : 'bg-[#F8FAFB] border-[#AEBFC3]/30 hover:border-[#CE9F6B]/30'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between mb-4">
-                        <div 
-                          className={`p-3 rounded-2xl transition-colors ${
-                            (formData as any).selectedTypes?.includes(type.id) ? 'bg-[#CE9F6B] text-white' : 'bg-[#AEBFC3]/20 text-[#546A7A]'
-                          }`}
-                        >
-                          <type.icon className="w-6 h-6" />
-                        </div>
-                        {(formData as any).selectedTypes?.includes(type.id) && (
-                          <div className="w-6 h-6 rounded-full bg-[#82A094] flex items-center justify-center animate-in zoom-in duration-300">
-                            <CheckCircle2 className="w-4 h-4 text-white" />
-                          </div>
-                        )}
-                      </div>
-                      <p className={`font-black text-lg mb-1 ${(formData as any).selectedTypes?.includes(type.id) ? 'text-[#546A7A]' : 'text-[#92A2A5]'}`}>
-                        {type.label}
-                      </p>
-                      <p className="text-xs text-[#92A2A5] font-medium leading-relaxed">
-                        {type.desc}
-                      </p>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Stage 2: Upload Files for Selected Types */}
-            {((formData as any).selectedTypes || []).length > 0 && (
-              <div className="space-y-8 animate-in fade-in slide-in-from-top-4 duration-500">
-                <div className="flex items-center gap-3 border-t border-[#AEBFC3]/20 pt-8 mt-8">
+            {/* Upload Files for Selected Types */}
+            {formData.accountCategory ? (
+              <div className="space-y-8">
+                <div className="flex items-center gap-3">
                   <h3 className="text-sm font-black uppercase tracking-widest flex items-center gap-2 text-[#546A7A]">
                     <Upload className="w-4 h-4 text-[#82A094]" />
-                    2. Upload Documents for Selected Types <span className="text-[#E17F70]">*</span>
+                    Upload Documents <span className="text-[#E17F70]">*</span>
                   </h3>
                 </div>
 
                 <div className="grid grid-cols-1 gap-6">
-                  {((formData as any).selectedTypes || []).map((typeId: string) => {
+                  {[formData.accountCategory].map((typeId: string) => {
                     const fileDetail = selectedFiles.find(f => f.vendorType === typeId);
                     const typeLabel = typeId.charAt(0) + typeId.slice(1).toLowerCase();
                     
@@ -1017,61 +1277,53 @@ export default function NewBankAccountPage() {
                             </div>
                             
                             <div className="flex-1 text-center md:text-left min-w-0">
-                              <h4 className="font-black text-[#546A7A] text-lg uppercase tracking-tight">{typeLabel} Document</h4>
-                              {fileDetail ? (
-                                <div className="flex items-center gap-2 text-[#82A094] font-bold text-sm mt-1">
-                                  <CheckCircle2 className="w-4 h-4" />
-                                  <span className="truncate max-w-[200px]">{fileDetail.file.name}</span>
-                                  <span className="text-xs opacity-60">({(fileDetail.file.size / 1024 / 1024).toFixed(2)} MB)</span>
-                                </div>
-                              ) : (
-                                <p className="text-[#92A2A5] text-sm mt-1 font-medium">Please upload the verification document for {typeLabel.toLowerCase()} account.</p>
-                              )}
+                              <h4 className="font-black text-[#546A7A] text-lg uppercase tracking-tight">{typeLabel} Documents</h4>
+                              <div className="space-y-2 mt-2">
+                                {selectedFiles.filter(f => f.vendorType === typeId).length > 0 ? (
+                                  selectedFiles.filter(f => f.vendorType === typeId).map((f, idx) => (
+                                    <div key={idx} className="flex items-center gap-2 text-[#82A094] font-bold text-sm bg-[#82A094]/5 p-2 rounded-xl border border-[#82A094]/10">
+                                      <CheckCircle2 className="w-4 h-4 shrink-0" />
+                                      <span className="truncate max-w-[150px]">{f.file.name}</span>
+                                      <span className="text-[10px] opacity-60">({(f.file.size / 1024 / 1024).toFixed(2)} MB)</span>
+                                      <button 
+                                        type="button" 
+                                        onClick={() => setSelectedFiles(prev => prev.filter(fileItem => fileItem !== f))}
+                                        className="ml-auto p-1 hover:text-[#E17F70] transition-colors"
+                                      >
+                                        <X className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  ))
+                                ) : (
+                                  <p className="text-[#92A2A5] text-sm font-medium">
+                                    {typeId === 'DOMESTIC' ? 'Bank Letter or Cancelled Cheque is mandatory.' : 
+                                     typeId === 'INTERNATIONAL' ? 'Bank Letter is mandatory.' : 
+                                     'One verification document is mandatory.'}
+                                  </p>
+                                )}
+                              </div>
                             </div>
 
                             <div className="flex items-center gap-3 shrink-0">
-                               {fileDetail ? (
-                                <div className="flex items-center gap-2">
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    onClick={() => {
-                                      setPreviewFile({
-                                        filename: fileDetail.file.name,
-                                        mimeType: fileDetail.file.type,
-                                        localFile: fileDetail.file
-                                      });
-                                      setShowPreview(true);
-                                    }}
-                                    className="text-[#CE9F6B] hover:bg-[#CE9F6B]/10 rounded-xl h-10 px-4"
-                                  >
-                                    <Eye className="w-4 h-4 mr-2" /> Preview
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    onClick={() => setSelectedFiles(prev => prev.filter(f => f.vendorType !== typeId))}
-                                    className="text-[#E17F70] hover:bg-[#E17F70]/10 rounded-xl h-10 px-4"
-                                  >
-                                    <X className="w-4 h-4 mr-2" /> Clear
-                                  </Button>
-                                </div>
-                              ) : (
                                 <label className="flex items-center gap-2 px-6 py-3 rounded-xl bg-[#546A7A] text-white text-sm font-bold cursor-pointer hover:bg-[#455A64] transition-all shadow-lg shadow-[#546A7A]/20">
                                   <Upload className="w-4 h-4" />
-                                  Choose File
+                                  Upload {selectedFiles.filter(f => f.vendorType === typeId).length > 0 ? 'More' : 'File'}
                                   <input 
                                     type="file" 
                                     className="hidden" 
+                                    multiple
                                     onChange={(e) => {
-                                      const file = e.target.files?.[0];
-                                      if (file) {
-                                        setSelectedFiles(prev => [...prev.filter(f => f.vendorType !== typeId), { file, vendorType: typeId }]);
+                                      if (e.target.files) {
+                                        const files = Array.from(e.target.files);
+                                        setSelectedFiles(prev => [
+                                          ...prev, 
+                                          ...files.map(file => ({ file, vendorType: typeId }))
+                                        ]);
                                       }
+                                      e.target.value = ''; // Reset for same file re-upload if needed
                                     }} 
                                   />
                                 </label>
-                              )}
                             </div>
                           </div>
                         </div>
@@ -1080,13 +1332,11 @@ export default function NewBankAccountPage() {
                   })}
                 </div>
               </div>
-            )}
-
-            {((formData as any).selectedTypes || []).length === 0 && (
+            ) : (
               <div className="text-center py-20 bg-[#F8FAFB] rounded-[2.5rem] border-2 border-dashed border-[#AEBFC3]/30">
                 <Sparkles className="w-12 h-12 text-[#AEBFC3]/40 mx-auto mb-4" />
-                <p className="text-[#546A7A] font-black text-lg">No Categories Selected</p>
-                <p className="text-[#92A2A5] text-sm font-medium mt-1">Select at least one account type above to enable uploads</p>
+                <p className="text-[#546A7A] font-black text-lg">No Category Selected</p>
+                <p className="text-[#92A2A5] text-sm font-medium mt-1">Please go back to Step 2 and select an Account Category first</p>
               </div>
             )}
           </CardContent>

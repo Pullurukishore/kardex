@@ -1,8 +1,8 @@
 import { Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
-import { 
-  validateAccessPin, 
-  createPinSession, 
+import {
+  validateAccessPin,
+  createPinSession,
   getCurrentPin,
   generateAccessPin,
   recordPinAttempt,
@@ -13,11 +13,11 @@ export const validatePin = async (req: Request, res: Response) => {
   try {
     const { pin } = req.body;
     const clientIp = req.ip || req.connection.remoteAddress || 'unknown';
-    
+
     if (!pin) {
       return res.status(400).json({ error: 'PIN is required' });
     }
-    
+
     // Validate PIN format (6 digits)
     if (!/^\d{6}$/.test(pin)) {
       return res.status(400).json({ error: 'PIN must be 6 digits' });
@@ -34,13 +34,13 @@ export const validatePin = async (req: Request, res: Response) => {
         attemptsLeft: 0
       });
     }
-    
+
     // Check if PIN is valid
     const isValid = await validateAccessPin(pin);
-    
+
     // Record the attempt
     const attemptResult = recordPinAttempt(clientIp, isValid);
-    
+
     if (!isValid) {
       if (!attemptResult.allowed) {
         // Account is now locked
@@ -53,22 +53,22 @@ export const validatePin = async (req: Request, res: Response) => {
         });
       } else {
         // Still have attempts left
-        return res.status(401).json({ 
+        return res.status(401).json({
           error: `Invalid PIN. ${attemptResult.attemptsLeft} attempts remaining.`,
           code: 'INVALID_PIN',
           attemptsLeft: attemptResult.attemptsLeft
         });
       }
     }
-    
+
     // Create PIN session
     const sessionId = uuidv4();
     createPinSession(sessionId, clientIp);
-    
+
     // Set secure cookie (httpOnly: false so frontend can read it for validation)
     const cookieOptions = {
       httpOnly: false, // Allow JavaScript access for frontend validation
-      secure: process.env.NODE_ENV === 'production',
+      secure: process.env.NODE_ENV === 'production' && !req.headers.host?.includes('172.28.91.10') && !req.headers.host?.includes('localhost'),
       sameSite: 'lax' as const, // 'lax' for better compatibility
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
       path: '/', // Ensure cookie is available for all paths
@@ -76,19 +76,19 @@ export const validatePin = async (req: Request, res: Response) => {
       ...(process.env.COOKIE_DOMAIN ? { domain: process.env.COOKIE_DOMAIN } : {})
     };
     res.cookie('pinSession', sessionId, cookieOptions);
-    
+
     // Also set session data in response for client-side storage fallback
-    const responseData = { 
-      success: true, 
+    const responseData = {
+      success: true,
       message: 'PIN verified successfully',
       sessionId,
       expiresAt: new Date(Date.now() + cookieOptions.maxAge).toISOString()
     };
-    
+
     // Log successful access
     // Return response with session data
     return res.json(responseData);
-    
+
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -99,7 +99,7 @@ export const checkPinStatus = (req: Request, res: Response) => {
     const currentPin = getCurrentPin();
     const clientIp = req.ip || req.connection.remoteAddress || 'unknown';
     const attemptInfo = getPinAttemptInfo(clientIp);
-    
+
     res.json({
       pinRequired: false, // No expiry, PIN never required due to time
       createdAt: currentPin.createdAt,
@@ -118,24 +118,24 @@ export const checkPinStatus = (req: Request, res: Response) => {
 export const generateNewPin = async (req: Request, res: Response) => {
   try {
     const { newPin } = req.body;
-    
+
     if (!newPin) {
       return res.status(400).json({ error: 'New PIN is required' });
     }
-    
+
     // Validate PIN format
     if (!/^\d{6}$/.test(newPin)) {
       return res.status(400).json({ error: 'PIN must be 6 digits' });
     }
-    
+
     // Generate new PIN
     generateAccessPin(newPin);
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       message: 'New PIN generated successfully',
       createdAt: getCurrentPin().createdAt
     });
-    
+
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });
   }

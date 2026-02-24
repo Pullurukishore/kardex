@@ -1,6 +1,6 @@
 import { apiClient } from '@/lib/api';
 
-export type FinanceRoleType = 'FINANCE_ADMIN' | 'FINANCE_USER' | 'FINANCE_VIEWER';
+export type FinanceRoleType = 'FINANCE_ADMIN' | 'FINANCE_USER' | 'FINANCE_VIEWER' | 'FINANCE_APPROVER';
 
 export interface FinanceUser {
     id: number;
@@ -214,6 +214,7 @@ export const getFinanceRoleDisplayName = (role: FinanceRoleType): string => {
         FINANCE_ADMIN: 'Finance Admin',
         FINANCE_USER: 'Finance User',
         FINANCE_VIEWER: 'Finance Viewer',
+        FINANCE_APPROVER: 'Finance Approver',
     };
     return roleNames[role] || role;
 };
@@ -224,6 +225,7 @@ export const getFinanceRoleBadgeColor = (role: FinanceRoleType): string => {
         FINANCE_ADMIN: 'bg-[#E17F70]/20 text-[#9E3B47] border-[#E17F70]',
         FINANCE_USER: 'bg-[#CE9F6B]/20 text-[#976E44] border-[#CE9F6B]',
         FINANCE_VIEWER: 'bg-[#96AEC2]/20 text-[#546A7A] border-[#96AEC2]',
+        FINANCE_APPROVER: 'bg-purple-100 text-purple-700 border-purple-300',
     };
     return colors[role] || 'bg-gray-100 text-gray-600 border-gray-300';
 };

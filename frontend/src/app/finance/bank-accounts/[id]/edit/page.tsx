@@ -13,9 +13,16 @@ import {
   CheckCircle2, Mail, CreditCard, Hash, User, Loader2,
   Info, ArrowRight, FileSpreadsheet, Globe, Shield,
   Upload, FileText, FileIcon, Trash2, Download,
-  FileImage, File, Eye
+  FileImage, File, Eye, ChevronDown, X, BadgeCheck
 } from 'lucide-react';
 import FilePreview from '@/components/FilePreview';
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from '@/components/ui/select';
 
 interface FormData {
   bpCode: string;
@@ -34,6 +41,7 @@ interface FormData {
   currency: string;
   accountType: string;
   otherCurrency?: string;
+  accountCategory?: string;
 }
 
 export default function EditBankAccountPage() {
@@ -43,6 +51,7 @@ export default function EditBankAccountPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [success, setSuccess] = useState('');
   const [originalAccount, setOriginalAccount] = useState<BankAccount | null>(null);
   const [attachments, setAttachments] = useState<any[]>([]);
@@ -52,6 +61,7 @@ export default function EditBankAccountPage() {
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [previewFile, setPreviewFile] = useState<any>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [selectedDocContexts, setSelectedDocContexts] = useState<string[]>(['DOMESTIC']);
   
   const isAdmin = user?.financeRole === FinanceRole.FINANCE_ADMIN;
 
@@ -71,7 +81,8 @@ export default function EditBankAccountPage() {
     panNumber: '',
     currency: 'INR',
     accountType: '',
-    otherCurrency: ''
+    otherCurrency: '',
+    accountCategory: 'DOMESTIC'
   });
 
   useEffect(() => {
@@ -106,11 +117,13 @@ export default function EditBankAccountPage() {
         isMSME: data.isMSME || false,
         udyamRegNum: data.udyamRegNum || '',
         gstNumber: data.gstNumber || '',
-        panNumber: data.panNumber || '',
-        currency: ['INR', 'EUR', 'USD'].includes(data.currency) ? data.currency : 'Other',
-        accountType: data.accountType || '',
-        otherCurrency: ['INR', 'EUR', 'USD'].includes(data.currency) ? '' : data.currency
-      });
+      panNumber: data.panNumber || '',
+      currency: ['INR', 'EUR', 'USD'].includes(data.currency) ? data.currency : 'Other',
+      accountType: data.accountType || '',
+      otherCurrency: ['INR', 'EUR', 'USD'].includes(data.currency) ? '' : data.currency,
+      accountCategory: data.accountCategory || 'DOMESTIC'
+    });
+    setSelectedDocContexts([data.accountCategory || 'DOMESTIC']);
     } catch (error) {
       console.error('Failed to load bank account:', error);
       setError('Failed to load bank account');
@@ -119,9 +132,117 @@ export default function EditBankAccountPage() {
     }
   };
 
+  // Validation helpers
+  const isNumericOnly = (val: string) => /^[0-9]*$/.test(val);
+  const isLettersOnly = (val: string) => /^[A-Za-z\s.\-&'(),/]*$/.test(val);
+  const isAlphanumeric = (val: string) => /^[A-Za-z0-9]*$/.test(val);
+  const isAlphanumericWithHyphen = (val: string) => /^[A-Za-z0-9\-]*$/.test(val);
+  const isValidEmail = (val: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
+  const isValidGST = (val: string) => /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[0-9A-Z]{1}[Z]{1}[0-9A-Z]{1}$/.test(val);
+  const isValidPAN = (val: string) => /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(val);
+  const isValidIFSC = (val: string) => /^[A-Z]{4}0[A-Z0-9]{6}$/.test(val);
+  const isLettersOnlyStrict = (val: string) => /^[A-Za-z]*$/.test(val);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
     const checked = (e.target as HTMLInputElement).checked;
+
+    // Real-time input filtering
+    if (name === 'bpCode') {
+      if (value !== '' && !isNumericOnly(value)) {
+        setFieldErrors(prev => ({ ...prev, bpCode: 'Vendor Code accepts numbers only' }));
+        return;
+      }
+      setFieldErrors(prev => ({ ...prev, bpCode: '' }));
+    }
+
+    if (name === 'vendorName') {
+      if (value !== '' && !isLettersOnly(value)) {
+        setFieldErrors(prev => ({ ...prev, vendorName: 'Vendor Name should contain letters only (no numbers)' }));
+        return;
+      }
+      setFieldErrors(prev => ({ ...prev, vendorName: '' }));
+    }
+
+    if (name === 'nickName') {
+      if (value !== '' && !isLettersOnly(value)) {
+        setFieldErrors(prev => ({ ...prev, nickName: 'Nick Name should contain letters only (no numbers)' }));
+        return;
+      }
+      setFieldErrors(prev => ({ ...prev, nickName: '' }));
+    }
+
+    if (name === 'emailId') {
+      if (value === '' || isValidEmail(value)) {
+        setFieldErrors(prev => ({ ...prev, emailId: '' }));
+      } else {
+        setFieldErrors(prev => ({ ...prev, emailId: 'Please enter a valid email address (e.g. vendor@company.com)' }));
+      }
+    }
+
+    if (name === 'beneficiaryBankName') {
+      if (value !== '' && !isLettersOnly(value)) {
+        setFieldErrors(prev => ({ ...prev, beneficiaryBankName: 'Bank Name should contain letters only (no numbers)' }));
+        return;
+      }
+      setFieldErrors(prev => ({ ...prev, beneficiaryBankName: '' }));
+    }
+
+    if (name === 'beneficiaryName') {
+      if (value !== '' && !isLettersOnly(value)) {
+        setFieldErrors(prev => ({ ...prev, beneficiaryName: 'Beneficiary Name should contain letters only (no numbers)' }));
+        return;
+      }
+      setFieldErrors(prev => ({ ...prev, beneficiaryName: '' }));
+    }
+
+    if (name === 'accountNumber' || name === 'confirmAccountNumber') {
+      if (value !== '' && !isNumericOnly(value)) {
+        setFieldErrors(prev => ({ ...prev, [name]: 'Account Number must contain numbers only' }));
+        return;
+      }
+      setFieldErrors(prev => ({ ...prev, [name]: '' }));
+    }
+
+    if (name === 'ifscCode') {
+      if (value !== '' && !isAlphanumeric(value)) {
+        setFieldErrors(prev => ({ ...prev, ifscCode: 'IFSC/SWIFT Code must be alphanumeric' }));
+        return;
+      }
+      setFieldErrors(prev => ({ ...prev, ifscCode: '' }));
+    }
+
+    if (name === 'gstNumber') {
+      if (value !== '' && !isAlphanumeric(value)) {
+        setFieldErrors(prev => ({ ...prev, gstNumber: 'GST Number must be alphanumeric' }));
+        return;
+      }
+      setFieldErrors(prev => ({ ...prev, gstNumber: '' }));
+    }
+
+    if (name === 'panNumber') {
+      if (value !== '' && !isAlphanumeric(value)) {
+        setFieldErrors(prev => ({ ...prev, panNumber: 'PAN Number must be alphanumeric' }));
+        return;
+      }
+      setFieldErrors(prev => ({ ...prev, panNumber: '' }));
+    }
+
+    if (name === 'udyamRegNum') {
+      if (value !== '' && !isAlphanumericWithHyphen(value)) {
+        setFieldErrors(prev => ({ ...prev, udyamRegNum: 'Only letters, numbers and hyphens are allowed' }));
+        return;
+      }
+      setFieldErrors(prev => ({ ...prev, udyamRegNum: '' }));
+    }
+
+    if (name === 'otherCurrency') {
+      if (value !== '' && !isLettersOnlyStrict(value)) {
+        setFieldErrors(prev => ({ ...prev, otherCurrency: 'Currency code must contain letters only (e.g. GBP)' }));
+        return;
+      }
+      setFieldErrors(prev => ({ ...prev, otherCurrency: '' }));
+    }
     
     setFormData(prev => {
       const val = type === 'checkbox' ? checked : value;
@@ -150,18 +271,76 @@ export default function EditBankAccountPage() {
         return;
       }
 
-      // Smart Mandatory Validation for GST/PAN (only for INR)
-      if (formData.currency === 'INR') {
-        if (!formData.gstNumber) {
-          setError('GST Number is required for INR transactions');
-          setSaving(false);
-          return;
+      // Field format validations
+      if (!isNumericOnly(formData.bpCode)) {
+        setError('Vendor Code must contain numbers only');
+        setSaving(false);
+        return;
+      }
+
+      if (!isLettersOnly(formData.vendorName)) {
+        setError('Vendor Name should contain letters only (no numbers)');
+        setSaving(false);
+        return;
+      }
+
+      if (formData.nickName && !isLettersOnly(formData.nickName)) {
+        setError('Nick Name should contain letters only (no numbers)');
+        setSaving(false);
+        return;
+      }
+
+      if (formData.emailId && !isValidEmail(formData.emailId)) {
+        setError('Please enter a valid email address');
+        setSaving(false);
+        return;
+      }
+
+      // Smart Mandatory Validation for GST/PAN (only for DOMESTIC and EMPLOYEE with INR)
+      if (formData.accountCategory !== 'INTERNATIONAL') {
+        if (formData.currency === 'INR') {
+          if (!formData.gstNumber) {
+            setError('GST Number is required for INR transactions');
+            setSaving(false);
+            return;
+          }
+          if (!formData.panNumber) {
+            setError('PAN Number is required for INR transactions');
+            setSaving(false);
+            return;
+          }
         }
-        if (!formData.panNumber) {
-          setError('PAN Number is required for INR transactions');
-          setSaving(false);
-          return;
-        }
+
+      }
+
+      if (!isNumericOnly(formData.accountNumber)) {
+        setError('Account Number must contain numbers only');
+        setSaving(false);
+        return;
+      }
+
+      if (!isLettersOnly(formData.beneficiaryBankName)) {
+        setError('Beneficiary Bank Name should contain letters only');
+        setSaving(false);
+        return;
+      }
+
+      if (formData.beneficiaryName && !isLettersOnly(formData.beneficiaryName)) {
+        setError('Beneficiary Name should contain letters only');
+        setSaving(false);
+        return;
+      }
+
+      if (formData.ifscCode.length >= 11 && !isValidIFSC(formData.ifscCode.toUpperCase())) {
+        setError('Invalid IFSC Code format (e.g. SBIN0001234)');
+        setSaving(false);
+        return;
+      }
+
+      if (formData.otherCurrency && !isLettersOnlyStrict(formData.otherCurrency)) {
+        setError('Currency code must contain letters only');
+        setSaving(false);
+        return;
       }
       
       if (formData.accountNumber !== formData.confirmAccountNumber) {
@@ -170,27 +349,49 @@ export default function EditBankAccountPage() {
         return;
       }
 
-      const { confirmAccountNumber, otherCurrency, ...apiData } = formData;
-      // Override currency if 'Other' is selected
-      if (formData.currency === 'Other') {
-        apiData.currency = formData.otherCurrency || 'Other';
+      // Mandatory check for Document based on selected context (single select)
+      const selectedContext = formData.accountCategory; // Use formData.accountCategory directly
+      if (selectedContext) {
+        const hasFile = attachments.some(a => a.vendorType === selectedContext);
+        if (!hasFile) {
+          const contextLabels: Record<string, string> = {
+            'DOMESTIC': 'Domestic context requires a Bank Letter or Cancelled Cheque upload',
+            'INTERNATIONAL': 'International context requires a Bank Letter upload',
+            'EMPLOYEE': 'Employee context requires one verification document'
+          };
+          setError(contextLabels[selectedContext] || 'Verification document is required');
+          setSaving(false);
+          return;
+        }
       }
 
+      const dataToSubmit = {
+      ...formData,
+      currency: formData.currency === 'Other' ? formData.otherCurrency : formData.currency,
+      panNumber: formData.panNumber.toUpperCase(),
+      gstNumber: formData.gstNumber.toUpperCase()
+    };
+    
+    // Remove temporary frontend fields
+    delete (dataToSubmit as any).confirmAccountNumber;
+    delete (dataToSubmit as any).otherCurrency;
+
       if (isAdmin) {
-        await arApi.updateBankAccount(params.id as string, apiData);
+        await arApi.updateBankAccount(params.id as string, dataToSubmit);
         setSuccess('Vendor account updated successfully!');
         setTimeout(() => router.push(`/finance/bank-accounts/${params.id}`), 1500);
       } else {
         await arApi.createBankAccountRequest({
           bankAccountId: params.id as string,
           requestType: 'UPDATE',
-          requestedData: apiData
+          requestedData: dataToSubmit
         });
         setSuccess('Update request submitted! Waiting for admin approval.');
         setTimeout(() => router.push('/finance/bank-accounts/requests'), 1500);
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to submit');
+      console.error('Submission error:', err);
+      setError(err.message || 'Failed to submit changes');
     } finally {
       setSaving(false);
     }
@@ -327,8 +528,10 @@ export default function EditBankAccountPage() {
     );
   }
 
+  const totalChanges = Object.keys(formData).filter(key => hasChanges(key as keyof FormData)).length;
+
   return (
-    <div className="space-y-6 pb-8">
+    <div className="space-y-6 pb-4">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex items-center gap-3 sm:gap-4 w-full sm:w-auto">
@@ -336,18 +539,24 @@ export default function EditBankAccountPage() {
             variant="outline"
             size="icon"
             onClick={() => router.push(`/finance/bank-accounts/${params.id}`)}
-            className="shrink-0"
+            className="shrink-0 rounded-xl border-[#AEBFC3]/30 hover:border-[#CE9F6B]/50 hover:bg-[#CE9F6B]/5 transition-all"
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <div className="min-w-0">
-            <h1 className="text-2xl sm:text-3xl font-bold text-[#546A7A] truncate">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-2xl sm:text-3xl font-black text-[#546A7A] truncate tracking-tight">
               {isAdmin ? 'Edit Vendor Account' : 'Request Changes'}
             </h1>
             <p className="text-[#5D6E73] mt-1 text-sm sm:text-base truncate">
               {originalAccount?.vendorName} • <span className="font-bold text-[#CE9F6B]">{originalAccount?.currency} {originalAccount?.accountType || ''} Account</span>
             </p>
           </div>
+          {totalChanges > 0 && (
+            <div className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl bg-[#CE9F6B]/10 border border-[#CE9F6B]/20">
+              <div className="w-2 h-2 rounded-full bg-[#CE9F6B] animate-pulse" />
+              <span className="text-xs font-bold text-[#976E44]">{totalChanges} {totalChanges === 1 ? 'change' : 'changes'}</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -426,9 +635,19 @@ export default function EditBankAccountPage() {
                     value={formData.bpCode}
                     onChange={handleChange}
                     maxLength={15}
-                    className="w-full px-4 py-3.5 bg-[#F8FAFB] border border-[#AEBFC3]/30 rounded-xl text-[#546A7A] focus:outline-none focus:border-[#CE9F6B]/50 focus:ring-2 focus:ring-[#CE9F6B]/20 focus:bg-white transition-all uppercase tracking-wider font-bold"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    className={`w-full px-4 py-3.5 bg-[#F8FAFB] border rounded-xl text-[#546A7A] focus:outline-none focus:ring-2 focus:ring-[#CE9F6B]/20 focus:bg-white transition-all uppercase tracking-wider font-bold ${
+                      fieldErrors.bpCode ? 'border-[#E17F70] focus:border-[#E17F70]' : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B]/50'
+                    }`}
                     required
                   />
+                  {fieldErrors.bpCode && (
+                    <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {fieldErrors.bpCode}
+                    </p>
+                  )}
                 </div>
 
                 <div className={`space-y-2 ${hasChanges('vendorName') ? 'ring-2 ring-[#CE9F6B]/30 rounded-xl p-3 -m-3' : ''}`}>
@@ -445,9 +664,17 @@ export default function EditBankAccountPage() {
                     value={formData.vendorName}
                     onChange={handleChange}
                     maxLength={100}
-                    className="w-full px-4 py-3.5 bg-[#F8FAFB] border border-[#AEBFC3]/30 rounded-xl text-[#546A7A] focus:outline-none focus:border-[#CE9F6B]/50 focus:ring-2 focus:ring-[#CE9F6B]/20 focus:bg-white transition-all"
+                    className={`w-full px-4 py-3.5 bg-[#F8FAFB] border rounded-xl text-[#546A7A] focus:outline-none focus:ring-2 focus:ring-[#CE9F6B]/20 focus:bg-white transition-all ${
+                      fieldErrors.vendorName ? 'border-[#E17F70] focus:border-[#E17F70]' : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B]/50'
+                    }`}
                     required
                   />
+                  {fieldErrors.vendorName && (
+                    <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {fieldErrors.vendorName}
+                    </p>
+                  )}
                 </div>
 
                 <div className={`space-y-2 ${hasChanges('nickName') ? 'ring-2 ring-[#CE9F6B]/30 rounded-xl p-3 -m-3' : ''}`}>
@@ -464,8 +691,16 @@ export default function EditBankAccountPage() {
                     value={formData.nickName}
                     onChange={handleChange}
                     maxLength={30}
-                    className="w-full px-4 py-3.5 bg-[#F8FAFB] border border-[#AEBFC3]/30 rounded-xl text-[#546A7A] focus:outline-none focus:border-[#CE9F6B]/50 focus:ring-2 focus:ring-[#CE9F6B]/20 focus:bg-white transition-all"
+                    className={`w-full px-4 py-3.5 bg-[#F8FAFB] border rounded-xl text-[#546A7A] focus:outline-none focus:ring-2 focus:ring-[#CE9F6B]/20 focus:bg-white transition-all ${
+                      fieldErrors.nickName ? 'border-[#E17F70] focus:border-[#E17F70]' : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B]/50'
+                    }`}
                   />
+                  {fieldErrors.nickName && (
+                    <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {fieldErrors.nickName}
+                    </p>
+                  )}
                 </div>
 
                 <div className={`space-y-2 ${hasChanges('emailId') ? 'ring-2 ring-[#CE9F6B]/30 rounded-xl p-3 -m-3' : ''}`}>
@@ -482,8 +717,16 @@ export default function EditBankAccountPage() {
                     value={formData.emailId}
                     onChange={handleChange}
                     maxLength={50}
-                    className="w-full px-4 py-3.5 bg-[#F8FAFB] border border-[#AEBFC3]/30 rounded-xl text-[#546A7A] focus:outline-none focus:border-[#CE9F6B]/50 focus:ring-2 focus:ring-[#CE9F6B]/20 focus:bg-white transition-all"
+                    className={`w-full px-4 py-3.5 bg-[#F8FAFB] border rounded-xl text-[#546A7A] focus:outline-none focus:ring-2 focus:ring-[#CE9F6B]/20 focus:bg-white transition-all ${
+                      fieldErrors.emailId ? 'border-[#E17F70] focus:border-[#E17F70]' : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B]/50'
+                    }`}
                   />
+                  {fieldErrors.emailId && (
+                    <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {fieldErrors.emailId}
+                    </p>
+                  )}
                 </div>
 
 
@@ -555,6 +798,57 @@ export default function EditBankAccountPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="pt-6 bg-gradient-to-br from-[#AEBFC3]/5 to-white p-4 sm:p-6 space-y-5">
+                {/* Account Category Selection */}
+                <div className="mb-4">
+                  <h3 className="text-xs font-black uppercase tracking-widest flex items-center gap-2 mb-4 text-[#546A7A]">
+                    <Sparkles className="w-3.5 h-3.5 text-[#CE9F6B]" />
+                    Account Category <span className="text-[#E17F70]">*</span>
+                  </h3>
+                  <div className="grid grid-cols-3 gap-3">
+                    {[
+                      { id: 'DOMESTIC', label: 'Domestic', icon: Building2, desc: 'GST & PAN required for INR' },
+                      { id: 'INTERNATIONAL', label: 'International', icon: Globe, desc: 'GST & PAN not required' },
+                      { id: 'EMPLOYEE', label: 'Employee', icon: User, desc: 'GST & PAN required for INR' }
+                    ].map((type) => {
+                      const isSelected = formData.accountCategory === type.id;
+                      return (
+                        <button
+                          key={type.id}
+                          type="button"
+                          onClick={() => {
+                            if (isSelected) return;
+                            setFormData(prev => ({ ...prev, accountCategory: type.id }));
+                            setSelectedDocContexts([type.id]);
+                            if (type.id === 'INTERNATIONAL') {
+                              setFormData(prev => ({ ...prev, accountCategory: type.id, gstNumber: '', panNumber: '' }));
+                            }
+                          }}
+                          className={`relative p-3 rounded-xl border-2 transition-all text-left flex flex-col gap-2 group ${
+                            isSelected
+                              ? 'border-[#CE9F6B] bg-white shadow-lg shadow-[#CE9F6B]/10'
+                              : 'border-[#AEBFC3]/30 bg-[#F8FAFB] hover:border-[#CE9F6B]/30'
+                          }`}
+                        >
+                          <div className={`p-2 rounded-lg w-fit transition-colors ${isSelected ? 'bg-[#CE9F6B] text-white' : 'bg-white text-[#AEBFC3] group-hover:text-[#CE9F6B]'}`}>
+                            <type.icon className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <p className={`text-xs font-black uppercase tracking-tight ${isSelected ? 'text-[#546A7A]' : 'text-[#92A2A5]'}`}>
+                              {type.label}
+                            </p>
+                            <p className="text-[9px] font-bold text-[#AEBFC3] mt-0.5 leading-tight">{type.desc}</p>
+                          </div>
+                          {isSelected && (
+                            <div className="absolute top-2 right-2">
+                              <CheckCircle2 className="w-4 h-4 text-[#82A094]" />
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div className={`space-y-2 ${hasChanges('currency') ? 'ring-2 ring-[#CE9F6B]/30 rounded-xl p-3 -m-3' : ''}`}>
                   <label className="flex items-center gap-2 text-sm font-semibold text-[#5D6E73]">
@@ -612,13 +906,23 @@ export default function EditBankAccountPage() {
                       onChange={handleChange}
                       placeholder="e.g., GBP, JPY, CAD"
                       maxLength={3}
-                      className="w-full px-4 py-3.5 bg-white border border-[#CE9F6B]/30 rounded-xl text-[#546A7A] placeholder-[#92A2A5] focus:outline-none focus:border-[#CE9F6B] focus:ring-2 focus:ring-[#CE9F6B]/20 transition-all uppercase"
+                      className={`w-full px-4 py-3.5 bg-white border rounded-xl text-[#546A7A] placeholder-[#92A2A5] focus:outline-none focus:ring-2 focus:ring-[#CE9F6B]/20 transition-all uppercase ${
+                        fieldErrors.otherCurrency ? 'border-[#E17F70] focus:border-[#E17F70]' : 'border-[#CE9F6B]/30 focus:border-[#CE9F6B]'
+                      }`}
                       required={formData.currency === 'Other'}
                     />
+                    {fieldErrors.otherCurrency && (
+                      <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
+                        <AlertCircle className="w-3 h-3" />
+                        {fieldErrors.otherCurrency}
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
 
+              {/* GST/PAN - Only for DOMESTIC and EMPLOYEE */}
+              {formData.accountCategory !== 'INTERNATIONAL' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div className={`space-y-2 ${hasChanges('gstNumber') ? 'ring-2 ring-[#CE9F6B]/30 rounded-xl p-3 -m-3' : ''}`}>
                   <label className="flex items-center gap-2 text-sm font-semibold text-[#5D6E73]">
@@ -633,8 +937,16 @@ export default function EditBankAccountPage() {
                     value={formData.gstNumber}
                     onChange={handleChange}
                     maxLength={15}
-                    className="w-full px-4 py-3.5 bg-[#F8FAFB] border border-[#AEBFC3]/30 rounded-xl text-[#546A7A] focus:outline-none focus:border-[#CE9F6B]/50 focus:ring-2 focus:ring-[#CE9F6B]/20 focus:bg-white transition-all uppercase"
+                    className={`w-full px-4 py-3.5 bg-[#F8FAFB] border rounded-xl text-[#546A7A] focus:outline-none focus:ring-2 focus:ring-[#CE9F6B]/20 focus:bg-white transition-all uppercase ${
+                      fieldErrors.gstNumber ? 'border-[#E17F70] focus:border-[#E17F70]' : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B]/50'
+                    }`}
                   />
+                  {fieldErrors.gstNumber && (
+                    <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {fieldErrors.gstNumber}
+                    </p>
+                  )}
                 </div>
 
                 <div className={`space-y-2 ${hasChanges('panNumber') ? 'ring-2 ring-[#CE9F6B]/30 rounded-xl p-3 -m-3' : ''}`}>
@@ -650,10 +962,19 @@ export default function EditBankAccountPage() {
                     value={formData.panNumber}
                     onChange={handleChange}
                     maxLength={10}
-                    className="w-full px-4 py-3.5 bg-[#F8FAFB] border border-[#AEBFC3]/30 rounded-xl text-[#546A7A] focus:outline-none focus:border-[#CE9F6B]/50 focus:ring-2 focus:ring-[#CE9F6B]/20 focus:bg-white transition-all uppercase"
+                    className={`w-full px-4 py-3.5 bg-[#F8FAFB] border rounded-xl text-[#546A7A] focus:outline-none focus:ring-2 focus:ring-[#CE9F6B]/20 focus:bg-white transition-all uppercase ${
+                      fieldErrors.panNumber ? 'border-[#E17F70] focus:border-[#E17F70]' : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B]/50'
+                    }`}
                   />
+                  {fieldErrors.panNumber && (
+                    <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {fieldErrors.panNumber}
+                    </p>
+                  )}
                 </div>
               </div>
+              )}
 
               <div className={`space-y-2 ${hasChanges('beneficiaryBankName') ? 'ring-2 ring-[#CE9F6B]/30 rounded-xl p-3 -m-3' : ''}`}>
                 <label className="flex items-center gap-2 text-sm font-semibold text-[#5D6E73]">
@@ -669,9 +990,17 @@ export default function EditBankAccountPage() {
                   value={formData.beneficiaryBankName}
                   onChange={handleChange}
                   maxLength={50}
-                  className="w-full px-4 py-3.5 bg-[#F8FAFB] border border-[#AEBFC3]/30 rounded-xl text-[#546A7A] focus:outline-none focus:border-[#CE9F6B]/50 focus:ring-2 focus:ring-[#CE9F6B]/20 focus:bg-white transition-all"
+                  className={`w-full px-4 py-3.5 bg-[#F8FAFB] border rounded-xl text-[#546A7A] focus:outline-none focus:ring-2 focus:ring-[#CE9F6B]/20 focus:bg-white transition-all ${
+                    fieldErrors.beneficiaryBankName ? 'border-[#E17F70] focus:border-[#E17F70]' : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B]/50'
+                  }`}
                   required
                 />
+                {fieldErrors.beneficiaryBankName && (
+                  <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
+                    <AlertCircle className="w-3 h-3" />
+                    {fieldErrors.beneficiaryBankName}
+                  </p>
+                )}
               </div>
 
               <div className={`space-y-2 ${hasChanges('beneficiaryName') ? 'ring-2 ring-[#CE9F6B]/30 rounded-xl p-3 -m-3' : ''}`}>
@@ -689,8 +1018,16 @@ export default function EditBankAccountPage() {
                   onChange={handleChange}
                   placeholder="Name as per bank records"
                   maxLength={50}
-                  className="w-full px-4 py-3.5 bg-[#F8FAFB] border border-[#AEBFC3]/30 rounded-xl text-[#546A7A] focus:outline-none focus:border-[#CE9F6B]/50 focus:ring-2 focus:ring-[#CE9F6B]/20 focus:bg-white transition-all"
+                  className={`w-full px-4 py-3.5 bg-[#F8FAFB] border rounded-xl text-[#546A7A] focus:outline-none focus:ring-2 focus:ring-[#CE9F6B]/20 focus:bg-white transition-all ${
+                    fieldErrors.beneficiaryName ? 'border-[#E17F70] focus:border-[#E17F70]' : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B]/50'
+                  }`}
                 />
+                {fieldErrors.beneficiaryName && (
+                  <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
+                    <AlertCircle className="w-3 h-3" />
+                    {fieldErrors.beneficiaryName}
+                  </p>
+                )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -708,9 +1045,19 @@ export default function EditBankAccountPage() {
                     value={formData.accountNumber}
                     onChange={handleChange}
                     maxLength={18}
-                    className="w-full px-4 py-3.5 bg-[#F8FAFB] border border-[#AEBFC3]/30 rounded-xl text-[#546A7A] focus:outline-none focus:border-[#CE9F6B]/50 focus:ring-2 focus:ring-[#CE9F6B]/20 focus:bg-white transition-all font-mono"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    className={`w-full px-4 py-3.5 bg-[#F8FAFB] border rounded-xl text-[#546A7A] focus:outline-none focus:ring-2 focus:ring-[#CE9F6B]/20 focus:bg-white transition-all font-mono ${
+                      fieldErrors.accountNumber ? 'border-[#E17F70] focus:border-[#E17F70]' : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B]/50'
+                    }`}
                     required
                   />
+                  {fieldErrors.accountNumber && (
+                    <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {fieldErrors.accountNumber}
+                    </p>
+                  )}
                 </div>
 
                 <div className={`space-y-2 ${hasChanges('ifscCode') ? 'ring-2 ring-[#CE9F6B]/30 rounded-xl p-3 -m-3' : ''}`}>
@@ -727,9 +1074,17 @@ export default function EditBankAccountPage() {
                     value={formData.ifscCode}
                     onChange={handleChange}
                     maxLength={11}
-                    className="w-full px-4 py-3.5 bg-[#F8FAFB] border border-[#AEBFC3]/30 rounded-xl text-[#546A7A] focus:outline-none focus:border-[#CE9F6B]/50 focus:ring-2 focus:ring-[#CE9F6B]/20 focus:bg-white transition-all font-mono uppercase"
+                    className={`w-full px-4 py-3.5 bg-[#F8FAFB] border rounded-xl text-[#546A7A] focus:outline-none focus:ring-2 focus:ring-[#CE9F6B]/20 focus:bg-white transition-all font-mono uppercase ${
+                      fieldErrors.ifscCode ? 'border-[#E17F70] focus:border-[#E17F70]' : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B]/50'
+                    }`}
                     required
                   />
+                  {fieldErrors.ifscCode && (
+                    <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {fieldErrors.ifscCode}
+                    </p>
+                  )}
                 </div>
 
                 <div className={`space-y-2 ${hasChanges('accountNumber') ? 'ring-2 ring-[#CE9F6B]/30 rounded-xl p-3 -m-3' : ''}`}>
@@ -743,13 +1098,23 @@ export default function EditBankAccountPage() {
                     value={formData.confirmAccountNumber}
                     onChange={handleChange}
                     maxLength={18}
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     className={`w-full px-4 py-3.5 bg-[#F8FAFB] border rounded-xl text-[#546A7A] focus:outline-none transition-all font-mono ${
-                      formData.accountNumber !== formData.confirmAccountNumber
+                      fieldErrors.confirmAccountNumber
+                        ? 'border-[#E17F70] ring-2 ring-[#E17F70]/10'
+                        : formData.accountNumber !== formData.confirmAccountNumber
                         ? 'border-[#E17F70] ring-2 ring-[#E17F70]/10'
                         : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B]/50 focus:ring-2 focus:ring-[#CE9F6B]/20 focus:bg-white'
                     }`}
                     required
                   />
+                  {fieldErrors.confirmAccountNumber && (
+                    <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {fieldErrors.confirmAccountNumber}
+                    </p>
+                  )}
                   {formData.accountNumber !== formData.confirmAccountNumber && (
                     <p className="text-[10px] text-[#E17F70] font-medium flex items-center gap-1 mt-1">
                       <AlertCircle className="w-3 h-3" />
@@ -761,58 +1126,72 @@ export default function EditBankAccountPage() {
               </CardContent>
             </Card>
 
-            {/* Action Buttons */}
-            <Card className="shadow-xl overflow-hidden border-0">
-              <CardContent className="p-4 sm:p-6 bg-gradient-to-r from-[#AEBFC3]/10 to-white flex flex-col sm:flex-row items-center gap-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => router.push(`/finance/bank-accounts/${params.id}`)}
-                  className="w-full sm:w-auto"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={saving || !!success}
-                  className="w-full sm:flex-1 bg-gradient-to-r from-[#CE9F6B] to-[#976E44] hover:from-[#976E44] hover:to-[#7A5837] text-white shadow-lg"
-                >
-                  {saving ? (
-                    <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                  ) : (
-                    <Save className="w-5 h-5 mr-2" />
-                  )}
-                  {isAdmin ? 'Save Changes' : 'Submit Request'}
-                </Button>
-              </CardContent>
-            </Card>
 
             {/* Documents Card (Improved Grouped View) */}
             <Card className="shadow-xl overflow-hidden border-0">
               <CardHeader className="bg-gradient-to-r from-[#82A094] to-[#4F6A64] text-white border-b-0 py-4 sm:py-6">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                  <div>
+                  <div className="flex-1">
                     <CardTitle className="flex items-center gap-2 text-white text-lg sm:text-xl font-black uppercase tracking-tight">
-                      <FileText className="h-6 w-6" />
-                      Account Documents
+                       Verification Contexts
+                       <BadgeCheck className="w-5 h-5 text-[#CE9F6B]" />
                     </CardTitle>
                     <CardDescription className="text-white/80 text-sm mt-1">
-                      Grouped by account category
+                      Choose a category to manage its specialized documents
                     </CardDescription>
                   </div>
-                  <label className={`flex items-center gap-2 px-6 py-2.5 rounded-xl bg-white/20 backdrop-blur-sm text-white text-sm font-black uppercase tracking-widest cursor-pointer hover:bg-white/30 hover:shadow-lg transition-all border border-white/30 ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
-                    {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                    Add New document
-                    <input type="file" className="hidden" onChange={handleFileSelect} disabled={uploading} />
-                  </label>
                 </div>
               </CardHeader>
-              <CardContent className="pt-8 bg-[#F8FAFB] p-4 sm:p-8 space-y-10">
-                {[
-                  { id: 'DOMESTIC', label: 'Domestic', icon: Building2, color: '#82A094' },
-                  { id: 'INTERNATIONAL', label: 'International', icon: Globe, color: '#6F8A9D' },
-                  { id: 'EMPLOYEE', label: 'Employee', icon: User, color: '#CE9F6B' }
-                ].map((type) => {
+              <CardContent className="pt-8 bg-[#F8FAFB] p-4 sm:p-8 space-y-8">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
+                  {[
+                    { id: 'DOMESTIC', label: 'Domestic', icon: Building2, color: '#82A094', desc: 'Bank Letter / Cancelled Cheque' },
+                    { id: 'INTERNATIONAL', label: 'International', icon: Globe, color: '#6F8A9D', desc: 'Bank Letter mandatory + optional' },
+                    { id: 'EMPLOYEE', label: 'Employee', icon: User, color: '#CE9F6B', desc: 'Verification document' }
+                  ].map((type) => {
+                    const isSelected = selectedDocContexts[0] === type.id;
+                    return (
+                      <button
+                        key={type.id}
+                        type="button"
+                        onClick={() => {
+                          if (isSelected) return; // Already selected
+                          setSelectedDocContexts([type.id]);
+                        }}
+                        className={`relative p-5 rounded-2xl border-2 transition-all text-left flex flex-col gap-3 group ${
+                          isSelected 
+                            ? 'border-[#CE9F6B] bg-white shadow-xl shadow-[#CE9F6B]/10' 
+                            : 'border-[#AEBFC3]/30 bg-[#F8FAFB] hover:border-[#CE9F6B]/30'
+                        }`}
+                      >
+                        <div className={`p-3 rounded-xl w-fit transition-colors ${isSelected ? 'bg-[#CE9F6B] text-white' : 'bg-white text-[#AEBFC3] group-hover:text-[#CE9F6B]'}`}>
+                          <type.icon className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <p className={`font-black uppercase tracking-tight ${isSelected ? 'text-[#546A7A]' : 'text-[#92A2A5]'}`}>
+                            {type.label}
+                            <span className="text-[#E17F70] ml-1">*</span>
+                          </p>
+                          <p className="text-[10px] font-bold text-[#AEBFC3] mt-0.5 leading-tight">{type.desc}</p>
+                        </div>
+                        
+                        {isSelected && (
+                          <div className="absolute top-4 right-4">
+                            <CheckCircle2 className="w-5 h-5 text-[#82A094]" />
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Iterate through selected contexts */}
+                {selectedDocContexts.map((typeId) => {
+                  const type = [
+                    { id: 'DOMESTIC', label: 'Domestic', icon: Building2, color: '#82A094' },
+                    { id: 'INTERNATIONAL', label: 'International', icon: Globe, color: '#6F8A9D' },
+                    { id: 'EMPLOYEE', label: 'Employee', icon: User, color: '#CE9F6B' }
+                  ].find(t => t.id === typeId) || { id: 'DOMESTIC', label: 'Domestic', icon: Building2, color: '#82A094' };
                   const typeAttachments = attachments.filter(a => a.vendorType === type.id);
                   
                   return (
@@ -827,11 +1206,45 @@ export default function EditBankAccountPage() {
                             {typeAttachments.length} {typeAttachments.length === 1 ? 'File' : 'Files'}
                           </span>
                         </div>
+                        
+                        {typeAttachments.length > 0 && (
+                          <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-[#AEBFC3]/30 text-[#546A7A] text-[10px] font-bold uppercase tracking-wider cursor-pointer hover:border-[#CE9F6B]/50 hover:text-[#CE9F6B] transition-all shadow-sm">
+                            <Upload className="w-3 h-3" />
+                            Add More
+                            <input type="file" className="hidden" multiple onChange={(e) => {
+                              const files = e.target.files;
+                              if (files && files.length > 0) {
+                                // For simplicity in the modal, we'll handle multiple but show modal for each or handle bulk? 
+                                // Actually handleUpload takes one file. Let's handle them sequentially or just pick the first?
+                                // Better: if multiple, upload all.
+                                const uploadFiles = async () => {
+                                  for (const file of Array.from(files)) {
+                                    setUploading(true);
+                                    try {
+                                      await arApi.uploadBankAccountAttachment(params.id as string, file, type.id);
+                                    } catch (err) {
+                                      console.error("Upload failed", err);
+                                    }
+                                  }
+                                  await loadAttachments();
+                                  setUploading(false);
+                                };
+                                uploadFiles();
+                              }
+                              e.target.value = '';
+                            }} />
+                          </label>
+                        )}
                       </div>
 
                       {typeAttachments.length === 0 ? (
                         <div className="p-8 rounded-[2rem] border-2 border-dashed border-[#AEBFC3]/30 bg-white/50 flex flex-col items-center justify-center text-center group hover:border-[#CE9F6B]/30 transition-all">
-                          <p className="text-[#92A2A5] text-xs font-medium mb-4">No {type.label.toLowerCase()} documents uploaded</p>
+                          <p className="text-[#92A2A5] text-xs font-medium mb-1">
+                            {type.id === 'DOMESTIC' ? 'Bank Letter or Cancelled Cheque is mandatory' : 
+                             type.id === 'INTERNATIONAL' ? 'Bank Letter is mandatory' : 
+                             'One verification document is mandatory'}
+                          </p>
+                          <p className="text-[#92A2A5] text-[10px] mb-4 opacity-70">No {type.label.toLowerCase()} documents uploaded yet</p>
                           <label className="flex items-center gap-2 px-5 py-2 rounded-xl bg-[#F8FAFB] border border-[#AEBFC3]/30 text-[#546A7A] text-[10px] font-bold uppercase tracking-wider cursor-pointer hover:bg-white hover:border-[#CE9F6B]/50 hover:text-[#CE9F6B] transition-all">
                             <Upload className="w-3.5 h-3.5" />
                             Upload Now
@@ -997,6 +1410,50 @@ export default function EditBankAccountPage() {
         </div>
       </div>
 
+      {/* Sticky Bottom Action Bar */}
+      <div className="sticky bottom-0 z-40 -mx-4 sm:-mx-6 lg:-mx-8 bg-white/90 backdrop-blur-xl border-t border-[#AEBFC3]/20 shadow-[0_-4px_20px_rgba(0,0,0,0.06)]">
+        <div className="px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => router.push(`/finance/bank-accounts/${params.id}`)}
+                className="rounded-xl border-[#AEBFC3]/30 hover:border-[#E17F70]/30 hover:bg-[#E17F70]/5 hover:text-[#E17F70] transition-all px-5"
+              >
+                <X className="w-4 h-4 mr-2" />
+                Cancel
+              </Button>
+              {totalChanges > 0 && (
+                <div className="hidden md:flex items-center gap-2 text-sm text-[#976E44]">
+                  <div className="w-2 h-2 rounded-full bg-[#CE9F6B] animate-pulse" />
+                  <span className="font-bold">{totalChanges} unsaved {totalChanges === 1 ? 'change' : 'changes'}</span>
+                </div>
+              )}
+            </div>
+            <Button
+              type="button"
+              onClick={(e: React.MouseEvent) => {
+                e.preventDefault();
+                const form = document.querySelector('form');
+                if (form) form.requestSubmit();
+              }}
+              disabled={saving || !!success}
+              className="rounded-xl bg-gradient-to-r from-[#CE9F6B] to-[#976E44] hover:from-[#976E44] hover:to-[#7A5837] text-white shadow-lg shadow-[#CE9F6B]/20 px-8 py-3 h-auto text-sm font-black uppercase tracking-wider transition-all hover:shadow-xl hover:shadow-[#CE9F6B]/30"
+            >
+              {saving ? (
+                <Loader2 className="w-5 h-5 animate-spin mr-2" />
+              ) : success ? (
+                <CheckCircle2 className="w-5 h-5 mr-2" />
+              ) : (
+                <Save className="w-5 h-5 mr-2" />
+              )}
+              {success ? 'Saved!' : isAdmin ? 'Save Changes' : 'Submit Request'}
+            </Button>
+          </div>
+        </div>
+      </div>
+
       {/* Vendor Type Upload Modal */}
       {showUploadModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
@@ -1064,7 +1521,7 @@ export default function EditBankAccountPage() {
                 <div className="p-3 bg-[#E17F70]/10 border border-[#E17F70]/20 rounded-xl flex gap-3 animate-in fade-in zoom-in duration-200">
                   <AlertCircle className="w-5 h-5 text-[#E17F70] shrink-0 mt-0.5" />
                   <p className="text-xs text-[#E17F70] font-medium leading-relaxed">
-                    For international vendors, please ensure you only upload a **cancelled cheque** as per compliance requirements.
+                    For international vendors, a **Bank Letter** is mandatory for verification.
                   </p>
                 </div>
               )}

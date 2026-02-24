@@ -17,7 +17,8 @@ import {
   UserCheck,
   Crown,
   Eye as ViewIcon,
-  X
+  X,
+  ClipboardCheck
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -54,7 +55,7 @@ const updateFinanceUserSchema = z.object({
   phone: z.string().optional(),
   password: z.string().min(6, 'Password must be at least 6 characters').optional().or(z.literal('')),
   confirmPassword: z.string().optional(),
-  financeRole: z.enum(['FINANCE_ADMIN', 'FINANCE_USER', 'FINANCE_VIEWER']),
+  financeRole: z.enum(['FINANCE_ADMIN', 'FINANCE_USER', 'FINANCE_VIEWER', 'FINANCE_APPROVER']),
   isActive: z.boolean(),
 }).refine((data) => {
   if (data.password && data.password.length > 0) {
@@ -86,6 +87,12 @@ const financeRoles: { value: FinanceRoleType; label: string; description: string
     label: 'Finance Viewer', 
     description: 'Read-only access',
     icon: <ViewIcon className="h-5 w-5" />
+  },
+  { 
+    value: 'FINANCE_APPROVER', 
+    label: 'Finance Approver', 
+    description: 'Can only review and approve payment batches',
+    icon: <ClipboardCheck className="h-5 w-5" />
   },
 ];
 

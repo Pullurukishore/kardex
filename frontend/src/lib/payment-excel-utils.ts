@@ -187,3 +187,118 @@ export const downloadStandardPayment = async (payments: PaymentRow[]) => {
     saveAs(new Blob([buffer]), `Standard_Bulk_Payment_${format(new Date(), 'yyyyMMdd')}.xlsx`);
 };
 
+// ============================================================================
+// ICICI CMS — Helper: Build data rows (reused by CSV & TXT)
+// ============================================================================
+function buildICICIDataRows(payments: PaymentRow[], formatDate: (d: Date, f: string) => string) {
+    return payments.map(p => {
+        const trnType = p.transactionMode === 'NFT' ? 'N' : p.transactionMode === 'RTI' ? 'R' : 'I';
+        const beneCode = p.bpCode || p.vendorName.substring(0, 15).trim();
+        const custRef = p.vendorName.split(' ')[0].substring(0, 30);
+
+        const row = Array(30).fill('');
+        row[0] = trnType;
+        row[1] = beneCode;
+        row[2] = p.accountNumber;
+        row[3] = String(p.amount);
+        row[4] = p.vendorName;
+        row[12] = custRef;
+        row[21] = formatDate(p.valueDate, 'dd/MM/yyyy');
+        row[23] = p.ifscCode;
+        row[24] = p.bankName;
+        row[29] = p.emailId || '';
+        return row;
+    });
+}
+
+// ============================================================================
+// Standard — Helper: Build data rows (reused by CSV & TXT) 
+// ============================================================================
+function buildStandardDataRows(payments: PaymentRow[], formatDate: (d: Date, f: string) => string) {
+    return payments.map(p => {
+        const nameParts = p.vendorName.split(' ');
+        let ref = p.vendorName.substring(0, 15);
+        if (nameParts.length > 2) {
+            ref = `Adv ${nameParts[0]}`;
+        } else if (nameParts[0].length > 15) {
+            ref = nameParts[0].substring(0, 15);
+        } else {
+            ref = nameParts[0];
+        }
+
+        return [
+            p.transactionMode,
+            String(p.amount),
+            formatDate(p.valueDate, 'dd/MM/yyyy'),
+            p.vendorName,
+            p.accountNumber,
+            p.accountType.toLowerCase().includes('sav') ? '10' : '11',
+            p.ifscCode,
+            ref,
+            ref
+        ];
+    });
+}
+
+// ============================================================================
+// CSV helper — escape fields for CSV format
+// ============================================================================
+function csvEscape(val: string): string {
+    if (val.includes(',') || val.includes('"') || val.includes('\n')) {
+        return `"${val.replace(/"/g, '""')}"`;
+    }
+    return val;
+}
+
+function downloadBlob(content: string, filename: string, mimeType: string) {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+// ============================================================================
+// ICICI CMS — CSV (Data Only, no header rows)
+// ============================================================================
+export const downloadICICICMS_CSV = async (payments: PaymentRow[]) => {
+    const { format } = await import('date-fns');
+    const rows = buildICICIDataRows(payments, format);
+    const csvContent = rows.map(row => row.map(csvEscape).join(',')).join('\n');
+    downloadBlob(csvContent, `ICICI_CMS_Data_${format(new Date(), 'yyyyMMdd')}.csv`, 'text/csv;charset=utf-8;');
+};
+
+// ============================================================================
+// ICICI CMS — TXT (Pipe-delimited, essential fields only)
+// ============================================================================
+export const downloadICICICMS_TXT = async (payments: PaymentRow[]) => {
+    const { format } = await import('date-fns');
+    const rows = buildICICIDataRows(payments, format);
+    const txtContent = rows.map(row => row.join(',')).join('\n');
+    downloadBlob(txtContent, `ICICI_CMS_Data_${format(new Date(), 'yyyyMMdd')}.txt`, 'text/plain;charset=utf-8;');
+};
+
+// ============================================================================
+// Standard — CSV (Data Only, no header row)
+// ============================================================================
+export const downloadStandard_CSV = async (payments: PaymentRow[]) => {
+    const { format } = await import('date-fns');
+    const rows = buildStandardDataRows(payments, format);
+    const csvContent = rows.map(row => row.map(csvEscape).join(',')).join('\n');
+    downloadBlob(csvContent, `Standard_Payment_Data_${format(new Date(), 'yyyyMMdd')}.csv`, 'text/csv;charset=utf-8;');
+};
+
+// ============================================================================
+// Standard — TXT (Pipe-delimited data only)
+// ============================================================================
+export const downloadStandard_TXT = async (payments: PaymentRow[]) => {
+    const { format } = await import('date-fns');
+    const rows = buildStandardDataRows(payments, format);
+    const txtContent = rows.map(row => row.join(',')).join('\n');
+    downloadBlob(txtContent, `Standard_Payment_Data_${format(new Date(), 'yyyyMMdd')}.txt`, 'text/plain;charset=utf-8;');
+};
+

@@ -161,11 +161,11 @@ export const createFinanceUser = async (req: Request, res: Response) => {
         }
 
         // Validate finance role
-        const validRoles: FinanceRole[] = ['FINANCE_ADMIN', 'FINANCE_USER', 'FINANCE_VIEWER'];
+        const validRoles: FinanceRole[] = ['FINANCE_ADMIN', 'FINANCE_USER', 'FINANCE_VIEWER', 'FINANCE_APPROVER'];
         if (!validRoles.includes(financeRole)) {
             return res.status(400).json({
                 success: false,
-                error: 'Invalid finance role. Must be FINANCE_ADMIN, FINANCE_USER, or FINANCE_VIEWER',
+                error: 'Invalid finance role. Must be FINANCE_ADMIN, FINANCE_USER, FINANCE_VIEWER, or FINANCE_APPROVER',
             });
         }
 
@@ -264,7 +264,7 @@ export const updateFinanceUser = async (req: Request, res: Response) => {
 
         // Validate finance role if provided
         if (financeRole) {
-            const validRoles: FinanceRole[] = ['FINANCE_ADMIN', 'FINANCE_USER', 'FINANCE_VIEWER'];
+            const validRoles: FinanceRole[] = ['FINANCE_ADMIN', 'FINANCE_USER', 'FINANCE_VIEWER', 'FINANCE_APPROVER'];
             if (!validRoles.includes(financeRole)) {
                 return res.status(400).json({
                     success: false,
@@ -380,12 +380,13 @@ export const getFinanceUserStats = async (req: Request, res: Response) => {
             financeRole: { not: null as any },
         };
 
-        const [total, active, admins, regularUsers, viewers] = await Promise.all([
+        const [total, active, admins, regularUsers, viewers, approvers] = await Promise.all([
             prisma.user.count({ where }),
             prisma.user.count({ where: { ...where, isActive: true } }),
             prisma.user.count({ where: { financeRole: 'FINANCE_ADMIN' } }),
             prisma.user.count({ where: { financeRole: 'FINANCE_USER' } }),
             prisma.user.count({ where: { financeRole: 'FINANCE_VIEWER' } }),
+            prisma.user.count({ where: { financeRole: 'FINANCE_APPROVER' } }),
         ]);
 
         res.json({
@@ -397,6 +398,7 @@ export const getFinanceUserStats = async (req: Request, res: Response) => {
                 admins,
                 regularUsers,
                 viewers,
+                approvers,
             },
         });
     } catch (error: any) {

@@ -96,7 +96,7 @@ export const getBankAccountById = async (req: Request, res: Response) => {
 // Create bank account (FINANCE_ADMIN only)
 export const createBankAccount = async (req: Request, res: Response) => {
     try {
-        const { bpCode, vendorName, beneficiaryBankName, beneficiaryName, accountNumber, ifscCode, emailId, nickName, gstNumber, panNumber, accountType } = req.body;
+        const { bpCode, vendorName, beneficiaryBankName, beneficiaryName, accountNumber, ifscCode, emailId, nickName, gstNumber, panNumber, accountType, accountCategory } = req.body;
         const userId = (req as any).user?.id || 1; // Get from auth context
 
         // Validate required fields
@@ -106,9 +106,10 @@ export const createBankAccount = async (req: Request, res: Response) => {
             });
         }
 
-        // Smart Mandatory Validation for GST/PAN (only for INR)
+        // Smart Mandatory Validation for GST/PAN (only for non-International with INR)
         const currency = req.body.currency || 'INR';
-        if (currency === 'INR') {
+        const category = accountCategory || 'DOMESTIC';
+        if (currency === 'INR' && category !== 'INTERNATIONAL') {
             if (!gstNumber) {
                 return res.status(400).json({ error: 'GST Number is required for INR transactions' });
             }
@@ -142,6 +143,7 @@ export const createBankAccount = async (req: Request, res: Response) => {
                 udyamRegNum: req.body.isMSME ? req.body.udyamRegNum : null,
                 currency: req.body.currency || 'INR',
                 accountType: accountType || null,
+                accountCategory: category,
                 createdById: userId,
                 updatedById: userId
             }
@@ -210,7 +212,7 @@ export const updateBankAccount = async (req: Request, res: Response) => {
         const fieldsToTrack = [
             'bpCode', 'vendorName', 'beneficiaryBankName', 'beneficiaryName', 'accountNumber',
             'ifscCode', 'emailId', 'nickName', 'gstNumber', 'panNumber',
-            'isMSME', 'udyamRegNum', 'currency', 'accountType', 'isActive'
+            'isMSME', 'udyamRegNum', 'currency', 'accountType', 'accountCategory', 'isActive'
         ];
         await logBankAccountFieldChanges(id, existing, account, req, fieldsToTrack);
 

@@ -16,6 +16,7 @@ import * as financeUserController from '../../controllers/ar/financeUser.control
 import * as dashboardController from '../../controllers/ar/arDashboard.controller';
 import * as activityController from '../../controllers/ar/arTotalActivity.controller';
 import * as reportsController from '../../controllers/ar/arReports.controller';
+import * as paymentBatchController from '../../controllers/ar/paymentBatch.controller';
 
 // Import auth middleware
 import { authenticate } from '../../middleware/auth.middleware';
@@ -27,6 +28,7 @@ import {
     requireFinanceWrite,
     requireFinanceRead,
     requireFinanceDelete,
+    requireFinanceApprover,
 } from '../../middleware/finance.middleware';
 
 const router = Router();
@@ -143,7 +145,7 @@ router.get('/bank-accounts/activities/stats', requireFinanceAdmin, bankAccountAc
 // BANK ACCOUNT IMPORT ROUTES
 // ═══════════════════════════════════════════════════════════════════════════
 router.post('/bank-accounts/import/preview', requireFinanceWrite, upload.single('file'), bankAccountImportController.previewExcel);
-router.post('/bank-accounts/import/excel', requireFinanceAdmin, bankAccountImportController.importFromExcel);
+router.post('/bank-accounts/import/excel', requireFinanceWrite, bankAccountImportController.importFromExcel);
 router.get('/bank-accounts/import/template', requireFinanceRead, bankAccountImportController.downloadTemplate);
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -200,5 +202,17 @@ router.get('/reports/invoices/delivery', requireFinanceRead, reportsController.g
 // Legacy report endpoints (backward compatibility)
 router.get('/reports/aging', requireFinanceRead, reportsController.getAgingReport);
 router.get('/reports/collection-efficiency', requireFinanceRead, reportsController.getCollectionEfficiency);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PAYMENT BATCH ROUTES - Request & Approval Workflow
+// Submit: Finance User+ | Review/Download: Admin & Approver
+// ═══════════════════════════════════════════════════════════════════════════
+router.get('/payment-batches/stats', requireFinanceApprover, paymentBatchController.getBatchStats);
+router.get('/payment-batches/pending', requireFinanceApprover, paymentBatchController.getPendingBatches);
+router.get('/payment-batches/my', requireFinanceRead, paymentBatchController.getMyBatches);
+router.get('/payment-batches/:id', requireFinanceRead, paymentBatchController.getBatchById);
+router.post('/payment-batches', requireFinanceWrite, paymentBatchController.submitBatch);
+router.put('/payment-batches/:id/review', requireFinanceApprover, paymentBatchController.reviewBatch);
+router.get('/payment-batches/:id/download', requireFinanceApprover, paymentBatchController.downloadBatch);
 
 export default router;

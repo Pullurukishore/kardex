@@ -2,7 +2,7 @@ import { Response, NextFunction, Request, RequestHandler } from 'express';
 import prisma from '../config/db';
 
 // Finance role types
-export type FinanceRole = 'FINANCE_ADMIN' | 'FINANCE_USER' | 'FINANCE_VIEWER';
+export type FinanceRole = 'FINANCE_ADMIN' | 'FINANCE_USER' | 'FINANCE_VIEWER' | 'FINANCE_APPROVER';
 
 // Extend Request to include finance user info
 declare global {
@@ -159,10 +159,12 @@ export const requireFinanceAdmin = requireFinanceRole(['FINANCE_ADMIN']);
  */
 export const requireFinanceWrite = requireFinanceRole(['FINANCE_ADMIN', 'FINANCE_USER']);
 
+export const requireFinanceRead = requireFinanceRole(['FINANCE_ADMIN', 'FINANCE_USER', 'FINANCE_VIEWER', 'FINANCE_APPROVER']);
+
 /**
- * Middleware for read-only access (all finance roles)
+ * Middleware for payment batch approval actions (Admin + Approver)
  */
-export const requireFinanceRead = requireFinanceRole(['FINANCE_ADMIN', 'FINANCE_USER', 'FINANCE_VIEWER']);
+export const requireFinanceApprover = requireFinanceRole(['FINANCE_ADMIN', 'FINANCE_APPROVER']);
 
 /**
  * Helper to check if user can delete resources

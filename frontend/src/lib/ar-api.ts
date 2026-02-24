@@ -916,6 +916,7 @@ export interface BankAccount {
     panNumber?: string;
     currency: string;
     accountType?: string;
+    accountCategory?: string;
     createdById: number;
     updatedById: number;
     createdAt: string;
@@ -972,8 +973,16 @@ export interface BankAccountActivityLog {
 }
 
 // Utility functions
-export const formatARCurrency = (amount: number): string => {
-    return `₹${Number(amount || 0).toLocaleString('en-IN', {
+const CURRENCY_SYMBOLS_MAP: Record<string, string> = {
+    INR: '₹', USD: '$', EUR: '€', GBP: '£', JPY: '¥',
+    AED: 'د.إ', SGD: 'S$', CHF: 'Fr', AUD: 'A$', CAD: 'C$'
+};
+
+export const formatARCurrency = (amount: number, currency?: string): string => {
+    const cur = (currency || 'INR').toUpperCase();
+    const symbol = CURRENCY_SYMBOLS_MAP[cur] || cur + ' ';
+    const locale = cur === 'INR' ? 'en-IN' : 'en-US';
+    return `${symbol}${Number(amount || 0).toLocaleString(locale, {
         minimumFractionDigits: 0,
         maximumFractionDigits: 2
     })}`;
@@ -988,3 +997,137 @@ export const formatARDate = (date?: string | null): string => {
     });
 };
 
+// ═══════════════════════════════════════════════════════════════════════════
+// PAYMENT BATCH - Request & Approval Workflow
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface PaymentBatchItem {
+    id: string;
+    batchId: string;
+    bankAccountId: string;
+    vendorName: string;
+    accountNumber: string;
+    ifscCode: string;
+    bankName: string;
+    bpCode?: string;
+    emailId?: string;
+    accountType?: string;
+    amount: number;
+    transactionMode: string;
+    valueDate: string;
+    status: 'PENDING' | 'APPROVED' | 'REJECTED';
+    rejectReason?: string;
+}
+
+export interface PaymentBatch {
+    id: string;
+    batchNumber: string;
+    currency: string;
+    exportFormat?: string;
+    status: 'PENDING' | 'APPROVED' | 'PARTIALLY_APPROVED' | 'REJECTED' | 'DOWNLOADED';
+    totalAmount: number;
+    approvedAmount?: number;
+    totalItems: number;
+    approvedItems?: number;
+    notes?: string;
+    reviewNotes?: string;
+    requestedById: number;
+    requestedAt: string;
+    reviewedById?: number;
+    reviewedAt?: string;
+    downloadedAt?: string;
+    items: PaymentBatchItem[];
+    requestedBy?: { id: number; name: string; email: string };
+    reviewedBy?: { id: number; name: string; email: string };
+}
+
+export interface PaymentBatchStats {
+    pending: number;
+    approved: number;
+    partiallyApproved: number;
+    rejected: number;
+    downloaded: number;
+    total: number;
+}
+
+// Submit a payment batch for approval
+export const submitPaymentBatch = async (data: {
+    items: Array<{
+        bankAccountId: string;
+        vendorName: string;
+        accountNumber: string;
+        ifscCode: string;
+        bankName: string;
+        bpCode?: string;
+        emailId?: string;
+        accountType?: string;
+        amount: number;
+        transactionMode: string;
+        valueDate: string;
+    }>;
+    exportFormat?: string;
+    currency?: string;
+    notes?: string;
+}): Promise<{ message: string; batch: PaymentBatch }> => {
+    const response = await api.post('/ar/payment-batches', data);
+    return response.data;
+};
+
+// Get pending batches (ADMIN)
+export const getPendingPaymentBatches = async (status?: string): Promise<PaymentBatch[]> => {
+    const params = status ? `?status=${status}` : '';
+    const response = await api.get(`/ar/payment-batches/pending${params}`);
+    return response.data;
+};
+
+// Get user's own batches
+export const getMyPaymentBatches = async (): Promise<PaymentBatch[]> => {
+    const response = await api.get('/ar/payment-batches/my');
+    return response.data;
+};
+
+// Get batch by ID
+export const getPaymentBatchById = async (id: string): Promise<PaymentBatch> => {
+    const response = await api.get(`/ar/payment-batches/${id}`);
+    return response.data;
+};
+
+// Get batch statistics
+export const getPaymentBatchStats = async (): Promise<PaymentBatchStats> => {
+    const response = await api.get('/ar/payment-batches/stats');
+    return response.data;
+};
+
+// Review batch (ADMIN) - approve/reject individual items
+export const reviewPaymentBatch = async (
+    id: string,
+    data: {
+        items: Array<{ id: string; status: 'APPROVED' | 'REJECTED'; rejectReason?: string }>;
+        reviewNotes?: string;
+    }
+): Promise<{ message: string; batch: PaymentBatch }> => {
+    const response = await api.put(`/ar/payment-batches/${id}/review`, data);
+    return response.data;
+};
+
+// Download approved items from batch (ADMIN)
+export const downloadPaymentBatch = async (id: string): Promise<{
+    batchNumber: string;
+    exportFormat: string;
+    currency: string;
+    approvedItems: Array<{
+        vendorName: string;
+        accountNumber: string;
+        ifscCode: string;
+        bankName: string;
+        bpCode?: string;
+        emailId?: string;
+        accountType?: string;
+        amount: number;
+        transactionMode: string;
+        valueDate: string;
+    }>;
+}> => {
+    const response = await api.get(`/ar/payment-batches/${id}/download`);
+    return response.data;
+};

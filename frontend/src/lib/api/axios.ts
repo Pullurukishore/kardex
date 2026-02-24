@@ -5,7 +5,7 @@ import { getCookie, setCookie, deleteCookie } from 'cookies-next';
 const COOKIE_OPTIONS = {
   path: '/',
   sameSite: 'lax' as const,
-  secure: process.env.NODE_ENV === 'production'
+  secure: process.env.NODE_ENV === 'production' && typeof window !== 'undefined' && !window.location.hostname.includes('172.28.91.10') && window.location.hostname !== 'localhost'
 };
 
 import { isTokenExpired } from '../auth-utils';

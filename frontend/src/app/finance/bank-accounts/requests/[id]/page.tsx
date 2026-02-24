@@ -247,6 +247,13 @@ export default function RequestDetailPage() {
         oldValue: originalAccount?.currency || null,
         newValue: request.requestedData.currency || null,
         icon: <CreditCard className="w-4 h-4" />
+      },
+      {
+        field: 'accountType',
+        label: 'Account Type',
+        oldValue: originalAccount?.accountType || null,
+        newValue: (request.requestedData as any).accountType || null,
+        icon: <FileText className="w-4 h-4" />
       }
     ];
 

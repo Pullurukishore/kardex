@@ -1,17 +1,17 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { arApi, BankAccount } from '@/lib/ar-api';
+import { arApi, BankAccount, submitPaymentBatch } from '@/lib/ar-api';
 import { 
-  Plus, Search, Trash2, Download, Landmark, CreditCard, 
+  Plus, Search, Trash2, Landmark, CreditCard, 
   Calendar as CalendarIcon, ArrowLeft, Loader2, CheckCircle2,
-  X, Info, Wallet, DollarSign, ChevronDown, RefreshCcw, Check, Building2,
-  Shield, Globe, Power, Eye, Pencil, List, Hash, Send, FileSpreadsheet,
-  ArrowUpRight, Zap, AlertCircle, IndianRupee, Clock
+  X, Info, Wallet, DollarSign, RefreshCcw, Check, Building2,
+  Shield, Globe, Power, Eye, Pencil, List, Hash, Send, 
+  Zap, AlertCircle, IndianRupee, Clock, Filter, ChevronDown, Mail
 } from 'lucide-react';
 import { format } from 'date-fns';
 import Link from 'next/link';
-import { downloadICICICMS, downloadStandardPayment, PaymentRow } from '@/lib/payment-excel-utils';
+import { PaymentRow } from '@/lib/payment-excel-utils';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -119,7 +119,7 @@ const ModeBadge = ({ mode }: { mode: string }) => {
   const config = {
     'NFT': { label: 'NEFT', color: 'bg-blue-50 text-blue-700 border-blue-200', dot: 'bg-blue-500' },
     'RTI': { label: 'RTGS', color: 'bg-purple-50 text-purple-700 border-purple-200', dot: 'bg-purple-500' },
-    'FT': { label: 'Fund Transfer', color: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-500' },
+    'FT': { label: 'Same Bank', color: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-500' },
   }[mode] || { label: mode, color: 'bg-gray-50 text-gray-700 border-gray-200', dot: 'bg-gray-500' };
 
   return (
@@ -136,9 +136,15 @@ export default function PaymentsPage() {
     const [pendingPayments, setPendingPayments] = useState<PendingPayment[]>([]);
     const [vendorSearchQuery, setVendorSearchQuery] = useState('');
     const [openDropdown, setOpenDropdown] = useState(false);
+    const [currencyFilter, setCurrencyFilter] = useState<string>('ALL');
     const [globalDate, setGlobalDate] = useState(format(new Date(), 'yyyy-MM-dd'));
     const [globalMode, setGlobalMode] = useState<'NFT' | 'RTI' | 'FT'>('NFT');
-    const [downloadingFormat, setDownloadingFormat] = useState<string | null>(null);
+    const [submittingBatch, setSubmittingBatch] = useState(false);
+    const [exportFormat, setExportFormat] = useState<'ICICI' | 'STANDARD'>('ICICI');
+    const [benEmailIds, setBenEmailIds] = useState<string[]>(['naveen.n@kardex.com']);
+    const [newEmailInput, setNewEmailInput] = useState('');
+    const [editingEmailIdx, setEditingEmailIdx] = useState<number | null>(null);
+    const [editingEmailValue, setEditingEmailValue] = useState('');
     const dropdownRef = useRef<HTMLDivElement>(null);
     const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -160,18 +166,46 @@ export default function PaymentsPage() {
         }
     }, [openDropdown]);
 
-    // Filtered accounts based on search
+    // Extract unique currencies from accounts with counts
+    const currencyOptions = useMemo(() => {
+        const currMap = new Map<string, number>();
+        accounts.forEach(a => {
+            const cur = (a.currency || 'INR').toUpperCase();
+            currMap.set(cur, (currMap.get(cur) || 0) + 1);
+        });
+        // Sort: INR first, then alphabetical
+        return Array.from(currMap.entries())
+            .sort(([a], [b]) => {
+                if (a === 'INR') return -1;
+                if (b === 'INR') return 1;
+                return a.localeCompare(b);
+            })
+            .map(([currency, count]) => ({ currency, count }));
+    }, [accounts]);
+
+    // Filtered accounts based on search + currency
     const filteredAccounts = useMemo(() => {
-        if (!vendorSearchQuery.trim()) return accounts;
-        const q = vendorSearchQuery.toLowerCase();
-        return accounts.filter(a =>
-            a.vendorName.toLowerCase().includes(q) ||
-            (a.bpCode || '').toLowerCase().includes(q) ||
-            a.accountNumber.includes(vendorSearchQuery) ||
-            (a.beneficiaryBankName || '').toLowerCase().includes(q) ||
-            (a.ifscCode || '').toLowerCase().includes(q)
-        );
-    }, [accounts, vendorSearchQuery]);
+        let result = accounts;
+
+        // Apply currency filter
+        if (currencyFilter !== 'ALL') {
+            result = result.filter(a => (a.currency || 'INR').toUpperCase() === currencyFilter);
+        }
+
+        // Apply search filter
+        if (vendorSearchQuery.trim()) {
+            const q = vendorSearchQuery.toLowerCase();
+            result = result.filter(a =>
+                a.vendorName.toLowerCase().includes(q) ||
+                (a.bpCode || '').toLowerCase().includes(q) ||
+                a.accountNumber.includes(vendorSearchQuery) ||
+                (a.beneficiaryBankName || '').toLowerCase().includes(q) ||
+                (a.ifscCode || '').toLowerCase().includes(q)
+            );
+        }
+
+        return result;
+    }, [accounts, vendorSearchQuery, currencyFilter]);
 
     useEffect(() => {
         loadBankAccounts();
@@ -229,44 +263,43 @@ export default function PaymentsPage() {
         toast.info('Applied global settings to all rows');
     };
 
-    const handleDownload = async (formatType: 'ICICI' | 'STANDARD') => {
+    const handleSubmitForApproval = async () => {
         if (pendingPayments.length === 0) {
-            toast.error('Add at least one payment to download');
+            toast.error('Add at least one payment to submit');
             return;
         }
-
         const invalid = pendingPayments.some(p => !p.amount || p.amount <= 0);
         if (invalid) {
             toast.error('All payments must have an amount greater than zero');
             return;
         }
-
-        setDownloadingFormat(formatType);
-        const data: PaymentRow[] = pendingPayments.map(p => ({
-            vendorName: p.vendorName!,
-            bpCode: p.bpCode!,
-            accountNumber: p.accountNumber!,
-            ifscCode: p.ifscCode!,
-            bankName: p.bankName!,
-            amount: p.amount!,
-            emailId: p.emailId!,
-            valueDate: p.valueDate!,
-            transactionMode: p.transactionMode!,
-            accountType: p.accountType!
-        }));
-
+        setSubmittingBatch(true);
         try {
-            if (formatType === 'ICICI') {
-                await downloadICICICMS(data);
-            } else {
-                await downloadStandardPayment(data);
-            }
-            toast.success(`${formatType === 'ICICI' ? 'ICICI CMS' : 'Standard'} format downloaded successfully`);
-        } catch (error) {
-            console.error('Download failed:', error);
-            toast.error('Failed to generate Excel file');
+            const items = pendingPayments.map(p => ({
+                bankAccountId: p.bankAccount.id,
+                vendorName: p.vendorName!,
+                accountNumber: p.accountNumber!,
+                ifscCode: p.ifscCode!,
+                bankName: p.bankName!,
+                bpCode: p.bpCode || undefined,
+                emailId: exportFormat === 'ICICI'
+                    ? (benEmailIds.length > 0 ? benEmailIds.join(';') : undefined)
+                    : (p.emailId || undefined),
+                accountType: p.accountType || undefined,
+                amount: p.amount!,
+                transactionMode: p.transactionMode!,
+                valueDate: p.valueDate ? p.valueDate.toISOString() : new Date().toISOString(),
+            }));
+
+            const currency = currencyFilter !== 'ALL' ? currencyFilter : 'INR';
+            const result = await submitPaymentBatch({ items, currency, exportFormat });
+            toast.success(`Batch ${result.batch.batchNumber} submitted for admin approval!`);
+            setPendingPayments([]);
+        } catch (error: any) {
+            console.error('Submit failed:', error);
+            toast.error(error?.response?.data?.error || 'Failed to submit batch');
         } finally {
-            setDownloadingFormat(null);
+            setSubmittingBatch(false);
         }
     };
 
@@ -276,6 +309,11 @@ export default function PaymentsPage() {
         totalAmount: pendingPayments.reduce((acc, p) => acc + (p.amount || 0), 0),
         validPayments: pendingPayments.filter(p => p.amount && p.amount > 0).length,
     }), [pendingPayments]);
+
+    // Dynamic currency symbol helper
+    const CURRENCY_SYMBOLS: Record<string, string> = { 'INR': '₹', 'USD': '$', 'EUR': '€', 'GBP': '£', 'JPY': '¥', 'AED': 'د.إ', 'SGD': 'S$', 'CHF': 'Fr', 'AUD': 'A$', 'CAD': 'C$' };
+    const activeCurrencySymbol = currencyFilter !== 'ALL' ? (CURRENCY_SYMBOLS[currencyFilter] || currencyFilter) : '₹';
+    const activeCurrencyCode = currencyFilter !== 'ALL' ? currencyFilter : 'INR';
 
     if (loading) {
         return (
@@ -330,34 +368,48 @@ export default function PaymentsPage() {
                     </div>
                 </div>
 
-                {/* Download Actions */}
                 <div className="flex items-center gap-3">
-                    <Button 
-                        variant="outline" 
-                        size="lg" 
-                        onClick={() => handleDownload('ICICI')}
-                        disabled={!!downloadingFormat}
-                        className="relative bg-white hover:bg-[#CE9F6B]/5 hover:text-[#976E44] border-[#CE9F6B]/30 border-dashed hover:border-[#CE9F6B]/60 transition-all group rounded-xl h-12"
+                    {/* Export Format Toggle */}
+                    <div className="flex flex-col gap-1">
+                        <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 text-center">Export Format</p>
+                        <div className="flex items-center gap-1 bg-slate-100 rounded-xl p-1">
+                            <button
+                                onClick={() => setExportFormat('ICICI')}
+                                className={cn(
+                                    'px-4 py-2 rounded-lg text-xs font-bold transition-all',
+                                    exportFormat === 'ICICI'
+                                        ? 'bg-gradient-to-br from-[#B18E63] to-[#976E44] text-white shadow-md'
+                                        : 'text-slate-500 hover:text-[#976E44]'
+                                )}
+                            >
+                                ICICI CMS
+                            </button>
+                            <button
+                                onClick={() => setExportFormat('STANDARD')}
+                                className={cn(
+                                    'px-4 py-2 rounded-lg text-xs font-bold transition-all',
+                                    exportFormat === 'STANDARD'
+                                        ? 'bg-gradient-to-br from-[#6F8A9D] to-[#546A7A] text-white shadow-md'
+                                        : 'text-slate-500 hover:text-[#546A7A]'
+                                )}
+                            >
+                                Standard
+                            </button>
+                        </div>
+                    </div>
+
+                    <Button
+                        size="lg"
+                        onClick={handleSubmitForApproval}
+                        disabled={submittingBatch || pendingPayments.length === 0}
+                        className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg hover:shadow-xl transition-all border-0 rounded-xl hover:scale-[1.02] h-12 px-8 font-bold"
                     >
-                        {downloadingFormat === 'ICICI' ? (
+                        {submittingBatch ? (
                             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                         ) : (
-                            <FileSpreadsheet className="w-4 h-4 mr-2 text-[#CE9F6B] group-hover:scale-110 transition-transform" />
+                            <Send className="w-4 h-4 mr-2" />
                         )}
-                        <span className="font-bold text-sm">ICICI CMS</span>
-                    </Button>
-                    <Button 
-                        size="lg" 
-                        onClick={() => handleDownload('STANDARD')}
-                        disabled={!!downloadingFormat}
-                        className="bg-gradient-to-r from-[#B18E63] to-[#7A5A38] text-white shadow-lg hover:shadow-xl transition-all border-0 rounded-xl hover:scale-[1.02] h-12 font-bold"
-                    >
-                        {downloadingFormat === 'STANDARD' ? (
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        ) : (
-                            <Download className="w-4 h-4 mr-2" />
-                        )}
-                        <span className="text-sm">Standard Format</span>
+                        <span className="text-sm">Submit for Approval</span>
                     </Button>
                 </div>
             </div>
@@ -383,12 +435,12 @@ export default function PaymentsPage() {
                     subtitle="distinct beneficiaries"
                 />
                 <StatCard 
-                    icon={IndianRupee} 
+                    icon={currencyFilter === 'USD' ? DollarSign : IndianRupee} 
                     label="Total Amount" 
-                    value={`₹${stats.totalAmount.toLocaleString('en-IN')}`} 
+                    value={`${activeCurrencySymbol}${stats.totalAmount.toLocaleString('en-IN')}`} 
                     loading={false}
                     variant="emerald"
-                    subtitle="total disbursement"
+                    subtitle={currencyFilter !== 'ALL' ? `${currencyFilter} disbursement` : 'total disbursement'}
                 />
                 <StatCard 
                     icon={CheckCircle2} 
@@ -403,26 +455,136 @@ export default function PaymentsPage() {
             {/* ================================================================ */}
             {/* TOP CONTROLS ROW: Add Vendor + Batch Settings */}
             {/* ================================================================ */}
+            {/* ================================================================ */}
+            {/* CURRENCY SELECTOR — Sleek Inline Bar */}
+            {/* ================================================================ */}
+            {currencyOptions.length >= 1 && (
+                <div className="relative bg-white rounded-2xl border border-slate-100 shadow-[0_4px_24px_rgba(0,0,0,0.04)] overflow-hidden">
+                    {/* Active currency accent bar */}
+                    <div className={cn(
+                        "absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl transition-colors duration-300",
+                        currencyFilter !== 'ALL' 
+                            ? 'bg-gradient-to-b from-[#4F6A64] to-[#82A094]'
+                            : 'bg-gradient-to-b from-[#B18E63] to-[#976E44]'
+                    )} />
+                    <div className="px-6 py-4 flex items-center gap-4">
+                        {/* Label */}
+                        <div className="flex items-center gap-2.5 shrink-0">
+                            <div className={cn(
+                                "w-9 h-9 rounded-xl flex items-center justify-center shadow-sm transition-all duration-300",
+                                currencyFilter !== 'ALL'
+                                    ? 'bg-gradient-to-br from-[#4F6A64] to-[#82A094]'
+                                    : 'bg-gradient-to-br from-[#6F8A9D] to-[#546A7A]'
+                            )}>
+                                <Filter className="w-4 h-4 text-white" />
+                            </div>
+                            <div className="hidden sm:block">
+                                <p className="text-xs font-bold text-slate-600">Currency</p>
+                                <p className="text-[9px] text-slate-400 font-medium">
+                                    {currencyFilter !== 'ALL' ? `${filteredAccounts.length} vendors` : `${accounts.length} total`}
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Separator */}
+                        <div className="w-px h-8 bg-slate-100 shrink-0" />
+
+                        {/* Pills */}
+                        <div className="flex items-center gap-2 flex-wrap flex-1">
+                            <button
+                                onClick={() => setCurrencyFilter('ALL')}
+                                className={cn(
+                                    "inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[11px] font-bold transition-all duration-200 border",
+                                    currencyFilter === 'ALL'
+                                        ? 'bg-gradient-to-r from-[#B18E63] to-[#976E44] text-white border-transparent shadow-md shadow-[#B18E63]/20'
+                                        : 'bg-slate-50 text-slate-500 border-slate-200 hover:border-[#B18E63]/40 hover:text-[#976E44] hover:bg-white hover:shadow-sm'
+                                )}
+                            >
+                                <Globe className="w-3.5 h-3.5" />
+                                All
+                                <span className={cn(
+                                    "text-[9px] px-1.5 py-0.5 rounded-md font-black tabular-nums",
+                                    currencyFilter === 'ALL' ? 'bg-white/20 text-white' : 'bg-white text-slate-400'
+                                )}>
+                                    {accounts.length}
+                                </span>
+                            </button>
+                            {currencyOptions.map(({ currency, count }) => {
+                                const icon = CURRENCY_SYMBOLS[currency] || currency.slice(0, 1);
+                                return (
+                                    <button
+                                        key={currency}
+                                        onClick={() => setCurrencyFilter(currency)}
+                                        className={cn(
+                                            "inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[11px] font-bold transition-all duration-200 border",
+                                            currencyFilter === currency
+                                                ? 'bg-gradient-to-r from-[#4F6A64] to-[#82A094] text-white border-transparent shadow-md shadow-[#82A094]/20'
+                                                : 'bg-slate-50 text-slate-500 border-slate-200 hover:border-[#82A094]/40 hover:text-[#4F6A64] hover:bg-white hover:shadow-sm'
+                                        )}
+                                    >
+                                        <span className="text-xs font-black">{icon}</span>
+                                        {currency}
+                                        <span className={cn(
+                                            "text-[9px] px-1.5 py-0.5 rounded-md font-black tabular-nums",
+                                            currencyFilter === currency ? 'bg-white/20 text-white' : 'bg-white text-slate-400'
+                                        )}>
+                                            {count}
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        {/* Clear filter */}
+                        {currencyFilter !== 'ALL' && (
+                            <button
+                                onClick={() => setCurrencyFilter('ALL')}
+                                className="shrink-0 text-[10px] text-slate-400 hover:text-red-500 font-bold flex items-center gap-1 transition-colors px-2.5 py-1.5 rounded-lg hover:bg-red-50"
+                            >
+                                <X className="w-3 h-3" />
+                                Reset
+                            </button>
+                        )}
+                    </div>
+                </div>
+            )}
+
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
                 
                 {/* Add Vendor Card — takes more space */}
                 <div className="lg:col-span-7 relative z-30">
                     <div className="bg-white rounded-2xl border border-slate-100 shadow-[0_4px_24px_rgba(0,0,0,0.04)] overflow-visible">
-                        <div className="bg-gradient-to-r from-[#B18E63] to-[#976E44] px-6 py-4 flex items-center justify-between rounded-t-2xl">
+                        <div className={cn(
+                            "px-6 py-4 flex items-center justify-between rounded-t-2xl",
+                            currencyFilter !== 'ALL' 
+                                ? 'bg-gradient-to-r from-[#4F6A64] to-[#82A094]'
+                                : 'bg-gradient-to-r from-[#B18E63] to-[#976E44]'
+                        )}>
                             <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
                                     <Plus className="w-5 h-5 text-white" />
                                 </div>
                                 <div>
-                                    <h3 className="font-bold text-white text-base">Add Vendor</h3>
-                                    <p className="text-[10px] text-white/60 font-medium">Search & select beneficiary to add to payment batch</p>
+                                    <h3 className="font-bold text-white text-base flex items-center gap-2">
+                                        Add Vendor
+                                        {currencyFilter !== 'ALL' && (
+                                            <span className="text-[10px] bg-white/20 backdrop-blur-sm px-2.5 py-1 rounded-lg font-black tracking-wide">
+                                                {CURRENCY_SYMBOLS[currencyFilter] || ''} {currencyFilter}
+                                            </span>
+                                        )}
+                                    </h3>
+                                    <p className="text-[10px] text-white/60 font-medium">
+                                        {currencyFilter !== 'ALL' 
+                                            ? `Showing only ${currencyFilter} vendor accounts`
+                                            : 'Search & select beneficiary to add to payment batch'}
+                                    </p>
                                 </div>
                             </div>
                             <div className="flex items-center gap-2">
                                 <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm">
                                     <div className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
                                     <p className="text-[10px] text-white/80 font-semibold">
-                                        {accounts.length} vendors
+                                        {filteredAccounts.length} vendors
                                     </p>
                                 </div>
                                 <Button 
@@ -437,7 +599,7 @@ export default function PaymentsPage() {
                                 </Button>
                             </div>
                         </div>
-                        
+
                         <div className="p-6">
                             {/* Custom Vendor Search Dropdown */}
                             <div ref={dropdownRef} className="relative">
@@ -521,19 +683,25 @@ export default function PaymentsPage() {
                                                             <span className="font-mono text-[#6F8A9D] font-semibold">{a.ifscCode}</span>
                                                         </div>
 
-                                                        {/* Row 3: BP Code + Currency */}
+                                                        {/* Row 3: BP Code + Currency + MSME */}
                                                         <div className="flex items-center gap-2">
                                                             {a.bpCode && (
                                                                 <span className="text-[10px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md font-bold uppercase tracking-tight">
                                                                     BP: {a.bpCode}
                                                                 </span>
                                                             )}
-                                                            <span className="text-[10px] text-[#4F6A64] bg-[#82A094]/10 px-2 py-0.5 rounded-md font-bold uppercase">
+                                                            <span className="inline-flex items-center gap-1 text-[10px] text-[#4F6A64] bg-[#82A094]/10 px-2 py-0.5 rounded-md font-bold uppercase">
+                                                                <span className="font-black">{CURRENCY_SYMBOLS[(a.currency || 'INR').toUpperCase()] || ''}</span>
                                                                 {a.currency || 'INR'}
                                                             </span>
                                                             {a.isMSME && (
                                                                 <span className="text-[10px] text-[#CE9F6B] bg-[#CE9F6B]/10 px-2 py-0.5 rounded-md font-bold uppercase">
                                                                     MSME
+                                                                </span>
+                                                            )}
+                                                            {a.accountType && (
+                                                                <span className="text-[10px] text-slate-400 bg-slate-50 px-2 py-0.5 rounded-md font-medium">
+                                                                    {a.accountType}
                                                                 </span>
                                                             )}
                                                         </div>
@@ -548,10 +716,22 @@ export default function PaymentsPage() {
                                             )}
                                         </div>
                                         {/* Footer */}
-                                        <div className="border-t border-slate-100 px-5 py-2.5 bg-slate-50/50">
+                                        <div className="border-t border-slate-100 px-5 py-2.5 bg-slate-50/50 flex items-center justify-between">
                                             <p className="text-[11px] text-slate-400 font-medium">
                                                 Showing {filteredAccounts.length} of {accounts.length} vendors
+                                                {currencyFilter !== 'ALL' && (
+                                                    <span className="ml-1.5 text-[#4F6A64] font-bold">• {currencyFilter}</span>
+                                                )}
                                             </p>
+                                            {currencyFilter !== 'ALL' && (
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); setCurrencyFilter('ALL'); }}
+                                                    className="text-[10px] text-slate-400 hover:text-red-500 font-bold flex items-center gap-1 transition-colors"
+                                                >
+                                                    <X className="w-3 h-3" />
+                                                    Clear filter
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
                                 )}
@@ -573,8 +753,8 @@ export default function PaymentsPage() {
                             </div>
                         </div>
                         
-                        <div className="p-6">
-                            <div className="grid grid-cols-2 gap-4 mb-4">
+                        <div className="p-6 space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400 flex items-center gap-1.5">
                                         <CalendarIcon className="w-3 h-3" />
@@ -599,11 +779,109 @@ export default function PaymentsPage() {
                                         <SelectContent>
                                             <SelectItem value="NFT" className="text-sm">NEFT (NFT)</SelectItem>
                                             <SelectItem value="RTI" className="text-sm">RTGS (RTI)</SelectItem>
-                                            <SelectItem value="FT" className="text-sm">Internal Transfer (FT)</SelectItem>
+                                            <SelectItem value="FT" className="text-sm">Same Bank (FT)</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>
                             </div>
+
+                            {/* ICICI Ben Email IDs */}
+                            {exportFormat === 'ICICI' && (
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400 flex items-center gap-1.5">
+                                        <Mail className="w-3 h-3" />
+                                        Ben Email ID
+                                        <span className="ml-auto text-[9px] bg-[#B18E63]/10 text-[#976E44] px-2 py-0.5 rounded-md font-bold">ICICI CMS</span>
+                                    </label>
+                                    {/* Email tags */}
+                                    <div className="flex flex-wrap gap-1.5 min-h-[36px] p-2 bg-slate-50/80 border border-slate-200 rounded-xl">
+                                        {benEmailIds.map((email, idx) => (
+                                            editingEmailIdx === idx ? (
+                                                <div key={idx} className="flex items-center gap-1">
+                                                    <input
+                                                        autoFocus
+                                                        type="email"
+                                                        value={editingEmailValue}
+                                                        onChange={e => setEditingEmailValue(e.target.value)}
+                                                        onKeyDown={e => {
+                                                            if (e.key === 'Enter') {
+                                                                const v = editingEmailValue.trim();
+                                                                if (v) setBenEmailIds(prev => prev.map((em, i) => i === idx ? v : em));
+                                                                setEditingEmailIdx(null);
+                                                            } else if (e.key === 'Escape') {
+                                                                setEditingEmailIdx(null);
+                                                            }
+                                                        }}
+                                                        onBlur={() => {
+                                                            const v = editingEmailValue.trim();
+                                                            if (v) setBenEmailIds(prev => prev.map((em, i) => i === idx ? v : em));
+                                                            setEditingEmailIdx(null);
+                                                        }}
+                                                        className="text-[11px] font-medium px-2 py-1 border border-[#B18E63]/50 rounded-lg bg-white outline-none focus:ring-1 focus:ring-[#B18E63]/30 text-slate-700 min-w-[160px]"
+                                                    />
+                                                </div>
+                                            ) : (
+                                                <div
+                                                    key={idx}
+                                                    className="group/tag flex items-center gap-1 bg-white border border-[#B18E63]/30 rounded-lg px-2 py-1 text-[11px] font-medium text-[#976E44] hover:border-[#B18E63]/60 transition-all cursor-default"
+                                                >
+                                                    <Mail className="w-2.5 h-2.5 shrink-0 text-[#B18E63]/60" />
+                                                    <span className="max-w-[150px] truncate">{email}</span>
+                                                    <button
+                                                        onClick={() => { setEditingEmailIdx(idx); setEditingEmailValue(email); }}
+                                                        className="ml-0.5 text-slate-300 hover:text-[#B18E63] transition-colors opacity-0 group-hover/tag:opacity-100"
+                                                        title="Edit"
+                                                    >
+                                                        <Pencil className="w-2.5 h-2.5" />
+                                                    </button>
+                                                    {benEmailIds.length > 1 && (
+                                                        <button
+                                                            onClick={() => setBenEmailIds(prev => prev.filter((_, i) => i !== idx))}
+                                                            className="ml-0.5 text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover/tag:opacity-100"
+                                                            title="Remove"
+                                                        >
+                                                            <X className="w-2.5 h-2.5" />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            )
+                                        ))}
+                                    </div>
+                                    {/* Add new email */}
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            type="email"
+                                            placeholder="Add email address..."
+                                            value={newEmailInput}
+                                            onChange={e => setNewEmailInput(e.target.value)}
+                                            onKeyDown={e => {
+                                                if (e.key === 'Enter') {
+                                                    const v = newEmailInput.trim();
+                                                    if (v && !benEmailIds.includes(v)) {
+                                                        setBenEmailIds(prev => [...prev, v]);
+                                                        setNewEmailInput('');
+                                                    }
+                                                }
+                                            }}
+                                            className="flex-1 text-[11px] font-medium px-3 py-2 border border-slate-200 rounded-xl bg-white outline-none focus:ring-1 focus:ring-[#B18E63]/30 focus:border-[#B18E63]/50 text-slate-700 placeholder:text-slate-300 transition-all h-9"
+                                        />
+                                        <button
+                                            onClick={() => {
+                                                const v = newEmailInput.trim();
+                                                if (v && !benEmailIds.includes(v)) {
+                                                    setBenEmailIds(prev => [...prev, v]);
+                                                    setNewEmailInput('');
+                                                }
+                                            }}
+                                            disabled={!newEmailInput.trim()}
+                                            className="h-9 px-3 rounded-xl bg-gradient-to-r from-[#B18E63] to-[#976E44] text-white text-[11px] font-bold disabled:opacity-40 disabled:cursor-not-allowed hover:shadow-md transition-all flex items-center gap-1"
+                                        >
+                                            <Plus className="w-3 h-3" /> Add
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
                             <Button 
                                 variant="secondary" 
                                 className="w-full bg-[#6F8A9D]/10 hover:bg-[#6F8A9D]/20 text-[#546A7A] border-0 font-bold text-sm h-12 rounded-xl transition-all hover:scale-[1.01]" 
@@ -679,6 +957,7 @@ export default function PaymentsPage() {
                                                 <Zap className="w-3 h-3" /> Mode
                                             </div>
                                         </TableHead>
+
                                         <TableHead className="text-right w-[70px] text-slate-400 font-bold uppercase text-[10px] tracking-wider py-3.5">Action</TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -707,7 +986,12 @@ export default function PaymentsPage() {
                                                             {p.vendorName?.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()}
                                                         </div>
                                                         <div className="flex flex-col gap-0.5 min-w-0">
-                                                            <span className="font-bold text-sm text-slate-700 truncate">{p.vendorName}</span>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="font-bold text-sm text-slate-700 truncate">{p.vendorName}</span>
+                                                                <span className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-[#82A094]/10 text-[#4F6A64] shrink-0">
+                                                                    {CURRENCY_SYMBOLS[(p.bankAccount.currency || 'INR').toUpperCase()] || ''} {(p.bankAccount.currency || 'INR').toUpperCase()}
+                                                                </span>
+                                                            </div>
                                                             <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-mono">
                                                                 <Wallet className="w-3 h-3 shrink-0" /> 
                                                                 <span className="truncate">{p.accountNumber}</span>
@@ -721,7 +1005,7 @@ export default function PaymentsPage() {
                                                 {/* Amount */}
                                                 <TableCell className="py-4">
                                                     <div className="relative group/input">
-                                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold transition-colors group-focus-within/input:text-[#B18E63]">₹</span>
+                                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold transition-colors group-focus-within/input:text-[#B18E63]">{activeCurrencySymbol}</span>
                                                         <Input 
                                                             type="number" 
                                                             className={cn(
@@ -761,10 +1045,11 @@ export default function PaymentsPage() {
                                                         <SelectContent>
                                                             <SelectItem value="NFT" className="text-xs font-medium">NEFT</SelectItem>
                                                             <SelectItem value="RTI" className="text-xs font-medium">RTGS</SelectItem>
-                                                            <SelectItem value="FT" className="text-xs font-medium">Fund Transfer</SelectItem>
+                                                            <SelectItem value="FT" className="text-xs font-medium">Same Bank</SelectItem>
                                                         </SelectContent>
                                                     </Select>
                                                 </TableCell>
+
 
                                                 {/* Action */}
                                                 <TableCell className="text-right py-4">
@@ -844,7 +1129,7 @@ export default function PaymentsPage() {
                                             <IndianRupee className="w-3 h-3" /> Total Disbursement
                                         </p>
                                         <p className="font-black text-2xl text-[#B18E63] tabular-nums">
-                                            ₹{stats.totalAmount.toLocaleString('en-IN')}
+                                            {activeCurrencySymbol}{stats.totalAmount.toLocaleString('en-IN')}
                                         </p>
                                     </div>
                                     {stats.validPayments < stats.totalRecords && (
@@ -854,6 +1139,17 @@ export default function PaymentsPage() {
                                                 <AlertCircle className="w-4 h-4 text-amber-500" />
                                                 <p className="text-[11px] text-amber-700 font-bold">
                                                     {stats.totalRecords - stats.validPayments} row{stats.totalRecords - stats.validPayments > 1 ? 's' : ''} missing amount
+                                                </p>
+                                            </div>
+                                        </>
+                                    )}
+                                    {currencyFilter !== 'ALL' && (
+                                        <>
+                                            <div className="w-px h-10 bg-slate-100" />
+                                            <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#82A094]/10 border border-[#82A094]/20">
+                                                <span className="text-sm font-black text-[#4F6A64]">{activeCurrencySymbol}</span>
+                                                <p className="text-[11px] text-[#4F6A64] font-bold">
+                                                    {currencyFilter} Batch
                                                 </p>
                                             </div>
                                         </>
