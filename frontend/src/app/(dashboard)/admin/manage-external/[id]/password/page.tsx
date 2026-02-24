@@ -5,13 +5,13 @@ import { MobilePageHeader } from '@/components/ui/mobile-responsive';
 import ExternalUserPasswordChangeClient from '@/components/admin/ExternalUserPasswordChangeClient';
 
 interface ExternalUserPasswordChangePageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 export default async function ExternalUserPasswordChangePage({ params }: ExternalUserPasswordChangePageProps) {
-  const { id } = params;
+  const { id } = await params;
 
   // Server-side data fetching
   try {

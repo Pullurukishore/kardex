@@ -13,9 +13,9 @@ export interface PaymentRow {
 }
 
 /**
- * Format 1: ICICI CMS (Wide)
+ * Format 1: HDFC (Wide)
  */
-export const downloadICICICMS = async (payments: PaymentRow[]) => {
+export const downloadICICICMS = async (payments: PaymentRow[], customFilename?: string) => {
     // Dynamic imports to reduce bundle size
     const ExcelJSModule = await import('exceljs');
     const ExcelJS = (ExcelJSModule as any).default || ExcelJSModule;
@@ -24,7 +24,7 @@ export const downloadICICICMS = async (payments: PaymentRow[]) => {
     const { format } = await import('date-fns');
 
     const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('ICICI CMS');
+    const worksheet = workbook.addWorksheet('HDFC');
 
     // Row 1: Labels
     const row1 = [
@@ -116,13 +116,14 @@ export const downloadICICICMS = async (payments: PaymentRow[]) => {
     worksheet.columns = widths.map(w => ({ width: w }));
 
     const buffer = await workbook.xlsx.writeBuffer();
-    saveAs(new Blob([buffer]), `ICICI_CMS_Bulk_Payment_${format(new Date(), 'yyyyMMdd')}.xlsx`);
+    const finalFilename = customFilename ? (customFilename.endsWith('.xlsx') ? customFilename : `${customFilename}.xlsx`) : `HDFC_Bulk_Payment_${format(new Date(), 'yyyyMMdd')}.xlsx`;
+    saveAs(new Blob([buffer]), finalFilename);
 };
 
 /**
- * Format 2: Standard NEFT/RTGS
+ * Format 2: DB
  */
-export const downloadStandardPayment = async (payments: PaymentRow[]) => {
+export const downloadStandardPayment = async (payments: PaymentRow[], customFilename?: string) => {
     // Dynamic imports to reduce bundle size
     const ExcelJSModule = await import('exceljs');
     const ExcelJS = (ExcelJSModule as any).default || ExcelJSModule;
@@ -184,11 +185,12 @@ export const downloadStandardPayment = async (payments: PaymentRow[]) => {
     ];
 
     const buffer = await workbook.xlsx.writeBuffer();
-    saveAs(new Blob([buffer]), `Standard_Bulk_Payment_${format(new Date(), 'yyyyMMdd')}.xlsx`);
+    const finalFilename = customFilename ? (customFilename.endsWith('.xlsx') ? customFilename : `${customFilename}.xlsx`) : `DB_Bulk_Payment_${format(new Date(), 'yyyyMMdd')}.xlsx`;
+    saveAs(new Blob([buffer]), finalFilename);
 };
 
 // ============================================================================
-// ICICI CMS — Helper: Build data rows (reused by CSV & TXT)
+// HDFC — Helper: Build data rows (reused by CSV & TXT)
 // ============================================================================
 function buildICICIDataRows(payments: PaymentRow[], formatDate: (d: Date, f: string) => string) {
     return payments.map(p => {
@@ -212,7 +214,7 @@ function buildICICIDataRows(payments: PaymentRow[], formatDate: (d: Date, f: str
 }
 
 // ============================================================================
-// Standard — Helper: Build data rows (reused by CSV & TXT) 
+// DB — Helper: Build data rows (reused by CSV & TXT) 
 // ============================================================================
 function buildStandardDataRows(payments: PaymentRow[], formatDate: (d: Date, f: string) => string) {
     return payments.map(p => {
@@ -263,42 +265,46 @@ function downloadBlob(content: string, filename: string, mimeType: string) {
 }
 
 // ============================================================================
-// ICICI CMS — CSV (Data Only, no header rows)
+// HDFC — CSV (Data Only, no header rows)
 // ============================================================================
-export const downloadICICICMS_CSV = async (payments: PaymentRow[]) => {
+export const downloadICICICMS_CSV = async (payments: PaymentRow[], customFilename?: string) => {
     const { format } = await import('date-fns');
     const rows = buildICICIDataRows(payments, format);
     const csvContent = rows.map(row => row.map(csvEscape).join(',')).join('\n');
-    downloadBlob(csvContent, `ICICI_CMS_Data_${format(new Date(), 'yyyyMMdd')}.csv`, 'text/csv;charset=utf-8;');
+    const finalFilename = customFilename ? (customFilename.endsWith('.csv') ? customFilename : `${customFilename}.csv`) : `HDFC_Data_${format(new Date(), 'yyyyMMdd')}.csv`;
+    downloadBlob(csvContent, finalFilename, 'text/csv;charset=utf-8;');
 };
 
 // ============================================================================
-// ICICI CMS — TXT (Pipe-delimited, essential fields only)
+// HDFC — TXT (Pipe-delimited, essential fields only)
 // ============================================================================
-export const downloadICICICMS_TXT = async (payments: PaymentRow[]) => {
+export const downloadICICICMS_TXT = async (payments: PaymentRow[], customFilename?: string) => {
     const { format } = await import('date-fns');
     const rows = buildICICIDataRows(payments, format);
     const txtContent = rows.map(row => row.join(',')).join('\n');
-    downloadBlob(txtContent, `ICICI_CMS_Data_${format(new Date(), 'yyyyMMdd')}.txt`, 'text/plain;charset=utf-8;');
+    const finalFilename = customFilename ? (customFilename.endsWith('.txt') ? customFilename : `${customFilename}.txt`) : `HDFC_Data_${format(new Date(), 'yyyyMMdd')}.txt`;
+    downloadBlob(txtContent, finalFilename, 'text/plain;charset=utf-8;');
 };
 
 // ============================================================================
-// Standard — CSV (Data Only, no header row)
+// DB — CSV (Data Only, no header row)
 // ============================================================================
-export const downloadStandard_CSV = async (payments: PaymentRow[]) => {
+export const downloadStandard_CSV = async (payments: PaymentRow[], customFilename?: string) => {
     const { format } = await import('date-fns');
     const rows = buildStandardDataRows(payments, format);
     const csvContent = rows.map(row => row.map(csvEscape).join(',')).join('\n');
-    downloadBlob(csvContent, `Standard_Payment_Data_${format(new Date(), 'yyyyMMdd')}.csv`, 'text/csv;charset=utf-8;');
+    const finalFilename = customFilename ? (customFilename.endsWith('.csv') ? customFilename : `${customFilename}.csv`) : `DB_Payment_Data_${format(new Date(), 'yyyyMMdd')}.csv`;
+    downloadBlob(csvContent, finalFilename, 'text/csv;charset=utf-8;');
 };
 
 // ============================================================================
-// Standard — TXT (Pipe-delimited data only)
+// DB — TXT (Pipe-delimited data only)
 // ============================================================================
-export const downloadStandard_TXT = async (payments: PaymentRow[]) => {
+export const downloadStandard_TXT = async (payments: PaymentRow[], customFilename?: string) => {
     const { format } = await import('date-fns');
     const rows = buildStandardDataRows(payments, format);
     const txtContent = rows.map(row => row.join(',')).join('\n');
-    downloadBlob(txtContent, `Standard_Payment_Data_${format(new Date(), 'yyyyMMdd')}.txt`, 'text/plain;charset=utf-8;');
+    const finalFilename = customFilename ? (customFilename.endsWith('.txt') ? customFilename : `${customFilename}.txt`) : `DB_Payment_Data_${format(new Date(), 'yyyyMMdd')}.txt`;
+    downloadBlob(txtContent, finalFilename, 'text/plain;charset=utf-8;');
 };
 

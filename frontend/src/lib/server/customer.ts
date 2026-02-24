@@ -12,13 +12,13 @@ interface CustomerFilters {
 }
 
 async function makeServerRequest(endpoint: string, method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'GET', body?: any) {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const accessToken = cookieStore.get('accessToken')?.value;
   const token = cookieStore.get('token')?.value;
-  
+
   // Check for either accessToken or token (based on authentication inconsistencies)
   const authToken = accessToken || token;
-  
+
   if (!authToken) {
     throw new Error('No access token found');
   }
@@ -47,7 +47,7 @@ async function makeServerRequest(endpoint: string, method: 'GET' | 'POST' | 'PUT
 
 export async function getCustomers(filters: CustomerFilters = {}): Promise<Customer[]> {
   const { search = '', status = 'all', page = 1, limit = 10 } = filters;
-  
+
   const params = new URLSearchParams({
     page: page.toString(),
     limit: limit.toString(),
@@ -56,14 +56,14 @@ export async function getCustomers(filters: CustomerFilters = {}): Promise<Custo
 
   try {
     const customers: Customer[] = await makeServerRequest(`/customers?${params}`);
-    
+
     // Apply client-side filtering for status
     // TODO: Consider moving this to backend API for better performance with large datasets
     return customers.filter(customer => {
-      const matchesStatus = status === 'all' || 
+      const matchesStatus = status === 'all' ||
         (status === 'active' && customer.isActive) ||
         (status === 'inactive' && !customer.isActive);
-      
+
       return matchesStatus;
     });
   } catch (error) {

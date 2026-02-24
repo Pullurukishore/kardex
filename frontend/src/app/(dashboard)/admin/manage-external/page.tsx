@@ -7,19 +7,21 @@ import ExternalUserClient from '@/components/admin/ExternalUserClient';
 import Link from 'next/link';
 
 interface ManageExternalUsersPageProps {
-  searchParams: {
+  params: Promise<any>;
+  searchParams: Promise<{
     search?: string;
     page?: string;
-  };
+  }>;
 }
 
 // Disable caching for this page to ensure fresh data
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export default async function ManageExternalUsersPage({ searchParams }: ManageExternalUsersPageProps) {
-  const currentPage = parseInt(searchParams.page || '1');
-  const search = searchParams.search || '';
+export default async function ManageExternalUsersPage({ params, searchParams }: ManageExternalUsersPageProps) {
+  const resolvedSearchParams = await searchParams;
+  const currentPage = parseInt(resolvedSearchParams.page || '1');
+  const search = resolvedSearchParams.search || '';
 
   // Server-side data fetching with cache revalidation
   const response = await getExternalUsers({
@@ -73,7 +75,7 @@ export default async function ManageExternalUsersPage({ searchParams }: ManageEx
         initialExternalUsers={externalUsers}
         initialStats={stats}
         initialPagination={pagination}
-        searchParams={searchParams}
+        searchParams={resolvedSearchParams}
       />
     </div>
   );

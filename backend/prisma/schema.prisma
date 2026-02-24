@@ -1414,10 +1414,9 @@ model BankAccountActivityLog {
 
 enum PaymentBatchStatus {
   PENDING
-  PARTIALLY_APPROVED
   APPROVED
+  PARTIALLY_APPROVED
   REJECTED
-  DOWNLOADED
 }
 
 enum PaymentItemStatus {
@@ -1430,7 +1429,7 @@ model PaymentBatch {
   id              String              @id @default(uuid())
   batchNumber     String              @unique
   currency        String              @default("INR")
-  exportFormat    String?             // 'ICICI' | 'STANDARD'
+  exportFormat    String?             // 'HDFC' | 'DB'
   status          PaymentBatchStatus  @default(PENDING)
   totalAmount     Decimal             @db.Decimal(15, 2)
   approvedAmount  Decimal?            @db.Decimal(15, 2)

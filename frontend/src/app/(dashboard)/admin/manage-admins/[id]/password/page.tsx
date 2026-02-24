@@ -5,15 +5,15 @@ import { MobilePageHeader } from '@/components/ui/mobile-responsive';
 import PasswordChangeClient from '@/components/admin/PasswordChangeClient';
 
 interface PasswordChangePageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 export const dynamic = 'force-dynamic';
 
 export default async function PasswordChangePage({ params }: PasswordChangePageProps) {
-  const { id } = params;
+  const { id } = await params;
 
   // Server-side data fetching
   const admin = await getAdminById(id);

@@ -77,9 +77,9 @@ interface DashboardData {
 
 export async function getServicePersonDashboardData(): Promise<DashboardData | null> {
   try {
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const accessToken = cookieStore.get('accessToken')?.value || cookieStore.get('token')?.value;
-    
+
     if (!accessToken) {
       return null;
     }
@@ -114,13 +114,13 @@ export async function getServicePersonDashboardData(): Promise<DashboardData | n
     const activities = activitiesData.activities || [];
     const activeActivities = activities.filter((activity: any) => !activity.endTime);
     const recentActivities = activities.slice(0, 10);
-    
+
     // Calculate today's activity stats
     const today = new Date().toDateString();
-    const todayActivities = activities.filter((activity: any) => 
+    const todayActivities = activities.filter((activity: any) =>
       new Date(activity.startTime).toDateString() === today
     );
-    
+
     const todayHours = todayActivities.reduce((total: number, activity: any) => {
       if (activity.duration) {
         return total + (activity.duration / 60); // Convert minutes to hours
@@ -130,23 +130,23 @@ export async function getServicePersonDashboardData(): Promise<DashboardData | n
 
     // Process tickets data
     const tickets = ticketsData.tickets || [];
-    const assignedTickets = tickets.filter((ticket: any) => 
+    const assignedTickets = tickets.filter((ticket: any) =>
       ['ASSIGNED', 'IN_PROGRESS', 'ONSITE_VISIT_STARTED', 'ONSITE_VISIT_REACHED', 'ONSITE_VISIT_IN_PROGRESS'].includes(ticket.status)
     );
-    
-    const completedToday = tickets.filter((ticket: any) => 
+
+    const completedToday = tickets.filter((ticket: any) =>
       ['RESOLVED', 'CLOSED', 'ONSITE_VISIT_RESOLVED'].includes(ticket.status) &&
       new Date(ticket.updatedAt).toDateString() === today
     ).length;
 
-    const inProgressTickets = tickets.filter((ticket: any) => 
+    const inProgressTickets = tickets.filter((ticket: any) =>
       ['IN_PROGRESS', 'ONSITE_VISIT_IN_PROGRESS'].includes(ticket.status)
     ).length;
 
     // Calculate weekly hours (last 7 days)
     const weekAgo = new Date();
     weekAgo.setDate(weekAgo.getDate() - 7);
-    const weeklyActivities = activities.filter((activity: any) => 
+    const weeklyActivities = activities.filter((activity: any) =>
       new Date(activity.startTime) >= weekAgo
     );
     const weeklyHours = weeklyActivities.reduce((total: number, activity: any) => {
@@ -159,7 +159,7 @@ export async function getServicePersonDashboardData(): Promise<DashboardData | n
     // Calculate monthly tickets (last 30 days)
     const monthAgo = new Date();
     monthAgo.setDate(monthAgo.getDate() - 30);
-    const monthlyTickets = tickets.filter((ticket: any) => 
+    const monthlyTickets = tickets.filter((ticket: any) =>
       new Date(ticket.createdAt) >= monthAgo
     ).length;
 

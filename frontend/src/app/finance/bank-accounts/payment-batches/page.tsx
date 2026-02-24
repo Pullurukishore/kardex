@@ -20,14 +20,13 @@ import { toast } from 'sonner';
 
 // Kardex semantic status colours — all 5 statuses the backend can return
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; border: string; icon: any; dot: string }> = {
-  PENDING:            { label: 'Pending Review',     color: 'text-[#976E44]',  bg: 'bg-[#CE9F6B]/10', border: 'border-[#CE9F6B]/40', icon: Clock,         dot: 'bg-[#CE9F6B]' },
-  APPROVED:           { label: 'Approved',           color: 'text-[#4F6A64]',  bg: 'bg-[#82A094]/15', border: 'border-[#82A094]/50', icon: CheckCircle2,  dot: 'bg-[#82A094]' },
-  PARTIALLY_APPROVED: { label: 'Partial',            color: 'text-[#976E44]',  bg: 'bg-[#CE9F6B]/15', border: 'border-[#CE9F6B]/40', icon: AlertCircle,   dot: 'bg-[#CE9F6B]' },
-  REJECTED:           { label: 'Rejected',           color: 'text-[#75242D]',  bg: 'bg-[#E17F70]/10', border: 'border-[#E17F70]/40', icon: XCircle,       dot: 'bg-[#E17F70]' },
-  DOWNLOADED:         { label: 'Downloaded',         color: 'text-[#546A7A]',  bg: 'bg-[#96AEC2]/15', border: 'border-[#96AEC2]/40', icon: Download,      dot: 'bg-[#96AEC2]' },
+  PENDING:              { label: 'Pending Review',       color: 'text-[#976E44]',  bg: 'bg-[#CE9F6B]/10', border: 'border-[#CE9F6B]/40', icon: Clock,         dot: 'bg-[#CE9F6B]' },
+  APPROVED:             { label: 'Approved',             color: 'text-[#4F6A64]',  bg: 'bg-[#82A094]/15', border: 'border-[#82A094]/50', icon: CheckCircle2,  dot: 'bg-[#82A094]' },
+  PARTIALLY_APPROVED:   { label: 'Partially Approved',   color: 'text-[#976E44]',  bg: 'bg-[#CE9F6B]/15', border: 'border-[#CE9F6B]/50', icon: AlertCircle,   dot: 'bg-[#CE9F6B]' },
+  REJECTED:             { label: 'Rejected',             color: 'text-[#75242D]',  bg: 'bg-[#E17F70]/10', border: 'border-[#E17F70]/40', icon: XCircle,       dot: 'bg-[#E17F70]' },
 };
 
-const ALL_STATUSES = ['ALL', 'PENDING', 'APPROVED', 'PARTIALLY_APPROVED', 'REJECTED', 'DOWNLOADED'] as const;
+const ALL_STATUSES = ['ALL', 'PENDING', 'APPROVED', 'PARTIALLY_APPROVED', 'REJECTED'] as const;
 
 export default function PaymentBatchesPage() {
   const { user } = useAuth();
@@ -76,9 +75,7 @@ export default function PaymentBatchesPage() {
       { key: 'ALL',                label: 'Total',      value: stats.total, icon: Hash },
       { key: 'PENDING',            label: 'Pending',    value: stats.pending, icon: Clock },
       { key: 'APPROVED',           label: 'Approved',   value: stats.approved, icon: CheckCircle2 },
-      { key: 'PARTIALLY_APPROVED', label: 'Partial',    value: stats.partiallyApproved, icon: AlertCircle },
       { key: 'REJECTED',           label: 'Rejected',   value: stats.rejected, icon: XCircle },
-      { key: 'DOWNLOADED',         label: 'Downloaded', value: stats.downloaded, icon: Download },
     ];
   }, [stats, isAdmin]);
 
@@ -96,44 +93,46 @@ export default function PaymentBatchesPage() {
   }, [batches]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#96AEC2]/8 via-white to-[#82A094]/5">
-      <div className="max-w-7xl mx-auto px-6 py-8 space-y-6">
+    <div className="space-y-6">
 
         {/* ── Header ─────────────────────────────────────────────────────── */}
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#6F8A9D] to-[#546A7A] flex items-center justify-center shadow-lg shadow-[#6F8A9D]/30">
-              {isAdmin ? <Shield className="w-6 h-6 text-white" /> : <Send className="w-6 h-6 text-white" />}
+        <div className="bg-white/80 backdrop-blur-sm border border-[#AEBFC3]/25 rounded-2xl overflow-hidden shadow-sm">
+          <div className="h-1 bg-gradient-to-r from-[#546A7A] via-[#6F8A9D] to-[#82A094]" />
+          <div className="p-5 flex items-start justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#546A7A] to-[#6F8A9D] flex items-center justify-center shadow-lg shadow-[#546A7A]/25">
+                {isAdmin ? <Shield className="w-6 h-6 text-white" /> : <Send className="w-6 h-6 text-white" />}
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-[#546A7A]">
+                  {isAdmin ? 'Payment Batch Approvals' : 'My Payment Requests'}
+                </h1>
+                <p className="text-sm text-[#92A2A5] mt-0.5">
+                  {isAdmin
+                    ? 'Review, approve or reject payment batches submitted by finance users'
+                    : 'Track the status of your submitted payment batches'}
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-2xl font-bold text-slate-800">
-                {isAdmin ? 'Payment Batch Approvals' : 'My Payment Requests'}
-              </h1>
-              <p className="text-sm text-slate-500 mt-0.5">
-                {isAdmin
-                  ? 'Review, approve or reject payment batches submitted by finance users'
-                  : 'Track the status of your submitted payment batches'}
-              </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => fetchData(true)}
+                disabled={refreshing}
+                className="rounded-xl border-[#6F8A9D]/40 text-[#546A7A] hover:bg-[#96AEC2]/10"
+              >
+                <RefreshCw className={cn('w-4 h-4 mr-1.5', refreshing && 'animate-spin')} />
+                Refresh
+              </Button>
+              {!isAdmin && (
+                <Link href="/finance/bank-accounts/payments">
+                  <Button className="bg-gradient-to-r from-[#CE9F6B] to-[#976E44] text-white rounded-xl shadow-lg hover:shadow-[#CE9F6B]/40 hover:shadow-xl font-bold">
+                    <Send className="w-4 h-4 mr-2" /> New Request
+                  </Button>
+                </Link>
+              )}
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => fetchData(true)}
-              disabled={refreshing}
-              className="rounded-xl border-[#6F8A9D]/40 text-[#546A7A] hover:bg-[#96AEC2]/10"
-            >
-              <RefreshCw className={cn('w-4 h-4 mr-1.5', refreshing && 'animate-spin')} />
-              Refresh
-            </Button>
-            {!isAdmin && (
-              <Link href="/finance/bank-accounts/payments">
-                <Button className="bg-gradient-to-r from-[#CE9F6B] to-[#976E44] text-white rounded-xl shadow-lg hover:shadow-[#CE9F6B]/40 hover:shadow-xl font-bold">
-                  <Send className="w-4 h-4 mr-2" /> New Request
-                </Button>
-              </Link>
-            )}
           </div>
         </div>
 
@@ -141,40 +140,43 @@ export default function PaymentBatchesPage() {
         {isAdmin && stats && (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {/* Pending — Sand */}
-            <div className="bg-gradient-to-br from-[#CE9F6B]/12 to-[#CE9F6B]/5 border border-[#CE9F6B]/30 rounded-2xl p-5 flex items-center gap-4">
-              <div className="w-12 h-12 bg-[#CE9F6B]/20 rounded-xl flex items-center justify-center">
+            <div className="bg-white/70 backdrop-blur-sm border border-[#CE9F6B]/25 rounded-2xl p-5 flex items-center gap-4 relative overflow-hidden shadow-sm">
+              <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-[#CE9F6B] to-[#976E44]" />
+              <div className="w-12 h-12 bg-gradient-to-br from-[#CE9F6B]/20 to-[#976E44]/10 rounded-xl flex items-center justify-center ml-1">
                 <Clock className="w-6 h-6 text-[#976E44]" />
               </div>
               <div>
-                <p className="text-xs text-[#976E44] font-semibold uppercase tracking-wide">Awaiting Review</p>
-                <p className="text-3xl font-bold text-[#976E44]">{stats.pending}</p>
+                <p className="text-xs text-[#976E44] font-bold uppercase tracking-wide">Awaiting Review</p>
+                <p className="text-3xl font-extrabold text-[#976E44]">{stats.pending}</p>
                 <p className="text-xs text-[#CE9F6B] mt-0.5">pending batches</p>
               </div>
             </div>
             {/* Pending Amount — Blue */}
-            <div className="bg-gradient-to-br from-[#96AEC2]/10 to-[#6F8A9D]/5 border border-[#96AEC2]/25 rounded-2xl p-5 flex items-center gap-4">
-              <div className="w-12 h-12 bg-[#96AEC2]/15 rounded-xl flex items-center justify-center border border-[#96AEC2]/20">
+            <div className="bg-white/70 backdrop-blur-sm border border-[#96AEC2]/25 rounded-2xl p-5 flex items-center gap-4 relative overflow-hidden shadow-sm">
+              <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-[#96AEC2] to-[#546A7A]" />
+              <div className="w-12 h-12 bg-gradient-to-br from-[#96AEC2]/15 to-[#6F8A9D]/10 rounded-xl flex items-center justify-center ml-1">
                 <Banknote className="w-6 h-6 text-[#546A7A]" />
               </div>
               <div>
-                <p className="text-xs text-[#546A7A] font-semibold uppercase tracking-wide">Pending Amount</p>
-                <p className="text-2xl font-bold text-slate-800">
+                <p className="text-xs text-[#546A7A] font-bold uppercase tracking-wide">Pending Amount</p>
+                <p className="text-2xl font-extrabold text-[#546A7A]">
                   {totalPendingAmount > 0 ? formatARCurrency(totalPendingAmount, dominantCurrency) : '—'}
                 </p>
                 <p className="text-xs text-[#6F8A9D] mt-0.5">total value pending</p>
               </div>
             </div>
             {/* Processed — Green */}
-            <div className="bg-gradient-to-br from-[#82A094]/10 to-[#4F6A64]/8 border border-[#82A094]/30 rounded-2xl p-5 flex items-center gap-4">
-              <div className="w-12 h-12 bg-[#82A094]/20 rounded-xl flex items-center justify-center">
+            <div className="bg-white/70 backdrop-blur-sm border border-[#82A094]/25 rounded-2xl p-5 flex items-center gap-4 relative overflow-hidden shadow-sm">
+              <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-[#82A094] to-[#4F6A64]" />
+              <div className="w-12 h-12 bg-gradient-to-br from-[#82A094]/20 to-[#4F6A64]/10 rounded-xl flex items-center justify-center ml-1">
                 <TrendingUp className="w-6 h-6 text-[#4F6A64]" />
               </div>
               <div>
-                <p className="text-xs text-[#4F6A64] font-semibold uppercase tracking-wide">Processed</p>
-                <p className="text-3xl font-bold text-[#4F6A64]">
-                  {stats.approved + stats.partiallyApproved + stats.downloaded}
+                <p className="text-xs text-[#4F6A64] font-bold uppercase tracking-wide">Processed</p>
+                <p className="text-3xl font-extrabold text-[#4F6A64]">
+                  {stats.approved}
                 </p>
-                <p className="text-xs text-[#82A094] mt-0.5">approved / downloaded batches</p>
+                <p className="text-xs text-[#82A094] mt-0.5">approved batches</p>
               </div>
             </div>
           </div>
@@ -204,8 +206,8 @@ export default function PaymentBatchesPage() {
                     <Icon className={cn('w-4 h-4', isActive ? (card.key === 'ALL' ? 'text-white/80' : cfg?.color) : 'text-[#92A2A5]')} />
                     {isActive && <div className="w-1.5 h-1.5 rounded-full bg-current opacity-60" />}
                   </div>
-                  <p className={cn('text-xl font-bold', isActive ? (card.key === 'ALL' ? 'text-white' : cfg?.color) : 'text-slate-800')}>{card.value}</p>
-                  <p className={cn('text-xs font-medium mt-0.5', isActive ? (card.key === 'ALL' ? 'text-white/70' : cfg?.color + ' opacity-70') : 'text-slate-500')}>{card.label}</p>
+                  <p className={cn('text-xl font-bold', isActive ? (card.key === 'ALL' ? 'text-white' : cfg?.color) : 'text-[#546A7A]')}>{card.value}</p>
+                  <p className={cn('text-xs font-medium mt-0.5', isActive ? (card.key === 'ALL' ? 'text-white/70' : cfg?.color + ' opacity-70') : 'text-[#92A2A5]')}>{card.label}</p>
                 </button>
               );
             })}
@@ -252,13 +254,13 @@ export default function PaymentBatchesPage() {
             <p className="text-sm text-[#546A7A] font-medium">Loading payment batches…</p>
           </div>
         ) : displayedBatches.length === 0 ? (
-          <div className="text-center py-24 space-y-4">
+           <div className="text-center py-24 space-y-4">
             <div className="w-16 h-16 bg-[#96AEC2]/10 rounded-2xl flex items-center justify-center mx-auto border border-[#96AEC2]/25">
               <Package className="w-8 h-8 text-[#6F8A9D]" />
             </div>
             <div>
-              <p className="text-slate-700 font-semibold text-lg">No batches found</p>
-              <p className="text-sm text-slate-400 mt-1">
+              <p className="text-[#546A7A] font-semibold text-lg">No batches found</p>
+              <p className="text-sm text-[#ABACA9] mt-1">
                 {isAdmin
                   ? 'Batches submitted by finance users will appear here'
                   : 'Submit a payment request from the Bulk Payments page'}
@@ -286,9 +288,9 @@ export default function PaymentBatchesPage() {
 
               return (
                 <Link key={batch.id} href={`/finance/bank-accounts/payment-batches/${batch.id}`}>
-                  <div className="group bg-white border border-[#AEBFC3]/30 rounded-2xl hover:shadow-lg hover:shadow-[#6F8A9D]/8 hover:border-[#96AEC2]/50 transition-all cursor-pointer overflow-hidden">
+                  <div className="group bg-white/80 backdrop-blur-sm border border-[#AEBFC3]/25 rounded-2xl hover:shadow-lg hover:shadow-[#6F8A9D]/10 hover:border-[#96AEC2]/40 transition-all cursor-pointer overflow-hidden">
                     {/* Status-coloured top accent bar */}
-                    <div className={cn('h-0.5 w-full', cfg.dot)} />
+                    <div className={cn('h-1 w-full', cfg.dot)} />
                     <div className="p-5">
                       <div className="flex items-start justify-between gap-4">
                         {/* Left */}
@@ -298,7 +300,7 @@ export default function PaymentBatchesPage() {
                           </div>
                           <div className="min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <h3 className="font-bold text-slate-800 group-hover:text-[#546A7A] transition-colors font-mono">
+                              <h3 className="font-bold text-[#546A7A] group-hover:text-[#4F6A64] transition-colors font-mono">
                                 {batch.batchNumber}
                               </h3>
                               <span className={cn(
@@ -309,15 +311,15 @@ export default function PaymentBatchesPage() {
                               </span>
                               {batch.exportFormat && (
                                 <span className="text-[10px] font-bold font-mono bg-[#96AEC2]/10 text-[#546A7A] px-1.5 py-0.5 rounded border border-[#96AEC2]/20">
-                                  {batch.exportFormat === 'ICICI' ? 'ICICI' : 'STD'}
+                                  {batch.exportFormat === 'HDFC' ? 'HDFC' : 'DB'}
                                 </span>
                               )}
                             </div>
                             {/* Meta row */}
-                            <div className="flex items-center gap-3 mt-1.5 text-xs text-slate-500 flex-wrap">
+                            <div className="flex items-center gap-3 mt-1.5 text-xs text-[#92A2A5] flex-wrap">
                               {isAdmin && batch.requestedBy?.name && (
                                 <>
-                                  <span className="flex items-center gap-1 font-medium text-slate-600">
+                                  <span className="flex items-center gap-1 font-medium text-[#5D6E73]">
                                     <User className="w-3 h-3 text-[#6F8A9D]" /> {batch.requestedBy.name}
                                   </span>
                                   <span className="text-[#AEBFC3]">•</span>
@@ -337,7 +339,7 @@ export default function PaymentBatchesPage() {
                               )}
                             </div>
                             {batch.notes && (
-                              <p className="text-xs text-slate-400 mt-1.5 italic truncate max-w-sm">"{batch.notes}"</p>
+                              <p className="text-xs text-[#ABACA9] mt-1.5 italic truncate max-w-sm">"{batch.notes}"</p>
                             )}
                             {/* Approval progress bar */}
                             {isReviewed && approvalPct !== null && (
@@ -354,17 +356,12 @@ export default function PaymentBatchesPage() {
                                     />
                                   )}
                                 </div>
-                                <span className="text-xs text-slate-400 font-medium">
+                                <span className="text-xs text-[#ABACA9] font-medium">
                                   {batch.approvedItems}/{batch.totalItems} approved
                                 </span>
                               </div>
                             )}
-                            {/* Downloaded timestamp */}
-                            {batch.status === 'DOWNLOADED' && batch.downloadedAt && (
-                              <p className="text-xs text-[#546A7A] mt-1.5 flex items-center gap-1 bg-[#96AEC2]/10 px-2 py-1 rounded-lg border border-[#96AEC2]/20 w-fit">
-                                <Download className="w-3 h-3" /> Downloaded {formatARDate(batch.downloadedAt)}
-                              </p>
-                            )}
+                            {/* Status Info */}
                             {!isAdmin && batch.status === 'REJECTED' && batch.reviewNotes && (
                               <p className="text-xs text-[#75242D] mt-1.5 flex items-center gap-1 bg-[#E17F70]/10 px-2 py-1 rounded-lg border border-[#E17F70]/20 w-fit">
                                 <XCircle className="w-3 h-3" /> {batch.reviewNotes}
@@ -375,7 +372,7 @@ export default function PaymentBatchesPage() {
 
                         {/* Right */}
                         <div className="text-right shrink-0 space-y-1">
-                          <p className="text-lg font-bold text-slate-800">
+                          <p className="text-lg font-extrabold text-[#546A7A]">
                             {formatARCurrency(batch.totalAmount, batch.currency)}
                           </p>
                           {isReviewed && batch.approvedAmount != null && (
@@ -402,7 +399,6 @@ export default function PaymentBatchesPage() {
             })}
           </div>
         )}
-      </div>
     </div>
   );
 }

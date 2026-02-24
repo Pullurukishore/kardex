@@ -7,15 +7,17 @@ import { getServiceZones, getServiceZoneStats } from '@/lib/server/admin';
 import ServiceZoneClient from '@/components/admin/ServiceZoneClient';
 
 interface ServiceZonesPageProps {
-  searchParams: {
+  params: Promise<any>;
+  searchParams: Promise<{
     search?: string;
     page?: string;
-  };
+  }>;
 }
 
-export default async function ServiceZonesPage({ searchParams }: ServiceZonesPageProps) {
-  const currentPage = parseInt(searchParams.page || '1');
-  const search = searchParams.search || '';
+export default async function ServiceZonesPage({ params, searchParams }: ServiceZonesPageProps) {
+  const resolvedSearchParams = await searchParams;
+  const currentPage = parseInt(resolvedSearchParams.page || '1');
+  const search = resolvedSearchParams.search || '';
 
   // Server-side data fetching
   const response = await getServiceZones({
@@ -70,7 +72,7 @@ export default async function ServiceZonesPage({ searchParams }: ServiceZonesPag
         initialZones={zones}
         initialStats={stats}
         initialPagination={pagination}
-        searchParams={searchParams}
+        searchParams={resolvedSearchParams}
       />
     </div>
   );

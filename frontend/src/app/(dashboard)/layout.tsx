@@ -12,9 +12,9 @@ export default async function DashboardRootLayout({
 }) {
   // Get the auth token from cookies - just check existence, don't fetch user
   // Full auth validation happens client-side in AuthContext
-  const cookieStore = cookies();
-  const accessToken = (await cookieStore.get('accessToken')) || (await cookieStore.get('token'));
-  const refreshToken = await cookieStore.get('refreshToken');
+  const cookieStore = await cookies();
+  const accessToken = cookieStore.get('accessToken') || cookieStore.get('token');
+  const refreshToken = cookieStore.get('refreshToken');
   
   // Only redirect if BOTH tokens are missing. 
   if (!accessToken?.value && !refreshToken?.value) {
@@ -22,7 +22,7 @@ export default async function DashboardRootLayout({
   }
 
   // Get role from cookie for initial render (client will validate fully)
-  const roleCookie = await cookieStore.get('userRole');
+  const roleCookie = cookieStore.get('userRole');
   const userRole = (roleCookie?.value as UserRole) || UserRole.ZONE_USER;
 
   return (

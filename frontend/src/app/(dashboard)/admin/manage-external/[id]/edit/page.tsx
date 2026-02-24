@@ -5,13 +5,13 @@ import { MobilePageHeader } from '@/components/ui/mobile-responsive';
 import EditExternalUserClient from '@/components/admin/EditExternalUserClient';
 
 interface EditExternalUserPageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 export default async function EditExternalUserPage({ params }: EditExternalUserPageProps) {
-  const { id } = params;
+  const { id } = await params;
 
   // Server-side data fetching
   try {

@@ -24,13 +24,13 @@ type TicketFilters = {
 };
 
 async function makeServerRequest(endpoint: string, method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' = 'GET', body?: any) {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const accessToken = cookieStore.get('accessToken')?.value;
   const token = cookieStore.get('token')?.value;
-  
+
   // Check for either accessToken or token (based on authentication inconsistencies)
   const authToken = accessToken || token;
-  
+
   if (!authToken) {
     throw new Error('No access token found');
   }
@@ -59,7 +59,7 @@ async function makeServerRequest(endpoint: string, method: 'GET' | 'POST' | 'PUT
 
 export async function getTickets(filters: TicketFilters = {}): Promise<ApiResponse> {
   const queryParams = new URLSearchParams();
-  
+
   // Add filters to query params
   if (filters.page) queryParams.set('page', filters.page.toString());
   if (filters.limit) queryParams.set('limit', filters.limit.toString());

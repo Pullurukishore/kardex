@@ -7,8 +7,15 @@ import { cn } from '@/lib/utils';
 import { UserRole } from '@/types/user.types';
 
 // Dynamic imports for heavy components - reduces initial bundle
-import { Sidebar } from '@/components/layout/Sidebar';
-import { Header } from '@/components/layout/Header';
+const Sidebar = dynamic(() => import('@/components/layout/Sidebar').then(mod => mod.Sidebar), {
+  ssr: false,
+  loading: () => <div className="w-64 h-full bg-[#F4F7F9] animate-pulse" />
+});
+
+const Header = dynamic(() => import('@/components/layout/Header').then(mod => mod.Header), {
+  ssr: false,
+  loading: () => <div className="h-[76px] w-full bg-white animate-pulse" />
+});
 
 interface DashboardClientWrapperProps {
   children: React.ReactNode;

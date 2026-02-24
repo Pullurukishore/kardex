@@ -7,19 +7,21 @@ import AdminClient from '@/components/admin/AdminClientSimple';
 import Link from 'next/link';
 
 interface ManageAdminsPageProps {
-  searchParams: {
+  params: Promise<any>;
+  searchParams: Promise<{
     search?: string;
     page?: string;
-  };
+  }>;
 }
 
 // Disable caching for this page to ensure fresh data
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export default async function ManageAdminsPage({ searchParams }: ManageAdminsPageProps) {
-  const currentPage = parseInt(searchParams.page || '1');
-  const search = searchParams.search || '';
+export default async function ManageAdminsPage({ params, searchParams }: ManageAdminsPageProps) {
+  const resolvedSearchParams = await searchParams;
+  const currentPage = parseInt(resolvedSearchParams.page || '1');
+  const search = resolvedSearchParams.search || '';
 
   // Server-side data fetching with cache revalidation
   const response = await getAdmins({
@@ -73,7 +75,7 @@ export default async function ManageAdminsPage({ searchParams }: ManageAdminsPag
         initialAdmins={admins}
         initialStats={stats}
         initialPagination={pagination}
-        searchParams={searchParams}
+        searchParams={resolvedSearchParams}
       />
     </div>
   );

@@ -7,13 +7,15 @@ export default async function FinanceARLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // Get the auth token from cookies - just check existence
+  // Get the auth tokens from cookies - check existence
   // Full auth validation happens client-side in AuthContext
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const token = cookieStore.get('accessToken') || cookieStore.get('token');
+  const refreshToken = cookieStore.get('refreshToken');
   
-  // If no token, redirect to login
-  if (!token?.value) {
+  // If no token AND no refresh token, redirect to login
+  // We allow rendering if we have a refresh token so AuthContext can refresh the session
+  if (!token?.value && !refreshToken?.value) {
     redirect('/auth/login');
   }
 

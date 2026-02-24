@@ -14,12 +14,14 @@ type SearchParams = {
 };
 
 type Props = {
-  searchParams: SearchParams;
+  params: Promise<any>;
+  searchParams: Promise<SearchParams>;
 };
 
-export default async function ExternalTicketsPage({ searchParams }: Props) {
-  const currentPage = parseInt(searchParams.page || '1');
-  const currentLimit = parseInt(searchParams.limit || '100');
+export default async function ExternalTicketsPage({ params, searchParams }: Props) {
+  const resolvedSearchParams = await searchParams;
+  const currentPage = parseInt(resolvedSearchParams.page || '1');
+  const currentLimit = parseInt(resolvedSearchParams.limit || '100');
   
   // Filter out empty parameters to avoid validation errors
   const filters: any = {
@@ -29,14 +31,14 @@ export default async function ExternalTicketsPage({ searchParams }: Props) {
   };
   
   // Only add non-empty parameters
-  if (searchParams.status && searchParams.status !== '') {
-    filters.status = searchParams.status;
+  if (resolvedSearchParams.status && resolvedSearchParams.status !== '') {
+    filters.status = resolvedSearchParams.status;
   }
-  if (searchParams.priority && searchParams.priority !== '') {
-    filters.priority = searchParams.priority;
+  if (resolvedSearchParams.priority && resolvedSearchParams.priority !== '') {
+    filters.priority = resolvedSearchParams.priority;
   }
-  if (searchParams.search && searchParams.search !== '') {
-    filters.search = searchParams.search;
+  if (resolvedSearchParams.search && resolvedSearchParams.search !== '') {
+    filters.search = resolvedSearchParams.search;
   }
 
   let ticketsData;
@@ -82,8 +84,8 @@ export default async function ExternalTicketsPage({ searchParams }: Props) {
           status: filters.status,
           priority: filters.priority,
           search: filters.search,
-          page: searchParams.page,
-          limit: searchParams.limit,
+          page: resolvedSearchParams.page,
+          limit: resolvedSearchParams.limit,
           view: filters.view,
         }}
       />

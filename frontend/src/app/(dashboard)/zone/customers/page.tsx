@@ -9,13 +9,16 @@ interface SearchParams {
 }
 
 export default async function ZoneCustomersPage({
+  params,
   searchParams,
 }: {
-  searchParams: SearchParams;
+  params: Promise<any>;
+  searchParams: Promise<SearchParams>;
 }) {
-  const search = searchParams.search || '';
-  const status = searchParams.status || 'all';
-  const page = parseInt(searchParams.page || '1');
+  const resolvedSearchParams = await searchParams;
+  const search = resolvedSearchParams.search || '';
+  const status = resolvedSearchParams.status || 'all';
+  const page = parseInt(resolvedSearchParams.page || '1');
 
   try {
     // Fetch data server-side
@@ -49,7 +52,7 @@ export default async function ZoneCustomersPage({
         <CustomerClient 
           initialCustomers={allCustomers}
           initialStats={stats}
-          searchParams={searchParams}
+          searchParams={resolvedSearchParams}
           readOnly={true}
         />
       </div>

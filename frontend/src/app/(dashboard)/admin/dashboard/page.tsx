@@ -19,10 +19,13 @@ import DashboardClient from '@/components/dashboard/DashboardClient';
 // Server Component - renders the shell instantly, data is fetched client-side for performance
 export default async function DashboardPage() {
   try {
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const userRole = cookieStore.get('userRole')?.value;
-    
-    if (!userRole) {
+    const refreshToken = cookieStore.get('refreshToken')?.value;
+    const accessToken = cookieStore.get('accessToken')?.value;
+    const token = cookieStore.get('token')?.value;
+
+    if (!userRole || (!accessToken && !token && !refreshToken)) {
       redirect('/auth/login');
     }
 

@@ -556,7 +556,7 @@ export function BankAccountsClientWrapper({ children }: BankAccountsLayoutProps)
 
         {/* Page content */}
         <main className="flex-1 overflow-y-auto">
-          <div className={cn("min-h-full", isMobile ? "py-4 px-4" : "py-6 px-4 sm:px-6 lg:px-8")}>
+          <div className={cn("min-h-full", isMobile ? "py-4 px-4" : "py-6 px-6")}>
             {children}
           </div>
         </main>

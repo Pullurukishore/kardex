@@ -7,19 +7,21 @@ import { getZoneServicePersons, getZoneServicePersonStats } from '@/lib/server/z
 import ZoneServicePersonClient from '@/components/zone/ServicePersonClient';
 
 interface ZoneServicePersonsPageProps {
-  searchParams: {
+  params: Promise<any>;
+  searchParams: Promise<{
     search?: string;
     page?: string;
-  };
+  }>;
 }
 
 // Disable caching for this page to ensure fresh data
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export default async function ZoneServicePersonsPage({ searchParams }: ZoneServicePersonsPageProps) {
-  const currentPage = parseInt(searchParams.page || '1');
-  const search = searchParams.search || '';
+export default async function ZoneServicePersonsPage({ params, searchParams }: ZoneServicePersonsPageProps) {
+  const resolvedSearchParams = await searchParams;
+  const currentPage = parseInt(resolvedSearchParams.page || '1');
+  const search = resolvedSearchParams.search || '';
 
   // Server-side data fetching
   const response = await getZoneServicePersons({
@@ -94,7 +96,7 @@ export default async function ZoneServicePersonsPage({ searchParams }: ZoneServi
         initialServicePersons={clientServicePersons}
         initialStats={initialStats}
         initialPagination={pagination}
-        searchParams={searchParams}
+        searchParams={resolvedSearchParams}
       />
     </div>
   );

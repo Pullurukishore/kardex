@@ -12,14 +12,16 @@ const ZONE_MANAGER_TICKET_REPORT_TYPES = ZONE_MANAGER_REPORT_TYPES.filter(r =>
 export const dynamic = 'force-dynamic';
 
 interface PageProps {
-  searchParams: {
+  params: Promise<any>;
+  searchParams: Promise<{
     reportType?: string;
     from?: string;
     to?: string;
-  };
+  }>;
 }
 
-export default function ZoneManagerReportsPage({ searchParams }: PageProps) {
+export default async function ZoneManagerReportsPage({ params, searchParams: searchParamsPromise }: PageProps) {
+  const searchParams = await searchParamsPromise;
   // Determine module based on reportType
   const module = searchParams.reportType === 'offer-summary' ? 'offers' : 'tickets';
   const reportTypes = module === 'offers' ? SALES_REPORT_TYPES : ZONE_MANAGER_TICKET_REPORT_TYPES;

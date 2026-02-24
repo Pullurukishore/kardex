@@ -4,13 +4,13 @@ import { Zone, Customer, Asset, ReportData } from '@/components/reports/types';
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
 async function makeServerRequest(endpoint: string) {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const accessToken = cookieStore.get('accessToken')?.value;
   const token = cookieStore.get('token')?.value;
-  
+
   // Check for either accessToken or token (based on authentication inconsistencies)
   const authToken = accessToken || token;
-  
+
   if (!authToken) {
     throw new Error('No access token found');
   }
@@ -45,10 +45,10 @@ export async function getCustomers(zoneId?: string): Promise<Customer[]> {
     if (zoneId) {
       params.append('serviceZoneId', zoneId);
     }
-    
+
     const response = await makeServerRequest(`/customers?${params.toString()}`);
-    return Array.isArray(response) 
-      ? response 
+    return Array.isArray(response)
+      ? response
       : (response.data || response.customers || []);
   } catch (error) {
     return [];
@@ -57,7 +57,7 @@ export async function getCustomers(zoneId?: string): Promise<Customer[]> {
 
 export async function getAssets(customerId?: string): Promise<Asset[]> {
   if (!customerId) return [];
-  
+
   try {
     const response = await makeServerRequest(`/assets?customerId=${customerId}&isActive=true`);
     return Array.isArray(response) ? response : response.data || [];
@@ -78,12 +78,12 @@ export async function generateReport(filters: {
 }): Promise<ReportData | null> {
   try {
     const searchParams = new URLSearchParams();
-    
+
     // Add report type
     if (filters.reportType) {
       searchParams.append('reportType', filters.reportType);
     }
-    
+
     // Add date range
     if (filters.dateRange?.from) {
       searchParams.append('from', filters.dateRange.from.toISOString().split('T')[0]);
@@ -93,7 +93,7 @@ export async function generateReport(filters: {
       searchParams.append('to', filters.dateRange.to.toISOString().split('T')[0]);
       searchParams.append('endDate', filters.dateRange.to.toISOString());
     }
-    
+
     // Add optional filters
     if (filters.zoneId) {
       searchParams.append('zoneId', filters.zoneId);
@@ -106,7 +106,7 @@ export async function generateReport(filters: {
     }
 
     const response = await makeServerRequest(`/reports/generate?${searchParams.toString()}`);
-    
+
     // Handle different response structures
     const data = response?.data || response || {};
     return data;
@@ -182,12 +182,12 @@ export async function getServicePersonReports(params: {
     }
 
     const response = await makeServerRequest(`/service-person-reports?${searchParams.toString()}`);
-    
+
     // Extract current user's report data
     if (response?.success && response.data?.reports?.length > 0) {
       return response.data.reports[0];
     }
-    
+
     return null;
   } catch (error) {
     return null;
@@ -204,11 +204,11 @@ export async function getServicePersonReportsSummary(params: {
     searchParams.append('toDate', params.toDate);
 
     const response = await makeServerRequest(`/service-person-reports/summary?${searchParams.toString()}`);
-    
+
     if (response?.success) {
       return response.data;
     }
-    
+
     return null;
   } catch (error) {
     return null;

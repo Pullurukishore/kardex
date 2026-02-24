@@ -57,14 +57,15 @@ function ZoneDashboardLoading() {
 // Server Component - runs on the server for initial data fetching
 export default async function ZoneDashboardPage() {
   try {
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const userRole = cookieStore.get('userRole')?.value;
     const accessToken = cookieStore.get('accessToken')?.value;
     const token = cookieStore.get('token')?.value;
-    const apiHref = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+    const refreshToken = cookieStore.get('refreshToken')?.value;
+    const apiHref = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5003';
     
-    // Check if user is authenticated
-    if (!userRole || (!accessToken && !token)) {
+    // Check if user is authenticated - allow if we have a refresh token
+    if (!userRole || (!accessToken && !token && !refreshToken)) {
       redirect('/auth/login');
     }
 

@@ -1024,7 +1024,7 @@ export interface PaymentBatch {
     batchNumber: string;
     currency: string;
     exportFormat?: string;
-    status: 'PENDING' | 'APPROVED' | 'PARTIALLY_APPROVED' | 'REJECTED' | 'DOWNLOADED';
+    status: 'PENDING' | 'APPROVED' | 'PARTIALLY_APPROVED' | 'REJECTED';
     totalAmount: number;
     approvedAmount?: number;
     totalItems: number;
@@ -1044,9 +1044,7 @@ export interface PaymentBatch {
 export interface PaymentBatchStats {
     pending: number;
     approved: number;
-    partiallyApproved: number;
     rejected: number;
-    downloaded: number;
     total: number;
 }
 
@@ -1129,5 +1127,11 @@ export const downloadPaymentBatch = async (id: string): Promise<{
     }>;
 }> => {
     const response = await api.get(`/ar/payment-batches/${id}/download`);
+    return response.data;
+};
+
+// Re-submit rejected items for another approval round (FINANCE_USER)
+export const resubmitRejectedItems = async (id: string, items?: any[]): Promise<{ message: string; batch: PaymentBatch }> => {
+    const response = await api.put(`/ar/payment-batches/${id}/resubmit`, { items });
     return response.data;
 };

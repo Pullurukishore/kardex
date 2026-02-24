@@ -13,14 +13,16 @@ const ZONE_USER_TICKET_REPORT_TYPES = ZONE_USER_REPORT_TYPES.filter(r =>
 export const dynamic = 'force-dynamic';
 
 interface PageProps {
-  searchParams: {
+  params: Promise<any>;
+  searchParams: Promise<{
     reportType?: string;
     from?: string;
     to?: string;
-  };
+  }>;
 }
 
-export default async function ReportsPage({ searchParams }: PageProps) {
+export default async function ReportsPage({ params, searchParams: searchParamsPromise }: PageProps) {
+  const searchParams = await searchParamsPromise;
   // Fetch zone user's zone and customers for that zone
   let userZone: { id: number; name: string } | null = null;
   let zones: { id: number; name: string }[] = [];

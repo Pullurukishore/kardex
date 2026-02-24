@@ -3,19 +3,14 @@ import { getZones, getCustomers, getAssets, generateReport } from '@/lib/server/
 import ReportsClient from '@/components/reports/ReportsClient';
 import type { ReportFilters as ReportFiltersType } from '@/types/reports';
 import { REPORT_TYPES, SALES_REPORT_TYPES } from '@/types/reports';
-import dynamic from 'next/dynamic';
-
-// Dynamically import ForecastReportsClient to reduce initial bundle
-const ForecastReportsClient = dynamic(
-  () => import('@/components/reports/ForecastReportsClient'),
-  { ssr: false }
-);
+import ForecastReportsClientWrapper from '@/components/reports/ForecastReportsClientWrapper';
 
 // Ticket-only report types (exclude offer-summary)
 const TICKET_ONLY_REPORT_TYPES = REPORT_TYPES.filter(r => r.value !== 'offer-summary');
 
 interface ReportsPageProps {
-  searchParams: {
+  params: Promise<any>;
+  searchParams: Promise<{
     from?: string;
     to?: string;
     zoneId?: string;
@@ -23,10 +18,11 @@ interface ReportsPageProps {
     assetId?: string;
     reportType?: string;
     module?: string; // 'offers' or 'tickets' or 'forecast'
-  };
+  }>;
 }
 
-export default async function ReportsPage({ searchParams }: ReportsPageProps) {
+export default async function ReportsPage({ params, searchParams: searchParamsPromise }: ReportsPageProps) {
+  const searchParams = await searchParamsPromise;
   // Determine which report types to show based on module parameter
   const module = searchParams.module || (searchParams.reportType === 'offer-summary' ? 'offers' : 'tickets');
   const reportTypes = module === 'offers' ? SALES_REPORT_TYPES : TICKET_ONLY_REPORT_TYPES;
@@ -60,7 +56,7 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
   if (module === 'forecast') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#AEBFC3]/10 via-[#96AEC2]/10 to-[#A2B9AF]/10 p-2 sm:p-3 lg:p-4 space-y-6">
-        <ForecastReportsClient 
+        <ForecastReportsClientWrapper 
           zones={zones.map(z => ({ id: z.id, name: z.name }))} 
         />
       </div>

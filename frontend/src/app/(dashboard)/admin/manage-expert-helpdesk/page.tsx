@@ -7,18 +7,20 @@ import ExpertHelpdeskClient from '@/components/admin/ExpertHelpdeskClient';
 import Link from 'next/link';
 
 interface ManageExpertHelpdeskPageProps {
-  searchParams: {
+  params: Promise<any>;
+  searchParams: Promise<{
     search?: string;
     page?: string;
-  };
+  }>;
 }
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export default async function ManageExpertHelpdeskPage({ searchParams }: ManageExpertHelpdeskPageProps) {
-  const currentPage = parseInt(searchParams.page || '1');
-  const search = searchParams.search || '';
+export default async function ManageExpertHelpdeskPage({ params, searchParams }: ManageExpertHelpdeskPageProps) {
+  const resolvedSearchParams = await searchParams;
+  const currentPage = parseInt(resolvedSearchParams.page || '1');
+  const search = resolvedSearchParams.search || '';
 
   const response = await getExpertHelpdesk({
     page: currentPage,
@@ -71,7 +73,7 @@ export default async function ManageExpertHelpdeskPage({ searchParams }: ManageE
         initialExperts={experts}
         initialStats={stats}
         initialPagination={pagination}
-        searchParams={searchParams}
+        searchParams={resolvedSearchParams}
       />
     </div>
   );

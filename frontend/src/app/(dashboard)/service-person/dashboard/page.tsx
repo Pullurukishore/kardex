@@ -166,7 +166,8 @@ export default async function ServicePersonDashboardPage() {
   const token = cookieStore.get('token')?.value;
   const accessToken = cookieStore.get('accessToken')?.value;
   const userRole = cookieStore.get('userRole')?.value;
-  const authToken = accessToken || token;
+  const refreshToken = cookieStore.get('refreshToken')?.value;
+  const authToken = accessToken || token || refreshToken;
 
   // Only redirect if NO token at all - let client-side handle expired tokens
   if (!authToken) redirect('/auth/login');

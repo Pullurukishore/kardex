@@ -5,7 +5,7 @@ const nextConfig = {
   compress: false, // Disable compression in dev
   poweredByHeader: false,
   generateEtags: false, // Disable etags in dev
-  
+
   // Simplified webpack for development
   webpack: (config, { isServer, dev }) => {
     if (dev) {
@@ -15,26 +15,26 @@ const nextConfig = {
         minimize: false,
         splitChunks: false,
       };
-      
+
       // Faster source maps
       config.devtool = 'eval-cheap-module-source-map';
-      
+
       return config;
     }
-    
+
     return config;
   },
-  
+
   // Disable TypeScript checking in dev
   typescript: {
     ignoreBuildErrors: true,
   },
-  
+
   // Disable ESLint in dev
   eslint: {
     ignoreDuringBuilds: true,
   },
-  
+
   // Disable image optimization in dev
   images: {
     domains: ['localhost'],

@@ -53,7 +53,7 @@ interface PaginatedResponse<T> {
 }
 
 async function serverFetch(endpoint: string) {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const accessToken = cookieStore.get('accessToken')?.value;
   const token = cookieStore.get('token')?.value;
   const userRole = cookieStore.get('userRole')?.value;
@@ -222,7 +222,7 @@ export async function getZoneUserStats(zoneUsers: ZoneUser[]) {
 
 // Delete functions
 export async function deleteServicePerson(id: number): Promise<void> {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const accessToken = cookieStore.get('accessToken')?.value;
   const token = cookieStore.get('token')?.value;
 
@@ -248,7 +248,7 @@ export async function deleteServicePerson(id: number): Promise<void> {
 }
 
 export async function deleteServiceZone(id: number): Promise<void> {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const accessToken = cookieStore.get('accessToken')?.value;
   const token = cookieStore.get('token')?.value;
 
@@ -274,7 +274,7 @@ export async function deleteServiceZone(id: number): Promise<void> {
 }
 
 export async function deleteZoneUser(id: number): Promise<void> {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const accessToken = cookieStore.get('accessToken')?.value;
   const token = cookieStore.get('token')?.value;
 

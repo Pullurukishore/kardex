@@ -8,17 +8,19 @@ import { REPORT_TYPES, SALES_REPORT_TYPES } from '@/types/reports';
 const TICKET_ONLY_REPORT_TYPES = REPORT_TYPES.filter(r => r.value !== 'offer-summary');
 
 interface ReportsPageProps {
-  searchParams: {
+  params: Promise<any>;
+  searchParams: Promise<{
     from?: string;
     to?: string;
     zoneId?: string;
     customerId?: string;
     assetId?: string;
     reportType?: string;
-  };
+  }>;
 }
 
-export default async function ReportsPage({ searchParams }: ReportsPageProps) {
+export default async function ReportsPage({ params, searchParams: searchParamsPromise }: ReportsPageProps) {
+  const searchParams = await searchParamsPromise;
   // Determine module based on reportType
   const module = searchParams.reportType === 'offer-summary' ? 'offers' : 'tickets';
   const reportTypes = module === 'offers' ? SALES_REPORT_TYPES : TICKET_ONLY_REPORT_TYPES;

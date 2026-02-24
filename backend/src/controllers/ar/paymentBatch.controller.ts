@@ -192,21 +192,17 @@ export const getMyBatches = async (req: Request, res: Response) => {
 // ───────────────────────────────────────────────────────────────────────────
 export const getBatchStats = async (req: Request, res: Response) => {
     try {
-        const [pending, approved, partiallyApproved, rejected, downloaded] = await Promise.all([
+        const [pending, approved, rejected] = await Promise.all([
             prisma.paymentBatch.count({ where: { status: 'PENDING' } }),
             prisma.paymentBatch.count({ where: { status: 'APPROVED' } }),
-            prisma.paymentBatch.count({ where: { status: 'PARTIALLY_APPROVED' } }),
             prisma.paymentBatch.count({ where: { status: 'REJECTED' } }),
-            prisma.paymentBatch.count({ where: { status: 'DOWNLOADED' } }),
         ]);
 
         res.json({
             pending,
             approved,
-            partiallyApproved,
             rejected,
-            downloaded,
-            total: pending + approved + partiallyApproved + rejected + downloaded
+            total: pending + approved + rejected
         });
     } catch (error: any) {
         res.status(500).json({ error: 'Failed to fetch batch stats', message: error.message });
@@ -305,13 +301,13 @@ export const reviewBatch = async (req: Request, res: Response) => {
             );
 
             // Determine batch status
-            let batchStatus: 'APPROVED' | 'PARTIALLY_APPROVED' | 'REJECTED';
+            let batchStatus: any;
             if (approvedItems.length === 0) {
                 batchStatus = 'REJECTED';
             } else if (rejectedItems.length === 0) {
                 batchStatus = 'APPROVED';
             } else {
-                batchStatus = 'PARTIALLY_APPROVED';
+                batchStatus = 'PARTIALLY_APPROVED' as any;
             }
 
             // Update batch
@@ -324,7 +320,7 @@ export const reviewBatch = async (req: Request, res: Response) => {
                     reviewedById: userId,
                     reviewedAt: new Date(),
                     reviewNotes: reviewNotes || null
-                },
+                } as any,
                 include: {
                     items: { orderBy: { vendorName: 'asc' } },
                     requestedBy: { select: { id: true, name: true, email: true } },
@@ -346,8 +342,8 @@ export const reviewBatch = async (req: Request, res: Response) => {
             select: { email: true, name: true }
         }).then(async (requester) => {
             if (!requester?.email) return;
-            const isApproved = result.status === 'APPROVED';
-            const isPartial = result.status === 'PARTIALLY_APPROVED';
+            const isApproved = result.status === 'APPROVED' && result.approvedItems === result.totalItems;
+            const isPartial = result.status === 'APPROVED' && result.approvedItems! < result.totalItems;
             const isRejected = result.status === 'REJECTED';
             await sendEmail({
                 to: requester.email,
@@ -397,14 +393,14 @@ export const downloadBatch = async (req: Request, res: Response) => {
             return res.status(404).json({ error: 'Payment batch not found' });
         }
 
-        if (!['APPROVED', 'PARTIALLY_APPROVED', 'DOWNLOADED'].includes(batch.status)) {
+        if (batch.status !== 'APPROVED') {
             return res.status(400).json({ error: 'Batch has no approved items to download' });
         }
 
-        // Mark as downloaded
+        // Mark as downloaded (keep status as APPROVED)
         await prisma.paymentBatch.update({
             where: { id },
-            data: { downloadedAt: new Date(), status: 'DOWNLOADED' }
+            data: { downloadedAt: new Date() }
         });
 
         res.json({
@@ -426,5 +422,138 @@ export const downloadBatch = async (req: Request, res: Response) => {
         });
     } catch (error: any) {
         res.status(500).json({ error: 'Failed to download batch', message: error.message });
+    }
+};
+
+// ───────────────────────────────────────────────────────────────────────────
+// PUT /payment-batches/:id/resubmit — Re-request rejected items (FINANCE_USER)
+// Resets all REJECTED items back to PENDING and puts batch back in queue
+// ───────────────────────────────────────────────────────────────────────────
+export const resubmitRejectedItems = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const userId = (req as any).user?.id || 1;
+
+        const batch = await prisma.paymentBatch.findUnique({
+            where: { id },
+            include: { items: true }
+        });
+
+        if (!batch) {
+            return res.status(404).json({ error: 'Payment batch not found' });
+        }
+
+        if ((batch.status as any) !== 'PARTIALLY_APPROVED') {
+            return res.status(400).json({ error: 'Only partially approved batches can be re-submitted' });
+        }
+
+        // Ensure the requester is the one who originally submitted
+        if (batch.requestedById !== userId) {
+            return res.status(403).json({ error: 'Only the original requester can re-submit rejected items' });
+        }
+
+        const rejectedItems = batch.items.filter(i => i.status === 'REJECTED');
+        if (rejectedItems.length === 0) {
+            return res.status(400).json({ error: 'No rejected items to re-submit' });
+        }
+
+        const { items: updatedItemsData } = req.body;
+
+        // Reset rejected items to PENDING in a transaction
+        const result = await prisma.$transaction(async (tx) => {
+            // Update items if data provided
+            if (updatedItemsData && Array.isArray(updatedItemsData)) {
+                for (const updatedItem of updatedItemsData) {
+                    const existingItem = rejectedItems.find(i => i.id === updatedItem.id);
+                    if (!existingItem) {
+                        throw new Error(`Item ${updatedItem.id} is not a rejected item in this batch`);
+                    }
+
+                    await tx.paymentBatchItem.update({
+                        where: { id: updatedItem.id },
+                        data: {
+                            amount: updatedItem.amount !== undefined ? new Decimal(updatedItem.amount) : existingItem.amount,
+                            valueDate: updatedItem.valueDate ? new Date(updatedItem.valueDate) : existingItem.valueDate,
+                            transactionMode: updatedItem.transactionMode || existingItem.transactionMode,
+                            status: 'PENDING',
+                            rejectReason: null
+                        }
+                    });
+                }
+            }
+
+            // Also reset any rejected items NOT included in the update list back to PENDING
+            const updatedIds = new Set((updatedItemsData || []).map((i: any) => i.id));
+            const remainingToReset = rejectedItems.filter(i => !updatedIds.has(i.id));
+
+            if (remainingToReset.length > 0) {
+                await tx.paymentBatchItem.updateMany({
+                    where: {
+                        id: { in: remainingToReset.map(i => i.id) }
+                    },
+                    data: {
+                        status: 'PENDING',
+                        rejectReason: null
+                    }
+                });
+            }
+
+            // Reset batch status to PENDING for re-review
+            const updatedBatch = await tx.paymentBatch.update({
+                where: { id },
+                data: {
+                    status: 'PENDING',
+                    reviewedById: null,
+                    reviewedAt: null,
+                    reviewNotes: null,
+                    // Recalculate approvedAmount and approvedItems will happen on next review
+                },
+                include: {
+                    items: { orderBy: { vendorName: 'asc' } },
+                    requestedBy: { select: { id: true, name: true, email: true } },
+                    reviewedBy: { select: { id: true, name: true, email: true } }
+                }
+            });
+
+            return updatedBatch;
+        });
+
+        res.json({
+            message: `${rejectedItems.length} item(s) re-submitted for approval`,
+            batch: result
+        });
+
+        // ── Email: Notify approvers about re-submission (fire-and-forget) ──
+        prisma.user.findMany({
+            where: {
+                financeRole: { in: ['FINANCE_ADMIN', 'FINANCE_APPROVER'] },
+                isActive: true
+            },
+            select: { email: true, name: true }
+        }).then(async (approvers) => {
+            for (const approver of approvers) {
+                await sendEmail({
+                    to: approver.email,
+                    subject: `[Re-Submitted] Payment Batch ${result.batchNumber} — ${rejectedItems.length} Item(s) Re-Requested`,
+                    template: 'payment-batch-submitted',
+                    context: {
+                        approverName: approver.name || 'Admin',
+                        batchNumber: result.batchNumber,
+                        totalItems: result.totalItems,
+                        totalAmount: result.totalAmount.toString(),
+                        currency: result.currency,
+                        submittedBy: result.requestedBy?.name || 'Unknown',
+                        submittedByEmail: result.requestedBy?.email || '',
+                        submittedAt: new Date().toLocaleString('en-IN'),
+                        actionUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/finance/bank-accounts/payment-batches/${result.id}`,
+                        currentYear: new Date().getFullYear()
+                    }
+                });
+            }
+        }).catch((emailError: any) => {
+            console.error('[Email] Failed to send re-submission notification:', emailError);
+        });
+    } catch (error: any) {
+        res.status(500).json({ error: 'Failed to re-submit rejected items', message: error.message });
     }
 };

@@ -7,19 +7,21 @@ import { getServicePersons, getServicePersonStats } from '@/lib/server/admin';
 import ServicePersonClient from '@/components/admin/ServicePersonClient';
 
 interface ServicePersonsPageProps {
-  searchParams: {
+  params: Promise<any>;
+  searchParams: Promise<{
     search?: string;
     page?: string;
-  };
+  }>;
 }
 
 // Disable caching for this page to ensure fresh data
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export default async function ServicePersonsPage({ searchParams }: ServicePersonsPageProps) {
-  const currentPage = parseInt(searchParams.page || '1');
-  const search = searchParams.search || '';
+export default async function ServicePersonsPage({ params, searchParams }: ServicePersonsPageProps) {
+  const resolvedSearchParams = await searchParams;
+  const currentPage = parseInt(resolvedSearchParams.page || '1');
+  const search = resolvedSearchParams.search || '';
 
   // Server-side data fetching
   const response = await getServicePersons({
@@ -93,7 +95,7 @@ export default async function ServicePersonsPage({ searchParams }: ServicePerson
         initialServicePersons={clientServicePersons}
         initialStats={initialStats}
         initialPagination={pagination}
-        searchParams={searchParams}
+        searchParams={resolvedSearchParams}
       />
     </div>
   );

@@ -84,10 +84,13 @@ function DashboardError({ error, retry }: { error: string; retry: () => void }) 
 // Server Component - runs on the server for initial data fetching
 export default async function DashboardPage() {
   try {
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const userRole = cookieStore.get('userRole')?.value;
-    
-    if (!userRole) {
+    const refreshToken = cookieStore.get('refreshToken')?.value;
+    const accessToken = cookieStore.get('accessToken')?.value;
+    const token = cookieStore.get('token')?.value;
+
+    if (!userRole || (!accessToken && !token && !refreshToken)) {
       redirect('/auth/login');
     }
 

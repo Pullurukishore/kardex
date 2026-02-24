@@ -213,6 +213,7 @@ router.get('/payment-batches/my', requireFinanceRead, paymentBatchController.get
 router.get('/payment-batches/:id', requireFinanceRead, paymentBatchController.getBatchById);
 router.post('/payment-batches', requireFinanceWrite, paymentBatchController.submitBatch);
 router.put('/payment-batches/:id/review', requireFinanceApprover, paymentBatchController.reviewBatch);
-router.get('/payment-batches/:id/download', requireFinanceApprover, paymentBatchController.downloadBatch);
+router.get('/payment-batches/:id/download', requireFinanceRead, paymentBatchController.downloadBatch);
+router.put('/payment-batches/:id/resubmit', requireFinanceWrite, paymentBatchController.resubmitRejectedItems);
 
 export default router;

@@ -40,7 +40,7 @@ export interface GetExpertHelpdeskParams {
 }
 
 async function makeServerRequest(endpoint: string) {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const accessToken = cookieStore.get('accessToken')?.value;
   const token = cookieStore.get('token')?.value;
 

@@ -5,15 +5,15 @@ import { MobilePageHeader } from '@/components/ui/mobile-responsive';
 import EditAdminClient from '@/components/admin/EditAdminClient';
 
 interface EditAdminPageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 export const dynamic = 'force-dynamic';
 
 export default async function EditAdminPage({ params }: EditAdminPageProps) {
-  const { id } = params;
+  const { id } = await params;
 
   // Server-side data fetching
   const admin = await getAdminById(id);

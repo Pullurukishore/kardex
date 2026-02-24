@@ -5,14 +5,14 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     // Get the auth token from cookies
     const token = request.cookies.get('accessToken')?.value || request.cookies.get('token')?.value;
-    
+
     if (!token) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
@@ -41,14 +41,14 @@ export async function GET(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     // Get the auth token from cookies
     const token = request.cookies.get('accessToken')?.value || request.cookies.get('token')?.value;
-    
+
     if (!token) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }

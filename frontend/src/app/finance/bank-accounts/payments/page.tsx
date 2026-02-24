@@ -7,7 +7,8 @@ import {
   Calendar as CalendarIcon, ArrowLeft, Loader2, CheckCircle2,
   X, Info, Wallet, DollarSign, RefreshCcw, Check, Building2,
   Shield, Globe, Power, Eye, Pencil, List, Hash, Send, 
-  Zap, AlertCircle, IndianRupee, Clock, Filter, ChevronDown, Mail
+  Zap, AlertCircle, IndianRupee, Clock, Filter, ChevronDown, Mail,
+  FileSpreadsheet, FileText, Banknote
 } from 'lucide-react';
 import { format } from 'date-fns';
 import Link from 'next/link';
@@ -140,7 +141,7 @@ export default function PaymentsPage() {
     const [globalDate, setGlobalDate] = useState(format(new Date(), 'yyyy-MM-dd'));
     const [globalMode, setGlobalMode] = useState<'NFT' | 'RTI' | 'FT'>('NFT');
     const [submittingBatch, setSubmittingBatch] = useState(false);
-    const [exportFormat, setExportFormat] = useState<'ICICI' | 'STANDARD'>('ICICI');
+    const [exportFormat, setExportFormat] = useState<'HDFC' | 'DB'>('HDFC');
     const [benEmailIds, setBenEmailIds] = useState<string[]>(['naveen.n@kardex.com']);
     const [newEmailInput, setNewEmailInput] = useState('');
     const [editingEmailIdx, setEditingEmailIdx] = useState<number | null>(null);
@@ -282,7 +283,7 @@ export default function PaymentsPage() {
                 ifscCode: p.ifscCode!,
                 bankName: p.bankName!,
                 bpCode: p.bpCode || undefined,
-                emailId: exportFormat === 'ICICI'
+                emailId: exportFormat === 'HDFC'
                     ? (benEmailIds.length > 0 ? benEmailIds.join(';') : undefined)
                     : (p.emailId || undefined),
                 accountType: p.accountType || undefined,
@@ -335,84 +336,41 @@ export default function PaymentsPage() {
     }
 
     return (
-        <div className="p-6 max-w-[1700px] mx-auto space-y-6 animate-in fade-in duration-500">
+        <div className="space-y-6 animate-in fade-in duration-500">
             {/* ================================================================ */}
             {/* HEADER SECTION */}
             {/* ================================================================ */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-                <div className="flex items-center gap-4">
-                    <div className="relative group">
-                        <div className="absolute -inset-1.5 bg-gradient-to-br from-[#CE9F6B]/40 to-[#82A094]/40 rounded-2xl blur-lg opacity-0 group-hover:opacity-100 transition-all duration-500" />
-                        <div 
-                            className="relative w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-105"
-                            style={{ background: 'linear-gradient(135deg, #B18E63 0%, #7A5A38 100%)' }}
-                        >
-                            <Send className="w-6 h-6 text-white" />
-                        </div>
-                    </div>
-                    <div className="space-y-1">
-                        <div className="flex items-center gap-2 text-muted-foreground mb-0.5">
-                            <Link href="/finance/bank-accounts" className="hover:text-[#B18E63] transition-colors flex items-center gap-1 text-xs font-semibold">
-                                <ArrowLeft className="w-3 h-3" /> Back to Bank Accounts
-                            </Link>
-                        </div>
-                        <h1 className="text-3xl font-black tracking-tight">
-                            <span className="bg-gradient-to-r from-[#546A7A] via-[#6F8A9D] to-[#82A094] bg-clip-text text-transparent">
-                                Bulk Payments
-                            </span>
-                        </h1>
-                        <p className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
-                            <Zap className="w-3 h-3 text-[#CE9F6B]" />
-                            Generate batch payment files for ICICI CMS & Standard NEFT/RTGS formats
-                        </p>
+            {/* ================================================================ */}
+            {/* SECTION ① — HEADER */}
+            {/* ================================================================ */}
+            <div className="flex items-center gap-4">
+                <div className="relative group">
+                    <div className="absolute -inset-1.5 bg-gradient-to-br from-[#CE9F6B]/40 to-[#82A094]/40 rounded-2xl blur-lg opacity-0 group-hover:opacity-100 transition-all duration-500" />
+                    <div 
+                        className="relative w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-105"
+                        style={{ background: 'linear-gradient(135deg, #B18E63 0%, #7A5A38 100%)' }}
+                    >
+                        <Send className="w-6 h-6 text-white" />
                     </div>
                 </div>
-
-                <div className="flex items-center gap-3">
-                    {/* Export Format Toggle */}
-                    <div className="flex flex-col gap-1">
-                        <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 text-center">Export Format</p>
-                        <div className="flex items-center gap-1 bg-slate-100 rounded-xl p-1">
-                            <button
-                                onClick={() => setExportFormat('ICICI')}
-                                className={cn(
-                                    'px-4 py-2 rounded-lg text-xs font-bold transition-all',
-                                    exportFormat === 'ICICI'
-                                        ? 'bg-gradient-to-br from-[#B18E63] to-[#976E44] text-white shadow-md'
-                                        : 'text-slate-500 hover:text-[#976E44]'
-                                )}
-                            >
-                                ICICI CMS
-                            </button>
-                            <button
-                                onClick={() => setExportFormat('STANDARD')}
-                                className={cn(
-                                    'px-4 py-2 rounded-lg text-xs font-bold transition-all',
-                                    exportFormat === 'STANDARD'
-                                        ? 'bg-gradient-to-br from-[#6F8A9D] to-[#546A7A] text-white shadow-md'
-                                        : 'text-slate-500 hover:text-[#546A7A]'
-                                )}
-                            >
-                                Standard
-                            </button>
-                        </div>
+                <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-muted-foreground mb-0.5">
+                        <Link href="/finance/bank-accounts" className="hover:text-[#B18E63] transition-colors flex items-center gap-1 text-xs font-semibold">
+                            <ArrowLeft className="w-3 h-3" /> Back to Bank Accounts
+                        </Link>
                     </div>
-
-                    <Button
-                        size="lg"
-                        onClick={handleSubmitForApproval}
-                        disabled={submittingBatch || pendingPayments.length === 0}
-                        className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg hover:shadow-xl transition-all border-0 rounded-xl hover:scale-[1.02] h-12 px-8 font-bold"
-                    >
-                        {submittingBatch ? (
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        ) : (
-                            <Send className="w-4 h-4 mr-2" />
-                        )}
-                        <span className="text-sm">Submit for Approval</span>
-                    </Button>
+                    <h1 className="text-3xl font-black tracking-tight">
+                        <span className="bg-gradient-to-r from-[#546A7A] via-[#6F8A9D] to-[#82A094] bg-clip-text text-transparent">
+                            Bulk Payments
+                        </span>
+                    </h1>
+                    <p className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
+                        <Zap className="w-3 h-3 text-[#CE9F6B]" />
+                        Select export format, add vendors, and submit batch for approval
+                    </p>
                 </div>
             </div>
+
 
             {/* ================================================================ */}
             {/* STATS GRID */}
@@ -493,8 +451,10 @@ export default function PaymentsPage() {
                         <div className="flex items-center gap-2 flex-wrap flex-1">
                             <button
                                 onClick={() => setCurrencyFilter('ALL')}
+                                disabled={pendingPayments.length > 0}
                                 className={cn(
                                     "inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[11px] font-bold transition-all duration-200 border",
+                                    pendingPayments.length > 0 && 'opacity-50 cursor-not-allowed',
                                     currencyFilter === 'ALL'
                                         ? 'bg-gradient-to-r from-[#B18E63] to-[#976E44] text-white border-transparent shadow-md shadow-[#B18E63]/20'
                                         : 'bg-slate-50 text-slate-500 border-slate-200 hover:border-[#B18E63]/40 hover:text-[#976E44] hover:bg-white hover:shadow-sm'
@@ -515,8 +475,10 @@ export default function PaymentsPage() {
                                     <button
                                         key={currency}
                                         onClick={() => setCurrencyFilter(currency)}
+                                        disabled={pendingPayments.length > 0 && currencyFilter !== currency}
                                         className={cn(
                                             "inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[11px] font-bold transition-all duration-200 border",
+                                            pendingPayments.length > 0 && currencyFilter !== currency && 'opacity-50 cursor-not-allowed',
                                             currencyFilter === currency
                                                 ? 'bg-gradient-to-r from-[#4F6A64] to-[#82A094] text-white border-transparent shadow-md shadow-[#82A094]/20'
                                                 : 'bg-slate-50 text-slate-500 border-slate-200 hover:border-[#82A094]/40 hover:text-[#4F6A64] hover:bg-white hover:shadow-sm'
@@ -535,15 +497,22 @@ export default function PaymentsPage() {
                             })}
                         </div>
 
-                        {/* Clear filter */}
+                        {/* Clear filter / Lock indicator */}
                         {currencyFilter !== 'ALL' && (
-                            <button
-                                onClick={() => setCurrencyFilter('ALL')}
-                                className="shrink-0 text-[10px] text-slate-400 hover:text-red-500 font-bold flex items-center gap-1 transition-colors px-2.5 py-1.5 rounded-lg hover:bg-red-50"
-                            >
-                                <X className="w-3 h-3" />
-                                Reset
-                            </button>
+                            pendingPayments.length > 0 ? (
+                                <span className="shrink-0 text-[10px] text-[#92A2A5] font-bold flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-100">
+                                    <Shield className="w-3 h-3 text-[#6F8A9D]" />
+                                    Locked — clear vendors to change
+                                </span>
+                            ) : (
+                                <button
+                                    onClick={() => setCurrencyFilter('ALL')}
+                                    className="shrink-0 text-[10px] text-slate-400 hover:text-red-500 font-bold flex items-center gap-1 transition-colors px-2.5 py-1.5 rounded-lg hover:bg-red-50"
+                                >
+                                    <X className="w-3 h-3" />
+                                    Reset
+                                </button>
+                            )
                         )}
                     </div>
                 </div>
@@ -600,16 +569,29 @@ export default function PaymentsPage() {
                             </div>
                         </div>
 
-                        <div className="p-6">
+                        <div className="p-6 relative">
+                            {/* Currency-first gate overlay */}
+                            {currencyFilter === 'ALL' && (
+                                <div className="absolute inset-0 z-10 bg-white/80 backdrop-blur-[2px] rounded-b-2xl flex flex-col items-center justify-center gap-3 p-6">
+                                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#CE9F6B]/20 to-[#976E44]/10 flex items-center justify-center">
+                                        <Filter className="w-6 h-6 text-[#976E44]" />
+                                    </div>
+                                    <div className="text-center">
+                                        <p className="font-bold text-[#546A7A] text-sm">Select Currency First</p>
+                                        <p className="text-xs text-[#92A2A5] mt-1 max-w-xs">Choose a currency from the filter above before adding vendors. All vendors in a batch must share the same currency.</p>
+                                    </div>
+                                </div>
+                            )}
                             {/* Custom Vendor Search Dropdown */}
                             <div ref={dropdownRef} className="relative">
                                 {/* Search Trigger / Input */}
                                 <div
                                     className={cn(
-                                        "w-full flex items-center gap-3 bg-slate-50/80 border rounded-xl h-14 px-4 cursor-pointer transition-all",
+                                        "w-full flex items-center gap-3 bg-slate-50/80 border rounded-xl h-14 px-4 transition-all",
+                                        currencyFilter === 'ALL' ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer',
                                         openDropdown ? 'border-[#B18E63] ring-2 ring-[#B18E63]/20 bg-white shadow-lg' : 'border-slate-200 hover:border-[#B18E63]/50 hover:bg-white hover:shadow-md'
                                     )}
-                                    onClick={() => setOpenDropdown(true)}
+                                    onClick={() => currencyFilter !== 'ALL' && setOpenDropdown(true)}
                                 >
                                     {loading ? (
                                         <Loader2 className="w-5 h-5 animate-spin text-[#B18E63] shrink-0" />
@@ -619,15 +601,15 @@ export default function PaymentsPage() {
                                     <input
                                         ref={searchInputRef}
                                         type="text"
-                                        placeholder={loading ? 'Loading vendors...' : 'Search by vendor name, BP code, account number, bank name, or IFSC...'}
+                                        placeholder={currencyFilter === 'ALL' ? 'Select a currency first...' : (loading ? 'Loading vendors...' : 'Search by vendor name, BP code, account number, bank name, or IFSC...')}
                                         className="flex-1 bg-transparent text-sm font-medium text-slate-700 placeholder:text-slate-400 outline-none"
                                         value={vendorSearchQuery}
                                         onChange={(e) => {
                                             setVendorSearchQuery(e.target.value);
                                             if (!openDropdown) setOpenDropdown(true);
                                         }}
-                                        onFocus={() => setOpenDropdown(true)}
-                                        disabled={loading}
+                                        onFocus={() => currencyFilter !== 'ALL' && setOpenDropdown(true)}
+                                        disabled={loading || currencyFilter === 'ALL'}
                                     />
                                     {vendorSearchQuery && (
                                         <button 
@@ -785,13 +767,13 @@ export default function PaymentsPage() {
                                 </div>
                             </div>
 
-                            {/* ICICI Ben Email IDs */}
-                            {exportFormat === 'ICICI' && (
+                            {/* HDFC Ben Email IDs */}
+                            {exportFormat === 'HDFC' && (
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400 flex items-center gap-1.5">
                                         <Mail className="w-3 h-3" />
                                         Ben Email ID
-                                        <span className="ml-auto text-[9px] bg-[#B18E63]/10 text-[#976E44] px-2 py-0.5 rounded-md font-bold">ICICI CMS</span>
+                                        <span className="ml-auto text-[9px] bg-[#B18E63]/10 text-[#976E44] px-2 py-0.5 rounded-md font-bold">HDFC</span>
                                     </label>
                                     {/* Email tags */}
                                     <div className="flex flex-wrap gap-1.5 min-h-[36px] p-2 bg-slate-50/80 border border-slate-200 rounded-xl">
@@ -1100,30 +1082,171 @@ export default function PaymentsPage() {
                         </div>
                     </div>
 
+                    {/* ================================================================ */}
+                    {/* EXPORT FORMAT SELECTION */}
+                    {/* ================================================================ */}
+                    <div className="relative bg-white rounded-2xl border border-slate-100 shadow-[0_4px_24px_rgba(0,0,0,0.04)] overflow-hidden">
+                        {/* Accent bar */}
+                        <div className={cn(
+                            "absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl transition-colors duration-300",
+                            exportFormat === 'HDFC'
+                                ? 'bg-gradient-to-b from-[#B18E63] to-[#976E44]'
+                                : 'bg-gradient-to-b from-[#6F8A9D] to-[#546A7A]'
+                        )} />
+                        <div className="px-6 py-4">
+                            <div className="flex items-center gap-2.5 mb-4">
+                                <div className={cn(
+                                    "w-9 h-9 rounded-xl flex items-center justify-center shadow-sm transition-all duration-300",
+                                    exportFormat === 'HDFC'
+                                        ? 'bg-gradient-to-br from-[#B18E63] to-[#976E44]'
+                                        : 'bg-gradient-to-br from-[#6F8A9D] to-[#546A7A]'
+                                )}>
+                                    <FileSpreadsheet className="w-4 h-4 text-white" />
+                                </div>
+                                <div>
+                                    <p className="text-xs font-bold text-slate-600">Export Format</p>
+                                    <p className="text-[9px] text-slate-400 font-medium">Choose the file format for your payment batch</p>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                {/* HDFC Card */}
+                                <button
+                                    onClick={() => setExportFormat('HDFC')}
+                                    className={cn(
+                                        'relative group/fmt flex items-start gap-4 p-5 rounded-2xl border-2 text-left transition-all duration-300',
+                                        exportFormat === 'HDFC'
+                                            ? 'border-[#B18E63] bg-gradient-to-br from-[#B18E63]/[0.06] to-[#976E44]/[0.03] shadow-lg shadow-[#B18E63]/10 ring-1 ring-[#B18E63]/20'
+                                            : 'border-dashed border-slate-200 hover:border-[#B18E63]/40 hover:bg-[#B18E63]/[0.02] hover:shadow-md'
+                                    )}
+                                >
+                                    {/* Check indicator */}
+                                    <div className={cn(
+                                        'absolute top-3 right-3 w-6 h-6 rounded-full flex items-center justify-center transition-all duration-300',
+                                        exportFormat === 'HDFC'
+                                            ? 'bg-gradient-to-br from-[#B18E63] to-[#976E44] scale-100 shadow-md shadow-[#B18E63]/30'
+                                            : 'bg-slate-100 scale-90'
+                                    )}>
+                                        {exportFormat === 'HDFC' ? (
+                                            <Check className="w-3.5 h-3.5 text-white" />
+                                        ) : (
+                                            <div className="w-2 h-2 rounded-full bg-slate-300" />
+                                        )}
+                                    </div>
+                                    <div className={cn(
+                                        'w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-all duration-300',
+                                        exportFormat === 'HDFC'
+                                            ? 'bg-gradient-to-br from-[#B18E63] to-[#976E44] shadow-lg shadow-[#B18E63]/20'
+                                            : 'bg-slate-100 group-hover/fmt:bg-[#B18E63]/10'
+                                    )}>
+                                        <Landmark className={cn(
+                                            'w-5.5 h-5.5 transition-colors duration-300',
+                                            exportFormat === 'HDFC' ? 'text-white' : 'text-slate-400 group-hover/fmt:text-[#B18E63]'
+                                        )} />
+                                    </div>
+                                    <div className="flex-1 min-w-0 pr-6">
+                                        <p className={cn(
+                                            'font-bold text-sm mb-1 transition-colors',
+                                            exportFormat === 'HDFC' ? 'text-[#976E44]' : 'text-slate-600'
+                                        )}>HDFC</p>
+                                        <p className="text-[11px] text-slate-400 leading-relaxed">
+                                            HDFC Bank Corporate Internet Banking format with beneficiary email notifications
+                                        </p>
+                                        {exportFormat === 'HDFC' && (
+                                            <div className="mt-2.5 flex items-center gap-1.5 text-[10px] font-bold text-[#B18E63] animate-in fade-in slide-in-from-bottom-1 duration-300">
+                                                <CheckCircle2 className="w-3 h-3" />
+                                                Active Format
+                                            </div>
+                                        )}
+                                    </div>
+                                </button>
+
+                                {/* DB Card */}
+                                <button
+                                    onClick={() => setExportFormat('DB')}
+                                    className={cn(
+                                        'relative group/fmt flex items-start gap-4 p-5 rounded-2xl border-2 text-left transition-all duration-300',
+                                        exportFormat === 'DB'
+                                            ? 'border-[#6F8A9D] bg-gradient-to-br from-[#6F8A9D]/[0.06] to-[#546A7A]/[0.03] shadow-lg shadow-[#6F8A9D]/10 ring-1 ring-[#6F8A9D]/20'
+                                            : 'border-dashed border-slate-200 hover:border-[#6F8A9D]/40 hover:bg-[#6F8A9D]/[0.02] hover:shadow-md'
+                                    )}
+                                >
+                                    {/* Check indicator */}
+                                    <div className={cn(
+                                        'absolute top-3 right-3 w-6 h-6 rounded-full flex items-center justify-center transition-all duration-300',
+                                        exportFormat === 'DB'
+                                            ? 'bg-gradient-to-br from-[#6F8A9D] to-[#546A7A] scale-100 shadow-md shadow-[#6F8A9D]/30'
+                                            : 'bg-slate-100 scale-90'
+                                    )}>
+                                        {exportFormat === 'DB' ? (
+                                            <Check className="w-3.5 h-3.5 text-white" />
+                                        ) : (
+                                            <div className="w-2 h-2 rounded-full bg-slate-300" />
+                                        )}
+                                    </div>
+                                    <div className={cn(
+                                        'w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-all duration-300',
+                                        exportFormat === 'DB'
+                                            ? 'bg-gradient-to-br from-[#6F8A9D] to-[#546A7A] shadow-lg shadow-[#6F8A9D]/20'
+                                            : 'bg-slate-100 group-hover/fmt:bg-[#6F8A9D]/10'
+                                    )}>
+                                        <Banknote className={cn(
+                                            'w-5.5 h-5.5 transition-colors duration-300',
+                                            exportFormat === 'DB' ? 'text-white' : 'text-slate-400 group-hover/fmt:text-[#6F8A9D]'
+                                        )} />
+                                    </div>
+                                    <div className="flex-1 min-w-0 pr-6">
+                                        <p className={cn(
+                                            'font-bold text-sm mb-1 transition-colors',
+                                            exportFormat === 'DB' ? 'text-[#546A7A]' : 'text-slate-600'
+                                        )}>DB</p>
+                                        <p className="text-[11px] text-slate-400 leading-relaxed">
+                                            Deutsche Bank transfer format compatible with all banks
+                                        </p>
+                                        {exportFormat === 'DB' && (
+                                            <div className="mt-2.5 flex items-center gap-1.5 text-[10px] font-bold text-[#6F8A9D] animate-in fade-in slide-in-from-bottom-1 duration-300">
+                                                <CheckCircle2 className="w-3 h-3" />
+                                                Active Format
+                                            </div>
+                                        )}
+                                    </div>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
                     {/* -------------------------------------------------------- */}
                     {/* SUMMARY FOOTER BAR */}
                     {/* -------------------------------------------------------- */}
+                    {/* -------------------------------------------------------- */}
+                    {/* SUMMARY FOOTER + SUBMIT FOR APPROVAL */}
+                    {/* -------------------------------------------------------- */}
                     {pendingPayments.length > 0 && (
-                        <div className="relative bg-white rounded-2xl border border-slate-100 shadow-[0_4px_24px_rgba(0,0,0,0.04)] overflow-hidden">
+                        <div className="relative bg-white rounded-2xl border border-slate-100 shadow-[0_8px_40px_rgba(0,0,0,0.06)] overflow-hidden">
                             {/* Accent top bar */}
-                            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#B18E63] via-[#82A094] to-[#6F8A9D]" />
+                            <div className={cn(
+                                "absolute top-0 left-0 right-0 h-1 transition-colors duration-300",
+                                exportFormat === 'HDFC'
+                                    ? 'bg-gradient-to-r from-[#B18E63] via-[#CE9F6B] to-[#82A094]'
+                                    : 'bg-gradient-to-r from-[#6F8A9D] via-[#82A094] to-[#4F6A64]'
+                            )} />
                             
-                            <div className="flex items-center justify-between p-5 pt-6">
-                                <div className="flex items-center gap-8 lg:gap-14">
+                            <div className="flex flex-col lg:flex-row lg:items-center justify-between p-5 pt-6 gap-5">
+                                {/* Left side — Stats */}
+                                <div className="flex items-center gap-6 lg:gap-10 flex-wrap">
                                     <div className="space-y-1">
                                         <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400 flex items-center gap-1">
                                             <Hash className="w-3 h-3" /> Total Entries
                                         </p>
                                         <p className="font-black text-2xl text-slate-700 tabular-nums">{pendingPayments.length}</p>
                                     </div>
-                                    <div className="w-px h-10 bg-slate-100" />
+                                    <div className="w-px h-10 bg-slate-100 hidden lg:block" />
                                     <div className="space-y-1">
                                         <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400 flex items-center gap-1">
                                             <Building2 className="w-3 h-3" /> Vendors
                                         </p>
                                         <p className="font-black text-2xl text-[#6F8A9D] tabular-nums">{stats.selectedVendors}</p>
                                     </div>
-                                    <div className="w-px h-10 bg-slate-100" />
+                                    <div className="w-px h-10 bg-slate-100 hidden lg:block" />
                                     <div className="space-y-1">
                                         <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400 flex items-center gap-1">
                                             <IndianRupee className="w-3 h-3" /> Total Disbursement
@@ -1134,7 +1257,7 @@ export default function PaymentsPage() {
                                     </div>
                                     {stats.validPayments < stats.totalRecords && (
                                         <>
-                                            <div className="w-px h-10 bg-slate-100" />
+                                            <div className="w-px h-10 bg-slate-100 hidden lg:block" />
                                             <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-50 border border-amber-100">
                                                 <AlertCircle className="w-4 h-4 text-amber-500" />
                                                 <p className="text-[11px] text-amber-700 font-bold">
@@ -1145,7 +1268,7 @@ export default function PaymentsPage() {
                                     )}
                                     {currencyFilter !== 'ALL' && (
                                         <>
-                                            <div className="w-px h-10 bg-slate-100" />
+                                            <div className="w-px h-10 bg-slate-100 hidden lg:block" />
                                             <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#82A094]/10 border border-[#82A094]/20">
                                                 <span className="text-sm font-black text-[#4F6A64]">{activeCurrencySymbol}</span>
                                                 <p className="text-[11px] text-[#4F6A64] font-bold">
@@ -1155,10 +1278,29 @@ export default function PaymentsPage() {
                                         </>
                                     )}
                                 </div>
-                                <div className="flex items-center gap-3">
+
+                                {/* Right side — Export badge + Actions */}
+                                <div className="flex items-center gap-3 shrink-0">
+                                    {/* Export format badge */}
+                                    <div className={cn(
+                                        'flex items-center gap-2 px-3.5 py-2 rounded-xl border transition-all',
+                                        exportFormat === 'HDFC'
+                                            ? 'bg-[#B18E63]/[0.07] border-[#B18E63]/20 text-[#976E44]'
+                                            : 'bg-[#6F8A9D]/[0.07] border-[#6F8A9D]/20 text-[#546A7A]'
+                                    )}>
+                                        {exportFormat === 'HDFC' ? (
+                                            <Landmark className="w-3.5 h-3.5" />
+                                        ) : (
+                                            <Banknote className="w-3.5 h-3.5" />
+                                        )}
+                                        <span className="text-[11px] font-bold">
+                                            {exportFormat === 'HDFC' ? 'HDFC' : 'DB'}
+                                        </span>
+                                    </div>
+
                                     <Button 
                                         variant="ghost" 
-                                        className="text-red-400 hover:text-red-500 hover:bg-red-50 font-bold text-xs rounded-xl h-10" 
+                                        className="text-red-400 hover:text-red-500 hover:bg-red-50 font-bold text-xs rounded-xl h-11" 
                                         onClick={() => {
                                             if(confirm('Clear all pending payments?')) {
                                                 setPendingPayments([]);
@@ -1168,6 +1310,25 @@ export default function PaymentsPage() {
                                     >
                                         <Trash2 className="w-3.5 h-3.5 mr-1.5" />
                                         Clear
+                                    </Button>
+
+                                    <Button
+                                        size="lg"
+                                        onClick={handleSubmitForApproval}
+                                        disabled={submittingBatch || pendingPayments.length === 0}
+                                        className={cn(
+                                            'text-white shadow-lg hover:shadow-xl transition-all border-0 rounded-xl hover:scale-[1.02] h-12 px-8 font-bold',
+                                            exportFormat === 'HDFC'
+                                                ? 'bg-gradient-to-r from-[#B18E63] to-[#976E44] hover:from-[#A17E53] hover:to-[#875E34]'
+                                                : 'bg-gradient-to-r from-[#6F8A9D] to-[#546A7A] hover:from-[#5F7A8D] hover:to-[#445A6A]'
+                                        )}
+                                    >
+                                        {submittingBatch ? (
+                                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                        ) : (
+                                            <Send className="w-4 h-4 mr-2" />
+                                        )}
+                                        <span className="text-sm">Submit for Approval</span>
                                     </Button>
                                 </div>
                             </div>

@@ -28,14 +28,14 @@ interface PaginatedResponse<T> {
 }
 
 async function serverFetch(endpoint: string) {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const accessToken = cookieStore.get('accessToken')?.value;
   const token = cookieStore.get('token')?.value;
   const userRole = cookieStore.get('userRole')?.value;
-  
+
   // Check for either accessToken or token (based on authentication inconsistencies)
   const authToken = accessToken || token;
-  
+
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     headers: {
       'Authorization': authToken ? `Bearer ${authToken}` : '',
@@ -68,12 +68,12 @@ export async function getZoneServicePersons(params: {
     });
 
     const endpoint = `/zone-dashboard/service-persons?${searchParams}`;
-    
+
     const response = await serverFetch(endpoint);
-    
+
     // Handle both response.data and direct response
     const servicePersons = response.data || response || [];
-    
+
     // Process service persons data (preserve actual isActive status)
     const processedData = servicePersons.map((person: ServicePerson) => ({
       ...person

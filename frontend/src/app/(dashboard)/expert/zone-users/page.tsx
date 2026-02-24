@@ -7,15 +7,17 @@ import { getZoneUsers, getZoneUserStats } from '@/lib/server/admin';
 import ZoneUserClient from '@/components/admin/ZoneUserClient';
 
 interface ZoneUsersPageProps {
-  searchParams: {
+  params: Promise<any>;
+  searchParams: Promise<{
     search?: string;
     page?: string;
-  };
+  }>;
 }
 
-export default async function ZoneUsersPage({ searchParams }: ZoneUsersPageProps) {
-  const currentPage = parseInt(searchParams.page || '1');
-  const search = searchParams.search || '';
+export default async function ZoneUsersPage({ params, searchParams }: ZoneUsersPageProps) {
+  const resolvedSearchParams = await searchParams;
+  const currentPage = parseInt(resolvedSearchParams.page || '1');
+  const search = resolvedSearchParams.search || '';
 
   // Server-side data fetching
   const response = await getZoneUsers({
@@ -96,7 +98,7 @@ export default async function ZoneUsersPage({ searchParams }: ZoneUsersPageProps
         initialZoneUsers={clientZoneUsers}
         initialStats={initialStats}
         initialPagination={clientPagination}
-        searchParams={searchParams}
+        searchParams={resolvedSearchParams}
       />
     </div>
   );
