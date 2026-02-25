@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { arApi } from '@/lib/ar-api';
 import { useAuth } from '@/contexts/AuthContext';
 import { FinanceRole } from '@/types/user.types';
@@ -10,18 +10,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { 
   ArrowLeft, Building2, Sparkles, Save, AlertCircle, 
-  CheckCircle2, Mail, CreditCard, Hash, User, Loader2,
+  CheckCircle2, Mail, CreditCard, User, Loader2,
   Info, FileText, Upload, X, ArrowRight, Shield, Landmark,
-  Globe, BadgeCheck, ChevronRight, Wallet, Eye, ChevronDown
+  Globe, BadgeCheck, ChevronRight, Hash, Eye
 } from 'lucide-react';
-import FilePreview from '@/components/FilePreview';
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from '@/components/ui/select';
+// Lazy-load FilePreview — it pulls in the heavy `xlsx` library (~1MB).
+// This keeps it out of the initial page bundle entirely.
+const FilePreview = dynamic(() => import('@/components/FilePreview'), {
+  ssr: false,
+  loading: () => null,
+});
 
 interface FormData {
   bpCode: string;
@@ -663,7 +661,7 @@ export default function NewBankAccountPage() {
                   value={formData.bpCode}
                   onChange={handleChange}
                   placeholder="e.g. 12345 or 001"
-                  maxLength={15}
+                  maxLength={7}
                   inputMode="numeric"
                   pattern="[0-9]*"
                   className={`w-full px-4 py-2.5 rounded-xl text-sm font-bold uppercase tracking-wider transition-all focus:outline-none border-2 bg-[#F8FAFB] text-[#546A7A] ${
@@ -1287,8 +1285,24 @@ export default function NewBankAccountPage() {
                                       <span className="text-[10px] opacity-60">({(f.file.size / 1024 / 1024).toFixed(2)} MB)</span>
                                       <button 
                                         type="button" 
+                                        onClick={() => {
+                                          setPreviewFile({
+                                            filename: f.file.name,
+                                            mimeType: f.file.type || 'application/octet-stream',
+                                            localFile: f.file
+                                          });
+                                          setShowPreview(true);
+                                        }}
+                                        className="ml-auto p-1.5 rounded-lg hover:bg-[#CE9F6B]/20 hover:text-[#976E44] transition-colors"
+                                        title="Preview file"
+                                      >
+                                        <Eye className="w-3.5 h-3.5" />
+                                      </button>
+                                      <button 
+                                        type="button" 
                                         onClick={() => setSelectedFiles(prev => prev.filter(fileItem => fileItem !== f))}
-                                        className="ml-auto p-1 hover:text-[#E17F70] transition-colors"
+                                        className="p-1.5 rounded-lg hover:bg-[#E17F70]/20 hover:text-[#E17F70] transition-colors"
+                                        title="Remove file"
                                       >
                                         <X className="w-3.5 h-3.5" />
                                       </button>
@@ -1386,7 +1400,7 @@ export default function NewBankAccountPage() {
                   <div className="relative group/submit w-full md:w-auto">
                     <Button
                       type="submit"
-                      disabled={loading || !!success || ((formData as any).selectedTypes || []).length === 0}
+                      disabled={loading || !!success || !formData.accountCategory || !selectedFiles.some(f => f.vendorType === formData.accountCategory)}
                       className={`w-full md:w-auto px-10 h-12 rounded-xl font-black text-white shadow-xl transition-all ${
                         success 
                           ? 'bg-gradient-to-r from-[#82A094] to-[#4F6A64]'
@@ -1403,9 +1417,9 @@ export default function NewBankAccountPage() {
                       {loading ? 'Processing...' : success ? 'Success!' : isAdmin ? 'Create Account' : 'Submit Request'}
                       {!loading && !success && <Sparkles className="w-4 h-4 ml-2" />}
                     </Button>
-                    {((formData as any).selectedTypes || []).length === 0 && !success && (
+                    {(!formData.accountCategory || !selectedFiles.some(f => f.vendorType === formData.accountCategory)) && !success && (
                       <div className="absolute bottom-full mb-3 right-0 px-4 py-2 rounded-xl text-[10px] font-bold bg-[#E17F70] text-white opacity-0 group-hover/submit:opacity-100 transition-opacity pointer-events-none shadow-lg">
-                        ⚠ Please select a category and upload a document
+                        ⚠ Please ensure category is selected and document is uploaded
                       </div>
                     )}
                   </div>

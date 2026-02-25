@@ -46,7 +46,13 @@ export function isRouteAccessible(route: string, userRole?: UserRole | string, f
 
   // Common routes accessible to all authenticated users
   const commonAuthenticatedRoutes = ['/module-select', '/fsm', '/finance', '/pin-access'];
-  if (commonAuthenticatedRoutes.some(prefix => route.startsWith(prefix))) return true;
+  if (commonAuthenticatedRoutes.some(prefix => route.startsWith(prefix))) {
+    // Specifically block FINANCE_APPROVER from AR routes
+    if (normalizedFinanceRole === 'FINANCE_APPROVER' && route.startsWith('/finance/ar')) {
+      return false;
+    }
+    return true;
+  }
 
   // Role-based route access
   const roleRoutes: Record<UserRole, string[]> = {

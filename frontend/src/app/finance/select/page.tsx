@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Receipt, Building2, ArrowLeft, ChevronRight, Sparkles } from 'lucide-react';
 
+import { useAuth } from '@/contexts/AuthContext';
+import { FinanceRole } from '@/types/user.types';
+
 interface SubModuleCard {
   id: 'ar' | 'bank-accounts';
   title: string;
@@ -20,8 +23,9 @@ export default function FinanceSelectPage() {
   const [selectedModule, setSelectedModule] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const router = useRouter();
+  const { user } = useAuth();
 
-  const subModules: SubModuleCard[] = [
+  const subModules: SubModuleCard[] = ([
     {
       id: 'ar',
       title: 'Accounts Receivable',
@@ -38,7 +42,13 @@ export default function FinanceSelectPage() {
       color: '#CE9F6B',
       features: ['Vendors', 'Requests', 'New Vendor', 'Activities'],
     }
-  ];
+  ] as SubModuleCard[]).filter(m => {
+    // Finance Approver cannot see Accounts Receivable
+    if (user?.financeRole === FinanceRole.FINANCE_APPROVER && m.id === 'ar') {
+      return false;
+    }
+    return true;
+  });
 
   useEffect(() => { setMounted(true); }, []);
 

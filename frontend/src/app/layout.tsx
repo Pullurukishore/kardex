@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import AuthProvider from "@/contexts/AuthContext";
 import PinGuard from "@/components/PinGuard";
-import ToasterProvider from "@/components/ToasterProvider";
+import LazyToaster from "@/components/LazyToaster";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
@@ -35,7 +35,7 @@ export default function RootLayout({
           <PinGuard>
             {children}
           </PinGuard>
-          <ToasterProvider />
+          <LazyToaster />
         </AuthProvider>
       </body>
     </html>

@@ -162,6 +162,12 @@ export const requireFinanceWrite = requireFinanceRole(['FINANCE_ADMIN', 'FINANCE
 export const requireFinanceRead = requireFinanceRole(['FINANCE_ADMIN', 'FINANCE_USER', 'FINANCE_VIEWER', 'FINANCE_APPROVER']);
 
 /**
+ * Middleware for AR-specific read access
+ * Excludes FINANCE_APPROVER
+ */
+export const requireARRead = requireFinanceRole(['FINANCE_ADMIN', 'FINANCE_USER', 'FINANCE_VIEWER']);
+
+/**
  * Middleware for payment batch approval actions (Admin + Approver)
  */
 export const requireFinanceApprover = requireFinanceRole(['FINANCE_ADMIN', 'FINANCE_APPROVER']);

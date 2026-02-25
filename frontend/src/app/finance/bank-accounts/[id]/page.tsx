@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { arApi, BankAccount, BankAccountChangeRequest, BankAccountActivityLog } from '@/lib/ar-api';
 import { useAuth } from '@/contexts/AuthContext';
@@ -13,11 +14,16 @@ import {
   ArrowLeft, Building2, Sparkles, Pencil, Trash2, 
   CreditCard, Mail, Clock, CheckCircle2, XCircle,
   AlertCircle, User, Copy, ExternalLink, Check,
-  FileText, Download, Upload, Loader2, FileIcon,
+  FileText, Download, Loader2, FileIcon,
   FileSpreadsheet, FileImage, File, Landmark,
-  Activity, ChevronDown, ChevronUp, Shield, TrendingUp, Globe, Eye
+  Activity, ChevronDown, ChevronUp, TrendingUp, Globe, Eye
 } from 'lucide-react';
-import FilePreview from '@/components/FilePreview';
+// Lazy-load FilePreview — it pulls in the heavy `xlsx` library (~1MB).
+// This keeps it out of the initial page bundle entirely.
+const FilePreview = dynamic(() => import('@/components/FilePreview'), {
+  ssr: false,
+  loading: () => null,
+});
 
 export default function BankAccountDetailPage() {
   const router = useRouter();

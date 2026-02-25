@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { arApi, BankAccountChangeRequest, BankAccount } from '@/lib/ar-api';
 import { useAuth } from '@/contexts/AuthContext';
@@ -12,6 +13,11 @@ import {
   ArrowRight, GitCompare, FileText, Eye, Download, FileImage, FileSpreadsheet, File, Download as DownloadIcon,
   User, Calendar, CreditCard, Hash, Mail, MessageSquare, Loader2, Shield, BadgeCheck
 } from 'lucide-react';
+// Lazy-load FilePreview — it pulls in the heavy `xlsx` library (~1MB).
+const FilePreview = dynamic(() => import('@/components/FilePreview'), {
+  ssr: false,
+  loading: () => null,
+});
 
 interface FieldChange {
   field: string;
@@ -31,6 +37,8 @@ export default function RequestDetailPage() {
   const [processing, setProcessing] = useState(false);
   const [rejectNotes, setRejectNotes] = useState('');
   const [showRejectModal, setShowRejectModal] = useState(false);
+  const [previewFile, setPreviewFile] = useState<any>(null);
+  const [showPreview, setShowPreview] = useState(false);
 
   const isAdmin = user?.financeRole === FinanceRole.FINANCE_ADMIN;
 
@@ -433,11 +441,21 @@ export default function RequestDetailPage() {
 
                   <div className="mt-4 flex items-center gap-2 pt-3 border-t border-[#AEBFC3]/10">
                     <button 
+                      onClick={() => {
+                        setPreviewFile(file);
+                        setShowPreview(true);
+                      }}
+                      className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl bg-[#CE9F6B]/10 text-[#976E44] text-xs font-bold hover:bg-[#CE9F6B] hover:text-white transition-all shadow-sm"
+                    >
+                      <Eye className="w-4 h-4" />
+                      Preview
+                    </button>
+                    <button 
                       onClick={() => handleDownload(file.id)}
                       className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl bg-[#82A094]/10 text-[#82A094] text-xs font-bold hover:bg-[#82A094] hover:text-white transition-all shadow-sm"
                     >
                       <DownloadIcon className="w-4 h-4" />
-                      Download Verification Document
+                      Download
                     </button>
                   </div>
                 </div>
@@ -534,6 +552,12 @@ export default function RequestDetailPage() {
           </div>
         </div>
       )}
+
+      <FilePreview 
+        isOpen={showPreview} 
+        onClose={() => setShowPreview(false)} 
+        file={previewFile} 
+      />
     </div>
   );
 }

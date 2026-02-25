@@ -340,34 +340,46 @@ export default function PaymentsPage() {
             {/* ================================================================ */}
             {/* HEADER SECTION */}
             {/* ================================================================ */}
-            {/* ================================================================ */}
             {/* SECTION ① — HEADER */}
-            {/* ================================================================ */}
-            <div className="flex items-center gap-4">
-                <div className="relative group">
-                    <div className="absolute -inset-1.5 bg-gradient-to-br from-[#CE9F6B]/40 to-[#82A094]/40 rounded-2xl blur-lg opacity-0 group-hover:opacity-100 transition-all duration-500" />
-                    <div 
-                        className="relative w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-105"
-                        style={{ background: 'linear-gradient(135deg, #B18E63 0%, #7A5A38 100%)' }}
-                    >
-                        <Send className="w-6 h-6 text-white" />
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 lg:gap-4">
+                <div className="flex items-center gap-4">
+                    <div className="relative group shrink-0">
+                        <div className="absolute -inset-1.5 bg-gradient-to-br from-[#CE9F6B]/40 to-[#82A094]/40 rounded-2xl blur-lg opacity-0 group-hover:opacity-100 transition-all duration-500" />
+                        <div 
+                            className="relative w-12 h-12 lg:w-14 lg:h-14 rounded-2xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300"
+                            style={{ background: 'linear-gradient(135deg, #B18E63 0%, #7A5A38 100%)' }}
+                        >
+                            <Send className="w-6 h-6 text-white" />
+                        </div>
+                    </div>
+                    <div className="min-w-0">
+                        <Link href="/finance/bank-accounts" className="hover:text-[#B18E63] transition-colors flex items-center gap-1.5 text-[10px] lg:text-xs font-bold text-[#92A2A5] mb-1">
+                            <ArrowLeft className="w-3 h-3" /> Back to Accounts
+                        </Link>
+                        <h1 className="text-xl lg:text-3xl font-black tracking-tight leading-none">
+                            <span className="bg-gradient-to-r from-[#546A7A] via-[#6F8A9D] to-[#82A094] bg-clip-text text-transparent">
+                                Bulk Payments
+                            </span>
+                        </h1>
+                        <p className="text-[10px] lg:text-xs text-muted-foreground font-medium mt-1 truncate">
+                            Create and submit payment batches for approval
+                        </p>
                     </div>
                 </div>
-                <div className="space-y-1">
-                    <div className="flex items-center gap-2 text-muted-foreground mb-0.5">
-                        <Link href="/finance/bank-accounts" className="hover:text-[#B18E63] transition-colors flex items-center gap-1 text-xs font-semibold">
-                            <ArrowLeft className="w-3 h-3" /> Back to Bank Accounts
-                        </Link>
+
+                <div className="flex items-center gap-2 overflow-x-auto pb-1 -mb-1 lg:pb-0 lg:mb-0 no-scrollbar shrink-0">
+                    <div className="flex items-center gap-2 flex-nowrap">
+                        <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-[#AEBFC3]/30 shadow-sm whitespace-nowrap">
+                            <Clock className="w-3.5 h-3.5 text-[#CE9F6B]" />
+                            <span className="text-[10px] font-black text-[#546A7A] uppercase tracking-wider">{exportFormat}</span>
+                        </div>
+                        {pendingPayments.length > 0 && (
+                            <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#82A094]/10 border border-[#82A094]/20 text-[#4F6A64] shadow-sm whitespace-nowrap">
+                                <span className="font-black text-[10px]">{activeCurrencySymbol}</span>
+                                <span className="text-[10px] font-black uppercase tracking-wider">{currencyFilter}</span>
+                            </div>
+                        )}
                     </div>
-                    <h1 className="text-3xl font-black tracking-tight">
-                        <span className="bg-gradient-to-r from-[#546A7A] via-[#6F8A9D] to-[#82A094] bg-clip-text text-transparent">
-                            Bulk Payments
-                        </span>
-                    </h1>
-                    <p className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
-                        <Zap className="w-3 h-3 text-[#CE9F6B]" />
-                        Select export format, add vendors, and submit batch for approval
-                    </p>
                 </div>
             </div>
 
@@ -375,38 +387,39 @@ export default function PaymentsPage() {
             {/* ================================================================ */}
             {/* STATS GRID */}
             {/* ================================================================ */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* STATS GRID - Optimized for mobile */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
                 <StatCard 
                     icon={Hash} 
-                    label="Total Records" 
+                    label="Records" 
                     value={stats.totalRecords} 
                     loading={false}
                     variant="gold"
-                    subtitle="payment entries added"
+                    subtitle="entries"
                 />
                 <StatCard 
                     icon={Building2} 
-                    label="Unique Vendors" 
+                    label="Vendors" 
                     value={stats.selectedVendors} 
                     loading={false}
                     variant="steel"
-                    subtitle="distinct beneficiaries"
+                    subtitle="unique"
                 />
                 <StatCard 
                     icon={currencyFilter === 'USD' ? DollarSign : IndianRupee} 
-                    label="Total Amount" 
+                    label="Amount" 
                     value={`${activeCurrencySymbol}${stats.totalAmount.toLocaleString('en-IN')}`} 
                     loading={false}
                     variant="emerald"
-                    subtitle={currencyFilter !== 'ALL' ? `${currencyFilter} disbursement` : 'total disbursement'}
+                    subtitle={currencyFilter !== 'ALL' ? currencyFilter : 'total'}
                 />
                 <StatCard 
                     icon={CheckCircle2} 
-                    label="Ready to Export" 
+                    label="Ready" 
                     value={stats.validPayments} 
                     loading={false}
                     variant="coral"
-                    subtitle={`of ${stats.totalRecords} have valid amounts`}
+                    subtitle={`of ${stats.totalRecords}`}
                 />
             </div>
 
@@ -418,15 +431,13 @@ export default function PaymentsPage() {
             {/* ================================================================ */}
             {currencyOptions.length >= 1 && (
                 <div className="relative bg-white rounded-2xl border border-slate-100 shadow-[0_4px_24px_rgba(0,0,0,0.04)] overflow-hidden">
-                    {/* Active currency accent bar */}
                     <div className={cn(
                         "absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl transition-colors duration-300",
                         currencyFilter !== 'ALL' 
                             ? 'bg-gradient-to-b from-[#4F6A64] to-[#82A094]'
                             : 'bg-gradient-to-b from-[#B18E63] to-[#976E44]'
                     )} />
-                    <div className="px-6 py-4 flex items-center gap-4">
-                        {/* Label */}
+                    <div className="px-4 lg:px-6 py-4 flex items-center gap-4">
                         <div className="flex items-center gap-2.5 shrink-0">
                             <div className={cn(
                                 "w-9 h-9 rounded-xl flex items-center justify-center shadow-sm transition-all duration-300",
@@ -436,35 +447,33 @@ export default function PaymentsPage() {
                             )}>
                                 <Filter className="w-4 h-4 text-white" />
                             </div>
-                            <div className="hidden sm:block">
+                            <div className="hidden lg:block">
                                 <p className="text-xs font-bold text-slate-600">Currency</p>
-                                <p className="text-[9px] text-slate-400 font-medium">
-                                    {currencyFilter !== 'ALL' ? `${filteredAccounts.length} vendors` : `${accounts.length} total`}
+                                <p className="text-[9px] text-slate-400 font-medium whitespace-nowrap">
+                                    {currencyFilter !== 'ALL' ? `${filteredAccounts.length} available` : `${accounts.length} total`}
                                 </p>
                             </div>
                         </div>
 
-                        {/* Separator */}
-                        <div className="w-px h-8 bg-slate-100 shrink-0" />
+                        <div className="w-px h-8 bg-slate-100 shrink-0 hidden sm:block" />
 
-                        {/* Pills */}
-                        <div className="flex items-center gap-2 flex-wrap flex-1">
+                        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 flex-nowrap lg:flex-wrap flex-1 scroll-smooth">
                             <button
                                 onClick={() => setCurrencyFilter('ALL')}
                                 disabled={pendingPayments.length > 0}
                                 className={cn(
-                                    "inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[11px] font-bold transition-all duration-200 border",
+                                    "inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-[11px] font-black transition-all duration-200 border whitespace-nowrap uppercase tracking-widest",
                                     pendingPayments.length > 0 && 'opacity-50 cursor-not-allowed',
                                     currencyFilter === 'ALL'
-                                        ? 'bg-gradient-to-r from-[#B18E63] to-[#976E44] text-white border-transparent shadow-md shadow-[#B18E63]/20'
-                                        : 'bg-slate-50 text-slate-500 border-slate-200 hover:border-[#B18E63]/40 hover:text-[#976E44] hover:bg-white hover:shadow-sm'
+                                        ? 'bg-gradient-to-r from-[#B18E63] to-[#976E44] text-white border-transparent shadow-lg shadow-[#B18E63]/20'
+                                        : 'bg-slate-50 text-slate-500 border-slate-200 hover:border-[#B18E63]/40 hover:text-[#976E44]'
                                 )}
                             >
                                 <Globe className="w-3.5 h-3.5" />
                                 All
                                 <span className={cn(
-                                    "text-[9px] px-1.5 py-0.5 rounded-md font-black tabular-nums",
-                                    currencyFilter === 'ALL' ? 'bg-white/20 text-white' : 'bg-white text-slate-400'
+                                    "text-[9px] px-2 py-0.5 rounded-md font-black tabular-nums",
+                                    currencyFilter === 'ALL' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-500'
                                 )}>
                                     {accounts.length}
                                 </span>
@@ -477,18 +486,18 @@ export default function PaymentsPage() {
                                         onClick={() => setCurrencyFilter(currency)}
                                         disabled={pendingPayments.length > 0 && currencyFilter !== currency}
                                         className={cn(
-                                            "inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[11px] font-bold transition-all duration-200 border",
+                                            "inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-[11px] font-black transition-all duration-200 border whitespace-nowrap uppercase tracking-widest",
                                             pendingPayments.length > 0 && currencyFilter !== currency && 'opacity-50 cursor-not-allowed',
                                             currencyFilter === currency
-                                                ? 'bg-gradient-to-r from-[#4F6A64] to-[#82A094] text-white border-transparent shadow-md shadow-[#82A094]/20'
-                                                : 'bg-slate-50 text-slate-500 border-slate-200 hover:border-[#82A094]/40 hover:text-[#4F6A64] hover:bg-white hover:shadow-sm'
+                                                ? 'bg-gradient-to-r from-[#4F6A64] to-[#82A094] text-white border-transparent shadow-lg shadow-[#82A094]/20'
+                                                : 'bg-slate-50 text-slate-500 border-slate-200 hover:border-[#82A094]/40 hover:text-[#4F6A64]'
                                         )}
                                     >
-                                        <span className="text-xs font-black">{icon}</span>
+                                        <span className="text-sm font-black">{icon}</span>
                                         {currency}
                                         <span className={cn(
-                                            "text-[9px] px-1.5 py-0.5 rounded-md font-black tabular-nums",
-                                            currencyFilter === currency ? 'bg-white/20 text-white' : 'bg-white text-slate-400'
+                                            "text-[9px] px-2 py-0.5 rounded-md font-black tabular-nums",
+                                            currencyFilter === currency ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-500'
                                         )}>
                                             {count}
                                         </span>
@@ -496,24 +505,6 @@ export default function PaymentsPage() {
                                 );
                             })}
                         </div>
-
-                        {/* Clear filter / Lock indicator */}
-                        {currencyFilter !== 'ALL' && (
-                            pendingPayments.length > 0 ? (
-                                <span className="shrink-0 text-[10px] text-[#92A2A5] font-bold flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-100">
-                                    <Shield className="w-3 h-3 text-[#6F8A9D]" />
-                                    Locked — clear vendors to change
-                                </span>
-                            ) : (
-                                <button
-                                    onClick={() => setCurrencyFilter('ALL')}
-                                    className="shrink-0 text-[10px] text-slate-400 hover:text-red-500 font-bold flex items-center gap-1 transition-colors px-2.5 py-1.5 rounded-lg hover:bg-red-50"
-                                >
-                                    <X className="w-3 h-3" />
-                                    Reset
-                                </button>
-                            )
-                        )}
                     </div>
                 </div>
             )}
@@ -913,8 +904,8 @@ export default function PaymentsPage() {
                             )}
                         </div>
 
-                        {/* Table Content */}
-                        <div className="overflow-x-auto">
+                        {/* Table Content - Desktop Only */}
+                        <div className="hidden lg:block overflow-x-auto">
                             <Table>
                                 <TableHeader>
                                     <TableRow className="bg-slate-50/80 border-slate-100 hover:bg-slate-50/80">
@@ -1080,6 +1071,97 @@ export default function PaymentsPage() {
                                 </TableBody>
                             </Table>
                         </div>
+
+                        {/* Mobile Payment Cards - Mobile Only */}
+                        <div className="lg:hidden divide-y divide-[#AEBFC3]/10 px-4">
+                            {pendingPayments.length > 0 ? (
+                                pendingPayments.map((p, index) => (
+                                    <div key={p.tempId} className="py-6 space-y-4 animate-in fade-in slide-in-from-right-2 duration-300">
+                                        <div className="flex items-start justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#6F8A9D] to-[#546A7A] flex items-center justify-center text-white text-[10px] font-black shrink-0 shadow-lg">
+                                                    {p.vendorName?.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()}
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <h4 className="font-black text-[#546A7A] truncate text-sm tracking-tight">{p.vendorName}</h4>
+                                                    <p className="text-[10px] font-bold text-[#AEBFC3] font-mono mt-0.5 uppercase">{p.ifscCode}</p>
+                                                </div>
+                                            </div>
+                                            <Button 
+                                                variant="ghost" 
+                                                size="icon" 
+                                                className="h-8 w-8 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg"
+                                                onClick={() => removePayment(p.tempId)}
+                                            >
+                                                <X className="w-4 h-4" />
+                                            </Button>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="space-y-1.5">
+                                                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Amount</label>
+                                                <div className="relative group/input">
+                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[10px] font-black">{activeCurrencySymbol}</span>
+                                                    <Input 
+                                                        type="number" 
+                                                        className="pl-7 h-10 text-xs font-black tabular-nums border-slate-200 bg-slate-50/50 rounded-xl"
+                                                        placeholder="0.00"
+                                                        value={p.amount || ''}
+                                                        onChange={(e) => updatePayment(p.tempId, { amount: parseFloat(e.target.value) || 0 })}
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="space-y-1.5 text-right">
+                                                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mr-1">Tx Mode</label>
+                                                <Select 
+                                                    value={p.transactionMode} 
+                                                    onValueChange={(v: any) => updatePayment(p.tempId, { transactionMode: v })}
+                                                >
+                                                    <SelectTrigger className="h-10 text-[10px] font-black bg-slate-50/50 border-slate-200 rounded-xl">
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="NFT" className="text-xs font-bold">NEFT</SelectItem>
+                                                        <SelectItem value="RTI" className="text-xs font-bold">RTGS</SelectItem>
+                                                        <SelectItem value="FT" className="text-xs font-bold">SAME BANK</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center justify-between gap-3 bg-slate-50 rounded-xl p-3 border border-slate-100">
+                                            <div className="flex items-center gap-2">
+                                                <CalendarIcon className="w-3.5 h-3.5 text-[#6F8A9D]" />
+                                                <Input 
+                                                    type="date" 
+                                                    className="h-7 w-32 text-[10px] font-black bg-transparent border-0 p-0 shadow-none focus-visible:ring-0"
+                                                    value={p.valueDate ? format(p.valueDate, 'yyyy-MM-dd') : ''}
+                                                    onChange={(e) => updatePayment(p.tempId, { valueDate: new Date(e.target.value) })}
+                                                />
+                                            </div>
+                                            <div className="bg-white px-2 py-1 rounded-lg border border-slate-200">
+                                                <span className="text-[10px] font-mono text-[#CE9F6B] font-bold">{p.accountNumber?.slice(-4).padStart(p.accountNumber?.length || 0, '*')}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="py-20 text-center space-y-4">
+                                    <div className="w-16 h-16 rounded-2xl bg-slate-50 border-2 border-dashed border-slate-200 flex items-center justify-center mx-auto">
+                                        <Send className="w-8 h-8 text-slate-200" />
+                                    </div>
+                                    <p className="font-bold text-slate-400 text-sm">No payments in queue</p>
+                                    <Button 
+                                        variant="outline" 
+                                        size="sm"
+                                        className="h-9 rounded-xl text-[10px] font-black uppercase tracking-widest border-[#B18E63]/30 text-[#B18E63]"
+                                        onClick={() => setOpenDropdown(true)}
+                                    >
+                                        <Plus className="w-3.5 h-3.5 mr-2" /> Add Vendor
+                                    </Button>
+                                </div>
+                            )}
+                        </div>
                     </div>
 
                     {/* ================================================================ */}
@@ -1230,105 +1312,87 @@ export default function PaymentsPage() {
                                     : 'bg-gradient-to-r from-[#6F8A9D] via-[#82A094] to-[#4F6A64]'
                             )} />
                             
-                            <div className="flex flex-col lg:flex-row lg:items-center justify-between p-5 pt-6 gap-5">
+                            <div className="flex flex-col lg:flex-row lg:items-center justify-between p-4 lg:p-6 gap-6">
                                 {/* Left side — Stats */}
-                                <div className="flex items-center gap-6 lg:gap-10 flex-wrap">
-                                    <div className="space-y-1">
-                                        <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400 flex items-center gap-1">
-                                            <Hash className="w-3 h-3" /> Total Entries
+                                <div className="flex items-center gap-4 lg:gap-10 sm:justify-between lg:justify-start flex-wrap">
+                                    <div className="space-y-1 min-w-[80px]">
+                                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1">
+                                            <Hash className="w-3 h-3 text-[#CE9F6B]" /> Entries
                                         </p>
-                                        <p className="font-black text-2xl text-slate-700 tabular-nums">{pendingPayments.length}</p>
+                                        <p className="font-black text-xl lg:text-3xl text-[#546A7A] tabular-nums leading-none">{pendingPayments.length}</p>
                                     </div>
                                     <div className="w-px h-10 bg-slate-100 hidden lg:block" />
-                                    <div className="space-y-1">
-                                        <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400 flex items-center gap-1">
-                                            <Building2 className="w-3 h-3" /> Vendors
+                                    <div className="space-y-1 min-w-[80px]">
+                                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1">
+                                            <Building2 className="w-3 h-3 text-[#6F8A9D]" /> Vendors
                                         </p>
-                                        <p className="font-black text-2xl text-[#6F8A9D] tabular-nums">{stats.selectedVendors}</p>
+                                        <p className="font-black text-xl lg:text-3xl text-[#6F8A9D] tabular-nums leading-none">{stats.selectedVendors}</p>
                                     </div>
                                     <div className="w-px h-10 bg-slate-100 hidden lg:block" />
-                                    <div className="space-y-1">
-                                        <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400 flex items-center gap-1">
-                                            <IndianRupee className="w-3 h-3" /> Total Disbursement
+                                    <div className="space-y-1 min-w-[120px]">
+                                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1">
+                                            <IndianRupee className="w-3 h-3 text-[#82A094]" /> Total Amount
                                         </p>
-                                        <p className="font-black text-2xl text-[#B18E63] tabular-nums">
+                                        <p className="font-black text-xl lg:text-3xl text-[#B18E63] tabular-nums leading-none">
                                             {activeCurrencySymbol}{stats.totalAmount.toLocaleString('en-IN')}
                                         </p>
                                     </div>
+                                    
                                     {stats.validPayments < stats.totalRecords && (
-                                        <>
-                                            <div className="w-px h-10 bg-slate-100 hidden lg:block" />
-                                            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-50 border border-amber-100">
-                                                <AlertCircle className="w-4 h-4 text-amber-500" />
-                                                <p className="text-[11px] text-amber-700 font-bold">
-                                                    {stats.totalRecords - stats.validPayments} row{stats.totalRecords - stats.validPayments > 1 ? 's' : ''} missing amount
-                                                </p>
-                                            </div>
-                                        </>
-                                    )}
-                                    {currencyFilter !== 'ALL' && (
-                                        <>
-                                            <div className="w-px h-10 bg-slate-100 hidden lg:block" />
-                                            <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#82A094]/10 border border-[#82A094]/20">
-                                                <span className="text-sm font-black text-[#4F6A64]">{activeCurrencySymbol}</span>
-                                                <p className="text-[11px] text-[#4F6A64] font-bold">
-                                                    {currencyFilter} Batch
-                                                </p>
-                                            </div>
-                                        </>
+                                        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-50 border border-amber-100 w-full lg:w-auto">
+                                            <AlertCircle className="w-4 h-4 text-amber-500 animate-pulse" />
+                                            <p className="text-[10px] text-amber-700 font-black uppercase tracking-widest">
+                                                {stats.totalRecords - stats.validPayments} rows pending amount
+                                            </p>
+                                        </div>
                                     )}
                                 </div>
 
-                                {/* Right side — Export badge + Actions */}
-                                <div className="flex items-center gap-3 shrink-0">
-                                    {/* Export format badge */}
-                                    <div className={cn(
-                                        'flex items-center gap-2 px-3.5 py-2 rounded-xl border transition-all',
-                                        exportFormat === 'HDFC'
-                                            ? 'bg-[#B18E63]/[0.07] border-[#B18E63]/20 text-[#976E44]'
-                                            : 'bg-[#6F8A9D]/[0.07] border-[#6F8A9D]/20 text-[#546A7A]'
-                                    )}>
-                                        {exportFormat === 'HDFC' ? (
-                                            <Landmark className="w-3.5 h-3.5" />
-                                        ) : (
-                                            <Banknote className="w-3.5 h-3.5" />
-                                        )}
-                                        <span className="text-[11px] font-bold">
-                                            {exportFormat === 'HDFC' ? 'HDFC' : 'DB'}
-                                        </span>
-                                    </div>
+                                {/* Right side — Actions */}
+                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
+                                    <div className="flex items-center justify-between sm:justify-start gap-2">
+                                        <Button 
+                                            variant="ghost" 
+                                            className="grow-0 sm:grow text-red-400 hover:text-red-500 hover:bg-red-50 font-black text-[10px] uppercase tracking-[0.15em] rounded-xl h-12 lg:h-14 px-4" 
+                                            onClick={() => {
+                                                if(confirm('Clear all pending payments?')) {
+                                                    setPendingPayments([]);
+                                                    toast.success('All payments cleared');
+                                                }
+                                            }}
+                                        >
+                                            <Trash2 className="w-3.5 h-3.5 mr-2" />
+                                            Clear
+                                        </Button>
 
-                                    <Button 
-                                        variant="ghost" 
-                                        className="text-red-400 hover:text-red-500 hover:bg-red-50 font-bold text-xs rounded-xl h-11" 
-                                        onClick={() => {
-                                            if(confirm('Clear all pending payments?')) {
-                                                setPendingPayments([]);
-                                                toast.success('All payments cleared');
-                                            }
-                                        }}
-                                    >
-                                        <Trash2 className="w-3.5 h-3.5 mr-1.5" />
-                                        Clear
-                                    </Button>
+                                        <div className={cn(
+                                            'flex items-center gap-2 px-4 rounded-2xl border transition-all h-12 lg:h-14',
+                                            exportFormat === 'HDFC'
+                                                ? 'bg-[#B18E63]/10 border-[#B18E63]/20 text-[#976E44]'
+                                                : 'bg-[#6F8A9D]/10 border-[#6F8A9D]/20 text-[#546A7A]'
+                                        )}>
+                                            {exportFormat === 'HDFC' ? <Landmark className="w-4 h-4" /> : <Banknote className="w-4 h-4" />}
+                                            <span className="text-[10px] font-black uppercase tracking-widest">{exportFormat}</span>
+                                        </div>
+                                    </div>
 
                                     <Button
                                         size="lg"
                                         onClick={handleSubmitForApproval}
                                         disabled={submittingBatch || pendingPayments.length === 0}
                                         className={cn(
-                                            'text-white shadow-lg hover:shadow-xl transition-all border-0 rounded-xl hover:scale-[1.02] h-12 px-8 font-bold',
+                                            'text-white shadow-xl hover:shadow-2xl hover:brightness-110 transition-all border-0 rounded-2xl hover:scale-[1.02] h-12 lg:h-14 lg:px-10 font-black uppercase tracking-[0.15em] text-xs',
                                             exportFormat === 'HDFC'
-                                                ? 'bg-gradient-to-r from-[#B18E63] to-[#976E44] hover:from-[#A17E53] hover:to-[#875E34]'
-                                                : 'bg-gradient-to-r from-[#6F8A9D] to-[#546A7A] hover:from-[#5F7A8D] hover:to-[#445A6A]'
+                                                ? 'bg-gradient-to-r from-[#B18E63] to-[#976E44]'
+                                                : 'bg-gradient-to-r from-[#6F8A9D] to-[#546A7A]'
                                         )}
                                     >
                                         {submittingBatch ? (
                                             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                                         ) : (
-                                            <Send className="w-4 h-4 mr-2" />
+                                            <Send className="w-4 h-4 mr-2 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
                                         )}
-                                        <span className="text-sm">Submit for Approval</span>
+                                        <span>Submit Batch</span>
                                     </Button>
                                 </div>
                             </div>

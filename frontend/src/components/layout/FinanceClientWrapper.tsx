@@ -16,7 +16,7 @@ interface FinanceLayoutProps {
   children: ReactNode;
 }
 
-type FinanceRoleType = 'FINANCE_ADMIN' | 'FINANCE_USER' | 'FINANCE_VIEWER';
+type FinanceRoleType = 'FINANCE_ADMIN' | 'FINANCE_USER' | 'FINANCE_VIEWER' | 'FINANCE_APPROVER';
 
 interface NavItem {
   href: string;
@@ -59,6 +59,9 @@ function FinanceSidebar({
     const userFinanceRole = (user as any)?.financeRole as FinanceRoleType | undefined;
     
     return allNavItems.filter(item => {
+      // Finance Approver cannot see any AR items
+      if (userFinanceRole === 'FINANCE_APPROVER') return false;
+      
       if (!item.roles) return true;
       if (!userFinanceRole) return false;
       if (userFinanceRole === 'FINANCE_ADMIN') return true;

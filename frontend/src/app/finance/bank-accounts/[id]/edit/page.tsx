@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { arApi, BankAccount } from '@/lib/ar-api';
 import { useAuth } from '@/contexts/AuthContext';
 import { FinanceRole } from '@/types/user.types';
@@ -13,16 +13,14 @@ import {
   CheckCircle2, Mail, CreditCard, Hash, User, Loader2,
   Info, ArrowRight, FileSpreadsheet, Globe, Shield,
   Upload, FileText, FileIcon, Trash2, Download,
-  FileImage, File, Eye, ChevronDown, X, BadgeCheck
+  FileImage, File, Eye, X, BadgeCheck
 } from 'lucide-react';
-import FilePreview from '@/components/FilePreview';
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from '@/components/ui/select';
+// Lazy-load FilePreview — it pulls in the heavy `xlsx` library (~1MB).
+// This keeps it out of the initial page bundle entirely.
+const FilePreview = dynamic(() => import('@/components/FilePreview'), {
+  ssr: false,
+  loading: () => null,
+});
 
 interface FormData {
   bpCode: string;
@@ -634,7 +632,7 @@ export default function EditBankAccountPage() {
                     name="bpCode"
                     value={formData.bpCode}
                     onChange={handleChange}
-                    maxLength={15}
+                    maxLength={7}
                     inputMode="numeric"
                     pattern="[0-9]*"
                     className={`w-full px-4 py-3.5 bg-[#F8FAFB] border rounded-xl text-[#546A7A] focus:outline-none focus:ring-2 focus:ring-[#CE9F6B]/20 focus:bg-white transition-all uppercase tracking-wider font-bold ${

@@ -116,3 +116,9 @@ storage/
 # Package lock files (optional - uncomment if you want to ignore them)
 # package-lock.json
 # yarn.lock
+
+# Agentic Workflows and Documentation
+.agent/
+docs/requirements.md
+docs/design.md
+docs/test-report.md

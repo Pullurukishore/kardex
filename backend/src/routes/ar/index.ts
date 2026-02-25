@@ -27,6 +27,7 @@ import {
     requireFinanceAdmin,
     requireFinanceWrite,
     requireFinanceRead,
+    requireARRead,
     requireFinanceDelete,
     requireFinanceApprover,
 } from '../../middleware/finance.middleware';
@@ -45,26 +46,26 @@ router.use(requireFinanceAccess);
 // View: All finance users
 // ═══════════════════════════════════════════════════════════════════════════
 // NEW: Essential dashboard with performance indicators
-router.get('/dashboard/essential', requireFinanceRead, dashboardController.getEssentialDashboard);
+router.get('/dashboard/essential', requireARRead, dashboardController.getEssentialDashboard);
 
 // Legacy endpoints (backward compatibility)
-router.get('/dashboard/kpis', requireFinanceRead, dashboardController.getDashboardKPIs);
-router.get('/dashboard/aging', requireFinanceRead, dashboardController.getAgingAnalysis);
-router.get('/dashboard/collection-trend', requireFinanceRead, dashboardController.getCollectionTrend);
-router.get('/dashboard/status-distribution', requireFinanceRead, dashboardController.getStatusDistribution);
-router.get('/dashboard/risk-distribution', requireFinanceRead, dashboardController.getRiskDistribution);
-router.get('/dashboard/critical-overdue', requireFinanceRead, dashboardController.getCriticalOverdue);
-router.get('/dashboard/top-customers', requireFinanceRead, dashboardController.getTopCustomers);
-router.get('/dashboard/recent-payments', requireFinanceRead, dashboardController.getRecentPayments);
+router.get('/dashboard/kpis', requireARRead, dashboardController.getDashboardKPIs);
+router.get('/dashboard/aging', requireARRead, dashboardController.getAgingAnalysis);
+router.get('/dashboard/collection-trend', requireARRead, dashboardController.getCollectionTrend);
+router.get('/dashboard/status-distribution', requireARRead, dashboardController.getStatusDistribution);
+router.get('/dashboard/risk-distribution', requireARRead, dashboardController.getRiskDistribution);
+router.get('/dashboard/critical-overdue', requireARRead, dashboardController.getCriticalOverdue);
+router.get('/dashboard/top-customers', requireARRead, dashboardController.getTopCustomers);
+router.get('/dashboard/recent-payments', requireARRead, dashboardController.getRecentPayments);
 
 
 // ═══════════════════════════════════════════════════════════════════════════
 // INVOICE ROUTES
 // View: All | Create/Edit: Admin & User | Delete: Admin only
 // ═══════════════════════════════════════════════════════════════════════════
-router.get('/invoices', requireFinanceRead, invoiceController.getAllInvoices);
+router.get('/invoices', requireARRead, invoiceController.getAllInvoices);
 
-router.get('/invoices/:id', requireFinanceRead, invoiceController.getInvoiceById);
+router.get('/invoices/:id', requireARRead, invoiceController.getInvoiceById);
 router.post('/invoices', requireFinanceWrite, invoiceController.createInvoice);
 router.put('/invoices/:id', requireFinanceWrite, invoiceController.updateInvoice);
 router.delete('/invoices/:id', requireFinanceDelete, invoiceController.deleteInvoice);
@@ -73,22 +74,22 @@ router.post('/invoices/update-overdue', requireFinanceWrite, invoiceController.u
 router.post('/invoices/:id/payments', requireFinanceWrite, invoiceController.addPaymentRecord);
 router.put('/invoices/:id/payments/:paymentId', requireFinanceWrite, invoiceController.updatePaymentRecord);
 router.delete('/invoices/:id/payments/:paymentId', requireFinanceWrite, invoiceController.deletePaymentRecord);
-router.get('/invoices/:id/remarks', requireFinanceRead, invoiceController.getInvoiceRemarks);
+router.get('/invoices/:id/remarks', requireARRead, invoiceController.getInvoiceRemarks);
 router.post('/invoices/:id/remarks', requireFinanceWrite, invoiceController.addInvoiceRemark);
-router.get('/invoices/:id/activity', requireFinanceRead, invoiceController.getInvoiceActivityLog);
+router.get('/invoices/:id/activity', requireARRead, invoiceController.getInvoiceActivityLog);
 
 // Prepaid Invoice Linking Routes
-router.get('/invoices/:id/matching-prepaids', requireFinanceRead, invoiceController.getMatchingPrepaids);
+router.get('/invoices/:id/matching-prepaids', requireARRead, invoiceController.getMatchingPrepaids);
 router.post('/invoices/:id/accept-prepaid', requireFinanceWrite, invoiceController.acceptPrepaid);
-router.get('/invoices/:id/linked-prepaid', requireFinanceRead, invoiceController.getLinkedPrepaidDetails);
+router.get('/invoices/:id/linked-prepaid', requireARRead, invoiceController.getLinkedPrepaidDetails);
 
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CUSTOMER ROUTES
 // View: All | Create/Edit: Admin & User | Delete: Admin only
 // ═══════════════════════════════════════════════════════════════════════════
-router.get('/customers', requireFinanceRead, customerController.getAllCustomers);
-router.get('/customers/:id', requireFinanceRead, customerController.getCustomerById);
+router.get('/customers', requireARRead, customerController.getAllCustomers);
+router.get('/customers/:id', requireARRead, customerController.getCustomerById);
 router.post('/customers', requireFinanceWrite, customerController.createCustomer);
 router.put('/customers/:id', requireFinanceWrite, customerController.updateCustomer);
 router.delete('/customers/:id', requireFinanceDelete, customerController.deleteCustomer);
@@ -97,10 +98,10 @@ router.delete('/customers/:id', requireFinanceDelete, customerController.deleteC
 // PAYMENT TERMS ROUTES
 // View: All | Create/Edit: Admin only
 // ═══════════════════════════════════════════════════════════════════════════
-router.get('/payment-terms', requireFinanceRead, paymentTermsController.getAllPaymentTerms);
+router.get('/payment-terms', requireARRead, paymentTermsController.getAllPaymentTerms);
 router.post('/payment-terms', requireFinanceAdmin, paymentTermsController.createPaymentTerm);
 router.post('/payment-terms/seed', requireFinanceAdmin, paymentTermsController.seedPaymentTerms);
-router.get('/payment-terms/:id', requireFinanceRead, paymentTermsController.getPaymentTermById);
+router.get('/payment-terms/:id', requireARRead, paymentTermsController.getPaymentTermById);
 router.put('/payment-terms/:id', requireFinanceAdmin, paymentTermsController.updatePaymentTerm);
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -179,29 +180,29 @@ router.get('/activities/recent', requireFinanceAdmin, activityController.getRece
 // ═══════════════════════════════════════════════════════════════════════════
 
 // Aging Reports
-router.get('/reports/aging/detailed', requireFinanceRead, reportsController.getDetailedAgingReport);
-router.get('/reports/aging/summary', requireFinanceRead, reportsController.getAgingSummary);
-router.get('/reports/aging/customer', requireFinanceRead, reportsController.getCustomerAgingReport);
-router.get('/reports/aging/risk', requireFinanceRead, reportsController.getRiskAgingReport);
+router.get('/reports/aging/detailed', requireARRead, reportsController.getDetailedAgingReport);
+router.get('/reports/aging/summary', requireARRead, reportsController.getAgingSummary);
+router.get('/reports/aging/customer', requireARRead, reportsController.getCustomerAgingReport);
+router.get('/reports/aging/risk', requireARRead, reportsController.getRiskAgingReport);
 
 // Collection Reports
-router.get('/reports/collections/trends', requireFinanceRead, reportsController.getCollectionTrends);
-router.get('/reports/collections/payment-modes', requireFinanceRead, reportsController.getPaymentModeAnalysis);
-router.get('/reports/collections/bankwise', requireFinanceRead, reportsController.getBankwiseCollections);
-router.get('/reports/dso', requireFinanceRead, reportsController.getDSOReport);
+router.get('/reports/collections/trends', requireARRead, reportsController.getCollectionTrends);
+router.get('/reports/collections/payment-modes', requireARRead, reportsController.getPaymentModeAnalysis);
+router.get('/reports/collections/bankwise', requireARRead, reportsController.getBankwiseCollections);
+router.get('/reports/dso', requireARRead, reportsController.getDSOReport);
 
 // Customer Reports
-router.get('/reports/customers/outstanding', requireFinanceRead, reportsController.getTopOutstandingCustomers);
-router.get('/reports/customers/risk', requireFinanceRead, reportsController.getCustomerRiskReport);
+router.get('/reports/customers/outstanding', requireARRead, reportsController.getTopOutstandingCustomers);
+router.get('/reports/customers/risk', requireARRead, reportsController.getCustomerRiskReport);
 
 // Invoice Reports
-router.get('/reports/invoices/status', requireFinanceRead, reportsController.getInvoiceStatusSummary);
-router.get('/reports/invoices/prepaid', requireFinanceRead, reportsController.getPrepaidAnalysisReport);
-router.get('/reports/invoices/delivery', requireFinanceRead, reportsController.getDeliveryStatusReport);
+router.get('/reports/invoices/status', requireARRead, reportsController.getInvoiceStatusSummary);
+router.get('/reports/invoices/prepaid', requireARRead, reportsController.getPrepaidAnalysisReport);
+router.get('/reports/invoices/delivery', requireARRead, reportsController.getDeliveryStatusReport);
 
 // Legacy report endpoints (backward compatibility)
-router.get('/reports/aging', requireFinanceRead, reportsController.getAgingReport);
-router.get('/reports/collection-efficiency', requireFinanceRead, reportsController.getCollectionEfficiency);
+router.get('/reports/aging', requireARRead, reportsController.getAgingReport);
+router.get('/reports/collection-efficiency', requireARRead, reportsController.getCollectionEfficiency);
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PAYMENT BATCH ROUTES - Request & Approval Workflow

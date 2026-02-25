@@ -25,6 +25,7 @@ const nextConfig = {
       'clsx',
       'tailwind-merge',
       'axios',
+      'cookies-next',
       'zod',
       'xlsx',
       'exceljs',

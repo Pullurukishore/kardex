@@ -409,7 +409,7 @@ export default function InvoiceViewPage() {
         
         <div className="relative p-8">
           {/* Top Row - Back & Actions */}
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
             <Link 
               href="/finance/ar/invoices"
               className="flex items-center gap-2 text-[#5D6E73] hover:text-[#546A7A] transition-colors group"
@@ -420,7 +420,7 @@ export default function InvoiceViewPage() {
               <span className="font-medium">Back to Invoices</span>
             </Link>
             
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
               <button
                 onClick={() => loadInvoice(params.id as string)}
                 className="p-2.5 rounded-xl bg-[#AEBFC3]/10 text-[#5D6E73] hover:bg-[#AEBFC3]/20 transition-colors"
@@ -430,14 +430,15 @@ export default function InvoiceViewPage() {
               </button>
               <button
                 onClick={() => setShowPaymentModal(true)}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#82A094] to-[#4F6A64] text-white font-semibold hover:shadow-lg hover:shadow-[#82A094]/30 transition-all"
+                className="flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#82A094] to-[#4F6A64] text-white font-semibold hover:shadow-lg hover:shadow-[#82A094]/30 transition-all text-sm sm:text-base"
               >
                 <IndianRupee className="w-4 h-4" />
-                Record Payment
+                <span className="hidden xs:inline">Record Payment</span>
+                <span className="xs:hidden">Pay</span>
               </button>
               <Link
                 href={`/finance/ar/invoices/${encodeURIComponent(invoice.invoiceNumber)}/edit`}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#546A7A] text-white font-semibold hover:bg-[#6F8A9D] transition-colors"
+                className="flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl bg-[#546A7A] text-white font-semibold hover:bg-[#6F8A9D] transition-colors text-sm sm:text-base"
               >
                 <Pencil className="w-4 h-4" />
                 Edit
@@ -453,16 +454,16 @@ export default function InvoiceViewPage() {
           </div>
           
           {/* Invoice Identity */}
-          <div className="flex items-start justify-between gap-8">
-            <div className="flex-1">
+          <div className="flex flex-col md:flex-row md:items-start justify-between gap-8">
+            <div className="flex-1 w-full">
               {/* Invoice Number with Copy */}
               <div className="flex items-center gap-3 mb-4">
-                <div className="p-3 rounded-2xl bg-gradient-to-br from-[#E17F70] to-[#CE9F6B] shadow-lg shadow-[#E17F70]/20">
-                  <FileText className="w-8 h-8 text-white" />
+                <div className="p-2.5 sm:p-3 rounded-2xl bg-gradient-to-br from-[#E17F70] to-[#CE9F6B] shadow-lg shadow-[#E17F70]/20 flex-shrink-0">
+                  <FileText className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h1 className="text-3xl font-bold text-[#546A7A]">{invoice.invoiceNumber}</h1>
+                    <h1 className="text-xl sm:text-3xl font-bold text-[#546A7A] break-all">{invoice.invoiceNumber}</h1>
                     <button
                       onClick={() => copyToClipboard(invoice.invoiceNumber)}
                       className="p-1.5 rounded-lg hover:bg-[#AEBFC3]/20 transition-colors"
@@ -471,35 +472,35 @@ export default function InvoiceViewPage() {
                       <Copy className="w-4 h-4 text-[#92A2A5]" />
                     </button>
                   </div>
-                  <p className="text-[#92A2A5] text-sm mt-0.5">
+                  <p className="text-[#92A2A5] text-xs sm:text-sm mt-0.5">
                     Created on {formatARDate(invoice.invoiceDate)}
                   </p>
                 </div>
               </div>
               
               {/* Customer Info */}
-              <div className="flex items-center gap-6 mt-6">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 mt-6">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#6F8A9D] to-[#546A7A] flex items-center justify-center text-white text-lg font-bold shadow-lg">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-[#6F8A9D] to-[#546A7A] flex items-center justify-center text-white text-base sm:text-lg font-bold shadow-lg flex-shrink-0">
                     {invoice.customerName.charAt(0)}
                   </div>
                   <div>
-                    <p className="font-bold text-[#546A7A]">{invoice.customerName}</p>
-                    <p className="text-sm text-[#92A2A5] font-mono">{invoice.bpCode}</p>
+                    <p className="font-bold text-[#546A7A] text-sm sm:text-base">{invoice.customerName}</p>
+                    <p className="text-xs sm:text-sm text-[#92A2A5] font-mono">{invoice.bpCode}</p>
                   </div>
                 </div>
                 
                 {invoice.region && (
-                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#AEBFC3]/10">
+                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#AEBFC3]/10 w-fit">
                     <MapPin className="w-4 h-4 text-[#6F8A9D]" />
-                    <span className="text-sm text-[#5D6E73]">{invoice.region}</span>
+                    <span className="text-xs sm:text-sm text-[#5D6E73]">{invoice.region}</span>
                   </div>
                 )}
               </div>
             </div>
             
             {/* Status & Risk Badges */}
-            <div className="flex flex-col items-end gap-3">
+            <div className="flex flex-col items-start md:items-end gap-3 w-full md:w-auto">
               {/* Prepaid Badge - Prominent */}
               {isPrepaid && (
                 <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-[#CE9F6B] to-[#E17F70] text-white shadow-lg shadow-[#CE9F6B]/30">
@@ -561,7 +562,7 @@ export default function InvoiceViewPage() {
       {/* Financial Summary - Premium Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         {/* Total Amount */}
-        <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#546A7A] via-[#6F8A9D] to-[#546A7A] p-6 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02]">
+        <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#546A7A] via-[#6F8A9D] to-[#546A7A] p-4 sm:p-6 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02]">
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500" />
           <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full -ml-12 -mb-12" />
           <div className="relative">
@@ -569,15 +570,15 @@ export default function InvoiceViewPage() {
               <div className="p-2 rounded-lg bg-white/20">
                 <Banknote className="w-5 h-5 text-white" />
               </div>
-              <span className="text-white/80 text-sm font-medium">Total Amount</span>
+              <span className="text-white/80 text-xs sm:text-sm font-medium">Total Amount</span>
             </div>
-            <p className="text-2xl font-bold text-white">{formatARCurrency(totalAmount)}</p>
-            <p className="text-white/60 text-xs mt-2">Invoice value</p>
+            <p className="text-lg sm:text-2xl font-bold text-white">{formatARCurrency(totalAmount)}</p>
+            <p className="text-white/60 text-[10px] sm:text-xs mt-2">Invoice value</p>
           </div>
         </div>
 
         {/* Net Amount */}
-        <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#6F8A9D] via-[#96AEC2] to-[#6F8A9D] p-6 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02]">
+        <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#6F8A9D] via-[#96AEC2] to-[#6F8A9D] p-4 sm:p-6 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02]">
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500" />
           <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full -ml-12 -mb-12" />
           <div className="relative">
@@ -585,15 +586,15 @@ export default function InvoiceViewPage() {
               <div className="p-2 rounded-lg bg-white/20">
                 <Scale className="w-5 h-5 text-white" />
               </div>
-              <span className="text-white/80 text-sm font-medium">Net Amount</span>
+              <span className="text-white/80 text-xs sm:text-sm font-medium">Net Amount</span>
             </div>
-            <p className="text-2xl font-bold text-white">{formatARCurrency(netAmount)}</p>
-            <p className="text-white/60 text-xs mt-2">Before tax</p>
+            <p className="text-lg sm:text-2xl font-bold text-white">{formatARCurrency(netAmount)}</p>
+            <p className="text-white/60 text-[10px] sm:text-xs mt-2">Before tax</p>
           </div>
         </div>
 
         {/* Tax Amount */}
-        <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#CE9F6B] via-[#976E44] to-[#CE9F6B] p-6 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02]">
+        <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#CE9F6B] via-[#976E44] to-[#CE9F6B] p-4 sm:p-6 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02]">
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500" />
           <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full -ml-12 -mb-12" />
           <div className="relative">
@@ -601,15 +602,15 @@ export default function InvoiceViewPage() {
               <div className="p-2 rounded-lg bg-white/20">
                 <Receipt className="w-5 h-5 text-white" />
               </div>
-              <span className="text-white/80 text-sm font-medium">Tax Amount</span>
+              <span className="text-white/80 text-xs sm:text-sm font-medium">Tax Amount</span>
             </div>
-            <p className="text-2xl font-bold text-white">{formatARCurrency(taxAmount)}</p>
-            <p className="text-white/60 text-xs mt-2">GST/VAT applied</p>
+            <p className="text-lg sm:text-2xl font-bold text-white">{formatARCurrency(taxAmount)}</p>
+            <p className="text-white/60 text-[10px] sm:text-xs mt-2">GST/VAT applied</p>
           </div>
         </div>
 
         {/* Receipts */}
-        <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#82A094] via-[#4F6A64] to-[#82A094] p-6 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02]">
+        <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#82A094] via-[#4F6A64] to-[#82A094] p-4 sm:p-6 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02]">
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500" />
           <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full -ml-12 -mb-12" />
           <div className="relative">
@@ -617,18 +618,18 @@ export default function InvoiceViewPage() {
               <div className="p-2 rounded-lg bg-white/20">
                 <ArrowDownRight className="w-5 h-5 text-white" />
               </div>
-              <span className="text-white/80 text-sm font-medium">Receipts</span>
+              <span className="text-white/80 text-xs sm:text-sm font-medium">Receipts</span>
             </div>
-            <p className="text-2xl font-bold text-white">{formatARCurrency(totalReceived)}</p>
+            <p className="text-lg sm:text-2xl font-bold text-white">{formatARCurrency(totalReceived)}</p>
             <div className="flex items-center gap-1 mt-2">
               <ArrowUpRight className="w-3 h-3 text-white/80" />
-              <span className="text-white/80 text-xs">{Math.round(paymentProgress)}% collected</span>
+              <span className="text-white/80 text-[10px] sm:text-xs">{Math.round(paymentProgress)}% collected</span>
             </div>
           </div>
         </div>
 
         {/* Balance */}
-        <div className={`group relative overflow-hidden rounded-2xl p-6 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02] ${
+        <div className={`group relative overflow-hidden rounded-2xl p-4 sm:p-6 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02] ${
           balanceAmount <= 0 
             ? 'bg-gradient-to-br from-[#82A094] via-[#4F6A64] to-[#82A094]' 
             : isOverdue 
@@ -642,16 +643,16 @@ export default function InvoiceViewPage() {
               <div className="p-2 rounded-lg bg-white/20">
                 <Wallet className="w-5 h-5 text-white" />
               </div>
-              <span className="text-white/80 text-sm font-medium">Balance Due</span>
+              <span className="text-white/80 text-xs sm:text-sm font-medium">Balance Due</span>
             </div>
-            <p className="text-3xl font-bold text-white">{formatARCurrency(Math.abs(balanceAmount))}</p>
-            <p className="text-white/60 text-xs mt-2 flex items-center gap-1">
+            <p className="text-xl sm:text-3xl font-bold text-white">{formatARCurrency(Math.abs(balanceAmount))}</p>
+            <p className="text-white/60 text-[10px] sm:text-xs mt-2 flex items-center gap-1">
               {balanceAmount <= 0 ? (
                 <><BadgeCheck className="w-3 h-3" /> Fully Paid</>
               ) : isOverdue ? (
-                <><AlertTriangle className="w-3 h-3" /> Payment overdue</>
+                <><AlertTriangle className="w-3 h-3" /> Overdue</>
               ) : (
-                <><Clock className="w-3 h-3" /> Pending payment</>
+                <><Clock className="w-3 h-3" /> Pending</>
               )}
             </p>
           </div>
@@ -678,11 +679,11 @@ export default function InvoiceViewPage() {
           </div>
           
           {/* Milestone Strip */}
-          <div className="relative">
+          <div className="relative overflow-x-auto pb-4 scrollbar-hide -mx-2 px-2">
             {/* Background Line */}
-            <div className="absolute top-8 left-6 right-6 h-1.5 bg-[#AEBFC3]/20 rounded-full" />
+            <div className="absolute top-8 left-6 right-6 h-1.5 bg-[#AEBFC3]/20 rounded-full min-w-[600px]" />
             
-            <div className="grid grid-cols-5 gap-4 relative z-10">
+            <div className="flex justify-between gap-4 relative z-10 min-w-[600px]">
               {[
                 { id: 'ADVANCE', label: 'Adv Date', date: invoice.advanceReceivedDate, icon: Wallet },
                 { id: 'INVOICE', label: 'Invoice Date', date: invoice.invoiceDate, icon: FileText },
@@ -690,8 +691,8 @@ export default function InvoiceViewPage() {
                 { id: 'GRN', label: 'GRN Date', date: invoice.grnDate, icon: Package },
                 { id: 'OTHERS', label: 'Others', date: invoice.othersDate, icon: Tag },
               ].map((m) => (
-                <div key={m.id} className="flex flex-col items-center group">
-                  <div className={`w-16 h-16 rounded-2xl flex flex-col items-center justify-center transition-all duration-300 relative ${
+                <div key={m.id} className="flex flex-col items-center group w-24">
+                  <div className={`w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex flex-col items-center justify-center transition-all duration-300 relative ${
                     m.date 
                       ? invoice.agingMilestone === m.id 
                         ? 'bg-gradient-to-br from-[#CE9F6B] to-[#976E44] shadow-xl shadow-[#CE9F6B]/30 scale-110 z-20' 
@@ -699,23 +700,23 @@ export default function InvoiceViewPage() {
                       : 'bg-[#AEBFC3]/10 border-2 border-[#AEBFC3]/10 opacity-50'
                   }`}>
                     {invoice.agingMilestone === m.id && (
-                      <div className="absolute -top-3 -right-3 p-1 rounded-full bg-white shadow-md border border-[#CE9F6B]">
-                        <CheckCircle className="w-4 h-4 text-[#976E44]" />
+                      <div className="absolute -top-2 -right-2 p-1 rounded-full bg-white shadow-md border border-[#CE9F6B]">
+                        <CheckCircle className="w-3 h-3 text-[#976E44]" />
                       </div>
                     )}
-                    <m.icon className={`w-6 h-6 mb-1 ${
+                    <m.icon className={`w-5 h-5 sm:w-6 sm:h-6 mb-1 ${
                       m.date 
                         ? invoice.agingMilestone === m.id ? 'text-white' : 'text-[#CE9F6B]'
                         : 'text-[#92A2A5]'
                     }`} />
                     {invoice.agingMilestone === m.id && (
-                      <span className="text-[8px] font-black tracking-tighter text-white uppercase opacity-80">Aging Base</span>
+                      <span className="text-[7px] sm:text-[8px] font-black tracking-tighter text-white uppercase opacity-80">Aging Base</span>
                     )}
                   </div>
                   
                   <div className="mt-3 text-center">
-                    <p className={`text-xs font-bold ${m.date ? 'text-[#546A7A]' : 'text-[#92A2A5]'}`}>{m.label}</p>
-                    <p className={`text-[10px] whitespace-nowrap ${
+                    <p className={`text-[10px] sm:text-xs font-bold ${m.date ? 'text-[#546A7A]' : 'text-[#92A2A5]'}`}>{m.label}</p>
+                    <p className={`text-[9px] sm:text-[10px] whitespace-nowrap ${
                       m.date 
                         ? invoice.agingMilestone === m.id ? 'text-[#976E44] font-bold' : 'text-[#92A2A5]'
                         : 'text-[#AEBFC3]'
@@ -728,25 +729,25 @@ export default function InvoiceViewPage() {
             </div>
           </div>
 
-          <div className="mt-8 pt-6 border-t border-[#AEBFC3]/10 flex items-center justify-between">
-            <div className="flex gap-4">
+          <div className="mt-8 pt-6 border-t border-[#AEBFC3]/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+            <div className="flex flex-wrap gap-4">
               <div className="bg-[#AEBFC3]/10 px-4 py-2 rounded-xl">
                 <span className="text-xs text-[#92A2A5] block">Expected Delivery</span>
-                <span className="font-bold text-[#546A7A]">{invoice.deliveryDueDate ? formatARDate(invoice.deliveryDueDate) : 'N/A'}</span>
+                <span className="font-bold text-[#546A7A] text-sm sm:text-base">{invoice.deliveryDueDate ? formatARDate(invoice.deliveryDueDate) : 'N/A'}</span>
               </div>
               <div className={`px-4 py-2 rounded-xl ${isDeliveryOverdue ? 'bg-[#E17F70]/10' : 'bg-[#82A094]/10'}`}>
                 <span className="text-xs text-[#92A2A5] block">Delivery Status</span>
-                <span className={`font-bold ${isDeliveryOverdue ? 'text-[#9E3B47]' : 'text-[#4F6A64]'}`}>
+                <span className={`font-bold text-sm sm:text-base ${isDeliveryOverdue ? 'text-[#9E3B47]' : 'text-[#4F6A64]'}`}>
                   {isDeliveryOverdue ? 'Overdue' : invoice.prepaidStatus?.replace('_', ' ') || 'Pending'}
                 </span>
               </div>
             </div>
             
-            <div className="text-right">
+            <div className="text-left sm:text-right">
               <span className="text-xs text-[#92A2A5] block">Days Left / Overdue</span>
               <div className="flex items-center gap-2">
                 <Timer className={`w-4 h-4 ${daysOverdue > 0 ? 'text-[#E17F70]' : 'text-[#82A094]'}`} />
-                <span className={`text-xl font-black ${daysOverdue > 0 ? 'text-[#9E3B47]' : 'text-[#4F6A64]'}`}>
+                <span className={`text-lg sm:text-xl font-black ${daysOverdue > 0 ? 'text-[#9E3B47]' : 'text-[#4F6A64]'}`}>
                   {daysOverdue > 0 ? `${daysOverdue} Days Overdue` : `${Math.abs(daysOverdue)} Days Left`}
                 </span>
               </div>
@@ -827,13 +828,13 @@ export default function InvoiceViewPage() {
 
         return (
         <div className={`bg-gradient-to-r ${gradientFrom} ${gradientTo} rounded-2xl border border-${linkedCount > 0 ? '[#82A094]/30' : '[#CE9F6B]/30'} p-6 shadow-lg mb-6`}>
-          <div className="flex items-start justify-between">
+          <div className="flex flex-col lg:flex-row items-start justify-between gap-6">
             <div className="flex items-start gap-4">
-              <div className={`p-3 rounded-xl bg-gradient-to-br ${iconGradient} shadow-lg ${shadowColor} mt-1`}>
+              <div className={`p-3 rounded-xl bg-gradient-to-br ${iconGradient} shadow-lg ${shadowColor} mt-1 flex-shrink-0`}>
                 {linkedCount > 0 ? <BadgeCheck className="w-6 h-6 text-white" /> : <Wallet className="w-6 h-6 text-white" />}
               </div>
               <div>
-                <h3 className="font-bold text-[#546A7A] flex items-center gap-2">
+                <h3 className="font-bold text-[#546A7A] flex items-center gap-2 flex-wrap">
                   {linkedCount > 0 ? <CheckCircle className="w-4 h-4 text-[#82A094]" /> : <Sparkles className="w-4 h-4 text-[#CE9F6B]" />}
                   {hasNewPaymentsCount > 0 ? 'New Payments Available!' : linkedCount > 0 ? 'Prepaid Invoices Linked' : 'Matching Prepaid Invoice Found!'}
                 </h3>
@@ -844,12 +845,12 @@ export default function InvoiceViewPage() {
                     <>Matching prepaid invoice found with PO <span className="font-mono font-bold text-[#546A7A]">{invoice.poNo}</span>.</>
                   )}
                   {hasNewPaymentsCount > 0 && (
-                    <span className="text-[#E17F70] font-bold animate-pulse ml-1"> • {formatARCurrency(totalNewPaymentsAmount)} new available</span>
+                    <span className="text-[#E17F70] font-bold animate-pulse block sm:inline mt-1 sm:mt-0 sm:ml-1"> • {formatARCurrency(totalNewPaymentsAmount)} new available</span>
                   )}
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 w-full sm:w-auto">
               {(availableCount > 0 || hasNewPaymentsCount > 0) && (
                 <button
                   onClick={() => setShowLinkModal(true)}
@@ -975,9 +976,9 @@ export default function InvoiceViewPage() {
                             : 'border-[#AEBFC3]/20 hover:border-[#AEBFC3]/50 cursor-pointer'
                     }`}
                   >
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                      <div className="flex items-start gap-3">
+                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-1 ${
                           (prepaid as any).linkedInvoiceId === invoice?.id && (prepaid as any).untransferredPayments === 0
                             ? 'border-[#82A094] bg-[#82A094]'
                             : selectedPrepaid?.id === prepaid.id 
@@ -986,8 +987,8 @@ export default function InvoiceViewPage() {
                         }`}>
                           {(((prepaid as any).linkedInvoiceId === invoice?.id && (prepaid as any).untransferredPayments === 0) || selectedPrepaid?.id === prepaid.id) && <CheckCircle className="w-3 h-3 text-white" />}
                         </div>
-                        <div>
-                          <div className="flex items-center gap-2 flex-wrap">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 flex-wrap mb-1">
                             <p className="font-bold text-[#546A7A]">{prepaid.invoiceNumber}</p>
                             {(prepaid as any).linkedInvoiceId === invoice?.id && (prepaid as any).untransferredPayments === 0 && (
                               <span className="px-2 py-0.5 rounded-full bg-[#82A094] text-white text-[10px] font-bold uppercase">
@@ -996,7 +997,7 @@ export default function InvoiceViewPage() {
                             )}
                             {(prepaid as any).linkedInvoiceId === invoice?.id && (prepaid as any).untransferredPayments > 0 && (
                               <span className="px-2 py-0.5 rounded-full bg-[#CE9F6B] text-white text-[10px] font-bold uppercase animate-pulse">
-                                {(prepaid as any).untransferredPayments} New Payment{(prepaid as any).untransferredPayments > 1 ? 's' : ''} • {formatARCurrency((prepaid as any).untransferredAmount)}
+                                {(prepaid as any).untransferredPayments} New
                               </span>
                             )}
                           </div>
@@ -1008,9 +1009,9 @@ export default function InvoiceViewPage() {
                           )}
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-xl font-bold text-[#82A094]">{formatARCurrency(prepaid.totalPayments)}</p>
-                        <p className="text-xs text-[#92A2A5] uppercase font-semibold">
+                      <div className="text-left sm:text-right pl-8 sm:pl-0">
+                        <p className="text-lg sm:text-xl font-bold text-[#82A094]">{formatARCurrency(prepaid.totalPayments)}</p>
+                        <p className="text-[10px] sm:text-xs text-[#92A2A5] uppercase font-semibold">
                           {(prepaid as any).linkedInvoiceId === invoice?.id ? 'Transferred' : prepaid.status}
                         </p>
                       </div>
@@ -1077,28 +1078,28 @@ export default function InvoiceViewPage() {
       )}
 
       {/* Tabs Navigation */}
-      <div className="flex items-center gap-2 bg-white rounded-2xl border border-[#AEBFC3]/20 p-2 shadow-lg mb-6">
+      <div className="flex items-center gap-2 bg-white rounded-2xl border border-[#AEBFC3]/20 p-2 shadow-lg mb-6 overflow-x-auto scrollbar-hide">
         {[
           { id: 'details', label: 'Details', icon: FileText },
-          { id: 'payments', label: 'Payment History', icon: Receipt, count: invoice.paymentHistory?.length || 0 },
+          { id: 'payments', label: 'Payments', icon: Receipt, count: invoice.paymentHistory?.length || 0 },
           { id: 'delivery', label: 'Delivery', icon: Truck },
           { id: 'remarks', label: 'Remarks', icon: MessageSquare, count: remarks.length },
-          { id: 'activity', label: 'Activity Log', icon: Clock, count: activityLogs.length },
+          { id: 'activity', label: 'Activity', icon: Clock, count: activityLogs.length },
         ].filter(tab => !isPrepaid || tab.id !== 'delivery').map((tab) => (
 
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}
-            className={`flex items-center gap-2 px-5 py-3 rounded-xl font-medium transition-all flex-1 justify-center ${
+            className={`flex items-center gap-2 px-4 sm:px-5 py-3 rounded-xl font-medium transition-all flex-1 min-w-fit whitespace-nowrap justify-center ${
               activeTab === tab.id
                 ? 'bg-gradient-to-r from-[#546A7A] to-[#6F8A9D] text-white shadow-lg'
                 : 'text-[#5D6E73] hover:bg-[#AEBFC3]/10'
             }`}
           >
             <tab.icon className="w-4 h-4" />
-            {tab.label}
+            <span className="text-sm sm:text-base">{tab.label}</span>
             {tab.count !== undefined && tab.count > 0 && (
-              <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+              <span className={`px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold ${
                 activeTab === tab.id ? 'bg-white/20' : 'bg-[#6F8A9D]/10 text-[#6F8A9D]'
               }`}>
                 {tab.count}
@@ -1305,42 +1306,44 @@ export default function InvoiceViewPage() {
                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#82A094] to-[#4F6A64] flex items-center justify-center text-white font-bold shadow-lg">
                       {index + 1}
                     </div>
-                    <div className="flex-1 grid grid-cols-5 gap-4 items-center">
-                      <div>
-                        <p className="text-xs text-[#92A2A5]">Date</p>
-                        <p className="font-medium text-[#546A7A]">{formatARDate(payment.paymentDate)}</p>
+                    <div className="flex-1 flex flex-col sm:grid sm:grid-cols-5 gap-4 items-start sm:items-center">
+                      <div className="w-full sm:w-auto">
+                        <p className="text-[10px] sm:text-xs text-[#92A2A5] uppercase font-bold sm:normal-case sm:font-normal">Date</p>
+                        <p className="font-medium text-[#546A7A] text-sm sm:text-base">{formatARDate(payment.paymentDate)}</p>
                       </div>
-                      <div>
-                        <p className="text-xs text-[#92A2A5]">Mode & Bank</p>
-                        <div className="flex flex-col">
-                          <p className="font-medium text-[#546A7A]">{payment.paymentMode || '-'}</p>
+                      <div className="w-full sm:w-auto">
+                        <p className="text-[10px] sm:text-xs text-[#92A2A5] uppercase font-bold sm:normal-case sm:font-normal">Mode & Bank</p>
+                        <div className="flex flex-row sm:flex-col items-center sm:items-start gap-2 sm:gap-0">
+                          <p className="font-medium text-[#546A7A] text-sm sm:text-base">{payment.paymentMode || '-'}</p>
                           {payment.referenceBank && (
-                            <span className="text-[10px] font-bold text-[#6F8A9D] uppercase">@{payment.referenceBank}</span>
+                            <span className="text-[9px] sm:text-[10px] font-bold text-[#6F8A9D] uppercase bg-[#6F8A9D]/10 px-1.5 py-0.5 rounded sm:p-0 sm:bg-transparent">@{payment.referenceBank}</span>
                           )}
                         </div>
                       </div>
-                      <div>
-                        <p className="text-xs text-[#92A2A5]">Added By</p>
-                        <p className="font-medium text-[#CE9F6B] text-sm">{(payment as any).recordedBy || (payment as any).recordedByUser?.name || '-'}</p>
+                      <div className="w-full sm:w-auto">
+                        <p className="text-[10px] sm:text-xs text-[#92A2A5] uppercase font-bold sm:normal-case sm:font-normal">Added By</p>
+                        <p className="font-medium text-[#CE9F6B] text-xs sm:text-sm">{(payment as any).recordedBy || (payment as any).recordedByUser?.name || '-'}</p>
                       </div>
-                      <div className="text-right">
-                        <p className="text-xs text-[#92A2A5]">Amount</p>
-                        <p className="font-bold text-[#4F6A64] text-lg">{formatARCurrency(payment.amount)}</p>
+                      <div className="w-full sm:text-right">
+                        <p className="text-[10px] sm:text-xs text-[#92A2A5] uppercase font-bold sm:normal-case sm:font-normal">Amount</p>
+                        <p className="font-bold text-[#4F6A64] text-base sm:text-lg">{formatARCurrency(payment.amount)}</p>
                       </div>
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="flex items-center justify-end gap-2 w-full sm:w-auto mt-2 sm:mt-0">
                         <button
                           onClick={() => handleEditPayment(payment)}
-                          className="p-2 rounded-lg bg-[#6F8A9D]/10 text-[#6F8A9D] hover:bg-[#6F8A9D]/20 transition-all"
+                          className="flex-1 sm:flex-none flex items-center justify-center gap-2 sm:gap-0 px-4 sm:px-2 py-2 rounded-lg bg-[#6F8A9D]/10 text-[#6F8A9D] hover:bg-[#6F8A9D]/20 transition-all font-semibold sm:font-normal text-xs sm:text-base"
                           title="Edit payment"
                         >
                           <Pencil className="w-4 h-4" />
+                          <span className="sm:hidden">Edit</span>
                         </button>
                         <button
                           onClick={() => handleDeletePayment(payment.id)}
-                          className="p-2 rounded-lg bg-[#E17F70]/10 text-[#9E3B47] hover:bg-[#E17F70]/20 transition-all"
+                          className="flex-1 sm:flex-none flex items-center justify-center gap-2 sm:gap-0 px-4 sm:px-2 py-2 rounded-lg bg-[#E17F70]/10 text-[#9E3B47] hover:bg-[#E17F70]/20 transition-all font-semibold sm:font-normal text-xs sm:text-base"
                           title="Delete payment"
                         >
                           <Trash2 className="w-4 h-4" />
+                          <span className="sm:hidden">Delete</span>
                         </button>
                       </div>
                     </div>
@@ -1664,7 +1667,7 @@ export default function InvoiceViewPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-[#5D6E73] mb-2">
                     Reference Bank <span className="text-[#E17F70]">*</span>
@@ -1753,6 +1756,13 @@ export default function InvoiceViewPage() {
         }
         .animate-fade-in {
           animation: fade-in 0.3s ease-out;
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+        .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
         }
       `}</style>
     </div>
