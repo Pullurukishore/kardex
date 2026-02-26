@@ -303,24 +303,44 @@ function drawHeader(doc: any, year: number, filterLabel: string, zoneName?: stri
 
     doc.text(subtitle, 62, 21)
 
-    // Date badge
+    // Date & Zone Badge Box
     const badgeW = 75
     const badgeX = pageW - 85
-    doc.setFillColor(...COLORS.headerLight)
-    doc.roundedRect(badgeX, 6, badgeW, 14, 2, 2, 'F')
+    const badgeH = 16
+    const badgeY = 5
 
+    doc.setFillColor(...COLORS.headerLight)
+    doc.roundedRect(badgeX, badgeY, badgeW, badgeH, 2, 2, 'F')
+
+    // Zone Badge (Inside the Box)
+    if (zoneName) {
+        const zoneColor = getZoneColor(zoneName)
+        const zoneTextWidth = doc.getTextWidth(zoneName) + 8
+        const zoneBadgeX = badgeX + (badgeW - zoneTextWidth) / 2
+
+        doc.setFillColor(...zoneColor)
+        doc.roundedRect(zoneBadgeX, badgeY + 2, zoneTextWidth, 5, 1.2, 1.2, 'F')
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(6.5)
+        doc.setTextColor(...COLORS.white)
+        doc.text(zoneName, zoneBadgeX + 4, badgeY + 5.7)
+    }
+
+    // Date text (Inside the Box, below Zone)
     doc.setFont('helvetica', 'bold')
-    doc.setFontSize(8)
     doc.setTextColor(...COLORS.white)
 
+    const dateTextY = zoneName ? badgeY + 12.5 : badgeY + 9.5
+    const dateFontSize = zoneName ? 7.5 : 8
+    doc.setFontSize(dateFontSize)
+
     if (dateRange) {
-        // Centered inside the 75px wide badge
-        doc.text(dateRange, badgeX + badgeW / 2, 14.5, { align: 'center' })
+        doc.text(dateRange, badgeX + badgeW / 2, dateTextY, { align: 'center' })
     } else {
         const genDate = `Generated: ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`;
-        doc.text(genDate, badgeX + badgeW / 2, 11, { align: 'center' })
+        doc.text(genDate, badgeX + badgeW / 2, badgeY + 7, { align: 'center' })
         doc.setFontSize(6)
-        doc.text(`Run at: ${new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`, badgeX + badgeW / 2, 17, { align: 'center' })
+        doc.text(`Run at: ${new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`, badgeX + badgeW / 2, badgeY + 13, { align: 'center' })
     }
 
     return 34
@@ -440,12 +460,16 @@ function drawBarChart(
     data: { label: string; value: number; color: [number, number, number] }[],
     title: string
 ) {
+    // Extra bottom padding for rotated labels
+    const labelPadding = data.length > 5 ? 14 : 6
+    const totalCardH = h + 20 + labelPadding
+
     // White card background
     doc.setFillColor(...COLORS.cardBg)
-    doc.roundedRect(x - 4, y - 10, w + 8, h + 20, 3, 3, 'F')
+    doc.roundedRect(x - 4, y - 10, w + 8, totalCardH, 3, 3, 'F')
     doc.setDrawColor(...COLORS.cardBorder)
     doc.setLineWidth(0.3)
-    doc.roundedRect(x - 4, y - 10, w + 8, h + 20, 3, 3, 'S')
+    doc.roundedRect(x - 4, y - 10, w + 8, totalCardH, 3, 3, 'S')
 
     // Title
     doc.setFont('helvetica', 'bold')
@@ -487,20 +511,22 @@ function drawBarChart(
 
         // Value on top
         doc.setFont('helvetica', 'bold')
-        doc.setFontSize(7)
+        doc.setFontSize(6.5)
         doc.setTextColor(...COLORS.textDark)
-        doc.text(fmtCrLakh(item.value), bx + barW / 2, by - 2.5, { align: 'center' })
+        doc.text(fmtCrLakh(item.value), bx + barW / 2, by - 2, { align: 'center' })
 
         // Label at bottom - angled for better fit
         doc.setFont('helvetica', 'normal')
         doc.setFontSize(5.5)
         doc.setTextColor(...COLORS.textBody)
         let label = item.label
-        if (label.length > 20) label = label.substring(0, 18) + '..'
+        // Truncate more aggressively for many items
+        const maxLabelLen = data.length > 7 ? 12 : data.length > 5 ? 15 : 20
+        if (label.length > maxLabelLen) label = label.substring(0, maxLabelLen - 2) + '..'
 
         // Use rotation if more than 5 items
         if (data.length > 5) {
-            doc.text(label, bx + barW / 2, chartY + chartH + 3.5, { angle: -25 })
+            doc.text(label, bx + barW / 2, chartY + chartH + 4, { angle: -30 })
         } else {
             doc.text(label, bx + barW / 2, chartY + chartH + 5, { align: 'center' })
         }
@@ -662,11 +688,12 @@ function drawPieChart(
     title: string
 ) {
     // White card background - dynamic height for legends
-    const itemsPerCol = 7
+    const itemsPerCol = 10
     const cols = Math.ceil(data.length / itemsPerCol)
-    const colW = 38
-    const cardW = radius * 2 + (cols * colW) + 15
-    const cardH = Math.max(radius * 2 + 20, (Math.min(data.length, itemsPerCol) * 8.5) + 20)
+    const colW = 40
+    const cardW = radius * 2 + (cols * colW) + 20
+    const legendH = Math.min(data.length, itemsPerCol) * 8.5 + 20
+    const cardH = Math.max(radius * 2 + 24, legendH)
 
     doc.setFillColor(...COLORS.cardBg)
     doc.roundedRect(centerX - radius - 8, centerY - radius - 16, cardW, cardH, 3, 3, 'F')
@@ -711,15 +738,15 @@ function drawPieChart(
 
     // Center label
     doc.setFont('helvetica', 'bold')
-    doc.setFontSize(9)
+    doc.setFontSize(10.5)
     doc.setTextColor(...COLORS.textDark)
-    doc.text('Total', centerX, centerY - 2, { align: 'center' })
-    doc.setFontSize(8)
+    doc.text('Total', centerX, centerY - 2.5, { align: 'center' })
+    doc.setFontSize(9.5)
     doc.setTextColor(...COLORS.headerBg)
-    doc.text(fmtCrLakh(total), centerX, centerY + 5, { align: 'center' })
+    doc.text(fmtCrLakh(total), centerX, centerY + 5.5, { align: 'center' })
 
     // Legend
-    const legendX = centerX + radius + 8
+    const legendX = centerX + radius + 7
     data.forEach((item, idx) => {
         const col = Math.floor(idx / itemsPerCol)
         const row = idx % itemsPerCol
@@ -736,7 +763,7 @@ function drawPieChart(
 
         // Truncate labels if too long
         let label = item.label
-        if (label.length > 18) label = label.substring(0, 16) + '..'
+        if (label.length > 16) label = label.substring(0, 14) + '..'
 
         doc.text(`${label} (${pct}%)`, lx + 7, ly + 2)
     })
@@ -931,7 +958,7 @@ export async function generateForecastPdf(
     y += 3
     drawProgressBar(doc, 15, y, pageW - 30, 4, achPct, achColor)
 
-    y += 4
+    y += 12
 
     // ===== Zone Performance Cards =====
     {
@@ -1147,22 +1174,23 @@ export async function generateForecastPdf(
             aY += 15
 
             // --- Row 1: Bar chart (Orders Won) + Donut chart (Offers Distribution) ---
-            const chartHalfW = (pageW - 50) / 2
             const barData = data.zones.map((z, i) => ({
                 label: z.zoneName,
                 value: z.ordersReceived,
                 color: getZoneColor(z.zoneName, i),
             }))
-            drawBarChart(doc, 18, aY, chartHalfW - 5, 110, barData, 'Orders Won by Zone')
+            const chartW = (pageW - 45) / 2
+            const zonePieRadius = 32
+            drawBarChart(doc, 19, aY, chartW, 110, barData, 'Orders Won by Zone')
 
             const pieData = data.zones.map((z, i) => ({
                 label: z.zoneName,
                 value: z.offersValue,
                 color: getZoneColor(z.zoneName, i),
             }))
-            drawPieChart(doc, pageW / 2 + 50, aY + 48, 28, pieData, 'Offers Value Distribution')
+            drawPieChart(doc, 160 + zonePieRadius, aY + 48, zonePieRadius, pieData, 'Offers Value Distribution')
 
-            aY += 135
+            aY += 148
 
                 // --- Row 2: Achievement Progress Ring Cards ---
                 ;[aY, pageNum.val] = needsNewPage(doc, aY, 95, pageNum, data, filter, filterLabels, undefined, logoBase64, selectedMonth)
@@ -1376,7 +1404,8 @@ export async function generateForecastPdf(
             aY += 15
 
             // Hit rate horizontal bars (left half) — dark card
-            const hrCardW = (pageW - 40) / 2
+            // Hit rate horizontal bars (left half) — dark card
+            const hrCardW = (pageW - 45) / 2
             doc.setFillColor(...COLORS.cardBg)
             doc.roundedRect(15, aY, hrCardW, data.zones.length * 11 + 12, 3, 3, 'F')
             doc.setDrawColor(...COLORS.cardBorder)
@@ -1396,7 +1425,7 @@ export async function generateForecastPdf(
                 doc.text(zone.zoneName, 20, rowY + 4)
 
                 const maxHr = Math.max(...data.zones.map(z => z.hitRatePercent), 100)
-                const hrBarW = hrCardW - 65
+                const hrBarW = hrCardW - 60
                 const filled = (zone.hitRatePercent / maxHr) * hrBarW
                 const hrColor: [number, number, number] = zone.hitRatePercent >= 50 ? COLORS.positive : zone.hitRatePercent >= 30 ? COLORS.warning : COLORS.negative
 
@@ -1417,20 +1446,22 @@ export async function generateForecastPdf(
                 value: z.ordersReceived,
                 color: getZoneColor(z.zoneName, i),
             }))
-            drawPieChart(doc, pageW / 2 + 52, aY + 35, 22, ordPieData, 'Orders Won Distribution')
+            const wonPieRadius = 24
+            drawPieChart(doc, 160 + wonPieRadius, aY + 35, wonPieRadius, ordPieData, 'Orders Won Distribution')
 
             aY += Math.max(data.zones.length * 11 + 18, 78)
 
 
                 // --- Row 6: Open Funnel Bar chart ---
-                ;[aY, pageNum.val] = needsNewPage(doc, aY, 75, pageNum, data, filter, filterLabels, undefined, logoBase64, selectedMonth)
+                ;[aY, pageNum.val] = needsNewPage(doc, aY, 145, pageNum, data, filter, filterLabels, undefined, logoBase64, selectedMonth)
 
             const funnelData = data.zones.map((z, i) => ({
                 label: z.zoneName,
                 value: z.openFunnel,
                 color: getZoneColor(z.zoneName, i),
             }))
-            drawBarChart(doc, 18, aY, chartHalfW - 5, 110, funnelData, 'Offer Funnel by Zone')
+            const funnelPieRadius = 32
+            drawBarChart(doc, 19, aY, (pageW - 45) / 2, 110, funnelData, 'Offer Funnel by Zone')
 
             // Offers count pie
             const offersCountPie = data.zones.map((z, i) => ({
@@ -1438,8 +1469,8 @@ export async function generateForecastPdf(
                 value: z.noOfOffers,
                 color: getZoneColor(z.zoneName, i),
             }))
-            drawPieChart(doc, pageW / 2 + 50, aY + 48, 28, offersCountPie, 'Number of Offers Distribution')
-            aY += 135
+            drawPieChart(doc, 160 + funnelPieRadius, aY + 48, funnelPieRadius, offersCountPie, 'Number of Offers Distribution')
+            aY += 148
             y = aY + 10
         } else if (selectedZoneId) {
             // Single zone analytics - dashboard style
@@ -1873,7 +1904,7 @@ export async function generateForecastPdf(
             if (aggregatedProducts.length > 0) {
                 let pY: number
                 // Reduced threshold from 95 to 80 to minimize white space
-                const [npy, npn2] = needsNewPage(doc, y, 80, pageNum, data, filter, filterLabels, selectedZone?.zoneName, logoBase64, selectedMonth)
+                const [npy, npn2] = needsNewPage(doc, y, 150, pageNum, data, filter, filterLabels, selectedZone?.zoneName, logoBase64, selectedMonth)
                 pY = npy === y ? npy + 8 : npy
                 pageNum.val = npn2
 
@@ -1882,22 +1913,23 @@ export async function generateForecastPdf(
                 pY += 15
 
                 // Row 1: Graphical Distribution
-                const prodChartHalfW = (pageW - 40) / 2
                 const prodBarData = aggregatedProducts.map((p, i) => ({
                     label: p.label,
                     value: p.ordersReceived,
-                    color: getZoneColor(p.label, i + 5) // Use shifted colors for variety
+                    color: getZoneColor(p.label, i + 5)
                 }))
-                drawBarChart(doc, 18, pY, prodChartHalfW - 5, 110, prodBarData, 'Orders Won by Product Category')
+                const chartW = (pageW - 45) / 2
+                const prodPieRadius = 32
+                drawBarChart(doc, 19, pY, chartW, 110, prodBarData, 'Orders Won by Product Category')
 
                 const prodPieData = aggregatedProducts.map((p, i) => ({
                     label: p.label,
                     value: p.ordersReceived,
                     color: getZoneColor(p.label, i + 5)
                 }))
-                drawPieChart(doc, pageW / 2 + 50, pY + 48, 28, prodPieData, 'Product Distribution (Value)')
+                drawPieChart(doc, 160 + prodPieRadius, pY + 48, prodPieRadius, prodPieData, 'Product Distribution (Value)')
 
-                pY += 135
+                pY += 148
 
                     // Row 2: Product Performance Visual List
                     ;[pY, pageNum.val] = needsNewPage(doc, pY, aggregatedProducts.length * 16 + 10, pageNum, data, filter, filterLabels, undefined, logoBase64, selectedMonth)
@@ -1977,8 +2009,8 @@ export async function generateForecastPdf(
         doc.setFontSize(7)
         doc.setTextColor(...COLORS.white)
 
-        const colTitleX = [22, 60, 118, 168, 222]
-        const colTitles = ['NAME', 'ACHIEVEMENT', 'OFFR. PIPE.', 'TARGET', 'PERFORMANCE']
+        const colTitleX = [22, 60, 118, 158, 198, 248]
+        const colTitles = ['NAME', 'ACHIEVEMENT', 'Pipeline', 'TARGET', 'PERFORMANCE', 'HIT RATE']
         colTitles.forEach((title, i) => {
             doc.text(title, colTitleX[i], y + 5.5)
         })
@@ -2038,12 +2070,17 @@ export async function generateForecastPdf(
                 doc.text(val, mx, y + 10.5);
             };
 
-            // Column Mapping: Offers (118), Total Funnel (142), Target (168), Won (195), Offer Funnel (222)
+            // Column Mapping: Offers (118), Total Funnel (138), Target (158), Won (178), Offer Funnel (198), Hit Rate (248)
             drawUserMetric('OFFERS', ud.uNoOfOffers.toString(), 118);
-            drawUserMetric('TOT. FUNNEL', fmtCrLakh(ud.uOffersValue), 142);
-            drawUserMetric('TARGET', fmtCrLakh(ud.uTarget), 168, COLORS.accentAmber);
-            drawUserMetric('WON', ud.uOrdersReceived === 0 ? '0' : fmtCrLakh(ud.uOrdersReceived), 195, COLORS.positive);
-            drawUserMetric('OFFER FUNNEL', ud.uOrdersInHand === 0 ? '0' : fmtCrLakh(ud.uOrdersInHand), 222, COLORS.accentOrange);
+            drawUserMetric('TOT. FUNNEL', fmtCrLakh(ud.uOffersValue), 138);
+            drawUserMetric('TARGET', fmtCrLakh(ud.uTarget), 158, COLORS.accentAmber);
+            drawUserMetric('WON', ud.uOrdersReceived === 0 ? '0' : fmtCrLakh(ud.uOrdersReceived), 178, COLORS.positive);
+            drawUserMetric('OFFER FUNNEL', ud.uOrdersInHand === 0 ? '0' : fmtCrLakh(ud.uOrdersInHand), 198, COLORS.accentOrange);
+
+            // Hit Rate
+            const hitRateVal = ud.user.hitRate !== undefined ? `${ud.user.hitRate.toFixed(1)}%` : '-';
+            const hitRateColor: [number, number, number] = ud.user.hitRate >= 50 ? COLORS.positive : ud.user.hitRate >= 30 ? COLORS.warning : COLORS.negative;
+            drawUserMetric('HIT RATE', hitRateVal, 248, hitRateColor);
 
             doc.setDrawColor(...COLORS.cardBorder);
             doc.setLineWidth(0.12);
@@ -2327,33 +2364,34 @@ export async function generateForecastPdf(
             uAY += 15
 
             // Bar chart — orders by user
-            const userChartHalfW = (pageW - 50) / 2
             const userBarData = usersToShow.map((u, i) => ({
                 label: u.userName,
                 value: u.totals.orderReceived,
-                color: getZoneColor(u.zoneName, i),
+                color: ZONE_COLORS[i % ZONE_COLORS.length],
             }))
-            drawBarChart(doc, 18, uAY, userChartHalfW - 5, 110, userBarData, 'Orders Won')
+            const chartW = (pageW - 45) / 2
+            const userPieRadius = 32
+            drawBarChart(doc, 19, uAY, chartW, 110, userBarData, 'Orders Won')
 
             // Pie — offers value by user (Group 'Others' if > 12)
             let userPieData = usersToShow.map((u, i) => ({
                 label: u.userName,
                 value: u.totals.offersValue,
-                color: getZoneColor(u.zoneName, i),
+                color: ZONE_COLORS[i % ZONE_COLORS.length],
             }))
             if (userPieData.length > 12) {
                 const topItems = userPieData.slice(0, 11)
                 const othersValue = userPieData.slice(11).reduce((sum, item) => sum + item.value, 0)
                 userPieData = [...topItems, { label: 'Others', value: othersValue, color: [150, 150, 150] }]
             }
-            drawPieChart(doc, pageW / 2 + 30, uAY + 48, 28, userPieData, 'Offers Value')
+            drawPieChart(doc, 160 + userPieRadius, uAY + 48, userPieRadius, userPieData, 'Offers Value')
 
-            uAY += 135
+            uAY += 148
 
                 // ===== User Achievement Gauge Meters =====
-                ;[uAY, pageNum.val] = needsNewPage(doc, uAY, 60, pageNum, data, filter, filterLabels, selectedZone?.zoneName, logoBase64, selectedMonth)
+                ;[uAY, pageNum.val] = needsNewPage(doc, uAY, 80, pageNum, data, filter, filterLabels, selectedZone?.zoneName, logoBase64, selectedMonth)
             uAY = drawSectionTitle(doc, uAY, 'ACHIEVEMENT GAUGES', COLORS.kardexGreen)
-            uAY += 2
+            uAY += 4
 
             const sortedUsersForGauges = [...usersToShow].sort((a, b) => {
                 const achA = a.yearlyTarget > 0 ? a.totals.orderReceived / a.yearlyTarget : 0
@@ -2361,46 +2399,53 @@ export async function generateForecastPdf(
                 return achB - achA
             })
 
-            const gaugesPerRow = 6
-            const gaugeW = (pageW - 30) / gaugesPerRow
-            const gaugeR = 17
-            const cardH = gaugeR * 2 + 28
-            const rowH = cardH + 4
+            const gaugesPerRow = 4
+            const gaugeGap = 6
+            const gaugeW = (pageW - 30 - (gaugesPerRow - 1) * gaugeGap) / gaugesPerRow
+            const gaugeR = 22
+            const gaugeCardH = gaugeR * 2 + 42
+            const gaugeRowH = gaugeCardH + 6
 
             sortedUsersForGauges.forEach((user, i) => {
                 const col = i % gaugesPerRow
 
                 // If we are starting a new row (but not the first row)
                 if (col === 0 && i > 0) {
-                    uAY += rowH
-                    const [ny, npn] = needsNewPage(doc, uAY, rowH, pageNum, data, filter, filterLabels, selectedZone?.zoneName, logoBase64, selectedMonth)
+                    uAY += gaugeRowH
+                    const [ny, npn] = needsNewPage(doc, uAY, gaugeRowH, pageNum, data, filter, filterLabels, selectedZone?.zoneName, logoBase64, selectedMonth)
                     if (ny < uAY) {
-                        // We jumped to a new page
                         uAY = ny
                     }
                     pageNum.val = npn
                 }
 
-                const cx = 15 + col * gaugeW + gaugeW / 2
-                const cy = uAY + gaugeR + 8
-                const pct = user.yearlyTarget > 0 ? (user.totals.orderReceived / user.yearlyTarget) * 100 : 0
+                const cardX = 15 + col * (gaugeW + gaugeGap)
+                const cx = cardX + gaugeW / 2
+                const cy = uAY + gaugeR + 10
+                const uTarget = selectedMonth !== undefined ? user.yearlyTarget / 12 : user.yearlyTarget
+                const pct = uTarget > 0 ? (user.totals.orderReceived / uTarget) * 100 : 0
+                const gColor: [number, number, number] = pct >= 100 ? COLORS.positive : pct >= 75 ? COLORS.warning : COLORS.negative
 
-                // Dark card bg
+                // Card background
                 doc.setFillColor(...COLORS.cardBg)
-                doc.roundedRect(15 + col * gaugeW + 2, uAY, gaugeW - 4, cardH, 3, 3, 'F')
+                doc.roundedRect(cardX, uAY, gaugeW, gaugeCardH, 3, 3, 'F')
                 doc.setDrawColor(...COLORS.cardBorder)
                 doc.setLineWidth(0.3)
-                doc.roundedRect(15 + col * gaugeW + 2, uAY, gaugeW - 4, cardH, 3, 3, 'S')
+                doc.roundedRect(cardX, uAY, gaugeW, gaugeCardH, 3, 3, 'S')
+
+                // Top accent strip in achievement color
+                doc.setFillColor(...gColor)
+                doc.rect(cardX, uAY, gaugeW, 2.5, 'F')
 
                 // Outer ring decoration
                 doc.setDrawColor(...COLORS.cardBorder)
                 doc.setLineWidth(0.3)
-                doc.circle(cx, cy, gaugeR + 2, 'S')
+                doc.circle(cx, cy, gaugeR + 2.5, 'S')
 
-                // Track arc (dark)
-                const segments = 40
+                // Track arc (full semi-circle)
+                const segments = 50
                 doc.setDrawColor(...COLORS.darkTrack)
-                doc.setLineWidth(4)
+                doc.setLineWidth(5)
                 for (let s = 0; s < segments; s++) {
                     const a1 = Math.PI + (s / segments) * Math.PI
                     const a2 = Math.PI + ((s + 1) / segments) * Math.PI
@@ -2410,12 +2455,11 @@ export async function generateForecastPdf(
                     )
                 }
 
-                // Fill arc (colored, thicker)
+                // Fill arc (colored)
                 const fillPct = Math.min(pct / 100, 1)
                 const fillSegs = Math.floor(fillPct * segments)
-                const gColor: [number, number, number] = pct >= 100 ? COLORS.positive : pct >= 75 ? COLORS.warning : COLORS.negative
                 doc.setDrawColor(...gColor)
-                doc.setLineWidth(4)
+                doc.setLineWidth(5)
                 for (let s = 0; s < fillSegs; s++) {
                     const a1 = Math.PI + (s / segments) * Math.PI
                     const a2 = Math.PI + ((s + 1) / segments) * Math.PI
@@ -2427,102 +2471,144 @@ export async function generateForecastPdf(
 
                 // Percentage text in center
                 doc.setFont('helvetica', 'bold')
-                doc.setFontSize(11)
+                doc.setFontSize(16)
                 doc.setTextColor(...gColor)
-                doc.text(`${pct.toFixed(0)}%`, cx, cy + 2, { align: 'center' })
+                doc.text(`${pct.toFixed(0)}%`, cx, cy + 3, { align: 'center' })
 
-                // User name
+                // User name below gauge
                 doc.setFont('helvetica', 'bold')
-                doc.setFontSize(5.5)
+                doc.setFontSize(8)
                 doc.setTextColor(...COLORS.textDark)
-                doc.text(user.userName.substring(0, 18), cx, cy + gaugeR + 6, { align: 'center' })
+                doc.text(user.userName.substring(0, 20), cx, cy + gaugeR + 8, { align: 'center' })
 
-                // Target value
+                // Target and Won values with full labels
+                const statsY = cy + gaugeR + 13
+                const statLeftX = cardX + 6
+                const statRightX = cardX + gaugeW - 6
+
+                // Row: Target
                 doc.setFont('helvetica', 'normal')
-                doc.setFontSize(4.5)
+                doc.setFontSize(6.5)
                 doc.setTextColor(...COLORS.textMuted)
-                doc.text(`T: ${fmtCrLakh(user.yearlyTarget)}`, cx, cy + gaugeR + 10, { align: 'center' })
-                doc.text(`W: ${fmtCrLakh(user.totals.orderReceived)}`, cx, cy + gaugeR + 14, { align: 'center' })
+                doc.text('Target', statLeftX, statsY)
+                doc.setFont('helvetica', 'bold')
+                doc.setTextColor(...COLORS.accentAmber)
+                doc.text(fmtCrLakh(uTarget), statRightX, statsY, { align: 'right' })
+
+                // Divider
+                doc.setDrawColor(...COLORS.gridLine)
+                doc.setLineWidth(0.15)
+                doc.line(statLeftX, statsY + 2, statRightX, statsY + 2)
+
+                // Row: Won
+                doc.setFont('helvetica', 'normal')
+                doc.setTextColor(...COLORS.textMuted)
+                doc.text('Won', statLeftX, statsY + 7)
+                doc.setFont('helvetica', 'bold')
+                doc.setTextColor(...COLORS.positive)
+                doc.text(fmtCrLakh(user.totals.orderReceived), statRightX, statsY + 7, { align: 'right' })
             })
 
-            uAY += rowH + 10
+            uAY += gaugeRowH + 10
 
-                // ===== Offers vs Orders Comparison =====
-                ;[uAY, pageNum.val] = needsNewPage(doc, uAY, 65, pageNum, data, filter, filterLabels, selectedZone?.zoneName, logoBase64, selectedMonth)
+                // ===== Offers vs Orders vs Target — Grouped Vertical Bar Chart =====
+                ;[uAY, pageNum.val] = needsNewPage(doc, uAY, 130, pageNum, data, filter, filterLabels, selectedZone?.zoneName, logoBase64, selectedMonth)
             uAY = drawSectionTitle(doc, uAY, 'COMPARISON: OFFERS vs ORDERS vs TARGET', COLORS.accentCyan)
-            const gcY = uAY + 2
-            uAY = gcY
+            uAY += 8
 
-            // Dark card bg
-            const gcCardH = usersToShow.length * 15 + 14
+            // Full-width card for grouped bar chart
+            const gcH = 115
             doc.setFillColor(...COLORS.cardBg)
-            doc.roundedRect(15, uAY, pageW - 30, gcCardH, 3, 3, 'F')
+            doc.roundedRect(15, uAY - 4, pageW - 30, gcH + 18, 3, 3, 'F')
             doc.setDrawColor(...COLORS.cardBorder)
             doc.setLineWidth(0.3)
-            doc.roundedRect(15, uAY, pageW - 30, gcCardH, 3, 3, 'S')
+            doc.roundedRect(15, uAY - 4, pageW - 30, gcH + 18, 3, 3, 'S')
 
-            // Legend
-            const legendStartX = pageW - 120
-            const legendItems = [
+            // Legend — top right
+            const gcLegendItems = [
                 { label: 'Offers Value', color: COLORS.kardexLight },
-                { label: 'Orders Received', color: COLORS.accentNeon },
+                { label: 'Orders Won', color: COLORS.accentNeon },
                 { label: 'Target', color: COLORS.accentAmber },
             ]
-            legendItems.forEach((item, li) => {
+            const gcLegendX = pageW - 140
+            gcLegendItems.forEach((item, li) => {
                 doc.setFillColor(...item.color)
-                doc.roundedRect(legendStartX + li * 38, uAY + 2, 5, 4, 1, 1, 'F')
+                doc.roundedRect(gcLegendX + li * 42, uAY - 2, 5, 4, 1, 1, 'F')
                 doc.setFont('helvetica', 'normal')
-                doc.setFontSize(5.5)
+                doc.setFontSize(6.5)
                 doc.setTextColor(...COLORS.textMuted)
-                doc.text(item.label, legendStartX + li * 38 + 7, uAY + 5.5)
+                doc.text(item.label, gcLegendX + li * 42 + 7, uAY + 1.5)
             })
 
-            uAY += 10
+            // Chart area
+            const gcChartX = 35
+            const gcChartW = pageW - 65
+            const gcChartY = uAY + 8
+            const gcChartH = gcH - 20
             const currentTarget = (u: any) => selectedMonth !== undefined ? (u.yearlyTarget / 12) : u.yearlyTarget
-            const hBarMaxVal = Math.max(...usersToShow.flatMap(u => [u.totals.offersValue, u.totals.orderReceived, currentTarget(u)]), 1)
-            const hBarW = pageW - 100
+            const gcMaxVal = Math.max(...usersToShow.flatMap(u => [u.totals.offersValue, u.totals.orderReceived, currentTarget(u)]), 1)
 
-            usersToShow.forEach((user) => {
-                ;[uAY, pageNum.val] = needsNewPage(doc, uAY, 15, pageNum, data, filter, filterLabels, selectedZone?.zoneName, logoBase64, selectedMonth)
+            // Y-axis grid lines + labels
+            doc.setDrawColor(...COLORS.gridLine)
+            doc.setLineWidth(0.15)
+            for (let g = 1; g <= 4; g++) {
+                const gy = gcChartY + gcChartH - (g / 4) * gcChartH
+                doc.line(gcChartX, gy, gcChartX + gcChartW, gy)
+                doc.setFont('helvetica', 'normal')
+                doc.setFontSize(5.5)
+                doc.setTextColor(...COLORS.textLight)
+                doc.text(fmtCrLakh(gcMaxVal * g / 4), gcChartX - 2, gy + 1.5, { align: 'right' })
+            }
+            // Baseline
+            doc.setDrawColor(...COLORS.midGray)
+            doc.setLineWidth(0.2)
+            doc.line(gcChartX, gcChartY + gcChartH, gcChartX + gcChartW, gcChartY + gcChartH)
 
-                // User label
+            // Grouped bars — 3 bars per user
+            const nUsers = usersToShow.length
+            const groupGap = nUsers <= 4 ? 14 : nUsers <= 6 ? 10 : 6
+            const totalGroupGap = (nUsers - 1) * groupGap
+            const groupW = Math.min((gcChartW - totalGroupGap) / nUsers, 55)
+            const singleBarW = Math.min((groupW - 4) / 3, 14)
+            const gcStartX = gcChartX + (gcChartW - (nUsers * groupW + totalGroupGap)) / 2
+
+            usersToShow.forEach((user, ui) => {
+                const groupX = gcStartX + ui * (groupW + groupGap)
+                const uTarget = currentTarget(user)
+                const bars = [
+                    { value: user.totals.offersValue, color: COLORS.kardexLight },
+                    { value: user.totals.orderReceived, color: COLORS.accentNeon },
+                    { value: uTarget, color: COLORS.accentAmber },
+                ]
+
+                bars.forEach((bar, bi) => {
+                    const bx = groupX + bi * (singleBarW + 1.5)
+                    const bh = Math.max((bar.value / gcMaxVal) * gcChartH, 1.5)
+                    const by = gcChartY + gcChartH - bh
+
+                    doc.setFillColor(...bar.color)
+                    doc.roundedRect(bx, by, singleBarW, bh, 1, 1, 'F')
+
+                    // Value on top of each bar
+                    doc.setFont('helvetica', 'bold')
+                    doc.setFontSize(5.5)
+                    doc.setTextColor(...COLORS.textDark)
+                    doc.text(fmtCrLakh(bar.value), bx + singleBarW / 2, by - 2, { align: 'center' })
+                })
+
+                // User label under the group
                 doc.setFont('helvetica', 'bold')
                 doc.setFontSize(7)
                 doc.setTextColor(...COLORS.textDark)
-                doc.text(user.userName, 20, uAY + 4.5)
-
-                const barStartX = 48
-                const barH = 2.8
-                const uTarget = currentTarget(user)
-
-                // 1. Offers bar
-                const offersW = (user.totals.offersValue / hBarMaxVal) * hBarW
-                doc.setFillColor(...COLORS.kardexLight)
-                doc.roundedRect(barStartX, uAY, Math.max(offersW, 1), barH, 0.8, 0.8, 'F')
-
-                // 2. Orders bar
-                const ordersW = (user.totals.orderReceived / hBarMaxVal) * hBarW
-                doc.setFillColor(...COLORS.accentNeon)
-                doc.roundedRect(barStartX, uAY + barH + 0.8, Math.max(ordersW, 1), barH, 0.8, 0.8, 'F')
-
-                // 3. Target bar (Matching Total-wise style with 3 bars)
-                const targetW = (uTarget / hBarMaxVal) * hBarW
-                doc.setFillColor(...COLORS.accentAmber)
-                doc.roundedRect(barStartX, uAY + (barH + 0.8) * 2, Math.max(targetW, 1), barH, 0.8, 0.8, 'F')
-
-                // Values next to bars
-                doc.setFont('helvetica', 'normal')
-                doc.setFontSize(5)
-                doc.setTextColor(...COLORS.textMuted)
-
-                // Show values for all 3 bars for consistency
-                doc.text(fmtCrLakh(user.totals.offersValue), barStartX + Math.max(offersW, 1) + 2, uAY + 2)
-                doc.text(fmtCrLakh(user.totals.orderReceived), barStartX + Math.max(ordersW, 1) + 2, uAY + 2 + (barH + 0.8))
-                doc.text(fmtCrLakh(uTarget), barStartX + Math.max(targetW, 1) + 2, uAY + 2 + (barH + 0.8) * 2)
-
-                uAY += 15
+                const userName = user.userName.length > 12 ? user.userName.substring(0, 11) + '..' : user.userName
+                if (nUsers > 5) {
+                    doc.text(userName, groupX + groupW / 2, gcChartY + gcChartH + 4, { angle: -20 })
+                } else {
+                    doc.text(userName, groupX + groupW / 2, gcChartY + gcChartH + 6, { align: 'center' })
+                }
             })
-            uAY = gcY + gcCardH + 12 // Ensure next section starts well below the card bottom
+
+            uAY += gcH + 26
 
                 // ===== Hit Rate Analysis =====
                 ;[uAY, pageNum.val] = needsNewPage(doc, uAY, 75, pageNum, data, filter, filterLabels, selectedZone?.zoneName, logoBase64, selectedMonth)
@@ -2530,8 +2616,8 @@ export async function generateForecastPdf(
             uAY = drawSectionTitle(doc, uAY, 'HIT RATE ANALYSIS & FUNNEL DISTRIBUTION', COLORS.kardexMid)
             uAY += 2
 
-            // Hit rate horizontal bars (left half) — dark card
-            const hrCardW = (pageW - 40) / 2
+            // Hit rate horizontal bars (left half)
+            const hrCardW = (pageW - 45) / 2
             const hrCardH = usersToShow.length * 11 + 22
             doc.setFillColor(...COLORS.cardBg)
             doc.roundedRect(15, uAY, hrCardW, hrCardH, 3, 3, 'F')
@@ -2540,11 +2626,11 @@ export async function generateForecastPdf(
             doc.roundedRect(15, uAY, hrCardW, hrCardH, 3, 3, 'S')
 
             doc.setFont('helvetica', 'bold')
-            doc.setFontSize(7.5)
+            doc.setFontSize(8)
             doc.setTextColor(...COLORS.textDark)
-            doc.text('Hit Rate', 20, uAY + 7)
+            doc.text('Hit Rate by User', 20, uAY + 7)
 
-            uAY += 10 // Prevent overlap with first user row
+            uAY += 10
 
             usersToShow.forEach((user) => {
                 ;[uAY, pageNum.val] = needsNewPage(doc, uAY, 11, pageNum, data, filter, filterLabels, selectedZone?.zoneName, logoBase64)
@@ -2555,7 +2641,7 @@ export async function generateForecastPdf(
                 doc.text(user.userName, 20, uAY + 4)
 
                 const maxHr = Math.max(...usersToShow.map(u => u.hitRate), 100)
-                const hrBarW = hrCardW - 65
+                const hrBarW = hrCardW - 60
                 const filled = (user.hitRate / maxHr) * hrBarW
                 const hrColor: [number, number, number] = user.hitRate >= 50 ? COLORS.positive : user.hitRate >= 30 ? COLORS.warning : COLORS.negative
 
@@ -2565,66 +2651,30 @@ export async function generateForecastPdf(
                 doc.roundedRect(55, uAY + 1, Math.max(filled, 1), 4, 2, 2, 'F')
 
                 doc.setFont('helvetica', 'bold')
-                doc.setFontSize(6)
+                doc.setFontSize(6.5)
                 doc.setTextColor(...hrColor)
                 doc.text(`${user.hitRate.toFixed(1)}%`, 55 + hrBarW + 3, uAY + 5)
 
                 uAY += 11
             })
 
-            // Open Funnel Pie Chart (right half)
+            // Offer Funnel Pie Chart (right half)
             let funnelPieData = usersToShow.map((u, i) => ({
                 label: u.userName,
                 value: u.totals.ordersInHand,
-                color: getZoneColor(u.zoneName, i),
+                color: ZONE_COLORS[i % ZONE_COLORS.length],
             }))
             if (funnelPieData.length > 12) {
                 const topItems = funnelPieData.slice(0, 11)
                 const othersValue = funnelPieData.slice(11).reduce((sum, item) => sum + item.value, 0)
                 funnelPieData = [...topItems, { label: 'Others', value: othersValue, color: [150, 150, 150] }]
             }
-            drawPieChart(doc, pageW / 2 + 30, startUayWithTitle + 48, 22, funnelPieData, 'Offer Funnel Distribution')
-            uAY = Math.max(uAY, startUayWithTitle + 80)
+            const funnelPieR = 28
+            drawPieChart(doc, 160 + funnelPieR, startUayWithTitle + 52, funnelPieR, funnelPieData, 'Offer Funnel Distribution')
+            uAY = Math.max(uAY, startUayWithTitle + 85)
 
 
-            // User achievement visual list
-            // Dynamic section height: (11.5mm row + 1.5mm gap) per user + title overhead
-            const uAchSectionH = usersToShow.length * 13 + 15
-                ;[uAY, pageNum.val] = needsNewPage(doc, uAY, uAchSectionH, pageNum, data, filter, filterLabels, selectedZone?.zoneName, logoBase64)
-            uAY = drawSectionTitle(doc, uAY, 'ACHIEVEMENT COMPARISON', COLORS.kardexGreen)
-            uAY += 2
-
-            usersToShow.forEach((user) => {
-                const uFilteredMonths = monthName
-                    ? user.monthlyData.filter(m =>
-                        m.monthLabel.toLowerCase().includes(monthName.toLowerCase()) ||
-                        m.monthLabel.toLowerCase().includes(monthName.substring(0, 3).toLowerCase())
-                    )
-                    : user.monthlyData
-
-                const sOrdersReceived = uFilteredMonths.reduce((sum, m) => sum + (m.orderReceived || 0), 0)
-                const sOffersValue = uFilteredMonths.reduce((sum, m) => sum + (m.offersValue || 0), 0)
-                const sOrdersInHand = uFilteredMonths.reduce((sum, m) => sum + (m.ordersInHand || 0), 0)
-                const sTarget = monthName ? user.yearlyTarget / 12 : user.yearlyTarget
-
-                const uAch = sTarget > 0 ? (sOrdersReceived / sTarget) * 100 : 0
-                const uColor: [number, number, number] = uAch >= 100 ? COLORS.positive : uAch >= 75 ? COLORS.warning : COLORS.negative
-
-                drawPerformanceStrip(doc, 15, uAY, pageW - 30,
-                    user.userName,
-                    [
-                        { label: 'Orders Won', value: fmtCrLakh(sOrdersReceived) },
-                        { label: 'Offers Value', value: fmtCrLakh(sOffersValue) },
-                        { label: 'Offer Funnel', value: fmtCrLakh(sOrdersInHand) },
-                        { label: 'Target', value: fmtCrLakh(sTarget) },
-                        { label: 'Hit Rate', value: `${user.hitRate.toFixed(1)}%` }
-                    ],
-                    uAch,
-                    uColor
-                )
-                uAY += 13
-            })
-            uAY += 8
+            // Achievement Comparison section removed — data now shown in Performance Summary with Hit Rate
         }
     }  // end zone-users block
 
