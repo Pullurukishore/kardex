@@ -3,7 +3,7 @@ const { parse } = require('url');
 const next = require('next');
 
 const dev = process.env.NODE_ENV !== 'production';
-const hostname = 'localhost';
+const hostname = '0.0.0.0';
 const port = process.env.PORT || 3000;
 
 // Create the Next.js app
@@ -29,7 +29,8 @@ app.prepare()
 
     server.listen(port, hostname, () => {
       console.log(`\n✓ Server running at http://${hostname}:${port}`);
-      console.log(`✓ Access locally at http://localhost:${port}\n`);
+      console.log(`✓ Access locally at http://localhost:${port}`);
+      console.log(`✓ Access on network at http://172.28.91.10:${port} or http://10.91.1.12:${port}\n`);
     });
   })
   .catch((err) => {

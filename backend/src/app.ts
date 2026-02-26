@@ -64,6 +64,8 @@ const corsOptions: cors.CorsOptions = {
       'http://localhost:3000',
       'http://localhost:3001',
       'http://34.14.156.49:3000',
+      'http://172.28.91.10:3000',
+      'http://10.91.1.12:3000',
       process.env.CORS_ORIGIN,
       // Add other allowed origins as needed
     ].filter(Boolean);

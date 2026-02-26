@@ -80,6 +80,10 @@ const nextConfig = {
         hostname: '172.28.91.10',
       },
       {
+        protocol: 'http',
+        hostname: '10.91.1.12',
+      },
+      {
         protocol: 'https',
         hostname: '*.run.app',
       },
