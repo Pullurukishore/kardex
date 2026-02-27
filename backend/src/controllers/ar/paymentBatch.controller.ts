@@ -229,7 +229,23 @@ export const getBatchById = async (req: Request, res: Response) => {
             return res.status(404).json({ error: 'Payment batch not found' });
         }
 
-        res.json(batch);
+        // Lookup nickNames from bank accounts for each item
+        const bankAccountIds = [...new Set(batch.items.map(i => i.bankAccountId))];
+        const bankAccounts = await prisma.bankAccount.findMany({
+            where: { id: { in: bankAccountIds } },
+            select: { id: true, nickName: true }
+        });
+        const nickNameMap = new Map(bankAccounts.map(ba => [ba.id, ba.nickName]));
+
+        const batchWithNickNames = {
+            ...batch,
+            items: batch.items.map(item => ({
+                ...item,
+                nickName: nickNameMap.get(item.bankAccountId) || ''
+            }))
+        };
+
+        res.json(batchWithNickNames);
     } catch (error: any) {
         res.status(500).json({ error: 'Failed to fetch batch', message: error.message });
     }
@@ -397,6 +413,14 @@ export const downloadBatch = async (req: Request, res: Response) => {
             return res.status(400).json({ error: 'Batch has no approved items to download' });
         }
 
+        // Lookup nickNames from bank accounts for each item
+        const bankAccountIds = [...new Set(batch.items.map(i => i.bankAccountId))];
+        const bankAccounts = await prisma.bankAccount.findMany({
+            where: { id: { in: bankAccountIds } },
+            select: { id: true, nickName: true }
+        });
+        const nickNameMap = new Map(bankAccounts.map(ba => [ba.id, ba.nickName]));
+
         // Mark as downloaded (keep status as APPROVED)
         await prisma.paymentBatch.update({
             where: { id },
@@ -413,6 +437,7 @@ export const downloadBatch = async (req: Request, res: Response) => {
                 ifscCode: item.ifscCode,
                 bankName: item.bankName,
                 bpCode: item.bpCode,
+                nickName: nickNameMap.get(item.bankAccountId) || '',
                 emailId: item.emailId,
                 accountType: item.accountType,
                 amount: item.amount,

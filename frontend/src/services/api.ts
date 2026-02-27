@@ -58,9 +58,10 @@ class ApiService {
     return response.data;
   }
 
-  async importOffers(file: File): Promise<any> {
+  async importOffers(file: File, targetYear?: number): Promise<any> {
     const formData = new FormData();
     formData.append('file', file);
+    if (targetYear) formData.append('targetYear', String(targetYear));
     const response = await api.post(`${this.baseURL}/offers/import`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
       timeout: 300000 // 5 min for import (many DB writes)
@@ -68,9 +69,10 @@ class ApiService {
     return response.data;
   }
 
-  async previewOfferImport(file: File): Promise<any> {
+  async previewOfferImport(file: File, targetYear?: number): Promise<any> {
     const formData = new FormData();
     formData.append('file', file);
+    if (targetYear) formData.append('targetYear', String(targetYear));
     const response = await api.post(`${this.baseURL}/offers/import/preview`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
       timeout: 120000 // 120s for preview (large files)

@@ -2,6 +2,7 @@
 export interface PaymentRow {
     vendorName: string;
     bpCode: string;
+    nickName: string;
     accountNumber: string;
     ifscCode: string;
     bankName: string;
@@ -30,7 +31,7 @@ export const downloadICICICMS = async (payments: PaymentRow[], customFilename?: 
     const row1 = [
         "Trn Type", "Bene code", "Bene A/C No.", "Instrument Amt", "Bene Name",
         "Drawee Location", "Print Location", "Bene Addr 1", "Bene Addr 2", "Bene Addr 3",
-        "Bene Addr 4", "Instruction on Ref No.", "Customer Ref No.",
+        "Bene Addr 4", "Bene Addr 5", "Instruction on Ref No.", "Customer Ref No.",
         "Payment Detail 1", "Payment Detail 2", "Payment Detail 3", "Payment Detail 4",
         "Payment Detail 5", "Payment Detail 6", "Payment Detail 7",
         "Instrument no", "Inst. Date", "MICR NO", "IFSC Code", "Bene Bank Name",
@@ -39,14 +40,14 @@ export const downloadICICICMS = async (payments: PaymentRow[], customFilename?: 
 
     // Row 2: Type Codes
     const row2 = [
-        "A", "A", "A", "N", "C", "A", "A", "A", "A", "A", "A", "A", "C",
+        "A", "A", "A", "N", "C", "A", "A", "A", "A", "A", "A", "A", "A", "C",
         "C", "C", "C", "C", "C", "C", "C", "N", "DD/MM/YYYY", "N", "A", "A",
         "A", "A", "A", "A", "A"
     ];
 
     // Row 3: Character Lengths
     const row3 = [
-        "1", "15", "20", "20", "100", "30", "30", "70", "70", "70", "70", "30", "30",
+        "1", "15", "20", "20", "100", "30", "30", "70", "70", "70", "70", "20", "30", "30",
         "30", "30", "30", "30", "30", "30", "30", "12", "10", "15", "15", "100",
         "50", "50", "50", "50", "100"
     ];
@@ -55,8 +56,8 @@ export const downloadICICICMS = async (payments: PaymentRow[], customFilename?: 
     const row4 = [
         "Mandatory", "Mandatory", "Mandatory", "Mandatory", "Mandatory",
         "Optional", "Optional", "Optional", "Optional", "Optional", "Optional", "Optional",
-        "Mandatory", "Optional", "Optional", "Optional", "Optional", "Optional", "Optional", "Optional",
-        "Optional", "Mandatory", "Optional", "Mandatory", "Mandatory", "Optional",
+        "Optional", "Mandatory", "Optional", "Optional", "Optional", "Optional", "Optional", "Optional",
+        "Optional", "Optional", "Mandatory", "Optional", "Mandatory", "Mandatory", "Optional",
         "Optional", "Optional", "Optional", "Mandatory"
     ];
 
@@ -87,21 +88,21 @@ export const downloadICICICMS = async (payments: PaymentRow[], customFilename?: 
     // Add Data Rows
     payments.forEach(p => {
         const trnType = p.transactionMode === 'NFT' ? 'N' : p.transactionMode === 'RTI' ? 'R' : 'I';
-        const beneCode = p.bpCode || p.vendorName.substring(0, 15).trim();
+        const beneCode = p.nickName || p.vendorName.substring(0, 15).trim();
         const custRef = p.vendorName.split(' ')[0].substring(0, 30);
 
-        const rowData = Array(30).fill("");
+        const rowData = Array(31).fill("");
         rowData[0] = trnType;
         rowData[1] = beneCode;
         rowData[2] = p.accountNumber;
         rowData[3] = p.amount;
-        rowData[4] = p.vendorName;
-        rowData[12] = custRef;
+        rowData[4] = p.vendorName.trim();
+        rowData[13] = custRef;
 
-        rowData[21] = format(p.valueDate, 'dd/MM/yyyy');
-        rowData[23] = p.ifscCode;
-        rowData[24] = p.bankName;
-        rowData[29] = p.emailId;
+        rowData[22] = format(p.valueDate, 'dd/MM/yyyy');
+        rowData[24] = p.ifscCode;
+        rowData[25] = p.bankName;
+        rowData[30] = p.emailId;
 
         const row = worksheet.addRow(rowData);
         row.eachCell({ includeEmpty: true }, (cell: any) => {
@@ -112,7 +113,7 @@ export const downloadICICICMS = async (payments: PaymentRow[], customFilename?: 
     });
 
     // Set Column Widths (Row 3 values mapped to Excel widths)
-    const widths = [8, 15, 20, 15, 40, 12, 12, 15, 15, 15, 15, 15, 20, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 30, 20, 15, 15, 15, 30];
+    const widths = [8, 15, 20, 15, 40, 12, 12, 15, 15, 15, 15, 15, 15, 20, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 30, 20, 15, 15, 15, 30];
     worksheet.columns = widths.map(w => ({ width: w }));
 
     const buffer = await workbook.xlsx.writeBuffer();
@@ -195,20 +196,20 @@ export const downloadStandardPayment = async (payments: PaymentRow[], customFile
 function buildICICIDataRows(payments: PaymentRow[], formatDate: (d: Date, f: string) => string) {
     return payments.map(p => {
         const trnType = p.transactionMode === 'NFT' ? 'N' : p.transactionMode === 'RTI' ? 'R' : 'I';
-        const beneCode = p.bpCode || p.vendorName.substring(0, 15).trim();
+        const beneCode = p.nickName || p.vendorName.substring(0, 15).trim();
         const custRef = p.vendorName.split(' ')[0].substring(0, 30);
 
-        const row = Array(30).fill('');
+        const row = Array(31).fill('');
         row[0] = trnType;
         row[1] = beneCode;
         row[2] = p.accountNumber;
         row[3] = String(p.amount);
-        row[4] = p.vendorName;
-        row[12] = custRef;
-        row[21] = formatDate(p.valueDate, 'dd/MM/yyyy');
-        row[23] = p.ifscCode;
-        row[24] = p.bankName;
-        row[29] = p.emailId || '';
+        row[4] = p.vendorName.trim();
+        row[13] = custRef;
+        row[22] = formatDate(p.valueDate, 'dd/MM/yyyy');
+        row[24] = p.ifscCode;
+        row[25] = p.bankName;
+        row[30] = p.emailId || '';
         return row;
     });
 }

@@ -1505,7 +1505,8 @@ export class OfferController {
         return res.status(400).json({ error: 'No file uploaded' });
       }
 
-      const results = await OfferImportService.importFromExcel(req.file.buffer, req.user.id);
+      const targetYear = req.body?.targetYear ? parseInt(req.body.targetYear) : undefined;
+      const results = await OfferImportService.importFromExcel(req.file.buffer, req.user.id, targetYear);
 
       res.json({
         success: true,
@@ -1531,7 +1532,8 @@ export class OfferController {
         return res.status(400).json({ error: 'No file uploaded' });
       }
 
-      const results = await OfferImportService.previewFromExcel(req.file.buffer);
+      const targetYear = req.body?.targetYear ? parseInt(req.body.targetYear) : undefined;
+      const results = await OfferImportService.previewFromExcel(req.file.buffer, targetYear);
 
       res.json({
         success: true,

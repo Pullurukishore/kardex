@@ -139,6 +139,7 @@ export default function BatchDetailPage() {
       const rows: PaymentRow[] = dlData.approvedItems.map((item: any) => ({
         vendorName: item.vendorName,
         bpCode: item.bpCode || '',
+        nickName: item.nickName || '',
         accountNumber: item.accountNumber,
         ifscCode: item.ifscCode,
         bankName: item.bankName,
@@ -1125,7 +1126,7 @@ export default function BatchDetailPage() {
                   <tbody className="divide-y divide-[#AEBFC3]/10">
                     {batch.items.map((item) => {
                       const trnType = item.transactionMode === 'NFT' ? 'N' : item.transactionMode === 'RTI' ? 'R' : 'I';
-                      const beneCode = item.bpCode || item.vendorName.substring(0, 15).trim();
+                      const beneCode = (item as any).nickName || item.bpCode || item.vendorName.substring(0, 15).trim();
                       const custRef = item.vendorName.split(' ')[0].substring(0, 30);
                       const valueDate = item.valueDate ? new Date(item.valueDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '/') : '—';
                       return (
@@ -1135,6 +1136,7 @@ export default function BatchDetailPage() {
                           <td className="px-3 py-3 font-mono text-[10px] text-[#546A7A] font-bold">{item.accountNumber}</td>
                           <td className="px-3 py-3 font-black text-[#546A7A] tabular-nums">{Number(item.amount).toLocaleString('en-IN')}</td>
                           <td className="px-3 py-3 text-[#5D6E73] font-bold max-w-[140px] truncate text-[10px]">{item.vendorName}</td>
+
                           <td className="px-3 py-3 font-mono text-[9px] text-[#AEBFC3]">{custRef}</td>
                           <td className="px-3 py-3 font-mono text-[10px] text-[#5D6E73]">{valueDate}</td>
                           <td className="px-3 py-3 font-mono font-bold text-[#6F8A9D] text-[10px]">{item.ifscCode}</td>

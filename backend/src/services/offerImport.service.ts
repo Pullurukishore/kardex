@@ -66,7 +66,7 @@ function normalizeProductType(type: any): string | null {
     return null;
 }
 
-function excelDateToJS(excelDate: any): Date | null {
+function excelDateToJS(excelDate: any, targetYear?: number): Date | null {
     if (!excelDate) return null;
     let date: Date | null = null;
 
@@ -83,6 +83,10 @@ function excelDateToJS(excelDate: any): Date | null {
         const year = date.getFullYear();
         if (year < 1900 || year > 2100) {
             return null;
+        }
+        // Force to target year if specified (matches import-offers.js behavior)
+        if (targetYear) {
+            date.setFullYear(targetYear);
         }
         return date;
     }
@@ -257,7 +261,7 @@ export class OfferImportService {
      * Import offers from Excel buffer into database.
      * Matches logic from the proven import-offers.js script.
      */
-    static async importFromExcel(buffer: Buffer, adminId: number) {
+    static async importFromExcel(buffer: Buffer, adminId: number, targetYear?: number) {
         let workbook: XLSX.WorkBook;
         try {
             workbook = XLSX.read(buffer, { type: 'buffer', dense: true });
@@ -449,8 +453,12 @@ export class OfferImportService {
                         const remarksVal = indices.remarks >= 0 ? row[indices.remarks] : null;
                         const regDate = indices.regDate >= 0 ? row[indices.regDate] : null;
 
-                        let registrationDateJS = excelDateToJS(regDate);
-                        if (!registrationDateJS) registrationDateJS = new Date();
+                        let registrationDateJS = excelDateToJS(regDate, targetYear);
+                        if (!registrationDateJS) {
+                            registrationDateJS = targetYear
+                                ? new Date(targetYear, 0, 1)
+                                : new Date();
+                        }
 
                         // Determine stage
                         let stage = 'INITIAL';
@@ -464,11 +472,11 @@ export class OfferImportService {
                             ? (openFunnelVal > 0 || openFunnelVal === true)
                             : true;
 
-                        const currentYear = new Date().getFullYear();
+                        const importYear = targetYear || new Date().getFullYear();
 
                         const offerDataForDb: any = {
                             offerReferenceNumber: offerRefStr,
-                            offerReferenceDate: excelDateToJS(offerDateVal),
+                            offerReferenceDate: excelDateToJS(offerDateVal, targetYear),
                             title: `Offer for ${companyName}`,
                             productType: productTypeVal,
                             lead: leadStatusMap[leadVal || ''] || null,
@@ -489,14 +497,14 @@ export class OfferImportService {
                             createdById: targetUser.id,
                             updatedById: targetUser.id,
                             offerValue: offerData.offerValue > 0 ? offerData.offerValue : null,
-                            offerMonth: monthToYYYYMM(offerMonthVal, currentYear) ||
-                                `${currentYear}-${String(registrationDateJS.getMonth() + 1).padStart(2, '0')}`,
-                            poExpectedMonth: monthToYYYYMM(poExpectedVal, currentYear),
+                            offerMonth: monthToYYYYMM(offerMonthVal, importYear) ||
+                                `${importYear}-${String(registrationDateJS.getMonth() + 1).padStart(2, '0')}`,
+                            poExpectedMonth: monthToYYYYMM(poExpectedVal, importYear),
                             probabilityPercentage: probabilityToPercentage(probabilityVal),
                             poNumber: poNumberVal ? String(poNumberVal) : null,
-                            poDate: excelDateToJS(poDateVal),
+                            poDate: excelDateToJS(poDateVal, targetYear),
                             poValue: offerData.poValue > 0 ? offerData.poValue : null,
-                            poReceivedMonth: monthToYYYYMM(poReceivedMonthVal, currentYear),
+                            poReceivedMonth: monthToYYYYMM(poReceivedMonthVal, importYear),
                             openFunnel: openFunnelParsed,
                             remarks: remarksVal ? String(remarksVal) : null,
                             updatedAt: new Date()
@@ -585,7 +593,7 @@ export class OfferImportService {
      * Preview what an Excel import would do without actually importing.
      * Returns sheet info, offer counts, and which ones would be new vs update.
      */
-    static async previewFromExcel(buffer: Buffer) {
+    static async previewFromExcel(buffer: Buffer, targetYear?: number) {
         let workbook: XLSX.WorkBook;
         try {
             workbook = XLSX.read(buffer, { type: 'buffer', dense: true });

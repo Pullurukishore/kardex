@@ -40,6 +40,7 @@ export default function ImportOffersPage() {
     const [preview, setPreview] = useState<any>(null)
     const [result, setResult] = useState<any>(null)
     const [dragActive, setDragActive] = useState(false)
+    const [targetYear, setTargetYear] = useState<number>(new Date().getFullYear())
 
     // Protect this page
     useEffect(() => {
@@ -68,7 +69,7 @@ export default function ImportOffersPage() {
 
         setPreviewing(true)
         try {
-            const previewData = await apiService.previewOfferImport(selectedFile)
+            const previewData = await apiService.previewOfferImport(selectedFile, targetYear)
             setPreview(previewData)
         } catch (error: any) {
             console.error('Preview failed:', error)
@@ -88,7 +89,7 @@ export default function ImportOffersPage() {
         setImporting(true)
         setResult(null)
         try {
-            const response = await apiService.importOffers(file)
+            const response = await apiService.importOffers(file, targetYear)
             setResult(response)
             toast.success('Import completed successfully!')
         } catch (error: any) {
@@ -200,6 +201,36 @@ export default function ImportOffersPage() {
                                     <p className="text-white/70 text-sm mt-0.5">Select or drag your .xlsx / .xls file</p>
                                 </div>
                                 <CardContent className="p-6 bg-white">
+                                    {/* Year Selector */}
+                                    <div className="mb-5 p-4 bg-gradient-to-r from-slate-50 to-slate-100/50 rounded-xl border border-slate-200">
+                                        <div className="flex items-center gap-3">
+                                            <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-[#546A7A] to-[#6F8A9D] flex items-center justify-center shadow-sm flex-shrink-0">
+                                                <Sparkles className="h-5 w-5 text-white" />
+                                            </div>
+                                            <div className="flex-1">
+                                                <label className="text-sm font-bold text-slate-700">Target Year</label>
+                                                <p className="text-[11px] text-slate-400 mt-0.5">All dates & months in the Excel will be forced to this year</p>
+                                            </div>
+                                            <select
+                                                value={targetYear}
+                                                onChange={(e) => {
+                                                    setTargetYear(Number(e.target.value))
+                                                    // Reset preview when year changes
+                                                    if (preview) {
+                                                        setPreview(null)
+                                                    }
+                                                }}
+                                                disabled={importing}
+                                                className="h-11 w-28 rounded-lg border-2 border-slate-200 bg-white px-3 text-base font-bold text-[#546A7A] focus:border-[#9E3B47] focus:outline-none focus:ring-2 focus:ring-[#9E3B47]/20 transition-all cursor-pointer"
+                                            >
+                                                {[2024, 2025, 2026, 2027, 2028].map(y => (
+                                                    <option key={y} value={y}>{y}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+
+
                                     <div
                                         className={`
                       relative border-2 border-dashed rounded-2xl p-10 text-center cursor-pointer transition-all duration-300
