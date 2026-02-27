@@ -1988,9 +1988,9 @@ export async function generateForecastPdf(
 
             const uNoOfOffers = uFilteredMonths.reduce((sum, m) => sum + (m.noOfOffers || 0), 0)
             const uOffersValue = uFilteredMonths.reduce((sum, m) => sum + (m.offersValue || 0), 0)
-            const uOrdersReceived = uFilteredMonths.reduce((sum, m) => sum + (m.orderReceived || 0), 0)
-            const uOrdersInHand = uFilteredMonths.reduce((sum, m) => sum + (m.ordersInHand || 0), 0)
-            const uTarget = selectedMonth !== undefined ? (u.yearlyTarget / 12) : u.yearlyTarget
+            const uOrdersReceived = u.totals.orderReceived
+            const uOrdersInHand = u.totals.ordersInHand
+            const uTarget = u.yearlyTarget
 
             const uAch = uTarget > 0 ? ((uOrdersReceived / uTarget) * 100) : 0
             const uBalance = uTarget - uOrdersReceived
@@ -2120,12 +2120,12 @@ export async function generateForecastPdf(
 
             const userNoOfOffers = filteredMonths.reduce((sum, m) => sum + (m.noOfOffers || 0), 0)
             const userOffersValue = filteredMonths.reduce((sum, m) => sum + (m.offersValue || 0), 0)
-            const userOrdersReceived = filteredMonths.reduce((sum, m) => sum + (m.orderReceived || 0), 0)
-            const userOrdersInHand = filteredMonths.reduce((sum, m) => sum + (m.ordersInHand || 0), 0)
+            const userOrdersReceived = user.totals.orderReceived
+            const userOrdersInHand = user.totals.ordersInHand
             const totalUserBUMonthly = filteredMonths.reduce((sum, m) => sum + (m.buMonthly || 0), 0)
             const totalUserOfferBUMonth = filteredMonths.reduce((sum, m) => sum + (m.offerBUMonth || 0), 0)
 
-            const userTarget = monthName ? (user.yearlyTarget / 12) : user.yearlyTarget
+            const userTarget = user.yearlyTarget
             const userAchPct = userTarget > 0 ? ((userOrdersReceived / userTarget) * 100) : 0
 
             const cardW = (pageW - 45) / 4
@@ -2322,12 +2322,12 @@ export async function generateForecastPdf(
 
                         const pNoOfOffers = pFilteredMonths.reduce((sum, m) => sum + (m.noOfOffers || 0), 0)
                         const pOffersValue = pFilteredMonths.reduce((sum, m) => sum + (m.offersValue || 0), 0)
-                        const pOrderReceived = pFilteredMonths.reduce((sum, m) => sum + (m.orderReceived || 0), 0)
-                        const pOrdersInHand = pFilteredMonths.reduce((sum, m) => sum + (m.ordersInHand || 0), 0)
+                        const pOrderReceived = p.totals.orderReceived
+                        const pOrdersInHand = p.totals.ordersInHand
                         const pBUMonthly = pFilteredMonths.reduce((sum, m) => sum + (m.buMonthly || 0), 0)
                         const pOfferBUMonth = pFilteredMonths.reduce((sum, m) => sum + (m.offerBUMonth || 0), 0)
 
-                        const pTarget = monthName ? p.yearlyTarget / 12 : p.yearlyTarget
+                        const pTarget = p.yearlyTarget
                         achPct = pTarget > 0 ? (pOrderReceived / pTarget) * 100 : 0
 
                         rowData = {
@@ -2545,7 +2545,7 @@ export async function generateForecastPdf(
             const gcChartW = pageW - 65
             const gcChartY = uAY + 8
             const gcChartH = gcH - 20
-            const currentTarget = (u: any) => selectedMonth !== undefined ? (u.yearlyTarget / 12) : u.yearlyTarget
+            const currentTarget = (u: any) => u.yearlyTarget
             const gcMaxVal = Math.max(...usersToShow.flatMap(u => [u.totals.offersValue, u.totals.orderReceived, currentTarget(u)]), 1)
 
             // Y-axis grid lines + labels
