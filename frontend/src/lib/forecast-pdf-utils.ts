@@ -2422,7 +2422,7 @@ export async function generateForecastPdf(
                 const cardX = 15 + col * (gaugeW + gaugeGap)
                 const cx = cardX + gaugeW / 2
                 const cy = uAY + gaugeR + 10
-                const uTarget = selectedMonth !== undefined ? user.yearlyTarget / 12 : user.yearlyTarget
+                const uTarget = user.yearlyTarget
                 const pct = uTarget > 0 ? (user.totals.orderReceived / uTarget) * 100 : 0
                 const gColor: [number, number, number] = pct >= 100 ? COLORS.positive : pct >= 75 ? COLORS.warning : COLORS.negative
 
