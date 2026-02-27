@@ -2322,12 +2322,12 @@ export async function generateForecastPdf(
 
                         const pNoOfOffers = pFilteredMonths.reduce((sum, m) => sum + (m.noOfOffers || 0), 0)
                         const pOffersValue = pFilteredMonths.reduce((sum, m) => sum + (m.offersValue || 0), 0)
-                        const pOrderReceived = p.totals.orderReceived
-                        const pOrdersInHand = p.totals.ordersInHand
+                        const pOrderReceived = monthName ? pFilteredMonths.reduce((sum, m) => sum + (m.orderReceived || 0), 0) : p.totals.orderReceived
+                        const pOrdersInHand = monthName ? pFilteredMonths.reduce((sum, m) => sum + (m.ordersInHand || 0), 0) : p.totals.ordersInHand
                         const pBUMonthly = pFilteredMonths.reduce((sum, m) => sum + (m.buMonthly || 0), 0)
                         const pOfferBUMonth = pFilteredMonths.reduce((sum, m) => sum + (m.offerBUMonth || 0), 0)
 
-                        const pTarget = p.yearlyTarget
+                        const pTarget = monthName ? (p.yearlyTarget / 12) : p.yearlyTarget
                         achPct = pTarget > 0 ? (pOrderReceived / pTarget) * 100 : 0
 
                         rowData = {
