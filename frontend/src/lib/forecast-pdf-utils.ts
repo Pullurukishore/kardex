@@ -1988,9 +1988,9 @@ export async function generateForecastPdf(
 
             const uNoOfOffers = uFilteredMonths.reduce((sum, m) => sum + (m.noOfOffers || 0), 0)
             const uOffersValue = uFilteredMonths.reduce((sum, m) => sum + (m.offersValue || 0), 0)
-            const uOrdersReceived = u.totals.orderReceived
-            const uOrdersInHand = u.totals.ordersInHand
-            const uTarget = u.yearlyTarget
+            const uOrdersReceived = selectedMonth !== undefined ? uFilteredMonths.reduce((sum, m) => sum + (m.orderReceived || 0), 0) : u.totals.orderReceived
+            const uOrdersInHand = selectedMonth !== undefined ? uFilteredMonths.reduce((sum, m) => sum + (m.ordersInHand || 0), 0) : u.totals.ordersInHand
+            const uTarget = selectedMonth !== undefined ? (u.yearlyTarget / 12) : u.yearlyTarget
 
             const uAch = uTarget > 0 ? ((uOrdersReceived / uTarget) * 100) : 0
             const uBalance = uTarget - uOrdersReceived
@@ -2120,12 +2120,12 @@ export async function generateForecastPdf(
 
             const userNoOfOffers = filteredMonths.reduce((sum, m) => sum + (m.noOfOffers || 0), 0)
             const userOffersValue = filteredMonths.reduce((sum, m) => sum + (m.offersValue || 0), 0)
-            const userOrdersReceived = user.totals.orderReceived
-            const userOrdersInHand = user.totals.ordersInHand
+            const userOrdersReceived = filteredMonths.reduce((sum, m) => sum + (m.orderReceived || 0), 0)
+            const userOrdersInHand = filteredMonths.reduce((sum, m) => sum + (m.ordersInHand || 0), 0)
             const totalUserBUMonthly = filteredMonths.reduce((sum, m) => sum + (m.buMonthly || 0), 0)
             const totalUserOfferBUMonth = filteredMonths.reduce((sum, m) => sum + (m.offerBUMonth || 0), 0)
 
-            const userTarget = user.yearlyTarget
+            const userTarget = monthName ? (user.yearlyTarget / 12) : user.yearlyTarget
             const userAchPct = userTarget > 0 ? ((userOrdersReceived / userTarget) * 100) : 0
 
             const cardW = (pageW - 45) / 4
@@ -2168,17 +2168,17 @@ export async function generateForecastPdf(
             // 3. Orders Won (3rd)
             drawKPICard(doc, cardStartX + 2 * (cardW + cardGap), y, cardW, cardH,
                 'Orders Won',
-                fmtCrLakh(userOrdersReceived),
+                userOrdersReceived === 0 ? '0' : fmtCrLakh(userOrdersReceived),
                 COLORS.accentNeon,
-                `${userAchPct.toFixed(1)}% of Target`
+                `${userAchPct.toFixed(1)}% of Target Achieved`
             )
 
             // 4. Offer Funnel (4th)
             drawKPICard(doc, cardStartX + 3 * (cardW + cardGap), y, cardW, cardH,
                 'Offer Funnel',
-                fmtCrLakh(userOrdersInHand),
+                userOrdersInHand === 0 ? '0' : fmtCrLakh(userOrdersInHand),
                 COLORS.accentOrange,
-                `Pipeline value`
+                monthName ? `Active pipeline value` : `Yearly pipeline value`
             )
 
             // ===== Achievement Progress Bar =====
