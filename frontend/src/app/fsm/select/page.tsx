@@ -83,7 +83,7 @@ export default function FSMSelectPage() {
       localStorage.setItem('selectedSubModule', 'tickets');
       router.push('/external/tickets');
     }
-  }, [router, user, mounted]);
+  }, [router, user?.role, mounted]);
 
   const handleSubModuleSelect = (subModuleId: string) => {
     setSelectedModule(subModuleId);

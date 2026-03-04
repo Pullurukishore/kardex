@@ -120,13 +120,11 @@ export default function ResetPasswordPage() {
               Please request a new password reset link to continue.
             </p>
             <div className="space-y-3">
-              <Link href="/auth/forgot-password">
-                <Button className="w-full h-12 font-semibold rounded-xl bg-gradient-to-r from-[#6F8A9D] to-[#82A094] hover:from-[#4a6b8a] hover:to-[#4F6A64] text-white">
-                  Request New Reset Link
-                </Button>
-              </Link>
+              <p className="text-[#5D6E73] mb-6">
+                Please contact your administrator for a new password reset link.
+              </p>
               <Link href="/auth/login">
-                <Button variant="outline" className="w-full h-12 font-semibold rounded-xl">
+                <Button className="w-full h-12 font-semibold rounded-xl bg-gradient-to-r from-[#6F8A9D] to-[#82A094] hover:from-[#4a6b8a] hover:to-[#4F6A64] text-white">
                   Back to Login
                 </Button>
               </Link>

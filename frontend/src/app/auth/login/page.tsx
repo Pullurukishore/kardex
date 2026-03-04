@@ -45,12 +45,18 @@ export default function LoginPage() {
   }, []);
 
   const moduleParam = searchParams.get('module');
+  const callbackUrl = searchParams.get('callbackUrl');
   const moduleLabels: Record<string, string> = {
     fsm: 'Field Service Management',
     finance: 'Finance'
   };
 
   const getModuleBasedRedirect = (): string => {
+    // If there's a callbackUrl (user was redirected from a protected page), go back there
+    if (callbackUrl && callbackUrl.startsWith('/') && !callbackUrl.startsWith('/auth/')) {
+      return callbackUrl;
+    }
+
     const selectedModule = moduleParam || localStorage.getItem('selectedModule');
     if (selectedModule === 'finance') return '/finance/select';
     if (selectedModule === 'fsm') return '/fsm/select';
@@ -119,16 +125,21 @@ export default function LoginPage() {
 
         // Determine redirect path based on returned user (not React state which may have stale data)
         const loggedInUser = result.user;
-        const selectedModule = moduleParam || localStorage.getItem('selectedModule');
 
         let redirectPath: string;
-        if (selectedModule === 'finance') {
-          redirectPath = '/finance/select';
-        } else if (selectedModule === 'fsm') {
-          redirectPath = '/fsm/select';
+        // If there's a callbackUrl (user was redirected from a protected page), go back there
+        if (callbackUrl && callbackUrl.startsWith('/') && !callbackUrl.startsWith('/auth/')) {
+          redirectPath = callbackUrl;
         } else {
-          // Use the returned user's role for redirect
-          redirectPath = getRoleBasedRedirect(loggedInUser.role, loggedInUser.financeRole);
+          const selectedModule = moduleParam || localStorage.getItem('selectedModule');
+          if (selectedModule === 'finance') {
+            redirectPath = '/finance/select';
+          } else if (selectedModule === 'fsm') {
+            redirectPath = '/fsm/select';
+          } else {
+            // Use the returned user's role for redirect
+            redirectPath = getRoleBasedRedirect(loggedInUser.role, loggedInUser.financeRole);
+          }
         }
 
         // Quick delay to show the success animation, then redirect

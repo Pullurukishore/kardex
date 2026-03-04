@@ -22,6 +22,7 @@ interface ReportsFiltersProps {
   customers: Array<{ id: number; companyName: string }>;
   isZoneUser: boolean;
   isLoadingCustomers?: boolean;
+  users?: Array<{ id: number; name: string; email: string }>;
 }
 
 const PRODUCT_TYPES = Object.entries(PRODUCT_TYPE_LABELS).map(([value, label]) => ({
@@ -46,6 +47,7 @@ const ReportsFilters: React.FC<ReportsFiltersProps> = ({
   customers,
   isZoneUser,
   isLoadingCustomers = false,
+  users = [],
 }) => {
   return (
     <div className="space-y-4">
@@ -212,6 +214,32 @@ const ReportsFilters: React.FC<ReportsFiltersProps> = ({
                   {stageOption.label}
                 </SelectItem>
               ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
+      {/* Created By Filter - only show for offer-summary */}
+      {filters.reportType === 'offer-summary' && !isZoneUser && (
+        <div className="space-y-1">
+          <Label className="text-sm font-medium text-foreground">Created By</Label>
+          <Select
+            value={filters.createdById || 'all'}
+            onValueChange={(value) => onFilterChange({ createdById: value === 'all' ? undefined : value })}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="All users" />
+            </SelectTrigger>
+            <SelectContent className="max-h-[300px] overflow-y-auto">
+              <SelectItem value="all">All users</SelectItem>
+              {users?.map((u: any) => {
+                const zoneNames = u.serviceZones?.map((sz: any) => sz.serviceZone?.name).filter(Boolean).join(', ');
+                return (
+                  <SelectItem key={u.id} value={u.id.toString()}>
+                    {u.name || u.email} {zoneNames ? `(${zoneNames})` : ''}
+                  </SelectItem>
+                );
+              })}
             </SelectContent>
           </Select>
         </div>

@@ -12,6 +12,7 @@ export interface ReportFilters {
   productType?: string;
   stage?: string;
   search?: string;
+  createdById?: string;
   // Target report specific filters
   targetPeriod?: string;
   periodType?: 'MONTHLY' | 'YEARLY';

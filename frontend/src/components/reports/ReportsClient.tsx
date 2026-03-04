@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { RefreshCw, FileText, Download, FileDown, BarChart3, Info, Trophy, CheckCircle2, DollarSign, Package } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiService } from '@/services/api';
+import { UserRole } from '@/types/user.types';
 import type { ReportFilters, ReportData, ReportType } from '@/types/reports';
 import { REPORT_TYPES, TICKET_REPORT_TYPES, SALES_REPORT_TYPES } from '@/types/reports';
 import dynamic from 'next/dynamic';
@@ -138,6 +139,8 @@ const ReportsClient: React.FC<ReportsClientProps> = ({
   const [customers, setCustomers] = useState<Array<{ id: number; companyName: string }>>(initialCustomers || []);
   const [isLoadingZones, setIsLoadingZones] = useState(false);
   const [isLoadingCustomers, setIsLoadingCustomers] = useState(false);
+  const [users, setUsers] = useState<Array<{ id: number; name: string; email: string }>>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
 
   // Fetch zones and customers on mount
   useEffect(() => {
@@ -176,11 +179,28 @@ const ReportsClient: React.FC<ReportsClientProps> = ({
         } finally {
           setIsLoadingCustomers(false);
           isCustomersFetching.current = false;
-          hasInitialCustomersFetched.current = true;
         }
-      } else {
-        hasInitialCustomersFetched.current = true;
       }
+
+      // Fetch users for "Created By" filter
+      if (!isZoneUser && users.length === 0) {
+        setIsLoadingUsers(true);
+        try {
+          const response = await apiService.getUsers({ isActive: 'true' });
+          const usersData = response.data?.users || response.users || response.data || response || [];
+          const filteredUsers = Array.isArray(usersData)
+            ? usersData.filter((u: any) => u.role === UserRole.ZONE_USER || u.role === UserRole.ZONE_MANAGER || u.role === UserRole.ADMIN)
+            : [];
+          setUsers(filteredUsers);
+        } catch (error) {
+          console.error('Error fetching users:', error);
+          setUsers([]);
+        } finally {
+          setIsLoadingUsers(false);
+        }
+      }
+
+      hasInitialCustomersFetched.current = true;
     };
 
     fetchInitialData();
@@ -738,7 +758,7 @@ const ReportsClient: React.FC<ReportsClientProps> = ({
         const params: any = {
           reportType: 'offer-summary', // Use the same backend report type
           page: currentPage,
-          limit: 50,
+          limit: 500,
         };
 
         // For zone-user-offer-summary, add myOffers=true to filter only user's offers
@@ -766,6 +786,9 @@ const ReportsClient: React.FC<ReportsClientProps> = ({
         }
         if (filters.search) {
           params.search = filters.search;
+        }
+        if (filters.createdById) {
+          params.createdById = filters.createdById;
         }
 
         // Use zone report endpoint for zone users, generate for admins
@@ -989,6 +1012,12 @@ const ReportsClient: React.FC<ReportsClientProps> = ({
       if (filters.productType) {
         params.productType = filters.productType;
       }
+      if (filters.stage) {
+        params.stage = filters.stage;
+      }
+      if (filters.createdById) {
+        params.createdById = filters.createdById;
+      }
 
       // Build query string
       const queryString = new URLSearchParams(params).toString();
@@ -1156,6 +1185,7 @@ const ReportsClient: React.FC<ReportsClientProps> = ({
             customers={customers}
             isZoneUser={isZoneUser}
             isLoadingCustomers={isLoadingCustomers}
+            users={users}
             reportTypes={reportTypes}
           />
           {selectedReportType && (

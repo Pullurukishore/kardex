@@ -365,7 +365,6 @@ export class OfferController {
   static async getOffer(req: AuthenticatedRequest, res: Response) {
     const startTime = Date.now();
     const { id } = req.params;
-    logger.info(`Fetching offer details for ID: ${id}`);
 
     try {
       const offer = await prisma.offer.findUnique({
@@ -443,7 +442,6 @@ export class OfferController {
         },
       });
 
-      logger.info(`Database query for offer ${id} completed in ${Date.now() - startTime}ms`);
 
       if (!offer) {
         logger.warn(`Offer not found for ID: ${id}`);
@@ -460,7 +458,6 @@ export class OfferController {
       }
 
       res.json({ offer });
-      logger.info(`Successfully returned offer ${id} in ${Date.now() - startTime}ms`);
       return;
     } catch (error: any) {
       logger.error(`Get offer error for ID ${id}:`, {

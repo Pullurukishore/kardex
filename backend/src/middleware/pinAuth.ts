@@ -248,7 +248,6 @@ export const pinAuthMiddleware = (req: Request, res: Response, next: NextFunctio
     '/api/auth/login',
     '/api/auth/register',
     '/api/auth/refresh-token',
-    '/api/auth/forgot-password',
     '/api/auth/reset-password',
     '/api/auth/request-otp',
     '/api/auth/login-with-otp',

@@ -94,7 +94,9 @@ const nextConfig = {
     ],
     formats: ['image/webp', 'image/avif'],
     minimumCacheTTL: 60,
-    unoptimized: process.env.NEXT_EXPORT === 'true',
+    // Disable image optimization in dev to avoid intermittent 400 errors on small static images
+    // Production still benefits from optimization for remote/dynamic images
+    unoptimized: process.env.NEXT_EXPORT === 'true' || process.env.NODE_ENV === 'development',
   },
   typescript: {
     ignoreBuildErrors: false,

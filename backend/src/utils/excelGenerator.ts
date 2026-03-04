@@ -251,6 +251,30 @@ export const generateExcel = async (
             worksheet.getCell(`B${currentRow}`).font = { size: 10, color: { argb: COLORS.textDark } };
             currentRow++;
         }
+
+        if (filters.productType) {
+            worksheet.getCell(`A${currentRow}`).value = 'Product Type:';
+            worksheet.getCell(`A${currentRow}`).font = { size: 10, bold: true, color: { argb: COLORS.textMedium } };
+            worksheet.getCell(`B${currentRow}`).value = filters.productType;
+            worksheet.getCell(`B${currentRow}`).font = { size: 10, color: { argb: COLORS.textDark } };
+            currentRow++;
+        }
+
+        if (filters.stage) {
+            worksheet.getCell(`A${currentRow}`).value = 'Stage:';
+            worksheet.getCell(`A${currentRow}`).font = { size: 10, bold: true, color: { argb: COLORS.textMedium } };
+            worksheet.getCell(`B${currentRow}`).value = filters.stage;
+            worksheet.getCell(`B${currentRow}`).font = { size: 10, color: { argb: COLORS.textDark } };
+            currentRow++;
+        }
+
+        if (filters.createdBy) {
+            worksheet.getCell(`A${currentRow}`).value = 'Created By:';
+            worksheet.getCell(`A${currentRow}`).font = { size: 10, bold: true, color: { argb: COLORS.textMedium } };
+            worksheet.getCell(`B${currentRow}`).value = filters.createdBy;
+            worksheet.getCell(`B${currentRow}`).font = { size: 10, color: { argb: COLORS.textDark } };
+            currentRow++;
+        }
         currentRow++;
 
         // ==================================================
@@ -443,10 +467,15 @@ export const generateExcel = async (
 
                 validColumns.forEach((column, colIndex) => {
                     const cell = dataRow.getCell(colIndex + 1);
-                    const rawValue = getNestedValue(item, column.key);
-                    const formattedValue = formatExcelValue(rawValue, column, item);
 
-                    cell.value = formattedValue;
+                    // Handle S.No column
+                    if (column.key === '_sno') {
+                        cell.value = rowIndex + 1;
+                    } else {
+                        const rawValue = getNestedValue(item, column.key);
+                        const formattedValue = formatExcelValue(rawValue, column, item);
+                        cell.value = formattedValue;
+                    }
 
                     // Background color
                     cell.fill = {
@@ -467,7 +496,7 @@ export const generateExcel = async (
                             cell.numFmt = 'dd-mmm-yyyy';
                             break;
                         case 'number':
-                            cell.numFmt = '#,##0.00';
+                            cell.numFmt = '#,##0';
                             break;
                     }
 
@@ -481,10 +510,12 @@ export const generateExcel = async (
 
                     // Alignment based on data type
                     cell.alignment = {
-                        horizontal: column.dataType === 'currency' || column.dataType === 'number' ? 'right' :
-                            column.dataType === 'date' ? 'center' :
-                                colIndex === 0 ? 'left' : 'center',
-                        vertical: 'middle'
+                        horizontal: column.key === '_sno' ? 'center' :
+                            column.dataType === 'currency' || column.dataType === 'number' ? 'right' :
+                                column.dataType === 'date' ? 'center' :
+                                    'left',
+                        vertical: 'middle',
+                        wrapText: column.key === 'remarks'
                     };
 
                     cell.font = { size: 9, color: { argb: COLORS.textDark } };
@@ -558,36 +589,69 @@ export const generateExcel = async (
 export const getExcelColumns = (reportType: string): ColumnDefinition[] => {
     const columns: Record<string, ColumnDefinition[]> = {
         'offer-summary': [
-            { key: 'offerReferenceNumber', header: 'Offer Ref #', width: 16 },
-            { key: 'offerReferenceDate', header: 'Offer Date', width: 12, dataType: 'date' },
-            { key: 'company', header: 'Company', width: 22 },
+            { key: '_sno', header: 'S.No', width: 6, format: (value: any, item: any) => '', dataType: 'number' },
+            { key: 'offerReferenceNumber', header: 'Offer Ref #', width: 18 },
+            { key: 'offerReferenceDate', header: 'Offer Date', width: 13, dataType: 'date' },
+            { key: 'zone.name', header: 'Zone', width: 14 },
+            { key: 'customer.companyName', header: 'Customer', width: 24, format: (value: any, item: any) => item?.customer?.companyName || item?.company || '-' },
             { key: 'location', header: 'Location', width: 16 },
-            { key: 'department', header: 'Department', width: 14 },
-            { key: 'contactPersonName', header: 'Contact Person', width: 16 },
-            { key: 'contactNumber', header: 'Contact No.', width: 14 },
-            { key: 'email', header: 'Email', width: 22 },
-            { key: 'productType', header: 'Product Type', width: 14 },
-            { key: 'machineSerialNumber', header: 'Machine S/N', width: 16 },
-            { key: 'lead', header: 'Lead', width: 10 },
-            { key: 'stage', header: 'Stage', width: 14 },
-            { key: 'status', header: 'Status', width: 12 },
-            { key: 'priority', header: 'Priority', width: 10 },
-            { key: 'offerValue', header: 'Offer Value (₹)', width: 14, dataType: 'currency' },
-            { key: 'offerMonth', header: 'Offer Month', width: 12 },
-            { key: 'probabilityPercentage', header: 'Probability %', width: 12, dataType: 'percentage' },
-            { key: 'poExpectedMonth', header: 'PO Expected', width: 12 },
+            { key: 'contactPersonName', header: 'Contact Person', width: 18 },
+            {
+                key: 'productType', header: 'Product Type', width: 16, format: (value: any) => {
+                    const labels: Record<string, string> = {
+                        'RELOCATION': 'Relocation', 'CONTRACT': 'Contract', 'SPARE_PARTS': 'Spare Parts',
+                        'KARDEX_CONNECT': 'Kardex Connect', 'UPGRADE_KIT': 'Upgrade Kit', 'SOFTWARE': 'Software',
+                        'OTHERS': 'Others', 'BD_SPARE': 'BD Spare', 'RETROFIT_KIT': 'Retrofit Kit', 'SSP': 'SSP'
+                    };
+                    return labels[value] || (value ? String(value).replace(/_/g, ' ') : '-');
+                }
+            },
+            {
+                key: 'lead', header: 'Lead', width: 10, format: (value: any) => {
+                    const labels: Record<string, string> = { 'YES': 'Yes', 'NO': 'No' };
+                    return labels[value] || value || '-';
+                }
+            },
+            {
+                key: 'stage', header: 'Stage', width: 16, format: (value: any) => {
+                    const labels: Record<string, string> = {
+                        'INITIAL': 'Initial', 'PROPOSAL_SENT': 'Proposal Sent', 'NEGOTIATION': 'Negotiation',
+                        'PO_RECEIVED': 'PO Received', 'WON': 'Won', 'LOST': 'Lost'
+                    };
+                    return labels[value] || (value ? String(value).replace(/_/g, ' ') : '-');
+                }
+            },
+            {
+                key: 'status', header: 'Status', width: 10, format: (value: any) => {
+                    const labels: Record<string, string> = { 'OPEN': 'Open', 'CLOSED': 'Closed', 'WON': 'Won', 'LOST': 'Lost' };
+                    return labels[value] || (value ? String(value).replace(/_/g, ' ') : '-');
+                }
+            },
+            {
+                key: 'priority', header: 'Priority', width: 10, format: (value: any) => {
+                    const labels: Record<string, string> = { 'LOW': 'Low', 'MEDIUM': 'Medium', 'HIGH': 'High', 'CRITICAL': 'Critical' };
+                    return labels[value] || value || '-';
+                }
+            },
+            { key: 'offerValue', header: 'Offer Value (₹)', width: 16, dataType: 'currency' },
+            { key: 'offerMonth', header: 'Offer Month', width: 13 },
+            {
+                key: 'probabilityPercentage', header: 'Prob %', width: 10, dataType: 'number', format: (value: any) => {
+                    const num = Number(value);
+                    return isNaN(num) ? '-' : num;
+                }
+            },
+            { key: 'poExpectedMonth', header: 'PO Expected', width: 13 },
             { key: 'poNumber', header: 'PO Number', width: 16 },
-            { key: 'poDate', header: 'PO Date', width: 12, dataType: 'date' },
-            { key: 'poValue', header: 'PO Value (₹)', width: 14, dataType: 'currency' },
-            { key: 'poReceivedMonth', header: 'PO Received', width: 12 },
-            { key: 'zone.name', header: 'Zone', width: 12 },
+            { key: 'poDate', header: 'PO Date', width: 13, dataType: 'date' },
+            { key: 'poValue', header: 'PO Value (₹)', width: 16, dataType: 'currency' },
+            { key: 'poReceivedMonth', header: 'PO Received', width: 13 },
             { key: 'assignedTo.name', header: 'Assigned To', width: 16 },
             { key: 'createdBy.name', header: 'Created By', width: 16 },
-            { key: 'openFunnel', header: 'Open Funnel', width: 10 },
-            { key: 'remarks', header: 'Remarks', width: 25 },
-            { key: 'bookingDateInSap', header: 'SAP Booking', width: 12, dataType: 'date' },
-            { key: 'createdAt', header: 'Created', width: 12, dataType: 'date' },
-            { key: 'updatedAt', header: 'Updated', width: 12, dataType: 'date' },
+            { key: 'openFunnel', header: 'Open Funnel', width: 12, format: (value: any) => value === true || value === 'true' ? 'Yes' : value === false || value === 'false' ? 'No' : '-' },
+            { key: 'remarks', header: 'Remarks', width: 28 },
+            { key: 'bookingDateInSap', header: 'SAP Booking', width: 13, dataType: 'date' },
+            { key: 'createdAt', header: 'Created', width: 13, dataType: 'date' },
         ],
         'ticket-summary': [
             { key: 'ticketNumber', header: 'Ticket #', width: 10 },

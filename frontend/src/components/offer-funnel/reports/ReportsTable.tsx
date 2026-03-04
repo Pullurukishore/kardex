@@ -260,7 +260,7 @@ const ReportsTable: React.FC<ReportsTableProps> = ({
         {totalPages > 1 && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-[#92A2A5]">
             <div className="text-sm text-[#5D6E73]">
-              Showing {((currentPage - 1) * 50) + 1} to {Math.min(currentPage * 50, totalOffers)} of {totalOffers} offers
+              Showing {((currentPage - 1) * 500) + 1} to {Math.min(currentPage * 500, totalOffers)} of {totalOffers} offers
             </div>
             <div className="flex items-center gap-2">
               <Button

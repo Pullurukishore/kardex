@@ -393,11 +393,14 @@ export default function OfferManagement() {
                   </SelectTrigger>
                   <SelectContent className="max-h-[300px] overflow-y-auto">
                     <SelectItem value="All Users">All Users</SelectItem>
-                    {users.map(user => (
-                      <SelectItem key={user.id} value={user.id.toString()}>
-                        {user.name ? `${user.name} (${user.email})` : user.email}
-                      </SelectItem>
-                    ))}
+                    {users.map(user => {
+                      const zoneNames = user.serviceZones?.map((sz: any) => sz.serviceZone?.name).filter(Boolean).join(', ');
+                      return (
+                        <SelectItem key={user.id} value={user.id.toString()}>
+                          {user.name || user.email} {zoneNames ? `(${zoneNames})` : ''}
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               </div>

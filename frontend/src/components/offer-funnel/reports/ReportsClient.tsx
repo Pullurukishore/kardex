@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { RefreshCw, FileText, Download, FileDown, BarChart3, Info, Trophy, CheckCircle2, DollarSign, Package } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiService } from '@/services/api';
+import { UserRole } from '@/types/user.types';
 import type { ReportFilters, ReportData } from '@/types/reports';
 import { REPORT_TYPES } from '@/types/reports';
 import ReportsTable from './ReportsTable';
@@ -111,6 +112,8 @@ const ReportsClient: React.FC<ReportsClientProps> = ({
   const [customers, setCustomers] = useState<Array<{ id: number; companyName: string }>>(initialCustomers || []);
   const [isLoadingZones, setIsLoadingZones] = useState(false);
   const [isLoadingCustomers, setIsLoadingCustomers] = useState(false);
+  const [users, setUsers] = useState<Array<{ id: number; name: string; email: string }>>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
 
   // Refs to prevent duplicate API calls (React StrictMode protection)
   const hasInitialCustomersFetched = useRef(false);
@@ -153,11 +156,28 @@ const ReportsClient: React.FC<ReportsClientProps> = ({
         } finally {
           setIsLoadingCustomers(false);
           isCustomersFetching.current = false;
-          hasInitialCustomersFetched.current = true;
         }
-      } else {
-        hasInitialCustomersFetched.current = true;
       }
+
+      // Fetch users for "Created By" filter
+      if (!isZoneUser && users.length === 0) {
+        setIsLoadingUsers(true);
+        try {
+          const response = await apiService.getUsers({ isActive: 'true' });
+          const usersData = response.data?.users || response.users || response.data || response || [];
+          const filteredUsers = Array.isArray(usersData)
+            ? usersData.filter((u: any) => u.role === UserRole.ZONE_USER || u.role === UserRole.ZONE_MANAGER || u.role === UserRole.ADMIN)
+            : [];
+          setUsers(filteredUsers);
+        } catch (error) {
+          console.error('Error fetching users:', error);
+          setUsers([]);
+        } finally {
+          setIsLoadingUsers(false);
+        }
+      }
+
+      hasInitialCustomersFetched.current = true;
     };
 
     fetchInitialData();
@@ -340,7 +360,7 @@ const ReportsClient: React.FC<ReportsClientProps> = ({
         const params: any = {
           reportType: reportType,
           page: currentPage,
-          limit: 50,
+          limit: 500,
         };
 
         if (filters.dateRange?.from) {
@@ -360,6 +380,9 @@ const ReportsClient: React.FC<ReportsClientProps> = ({
         }
         if (filters.stage) {
           params.stage = filters.stage;
+        }
+        if (filters.createdById) {
+          params.createdById = filters.createdById;
         }
         if (filters.search) {
           params.search = filters.search;
@@ -541,6 +564,12 @@ const ReportsClient: React.FC<ReportsClientProps> = ({
       if (filters.productType) {
         params.productType = filters.productType;
       }
+      if (filters.stage) {
+        params.stage = filters.stage;
+      }
+      if (filters.createdById) {
+        params.createdById = filters.createdById;
+      }
 
       // Build query string
       const queryString = new URLSearchParams(params).toString();
@@ -676,6 +705,7 @@ const ReportsClient: React.FC<ReportsClientProps> = ({
             customers={customers}
             isZoneUser={isZoneUser}
             isLoadingCustomers={isLoadingCustomers}
+            users={users}
           />
           {selectedReportType && (
             <div className="mt-4 p-4 bg-[#96AEC2]/10 rounded-lg border border-[#96AEC2]">
@@ -978,17 +1008,11 @@ const ReportsClient: React.FC<ReportsClientProps> = ({
               <CardContent>
                 <div className="space-y-2">
                   <div className="text-3xl font-bold text-[#546A7A]">
-                    {filteredOffers.length}
+                    {totalOffers}
                   </div>
-                  {filters.search || filters.stage ? (
-                    <p className="text-xs text-[#AEBFC3]0">
-                      Filtered from <span className="font-semibold text-[#5D6E73]">{totalOffers}</span> total
-                    </p>
-                  ) : (
-                    <p className="text-xs text-[#AEBFC3]0">
-                      Out of <span className="font-semibold text-[#5D6E73]">{totalOffers || 0}</span> total offers
-                    </p>
-                  )}
+                  <p className="text-xs text-[#AEBFC3]0">
+                    Total offers found matching current filters
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -1008,7 +1032,7 @@ const ReportsClient: React.FC<ReportsClientProps> = ({
                   </div>
                   <p className="text-xs text-[#AEBFC3]0">
                     Avg: <span className="font-semibold text-[#5D6E73]">
-                      {formatCrLakh((summary.totalOfferValue || 0) / Math.max(filteredOffers.length || 0, 1))}
+                      {formatCrLakh((summary.totalOfferValue || 0) / Math.max(summary.totalOffers || 0, 1))}
                     </span>
                   </p>
                 </div>
@@ -1030,7 +1054,7 @@ const ReportsClient: React.FC<ReportsClientProps> = ({
                   </div>
                   <p className="text-xs text-[#AEBFC3]0">
                     Conversion: <span className="font-semibold text-[#5D6E73]">
-                      {((summary.totalPoValue || 0) / Math.max(summary.totalOfferValue || 0, 1) * 100).toFixed(1)}%
+                      {(summary.conversionRate || 0).toFixed(1)}%
                     </span>
                   </p>
                 </div>
@@ -1048,11 +1072,14 @@ const ReportsClient: React.FC<ReportsClientProps> = ({
               <CardContent>
                 <div className="space-y-2">
                   <div className="text-3xl font-bold text-[#4F6A64]">
-                    {offers.filter(o => o.stage === 'WON').length}
+                    {summary.wonOffers || 0}
                   </div>
                   <p className="text-xs text-[#5D6E73]">
                     Success Rate: <span className="font-semibold text-[#4F6A64]">
-                      {((offers.filter(o => o.stage === 'WON').length / Math.max(filteredOffers.length || 0, 1)) * 100).toFixed(1)}%
+                      {(summary.successRate || 0).toFixed(1)}%
+                    </span>
+                    <span className="text-[#AEBFC3]0 ml-1 italic">
+                      (out of {totalOffers} total offers)
                     </span>
                   </p>
                 </div>
@@ -1061,7 +1088,7 @@ const ReportsClient: React.FC<ReportsClientProps> = ({
           </div>
 
           {/* Won Offers Details Section */}
-          {offers.filter(o => o.stage === 'WON').length > 0 && (
+          {(summary.wonOffers || 0) > 0 && (
             <Card className="border-0 shadow-md bg-gradient-to-r from-[#A2B9AF]/10 to-[#A2B9AF]/10">
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -1079,7 +1106,7 @@ const ReportsClient: React.FC<ReportsClientProps> = ({
                   <div className="bg-white rounded-lg p-4 border border-[#A2B9AF]">
                     <p className="text-sm text-[#5D6E73] font-medium">Won Offers Count</p>
                     <p className="text-2xl font-bold text-[#4F6A64] mt-2">
-                      {offers.filter(o => o.stage === 'WON').length}
+                      {summary.wonOffers || 0}
                     </p>
                   </div>
                   <div className="bg-white rounded-lg p-4 border border-[#A2B9AF]">

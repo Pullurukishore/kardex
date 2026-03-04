@@ -48,17 +48,18 @@ const COLORS = {
 
 // Helper to safely format values for PDF
 function formatPdfValue(value: any, column: ColumnDefinition, item?: any): string {
-    if (value === null || value === undefined || value === '') return '-';
-
+    // If column has a custom format function, call it first (even for empty values)
     if (column.format) {
         try {
             const result = column.format(value, item);
             if (Array.isArray(result)) return result.join(', ');
-            return result === null || result === undefined ? '-' : String(result);
+            return result === null || result === undefined || result === '' ? '-' : String(result);
         } catch (e) {
-            return String(value);
+            return value ? String(value) : '-';
         }
     }
+
+    if (value === null || value === undefined || value === '') return '-';
 
     switch (column.dataType) {
         case 'number':
@@ -66,18 +67,17 @@ function formatPdfValue(value: any, column: ColumnDefinition, item?: any): strin
             return isNaN(numValue) ? String(value) : numValue.toLocaleString('en-IN');
         case 'currency':
             const currValue = Number(value);
-            if (isNaN(currValue)) return String(value);
+            if (isNaN(currValue) || currValue === 0) return '-';
             if (currValue >= 10000000) {
-                return `₹${(currValue / 10000000).toFixed(2)} Cr`;
+                return `Rs. ${(currValue / 10000000).toFixed(2)} Cr`;
             } else if (currValue >= 100000) {
-                return `₹${(currValue / 100000).toFixed(2)} L`;
+                return `Rs. ${(currValue / 100000).toFixed(2)} L`;
             }
-            return `₹${currValue.toLocaleString('en-IN')}`;
+            return `Rs. ${currValue.toLocaleString('en-IN')}`;
         case 'percentage':
             const pctValue = Number(value);
             return isNaN(pctValue) ? String(value) : `${pctValue.toFixed(1)}%`;
         case 'duration':
-            // Format minutes as "Xh Xm"
             const minutes = Number(value);
             if (isNaN(minutes) || minutes <= 0) return '-';
             const hours = Math.floor(minutes / 60);
@@ -94,8 +94,7 @@ function formatPdfValue(value: any, column: ColumnDefinition, item?: any): strin
         default:
             if (Array.isArray(value)) return value.join(', ');
             const str = String(value);
-            // Truncate long strings for PDF cells - shorter limit to prevent overflow
-            return str.length > 20 ? str.substring(0, 17) + '...' : str;
+            return str.length > 30 ? str.substring(0, 27) + '...' : str;
     }
 }
 
@@ -180,56 +179,58 @@ export const generatePdf = async (
         // Company name (if no logo) - centered
         if (!logoAdded) {
             doc.fillColor(COLORS.headerText)
-                .fontSize(22)
+                .fontSize(20)
                 .font('Helvetica-Bold')
-                .text('KARDEX REMSTAR', 0, 15, { width: pageWidth, align: 'center' });
+                .text('KARDEX REMSTAR', leftMargin, 12, { width: contentWidth, align: 'left', lineBreak: false });
 
             doc.fillColor('#94A3B8')
-                .fontSize(9)
+                .fontSize(8)
                 .font('Helvetica')
-                .text('Service Management System', 0, 42, { width: pageWidth, align: 'center' });
+                .text('Service Management System', leftMargin, 36, { lineBreak: false });
         } else {
             // Tagline below logo
             doc.fillColor('#94A3B8')
-                .fontSize(9)
+                .fontSize(8)
                 .font('Helvetica')
-                .text('Service Management System', leftMargin, 48);
+                .text('Service Management System', leftMargin, 48, { lineBreak: false });
         }
 
-        // Report title - centered in header
+        // Report title - right side of header
         doc.fillColor(COLORS.headerText)
-            .fontSize(12)
+            .fontSize(13)
             .font('Helvetica-Bold')
-            .text(title.toUpperCase(), 0, 55, { width: pageWidth, align: 'center' });
+            .text(title.toUpperCase(), pageWidth / 3, 20, { width: pageWidth / 2, align: 'center', lineBreak: false });
 
-        // Generation timestamp - bottom right of header
+        // Generation timestamp
         doc.fillColor('#94A3B8')
             .fontSize(8)
             .font('Helvetica')
-            .text(`Generated: ${format(new Date(), 'dd MMM yyyy, HH:mm')}`, rightMargin - 150, 58, { width: 140, align: 'right' });
+            .text(`Generated: ${format(new Date(), 'dd MMM yyyy, HH:mm')}`, rightMargin - 180, 45, { width: 170, align: 'right', lineBreak: false });
 
-        let currentY = 85;
+        let currentY = 80;
 
         // ==================================================
         // FILTERS SECTION
         // ==================================================
         const hasFilters = filters.from || filters.to || filters.zoneName || filters.zone || filters.reportType;
+        const hasExtraFilters = filters.productType || filters.stage || filters.createdBy;
+        const filterBoxHeight = hasExtraFilters ? 50 : 35;
 
-        if (hasFilters) {
+        if (hasFilters || hasExtraFilters) {
             // Filter box background
             doc.save()
-                .roundedRect(leftMargin, currentY, contentWidth, 35, 5)
+                .roundedRect(leftMargin, currentY, contentWidth, filterBoxHeight, 5)
                 .fill(COLORS.titleBg)
                 .restore();
 
             let filterX = leftMargin + 15;
-            const filterY = currentY + 12;
+            const filterY = currentY + 8;
 
             if (filters.from && filters.to) {
                 doc.fillColor(COLORS.textMedium)
                     .fontSize(9)
                     .font('Helvetica-Bold')
-                    .text('Period:', filterX, filterY);
+                    .text('Period:', filterX, filterY, { lineBreak: false });
                 filterX += 40;
 
                 const fromDate = format(new Date(filters.from), 'dd MMM yyyy');
@@ -237,38 +238,69 @@ export const generatePdf = async (
                 doc.fillColor(COLORS.brandPrimary)
                     .fontSize(9)
                     .font('Helvetica')
-                    .text(`${fromDate} - ${toDate}`, filterX, filterY);
-                filterX += 150;
+                    .text(`${fromDate} - ${toDate}`, filterX, filterY, { lineBreak: false });
+                filterX += 155;
             }
 
             if (filters.zoneName || filters.zone) {
                 doc.fillColor(COLORS.textMedium)
                     .fontSize(9)
                     .font('Helvetica-Bold')
-                    .text('Zone:', filterX, filterY);
+                    .text('Zone:', filterX, filterY, { lineBreak: false });
                 filterX += 35;
 
                 doc.fillColor(COLORS.brandPrimary)
                     .fontSize(9)
                     .font('Helvetica')
-                    .text(filters.zoneName || filters.zone, filterX, filterY);
+                    .text(filters.zoneName || filters.zone, filterX, filterY, { lineBreak: false });
                 filterX += 100;
             }
 
-            if (filters.reportType) {
-                doc.fillColor(COLORS.textMedium)
-                    .fontSize(9)
-                    .font('Helvetica-Bold')
-                    .text('Type:', filterX, filterY);
-                filterX += 30;
+            // Second row of filters
+            if (hasExtraFilters) {
+                let filterX2 = leftMargin + 15;
+                const filterY2 = filterY + 18;
 
-                doc.fillColor(COLORS.brandPrimary)
-                    .fontSize(9)
-                    .font('Helvetica')
-                    .text(filters.reportType.replace(/-/g, ' ').toUpperCase(), filterX, filterY);
+                if (filters.productType) {
+                    doc.fillColor(COLORS.textMedium)
+                        .fontSize(9)
+                        .font('Helvetica-Bold')
+                        .text('Product:', filterX2, filterY2, { lineBreak: false });
+                    filterX2 += 48;
+                    doc.fillColor(COLORS.brandPrimary)
+                        .fontSize(9)
+                        .font('Helvetica')
+                        .text(filters.productType, filterX2, filterY2, { lineBreak: false });
+                    filterX2 += 100;
+                }
+
+                if (filters.stage) {
+                    doc.fillColor(COLORS.textMedium)
+                        .fontSize(9)
+                        .font('Helvetica-Bold')
+                        .text('Stage:', filterX2, filterY2, { lineBreak: false });
+                    filterX2 += 35;
+                    doc.fillColor(COLORS.brandPrimary)
+                        .fontSize(9)
+                        .font('Helvetica')
+                        .text(filters.stage, filterX2, filterY2, { lineBreak: false });
+                    filterX2 += 100;
+                }
+
+                if (filters.createdBy) {
+                    doc.fillColor(COLORS.textMedium)
+                        .fontSize(9)
+                        .font('Helvetica-Bold')
+                        .text('Created By:', filterX2, filterY2, { lineBreak: false });
+                    filterX2 += 60;
+                    doc.fillColor(COLORS.brandPrimary)
+                        .fontSize(9)
+                        .font('Helvetica')
+                        .text(filters.createdBy, filterX2, filterY2, { lineBreak: false });
+                }
             }
 
-            currentY += 45;
+            currentY += filterBoxHeight + 10;
         }
 
         // ==================================================
@@ -284,12 +316,13 @@ export const generatePdf = async (
             doc.fillColor(COLORS.titleText)
                 .fontSize(10)
                 .font('Helvetica-Bold')
-                .text('Summary Statistics', leftMargin + 10, currentY + 5);
+                .text('Summary Statistics', leftMargin + 10, currentY + 5, { lineBreak: false });
             currentY += 25;
 
             // Build summary metrics
             const summaryMetrics: Array<{ label: string; value: string; color: string }> = [];
 
+            // Ticket-specific metrics
             if (summaryData.totalTickets !== undefined) {
                 summaryMetrics.push({ label: 'Total Tickets', value: String(summaryData.totalTickets), color: COLORS.brandPrimary });
             }
@@ -312,8 +345,30 @@ export const generatePdf = async (
                 summaryMetrics.push({ label: 'Avg Resolution', value: timeStr, color: COLORS.info });
             }
 
+            // Offer-specific metrics
+            if (summaryData.totalOffers !== undefined) {
+                summaryMetrics.push({ label: 'Total Offers', value: String(summaryData.totalOffers), color: COLORS.brandPrimary });
+            }
+            if (summaryData.totalOfferValue !== undefined) {
+                const val = summaryData.totalOfferValue;
+                const fmtVal = val >= 10000000 ? `Rs. ${(val / 10000000).toFixed(2)} Cr` : val >= 100000 ? `Rs. ${(val / 100000).toFixed(2)} L` : `Rs. ${val.toLocaleString('en-IN')}`;
+                summaryMetrics.push({ label: 'Total Offer Value', value: fmtVal, color: COLORS.warning });
+            }
+            if (summaryData.totalPoValue !== undefined) {
+                const val = summaryData.totalPoValue;
+                const fmtVal = val >= 10000000 ? `Rs. ${(val / 10000000).toFixed(2)} Cr` : val >= 100000 ? `Rs. ${(val / 100000).toFixed(2)} L` : `Rs. ${val.toLocaleString('en-IN')}`;
+                summaryMetrics.push({ label: 'Total PO Value', value: fmtVal, color: COLORS.success });
+            }
+            if (summaryData.wonOffers !== undefined) {
+                summaryMetrics.push({ label: 'Won Offers', value: String(summaryData.wonOffers), color: COLORS.success });
+            }
+            if (summaryData.lostOffers !== undefined) {
+                summaryMetrics.push({ label: 'Lost Offers', value: String(summaryData.lostOffers), color: COLORS.danger });
+            }
+
             // Draw metrics boxes (up to 6 per row)
-            const boxWidth = (contentWidth - 40) / Math.min(summaryMetrics.length, 6);
+            const metricsPerRow = Math.min(summaryMetrics.length, 6);
+            const boxWidth = (contentWidth - 10) / metricsPerRow;
             const boxHeight = 40;
             let metricX = leftMargin;
 
@@ -326,19 +381,19 @@ export const generatePdf = async (
 
                 // Metric label
                 doc.fillColor(COLORS.textMedium)
-                    .fontSize(8)
+                    .fontSize(7)
                     .font('Helvetica')
-                    .text(metric.label, metricX + 5, currentY + 5, { width: boxWidth - 10, align: 'center' });
+                    .text(metric.label, metricX + 3, currentY + 5, { width: boxWidth - 6, align: 'center', lineBreak: false });
 
                 // Metric value
                 doc.fillColor(metric.color)
-                    .fontSize(14)
+                    .fontSize(12)
                     .font('Helvetica-Bold')
-                    .text(metric.value, metricX + 5, currentY + 18, { width: boxWidth - 10, align: 'center' });
+                    .text(metric.value, metricX + 3, currentY + 18, { width: boxWidth - 6, align: 'center', lineBreak: false });
 
                 metricX += boxWidth;
             });
-            currentY += boxHeight + 15;
+            currentY += boxHeight + 10;
         }
 
         // ==================================================
@@ -354,7 +409,7 @@ export const generatePdf = async (
         doc.fillColor(COLORS.headerText)
             .fontSize(10)
             .font('Helvetica-Bold')
-            .text(`Data Records (${data.length} items)`, leftMargin + 10, currentY + 6);
+            .text(`Data Records (${data.length} items)`, leftMargin + 10, currentY + 6, { lineBreak: false });
         currentY += 28;
 
         // Calculate column widths proportionally
@@ -404,7 +459,8 @@ export const generatePdf = async (
                 .font('Helvetica-Oblique')
                 .text('No data available for the selected criteria', leftMargin, currentY + 10, {
                     width: contentWidth,
-                    align: 'center'
+                    align: 'center',
+                    lineBreak: false
                 });
             currentY += 30;
         } else {
@@ -466,10 +522,10 @@ export const generatePdf = async (
 
                     // Cell text
                     doc.fillColor(textColor)
-                        .fontSize(7)
+                        .fontSize(6)
                         .font('Helvetica')
-                        .text(formattedValue, xPos + 4, currentY + 5, {
-                            width: colWidths[index] - 8,
+                        .text(formattedValue, xPos + 2, currentY + 6, {
+                            width: colWidths[index] - 4,
                             align: column.align || (column.dataType === 'currency' || column.dataType === 'number' ? 'right' : 'left'),
                             lineBreak: false
                         });
@@ -514,14 +570,14 @@ function addPageFooter(doc: PDFKit.PDFDocument, pageWidth: number, pageHeight: n
     doc.fillColor(COLORS.textLight)
         .fontSize(7)
         .font('Helvetica')
-        .text(`© ${new Date().getFullYear()} Kardex Remstar India Pvt. Ltd. | Confidential`, 40, footerY + 8);
+        .text(`© ${new Date().getFullYear()} Kardex Remstar India Pvt. Ltd. | Confidential`, 40, footerY + 8, { lineBreak: false });
 
     // Right side - page number
     if (currentPage !== undefined && totalPages !== undefined) {
         doc.fillColor(COLORS.textLight)
             .fontSize(7)
             .font('Helvetica')
-            .text(`Page ${currentPage} of ${totalPages}`, pageWidth - 100, footerY + 8, { width: 60, align: 'right' });
+            .text(`Page ${currentPage} of ${totalPages}`, pageWidth - 100, footerY + 8, { width: 60, align: 'right', lineBreak: false });
     }
 }
 
@@ -529,22 +585,42 @@ function addPageFooter(doc: PDFKit.PDFDocument, pageWidth: number, pageHeight: n
 export const getPdfColumns = (reportType: string): ColumnDefinition[] => {
     const columns: Record<string, ColumnDefinition[]> = {
         'offer-summary': [
-            { key: 'offerReferenceNumber', header: 'Offer Ref', width: 70, align: 'left' },
-            { key: 'company', header: 'Company', width: 90, align: 'left' },
-            { key: 'location', header: 'Location', width: 65, align: 'left' },
-            { key: 'contactPersonName', header: 'Contact', width: 70, align: 'left' },
-            { key: 'productType', header: 'Product', width: 55, align: 'center' },
-            { key: 'stage', header: 'Stage', width: 55, align: 'center' },
-            { key: 'status', header: 'Status', width: 50, align: 'center' },
-            { key: 'offerValue', header: 'Offer Val', width: 60, dataType: 'currency', align: 'right' },
-            { key: 'probabilityPercentage', header: 'Prob%', width: 40, dataType: 'percentage', align: 'center' },
-            { key: 'poNumber', header: 'PO #', width: 65, align: 'left' },
-            { key: 'poValue', header: 'PO Val', width: 55, dataType: 'currency', align: 'right' },
-            { key: 'zone.name', header: 'Zone', width: 45, align: 'center' },
-            { key: 'assignedTo.name', header: 'Assigned', width: 65, align: 'left' },
-            { key: 'createdAt', header: 'Created', width: 55, dataType: 'date', align: 'center' },
-        ],
-        'ticket-summary': [
+            { key: 'offerReferenceNumber', header: 'Ref #', width: 68, align: 'left' },
+            { key: 'zone.name', header: 'Zone', width: 42, align: 'center' },
+            { key: 'customer.companyName', header: 'Customer', width: 110, align: 'left', format: (value: any, item: any) => item?.customer?.companyName || item?.company || '-' },
+            { key: 'location', header: 'Location', width: 55, align: 'left' },
+            { key: 'contactPersonName', header: 'Contact', width: 60, align: 'left' },
+            {
+                key: 'productType', header: 'Product', width: 65, align: 'center', format: (value: any) => {
+                    const labels: Record<string, string> = {
+                        'RELOCATION': 'Relocation', 'CONTRACT': 'Contract', 'SPARE_PARTS': 'Spare Parts',
+                        'KARDEX_CONNECT': 'Kardex Connect', 'UPGRADE_KIT': 'Upgrade Kit', 'SOFTWARE': 'Software',
+                        'OTHERS': 'Others', 'BD_SPARE': 'BD Spare', 'RETROFIT_KIT': 'Retrofit Kit', 'SSP': 'SSP'
+                    };
+                    return labels[value] || (value ? String(value).replace(/_/g, ' ') : '-');
+                }
+            },
+            {
+                key: 'stage', header: 'Stage', width: 65, align: 'center', format: (value: any) => {
+                    const labels: Record<string, string> = {
+                        'INITIAL': 'Initial', 'PROPOSAL_SENT': 'Prop Sent', 'NEGOTIATION': 'Negotiation',
+                        'PO_RECEIVED': 'PO Recd', 'WON': 'Won', 'LOST': 'Lost'
+                    };
+                    return labels[value] || (value ? String(value).replace(/_/g, ' ') : '-');
+                }
+            },
+            {
+                key: 'status', header: 'Status', width: 38, align: 'center', format: (value: any) => {
+                    const labels: Record<string, string> = { 'OPEN': 'Open', 'CLOSED': 'Closed', 'WON': 'Won', 'LOST': 'Lost' };
+                    return labels[value] || (value ? String(value).replace(/_/g, ' ') : '-');
+                }
+            },
+            { key: 'offerValue', header: 'Offer Val', width: 68, dataType: 'currency', align: 'right' },
+            { key: 'probabilityPercentage', header: 'Prob %', width: 45, dataType: 'percentage', align: 'center' },
+            { key: 'poNumber', header: 'PO #', width: 60, align: 'left' },
+            { key: 'poValue', header: 'PO Val', width: 62, dataType: 'currency', align: 'right' },
+            { key: 'offerMonth', header: 'Offer Month', width: 55, align: 'center' },
+        ], 'ticket-summary': [
             { key: 'ticketNumber', header: 'Ticket', width: 40, align: 'center' },
             { key: 'customer.companyName', header: 'Company', width: 75, align: 'left' },
             { key: 'asset.serialNo', header: 'Serial No', width: 55, align: 'left' },

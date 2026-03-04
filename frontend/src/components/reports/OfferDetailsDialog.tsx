@@ -518,20 +518,19 @@ const OfferDetailsDialog: React.FC<OfferDetailsDialogProps> = ({
                     <div className="space-y-3">
                       {offer.offerAssets.map((asset) => (
                         <div key={asset.id} className="border rounded-lg p-4">
-                          <div className="font-medium">Machine ID: {asset.asset?.machineId || asset.asset?.serialNo || 'N/A'}</div>
                           {asset.asset?.serialNo && (
-                            <div className="text-sm text-[#AEBFC3] mt-1">
-                              Serial No: {asset.asset.serialNo}
+                            <div className="text-sm mt-1">
+                              <span className="font-semibold text-[#546A7A]">Serial No:</span> <span className="text-[#5D6E73]">{asset.asset.serialNo}</span>
                             </div>
                           )}
                           {asset.asset?.model && (
-                            <div className="text-sm text-[#AEBFC3] mt-1">
-                              Model: {asset.asset.model}
+                            <div className="text-sm mt-1">
+                              <span className="font-semibold text-[#546A7A]">Model:</span> <span className="text-[#5D6E73]">{asset.asset.model}</span>
                             </div>
                           )}
                           {asset.asset?.customer && (
-                            <div className="text-sm text-[#AEBFC3] mt-1">
-                              Customer: {asset.asset.customer.companyName}
+                            <div className="text-sm mt-1">
+                              <span className="font-semibold text-[#546A7A]">Customer:</span> <span className="text-[#5D6E73]">{asset.asset.customer.companyName}</span>
                             </div>
                           )}
                         </div>

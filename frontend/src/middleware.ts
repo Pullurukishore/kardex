@@ -7,6 +7,13 @@ import { getRoleBasedRedirect } from './lib/utils/navigation';
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // Skip middleware for static assets (images, fonts, etc.)
+  // These were being caught and redirected, causing floods of extra page requests
+  if (/\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|woff|woff2|ttf|eot|otf|map)$/i.test(pathname)) {
+    return NextResponse.next();
+  }
+
   const accessToken = request.cookies.get('accessToken')?.value;
   const token = request.cookies.get('token')?.value;
   const refreshToken = request.cookies.get('refreshToken')?.value;
@@ -52,14 +59,16 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  // Handle public routes - allow them to load without interference
-  if (!shouldRedirectToLogin(pathname)) {
-    return NextResponse.next();
+  // If user is already authenticated and tries to visit any auth page (login, reset-password, etc.),
+  // redirect them to the appropriate dashboard instead of showing the auth page
+  if (pathname.startsWith('/auth/') && authToken) {
+    const financeRoleForRedirect = request.cookies.get('financeRole')?.value as any;
+    const redirectPath = getRoleBasedRedirect(userRole, financeRoleForRedirect);
+    return NextResponse.redirect(new URL(redirectPath, request.url));
   }
 
-
-  // Special handling for root path - let client-side routing handle it
-  if (pathname === '/') {
+  // Handle public routes - allow them to load without interference
+  if (!shouldRedirectToLogin(pathname)) {
     return NextResponse.next();
   }
 
@@ -92,7 +101,7 @@ export async function middleware(request: NextRequest) {
 // Configure which routes should be processed by this middleware
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|public/).*)',
+    '/((?!_next/static|_next/image|favicon.ico|public/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2|ttf|eot|otf)$).*)',
     '/api/:path*',
   ],
 };

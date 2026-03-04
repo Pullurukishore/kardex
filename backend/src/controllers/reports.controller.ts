@@ -92,11 +92,12 @@ interface ReportFilters {
   page?: string;
   limit?: string;
   search?: string;
+  createdById?: string;
 }
 
 export const generateReport = async (req: Request, res: Response) => {
   try {
-    const { from, to, zoneId, reportType, customerId, assetId, productType, stage, page, limit, search } = req.query as unknown as ReportFilters;
+    const { from, to, zoneId, reportType, customerId, assetId, productType, stage, page, limit, search, createdById } = req.query as unknown as ReportFilters;
 
     // Parse pagination params with defaults
     const pageNum = page ? parseInt(page) : 1;
@@ -134,12 +135,21 @@ export const generateReport = async (req: Request, res: Response) => {
     startDate = startUTC;
     endDate = endUTC;
 
-    const whereClause: any = {
-      createdAt: {
-        gte: startDate,
-        lte: endDate,
-      },
-    };
+    const isOfferReport = ['offer-summary', 'target-report', 'product-type-analysis', 'customer-performance'].includes(reportType);
+
+    const whereClause: any = isOfferReport
+      ? {
+        offerMonth: {
+          gte: format(startDate, 'yyyy-MM'),
+          lte: format(endDate, 'yyyy-MM'),
+        }
+      }
+      : {
+        createdAt: {
+          gte: startDate,
+          lte: endDate,
+        },
+      };
 
     if (zoneId) {
       whereClause.zoneId = parseInt(zoneId);
@@ -159,6 +169,10 @@ export const generateReport = async (req: Request, res: Response) => {
     // Add stage filter for offer reports
     if (stage) {
       whereClause.stage = stage;
+    }
+    // Add createdById filter for offer reports
+    if (createdById) {
+      whereClause.createdById = parseInt(createdById as string);
     }
     // Add search filter for offer reports
     if (search) {
@@ -1391,7 +1405,7 @@ interface ColumnDefinition {
 
 export const exportReport = async (req: Request, res: Response) => {
   try {
-    const { from, to, zoneId, reportType, format = 'pdf', ...otherFilters } = req.query as unknown as ReportFilters & { format: string };
+    const { from, to, zoneId, reportType, format: exportFormat = 'pdf', customerId, productType, stage, createdById, search, ...otherFilters } = req.query as unknown as ReportFilters & { format: string; customerId?: string; productType?: string; stage?: string; createdById?: string; search?: string };
     // Validate required parameters
     if (!reportType) {
       return res.status(400).json({ error: 'Report type is required' });
@@ -1413,15 +1427,47 @@ export const exportReport = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Start date must be before end date' });
     }
 
-    const whereClause: any = {
-      createdAt: {
-        gte: startDate,
-        lte: endDate,
-      },
-    };
+    const isOfferReport = ['offer-summary', 'target-report', 'product-type-analysis', 'customer-performance'].includes(reportType);
+
+    const whereClause: any = isOfferReport
+      ? {
+        offerMonth: {
+          gte: format(startDate, 'yyyy-MM'),
+          lte: format(endDate, 'yyyy-MM'),
+        }
+      }
+      : {
+        createdAt: {
+          gte: startDate,
+          lte: endDate,
+        },
+      };
 
     if (zoneId) {
       whereClause.zoneId = parseInt(zoneId as string);
+    }
+
+    // Apply additional offer-related filters for export
+    if (customerId) {
+      whereClause.customerId = parseInt(customerId as string);
+    }
+    if (productType) {
+      whereClause.productType = productType;
+    }
+    if (stage) {
+      whereClause.stage = stage;
+    }
+    if (createdById) {
+      whereClause.createdById = parseInt(createdById as string);
+    }
+    if (search) {
+      whereClause.OR = [
+        { offerReferenceNumber: { contains: search, mode: 'insensitive' } },
+        { title: { contains: search, mode: 'insensitive' } },
+        { company: { contains: search, mode: 'insensitive' } },
+        { contactPersonName: { contains: search, mode: 'insensitive' } },
+        { poNumber: { contains: search, mode: 'insensitive' } },
+      ];
     }
     let data: any[] = [];
     let columns: ColumnDefinition[] = [];
@@ -1445,13 +1491,47 @@ export const exportReport = async (req: Request, res: Response) => {
     ).join(' ');
 
     const filename = `${reportTitle.replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}`;
-    const filters = {
+
+    // Build filter display info for the export header
+    const filters: any = {
       from: startDate.toISOString(),
       to: endDate.toISOString(),
-      ...Object.fromEntries(
-        Object.entries(otherFilters).filter(([_, v]) => v !== undefined && v !== '')
-      )
     };
+
+    // Add zone name to filters display
+    if (zoneId) {
+      try {
+        const zone = await prisma.serviceZone.findUnique({ where: { id: parseInt(zoneId as string) }, select: { name: true } });
+        filters.zoneName = zone?.name || `Zone ${zoneId}`;
+      } catch { filters.zoneName = `Zone ${zoneId}`; }
+    }
+
+    // Add product type to filters display
+    if (productType) {
+      const ptLabels: Record<string, string> = {
+        'RELOCATION': 'Relocation', 'CONTRACT': 'Contract', 'SPARE_PARTS': 'Spare Parts',
+        'KARDEX_CONNECT': 'Kardex Connect', 'UPGRADE_KIT': 'Upgrade Kit', 'SOFTWARE': 'Software',
+        'OTHERS': 'Others', 'BD_SPARE': 'BD Spare', 'RETROFIT_KIT': 'Retrofit Kit'
+      };
+      filters.productType = ptLabels[productType] || productType;
+    }
+
+    // Add stage to filters display
+    if (stage) {
+      const stageLabels: Record<string, string> = {
+        'INITIAL': 'Initial', 'PROPOSAL_SENT': 'Proposal Sent', 'NEGOTIATION': 'Negotiation',
+        'PO_RECEIVED': 'PO Received', 'WON': 'Won', 'LOST': 'Lost'
+      };
+      filters.stage = stageLabels[stage] || stage;
+    }
+
+    // Add created by name to filters display
+    if (createdById) {
+      try {
+        const creator = await prisma.user.findUnique({ where: { id: parseInt(createdById as string) }, select: { name: true } });
+        filters.createdBy = creator?.name || `User ${createdById}`;
+      } catch { filters.createdBy = `User ${createdById}`; }
+    }
 
     // Get data based on report type
     switch (reportType) {
@@ -1608,15 +1688,11 @@ export const exportReport = async (req: Request, res: Response) => {
 
       case 'offer-summary':
         // Fetch offers with all related data
+        const isOfferSummaryReport = reportType === 'offer-summary';
         const offers = await prisma.offer.findMany({
-          where: {
-            createdAt: {
-              gte: startDate,
-              lte: endDate,
-            },
-            ...(zoneId ? { zoneId: parseInt(zoneId as string) } : {}),
-          },
+          where: whereClause,
           include: {
+            customer: true,
             contact: true,
             zone: true,
             assignedTo: true,
@@ -1641,10 +1717,10 @@ export const exportReport = async (req: Request, res: Response) => {
       default:
         return res.status(400).json({ error: 'Invalid report type' });
     }
-    if (format.toLowerCase() === 'pdf') {
+    if (exportFormat.toLowerCase() === 'pdf') {
       // Generate PDF with summary and data
       await generatePdf(res, data, columns, reportTitle, filters, summaryData);
-    } else if (format.toLowerCase() === 'excel' || format.toLowerCase() === 'xlsx') {
+    } else if (exportFormat.toLowerCase() === 'excel' || exportFormat.toLowerCase() === 'xlsx') {
       // Generate Excel with enhanced formatting and summary data
       const excelColumns = getExcelColumns(reportType);
       await generateExcel(res, data, excelColumns, reportTitle, filters, summaryData);
@@ -2895,7 +2971,7 @@ async function generateHerAnalysisReport(res: Response, whereClause: any, startD
 
 export const generateZoneReport = async (req: Request, res: Response) => {
   try {
-    const { from, to, reportType, customerId, assetId, productType, stage, zoneId, page, limit, myOffers } = req.query as unknown as ReportFilters & { myOffers?: string };
+    const { from, to, reportType, customerId, assetId, productType, stage, zoneId, page, limit, myOffers, createdById } = req.query as unknown as ReportFilters & { myOffers?: string };
     const user = (req as any).user;
 
     // Parse pagination params with defaults
@@ -2950,12 +3026,21 @@ export const generateZoneReport = async (req: Request, res: Response) => {
     endDate.setHours(23, 59, 59, 999);
 
     // Base where clause
-    const whereClause: any = {
-      createdAt: {
-        gte: startDate,
-        lte: endDate,
+    const isOfferReportRef = ['offer-summary', 'target-report', 'product-type-analysis', 'customer-performance'].includes(reportType);
+
+    const whereClause: any = isOfferReportRef
+      ? {
+        offerMonth: {
+          gte: format(startDate, 'yyyy-MM'),
+          lte: format(endDate, 'yyyy-MM'),
+        }
       }
-    };
+      : {
+        createdAt: {
+          gte: startDate,
+          lte: endDate,
+        }
+      };
 
     // If a specific zoneId is requested, validate access
     if (zoneId) {
@@ -2978,6 +3063,11 @@ export const generateZoneReport = async (req: Request, res: Response) => {
     // Add stage filter for offer reports
     if (stage) {
       whereClause.stage = stage;
+    }
+
+    // Add createdById filter for offer reports
+    if (createdById) {
+      whereClause.createdById = parseInt(createdById as string);
     }
 
     // If myOffers is true, filter offers by current user (created by or assigned to)
@@ -3024,7 +3114,7 @@ export const generateZoneReport = async (req: Request, res: Response) => {
 
 export const exportZoneReport = async (req: Request, res: Response) => {
   try {
-    const { from, to, reportType, format = 'pdf', zoneId, ...otherFilters } = req.query as unknown as ReportFilters & { format: string };
+    const { from, to, reportType, format: exportFormat = 'pdf', zoneId, ...otherFilters } = req.query as unknown as ReportFilters & { format: string };
     const user = (req as any).user;
 
     // Validate required parameters
@@ -3086,12 +3176,21 @@ export const exportZoneReport = async (req: Request, res: Response) => {
     endDate.setHours(23, 59, 59, 999);
 
     // Base where clause
-    const whereClause: any = {
-      createdAt: {
-        gte: startDate,
-        lte: endDate,
+    const isOfferReportValue = ['offer-summary', 'target-report', 'product-type-analysis', 'customer-performance'].includes(reportType);
+
+    const whereClause: any = isOfferReportValue
+      ? {
+        offerMonth: {
+          gte: format(startDate, 'yyyy-MM'),
+          lte: format(endDate, 'yyyy-MM'),
+        }
       }
-    };
+      : {
+        createdAt: {
+          gte: startDate,
+          lte: endDate,
+        }
+      };
 
     // If a specific zoneId is requested, validate access
     if (zoneId) {
@@ -3292,9 +3391,9 @@ export const exportZoneReport = async (req: Request, res: Response) => {
         return res.status(400).json({ error: 'Invalid report type for export.' });
     }
 
-    if (format.toLowerCase() === 'pdf') {
+    if (exportFormat.toLowerCase() === 'pdf') {
       await generatePdf(res, data, columns, `Zone ${reportTitle}`, filters, summaryData);
-    } else if (format.toLowerCase() === 'excel' || format.toLowerCase() === 'xlsx') {
+    } else if (exportFormat.toLowerCase() === 'excel' || exportFormat.toLowerCase() === 'xlsx') {
       // Generate Excel with enhanced formatting and summary data
       const excelColumns = getExcelColumns(reportType);
       await generateExcel(res, data, excelColumns, `Zone ${reportTitle}`, filters, summaryData);
@@ -3311,14 +3410,13 @@ export const exportZoneReport = async (req: Request, res: Response) => {
   }
 };
 
-// Offer Funnel Report Functions
-
+/**
+ * Offer Funnel Report Functions
+ */
 /**
  * Generate Offer Summary Report
  */
 const generateOfferSummaryReport = async (res: Response, whereClause: any, startDate: Date, endDate: Date, page: number = 1, limit: number = 500) => {
-  const startTime = Date.now();
-  logger.info(`Starting offer summary report generation: page=${page}, limit=${limit}`, { whereClause });
   try {
     // Cap limit to prevent memory issues
     const safeLimit = Math.min(limit, 1000);
@@ -3327,13 +3425,12 @@ const generateOfferSummaryReport = async (res: Response, whereClause: any, start
     const skip = (page - 1) * safeLimit;
 
     // Get total count for pagination info
-    const totalCount = await prisma.offer.count({ where: whereClause });
-    logger.info(`Total offers found: ${totalCount}`);
-
+    const totalCount = await prisma.offer.count({ where: { ...whereClause } });
 
     // Fetch offers with important fields and pagination
+    const findManyWhere = { ...whereClause };
     const offers = await prisma.offer.findMany({
-      where: whereClause,
+      where: findManyWhere,
       select: {
         id: true,
         offerReferenceNumber: true,
@@ -3389,49 +3486,56 @@ const generateOfferSummaryReport = async (res: Response, whereClause: any, start
       skip: skip,
       take: safeLimit,
     });
-    logger.info(`Fetched ${offers.length} offers for current page in ${Date.now() - startTime}ms`);
 
-    // Perform aggregations in parallel to improve performance
-    logger.info('Starting aggregations...');
     const aggStartTime = Date.now();
-    const [summary, wonOffers, statusDistribution, stageDistribution, productTypeDistribution] = await Promise.all([
-      // Calculate summary statistics
+    const aggWhere = { ...whereClause };
+
+    const [summary, wonOffersCount, wonOffersValue, lostOffersCount, statusDistribution, stageDistribution, productTypeDistribution] = await Promise.all([
+      // Calculate summary statistics for all matching offers
       prisma.offer.aggregate({
-        where: whereClause,
-        _count: { id: true },
+        where: aggWhere,
         _sum: {
           offerValue: true,
           poValue: true,
         },
       }),
 
-      // Won offers statistics
+      // Total won offers count (independent of pagination)
+      prisma.offer.count({
+        where: { ...aggWhere, stage: 'WON' }
+      }),
+
+      // Won offers value statistics
       prisma.offer.aggregate({
-        where: { ...whereClause, stage: 'WON' },
-        _count: { id: true },
+        where: { ...aggWhere, stage: 'WON' },
         _sum: {
           offerValue: true,
           poValue: true,
         },
+      }),
+
+      // Total lost offers count (independent of pagination)
+      prisma.offer.count({
+        where: { ...aggWhere, stage: 'LOST' }
       }),
 
       // Status distribution
       prisma.offer.groupBy({
-        where: whereClause,
+        where: aggWhere,
         by: ['status'],
         _count: { id: true },
       }),
 
       // Stage distribution
       prisma.offer.groupBy({
-        where: whereClause,
+        where: aggWhere,
         by: ['stage'],
         _count: { id: true },
       }),
 
       // Product type distribution
       prisma.offer.groupBy({
-        where: whereClause,
+        where: aggWhere,
         by: ['productType'],
         _count: { id: true },
         _sum: {
@@ -3439,10 +3543,7 @@ const generateOfferSummaryReport = async (res: Response, whereClause: any, start
         },
       })
     ]);
-    logger.info(`Aggregations completed in ${Date.now() - aggStartTime}ms`);
 
-
-    // Format distributions
     const statusDist: Record<string, number> = {};
     statusDistribution.forEach((item) => {
       statusDist[item.status] = item._count.id;
@@ -3472,21 +3573,22 @@ const generateOfferSummaryReport = async (res: Response, whereClause: any, start
           pages: Math.ceil(totalCount / safeLimit),
         },
         summary: {
-          totalOffers: summary._count.id,
+          totalCount: totalCount,
+          totalOffers: totalCount,
           totalOfferValue: Math.round(Number(summary._sum.offerValue || 0)),
           totalPoValue: Math.round(Number(summary._sum.poValue || 0)),
-          wonOffers: wonOffers._count.id,
-          wonOfferValue: Math.round(Number(wonOffers._sum.offerValue || 0)),
-          wonPoValue: Math.round(Number(wonOffers._sum.poValue || 0)),
-          successRate: summary._count.id > 0 ? Math.round((wonOffers._count.id / summary._count.id) * 100) : 0,
-          conversionRate: summary._sum.offerValue ? Math.round((Number(summary._sum.poValue || 0) / Number(summary._sum.offerValue || 1)) * 100) : 0,
+          wonOffers: wonOffersCount,
+          wonOfferValue: Math.round(Number(wonOffersValue._sum.offerValue || 0)),
+          wonPoValue: Math.round(Number(wonOffersValue._sum.poValue || 0)),
+          lostOffers: lostOffersCount,
+          successRate: totalCount > 0 ? (wonOffersCount / totalCount) * 100 : 0,
+          conversionRate: summary._sum.offerValue ? (Number(summary._sum.poValue || 0) / Number(summary._sum.offerValue || 1)) * 100 : 0,
         },
         statusDistribution: statusDist,
         stageDistribution: stageDist,
         productTypeDistribution: productTypeDist,
       },
     });
-    logger.info(`Report generation completed successfully in ${Date.now() - startTime}ms`);
   } catch (error: any) {
     logger.error('Generate offer summary report error:', {
       message: error.message,
@@ -3525,8 +3627,6 @@ const generateTargetReport = async (res: Response, whereClause: any, startDate: 
  * Generate Product Type Analysis Report
  */
 const generateProductTypeAnalysisReport = async (res: Response, whereClause: any, startDate: Date, endDate: Date) => {
-  const startTime = Date.now();
-  logger.info('Starting product type analysis report generation', { whereClause });
   try {
     // Get metrics in parallel
     const [productTypeMetrics, wonByProductType, lostByProductType] = await Promise.all([
@@ -3559,7 +3659,6 @@ const generateProductTypeAnalysisReport = async (res: Response, whereClause: any
         _count: { id: true },
       })
     ]);
-    logger.info(`Database queries completed in ${Date.now() - startTime}ms`);
 
 
     // Define all product types
@@ -3614,7 +3713,6 @@ const generateProductTypeAnalysisReport = async (res: Response, whereClause: any
       success: true,
       data: analysis,
     });
-    logger.info(`Report generation completed successfully in ${Date.now() - startTime}ms`);
   } catch (error: any) {
     logger.error('Generate product type analysis report error:', {
       message: error.message,
@@ -3632,8 +3730,6 @@ const generateProductTypeAnalysisReport = async (res: Response, whereClause: any
  * Generate Customer Performance Report
  */
 const generateCustomerPerformanceReport = async (res: Response, whereClause: any, startDate: Date, endDate: Date) => {
-  const startTime = Date.now();
-  logger.info('Starting customer performance report generation', { whereClause });
   try {
     // Get metrics in parallel
     const [customerMetrics, wonByCustomer] = await Promise.all([
@@ -3659,7 +3755,6 @@ const generateCustomerPerformanceReport = async (res: Response, whereClause: any
         },
       })
     ]);
-    logger.info(`Database groupBy queries completed in ${Date.now() - startTime}ms`);
 
     // Check if we have any results
     if (customerMetrics.length === 0) {
@@ -3726,7 +3821,6 @@ const generateCustomerPerformanceReport = async (res: Response, whereClause: any
       success: true,
       data: analysis,
     });
-    logger.info(`Report generation completed successfully in ${Date.now() - startTime}ms`);
   } catch (error: any) {
     logger.error('Generate customer performance report error:', {
       message: error.message,

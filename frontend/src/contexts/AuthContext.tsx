@@ -68,6 +68,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const lastValidUser = useRef<User | null>(null);
   const isInitializing = useRef(true);
   const lastAuthCheckTime = useRef(0);
+  // Refs to read current state without adding to effect dependencies
+  const userRef = useRef<User | null>(null);
+  const accessTokenRef = useRef<string | null>(null);
+
+  // Keep refs in sync with state
+  useEffect(() => { userRef.current = user; }, [user]);
+  useEffect(() => { accessTokenRef.current = accessToken; }, [accessToken]);
 
   const loadUser = useCallback(async (currentPath?: string): Promise<User | null> => {
     const pathToCheck = currentPath || pathname;
@@ -217,6 +224,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, 10);
   }, []);
 
+  // Auth check effect - uses refs for user/accessToken to avoid re-triggering on state changes
   useEffect(() => {
     const checkAuth = async () => {
       if (isInitializing.current) {
@@ -230,10 +238,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (now - lastAuthCheckTime.current < 2000) return;
       lastAuthCheckTime.current = now;
 
+      // Read current values from refs to avoid stale closures without adding to deps
+      const currentUser = userRef.current;
+      const currentAccessToken = accessTokenRef.current;
+
       try {
         authCheckInProgress.current = true;
 
-        if (user && user.email && initialAuthCheck.current && !pathname.startsWith('/auth/')) {
+        if (currentUser && currentUser.email && initialAuthCheck.current && !pathname.startsWith('/auth/')) {
           setIsLoading(false);
           return;
         }
@@ -246,22 +258,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const hasDevToken = process.env.NODE_ENV === 'development' && getDevToken();
 
         if (!role && !financeRole && !hasDevToken) {
-          if (user || accessToken) await clearAuthState();
+          if (currentUser || currentAccessToken) await clearAuthState();
           setIsLoading(false);
           initialAuthCheck.current = true;
           return;
         }
 
         // Only show loading if we really don't have enough data to show the page
-        if (!pathname.startsWith('/auth/') && !user && !initialAuthCheck.current) {
+        if (!pathname.startsWith('/auth/') && !currentUser && !initialAuthCheck.current) {
           setIsLoading(true);
         }
 
-        if (user && user.role === role && !pathname.startsWith('/auth/')) {
+        if (currentUser && currentUser.role === role && !pathname.startsWith('/auth/')) {
           setIsLoading(false);
           initialAuthCheck.current = true;
-          // We still want to verify in background occasionally
-          if (now - lastAuthCheckTime.current < 30000) return;
+          return;
         }
 
         try {
@@ -287,7 +298,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         initialAuthCheck.current = true;
       } catch (error) {
-        if (!user) await clearAuthState();
+        if (!currentUser) await clearAuthState();
         initialAuthCheck.current = true;
       } finally {
         setIsLoading(false);
@@ -303,7 +314,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoading(false);
       initialAuthCheck.current = true;
     }
-  }, [pathname, isOnline, user, accessToken, clearAuthState, loadUser]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname, isOnline, clearAuthState, loadUser]);
 
   const login = async (email: string, password: string, rememberMe: boolean = false) => {
     setIsLoading(true);

@@ -47,6 +47,16 @@ export const getUsers = async (req: AuthenticatedRequest, res: Response) => {
           lastActiveAt: true,
           customerId: true,
           zoneId: true,
+          serviceZones: {
+            select: {
+              serviceZone: {
+                select: {
+                  id: true,
+                  name: true
+                }
+              }
+            }
+          },
           customer: {
             select: {
               id: true,

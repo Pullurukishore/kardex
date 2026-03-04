@@ -128,8 +128,8 @@ const OfferRow = memo(({ offer, onViewOffer }: { offer: Offer; onViewOffer: (id:
       </td>
       <td className="py-3.5 px-4">
         <div className="text-sm text-[#546A7A]">{offer.createdBy.name}</div>
-        <div className="text-xs text-[#AEBFC3] mt-0.5">
-          {formatDateSafe(offer.createdAt, 'MMM dd, yyyy')}
+        <div className="text-xs text-[#AEBFC3] mt-0.5" title="Offer Date">
+          {formatDateSafe(offer.offerReferenceDate || offer.createdAt, 'MMM dd, yyyy')}
         </div>
       </td>
       <td className="py-3.5 px-4">
@@ -276,7 +276,7 @@ const ReportsTable: React.FC<ReportsTableProps> = ({
         {totalPages > 1 && (
           <div className="flex items-center justify-between px-4 py-4 border-t border-[#92A2A5] bg-gradient-to-r from-[#AEBFC3]/10 to-[#AEBFC3]/10">
             <div className="text-sm text-[#5D6E73] font-medium">
-              Showing <span className="text-[#546A7A] font-semibold">{((currentPage - 1) * 50) + 1}</span> to <span className="text-[#546A7A] font-semibold">{Math.min(currentPage * 50, totalOffers)}</span> of <span className="text-[#6F8A9D] font-semibold">{totalOffers}</span> offers
+              Showing <span className="text-[#546A7A] font-semibold">{((currentPage - 1) * 500) + 1}</span> to <span className="text-[#546A7A] font-semibold">{Math.min(currentPage * 500, totalOffers)}</span> of <span className="text-[#6F8A9D] font-semibold">{totalOffers}</span> offers
             </div>
             <div className="flex items-center gap-3">
               <Button

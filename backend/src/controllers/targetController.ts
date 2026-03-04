@@ -320,6 +320,7 @@ export class TargetController {
               serviceZoneId: zone.id,
               targetPeriod: isMonthlyView ? (actualValuePeriod as string) : (targetPeriod as string),
               periodType: isMonthlyView ? 'MONTHLY' : (periodType as string),
+              sourcePeriodType: periodType as string,
               serviceZone: zone,
               targetValue: totalTargetValue, // Keep yearly value, will divide in grouped response if needed
               actualValue: actual.value,
@@ -336,8 +337,9 @@ export class TargetController {
             return {
               id: null,
               serviceZoneId: zone.id,
-              targetPeriod: targetPeriod as string,
-              periodType: periodType as string,
+              targetPeriod: actualValuePeriod as string || targetPeriod as string,
+              periodType: actualValuePeriod ? 'MONTHLY' : (periodType as string),
+              sourcePeriodType: periodType as string,
               serviceZone: zone,
               targetValue: 0,
               actualValue: actual.value,
@@ -369,7 +371,8 @@ export class TargetController {
               targetOfferCount: 0,
               actualOfferCount: 0,
               totalOffers: 0,
-              targetCount: 0
+              targetCount: 0,
+              sourcePeriodType: target.sourcePeriodType
             };
           }
           groupedTargets[key].targetValue += target.targetValue;
@@ -377,13 +380,13 @@ export class TargetController {
           groupedTargets[key].targetOfferCount += (target.targetOfferCount || 0);
           groupedTargets[key].actualOfferCount += target.actualOfferCount;
           groupedTargets[key].totalOffers += (target.totalOffers || 0);
-          groupedTargets[key].targetCount += 1;
+          groupedTargets[key].targetCount += (target.targetCount || 1);
         });
 
         const result = await Promise.all(Object.values(groupedTargets).map(async (t: any) => {
-          // For monthly view, divide target by 12
+          // For monthly view, divide target by 12 ONLY if it was a yearly target
           const isMonthlyView = t.periodType === 'MONTHLY';
-          const displayTargetValue = isMonthlyView ? Math.round(t.targetValue / 12) : t.targetValue;
+          const displayTargetValue = (isMonthlyView && t.sourcePeriodType === 'YEARLY') ? Math.round(t.targetValue / 12) : t.targetValue;
           const variance = t.actualValue - displayTargetValue;
           const variancePercentage = displayTargetValue > 0 ? (variance / displayTargetValue) * 100 : 0;
 
@@ -887,6 +890,7 @@ export class TargetController {
               userId: user.id,
               targetPeriod: isMonthlyView ? (actualValuePeriod as string) : (targetPeriod as string),
               periodType: isMonthlyView ? 'MONTHLY' : (periodType as string),
+              sourcePeriodType: periodType as string,
               user: user,
               targetValue: totalTargetValue, // Keep yearly value, will divide in grouped response if needed
               actualValue: actual.value,
@@ -903,8 +907,9 @@ export class TargetController {
             return {
               id: null,
               userId: user.id,
-              targetPeriod: targetPeriod as string,
-              periodType: periodType as string,
+              targetPeriod: actualValuePeriod as string || targetPeriod as string,
+              periodType: actualValuePeriod ? 'MONTHLY' : (periodType as string),
+              sourcePeriodType: periodType as string,
               user: user,
               targetValue: 0,
               actualValue: actual.value,
@@ -936,7 +941,8 @@ export class TargetController {
               targetOfferCount: 0,
               actualOfferCount: 0,
               totalOffers: 0,
-              targetCount: 0
+              targetCount: 0,
+              sourcePeriodType: target.sourcePeriodType
             };
           }
           groupedTargets[key].targetValue += target.targetValue;
@@ -944,12 +950,12 @@ export class TargetController {
           groupedTargets[key].targetOfferCount += (target.targetOfferCount || 0);
           groupedTargets[key].actualOfferCount += target.actualOfferCount;
           groupedTargets[key].totalOffers += (target.totalOffers || 0);
-          groupedTargets[key].targetCount += 1;
+          groupedTargets[key].targetCount += (target.targetCount || 1);
         });
 
         const result = await Promise.all(Object.values(groupedTargets).map(async (t: any) => {
           const isMonthlyView = t.periodType === 'MONTHLY';
-          const displayTargetValue = isMonthlyView ? Math.round(t.targetValue / 12) : t.targetValue;
+          const displayTargetValue = (isMonthlyView && t.sourcePeriodType === 'YEARLY') ? Math.round(t.targetValue / 12) : t.targetValue;
           const variance = t.actualValue - displayTargetValue;
           const variancePercentage = displayTargetValue > 0 ? (variance / displayTargetValue) * 100 : 0;
 
@@ -1707,43 +1713,28 @@ export class TargetController {
     productType?: string
   ): Promise<{ value: number; count: number }> {
     try {
-      const dateFilter = TargetController.buildDateFilter(targetPeriod, periodType);
-      const startDate: Date = dateFilter.gte;
-      const endDate: Date = dateFilter.lte;
-
-      // Build where clause using correct period fields
+      // Build where clause using correct period fields (matching Forecast report logic)
       const whereClause: any = {
         zoneId: serviceZoneId,
         stage: { in: ['WON', 'PO_RECEIVED'] },
         ...(productType ? { productType } : {}),
         OR: [
-          // PO-based stages: use poDate
+          // Match Forecast logic using CRM string months
           {
-            AND: [
-              { stage: 'PO_RECEIVED' },
-              { poDate: { gte: startDate, lte: endDate } },
-            ],
+            poReceivedMonth: periodType === 'MONTHLY'
+              ? targetPeriod
+              : { startsWith: `${targetPeriod}-` }
           },
-          // WON stage: use offerClosedInCrm
           {
             AND: [
-              { stage: 'WON' },
-              { offerClosedInCrm: { gte: startDate, lte: endDate } },
-            ],
-          },
-          // Fallback: if above dates missing, use createdAt
-          {
-            AND: [
+              { poReceivedMonth: { equals: null } },
               {
-                OR: [
-                  { poDate: null },
-                  { offerClosedInCrm: null },
-                  { bookingDateInSap: null },
-                ]
-              },
-              { createdAt: { gte: startDate, lte: endDate } },
-            ],
-          },
+                offerMonth: periodType === 'MONTHLY'
+                  ? targetPeriod
+                  : { startsWith: `${targetPeriod}-` }
+              }
+            ]
+          }
         ],
       };
 
@@ -1833,30 +1824,22 @@ export class TargetController {
         stage: { in: ['WON', 'PO_RECEIVED'] },
         ...(productType ? { productType } : {}),
         OR: [
+          // Match Forecast logic using CRM string months
           {
-            AND: [
-              { stage: 'PO_RECEIVED' },
-              { poDate: { gte: startDate, lte: endDate } },
-            ],
+            poReceivedMonth: periodType === 'MONTHLY'
+              ? targetPeriod
+              : { startsWith: `${targetPeriod}-` }
           },
           {
             AND: [
-              { stage: 'WON' },
-              { offerClosedInCrm: { gte: startDate, lte: endDate } },
-            ],
-          },
-          {
-            AND: [
+              { poReceivedMonth: { equals: null } },
               {
-                OR: [
-                  { poDate: null },
-                  { offerClosedInCrm: null },
-                  { bookingDateInSap: null },
-                ]
-              },
-              { createdAt: { gte: startDate, lte: endDate } },
-            ],
-          },
+                offerMonth: periodType === 'MONTHLY'
+                  ? targetPeriod
+                  : { startsWith: `${targetPeriod}-` }
+              }
+            ]
+          }
         ],
       };
 

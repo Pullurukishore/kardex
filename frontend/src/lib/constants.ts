@@ -93,7 +93,6 @@ export type TicketPriority = keyof typeof TICKET_PRIORITY;
 export const ROUTES = {
   HOME: '/',
   LOGIN: '/auth/login',
-  FORGOT_PASSWORD: '/auth/forgot-password',
   RESET_PASSWORD: '/auth/reset-password',
   DASHBOARD: '/dashboard',
   PROFILE: '/profile',

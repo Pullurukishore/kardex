@@ -7,7 +7,6 @@ import {
   logout,
   getCurrentUser,
   refreshToken,
-  forgotPassword,
   resetPassword
 } from '../controllers/auth.controller';
 import {
@@ -143,10 +142,10 @@ router.post('/refresh-token', refreshLimiter, (req, res, next) => {
   return refreshToken(req, res).catch(next);
 });
 
-// Rate limiting for forgot password to prevent email spamming
-const forgotPasswordLimiter = rateLimit({
+// Rate limiting for password reset to prevent abuse
+const resetPasswordLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 3, // Limit each IP to 3 forgot password requests per hour
+  max: 5, // Limit each IP to 5 reset attempts per hour
   message: {
     success: false,
     message: 'Too many password reset requests. Please try again after an hour.',
@@ -156,22 +155,10 @@ const forgotPasswordLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-// Forgot password route
-router.post(
-  '/forgot-password',
-  forgotPasswordLimiter,
-  validateRequest([
-    body('email').isEmail().normalizeEmail()
-  ]),
-  (req: Request, res: Response, next: NextFunction) => {
-    return forgotPassword(req, res).catch(next);
-  }
-);
-
-// Reset password route
+// Reset password route (admin sends the reset link to users)
 router.post(
   '/reset-password',
-  forgotPasswordLimiter, // Reuse the same limiter or a similar one
+  resetPasswordLimiter,
   validateRequest([
     body('token').notEmpty().isString(),
     body('password').isLength({ min: 6 })
