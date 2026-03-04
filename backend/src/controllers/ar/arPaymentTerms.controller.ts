@@ -105,7 +105,7 @@ export const seedPaymentTerms = async (req: Request, res: Response) => {
             { termCode: 'NET60', termName: 'Net 60 Days', dueDays: 60, description: 'Payment due in 60 days' },
             { termCode: 'NET90', termName: 'Net 90 Days', dueDays: 90, description: 'Payment due in 90 days' },
             { termCode: 'COD', termName: 'Cash on Delivery', dueDays: 0, description: 'Immediate payment required' },
-            { termCode: 'PREPAID', termName: 'Prepaid', dueDays: -7, description: 'Payment due before delivery' },
+            { termCode: 'MILESTONE', termName: 'Milestone', dueDays: -7, description: 'Milestone based payment structure' },
         ];
 
         const results = await Promise.all(

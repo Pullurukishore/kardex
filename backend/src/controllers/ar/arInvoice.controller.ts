@@ -15,7 +15,7 @@ export const getAllInvoices = async (req: Request, res: Response) => {
             fromDate,
             toDate,
             overdueOnly,
-            invoiceType, // NEW: Filter by invoice type (REGULAR, PREPAID, CREDIT_NOTE)
+            invoiceType, // Filter by invoice type (REGULAR, MILESTONE)
             page = 1,
             limit = 20
         } = req.query;
@@ -49,7 +49,7 @@ export const getAllInvoices = async (req: Request, res: Response) => {
             where.status = 'OVERDUE';
         }
 
-        // Filter by invoice type (REGULAR, PREPAID, CREDIT_NOTE)
+        // Filter by invoice type (REGULAR, MILESTONE)
         if (invoiceType) {
             where.invoiceType = String(invoiceType);
         }
@@ -79,12 +79,12 @@ export const getAllInvoices = async (req: Request, res: Response) => {
                     totalReceipts: true,
                     advanceReceivedDate: true,
                     deliveryDueDate: true,
-                    prepaidStatus: true,
+                    milestoneStatus: true,
                     type: true,
-                    grnDate: true,
-                    bgDate: true,
-                    othersDate: true,
-                    agingMilestone: true,
+                    soNo: true,
+                    milestoneTerms: true,
+                    accountingStatus: true,
+                    mailToTSP: true,
                 }
             }),
             prisma.aRInvoice.count({ where })
@@ -110,23 +110,18 @@ export const getAllInvoices = async (req: Request, res: Response) => {
             let dueByDays = 0;
             let isOverdue = false;
 
-            if (invoice.invoiceType === 'PREPAID' && invoice.agingMilestone) {
-                let baseDate = null;
-                switch (invoice.agingMilestone) {
-                    case 'ADVANCE': baseDate = invoice.advanceReceivedDate; break;
-                    case 'INVOICE': baseDate = invoice.invoiceDate; break;
-                    case 'GRN': baseDate = invoice.grnDate; break;
-                    case 'BG': baseDate = invoice.bgDate; break;
-                    case 'OTHERS': baseDate = invoice.othersDate; break;
-                }
-
-                if (baseDate) {
-                    // For prepaids, aging usually means "days since milestone"
-                    // If baseDate is Jan 1 and today is Jan 10, aging is +9
-                    dueByDays = calculateDaysBetween(new Date(baseDate), today);
-                    // For consistency with regular invoices where positive means overdue,
-                    // aging here is also positive (days since milestone).
-                    isOverdue = false; // Prepaid aging isn't necessarily "overdue" in the same sense
+            if (invoice.invoiceType === 'MILESTONE' && invoice.milestoneTerms) {
+                // For milestone invoices, calculate aging from the earliest term date
+                const terms = invoice.milestoneTerms as any[];
+                if (Array.isArray(terms) && terms.length > 0) {
+                    const earliestTerm = terms.reduce((earliest: any, term: any) => {
+                        if (!earliest || new Date(term.termDate) < new Date(earliest.termDate)) return term;
+                        return earliest;
+                    }, null);
+                    if (earliestTerm?.termDate) {
+                        dueByDays = calculateDaysBetween(new Date(earliestTerm.termDate), today);
+                        isOverdue = false; // Milestone aging isn't necessarily "overdue" in the same sense
+                    }
                 }
             } else if (invoice.dueDate) {
                 // calculateDaysBetween should handle Date objects
@@ -167,7 +162,7 @@ export const getInvoiceById = async (req: Request, res: Response) => {
             invoice = await prisma.aRInvoice.findUnique({
                 where: { id },
                 include: {
-                    linkedFromPrepaids: true,
+                    linkedFromMilestones: true,
                     linkedInvoice: true
                 }
             });
@@ -175,7 +170,7 @@ export const getInvoiceById = async (req: Request, res: Response) => {
             invoice = await prisma.aRInvoice.findUnique({
                 where: { invoiceNumber: id },
                 include: {
-                    linkedFromPrepaids: true,
+                    linkedFromMilestones: true,
                     linkedInvoice: true
                 }
             });
@@ -191,18 +186,18 @@ export const getInvoiceById = async (req: Request, res: Response) => {
             orderBy: { paymentDate: 'desc' }
         });
 
-        // Fetch payment history for linked prepaids
-        if (invoice.linkedFromPrepaids && invoice.linkedFromPrepaids.length > 0) {
-            invoice.linkedFromPrepaids = await Promise.all(invoice.linkedFromPrepaids.map(async (prepaid: any) => {
+        // Fetch payment history for linked milestones
+        if (invoice.linkedFromMilestones && invoice.linkedFromMilestones.length > 0) {
+            invoice.linkedFromMilestones = await Promise.all(invoice.linkedFromMilestones.map(async (milestone: any) => {
                 const payments = await prisma.aRPaymentHistory.findMany({
-                    where: { invoiceId: prepaid.id },
+                    where: { invoiceId: milestone.id },
                     orderBy: { paymentDate: 'desc' }
                 });
-                return { ...prepaid, paymentHistory: payments };
+                return { ...milestone, paymentHistory: payments };
             }));
         }
 
-        // Fetch payment history for linked regular invoice (if this is a prepaid)
+        // Fetch payment history for linked regular invoice (if this is a milestone)
         if (invoice.linkedInvoice) {
             const payments = await prisma.aRPaymentHistory.findMany({
                 where: { invoiceId: invoice.linkedInvoice.id },
@@ -216,19 +211,18 @@ export const getInvoiceById = async (req: Request, res: Response) => {
         let dueByDays = 0;
         let isOverdue = false;
 
-        if (invoice.invoiceType === 'PREPAID' && invoice.agingMilestone) {
-            let baseDate = null;
-            switch (invoice.agingMilestone) {
-                case 'ADVANCE': baseDate = invoice.advanceReceivedDate; break;
-                case 'INVOICE': baseDate = invoice.invoiceDate; break;
-                case 'GRN': baseDate = invoice.grnDate; break;
-                case 'BG': baseDate = invoice.bgDate; break;
-                case 'OTHERS': baseDate = invoice.othersDate; break;
-            }
-
-            if (baseDate) {
-                dueByDays = calculateDaysBetween(new Date(baseDate), today);
-                isOverdue = false;
+        if (invoice.invoiceType === 'MILESTONE' && invoice.milestoneTerms) {
+            // For milestone invoices, calculate aging from the earliest term date
+            const terms = invoice.milestoneTerms as any[];
+            if (Array.isArray(terms) && terms.length > 0) {
+                const earliestTerm = terms.reduce((earliest: any, term: any) => {
+                    if (!earliest || new Date(term.termDate) < new Date(earliest.termDate)) return term;
+                    return earliest;
+                }, null);
+                if (earliestTerm?.termDate) {
+                    dueByDays = calculateDaysBetween(new Date(earliestTerm.termDate), today);
+                    isOverdue = false;
+                }
             }
         } else if (invoice.dueDate) {
             dueByDays = calculateDaysBetween(invoice.dueDate, today);
@@ -543,20 +537,19 @@ export const createInvoice = async (req: Request, res: Response) => {
             originalAmount,
             amountReceived,
             actualPaymentTerms,
-            // Prepaid fields
+            // Milestone fields
             invoiceType,
             advanceReceivedDate,
             deliveryDueDate,
             type,
-            grnDate,
-            bgDate,
-            othersDate,
-            agingMilestone
+            milestoneTerms,
+            accountingStatus,
+            mailToTSP
         } = req.body;
 
-        if (!invoiceNumber || !customerId || !invoiceDate || !totalAmount) {
+        if (!invoiceNumber || !customerId || !totalAmount) {
             return res.status(400).json({
-                error: 'Invoice Number, Customer, Invoice Date, and Total Amount are required'
+                error: 'Invoice Number, Customer, and Total Amount are required'
             });
         }
 
@@ -571,8 +564,11 @@ export const createInvoice = async (req: Request, res: Response) => {
             status = 'OVERDUE';
         }
 
-        // Calculate due date: use provided or default to 30 days from invoice date
-        const calculatedDueDate = dueDate ? new Date(dueDate) : new Date(new Date(invoiceDate).getTime() + 30 * 24 * 60 * 60 * 1000);
+        // Calculate due date: use provided or default to 30 days from invoice date (if available)
+        let calculatedDueDate = dueDate ? new Date(dueDate) : null;
+        if (!calculatedDueDate && invoiceDate) {
+            calculatedDueDate = new Date(new Date(invoiceDate).getTime() + 30 * 24 * 60 * 60 * 1000);
+        }
 
         const invoice = await prisma.aRInvoice.create({
             data: {
@@ -580,24 +576,23 @@ export const createInvoice = async (req: Request, res: Response) => {
                 bpCode: customerId,
                 customerName: req.body.customerName || '',
                 poNo,
-                soNo: soNo || null,  // Sales Order Number for prepaid invoices
-                invoiceDate: new Date(invoiceDate),
+                soNo: soNo || null,  // Sales Order Number for milestone invoices
+                invoiceDate: invoiceDate ? new Date(invoiceDate) : null,
                 dueDate: calculatedDueDate,
                 totalAmount: parseFloat(totalAmount),
                 netAmount: netAmount ? parseFloat(netAmount) : parseFloat(totalAmount),
                 taxAmount: taxAmount ? parseFloat(taxAmount) : null,
                 actualPaymentTerms,
                 status,
-                // Prepaid fields
+                // Milestone fields
                 invoiceType: invoiceType || 'REGULAR',
                 advanceReceivedDate: advanceReceivedDate ? new Date(advanceReceivedDate) : null,
                 deliveryDueDate: deliveryDueDate ? new Date(deliveryDueDate) : null,
-                prepaidStatus: invoiceType === 'PREPAID' ? 'AWAITING_DELIVERY' : null,
+                milestoneStatus: invoiceType === 'MILESTONE' ? 'AWAITING_DELIVERY' : null,
                 type: type || null,
-                grnDate: grnDate ? new Date(grnDate) : null,
-                bgDate: bgDate ? new Date(bgDate) : null,
-                othersDate: othersDate ? new Date(othersDate) : null,
-                agingMilestone: agingMilestone || null
+                milestoneTerms: milestoneTerms || null,
+                accountingStatus: accountingStatus || null,
+                mailToTSP: mailToTSP || null
             }
         });
 
@@ -655,15 +650,7 @@ export const updateInvoice = async (req: Request, res: Response) => {
         if (updateData.deliveryDueDate) {
             updateData.deliveryDueDate = new Date(updateData.deliveryDueDate);
         }
-        if (updateData.grnDate) {
-            updateData.grnDate = new Date(updateData.grnDate);
-        }
-        if (updateData.bgDate) {
-            updateData.bgDate = new Date(updateData.bgDate);
-        }
-        if (updateData.othersDate) {
-            updateData.othersDate = new Date(updateData.othersDate);
-        }
+        // milestoneTerms is a JSON array, no date conversion needed
 
         // Convert numeric strings to numbers
         if (updateData.receipts !== undefined) {
@@ -730,11 +717,10 @@ export const updateInvoice = async (req: Request, res: Response) => {
             invoiceType: 'Invoice Type',
             modeOfDelivery: 'Mode of Delivery',
             comments: 'Comments',
-            prepaidStatus: 'Prepaid Status',
-            grnDate: 'GRN Date',
-            bgDate: 'BG Date',
-            othersDate: 'Others Date',
-            agingMilestone: 'Aging Milestone'
+            milestoneStatus: 'Milestone Status',
+            milestoneTerms: 'Milestone Terms',
+            accountingStatus: 'Accounting Status',
+            mailToTSP: 'Mail to TSP'
         };
 
         // Build detailed change description
@@ -1045,18 +1031,18 @@ export const getInvoiceActivityLog = async (req: Request, res: Response) => {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
-// PREPAID INVOICE LINKING ENDPOINTS
+// MILESTONE INVOICE LINKING ENDPOINTS
 // ═══════════════════════════════════════════════════════════════════════════
 
-// Get matching prepaid invoices for a regular invoice based on PO number
-export const getMatchingPrepaids = async (req: Request, res: Response) => {
+// Get matching milestone invoices for a regular invoice based on PO number
+export const getMatchingMilestones = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
 
         // Get the regular invoice
         const invoice = await prisma.aRInvoice.findUnique({
             where: { id },
-            select: { id: true, poNo: true, invoiceType: true, linkedPrepaidId: true }
+            select: { id: true, poNo: true, invoiceType: true, linkedMilestoneId: true }
         });
 
         if (!invoice) {
@@ -1064,7 +1050,7 @@ export const getMatchingPrepaids = async (req: Request, res: Response) => {
         }
 
         if (!invoice.poNo) {
-            return res.json({ prepaids: [], message: 'No PO number on this invoice' });
+            return res.json({ milestones: [], message: 'No PO number on this invoice' });
         }
 
         // Extract base PO number (first part before any space, "Dtd:", or date suffix)
@@ -1072,19 +1058,19 @@ export const getMatchingPrepaids = async (req: Request, res: Response) => {
         const basePO = invoice.poNo.split(/[\s,]+/)[0].trim();
 
 
-        // Find prepaid invoices with matching PO number
+        // Find milestone invoices with matching PO number
         // Use contains for flexible matching - either invoice might have date suffix
-        const matchingPrepaids = await prisma.aRInvoice.findMany({
+        const matchingMilestones = await prisma.aRInvoice.findMany({
             where: {
-                invoiceType: 'PREPAID',
+                invoiceType: 'MILESTONE',
                 OR: [
                     { poNo: basePO },  // Exact match on base PO
-                    { poNo: { startsWith: basePO } },  // Prepaid PO starts with base PO
-                    { poNo: { contains: basePO } },  // Prepaid PO contains base PO
+                    { poNo: { startsWith: basePO } },  // Milestone PO starts with base PO
+                    { poNo: { contains: basePO } },  // Milestone PO contains base PO
                     { poNo: invoice.poNo }  // Exact full match
                 ]
-                // Note: linkedInvoiceId and prepaidStatus filters removed for flexibility
-                // The UI will handle showing only relevant prepaids
+                // Note: linkedInvoiceId and milestoneStatus filters removed for flexibility
+                // The UI will handle showing only relevant milestones
             },
             select: {
                 id: true,
@@ -1097,7 +1083,7 @@ export const getMatchingPrepaids = async (req: Request, res: Response) => {
                 totalReceipts: true,
                 balance: true,
                 advanceReceivedDate: true,
-                prepaidStatus: true,
+                milestoneStatus: true,
                 customerName: true,
                 bpCode: true,
                 invoiceDate: true,
@@ -1107,11 +1093,11 @@ export const getMatchingPrepaids = async (req: Request, res: Response) => {
             orderBy: { invoiceDate: 'desc' }
         });
 
-        // For each prepaid, get payment history and check for already-transferred payments
-        const prepaidsWithPayments = await Promise.all(
-            matchingPrepaids.map(async (prepaid) => {
+        // For each milestone, get payment history and check for already-transferred payments
+        const milestonesWithPayments = await Promise.all(
+            matchingMilestones.map(async (milestone) => {
                 const payments = await prisma.aRPaymentHistory.findMany({
-                    where: { invoiceId: prepaid.id },
+                    where: { invoiceId: milestone.id },
                     select: {
                         id: true,
                         amount: true,
@@ -1123,28 +1109,28 @@ export const getMatchingPrepaids = async (req: Request, res: Response) => {
                     orderBy: { paymentDate: 'desc' }
                 });
 
-                // If this prepaid is linked to the current invoice, check for already transferred payments
+                // If this milestone is linked to the current invoice, check for already transferred payments
                 let transferredPaymentIds: string[] = [];
                 let untransferredPayments = 0;
                 let untransferredAmount = 0;
 
-                if (prepaid.linkedInvoiceId === id) {
-                    // Find payments on the regular invoice that came from this prepaid
+                if (milestone.linkedInvoiceId === id) {
+                    // Find payments on the regular invoice that came from this milestone
                     const transferredPayments = await prisma.aRPaymentHistory.findMany({
                         where: {
                             invoiceId: id,
-                            notes: { contains: `[From Prepaid ${prepaid.invoiceNumber}]` }
+                            notes: { contains: `[From Milestone ${milestone.invoiceNumber}]` }
                         },
                         select: { amount: true, paymentDate: true }
                     });
 
                     // Calculate total transferred amount
                     const totalTransferred = transferredPayments.reduce((sum, p) => sum + Number(p.amount), 0);
-                    const totalOnPrepaid = payments.reduce((sum, p) => sum + Number(p.amount), 0);
+                    const totalOnMilestone = payments.reduce((sum, p) => sum + Number(p.amount), 0);
 
-                    // Check if there are new payments (more on prepaid than transferred)
-                    if (totalOnPrepaid > totalTransferred) {
-                        untransferredAmount = totalOnPrepaid - totalTransferred;
+                    // Check if there are new payments (more on milestone than transferred)
+                    if (totalOnMilestone > totalTransferred) {
+                        untransferredAmount = totalOnMilestone - totalTransferred;
                         // Estimate count by comparing totals (rough estimate)
                         untransferredPayments = payments.length - transferredPayments.length;
                         if (untransferredPayments < 0) untransferredPayments = 1;
@@ -1152,7 +1138,7 @@ export const getMatchingPrepaids = async (req: Request, res: Response) => {
                 }
 
                 return {
-                    ...prepaid,
+                    ...milestone,
                     payments,
                     totalPayments: payments.reduce((sum, p) => sum + Number(p.amount), 0),
                     untransferredPayments,
@@ -1162,23 +1148,23 @@ export const getMatchingPrepaids = async (req: Request, res: Response) => {
         );
 
         res.json({
-            prepaids: prepaidsWithPayments,
-            hasLinkedPrepaid: !!invoice.linkedPrepaidId,
+            milestones: milestonesWithPayments,
+            hasLinkedMilestone: !!invoice.linkedMilestoneId,
             invoicePoNo: invoice.poNo
         });
     } catch (error: any) {
-        res.status(500).json({ error: 'Failed to fetch matching prepaids', message: error.message });
+        res.status(500).json({ error: 'Failed to fetch matching milestones', message: error.message });
     }
 };
 
-// Accept and link a prepaid invoice to a regular invoice
-export const acceptPrepaid = async (req: Request, res: Response) => {
+// Accept and link a milestone invoice to a regular invoice
+export const acceptMilestone = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
-        const { prepaidId, transferPayments = true } = req.body;
+        const { milestoneId, transferPayments = true } = req.body;
 
-        if (!prepaidId) {
-            return res.status(400).json({ error: 'Prepaid invoice ID is required' });
+        if (!milestoneId) {
+            return res.status(400).json({ error: 'Milestone invoice ID is required' });
         }
 
         const user = getUserFromRequest(req);
@@ -1186,65 +1172,65 @@ export const acceptPrepaid = async (req: Request, res: Response) => {
         const userAgent = req.headers['user-agent'] || null;
 
         const result = await prisma.$transaction(async (tx) => {
-            const [regularInvoice, prepaidInvoice] = await Promise.all([
+            const [regularInvoice, milestoneInvoice] = await Promise.all([
                 tx.aRInvoice.findUnique({ where: { id } }),
-                tx.aRInvoice.findUnique({ where: { id: prepaidId } })
+                tx.aRInvoice.findUnique({ where: { id: milestoneId } })
             ]);
 
             if (!regularInvoice) throw new Error('Regular invoice not found');
             // Allow null or REGULAR invoiceType (older imports may have null)
-            if (regularInvoice.invoiceType === 'PREPAID') throw new Error('Target cannot be a PREPAID invoice');
-            if (!prepaidInvoice) throw new Error('Prepaid invoice not found');
-            if (prepaidInvoice.invoiceType !== 'PREPAID') throw new Error('Source must be a PREPAID invoice');
+            if (regularInvoice.invoiceType === 'MILESTONE') throw new Error('Target cannot be a MILESTONE invoice');
+            if (!milestoneInvoice) throw new Error('Milestone invoice not found');
+            if (milestoneInvoice.invoiceType !== 'MILESTONE') throw new Error('Source must be a MILESTONE invoice');
 
             // Compare base PO numbers (ignoring date suffixes like "Dtd:7/2/2025")
-            // Also allow matching by invoice number if prepaid's invoice number contains base PO
+            // Also allow matching by invoice number if milestone's invoice number contains base PO
             const getBasePO = (po: string | null) => po ? po.split(/[\s,]+/)[0].trim() : '';
             const regularBasePO = getBasePO(regularInvoice.poNo);
-            const prepaidBasePO = getBasePO(prepaidInvoice.poNo);
+            const milestoneBasePO = getBasePO(milestoneInvoice.poNo);
 
             // Allow linking if:
             // 1. Both POs match exactly
-            // 2. Prepaid's invoice number contains the regular invoice's PO (e.g., "PRE-REF005" contains "REF005")
+            // 2. Milestone's invoice number contains the regular invoice's PO
             // 3. PO fields contain each other (flexible matching)
-            const invoiceNumberContainsPO = regularBasePO && prepaidInvoice.invoiceNumber.includes(regularBasePO);
-            const posMatch = regularBasePO && prepaidBasePO && regularBasePO === prepaidBasePO;
-            const posContainEachOther = regularBasePO && prepaidBasePO &&
-                (regularBasePO.includes(prepaidBasePO) || prepaidBasePO.includes(regularBasePO));
+            const invoiceNumberContainsPO = regularBasePO && milestoneInvoice.invoiceNumber.includes(regularBasePO);
+            const posMatch = regularBasePO && milestoneBasePO && regularBasePO === milestoneBasePO;
+            const posContainEachOther = regularBasePO && milestoneBasePO &&
+                (regularBasePO.includes(milestoneBasePO) || milestoneBasePO.includes(regularBasePO));
 
             if (!posMatch && !posContainEachOther && !invoiceNumberContainsPO) {
-                throw new Error(`PO numbers do not match: ${regularBasePO || '(empty)'} vs ${prepaidBasePO || '(empty)'}. Prepaid invoice number: ${prepaidInvoice.invoiceNumber}`);
+                throw new Error(`PO numbers do not match: ${regularBasePO || '(empty)'} vs ${milestoneBasePO || '(empty)'}. Milestone invoice number: ${milestoneInvoice.invoiceNumber}`);
             }
 
             // Check if this is a re-link (already linked before)
-            const isReLink = prepaidInvoice.linkedInvoiceId === id;
+            const isReLink = milestoneInvoice.linkedInvoiceId === id;
 
             const now = new Date();
-            // Update prepaid invoice (only if not already linked)
+            // Update milestone invoice (only if not already linked)
             if (!isReLink) {
                 await tx.aRInvoice.update({
-                    where: { id: prepaidId },
-                    data: { linkedInvoiceId: id, prepaidStatus: 'LINKED', prepaidAcceptedAt: now }
+                    where: { id: milestoneId },
+                    data: { linkedInvoiceId: id, milestoneStatus: 'LINKED', milestoneAcceptedAt: now }
                 });
 
                 await tx.aRInvoice.update({
                     where: { id },
-                    data: { linkedPrepaidId: prepaidId }
+                    data: { linkedMilestoneId: milestoneId }
                 });
             }
 
             let totalTransferred = 0;
 
             if (transferPayments) {
-                const prepaidPayments = await tx.aRPaymentHistory.findMany({
-                    where: { invoiceId: prepaidId }
+                const milestonePayments = await tx.aRPaymentHistory.findMany({
+                    where: { invoiceId: milestoneId }
                 });
 
                 // Get already transferred payments to avoid duplicates
                 const alreadyTransferred = await tx.aRPaymentHistory.findMany({
                     where: {
                         invoiceId: id,
-                        notes: { contains: `[From Prepaid ${prepaidInvoice.invoiceNumber}]` }
+                        notes: { contains: `[From Milestone ${milestoneInvoice.invoiceNumber}]` }
                     },
                     select: { amount: true, paymentDate: true }
                 });
@@ -1255,7 +1241,7 @@ export const acceptPrepaid = async (req: Request, res: Response) => {
                 // Track running total to find which payments are new
                 let runningTotal = 0;
 
-                for (const payment of prepaidPayments) {
+                for (const payment of milestonePayments) {
                     runningTotal += Number(payment.amount);
 
                     // Skip if this payment's running total is within already transferred amount
@@ -1271,7 +1257,7 @@ export const acceptPrepaid = async (req: Request, res: Response) => {
                             paymentTime: payment.paymentTime,
                             paymentMode: payment.paymentMode,
                             referenceNo: payment.referenceNo,
-                            notes: `[From Prepaid ${prepaidInvoice.invoiceNumber}] ${payment.notes || ''}`.trim(),
+                            notes: `[From Milestone ${milestoneInvoice.invoiceNumber}] ${payment.notes || ''}`.trim(),
                             recordedBy: user.name || 'System'
                         }
                     });
@@ -1293,25 +1279,25 @@ export const acceptPrepaid = async (req: Request, res: Response) => {
                     data: { receipts: newReceipts, totalReceipts: newTotalReceipts, balance: newBalance, status: newStatus }
                 });
 
-                return { success: true, prepaidInvoiceNumber: prepaidInvoice.invoiceNumber, totalTransferred, newBalance, newStatus };
+                return { success: true, milestoneInvoiceNumber: milestoneInvoice.invoiceNumber, totalTransferred, newBalance, newStatus };
             }
 
-            return { success: true, prepaidInvoiceNumber: prepaidInvoice.invoiceNumber, totalTransferred: 0 };
+            return { success: true, milestoneInvoiceNumber: milestoneInvoice.invoiceNumber, totalTransferred: 0 };
         });
 
         await Promise.all([
             logInvoiceActivity({
                 invoiceId: id,
-                action: 'PREPAID_LINKED',
-                description: `Prepaid ${result.prepaidInvoiceNumber} linked. Transferred: ₹${result.totalTransferred.toLocaleString()}`,
+                action: 'MILESTONE_LINKED',
+                description: `Milestone ${result.milestoneInvoiceNumber} linked. Transferred: ₹${result.totalTransferred.toLocaleString()}`,
                 performedById: user.id,
                 performedBy: user.name,
                 ipAddress,
                 userAgent,
-                metadata: { prepaidId, totalTransferred: result.totalTransferred }
+                metadata: { milestoneId, totalTransferred: result.totalTransferred }
             }),
             logInvoiceActivity({
-                invoiceId: prepaidId,
+                invoiceId: milestoneId,
                 action: 'LINKED_TO_INVOICE',
                 description: `Linked to invoice ${id}. Status: LINKED`,
                 performedById: user.id,
@@ -1324,26 +1310,26 @@ export const acceptPrepaid = async (req: Request, res: Response) => {
 
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ error: error.message || 'Failed to link prepaid invoice' });
+        res.status(500).json({ error: error.message || 'Failed to link milestone invoice' });
     }
 };
 
-// Get linked prepaid details for an invoice
-export const getLinkedPrepaidDetails = async (req: Request, res: Response) => {
+// Get linked milestone details for an invoice
+export const getLinkedMilestoneDetails = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
 
         const invoice = await prisma.aRInvoice.findUnique({
             where: { id },
-            select: { linkedPrepaidId: true }
+            select: { linkedMilestoneId: true }
         });
 
-        if (!invoice || !invoice.linkedPrepaidId) {
-            return res.json({ linkedPrepaid: null });
+        if (!invoice || !invoice.linkedMilestoneId) {
+            return res.json({ linkedMilestone: null });
         }
 
-        const linkedPrepaid = await prisma.aRInvoice.findUnique({
-            where: { id: invoice.linkedPrepaidId },
+        const linkedMilestone = await prisma.aRInvoice.findUnique({
+            where: { id: invoice.linkedMilestoneId },
             select: {
                 id: true,
                 invoiceNumber: true,
@@ -1352,23 +1338,23 @@ export const getLinkedPrepaidDetails = async (req: Request, res: Response) => {
                 totalAmount: true,
                 totalReceipts: true,
                 advanceReceivedDate: true,
-                prepaidStatus: true,
-                prepaidAcceptedAt: true,
+                milestoneStatus: true,
+                milestoneAcceptedAt: true,
                 customerName: true
             }
         });
 
         const transferredPayments = await prisma.aRPaymentHistory.findMany({
-            where: { invoiceId: id, notes: { contains: 'From Prepaid' } },
+            where: { invoiceId: id, notes: { contains: 'From Milestone' } },
             select: { id: true, amount: true, paymentDate: true, paymentMode: true, referenceNo: true, notes: true }
         });
 
         res.json({
-            linkedPrepaid,
+            linkedMilestone,
             transferredPayments,
             totalTransferred: transferredPayments.reduce((sum, p) => sum + Number(p.amount), 0)
         });
     } catch (error: any) {
-        res.status(500).json({ error: 'Failed to fetch linked prepaid details', message: error.message });
+        res.status(500).json({ error: 'Failed to fetch linked milestone details', message: error.message });
     }
 };

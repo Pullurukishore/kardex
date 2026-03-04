@@ -4,6 +4,12 @@ import api from '@/lib/api/axios';
 // So we can use relative paths like '/ar/...'
 
 // Types
+export interface MilestonePaymentTerm {
+    termType: 'ABG' | 'PO' | 'DELIVERY' | 'FAR' | 'PBG' | 'FAR_PBG' | 'INVOICE_SUBMISSION' | 'OTHER';
+    termDate: string;
+    percentage?: number;
+    customLabel?: string;
+}
 export interface ARCustomer {
     id: string;
     bpCode: string;
@@ -39,7 +45,7 @@ export interface ARInvoice {
     totalAmount: number;
     netAmount: number;
     taxAmount?: number;
-    invoiceDate: string;
+    invoiceDate?: string;
     dueDate?: string;
     actualPaymentTerms?: string;
     balance?: number;
@@ -66,23 +72,22 @@ export interface ARInvoice {
     paymentHistory?: ARPaymentHistory[];
     createdAt?: string;
     updatedAt?: string;
-    // Prepaid Invoice Fields
-    invoiceType?: 'REGULAR' | 'PREPAID';
+    // Milestone Payment Fields
+    invoiceType?: 'REGULAR' | 'MILESTONE';
     advanceReceivedDate?: string;
     deliveryDueDate?: string;
-    prepaidStatus?: 'AWAITING_DELIVERY' | 'PARTIALLY_DELIVERED' | 'FULLY_DELIVERED' | 'EXPIRED' | 'LINKED';
-    // Prepaid Linking Fields
+    milestoneStatus?: 'AWAITING_DELIVERY' | 'PARTIALLY_DELIVERED' | 'FULLY_DELIVERED' | 'EXPIRED' | 'LINKED';
+    // Milestone Linking Fields
     soNo?: string;
     linkedInvoiceId?: string;
-    linkedPrepaidId?: string;
-    prepaidAcceptedAt?: string;
-    linkedFromPrepaids?: ARInvoice[];
+    linkedMilestoneId?: string;
+    milestoneAcceptedAt?: string;
+    linkedFromMilestones?: ARInvoice[];
     linkedInvoice?: ARInvoice;
-    // Prepaid Milestones & Aging
-    grnDate?: string;
-    bgDate?: string;
-    othersDate?: string;
-    agingMilestone?: 'ADVANCE' | 'INVOICE' | 'GRN' | 'BG' | 'OTHERS';
+    // Milestone Payment Terms & Aging
+    milestoneTerms?: MilestonePaymentTerm[];
+    accountingStatus?: 'REVENUE_RECOGNISED' | 'BACKLOG';
+    mailToTSP?: string;
 }
 
 export interface ARPaymentHistory {
@@ -356,7 +361,7 @@ export interface InvoiceStatusData {
     };
 }
 
-export interface PrepaidAnalysisData {
+export interface MilestoneAnalysisData {
     byType: {
         type: string;
         count: number;
@@ -365,7 +370,7 @@ export interface PrepaidAnalysisData {
         paid: number;
         paidPercentage: string;
     }[];
-    prepaidStatuses: {
+    milestoneStatuses: {
         status: string;
         count: number;
         amount: number;
@@ -373,8 +378,8 @@ export interface PrepaidAnalysisData {
     summary: {
         totalInvoices: number;
         regularCount: number;
-        prepaidCount: number;
-        prepaidPercentage: string;
+        milestoneCount: number;
+        milestonePercentage: string;
     };
 }
 
@@ -393,8 +398,8 @@ export interface DeliveryStatusData {
     };
 }
 
-// Matching Prepaid Invoice type for linking
-export interface MatchingPrepaid {
+// Matching Milestone Invoice type for linking
+export interface MatchingMilestone {
     id: string;
     invoiceNumber: string;
     soNo?: string;
@@ -405,7 +410,7 @@ export interface MatchingPrepaid {
     totalReceipts?: number;
     balance?: number;
     advanceReceivedDate?: string;
-    prepaidStatus?: string;
+    milestoneStatus?: string;
     customerName: string;
     bpCode: string;
     invoiceDate: string;
@@ -588,38 +593,38 @@ export const arApi = {
     },
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // PREPAID INVOICE LINKING
+    // MILESTONE PAYMENT LINKING
     // ═══════════════════════════════════════════════════════════════════════════
 
-    async getMatchingPrepaids(invoiceId: string): Promise<{
-        prepaids: MatchingPrepaid[];
-        hasLinkedPrepaid: boolean;
+    async getMatchingMilestones(invoiceId: string): Promise<{
+        milestones: MatchingMilestone[];
+        hasLinkedMilestone: boolean;
         invoicePoNo: string;
     }> {
-        const res = await api.get(`/ar/invoices/${invoiceId}/matching-prepaids`);
+        const res = await api.get(`/ar/invoices/${invoiceId}/matching-milestones`);
         return res.data;
     },
 
-    async acceptPrepaid(invoiceId: string, prepaidId: string, transferPayments = true): Promise<{
+    async acceptMilestone(invoiceId: string, milestoneId: string, transferPayments = true): Promise<{
         success: boolean;
-        prepaidInvoiceNumber: string;
+        milestoneInvoiceNumber: string;
         totalTransferred: number;
         newBalance?: number;
         newStatus?: string;
     }> {
-        const res = await api.post(`/ar/invoices/${invoiceId}/accept-prepaid`, {
-            prepaidId,
+        const res = await api.post(`/ar/invoices/${invoiceId}/accept-milestone`, {
+            milestoneId,
             transferPayments
         });
         return res.data;
     },
 
-    async getLinkedPrepaidDetails(invoiceId: string): Promise<{
-        linkedPrepaid: any;
+    async getLinkedMilestoneDetails(invoiceId: string): Promise<{
+        linkedMilestone: any;
         transferredPayments: any[];
         totalTransferred: number;
     }> {
-        const res = await api.get(`/ar/invoices/${invoiceId}/linked-prepaid`);
+        const res = await api.get(`/ar/invoices/${invoiceId}/linked-milestone`);
         return res.data;
     },
 
@@ -887,8 +892,8 @@ export const arApi = {
         return res.data;
     },
 
-    async getPrepaidAnalysisReport(): Promise<PrepaidAnalysisData> {
-        const res = await api.get('/ar/reports/invoices/prepaid');
+    async getMilestoneAnalysisReport(): Promise<MilestoneAnalysisData> {
+        const res = await api.get('/ar/reports/invoices/milestone');
         return res.data;
     },
 

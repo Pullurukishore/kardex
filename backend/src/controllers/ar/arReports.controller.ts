@@ -38,7 +38,8 @@ export const getDetailedAgingReport = async (req: Request, res: Response) => {
                 status: true,
                 invoiceType: true,
                 region: true,
-                poNo: true
+                poNo: true,
+                soNo: true
             },
             orderBy: { dueDate: 'asc' }
         });
@@ -757,14 +758,14 @@ export const getInvoiceStatusSummary = async (req: Request, res: Response) => {
 };
 
 /**
- * Get Prepaid Analysis Report
+ * Get Milestone Analysis Report
  */
-export const getPrepaidAnalysisReport = async (req: Request, res: Response) => {
+export const getMilestoneAnalysisReport = async (req: Request, res: Response) => {
     try {
         const invoices = await prisma.aRInvoice.findMany({
             select: {
                 invoiceType: true,
-                prepaidStatus: true,
+                milestoneStatus: true,
                 totalAmount: true,
                 balance: true,
                 status: true
@@ -773,10 +774,10 @@ export const getPrepaidAnalysisReport = async (req: Request, res: Response) => {
 
         const typeAnalysis = {
             REGULAR: { count: 0, totalAmount: 0, balance: 0, paid: 0 },
-            PREPAID: { count: 0, totalAmount: 0, balance: 0, paid: 0 }
+            MILESTONE: { count: 0, totalAmount: 0, balance: 0, paid: 0 }
         };
 
-        const prepaidStatusAnalysis = {
+        const milestoneStatusAnalysis = {
             AWAITING_DELIVERY: { count: 0, amount: 0 },
             PARTIALLY_DELIVERED: { count: 0, amount: 0 },
             FULLY_DELIVERED: { count: 0, amount: 0 },
@@ -795,11 +796,11 @@ export const getPrepaidAnalysisReport = async (req: Request, res: Response) => {
                 }
             }
 
-            if (inv.invoiceType === 'PREPAID' && inv.prepaidStatus) {
-                const status = inv.prepaidStatus as keyof typeof prepaidStatusAnalysis;
-                if (prepaidStatusAnalysis[status]) {
-                    prepaidStatusAnalysis[status].count++;
-                    prepaidStatusAnalysis[status].amount += Number(inv.totalAmount);
+            if (inv.invoiceType === 'MILESTONE' && inv.milestoneStatus) {
+                const status = inv.milestoneStatus as keyof typeof milestoneStatusAnalysis;
+                if (milestoneStatusAnalysis[status]) {
+                    milestoneStatusAnalysis[status].count++;
+                    milestoneStatusAnalysis[status].amount += Number(inv.totalAmount);
                 }
             }
         });
@@ -810,20 +811,20 @@ export const getPrepaidAnalysisReport = async (req: Request, res: Response) => {
                 ...data,
                 paidPercentage: data.count > 0 ? ((data.paid / data.count) * 100).toFixed(1) : '0'
             })),
-            prepaidStatuses: Object.entries(prepaidStatusAnalysis).map(([status, data]) => ({
+            milestoneStatuses: Object.entries(milestoneStatusAnalysis).map(([status, data]) => ({
                 status,
                 ...data
             })).filter(s => s.count > 0),
             summary: {
                 totalInvoices: invoices.length,
                 regularCount: typeAnalysis.REGULAR.count,
-                prepaidCount: typeAnalysis.PREPAID.count,
-                prepaidPercentage: invoices.length > 0 ? ((typeAnalysis.PREPAID.count / invoices.length) * 100).toFixed(1) : '0'
+                milestoneCount: typeAnalysis.MILESTONE.count,
+                milestonePercentage: invoices.length > 0 ? ((typeAnalysis.MILESTONE.count / invoices.length) * 100).toFixed(1) : '0'
             }
         });
     } catch (error: any) {
-        console.error('Prepaid analysis error:', error);
-        res.status(500).json({ error: 'Failed to generate prepaid analysis report' });
+        console.error('Milestone analysis error:', error);
+        res.status(500).json({ error: 'Failed to generate milestone analysis report' });
     }
 };
 

@@ -211,27 +211,79 @@ export default function EditBankAccountPage() {
     }
 
     if (name === 'gstNumber') {
-      if (value !== '' && !isAlphanumeric(value)) {
-        setFieldErrors(prev => ({ ...prev, gstNumber: 'GST Number must be alphanumeric' }));
-        return;
+      // GST format: 22AAAAA0000A1Z5 (15 chars)
+      const upper = value.toUpperCase();
+      let formatted = '';
+      for (let i = 0; i < upper.length && i < 15; i++) {
+        const ch = upper[i];
+        if (i < 2) {
+          if (/[0-9]/.test(ch)) formatted += ch;
+          else { setFieldErrors(prev => ({ ...prev, gstNumber: `Position ${i + 1}: Number expected (state code)` })); return; }
+        } else if (i < 7) {
+          if (/[A-Z]/.test(ch)) formatted += ch;
+          else { setFieldErrors(prev => ({ ...prev, gstNumber: `Position ${i + 1}: Letter expected` })); return; }
+        } else if (i < 11) {
+          if (/[0-9]/.test(ch)) formatted += ch;
+          else { setFieldErrors(prev => ({ ...prev, gstNumber: `Position ${i + 1}: Number expected` })); return; }
+        } else if (i === 11) {
+          if (/[A-Z]/.test(ch)) formatted += ch;
+          else { setFieldErrors(prev => ({ ...prev, gstNumber: `Position ${i + 1}: Letter expected` })); return; }
+        } else if (i === 12) {
+          if (/[A-Z0-9]/.test(ch)) formatted += ch;
+          else { setFieldErrors(prev => ({ ...prev, gstNumber: `Position ${i + 1}: Letter or number expected` })); return; }
+        } else if (i === 13) {
+          if (/[A-Z]/.test(ch)) formatted += ch;
+          else { setFieldErrors(prev => ({ ...prev, gstNumber: `Position ${i + 1}: Letter expected (usually Z)` })); return; }
+        } else {
+          if (/[A-Z0-9]/.test(ch)) formatted += ch;
+          else { setFieldErrors(prev => ({ ...prev, gstNumber: `Position ${i + 1}: Letter or number expected` })); return; }
+        }
       }
+      setFormData(prev => ({ ...prev, gstNumber: formatted }));
       setFieldErrors(prev => ({ ...prev, gstNumber: '' }));
+      setError('');
+      return;
     }
 
     if (name === 'panNumber') {
-      if (value !== '' && !isAlphanumeric(value)) {
-        setFieldErrors(prev => ({ ...prev, panNumber: 'PAN Number must be alphanumeric' }));
-        return;
+      // PAN format: ABCDE1234F (10 chars)
+      const upper = value.toUpperCase();
+      let formatted = '';
+      for (let i = 0; i < upper.length && i < 10; i++) {
+        const ch = upper[i];
+        if (i < 5) {
+          if (/[A-Z]/.test(ch)) formatted += ch;
+          else { setFieldErrors(prev => ({ ...prev, panNumber: `Position ${i + 1}: Letter expected` })); return; }
+        } else if (i < 9) {
+          if (/[0-9]/.test(ch)) formatted += ch;
+          else { setFieldErrors(prev => ({ ...prev, panNumber: `Position ${i + 1}: Number expected` })); return; }
+        } else {
+          if (/[A-Z]/.test(ch)) formatted += ch;
+          else { setFieldErrors(prev => ({ ...prev, panNumber: `Position ${i + 1}: Letter expected` })); return; }
+        }
       }
+      setFormData(prev => ({ ...prev, panNumber: formatted }));
       setFieldErrors(prev => ({ ...prev, panNumber: '' }));
+      setError('');
+      return;
     }
 
     if (name === 'udyamRegNum') {
-      if (value !== '' && !isAlphanumericWithHyphen(value)) {
-        setFieldErrors(prev => ({ ...prev, udyamRegNum: 'Only letters, numbers and hyphens are allowed' }));
-        return;
+      // Ensure UDYAM- prefix is always present
+      let raw = value.toUpperCase();
+      if (!raw.startsWith('UDYAM-')) {
+        raw = 'UDYAM-';
       }
+      let suffix = raw.slice(6).replace(/[^A-Z0-9]/g, '');
+      let formatted = 'UDYAM-';
+      if (suffix.length > 0) formatted += suffix.slice(0, 2);
+      if (suffix.length > 2) formatted += '-' + suffix.slice(2, 4);
+      if (suffix.length > 4) formatted += '-' + suffix.slice(4, 11);
+      
+      setFormData(prev => ({ ...prev, udyamRegNum: formatted }));
       setFieldErrors(prev => ({ ...prev, udyamRegNum: '' }));
+      setError('');
+      return;
     }
 
     if (name === 'otherCurrency') {
@@ -249,6 +301,11 @@ export default function EditBankAccountPage() {
       // Default beneficiaryName to vendorName if it was matching or empty (and it's a new vendor name)
       if (name === 'vendorName' && (prev.beneficiaryName === prev.vendorName || prev.beneficiaryName === '')) {
         newData.beneficiaryName = value;
+      }
+
+      // When MSME is toggled ON, auto-set UDYAM- prefix
+      if (name === 'isMSME' && checked && !prev.udyamRegNum) {
+        newData.udyamRegNum = 'UDYAM-';
       }
       
       return newData;
@@ -329,11 +386,7 @@ export default function EditBankAccountPage() {
         return;
       }
 
-      if (formData.ifscCode.length >= 11 && !isValidIFSC(formData.ifscCode.toUpperCase())) {
-        setError('Invalid IFSC Code format (e.g. SBIN0001234)');
-        setSaving(false);
-        return;
-      }
+
 
       if (formData.otherCurrency && !isLettersOnlyStrict(formData.otherCurrency)) {
         setError('Currency code must contain letters only');
@@ -765,18 +818,22 @@ export default function EditBankAccountPage() {
                           <span className="ml-auto text-xs text-[#CE9F6B] font-medium">Modified</span>
                         )}
                       </label>
-                      <input
-                        type="text"
-                        name="udyamRegNum"
-                        value={formData.udyamRegNum}
-                        onChange={handleChange}
-                        placeholder="UDYAM-XX-00-0000000"
-                        maxLength={19}
-                        className={`w-full px-4 py-3.5 border rounded-xl text-[#546A7A] focus:outline-none focus:ring-2 focus:ring-[#CE9F6B]/20 transition-all font-mono ${
-                          hasChanges('udyamRegNum') ? 'bg-white border-[#CE9F6B]' : 'bg-white border-[#CE9F6B]/30'
-                        }`}
-                        required={formData.isMSME}
-                      />
+                      <div className="relative">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 font-mono font-bold text-sm tracking-widest text-[#CE9F6B] pointer-events-none select-none">UDYAM-</span>
+                        <input
+                          type="text"
+                          name="udyamRegNum"
+                          value={formData.udyamRegNum}
+                          onChange={handleChange}
+                          placeholder="UDYAM-XX-00-0000000"
+                          maxLength={19}
+                          className={`w-full pl-[88px] pr-4 py-3.5 border rounded-xl text-[#546A7A] focus:outline-none focus:ring-2 focus:ring-[#CE9F6B]/20 transition-all font-mono ${
+                            hasChanges('udyamRegNum') ? 'bg-white border-[#CE9F6B]' : 'bg-white border-[#CE9F6B]/30'
+                          }`}
+                          required={formData.isMSME}
+                        />
+                      </div>
+                      <p className="text-[10px] text-[#92A2A5] mt-1">Format: UDYAM-XX-00-0000000 (auto-formatted)</p>
                     </div>
                   )}
                 </div>
@@ -939,6 +996,7 @@ export default function EditBankAccountPage() {
                       fieldErrors.gstNumber ? 'border-[#E17F70] focus:border-[#E17F70]' : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B]/50'
                     }`}
                   />
+                  <p className="text-[10px] text-[#92A2A5] mt-1">Format: 22AAAAA0000A1Z5 (Strict Character Rules)</p>
                   {fieldErrors.gstNumber && (
                     <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
                       <AlertCircle className="w-3 h-3" />
@@ -964,6 +1022,7 @@ export default function EditBankAccountPage() {
                       fieldErrors.panNumber ? 'border-[#E17F70] focus:border-[#E17F70]' : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B]/50'
                     }`}
                   />
+                  <p className="text-[10px] text-[#92A2A5] mt-1">Format: ABCDE1234F (Smart Enforcement)</p>
                   {fieldErrors.panNumber && (
                     <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
                       <AlertCircle className="w-3 h-3" />

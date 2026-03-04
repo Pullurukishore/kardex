@@ -13,8 +13,8 @@ export type ARActivityAction =
     | 'DELIVERY_UPDATED'
     | 'REMARK_ADDED'
     | 'INVOICE_IMPORTED'
-    | 'PREPAID_LINKED'      // When a prepaid invoice is linked to a regular invoice
-    | 'LINKED_TO_INVOICE';  // When a prepaid is linked (logged on the prepaid invoice)
+    | 'MILESTONE_LINKED'      // When a milestone payment is linked to a regular invoice
+    | 'LINKED_TO_INVOICE';  // When a milestone is linked (logged on the milestone payment)
 
 interface LogActivityParams {
     invoiceId: string;
@@ -135,7 +135,7 @@ const formatFieldName = (field: string): string => {
         comments: 'Comments',
         poNo: 'PO Number',
         invoiceType: 'Invoice Type',
-        prepaidStatus: 'Prepaid Status',
+        milestoneStatus: 'Milestone Status',
         advanceReceivedDate: 'Advance Received Date',
         deliveryDueDate: 'Delivery Due Date',
         receipts: 'Receipts',

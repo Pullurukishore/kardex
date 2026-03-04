@@ -178,27 +178,94 @@ export default function NewBankAccountPage() {
     }
 
     if (name === 'gstNumber') {
-      if (value !== '' && !isAlphanumeric(value)) {
-        setFieldErrors(prev => ({ ...prev, gstNumber: 'GST Number must be alphanumeric' }));
-        return;
+      // GST format: 22AAAAA0000A1Z5 (15 chars)
+      // Pos 1-2: digits, 3-7: letters, 8-11: digits, 12: letter, 13: alphanumeric, 14: letter(Z), 15: alphanumeric
+      const upper = value.toUpperCase();
+      let formatted = '';
+      for (let i = 0; i < upper.length && i < 15; i++) {
+        const ch = upper[i];
+        if (i < 2) {
+          // Positions 1-2: numbers only (state code)
+          if (/[0-9]/.test(ch)) formatted += ch;
+          else { setFieldErrors(prev => ({ ...prev, gstNumber: `Position ${i + 1}: Number expected (state code)` })); return; }
+        } else if (i < 7) {
+          // Positions 3-7: letters only (PAN first 5)
+          if (/[A-Z]/.test(ch)) formatted += ch;
+          else { setFieldErrors(prev => ({ ...prev, gstNumber: `Position ${i + 1}: Letter expected` })); return; }
+        } else if (i < 11) {
+          // Positions 8-11: numbers only (PAN digits)
+          if (/[0-9]/.test(ch)) formatted += ch;
+          else { setFieldErrors(prev => ({ ...prev, gstNumber: `Position ${i + 1}: Number expected` })); return; }
+        } else if (i === 11) {
+          // Position 12: letter only (PAN last char)
+          if (/[A-Z]/.test(ch)) formatted += ch;
+          else { setFieldErrors(prev => ({ ...prev, gstNumber: `Position ${i + 1}: Letter expected` })); return; }
+        } else if (i === 12) {
+          // Position 13: alphanumeric (entity number)
+          if (/[A-Z0-9]/.test(ch)) formatted += ch;
+          else { setFieldErrors(prev => ({ ...prev, gstNumber: `Position ${i + 1}: Letter or number expected` })); return; }
+        } else if (i === 13) {
+          // Position 14: letter only (default Z)
+          if (/[A-Z]/.test(ch)) formatted += ch;
+          else { setFieldErrors(prev => ({ ...prev, gstNumber: `Position ${i + 1}: Letter expected (usually Z)` })); return; }
+        } else {
+          // Position 15: alphanumeric (checksum)
+          if (/[A-Z0-9]/.test(ch)) formatted += ch;
+          else { setFieldErrors(prev => ({ ...prev, gstNumber: `Position ${i + 1}: Letter or number expected` })); return; }
+        }
       }
+      setFormData(prev => ({ ...prev, gstNumber: formatted }));
       setFieldErrors(prev => ({ ...prev, gstNumber: '' }));
+      setError('');
+      return;
     }
 
     if (name === 'panNumber') {
-      if (value !== '' && !isAlphanumeric(value)) {
-        setFieldErrors(prev => ({ ...prev, panNumber: 'PAN Number must be alphanumeric' }));
-        return;
+      // PAN format: ABCDE1234F (10 chars)
+      // Pos 1-5: letters, 6-9: numbers, 10: letter
+      const upper = value.toUpperCase();
+      let formatted = '';
+      for (let i = 0; i < upper.length && i < 10; i++) {
+        const ch = upper[i];
+        if (i < 5) {
+          // Positions 1-5: letters only
+          if (/[A-Z]/.test(ch)) formatted += ch;
+          else { setFieldErrors(prev => ({ ...prev, panNumber: `Position ${i + 1}: Letter expected` })); return; }
+        } else if (i < 9) {
+          // Positions 6-9: numbers only
+          if (/[0-9]/.test(ch)) formatted += ch;
+          else { setFieldErrors(prev => ({ ...prev, panNumber: `Position ${i + 1}: Number expected` })); return; }
+        } else {
+          // Position 10: letter only
+          if (/[A-Z]/.test(ch)) formatted += ch;
+          else { setFieldErrors(prev => ({ ...prev, panNumber: `Position ${i + 1}: Letter expected` })); return; }
+        }
       }
+      setFormData(prev => ({ ...prev, panNumber: formatted }));
       setFieldErrors(prev => ({ ...prev, panNumber: '' }));
+      setError('');
+      return;
     }
 
     if (name === 'udyamRegNum') {
-      if (value !== '' && !isAlphanumericWithHyphen(value)) {
-        setFieldErrors(prev => ({ ...prev, udyamRegNum: 'Only letters, numbers and hyphens are allowed' }));
-        return;
+      // Ensure UDYAM- prefix is always present
+      let raw = value.toUpperCase();
+      // If user tries to delete the prefix, restore it
+      if (!raw.startsWith('UDYAM-')) {
+        raw = 'UDYAM-';
       }
+      // Extract part after UDYAM-
+      let suffix = raw.slice(6).replace(/[^A-Z0-9]/g, ''); // remove non-alphanumeric
+      // Auto-format: XX-00-0000000 (2 letters, 2 digits, 7 digits)
+      let formatted = 'UDYAM-';
+      if (suffix.length > 0) formatted += suffix.slice(0, 2);
+      if (suffix.length > 2) formatted += '-' + suffix.slice(2, 4);
+      if (suffix.length > 4) formatted += '-' + suffix.slice(4, 11);
+      
+      setFormData(prev => ({ ...prev, udyamRegNum: formatted }));
       setFieldErrors(prev => ({ ...prev, udyamRegNum: '' }));
+      setError('');
+      return;
     }
 
     if (name === 'otherCurrency') {
@@ -215,6 +282,11 @@ export default function NewBankAccountPage() {
       
       if (name === 'vendorName' && (prev.beneficiaryName === prev.vendorName || prev.beneficiaryName === '')) {
         newData.beneficiaryName = value;
+      }
+
+      // When MSME is toggled ON, auto-set UDYAM- prefix
+      if (name === 'isMSME' && checked && !prev.udyamRegNum) {
+        newData.udyamRegNum = 'UDYAM-';
       }
       
       return newData;
@@ -393,9 +465,7 @@ export default function NewBankAccountPage() {
       if (!formData.ifscCode) {
         return { valid: false, message: 'IFSC/SWIFT Code is required' };
       }
-      if (formData.ifscCode.length >= 11 && !isValidIFSC(formData.ifscCode.toUpperCase())) {
-        return { valid: false, message: 'Invalid IFSC Code format (e.g. SBIN0001234)' };
-      }
+
       if (!formData.confirmAccountNumber) {
         return { valid: false, message: 'Please confirm the account number' };
       }
@@ -803,18 +873,22 @@ export default function NewBankAccountPage() {
                     <CreditCard className="w-4 h-4" style={{ color: '#CE9F6B' }} />
                     Udyam Registration Number <span style={{ color: '#E17F70' }}>*</span>
                   </label>
-                  <input
-                    type="text"
-                    name="udyamRegNum"
-                    value={formData.udyamRegNum}
-                    onChange={handleChange}
-                    placeholder="UDYAM-XX-00-0000000"
-                    maxLength={19}
-                    className={`w-full px-4 py-3 rounded-xl font-mono font-bold text-base tracking-widest transition-all focus:outline-none border-2 bg-white text-[#546A7A] ${
-                      fieldErrors.udyamRegNum ? 'border-[#E17F70]' : 'border-[#CE9F6B]'
-                    }`}
-                    required={formData.isMSME}
-                  />
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 font-mono font-bold text-base tracking-widest text-[#CE9F6B] pointer-events-none select-none">UDYAM-</span>
+                    <input
+                      type="text"
+                      name="udyamRegNum"
+                      value={formData.udyamRegNum}
+                      onChange={handleChange}
+                      placeholder="UDYAM-XX-00-0000000"
+                      maxLength={19}
+                      className={`w-full pl-[88px] pr-4 py-3 rounded-xl font-mono font-bold text-base tracking-widest transition-all focus:outline-none border-2 bg-white text-[#546A7A] ${
+                        fieldErrors.udyamRegNum ? 'border-[#E17F70]' : 'border-[#CE9F6B]'
+                      }`}
+                      required={formData.isMSME}
+                    />
+                  </div>
+                  <p className="text-[10px] text-[#92A2A5] mt-1">Format: UDYAM-XX-00-0000000 (auto-formatted)</p>
                   {fieldErrors.udyamRegNum && (
                     <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
                       <AlertCircle className="w-3 h-3" />
@@ -1007,6 +1081,7 @@ export default function NewBankAccountPage() {
                   className={`w-full px-5 py-4 rounded-2xl font-mono font-bold uppercase transition-all focus:outline-none`}
                   style={{ background: 'white', border: `2px solid ${fieldErrors.gstNumber ? '#E17F70' : '#AEBFC3'}`, color: '#546A7A' }}
                 />
+                <p className="text-[10px] text-[#92A2A5] mt-1">Format: 22AAAAA0000A1Z5 (Strict Character Rules)</p>
                 {fieldErrors.gstNumber && (
                   <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
                     <AlertCircle className="w-3 h-3" />
@@ -1030,6 +1105,7 @@ export default function NewBankAccountPage() {
                   className={`w-full px-5 py-4 rounded-2xl font-mono font-bold uppercase transition-all focus:outline-none`}
                   style={{ background: 'white', border: `2px solid ${fieldErrors.panNumber ? '#E17F70' : '#AEBFC3'}`, color: '#546A7A' }}
                 />
+                <p className="text-[10px] text-[#92A2A5] mt-1">Format: ABCDE1234F (Smart Enforcement)</p>
                 {fieldErrors.panNumber && (
                   <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
                     <AlertCircle className="w-3 h-3" />

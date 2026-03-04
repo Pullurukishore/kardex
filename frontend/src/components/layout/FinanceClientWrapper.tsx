@@ -29,7 +29,7 @@ interface NavItem {
 const allNavItems: NavItem[] = [
   { href: '/finance/ar/dashboard', label: 'Dashboard', icon: LayoutDashboard, description: 'Overview & KPIs' },
   { href: '/finance/ar/invoices', label: 'Invoices', icon: FileText, description: 'Manage invoices' },
-  { href: '/finance/ar/invoices?type=PREPAID', label: 'Prepaid Invoices', icon: Wallet, description: 'Advance payments' },
+  { href: '/finance/ar/milestones', label: 'Milestone Payments', icon: Wallet, description: 'Milestone based terms' },
   { href: '/finance/ar/customers', label: 'Customers', icon: Users, description: 'Customer master' },
   { href: '/finance/ar/activities', label: 'Activities', icon: Activity, description: 'All activity logs', roles: ['FINANCE_ADMIN'] },
   { href: '/finance/ar/reports', label: 'Reports', icon: BarChart3, description: 'Analytics & exports' },

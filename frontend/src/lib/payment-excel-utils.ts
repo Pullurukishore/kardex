@@ -89,7 +89,7 @@ export const downloadICICICMS = async (payments: PaymentRow[], customFilename?: 
     payments.forEach(p => {
         const trnType = p.transactionMode === 'NFT' ? 'N' : p.transactionMode === 'RTI' ? 'R' : 'I';
         const beneCode = p.nickName || p.vendorName.substring(0, 15).trim();
-        const custRef = p.vendorName.split(' ')[0].substring(0, 30);
+        const custRef = p.nickName || p.vendorName.split(' ')[0].substring(0, 30);
 
         const rowData = Array(31).fill("");
         rowData[0] = trnType;
@@ -153,13 +153,15 @@ export const downloadStandardPayment = async (payments: PaymentRow[], customFile
 
     payments.forEach(p => {
         const nameParts = p.vendorName.split(' ');
-        let ref = p.vendorName.substring(0, 15);
-        if (nameParts.length > 2) {
-            ref = `Adv ${nameParts[0]}`;
-        } else if (nameParts[0].length > 15) {
-            ref = nameParts[0].substring(0, 15);
-        } else {
-            ref = nameParts[0];
+        let ref = p.nickName || '';
+        if (!ref) {
+            if (nameParts.length > 2) {
+                ref = `Adv ${nameParts[0]}`;
+            } else if (nameParts[0].length > 15) {
+                ref = nameParts[0].substring(0, 15);
+            } else {
+                ref = nameParts[0];
+            }
         }
 
         const row = worksheet.addRow([
@@ -197,7 +199,7 @@ function buildICICIDataRows(payments: PaymentRow[], formatDate: (d: Date, f: str
     return payments.map(p => {
         const trnType = p.transactionMode === 'NFT' ? 'N' : p.transactionMode === 'RTI' ? 'R' : 'I';
         const beneCode = p.nickName || p.vendorName.substring(0, 15).trim();
-        const custRef = p.vendorName.split(' ')[0].substring(0, 30);
+        const custRef = p.nickName || p.vendorName.split(' ')[0].substring(0, 30);
 
         const row = Array(31).fill('');
         row[0] = trnType;
@@ -220,13 +222,15 @@ function buildICICIDataRows(payments: PaymentRow[], formatDate: (d: Date, f: str
 function buildStandardDataRows(payments: PaymentRow[], formatDate: (d: Date, f: string) => string) {
     return payments.map(p => {
         const nameParts = p.vendorName.split(' ');
-        let ref = p.vendorName.substring(0, 15);
-        if (nameParts.length > 2) {
-            ref = `Adv ${nameParts[0]}`;
-        } else if (nameParts[0].length > 15) {
-            ref = nameParts[0].substring(0, 15);
-        } else {
-            ref = nameParts[0];
+        let ref = p.nickName || '';
+        if (!ref) {
+            if (nameParts.length > 2) {
+                ref = `Adv ${nameParts[0]}`;
+            } else if (nameParts[0].length > 15) {
+                ref = nameParts[0].substring(0, 15);
+            } else {
+                ref = nameParts[0];
+            }
         }
 
         return [

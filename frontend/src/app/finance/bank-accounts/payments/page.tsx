@@ -2,17 +2,24 @@
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { arApi, BankAccount, submitPaymentBatch } from '@/lib/ar-api';
+import { useAuth } from '@/contexts/AuthContext';
+import { FinanceRole } from '@/types/user.types';
 import { 
   Plus, Search, Trash2, Landmark, CreditCard, 
   Calendar as CalendarIcon, ArrowLeft, Loader2, CheckCircle2,
   X, Info, Wallet, DollarSign, RefreshCcw, Check, Building2,
   Shield, Globe, Power, Eye, Pencil, List, Hash, Send, 
   Zap, AlertCircle, IndianRupee, Clock, Filter, ChevronDown, Mail,
-  FileSpreadsheet, FileText, Banknote
+  FileSpreadsheet, FileText, Banknote, Download, FileCode
 } from 'lucide-react';
 import { format } from 'date-fns';
 import Link from 'next/link';
-import { PaymentRow } from '@/lib/payment-excel-utils';
+import {
+  PaymentRow,
+  downloadICICICMS, downloadStandardPayment,
+  downloadICICICMS_CSV, downloadICICICMS_TXT,
+  downloadStandard_CSV, downloadStandard_TXT
+} from '@/lib/payment-excel-utils';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -132,6 +139,9 @@ const ModeBadge = ({ mode }: { mode: string }) => {
 };
 
 export default function PaymentsPage() {
+    const { user } = useAuth();
+    const isAdmin = user?.financeRole === FinanceRole.FINANCE_ADMIN;
+    const DEFAULT_EMAIL = 'naveen.n@kardex.com';
     const [accounts, setAccounts] = useState<BankAccount[]>([]);
     const [loading, setLoading] = useState(true);
     const [pendingPayments, setPendingPayments] = useState<PendingPayment[]>([]);
@@ -142,18 +152,26 @@ export default function PaymentsPage() {
     const [globalMode, setGlobalMode] = useState<'NFT' | 'RTI' | 'FT'>('NFT');
     const [submittingBatch, setSubmittingBatch] = useState(false);
     const [exportFormat, setExportFormat] = useState<'HDFC' | 'DB'>('HDFC');
-    const [benEmailIds, setBenEmailIds] = useState<string[]>(['naveen.n@kardex.com']);
+    const [benEmailIds, setBenEmailIds] = useState<string[]>([DEFAULT_EMAIL]);
     const [newEmailInput, setNewEmailInput] = useState('');
     const [editingEmailIdx, setEditingEmailIdx] = useState<number | null>(null);
     const [editingEmailValue, setEditingEmailValue] = useState('');
+    const [showPreview, setShowPreview] = useState(false);
+    const [showDownloadMenu, setShowDownloadMenu] = useState(false);
+    const [previewFormat, setPreviewFormat] = useState<'HDFC' | 'DB'>('HDFC');
+    const [customFilename, setCustomFilename] = useState('');
     const dropdownRef = useRef<HTMLDivElement>(null);
+    const downloadMenuRef = useRef<HTMLDivElement>(null);
     const searchInputRef = useRef<HTMLInputElement>(null);
 
-    // Click outside handler for vendor dropdown
+    // Click outside handler for vendor dropdown & download menu
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
                 setOpenDropdown(false);
+            }
+            if (downloadMenuRef.current && !downloadMenuRef.current.contains(event.target as Node)) {
+                setShowDownloadMenu(false);
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
@@ -315,6 +333,51 @@ export default function PaymentsPage() {
     const CURRENCY_SYMBOLS: Record<string, string> = { 'INR': '₹', 'USD': '$', 'EUR': '€', 'GBP': '£', 'JPY': '¥', 'AED': 'د.إ', 'SGD': 'S$', 'CHF': 'Fr', 'AUD': 'A$', 'CAD': 'C$' };
     const activeCurrencySymbol = currencyFilter !== 'ALL' ? (CURRENCY_SYMBOLS[currencyFilter] || currencyFilter) : '₹';
     const activeCurrencyCode = currencyFilter !== 'ALL' ? currencyFilter : 'INR';
+
+    // Build PaymentRow[] from pending payments — used for both preview and download
+    const buildPaymentRows = useCallback((): PaymentRow[] => {
+        return pendingPayments
+            .filter(p => p.amount && p.amount > 0)
+            .map(p => ({
+                vendorName: p.vendorName!,
+                bpCode: p.bpCode || '',
+                nickName: (p.bankAccount as any).nickName || '',
+                accountNumber: p.accountNumber!,
+                ifscCode: p.ifscCode!,
+                bankName: p.bankName!,
+                amount: p.amount!,
+                emailId: exportFormat === 'HDFC'
+                    ? (benEmailIds.length > 0 ? benEmailIds.join(';') : '')
+                    : (p.emailId || ''),
+                valueDate: p.valueDate || new Date(),
+                transactionMode: (p.transactionMode as 'NFT' | 'RTI' | 'FT') || 'NFT',
+                accountType: p.accountType || ''
+            }));
+    }, [pendingPayments, exportFormat, benEmailIds]);
+
+    const handleLocalDownload = async (format: 'HDFC' | 'DB', subFormat: 'EXCEL' | 'CSV' | 'TXT') => {
+        const rows = buildPaymentRows();
+        if (rows.length === 0) {
+            toast.error('No valid payments to download. Please enter amounts first.');
+            return;
+        }
+        setShowDownloadMenu(false);
+        const fname = customFilename.trim() || undefined;
+        try {
+            if (format === 'HDFC') {
+                if (subFormat === 'CSV') await downloadICICICMS_CSV(rows, fname);
+                else if (subFormat === 'TXT') await downloadICICICMS_TXT(rows, fname);
+                else await downloadICICICMS(rows, fname);
+            } else {
+                if (subFormat === 'CSV') await downloadStandard_CSV(rows, fname);
+                else if (subFormat === 'TXT') await downloadStandard_TXT(rows, fname);
+                else await downloadStandardPayment(rows, fname);
+            }
+            toast.success('Payment file downloaded!');
+        } catch {
+            toast.error('Download failed');
+        }
+    };
 
     if (loading) {
         return (
@@ -768,8 +831,12 @@ export default function PaymentsPage() {
                                     </label>
                                     {/* Email tags */}
                                     <div className="flex flex-wrap gap-1.5 min-h-[36px] p-2 bg-slate-50/80 border border-slate-200 rounded-xl">
-                                        {benEmailIds.map((email, idx) => (
-                                            editingEmailIdx === idx ? (
+                                        {benEmailIds.map((email, idx) => {
+                                            const isDefaultEmail = idx === 0 && email === DEFAULT_EMAIL;
+                                            const canEdit = isAdmin || !isDefaultEmail;
+                                            const canDelete = (isAdmin || !isDefaultEmail) && benEmailIds.length > 1;
+                                            return (
+                                            editingEmailIdx === idx && canEdit ? (
                                                 <div key={idx} className="flex items-center gap-1">
                                                     <input
                                                         autoFocus
@@ -796,18 +863,32 @@ export default function PaymentsPage() {
                                             ) : (
                                                 <div
                                                     key={idx}
-                                                    className="group/tag flex items-center gap-1 bg-white border border-[#B18E63]/30 rounded-lg px-2 py-1 text-[11px] font-medium text-[#976E44] hover:border-[#B18E63]/60 transition-all cursor-default"
+                                                    className={cn(
+                                                        "group/tag flex items-center gap-1 bg-white border rounded-lg px-2 py-1 text-[11px] font-medium transition-all cursor-default",
+                                                        isDefaultEmail && !isAdmin
+                                                            ? 'border-slate-200 text-slate-500 bg-slate-50'
+                                                            : 'border-[#B18E63]/30 text-[#976E44] hover:border-[#B18E63]/60'
+                                                    )}
                                                 >
-                                                    <Mail className="w-2.5 h-2.5 shrink-0 text-[#B18E63]/60" />
+                                                    {isDefaultEmail && !isAdmin ? (
+                                                        <Shield className="w-2.5 h-2.5 shrink-0 text-slate-400" />
+                                                    ) : (
+                                                        <Mail className="w-2.5 h-2.5 shrink-0 text-[#B18E63]/60" />
+                                                    )}
                                                     <span className="max-w-[150px] truncate">{email}</span>
-                                                    <button
-                                                        onClick={() => { setEditingEmailIdx(idx); setEditingEmailValue(email); }}
-                                                        className="ml-0.5 text-slate-300 hover:text-[#B18E63] transition-colors opacity-0 group-hover/tag:opacity-100"
-                                                        title="Edit"
-                                                    >
-                                                        <Pencil className="w-2.5 h-2.5" />
-                                                    </button>
-                                                    {benEmailIds.length > 1 && (
+                                                    {isDefaultEmail && !isAdmin && (
+                                                        <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider ml-1">Default</span>
+                                                    )}
+                                                    {canEdit && (
+                                                        <button
+                                                            onClick={() => { setEditingEmailIdx(idx); setEditingEmailValue(email); }}
+                                                            className="ml-0.5 text-slate-300 hover:text-[#B18E63] transition-colors opacity-0 group-hover/tag:opacity-100"
+                                                            title="Edit"
+                                                        >
+                                                            <Pencil className="w-2.5 h-2.5" />
+                                                        </button>
+                                                    )}
+                                                    {canDelete && (
                                                         <button
                                                             onClick={() => setBenEmailIds(prev => prev.filter((_, i) => i !== idx))}
                                                             className="ml-0.5 text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover/tag:opacity-100"
@@ -818,39 +899,53 @@ export default function PaymentsPage() {
                                                     )}
                                                 </div>
                                             )
-                                        ))}
+                                        );})}
                                     </div>
                                     {/* Add new email */}
-                                    <div className="flex items-center gap-2">
-                                        <input
-                                            type="email"
-                                            placeholder="Add email address..."
-                                            value={newEmailInput}
-                                            onChange={e => setNewEmailInput(e.target.value)}
-                                            onKeyDown={e => {
-                                                if (e.key === 'Enter') {
-                                                    const v = newEmailInput.trim();
-                                                    if (v && !benEmailIds.includes(v)) {
+                                    <div className="flex flex-col gap-1.5">
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="email"
+                                                placeholder={isAdmin ? 'Add email address...' : 'Add Gmail address (e.g. user@gmail.com)...'}
+                                                value={newEmailInput}
+                                                onChange={e => setNewEmailInput(e.target.value)}
+                                                onKeyDown={e => {
+                                                    if (e.key === 'Enter') {
+                                                        const v = newEmailInput.trim();
+                                                        if (!v || benEmailIds.includes(v)) return;
+                                                        if (!isAdmin && !v.toLowerCase().endsWith('@gmail.com')) {
+                                                            toast.error('Only Gmail addresses are allowed. Please use an @gmail.com email.');
+                                                            return;
+                                                        }
                                                         setBenEmailIds(prev => [...prev, v]);
                                                         setNewEmailInput('');
                                                     }
-                                                }
-                                            }}
-                                            className="flex-1 text-[11px] font-medium px-3 py-2 border border-slate-200 rounded-xl bg-white outline-none focus:ring-1 focus:ring-[#B18E63]/30 focus:border-[#B18E63]/50 text-slate-700 placeholder:text-slate-300 transition-all h-9"
-                                        />
-                                        <button
-                                            onClick={() => {
-                                                const v = newEmailInput.trim();
-                                                if (v && !benEmailIds.includes(v)) {
+                                                }}
+                                                className="flex-1 text-[11px] font-medium px-3 py-2 border border-slate-200 rounded-xl bg-white outline-none focus:ring-1 focus:ring-[#B18E63]/30 focus:border-[#B18E63]/50 text-slate-700 placeholder:text-slate-300 transition-all h-9"
+                                            />
+                                            <button
+                                                onClick={() => {
+                                                    const v = newEmailInput.trim();
+                                                    if (!v || benEmailIds.includes(v)) return;
+                                                    if (!isAdmin && !v.toLowerCase().endsWith('@gmail.com')) {
+                                                        toast.error('Only Gmail addresses are allowed. Please use an @gmail.com email.');
+                                                        return;
+                                                    }
                                                     setBenEmailIds(prev => [...prev, v]);
                                                     setNewEmailInput('');
-                                                }
-                                            }}
-                                            disabled={!newEmailInput.trim()}
-                                            className="h-9 px-3 rounded-xl bg-gradient-to-r from-[#B18E63] to-[#976E44] text-white text-[11px] font-bold disabled:opacity-40 disabled:cursor-not-allowed hover:shadow-md transition-all flex items-center gap-1"
-                                        >
-                                            <Plus className="w-3 h-3" /> Add
-                                        </button>
+                                                }}
+                                                disabled={!newEmailInput.trim()}
+                                                className="h-9 px-3 rounded-xl bg-gradient-to-r from-[#B18E63] to-[#976E44] text-white text-[11px] font-bold disabled:opacity-40 disabled:cursor-not-allowed hover:shadow-md transition-all flex items-center gap-1"
+                                            >
+                                                <Plus className="w-3 h-3" /> Add
+                                            </button>
+                                        </div>
+                                        {!isAdmin && (
+                                            <p className="text-[9px] text-slate-400 font-medium flex items-center gap-1 pl-1">
+                                                <Info className="w-2.5 h-2.5" />
+                                                Only @gmail.com addresses can be added
+                                            </p>
+                                        )}
                                     </div>
                                 </div>
                             )}
@@ -1296,9 +1391,288 @@ export default function PaymentsPage() {
                         </div>
                     </div>
 
-                    {/* -------------------------------------------------------- */}
-                    {/* SUMMARY FOOTER BAR */}
-                    {/* -------------------------------------------------------- */}
+                    {/* ================================================================ */}
+                    {/* PREVIEW & DOWNLOAD CARD */}
+                    {/* ================================================================ */}
+                    <div className="relative bg-white rounded-2xl border border-slate-100 shadow-[0_4px_24px_rgba(0,0,0,0.04)] overflow-hidden">
+                        {/* Accent bar */}
+                        <div className={cn(
+                            "absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl transition-colors duration-300",
+                            exportFormat === 'HDFC'
+                                ? 'bg-gradient-to-b from-[#82A094] to-[#546A7A]'
+                                : 'bg-gradient-to-b from-[#546A7A] to-[#82A094]'
+                        )} />
+                        <div className="px-6 py-4">
+                            <div className="flex items-center gap-2.5 mb-4">
+                                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#546A7A] to-[#6F8A9D] flex items-center justify-center shadow-sm">
+                                    <Eye className="w-4 h-4 text-white" />
+                                </div>
+                                <div>
+                                    <p className="text-xs font-bold text-slate-600">Preview & Download</p>
+                                    <p className="text-[9px] text-slate-400 font-medium">Preview the export format or download payment files before submitting</p>
+                                </div>
+                                {stats.validPayments > 0 && (
+                                    <span className="ml-auto text-[9px] bg-[#82A094]/10 text-[#4F6A64] px-2 py-0.5 rounded-md font-bold">
+                                        {stats.validPayments} valid entries
+                                    </span>
+                                )}
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                {/* Preview Section */}
+                                <div className={cn(
+                                    'relative group/card p-5 rounded-2xl border-2 transition-all duration-300',
+                                    showPreview
+                                        ? 'border-[#6F8A9D] bg-gradient-to-br from-[#6F8A9D]/[0.06] to-[#546A7A]/[0.03] shadow-lg shadow-[#6F8A9D]/10 ring-1 ring-[#6F8A9D]/20'
+                                        : 'border-dashed border-slate-200 hover:border-[#6F8A9D]/40 hover:bg-[#6F8A9D]/[0.02] hover:shadow-md'
+                                )}>
+                                    <div className="flex items-start gap-3">
+                                        <div className={cn(
+                                            'w-11 h-11 rounded-xl flex items-center justify-center shrink-0 transition-all duration-300',
+                                            showPreview
+                                                ? 'bg-gradient-to-br from-[#6F8A9D] to-[#546A7A] shadow-lg shadow-[#6F8A9D]/20'
+                                                : 'bg-slate-100 group-hover/card:bg-[#6F8A9D]/10'
+                                        )}>
+                                            <Eye className={cn(
+                                                'w-5 h-5 transition-colors duration-300',
+                                                showPreview ? 'text-white' : 'text-slate-400 group-hover/card:text-[#6F8A9D]'
+                                            )} />
+                                        </div>
+                                        <div className="flex-1">
+                                            <p className={cn(
+                                                'font-bold text-sm mb-1 transition-colors',
+                                                showPreview ? 'text-[#546A7A]' : 'text-slate-600'
+                                            )}>Format Preview</p>
+                                            <p className="text-[11px] text-slate-400 leading-relaxed">
+                                                See exactly how your payment data will appear in the exported file
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="mt-4 flex items-center gap-2">
+                                        <Button
+                                            variant={showPreview ? 'default' : 'outline'}
+                                            size="sm"
+                                            onClick={() => setShowPreview(v => !v)}
+                                            disabled={stats.validPayments === 0}
+                                            className={cn(
+                                                'rounded-xl font-bold text-[10px] uppercase tracking-widest h-9 px-4 transition-all',
+                                                showPreview
+                                                    ? 'bg-gradient-to-r from-[#6F8A9D] to-[#546A7A] text-white shadow-md hover:brightness-110'
+                                                    : 'border-slate-200 text-slate-500 hover:border-[#6F8A9D]/50 hover:text-[#546A7A]'
+                                            )}
+                                        >
+                                            <Eye className="w-3 h-3 mr-1.5" />
+                                            {showPreview ? 'Hide Preview' : 'Show Preview'}
+                                        </Button>
+                                        {showPreview && (
+                                            <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5 border border-slate-200">
+                                                <button
+                                                    onClick={() => setPreviewFormat('HDFC')}
+                                                    className={cn(
+                                                        'px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-widest transition-all',
+                                                        previewFormat === 'HDFC'
+                                                            ? 'bg-[#B18E63] text-white shadow-sm'
+                                                            : 'text-slate-400 hover:text-slate-600'
+                                                    )}
+                                                >
+                                                    HDFC
+                                                </button>
+                                                <button
+                                                    onClick={() => setPreviewFormat('DB')}
+                                                    className={cn(
+                                                        'px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-widest transition-all',
+                                                        previewFormat === 'DB'
+                                                            ? 'bg-[#6F8A9D] text-white shadow-sm'
+                                                            : 'text-slate-400 hover:text-slate-600'
+                                                    )}
+                                                >
+                                                    DB
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Download Section */}
+                                <div ref={downloadMenuRef} className={cn(
+                                    'relative group/card p-5 rounded-2xl border-2 transition-all duration-300',
+                                    'border-dashed border-slate-200 hover:border-[#82A094]/40 hover:bg-[#82A094]/[0.02] hover:shadow-md'
+                                )}>
+                                    <div className="flex items-start gap-3 mb-4">
+                                        <div className="w-11 h-11 rounded-xl bg-slate-100 group-hover/card:bg-[#82A094]/10 flex items-center justify-center shrink-0 transition-all duration-300">
+                                            <Download className="w-5 h-5 text-slate-400 group-hover/card:text-[#82A094] transition-colors duration-300" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <p className="font-bold text-sm mb-1 text-slate-600">Download Files</p>
+                                            <p className="text-[11px] text-slate-400 leading-relaxed">
+                                                Download payment files in your preferred bank format
+                                            </p>
+                                        </div>
+                                    </div>
+                                    {/* Custom Filename */}
+                                    <div className="mb-3">
+                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1 mb-1.5 flex items-center gap-1.5">
+                                            <FileText className="w-3 h-3" /> Custom Filename
+                                        </p>
+                                        <input
+                                            type="text"
+                                            placeholder="Enter filename (optional)"
+                                            value={customFilename}
+                                            onChange={(e) => setCustomFilename(e.target.value)}
+                                            className="w-full text-[11px] font-bold border border-slate-200 rounded-xl px-3 py-2 focus:ring-1 focus:ring-[#546A7A] focus:border-[#546A7A]/40 outline-none bg-white/50 transition-all placeholder:text-slate-300"
+                                        />
+                                    </div>
+                                    {/* HDFC Downloads */}
+                                    <div className="space-y-3">
+                                        <div>
+                                            <p className="text-[9px] font-black text-[#B18E63] uppercase tracking-widest px-1 mb-2 flex items-center gap-1.5">
+                                                <Landmark className="w-3 h-3" /> HDFC (CMS)
+                                            </p>
+                                            <div className="flex gap-1.5">
+                                                {(['EXCEL', 'CSV', 'TXT'] as const).map(f => (
+                                                    <button key={f} onClick={() => handleLocalDownload('HDFC', f)}
+                                                        disabled={stats.validPayments === 0}
+                                                        className="flex-1 text-[10px] font-black py-2 px-2 border border-[#B18E63]/30 rounded-xl hover:bg-[#B18E63]/10 hover:border-[#B18E63]/50 text-[#976E44] transition-all uppercase tracking-wider flex flex-col items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed">
+                                                        {f === 'EXCEL' ? <FileSpreadsheet className="w-3.5 h-3.5" /> : f === 'CSV' ? <FileText className="w-3.5 h-3.5" /> : <FileCode className="w-3.5 h-3.5" />}
+                                                        {f}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        {/* DB Downloads */}
+                                        <div>
+                                            <p className="text-[9px] font-black text-[#546A7A] uppercase tracking-widest px-1 mb-2 flex items-center gap-1.5">
+                                                <Banknote className="w-3 h-3" /> DB (Standard)
+                                            </p>
+                                            <div className="flex gap-1.5">
+                                                {(['EXCEL', 'CSV', 'TXT'] as const).map(f => (
+                                                    <button key={f} onClick={() => handleLocalDownload('DB', f)}
+                                                        disabled={stats.validPayments === 0}
+                                                        className="flex-1 text-[10px] font-black py-2 px-2 border border-[#6F8A9D]/30 rounded-xl hover:bg-[#6F8A9D]/10 hover:border-[#6F8A9D]/50 text-[#546A7A] transition-all uppercase tracking-wider bg-[#6F8A9D]/5 flex flex-col items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed">
+                                                        {f === 'EXCEL' ? <FileSpreadsheet className="w-3.5 h-3.5" /> : f === 'CSV' ? <FileText className="w-3.5 h-3.5" /> : <FileCode className="w-3.5 h-3.5" />}
+                                                        {f}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ================================================================ */}
+                    {/* PREVIEW TABLE (Collapsible) */}
+                    {/* ================================================================ */}
+                    {pendingPayments.length > 0 && showPreview && (
+                        <div className="relative bg-white rounded-2xl border border-slate-100 shadow-[0_4px_24px_rgba(0,0,0,0.04)] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300">
+                            {/* Preview Header */}
+                            <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-[#546A7A]/5 to-[#6F8A9D]/8">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-7 h-7 rounded-lg bg-[#6F8A9D]/15 flex items-center justify-center">
+                                        <Eye className="w-3.5 h-3.5 text-[#546A7A]" />
+                                    </div>
+                                    <h3 className="font-black text-[#546A7A] uppercase tracking-widest text-xs">
+                                        {previewFormat} Format Preview
+                                    </h3>
+                                    <span className="text-[9px] bg-[#6F8A9D]/10 text-[#546A7A] px-2 py-0.5 rounded-full font-bold border border-[#6F8A9D]/20">
+                                        {stats.validPayments} entries
+                                    </span>
+                                </div>
+                                <button
+                                    onClick={() => setShowPreview(false)}
+                                    className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+                                >
+                                    <X className="w-4 h-4" />
+                                </button>
+                            </div>
+
+                            {/* Preview Table */}
+                            <div className="overflow-x-auto no-scrollbar">
+                                {previewFormat === 'HDFC' ? (
+                                    <table className="w-full text-xs">
+                                        <thead>
+                                            <tr className="bg-gradient-to-r from-[#546A7A]/5 to-[#6F8A9D]/10 border-b border-slate-100">
+                                                {['Trn Type', 'Bene Code', 'Bene A/C No.', 'Amount', 'Bene Name', 'Cust Ref No.', 'Inst. Date', 'IFSC Code', 'Bank Name'].map(h => (
+                                                    <th key={h} className="text-left px-3 py-3 text-[9px] font-black text-[#546A7A] uppercase tracking-widest whitespace-nowrap opacity-70">{h}</th>
+                                                ))}
+                                            </tr>
+                                            <tr className="bg-slate-50 border-b border-slate-100">
+                                                {['A', 'A', 'A', 'N', 'C', 'C', 'DD/MM/YYYY', 'A', 'A'].map((t, i) => (
+                                                    <td key={i} className="px-3 py-1 text-[9px] text-red-500/80 font-mono font-bold">{t}</td>
+                                                ))}
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-50">
+                                            {pendingPayments.filter(p => p.amount && p.amount > 0).map((item) => {
+                                                const trnType = item.transactionMode === 'NFT' ? 'N' : item.transactionMode === 'RTI' ? 'R' : 'I';
+                                                const beneCode = item.bpCode || item.vendorName?.substring(0, 15).trim() || '';
+                                                const custRef = (item.bankAccount as any)?.nickName || item.vendorName?.split(' ')[0]?.substring(0, 30) || '';
+                                                const valueDate = item.valueDate ? new Date(item.valueDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '/') : '—';
+                                                return (
+                                                    <tr key={item.tempId} className="hover:bg-[#6F8A9D]/5 transition-colors group">
+                                                        <td className="px-3 py-3"><span className="font-mono font-black text-[#546A7A] group-hover:text-black">{trnType}</span></td>
+                                                        <td className="px-3 py-3 font-mono text-[10px] text-slate-500">{beneCode}</td>
+                                                        <td className="px-3 py-3 font-mono text-[10px] text-[#546A7A] font-bold">{item.accountNumber}</td>
+                                                        <td className="px-3 py-3 font-black text-[#546A7A] tabular-nums">{Number(item.amount).toLocaleString('en-IN')}</td>
+                                                        <td className="px-3 py-3 text-slate-600 font-bold max-w-[140px] truncate text-[10px]">{item.vendorName}</td>
+                                                        <td className="px-3 py-3 font-mono text-[9px] text-slate-300">{custRef}</td>
+                                                        <td className="px-3 py-3 font-mono text-[10px] text-slate-500">{valueDate}</td>
+                                                        <td className="px-3 py-3 font-mono font-bold text-[#6F8A9D] text-[10px]">{item.ifscCode}</td>
+                                                        <td className="px-3 py-3 text-slate-500 max-w-[120px] truncate text-[10px]">{item.bankName}</td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                ) : (
+                                    <table className="w-full text-xs">
+                                        <thead>
+                                            <tr className="bg-gradient-to-r from-[#546A7A] to-[#6F8A9D] border-b border-[#6F8A9D]/40">
+                                                {['Type', 'Amount', 'Value Date', 'Counter Party', 'Account No.', 'Acct Type', 'IFSC/Clearing', 'Order Ref'].map(h => (
+                                                    <th key={h} className="text-left px-3 py-3 text-[9px] font-black text-white uppercase tracking-widest whitespace-nowrap">{h}</th>
+                                                ))}
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-50">
+                                            {pendingPayments.filter(p => p.amount && p.amount > 0).map((item) => {
+                                                const nameParts = (item.vendorName || '').split(' ');
+                                                let ref = (item.bankAccount as any)?.nickName || '';
+                                                if (!ref) {
+                                                    if (nameParts.length > 2) ref = `Adv ${nameParts[0]}`;
+                                                    else if (nameParts[0]?.length > 15) ref = nameParts[0].substring(0, 15);
+                                                    else ref = nameParts[0] || '';
+                                                }
+                                                const acctType = (item.accountType || '').toLowerCase().includes('sav') ? '10' : '11';
+                                                const valueDate = item.valueDate ? new Date(item.valueDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '/') : '—';
+                                                return (
+                                                    <tr key={item.tempId} className="hover:bg-[#6F8A9D]/5 transition-colors group">
+                                                        <td className="px-3 py-3">
+                                                            <span className="font-mono font-black bg-slate-100 text-[#546A7A] px-2 py-0.5 rounded text-[9px] group-hover:bg-[#546A7A] group-hover:text-white transition-all">
+                                                                {item.transactionMode}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-3 py-3 font-black text-[#546A7A] tabular-nums">{Number(item.amount).toLocaleString('en-IN')}</td>
+                                                        <td className="px-3 py-3 font-mono text-[10px] text-slate-300">{valueDate}</td>
+                                                        <td className="px-3 py-3 text-[#546A7A] font-bold max-w-[160px] truncate text-[10px]">{item.vendorName}</td>
+                                                        <td className="px-3 py-3 font-mono text-[10px] text-[#546A7A]">{item.accountNumber}</td>
+                                                        <td className="px-3 py-3 text-center font-mono text-[10px] text-slate-300 font-bold">{acctType}</td>
+                                                        <td className="px-3 py-3 font-mono font-bold text-[#6F8A9D] text-[10px]">{item.ifscCode}</td>
+                                                        <td className="px-3 py-3 font-mono text-[9px] text-slate-300 tracking-tighter truncate max-w-[80px]">{ref}</td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                )}
+                            </div>
+                            <div className="px-5 py-3 border-t border-slate-100 bg-slate-50/50 flex items-center gap-2 text-xs text-[#6F8A9D]">
+                                <Info className="w-3.5 h-3.5 shrink-0" />
+                                This is a preview of the export format. Download or submit to get the actual file. Showing {stats.validPayments} of {stats.totalRecords} entries.
+                            </div>
+                        </div>
+                    )}
+
                     {/* -------------------------------------------------------- */}
                     {/* SUMMARY FOOTER + SUBMIT FOR APPROVAL */}
                     {/* -------------------------------------------------------- */}

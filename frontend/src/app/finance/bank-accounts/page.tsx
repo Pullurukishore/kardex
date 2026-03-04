@@ -264,14 +264,16 @@ const BankCard = ({
           >
             <Eye className="w-4 h-4" />
           </Link>
-          <Link
-            href={`/finance/bank-accounts/${account.id}/edit`}
-            onClick={(e) => e.stopPropagation()}
-            className="p-2.5 rounded-xl bg-white/95 backdrop-blur-xl hover:bg-white text-[#CE9F6B] hover:text-[#976E44] hover:scale-110 transition-all duration-200 shadow-lg hover:shadow-xl"
-            title="Edit Account"
-          >
-            <Pencil className="w-4 h-4" />
-          </Link>
+          {!isAdmin && (
+            <Link
+              href={`/finance/bank-accounts/${account.id}/edit`}
+              onClick={(e) => e.stopPropagation()}
+              className="p-2.5 rounded-xl bg-white/95 backdrop-blur-xl hover:bg-white text-[#CE9F6B] hover:text-[#976E44] hover:scale-110 transition-all duration-200 shadow-lg hover:shadow-xl"
+              title="Edit Account"
+            >
+              <Pencil className="w-4 h-4" />
+            </Link>
+          )}
           {isAdmin && (
             <>
               <button
@@ -282,13 +284,6 @@ const BankCard = ({
                 title={account.isActive ? "Deactivate" : "Activate"}
               >
                 <Power className="w-4 h-4" />
-              </button>
-              <button
-                onClick={(e) => onDelete(account.id, e)}
-                className="p-2.5 rounded-xl bg-white/95 backdrop-blur-xl hover:bg-white text-[#E17F70] hover:text-[#C45C4D] hover:scale-110 transition-all duration-200 shadow-lg hover:shadow-xl"
-                title="Delete Account"
-              >
-                <Trash2 className="w-4 h-4" />
               </button>
             </>
           )}
@@ -490,13 +485,15 @@ const MobileVendorCard = ({
           </div>
         </div>
         <div className="flex items-center gap-1">
-          <Link
-            href={`/finance/bank-accounts/${account.id}/edit`}
-            onClick={(e) => e.stopPropagation()}
-            className="p-2 rounded-lg text-[#5D6E73] hover:bg-[#F8F9FB]"
-          >
-            <Pencil className="w-3.5 h-3.5" />
-          </Link>
+          {!isAdmin && (
+            <Link
+              href={`/finance/bank-accounts/${account.id}/edit`}
+              onClick={(e) => e.stopPropagation()}
+              className="p-2 rounded-lg text-[#5D6E73] hover:bg-[#F8F9FB]"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+            </Link>
+          )}
           <Link
             href={`/finance/bank-accounts/${account.id}`}
             onClick={(e) => e.stopPropagation()}
@@ -546,12 +543,6 @@ const MobileVendorCard = ({
               }`}
             >
               {account.isActive ? 'Deactivate Account' : 'Activate Account'}
-            </button>
-            <button
-              onClick={(e) => onDelete(account.id, e)}
-              className="p-1.5 rounded-lg border border-[#E17F70]/20 text-[#E17F70] hover:bg-[#E17F70]/5"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
             </button>
           </div>
         )}
@@ -786,14 +777,16 @@ const VendorTable = ({
                         >
                           <Eye className="w-4 h-4" />
                         </Link>
-                        <Link
-                          href={`/finance/bank-accounts/${account.id}/edit`}
-                          onClick={(e) => e.stopPropagation()}
-                          className="p-2 rounded-lg hover:bg-[#CE9F6B]/20 text-[#5D6E73] hover:text-[#CE9F6B] transition-colors"
-                          title="Edit Account"
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </Link>
+                        {!isAdmin && (
+                          <Link
+                            href={`/finance/bank-accounts/${account.id}/edit`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="p-2 rounded-lg hover:bg-[#CE9F6B]/20 text-[#5D6E73] hover:text-[#CE9F6B] transition-colors"
+                            title="Edit Account"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Link>
+                        )}
                         {isAdmin && (
                           <>
                             <button
@@ -806,13 +799,6 @@ const VendorTable = ({
                               title={account.isActive ? "Deactivate" : "Activate"}
                             >
                               <Power className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={(e) => onDelete(account.id, e)}
-                              className="p-2 rounded-lg hover:bg-[#E17F70]/20 text-[#5D6E73] hover:text-[#E17F70] transition-colors"
-                              title="Delete Account"
-                            >
-                              <Trash2 className="w-4 h-4" />
                             </button>
                           </>
                         )}
@@ -846,23 +832,17 @@ export default function BankAccountsPage() {
   const isAdmin = isFinanceAdmin; // Keep isAdmin for backward compatibility in the component
   const canImport = isFinanceAdmin || isFinanceUser;
 
-
-  useEffect(() => {
-    loadBankAccounts();
-    loadPendingCount();
-  }, [showInactive]);
-
-  const loadBankAccounts = async () => {
+  const loadBankAccounts = useCallback(async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const data = await arApi.getBankAccounts({ activeOnly: !showInactive });
       setAccounts(data);
     } catch (error) {
       console.error('Failed to load bank accounts:', error);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
-  };
+  }, [showInactive]);
 
   const loadPendingCount = async () => {
     try {
@@ -873,6 +853,11 @@ export default function BankAccountsPage() {
     }
   };
 
+  useEffect(() => {
+    loadBankAccounts();
+    loadPendingCount();
+  }, [loadBankAccounts]);
+
   const handleToggleStatus = useCallback(async (account: BankAccount, e: React.MouseEvent) => {
     e.stopPropagation();
     const newStatus = !account.isActive;
@@ -880,12 +865,17 @@ export default function BankAccountsPage() {
     
     try {
       await arApi.updateBankAccount(account.id, { isActive: newStatus });
-      await loadBankAccounts();
+      // Update locally first for instant feedback
+      setAccounts(prev => prev.map(a => 
+        a.id === account.id ? { ...a, isActive: newStatus } : a
+      ));
+      // Then silently reload from server to ensure data consistency
+      await loadBankAccounts(true);
     } catch (error) {
       console.error('Failed to toggle bank account status:', error);
       alert('Failed to update status');
     }
-  }, []);
+  }, [loadBankAccounts]);
 
   const handleDelete = useCallback(async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();

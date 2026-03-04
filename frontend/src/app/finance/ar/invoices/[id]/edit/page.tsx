@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { arApi, ARInvoice, formatARCurrency } from '@/lib/ar-api';
-import { ArrowLeft, Save, Loader2, FileText, User, Calendar, IndianRupee, Truck, MessageSquare, Shield, Sparkles, Wallet } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, FileText, User, IndianRupee, Truck, Sparkles } from 'lucide-react';
 
 export default function EditInvoicePage() {
   const params = useParams();
@@ -37,22 +37,7 @@ export default function EditInvoicePage() {
     deliveryStatus: 'PENDING',
     impactDate: '',
     status: 'PENDING',
-    // Prepaid fields
-    invoiceType: 'REGULAR' as 'REGULAR' | 'PREPAID',
-    advanceReceivedDate: '',
-    deliveryDueDate: '',
-    grnDate: '',
-    bgDate: '',
-    othersDate: '',
-    agingMilestone: 'INVOICE' as 'ADVANCE' | 'INVOICE' | 'GRN' | 'BG' | 'OTHERS',
-    prepaidStatus: '' as '' | 'AWAITING_DELIVERY' | 'PARTIALLY_DELIVERED' | 'FULLY_DELIVERED' | 'EXPIRED' | 'LINKED',
-  });
-  const [checkedMilestones, setCheckedMilestones] = useState({
-    ADVANCE: true,
-    INVOICE: true,
-    GRN: false,
-    BG: false,
-    OTHERS: false,
+    invoiceType: 'REGULAR' as 'REGULAR' | 'MILESTONE',
   });
 
   useEffect(() => {
@@ -65,6 +50,13 @@ export default function EditInvoicePage() {
     try {
       setLoading(true);
       const data = await arApi.getInvoiceById(id);
+      
+      // Redirect to milestone edit if it's a milestone invoice
+      if (data.invoiceType === 'MILESTONE') {
+        router.push(`/finance/ar/milestones/${encodeURIComponent(data.invoiceNumber)}/edit`);
+        return;
+      }
+
       setInvoice(data);
       
       setFormData({
@@ -90,23 +82,7 @@ export default function EditInvoicePage() {
         deliveryStatus: data.deliveryStatus || 'PENDING',
         impactDate: data.impactDate ? data.impactDate.split('T')[0] : '',
         status: data.status || 'PENDING',
-        // Prepaid fields
         invoiceType: data.invoiceType || 'REGULAR',
-        advanceReceivedDate: data.advanceReceivedDate ? data.advanceReceivedDate.split('T')[0] : '',
-        deliveryDueDate: data.deliveryDueDate ? data.deliveryDueDate.split('T')[0] : '',
-        grnDate: data.grnDate ? data.grnDate.split('T')[0] : '',
-        bgDate: data.bgDate ? data.bgDate.split('T')[0] : '',
-        othersDate: data.othersDate ? data.othersDate.split('T')[0] : '',
-        agingMilestone: data.agingMilestone || 'INVOICE',
-        prepaidStatus: data.prepaidStatus || '',
-      });
-
-      setCheckedMilestones({
-        ADVANCE: !!data.advanceReceivedDate,
-        INVOICE: !!data.invoiceDate,
-        GRN: !!data.grnDate,
-        BG: !!data.bgDate,
-        OTHERS: !!data.othersDate,
       });
     } catch (err) {
       console.error('Failed to load invoice:', err);
@@ -144,15 +120,7 @@ export default function EditInvoicePage() {
         deliveryStatus: formData.deliveryStatus as any,
         impactDate: formData.impactDate || undefined,
         status: formData.status as any,
-        // Prepaid fields
-        invoiceType: formData.invoiceType as any,
-        advanceReceivedDate: formData.advanceReceivedDate || undefined,
-        deliveryDueDate: formData.deliveryDueDate || undefined,
-        grnDate: formData.grnDate || undefined,
-        bgDate: formData.bgDate || undefined,
-        othersDate: formData.othersDate || undefined,
-        agingMilestone: formData.agingMilestone,
-        prepaidStatus: formData.prepaidStatus || undefined,
+        invoiceType: 'REGULAR',
       } as any);
       
       router.push(`/finance/ar/invoices/${encodeURIComponent(formData.invoiceNumber)}`);
@@ -190,7 +158,10 @@ export default function EditInvoicePage() {
             <FileText className="w-12 h-12 text-[#CE9F6B]" />
           </div>
           <h2 className="text-xl font-bold text-[#546A7A] mb-2">Invoice Not Found</h2>
-          <Link href="/finance/ar/invoices" className="text-[#E17F70] hover:text-[#9E3B47] font-semibold">
+          <Link 
+            href="/finance/ar/invoices" 
+            className="text-[#E17F70] hover:text-[#9E3B47] font-semibold"
+          >
             ← Back to Invoices
           </Link>
         </div>
@@ -205,7 +176,6 @@ export default function EditInvoicePage() {
 
   return (
     <div className="space-y-6 relative">
-      {/* Decorative Background */}
       <div className="absolute -top-20 -right-20 w-72 h-72 bg-gradient-to-br from-[#E17F70]/10 to-[#CE9F6B]/10 rounded-full blur-3xl pointer-events-none" />
 
       {/* Header */}
@@ -427,166 +397,57 @@ export default function EditInvoicePage() {
           </div>
         </div>
 
-        {/* Delivery Tracking - Not needed for prepaid */}
-        {formData.invoiceType !== 'PREPAID' && (
-          <div className="bg-white/90 backdrop-blur-xl rounded-2xl border border-[#6F8A9D]/20 p-6 shadow-lg">
-            <h3 className="text-lg font-bold text-[#546A7A] mb-5 flex items-center gap-2">
-              <div className="p-2 rounded-lg bg-gradient-to-br from-[#6F8A9D] to-[#546A7A]">
-                <Truck className="w-5 h-5 text-white" />
-              </div>
-              Delivery Tracking
-            </h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-5">
-              <div>
-                <label className={labelClass}>Delivery Status</label>
-                <select name="deliveryStatus" value={formData.deliveryStatus} onChange={handleChange} className={selectClass}>
-                  <option value="PENDING">Pending</option>
-                  <option value="SENT">Sent</option>
-                  <option value="DELIVERED">Delivered</option>
-                  <option value="ACKNOWLEDGED">Acknowledged</option>
-                </select>
-              </div>
-              <div>
-                <label className={labelClass}>Mode of Delivery</label>
-                <input
-                  type="text"
-                  name="modeOfDelivery"
-                  value={formData.modeOfDelivery}
-                  onChange={handleChange}
-                  placeholder="Email/Courier/Hand delivery"
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label className={labelClass}>Sent/Handover Date</label>
-                <input
-                  type="date"
-                  name="sentHandoverDate"
-                  value={formData.sentHandoverDate}
-                  onChange={handleChange}
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label className={labelClass}>Impact Date (GRN/Acknowledgement)</label>
-                <input
-                  type="date"
-                  name="impactDate"
-                  value={formData.impactDate}
-                  onChange={handleChange}
-                  className={inputClass}
-                />
-              </div>
+        {/* Delivery Tracking */}
+        <div className="bg-white/90 backdrop-blur-xl rounded-2xl border border-[#6F8A9D]/20 p-6 shadow-lg">
+          <h3 className="text-lg font-bold text-[#546A7A] mb-5 flex items-center gap-2">
+            <div className="p-2 rounded-lg bg-gradient-to-br from-[#6F8A9D] to-[#546A7A]">
+              <Truck className="w-5 h-5 text-white" />
+            </div>
+            Delivery Tracking
+          </h3>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-5">
+            <div>
+              <label className={labelClass}>Delivery Status</label>
+              <select name="deliveryStatus" value={formData.deliveryStatus} onChange={handleChange} className={selectClass}>
+                <option value="PENDING">Pending</option>
+                <option value="SENT">Sent</option>
+                <option value="DELIVERED">Delivered</option>
+                <option value="ACKNOWLEDGED">Acknowledged</option>
+              </select>
+            </div>
+            <div>
+              <label className={labelClass}>Mode of Delivery</label>
+              <input
+                type="text"
+                name="modeOfDelivery"
+                value={formData.modeOfDelivery}
+                onChange={handleChange}
+                placeholder="Email/Courier/Hand delivery"
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Sent/Handover Date</label>
+              <input
+                type="date"
+                name="sentHandoverDate"
+                value={formData.sentHandoverDate}
+                onChange={handleChange}
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Impact Date (GRN/Acknowledgement)</label>
+              <input
+                type="date"
+                name="impactDate"
+                value={formData.impactDate}
+                onChange={handleChange}
+                className={inputClass}
+              />
             </div>
           </div>
-        )}
-
-        {/* Prepaid-specific fields (Only shown if already a PREPAID invoice) */}
-        {formData.invoiceType === 'PREPAID' && (
-          <div className="bg-white/90 backdrop-blur-xl rounded-2xl border border-[#CE9F6B]/20 p-6 shadow-lg">
-            <h3 className="text-lg font-bold text-[#546A7A] mb-5 flex items-center gap-2">
-              <div className="p-2 rounded-lg bg-gradient-to-br from-[#CE9F6B] to-[#976E44]">
-                <Wallet className="w-5 h-5 text-white" />
-              </div>
-              Prepaid Delivery Management
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              <div>
-                <label className={labelClass}>Advance Received Date</label>
-                <input
-                  type="date"
-                  name="advanceReceivedDate"
-                  value={formData.advanceReceivedDate}
-                  onChange={handleChange}
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label className={labelClass}>Expected Delivery Date</label>
-                <input
-                  type="date"
-                  name="deliveryDueDate"
-                  value={formData.deliveryDueDate}
-                  onChange={handleChange}
-                  className={inputClass}
-                />
-              </div>
-
-              {/* Milestones & Aging Configuration */}
-              <div className="col-span-full mt-4 p-5 rounded-xl bg-white border border-[#CE9F6B]/20 shadow-inner">
-                <div className="flex items-center justify-between mb-4">
-                  <h4 className="text-sm font-bold text-[#546A7A] flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-[#CE9F6B]" />
-                    Prepaid Milestones & Aging Tracking
-                  </h4>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-[#92A2A5]">Aging Base:</span>
-                    <select
-                      name="agingMilestone"
-                      value={formData.agingMilestone}
-                      onChange={handleChange}
-                      className="text-xs font-bold py-1 px-2 rounded-lg bg-[#CE9F6B]/10 border border-[#CE9F6B]/30 text-[#976E44] focus:outline-none"
-                    >
-                      {Object.entries(checkedMilestones).filter(([_, checked]) => checked).map(([key]) => (
-                        <option key={key} value={key}>{key}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  {[
-                    { id: 'ADVANCE', label: 'Adv Date', field: 'advanceReceivedDate' },
-                    { id: 'INVOICE', label: 'Invoice Date', field: 'invoiceDate' },
-                    { id: 'GRN', label: 'GRN Date', field: 'grnDate' },
-                    { id: 'BG', label: 'BG Date', field: 'bgDate' },
-                    { id: 'OTHERS', label: 'Others', field: 'othersDate' },
-                  ].map((m) => (
-                    <div key={m.id} className={`flex items-center gap-4 p-3 rounded-lg transition-all ${checkedMilestones[m.id as keyof typeof checkedMilestones] ? 'bg-[#CE9F6B]/5 border border-[#CE9F6B]/20' : 'opacity-60'}`}>
-                      <label className="flex items-center gap-3 cursor-pointer min-w-[120px]">
-                        <input
-                          type="checkbox"
-                          checked={checkedMilestones[m.id as keyof typeof checkedMilestones]}
-                          onChange={(e) => setCheckedMilestones(prev => ({ ...prev, [m.id]: e.target.checked }))}
-                          className="w-4 h-4 rounded border-2 border-[#CE9F6B] text-[#CE9F6B] focus:ring-[#CE9F6B]/20"
-                        />
-                        <span className="text-sm font-bold text-[#546A7A]">{m.label}</span>
-                      </label>
-                      
-                      {checkedMilestones[m.id as keyof typeof checkedMilestones] && (
-                        <div className="flex-1 flex items-center gap-2">
-                          {m.id !== 'INVOICE' && m.id !== 'ADVANCE' ? (
-                            <input
-                              type="date"
-                              name={m.field}
-                              value={(formData as any)[m.field]}
-                              onChange={handleChange}
-                              className="flex-1 h-9 px-3 rounded-lg bg-white border border-[#CE9F6B]/30 text-xs font-medium focus:border-[#CE9F6B] transition-all"
-                            />
-                          ) : (
-                            <span className="text-xs text-[#92A2A5] italic font-medium">Synced with {m.label} field above</span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className={labelClass}>Prepaid Status</label>
-                <select name="prepaidStatus" value={formData.prepaidStatus} onChange={handleChange} className={selectClass}>
-                  <option value="">Select Status</option>
-                  <option value="AWAITING_DELIVERY">Awaiting Delivery</option>
-                  <option value="PARTIALLY_DELIVERED">Partially Delivered</option>
-                  <option value="FULLY_DELIVERED">Fully Delivered</option>
-                  <option value="EXPIRED">Expired</option>
-                  <option value="LINKED">Linked</option>
-                </select>
-              </div>
-            </div>
-          </div>
-        )}
+        </div>
 
         {/* Actions */}
         <div className="flex items-center justify-end gap-4 pt-2">

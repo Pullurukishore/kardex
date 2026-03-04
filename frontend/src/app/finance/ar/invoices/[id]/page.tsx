@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { arApi, ARInvoice, ARPaymentHistory, MatchingPrepaid, formatARCurrency, formatARDate } from '@/lib/ar-api';
+import { arApi, ARInvoice, ARPaymentHistory, MatchingMilestone, formatARCurrency, formatARDate } from '@/lib/ar-api';
 import { 
   ArrowLeft, Pencil, Trash2, FileText, Calendar, User, Clock, 
   AlertTriangle, CheckCircle, Loader2, Mail, Phone, MapPin, Building, 
@@ -56,12 +56,12 @@ export default function InvoiceViewPage() {
   const [activityLogs, setActivityLogs] = useState<any[]>([]);
   const [activityLoading, setActivityLoading] = useState(false);
 
-  // Prepaid linking state
-  const [matchingPrepaids, setMatchingPrepaids] = useState<MatchingPrepaid[]>([]);
-  const [prepaidsLoading, setPrepaidsLoading] = useState(false);
-  const [selectedPrepaid, setSelectedPrepaid] = useState<MatchingPrepaid | null>(null);
+  // Milestone linking state
+  const [matchingMilestones, setMatchingMilestones] = useState<MatchingMilestone[]>([]);
+  const [milestonesLoading, setMilestonesLoading] = useState(false);
+  const [selectedMilestone, setSelectedMilestone] = useState<MatchingMilestone | null>(null);
   const [showLinkModal, setShowLinkModal] = useState(false);
-  const [linkingPrepaid, setLinkingPrepaid] = useState(false);
+  const [linkingMilestone, setLinkingMilestone] = useState(false);
 
   useEffect(() => {
     if (params.id) {
@@ -121,48 +121,49 @@ export default function InvoiceViewPage() {
     }
   }, [activeTab, invoice?.id]);
 
-  // Load matching prepaids for regular invoices
-  const loadMatchingPrepaids = async (id: string) => {
+  // Load matching milestones for regular invoices
+  const loadMatchingMilestones = async (id: string) => {
     try {
-      setPrepaidsLoading(true);
-      const data = await arApi.getMatchingPrepaids(id);
-      setMatchingPrepaids(data.prepaids);
+      setMilestonesLoading(true);
+      const data = await arApi.getMatchingMilestones(id);
+      setMatchingMilestones(data.milestones);
     } catch (err) {
-      console.error('Failed to load matching prepaids:', err);
+      console.error('Failed to load matching milestones:', err);
     } finally {
-      setPrepaidsLoading(false);
+      setMilestonesLoading(false);
     }
   };
 
-  // Auto-load matching prepaids for non-prepaid invoices with PO number
-  // Note: Check !== 'PREPAID' to include older imported invoices where invoiceType may be null
-  // Note: Removed linkedPrepaidId check to allow linking multiple prepaids
+  // Auto-load matching milestones for non-milestone invoices with PO number
+  // Note: Check !== 'MILESTONE' to include older imported invoices where invoiceType may be null
+  // Note: Removed linkedMilestoneId check to allow linking multiple milestones
+  // Auto-load matching milestones for non-milestone invoices with PO number
   useEffect(() => {
-    if (invoice?.id && invoice?.invoiceType !== 'PREPAID' && invoice?.poNo) {
-      loadMatchingPrepaids(invoice.id);
+    if (invoice?.id && invoice?.invoiceType !== 'MILESTONE' && invoice?.poNo) {
+      loadMatchingMilestones(invoice.id);
     }
   }, [invoice?.id, invoice?.invoiceType, invoice?.poNo]);
 
-  // Handle linking prepaid to invoice
-  const handleLinkPrepaid = async (prepaid: MatchingPrepaid, transferPayments: boolean = true) => {
+  // Handle linking milestone to invoice
+  const handleLinkMilestone = async (milestone: MatchingMilestone, transferPayments: boolean = true) => {
     if (!invoice) return;
     
     try {
-      setLinkingPrepaid(true);
-      const result = await arApi.acceptPrepaid(invoice.id, prepaid.id, transferPayments);
+      setLinkingMilestone(true);
+      const result = await arApi.acceptMilestone(invoice.id, milestone.id, transferPayments);
       
-      alert(`Successfully linked prepaid ${result.prepaidInvoiceNumber}! Transferred: ${formatARCurrency(result.totalTransferred)}`);
+      alert(`Successfully linked milestone ${result.milestoneInvoiceNumber}! Transferred: ${formatARCurrency(result.totalTransferred)}`);
       
-      // Reload invoice and clear prepaids
+      // Reload invoice and clear milestones
       await loadInvoice(invoice.id);
-      setMatchingPrepaids([]);
+      setMatchingMilestones([]);
       setShowLinkModal(false);
-      setSelectedPrepaid(null);
+      setSelectedMilestone(null);
     } catch (err: any) {
-      console.error('Failed to link prepaid:', err);
-      alert(err.response?.data?.error || 'Failed to link prepaid invoice');
+      console.error('Failed to link milestone:', err);
+      alert(err.response?.data?.error || 'Failed to link milestone invoice');
     } finally {
-      setLinkingPrepaid(false);
+      setLinkingMilestone(false);
     }
   };
 
@@ -313,8 +314,8 @@ export default function InvoiceViewPage() {
   const isOverdue = invoice.status === 'OVERDUE' || (daysOverdue > 0 && invoice.status !== 'PAID');
   const isPaid = invoice.status === 'PAID';
 
-  // Prepaid-specific computed values
-  const isPrepaid = invoice.invoiceType === 'PREPAID';
+  // Milestone-specific computed values
+  const isMilestone = invoice.invoiceType === 'MILESTONE';
   const getDeliveryDueDays = () => {
     if (!invoice.deliveryDueDate) return null;
     const today = new Date();
@@ -325,9 +326,9 @@ export default function InvoiceViewPage() {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
   const deliveryDueDays = getDeliveryDueDays();
-  const isDeliveryOverdue = deliveryDueDays !== null && deliveryDueDays < 0 && invoice.prepaidStatus !== 'FULLY_DELIVERED';
+  const isDeliveryOverdue = deliveryDueDays !== null && deliveryDueDays < 0 && invoice.milestoneStatus !== 'FULLY_DELIVERED';
 
-  const getPrepaidStatusConfig = (status?: string) => {
+  const getMilestoneStatusConfig = (status?: string) => {
     switch(status) {
       case 'AWAITING_DELIVERY': return { bg: 'bg-gradient-to-r from-[#CE9F6B] to-[#976E44]', text: 'text-white', label: 'Awaiting Delivery', icon: Package };
       case 'PARTIALLY_DELIVERED': return { bg: 'bg-gradient-to-r from-[#6F8A9D] to-[#546A7A]', text: 'text-white', label: 'Partially Delivered', icon: Truck };
@@ -337,7 +338,7 @@ export default function InvoiceViewPage() {
       default: return { bg: 'bg-gradient-to-r from-[#AEBFC3] to-[#92A2A5]', text: 'text-white', label: 'Unknown', icon: Package };
     }
   };
-  const prepaidStatusConfig = isPrepaid ? getPrepaidStatusConfig(invoice.prepaidStatus) : null;
+  const milestoneStatusConfig = isMilestone ? getMilestoneStatusConfig(invoice.milestoneStatus) : null;
 
 
   const getStatusConfig = (status: string) => {
@@ -411,13 +412,13 @@ export default function InvoiceViewPage() {
           {/* Top Row - Back & Actions */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
             <Link 
-              href="/finance/ar/invoices"
+              href={invoice.invoiceType === 'MILESTONE' ? '/finance/ar/milestones' : '/finance/ar/invoices'}
               className="flex items-center gap-2 text-[#5D6E73] hover:text-[#546A7A] transition-colors group"
             >
               <div className="p-2 rounded-xl bg-[#AEBFC3]/10 group-hover:bg-[#AEBFC3]/20 transition-colors">
                 <ArrowLeft className="w-5 h-5" />
               </div>
-              <span className="font-medium">Back to Invoices</span>
+              <span className="font-medium">Back to {invoice.invoiceType === 'MILESTONE' ? 'Milestone Payments' : 'Invoices'}</span>
             </Link>
             
             <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
@@ -437,7 +438,10 @@ export default function InvoiceViewPage() {
                 <span className="xs:hidden">Pay</span>
               </button>
               <Link
-                href={`/finance/ar/invoices/${encodeURIComponent(invoice.invoiceNumber)}/edit`}
+                href={invoice.invoiceType === 'MILESTONE' 
+                  ? `/finance/ar/milestones/${encodeURIComponent(invoice.invoiceNumber)}/edit`
+                  : `/finance/ar/invoices/${encodeURIComponent(invoice.invoiceNumber)}/edit`
+                }
                 className="flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl bg-[#546A7A] text-white font-semibold hover:bg-[#6F8A9D] transition-colors text-sm sm:text-base"
               >
                 <Pencil className="w-4 h-4" />
@@ -473,12 +477,12 @@ export default function InvoiceViewPage() {
                     </button>
                   </div>
                   <p className="text-[#92A2A5] text-xs sm:text-sm mt-0.5">
-                    Created on {formatARDate(invoice.invoiceDate)}
+                    {isMilestone ? 'Payment Tracking' : 'Invoice Details'} • Created on {formatARDate(invoice.invoiceDate)}
                   </p>
                 </div>
               </div>
               
-              {/* Customer Info */}
+              {/* Customer & SO Info */}
               <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 mt-6">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-[#6F8A9D] to-[#546A7A] flex items-center justify-center text-white text-base sm:text-lg font-bold shadow-lg flex-shrink-0">
@@ -489,6 +493,16 @@ export default function InvoiceViewPage() {
                     <p className="text-xs sm:text-sm text-[#92A2A5] font-mono">{invoice.bpCode}</p>
                   </div>
                 </div>
+
+                {isMilestone && invoice.soNo && (
+                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#CE9F6B]/10 border border-[#CE9F6B]/20">
+                    <Package className="w-4 h-4 text-[#976E44]" />
+                    <div className="flex flex-col">
+                      <span className="text-[10px] uppercase font-bold text-[#976E44] leading-tight">SO Number</span>
+                      <span className="text-xs sm:text-sm font-bold text-[#546A7A] leading-tight">{invoice.soNo}</span>
+                    </div>
+                  </div>
+                )}
                 
                 {invoice.region && (
                   <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#AEBFC3]/10 w-fit">
@@ -501,11 +515,11 @@ export default function InvoiceViewPage() {
             
             {/* Status & Risk Badges */}
             <div className="flex flex-col items-start md:items-end gap-3 w-full md:w-auto">
-              {/* Prepaid Badge - Prominent */}
-              {isPrepaid && (
+              {/* Milestone Badge - Prominent */}
+              {isMilestone && (
                 <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-[#CE9F6B] to-[#E17F70] text-white shadow-lg shadow-[#CE9F6B]/30">
                   <Wallet className="w-5 h-5" />
-                  <span className="font-bold">PREPAID INVOICE</span>
+                  <span className="font-bold">MILESTONE PAYMENT</span>
                 </div>
               )}
               
@@ -515,23 +529,23 @@ export default function InvoiceViewPage() {
               </div>
               
               <div className="flex items-center gap-2">
-                {/* Prepaid Delivery Status */}
-                {isPrepaid && prepaidStatusConfig && (
-                  <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg ${prepaidStatusConfig.bg} ${prepaidStatusConfig.text} text-sm font-semibold shadow-md`}>
-                    <prepaidStatusConfig.icon className="w-3.5 h-3.5" />
-                    {prepaidStatusConfig.label}
+                {/* Milestone Delivery Status */}
+                {isMilestone && milestoneStatusConfig && (
+                  <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg ${milestoneStatusConfig.bg} ${milestoneStatusConfig.text} text-sm font-semibold shadow-md`}>
+                    <milestoneStatusConfig.icon className="w-3.5 h-3.5" />
+                    {milestoneStatusConfig.label}
                   </div>
                 )}
                 
-                {!isPrepaid && (
+                {!isMilestone && (
                   <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg ${riskConfig.bg} ${riskConfig.text} text-sm font-semibold`}>
                     <Shield className="w-3.5 h-3.5" />
                     {riskConfig.label}
                   </div>
                 )}
                 
-                {/* Delivery countdown for prepaid OR payment overdue for regular */}
-                {isPrepaid && deliveryDueDays !== null && invoice.prepaidStatus !== 'FULLY_DELIVERED' && (
+                {/* Delivery countdown for milestone OR payment overdue for regular */}
+                {isMilestone && deliveryDueDays !== null && invoice.milestoneStatus !== 'FULLY_DELIVERED' && (
                   <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold ${
                     deliveryDueDays < 0 
                       ? 'bg-[#E17F70]/10 text-[#9E3B47]' 
@@ -542,7 +556,7 @@ export default function InvoiceViewPage() {
                   </div>
                 )}
                 
-                {!isPrepaid && (invoice.dueByDays ?? 0) !== 0 && invoice.status !== 'PAID' && (
+                {!isMilestone && (invoice.dueByDays ?? 0) !== 0 && invoice.status !== 'PAID' && (
                   <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold ${
                     (invoice.dueByDays ?? 0) > 0 
                       ? 'bg-[#E17F70]/10 text-[#9E3B47]' 
@@ -659,8 +673,8 @@ export default function InvoiceViewPage() {
         </div>
       </div>
 
-      {/* Prepaid Milestones & Aging Timeline */}
-      {isPrepaid && (
+      {/* Milestone Payments & Aging Timeline */}
+      {isMilestone && (
         <div className="bg-white rounded-2xl border border-[#CE9F6B]/20 p-6 shadow-lg overflow-hidden relative">
           <div className="absolute top-0 right-0 p-3 opacity-10">
             <Sparkles className="w-12 h-12 text-[#CE9F6B]" />
@@ -672,61 +686,69 @@ export default function InvoiceViewPage() {
                 <Timer className="w-5 h-5 text-[#CE9F6B]" />
               </div>
               <div>
-                <h3 className="font-bold text-[#546A7A]">Milestones & Aging Tracking</h3>
-                <p className="text-sm text-[#92A2A5]">Aging is calculated based on <span className="text-[#976E44] font-bold underline capitalize">{invoice.agingMilestone?.toLowerCase() || 'invoice'} date</span></p>
+                <h3 className="font-bold text-[#546A7A]">Milestone Payment Aging</h3>
+                <p className="text-sm text-[#92A2A5]">View aging for each payment term individually</p>
+              </div>
+            </div>
+            
+            <div className="hidden sm:flex items-center gap-4 text-xs font-semibold">
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-3 rounded-full bg-[#E17F70]" />
+                <span className="text-[#5D6E73]">Overdue</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-3 rounded-full bg-[#82A094]" />
+                <span className="text-[#5D6E73]">On Track</span>
               </div>
             </div>
           </div>
           
-          {/* Milestone Strip */}
-          <div className="relative overflow-x-auto pb-4 scrollbar-hide -mx-2 px-2">
-            {/* Background Line */}
-            <div className="absolute top-8 left-6 right-6 h-1.5 bg-[#AEBFC3]/20 rounded-full min-w-[600px]" />
-            
-            <div className="flex justify-between gap-4 relative z-10 min-w-[600px]">
-              {[
-                { id: 'ADVANCE', label: 'Adv Date', date: invoice.advanceReceivedDate, icon: Wallet },
-                { id: 'INVOICE', label: 'Invoice Date', date: invoice.invoiceDate, icon: FileText },
-                { id: 'BG', label: 'BG Date', date: invoice.bgDate, icon: Shield },
-                { id: 'GRN', label: 'GRN Date', date: invoice.grnDate, icon: Package },
-                { id: 'OTHERS', label: 'Others', date: invoice.othersDate, icon: Tag },
-              ].map((m) => (
-                <div key={m.id} className="flex flex-col items-center group w-24">
-                  <div className={`w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex flex-col items-center justify-center transition-all duration-300 relative ${
-                    m.date 
-                      ? invoice.agingMilestone === m.id 
-                        ? 'bg-gradient-to-br from-[#CE9F6B] to-[#976E44] shadow-xl shadow-[#CE9F6B]/30 scale-110 z-20' 
-                        : 'bg-white border-2 border-[#CE9F6B]/30'
-                      : 'bg-[#AEBFC3]/10 border-2 border-[#AEBFC3]/10 opacity-50'
-                  }`}>
-                    {invoice.agingMilestone === m.id && (
-                      <div className="absolute -top-2 -right-2 p-1 rounded-full bg-white shadow-md border border-[#CE9F6B]">
-                        <CheckCircle className="w-3 h-3 text-[#976E44]" />
-                      </div>
-                    )}
-                    <m.icon className={`w-5 h-5 sm:w-6 sm:h-6 mb-1 ${
-                      m.date 
-                        ? invoice.agingMilestone === m.id ? 'text-white' : 'text-[#CE9F6B]'
-                        : 'text-[#92A2A5]'
-                    }`} />
-                    {invoice.agingMilestone === m.id && (
-                      <span className="text-[7px] sm:text-[8px] font-black tracking-tighter text-white uppercase opacity-80">Aging Base</span>
-                    )}
+          {/* Dynamic Milestone Terms List */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {(invoice.milestoneTerms as any[] || []).map((term, index) => {
+              const termDate = new Date(term.termDate);
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              const diffTime = today.getTime() - termDate.getTime();
+              const termAging = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+              const isTermOverdue = termAging > 0 && invoice.milestoneStatus !== 'FULLY_DELIVERED';
+              
+              return (
+                <div key={index} className={`relative p-5 rounded-2xl border-2 transition-all hover:scale-[1.02] ${
+                  isTermOverdue 
+                    ? 'bg-gradient-to-br from-[#E17F70]/5 to-[#9E3B47]/5 border-[#E17F70]/20' 
+                    : 'bg-gradient-to-br from-[#82A094]/5 to-[#4F6A64]/5 border-[#82A094]/20'
+                }`}>
+                  <div className="flex items-center justify-between mb-4">
+                    <div className={`p-2 rounded-xl ${isTermOverdue ? 'bg-[#E17F70]/20' : 'bg-[#82A094]/20'}`}>
+                      <Calendar className={`w-5 h-5 ${isTermOverdue ? 'text-[#E17F70]' : 'text-[#82A094]'}`} />
+                    </div>
+                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase ${
+                      isTermOverdue ? 'bg-[#E17F70] text-white' : 'bg-[#82A094] text-white'
+                    }`}>
+                      {isTermOverdue ? 'Overdue' : 'On Track'}
+                    </span>
                   </div>
                   
-                  <div className="mt-3 text-center">
-                    <p className={`text-[10px] sm:text-xs font-bold ${m.date ? 'text-[#546A7A]' : 'text-[#92A2A5]'}`}>{m.label}</p>
-                    <p className={`text-[9px] sm:text-[10px] whitespace-nowrap ${
-                      m.date 
-                        ? invoice.agingMilestone === m.id ? 'text-[#976E44] font-bold' : 'text-[#92A2A5]'
-                        : 'text-[#AEBFC3]'
-                    }`}>
-                      {m.date ? formatARDate(m.date) : 'Pending'}
-                    </p>
+                  <h4 className="font-bold text-[#546A7A] mb-1">
+                    {term.termType === 'OTHER' ? term.customLabel : term.termType}
+                  </h4>
+                  <p className="text-xs text-[#92A2A5] mb-4">Target: {formatARDate(term.termDate)}</p>
+                  
+                  <div className="flex items-center justify-between pt-4 border-t border-[#AEBFC3]/20">
+                    <div>
+                      <p className="text-[10px] text-[#92A2A5] uppercase font-bold">Current Aging</p>
+                      <p className={`text-xl font-black ${isTermOverdue ? 'text-[#9E3B47]' : 'text-[#4F6A64]'}`}>
+                        {termAging > 0 ? `${termAging} Days` : `${Math.abs(termAging)} Days Left`}
+                      </p>
+                    </div>
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isTermOverdue ? 'bg-[#9E3B47]/10' : 'bg-[#4F6A64]/10'}`}>
+                      {isTermOverdue ? <AlertTriangle className="w-5 h-5 text-[#9E3B47]" /> : <CheckCircle className="w-5 h-5 text-[#4F6A64]" />}
+                    </div>
                   </div>
                 </div>
-              ))}
-            </div>
+              );
+            })}
           </div>
 
           <div className="mt-8 pt-6 border-t border-[#AEBFC3]/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
@@ -738,13 +760,13 @@ export default function InvoiceViewPage() {
               <div className={`px-4 py-2 rounded-xl ${isDeliveryOverdue ? 'bg-[#E17F70]/10' : 'bg-[#82A094]/10'}`}>
                 <span className="text-xs text-[#92A2A5] block">Delivery Status</span>
                 <span className={`font-bold text-sm sm:text-base ${isDeliveryOverdue ? 'text-[#9E3B47]' : 'text-[#4F6A64]'}`}>
-                  {isDeliveryOverdue ? 'Overdue' : invoice.prepaidStatus?.replace('_', ' ') || 'Pending'}
+                  {isDeliveryOverdue ? 'Overdue' : invoice.milestoneStatus?.replace('_', ' ') || 'Pending'}
                 </span>
               </div>
             </div>
             
             <div className="text-left sm:text-right">
-              <span className="text-xs text-[#92A2A5] block">Days Left / Overdue</span>
+              <span className="text-xs text-[#92A2A5] block">Overall Aging</span>
               <div className="flex items-center gap-2">
                 <Timer className={`w-4 h-4 ${daysOverdue > 0 ? 'text-[#E17F70]' : 'text-[#82A094]'}`} />
                 <span className={`text-lg sm:text-xl font-black ${daysOverdue > 0 ? 'text-[#9E3B47]' : 'text-[#4F6A64]'}`}>
@@ -812,12 +834,12 @@ export default function InvoiceViewPage() {
         </div>
       </div>
 
-      {/* Matching Prepaids Banner - For regular invoices with matching prepaids */}
-      {!isPrepaid && matchingPrepaids.length > 0 && (() => {
-        const linkedCount = matchingPrepaids.filter(p => (p as any).linkedInvoiceId === invoice?.id).length;
-        const availableCount = matchingPrepaids.length - linkedCount;
-        const hasNewPaymentsCount = matchingPrepaids.filter(p => (p as any).untransferredPayments > 0).length;
-        const totalNewPaymentsAmount = matchingPrepaids.reduce((sum, p) => sum + ((p as any).untransferredAmount || 0), 0);
+      {/* Matching Milestones Banner - For regular invoices with matching milestones */}
+      {!isMilestone && matchingMilestones.length > 0 && (() => {
+        const linkedCount = matchingMilestones.filter(m => (m as any).linkedInvoiceId === invoice?.id).length;
+        const availableCount = matchingMilestones.length - linkedCount;
+        const hasNewPaymentsCount = matchingMilestones.filter(m => (m as any).untransferredPayments > 0).length;
+        const totalNewPaymentsAmount = matchingMilestones.reduce((sum, m) => sum + ((m as any).untransferredAmount || 0), 0);
         
         // Use green theme if already linked, orange/brown if only matching found
         const themeColor = linkedCount > 0 ? '#82A094' : '#CE9F6B';
@@ -836,13 +858,13 @@ export default function InvoiceViewPage() {
               <div>
                 <h3 className="font-bold text-[#546A7A] flex items-center gap-2 flex-wrap">
                   {linkedCount > 0 ? <CheckCircle className="w-4 h-4 text-[#82A094]" /> : <Sparkles className="w-4 h-4 text-[#CE9F6B]" />}
-                  {hasNewPaymentsCount > 0 ? 'New Payments Available!' : linkedCount > 0 ? 'Prepaid Invoices Linked' : 'Matching Prepaid Invoice Found!'}
+                  {hasNewPaymentsCount > 0 ? 'New Payments Available!' : linkedCount > 0 ? 'Milestone Payments Linked' : 'Matching Milestone Payment Found!'}
                 </h3>
                 <p className="text-sm text-[#5D6E73] mt-1">
                   {linkedCount > 0 ? (
-                    <>This invoice has been linked to <span className="font-bold text-[#546A7A]">{linkedCount}</span> prepaid invoice{linkedCount > 1 ? 's' : ''}.</>
+                    <>This invoice has been linked to <span className="font-bold text-[#546A7A]">{linkedCount}</span> milestone payment{linkedCount > 1 ? 's' : ''}.</>
                   ) : (
-                    <>Matching prepaid invoice found with PO <span className="font-mono font-bold text-[#546A7A]">{invoice.poNo}</span>.</>
+                    <>Matching milestone payment found with PO <span className="font-mono font-bold text-[#546A7A]">{invoice?.poNo}</span>.</>
                   )}
                   {hasNewPaymentsCount > 0 && (
                     <span className="text-[#E17F70] font-bold animate-pulse block sm:inline mt-1 sm:mt-0 sm:ml-1"> • {formatARCurrency(totalNewPaymentsAmount)} new available</span>
@@ -872,26 +894,26 @@ export default function InvoiceViewPage() {
             </div>
           </div>
           
-          {/* Detailed breakdown for linked invoices OR quick preview for available ones */}
+          {/* Detailed breakdown for linked milestones OR quick preview for available ones */}
           <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
             {linkedCount > 0 ? (
-              // Detailed breakdown for linked prepaids
-              (invoice as any).linkedFromPrepaids?.map((prepaid: any) => (
-                <div key={prepaid.id} className="bg-white/60 rounded-xl border border-[#82A094]/20 p-4 shadow-sm">
+              // Detailed breakdown for linked milestones
+              (invoice as any).linkedFromMilestones?.map((milestone: any) => (
+                <div key={milestone.id} className="bg-white/60 rounded-xl border border-[#82A094]/20 p-4 shadow-sm">
                   <div className="flex items-center justify-between mb-3 pb-2 border-b border-[#82A094]/10">
                     <div className="flex items-center gap-2">
                       <Receipt className="w-4 h-4 text-[#82A094]" />
-                      <span className="font-bold text-[#546A7A]">{prepaid.invoiceNumber}</span>
+                      <span className="font-bold text-[#546A7A]">{milestone.invoiceNumber}</span>
                     </div>
                     <div className="text-right">
                       <span className="font-bold text-[#82A094]">
-                        {formatARCurrency(prepaid.paymentHistory?.reduce((sum: number, p: any) => sum + Number(p.amount), 0) || 0)}
+                        {formatARCurrency(milestone.paymentHistory?.reduce((sum: number, p: any) => sum + Number(p.amount), 0) || 0)}
                       </span>
                       <p className="text-[10px] text-[#92A2A5] leading-none">transferred</p>
                     </div>
                   </div>
                   <div className="space-y-1.5">
-                    {prepaid.paymentHistory?.map((payment: any) => (
+                    {milestone.paymentHistory?.map((payment: any) => (
                       <div key={payment.id} className="flex items-center justify-between text-xs">
                         <span className="text-[#5D6E73] font-medium">
                           {formatARDate(payment.paymentDate)} • {payment.paymentMode}
@@ -903,20 +925,20 @@ export default function InvoiceViewPage() {
                 </div>
               ))
             ) : (
-              // Simple preview for available prepaids
-              matchingPrepaids.slice(0, 2).map((prepaid) => (
-                <div key={prepaid.id} className="flex items-center justify-between p-4 rounded-xl border bg-white/80 border-[#AEBFC3]/20 shadow-sm">
+              // Simple preview for available milestones
+              matchingMilestones.slice(0, 2).map((milestone) => (
+                <div key={milestone.id} className="flex items-center justify-between p-4 rounded-xl border bg-white/80 border-[#AEBFC3]/20 shadow-sm">
                   <div className="flex items-center gap-3">
                     <div className="p-2 rounded-lg bg-[#CE9F6B]/10">
                       <Receipt className="w-4 h-4 text-[#CE9F6B]" />
                     </div>
                     <div>
-                      <p className="font-bold text-sm text-[#546A7A]">{prepaid.invoiceNumber}</p>
-                      <p className="text-xs text-[#92A2A5]">{formatARDate(prepaid.invoiceDate)}</p>
+                      <p className="font-bold text-sm text-[#546A7A]">{milestone.invoiceNumber}</p>
+                      <p className="text-xs text-[#92A2A5]">{formatARDate(milestone.invoiceDate)}</p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="font-bold text-[#CE9F6B]">{formatARCurrency(prepaid.totalPayments)}</p>
+                    <p className="font-bold text-[#CE9F6B]">{formatARCurrency(milestone.totalPayments)}</p>
                     <p className="text-[10px] text-[#92A2A5]">available</p>
                   </div>
                 </div>
@@ -927,7 +949,7 @@ export default function InvoiceViewPage() {
         );
 })()}
 
-      {/* Link Prepaid Modal */}
+      {/* Link Milestone Modal */}
       {showLinkModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden">
@@ -939,12 +961,12 @@ export default function InvoiceViewPage() {
                     <Link2 className="w-6 h-6 text-white" />
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold text-[#546A7A]">Link Prepaid Invoice</h2>
-                    <p className="text-sm text-[#92A2A5]">Transfer payments from prepaid to this invoice</p>
+                    <h2 className="text-xl font-bold text-[#546A7A]">Link Milestone Payment</h2>
+                    <p className="text-sm text-[#92A2A5]">Transfer payments from milestone to this invoice</p>
                   </div>
                 </div>
                 <button
-                  onClick={() => { setShowLinkModal(false); setSelectedPrepaid(null); }}
+                  onClick={() => { setShowLinkModal(false); setSelectedMilestone(null); }}
                   className="p-2 rounded-xl hover:bg-[#AEBFC3]/20 transition-colors"
                 >
                   <X className="w-6 h-6 text-[#5D6E73]" />
@@ -955,23 +977,23 @@ export default function InvoiceViewPage() {
             {/* Modal Content */}
             <div className="p-6 max-h-[60vh] overflow-y-auto">
               <div className="space-y-4">
-                {matchingPrepaids.map((prepaid) => (
+                {matchingMilestones.map((milestone) => (
                   <div 
-                    key={prepaid.id}
+                    key={milestone.id}
                     onClick={() => {
                       // Allow selection if: not linked, OR linked but has untransferred payments
-                      const isLinked = (prepaid as any).linkedInvoiceId === invoice?.id;
-                      const hasNewPayments = (prepaid as any).untransferredPayments > 0;
+                      const isLinked = (milestone as any).linkedInvoiceId === invoice?.id;
+                      const hasNewPayments = (milestone as any).untransferredPayments > 0;
                       if (!isLinked || hasNewPayments) {
-                        setSelectedPrepaid(prepaid);
+                        setSelectedMilestone(milestone);
                       }
                     }}
                     className={`p-4 rounded-2xl border-2 transition-all ${
-                      (prepaid as any).linkedInvoiceId === invoice?.id && (prepaid as any).untransferredPayments === 0
+                      (milestone as any).linkedInvoiceId === invoice?.id && (milestone as any).untransferredPayments === 0
                         ? 'border-[#82A094]/30 bg-[#82A094]/10 cursor-not-allowed opacity-70'
-                        : (prepaid as any).linkedInvoiceId === invoice?.id && (prepaid as any).untransferredPayments > 0
+                        : (milestone as any).linkedInvoiceId === invoice?.id && (milestone as any).untransferredPayments > 0
                           ? 'border-[#CE9F6B]/50 bg-[#CE9F6B]/5 cursor-pointer'
-                          : selectedPrepaid?.id === prepaid.id 
+                          : selectedMilestone?.id === milestone.id 
                             ? 'border-[#CE9F6B] bg-[#CE9F6B]/5 shadow-lg cursor-pointer' 
                             : 'border-[#AEBFC3]/20 hover:border-[#AEBFC3]/50 cursor-pointer'
                     }`}
@@ -979,50 +1001,50 @@ export default function InvoiceViewPage() {
                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                       <div className="flex items-start gap-3">
                         <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-1 ${
-                          (prepaid as any).linkedInvoiceId === invoice?.id && (prepaid as any).untransferredPayments === 0
+                          (milestone as any).linkedInvoiceId === invoice?.id && (milestone as any).untransferredPayments === 0
                             ? 'border-[#82A094] bg-[#82A094]'
-                            : selectedPrepaid?.id === prepaid.id 
+                            : selectedMilestone?.id === milestone.id 
                               ? 'border-[#CE9F6B] bg-[#CE9F6B]' 
                               : 'border-[#AEBFC3]'
                         }`}>
-                          {(((prepaid as any).linkedInvoiceId === invoice?.id && (prepaid as any).untransferredPayments === 0) || selectedPrepaid?.id === prepaid.id) && <CheckCircle className="w-3 h-3 text-white" />}
+                          {(((milestone as any).linkedInvoiceId === invoice?.id && (milestone as any).untransferredPayments === 0) || selectedMilestone?.id === milestone.id) && <CheckCircle className="w-3 h-3 text-white" />}
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center gap-2 flex-wrap mb-1">
-                            <p className="font-bold text-[#546A7A]">{prepaid.invoiceNumber}</p>
-                            {(prepaid as any).linkedInvoiceId === invoice?.id && (prepaid as any).untransferredPayments === 0 && (
+                            <p className="font-bold text-[#546A7A]">{milestone.invoiceNumber}</p>
+                            {(milestone as any).linkedInvoiceId === invoice?.id && (milestone as any).untransferredPayments === 0 && (
                               <span className="px-2 py-0.5 rounded-full bg-[#82A094] text-white text-[10px] font-bold uppercase">
                                 Fully Transferred ✓
                               </span>
                             )}
-                            {(prepaid as any).linkedInvoiceId === invoice?.id && (prepaid as any).untransferredPayments > 0 && (
+                            {(milestone as any).linkedInvoiceId === invoice?.id && (milestone as any).untransferredPayments > 0 && (
                               <span className="px-2 py-0.5 rounded-full bg-[#CE9F6B] text-white text-[10px] font-bold uppercase animate-pulse">
-                                {(prepaid as any).untransferredPayments} New
+                                {(milestone as any).untransferredPayments} New
                               </span>
                             )}
                           </div>
-                          <p className="text-sm text-[#92A2A5]">{prepaid.customerName}</p>
-                          {prepaid.poNo && (
+                          <p className="text-sm text-[#92A2A5]">{milestone.customerName}</p>
+                          {milestone.poNo && (
                             <p className="text-xs text-[#CE9F6B] font-mono mt-0.5">
-                              PO: <span className="font-bold">{prepaid.poNo}</span>
+                              PO: <span className="font-bold">{milestone.poNo}</span>
                             </p>
                           )}
                         </div>
                       </div>
                       <div className="text-left sm:text-right pl-8 sm:pl-0">
-                        <p className="text-lg sm:text-xl font-bold text-[#82A094]">{formatARCurrency(prepaid.totalPayments)}</p>
+                        <p className="text-lg sm:text-xl font-bold text-[#82A094]">{formatARCurrency(milestone.totalPayments)}</p>
                         <p className="text-[10px] sm:text-xs text-[#92A2A5] uppercase font-semibold">
-                          {(prepaid as any).linkedInvoiceId === invoice?.id ? 'Transferred' : prepaid.status}
+                          {(milestone as any).linkedInvoiceId === invoice?.id ? 'Transferred' : milestone.status}
                         </p>
                       </div>
                     </div>
                     
                     {/* Payment details */}
-                    {prepaid.payments.length > 0 && (
+                    {milestone.payments.length > 0 && (
                       <div className="mt-3 pt-3 border-t border-[#AEBFC3]/20">
                         <p className="text-xs font-semibold text-[#92A2A5] mb-2">PAYMENT RECORDS</p>
                         <div className="space-y-1">
-                          {prepaid.payments.slice(0, 3).map((payment) => (
+                          {milestone.payments.slice(0, 3).map((payment) => (
                             <div key={payment.id} className="flex items-center justify-between text-sm">
                               <span className="text-[#5D6E73]">{formatARDate(payment.paymentDate)} • {payment.paymentMode}</span>
                               <span className="font-semibold text-[#546A7A]">{formatARCurrency(payment.amount)}</span>
@@ -1040,25 +1062,25 @@ export default function InvoiceViewPage() {
             <div className="p-6 border-t border-[#AEBFC3]/20 bg-[#AEBFC3]/5">
               <div className="flex items-center justify-between">
                 <div>
-                  {selectedPrepaid && (
+                  {selectedMilestone && (
                     <p className="text-sm text-[#5D6E73]">
-                      Transferring <span className="font-bold text-[#82A094]">{formatARCurrency(selectedPrepaid.totalPayments)}</span> to this invoice
+                      Transferring <span className="font-bold text-[#82A094]">{formatARCurrency(selectedMilestone.totalPayments)}</span> to this invoice
                     </p>
                   )}
                 </div>
                 <div className="flex items-center gap-3">
                   <button
-                    onClick={() => { setShowLinkModal(false); setSelectedPrepaid(null); }}
+                    onClick={() => { setShowLinkModal(false); setSelectedMilestone(null); }}
                     className="px-5 py-2.5 rounded-xl border border-[#AEBFC3]/30 text-[#5D6E73] font-semibold hover:bg-[#AEBFC3]/10 transition-colors"
                   >
                     Cancel
                   </button>
                   <button
-                    onClick={() => selectedPrepaid && handleLinkPrepaid(selectedPrepaid, true)}
-                    disabled={!selectedPrepaid || linkingPrepaid}
+                    onClick={() => selectedMilestone && handleLinkMilestone(selectedMilestone, true)}
+                    disabled={!selectedMilestone || linkingMilestone}
                     className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#CE9F6B] to-[#E17F70] text-white font-bold hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                   >
-                    {linkingPrepaid ? (
+                    {linkingMilestone ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" />
                         Linking...
@@ -1085,7 +1107,7 @@ export default function InvoiceViewPage() {
           { id: 'delivery', label: 'Delivery', icon: Truck },
           { id: 'remarks', label: 'Remarks', icon: MessageSquare, count: remarks.length },
           { id: 'activity', label: 'Activity', icon: Clock, count: activityLogs.length },
-        ].filter(tab => !isPrepaid || tab.id !== 'delivery').map((tab) => (
+        ].filter(tab => !isMilestone || tab.id !== 'delivery').map((tab) => (
 
           <button
             key={tab.id}
@@ -1265,14 +1287,64 @@ export default function InvoiceViewPage() {
               </div>
             </div>
             
+            {/* Milestone Payment Schedule - Exclusive to Milestone Invoices */}
+            {isMilestone && invoice.milestoneTerms && (invoice.milestoneTerms as any[]).length > 0 && (
+              <div className="mt-8 border-t border-[#AEBFC3]/20 pt-8">
+                <h4 className="flex items-center gap-2 text-lg font-bold text-[#546A7A] mb-6">
+                  <div className="p-2 rounded-lg bg-gradient-to-br from-[#CE9F6B] to-[#E17F70]">
+                    <Sparkles className="w-5 h-5 text-white" />
+                  </div>
+                  Milestone Payment Schedule
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                  {(invoice.milestoneTerms as any[]).map((term, index) => {
+                    const isOther = term.termType === 'OTHER';
+                    return (
+                      <div key={index} className="flex flex-col p-4 rounded-2xl bg-gradient-to-br from-white to-[#AEBFC3]/5 border border-[#CE9F6B]/20 shadow-sm transition-all hover:shadow-md hover:border-[#CE9F6B]/40">
+                        <div className="flex items-center justify-between mb-3 pb-2 border-b border-[#AEBFC3]/10">
+                          <span className="text-[10px] uppercase font-black tracking-wider text-[#976E44]">
+                            {isOther ? (term.customLabel || 'Other Term') : term.termType}
+                          </span>
+                          {!isOther && term.percentage && (
+                            <span className="px-2 py-0.5 rounded-lg bg-[#CE9F6B] text-white text-[10px] font-bold">
+                              {term.percentage}%
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center justify-between mt-auto pt-2">
+                          <div className="flex items-center gap-2 text-[#92A2A5]">
+                            <Calendar className="w-3.5 h-3.5 opacity-60" />
+                            <span className="text-xs font-medium">Target Date</span>
+                          </div>
+                          <span className="text-sm font-bold text-[#546A7A]">
+                            {term.termDate ? formatARDate(term.termDate) : 'Not set'}
+                          </span>
+                        </div>
+                        {!isOther && term.percentage && (
+                          <div className="mt-3 flex items-center justify-between pt-2 border-t border-[#AEBFC3]/10">
+                             <span className="text-[10px] font-bold text-[#92A2A5]">EXPECTED AMOUNT</span>
+                             <span className="text-sm font-black text-[#CE9F6B]">
+                               {formatARCurrency((totalAmount * Number(term.percentage)) / 100)}
+                             </span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Comments */}
             {invoice.comments && (
-              <div className="mt-6 p-4 rounded-xl bg-[#AEBFC3]/10 border border-[#AEBFC3]/20">
-                <div className="flex items-center gap-2 mb-2">
-                  <MessageSquare className="w-4 h-4 text-[#6F8A9D]" />
-                  <span className="font-semibold text-[#546A7A]">Comments</span>
+              <div className="mt-8 p-6 rounded-2xl bg-[#AEBFC3]/5 border border-[#AEBFC3]/20 shadow-inner">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="p-1.5 rounded-lg bg-[#6F8A9D]/10">
+                    <MessageSquare className="w-4 h-4 text-[#6F8A9D]" />
+                  </div>
+                  <span className="font-bold text-[#546A7A]">Comments & Internal Notes</span>
                 </div>
-                <p className="text-[#5D6E73] whitespace-pre-wrap">{invoice.comments}</p>
+                <p className="text-[#5D6E73] whitespace-pre-wrap text-sm leading-relaxed">{invoice.comments}</p>
               </div>
             )}
           </div>

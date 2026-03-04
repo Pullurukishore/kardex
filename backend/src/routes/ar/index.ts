@@ -78,10 +78,10 @@ router.get('/invoices/:id/remarks', requireARRead, invoiceController.getInvoiceR
 router.post('/invoices/:id/remarks', requireFinanceWrite, invoiceController.addInvoiceRemark);
 router.get('/invoices/:id/activity', requireARRead, invoiceController.getInvoiceActivityLog);
 
-// Prepaid Invoice Linking Routes
-router.get('/invoices/:id/matching-prepaids', requireARRead, invoiceController.getMatchingPrepaids);
-router.post('/invoices/:id/accept-prepaid', requireFinanceWrite, invoiceController.acceptPrepaid);
-router.get('/invoices/:id/linked-prepaid', requireARRead, invoiceController.getLinkedPrepaidDetails);
+// Milestone Invoice Linking Routes
+router.get('/invoices/:id/matching-milestones', requireARRead, invoiceController.getMatchingMilestones);
+router.post('/invoices/:id/accept-milestone', requireFinanceWrite, invoiceController.acceptMilestone);
+router.get('/invoices/:id/linked-milestone', requireARRead, invoiceController.getLinkedMilestoneDetails);
 
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -197,7 +197,7 @@ router.get('/reports/customers/risk', requireARRead, reportsController.getCustom
 
 // Invoice Reports
 router.get('/reports/invoices/status', requireARRead, reportsController.getInvoiceStatusSummary);
-router.get('/reports/invoices/prepaid', requireARRead, reportsController.getPrepaidAnalysisReport);
+router.get('/reports/invoices/milestone', requireARRead, reportsController.getMilestoneAnalysisReport);
 router.get('/reports/invoices/delivery', requireARRead, reportsController.getDeliveryStatusReport);
 
 // Legacy report endpoints (backward compatibility)

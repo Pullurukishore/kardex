@@ -210,14 +210,10 @@ export default function BankAccountDetailPage() {
           </div>
         </div>
         <div className="flex items-center gap-3 w-full sm:w-auto">
-          <Button onClick={() => router.push(`/finance/bank-accounts/${account.id}/edit`)} className="w-full sm:w-auto">
-            <Pencil className="h-4 w-4 mr-2" />
-            {isAdmin ? 'Edit Account' : 'Request Changes'}
-          </Button>
-          {isAdmin && (
-            <Button variant="destructive" onClick={handleDelete}>
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete
+          {!isAdmin && (
+            <Button onClick={() => router.push(`/finance/bank-accounts/${account.id}/edit`)} className="w-full sm:w-auto">
+              <Pencil className="h-4 w-4 mr-2" />
+              Request Changes
             </Button>
           )}
         </div>
@@ -579,14 +575,7 @@ export default function BankAccountDetailPage() {
                           <Download className="w-3.5 h-3.5" />
                           Download
                         </button>
-                        {isAdmin && (
-                          <button 
-                            onClick={() => handleDeleteAttachment(file.id)}
-                            className="p-2 rounded-lg bg-[#F8FAFB] text-[#92A2A5] hover:text-[#E17F70] hover:bg-[#E17F70]/10 transition-all"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        )}
+
                       </div>
                     </div>
                   ))}
@@ -607,6 +596,7 @@ export default function BankAccountDetailPage() {
             </CardHeader>
             <CardContent className="p-3 bg-gradient-to-br from-[#AEBFC3]/5 to-white">
               <div className="space-y-2">
+                {!isAdmin && (
                 <Link
                   href={`/finance/bank-accounts/${account.id}/edit`}
                   className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-[#CE9F6B]/10 text-[#5D6E73] hover:text-[#976E44] transition-all group"
@@ -614,8 +604,9 @@ export default function BankAccountDetailPage() {
                   <div className="p-2 bg-[#CE9F6B]/10 rounded-lg group-hover:bg-[#CE9F6B]/20 group-hover:scale-110 transition-all">
                     <Pencil className="w-4 h-4 text-[#CE9F6B]" />
                   </div>
-                  <span className="text-sm font-semibold">{isAdmin ? 'Edit Details' : 'Request Changes'}</span>
+                  <span className="text-sm font-semibold">Request Changes</span>
                 </Link>
+                )}
                 <Link
                   href="/finance/bank-accounts/requests"
                   className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-[#6F8A9D]/10 text-[#5D6E73] hover:text-[#6F8A9D] transition-all group"

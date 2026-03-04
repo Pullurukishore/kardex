@@ -1058,28 +1058,24 @@ enum ARServiceType {
   FINANCE
 }
 
-// Invoice Type for distinguishing regular vs prepaid invoices
+// Invoice Type for distinguishing regular vs milestone invoices
 enum ARInvoiceType {
   REGULAR
-  PREPAID
+  MILESTONE
 }
 
-// Prepaid Invoice Status - tracks delivery against prepayment
-enum ARPrepaidStatus {
+// Milestone Invoice Status - tracks delivery against milestone payment
+enum ARMilestoneStatus {
   AWAITING_DELIVERY    // Payment received, delivery pending
   PARTIALLY_DELIVERED  // Some items delivered
   FULLY_DELIVERED      // All items delivered
-  EXPIRED              // Prepaid period expired without delivery
-  LINKED               // Prepaid has been linked to an invoice
+  EXPIRED              // Milestone period expired without delivery
+  LINKED               // Milestone has been linked to an invoice
 }
 
-// Milestone types for prepaid aging
-enum ARMilestoneType {
-  ADVANCE
-  INVOICE
-  GRN
-  BG
-  OTHERS
+enum ARAccountingStatus {
+  REVENUE_RECOGNISED
+  BACKLOG
 }
 
 // AR Payment Terms Master
@@ -1110,7 +1106,7 @@ model ARInvoice {
   totalAmount         Decimal   @db.Decimal(15, 2) // Amount (H)
   netAmount           Decimal   @db.Decimal(15, 2) // Net / Invoice Amount (I)
   taxAmount           Decimal?  @db.Decimal(15, 2) // Tax (J)
-  invoiceDate         DateTime          // Document Date (M)
+  invoiceDate         DateTime?         // Document Date (M)
   
   // ═══════════════════════════════════════════════════════════════════════════
   // PAYMENT TERMS & CALCULATIONS
@@ -1152,32 +1148,31 @@ model ARInvoice {
   updatedAt           DateTime  @updatedAt
   
   // ═══════════════════════════════════════════════════════════════════════════
-  // INVOICE TYPE & PREPAID FIELDS
+  // INVOICE TYPE & MILESTONE FIELDS
   // ═══════════════════════════════════════════════════════════════════════════
-  invoiceType         ARInvoiceType @default(REGULAR) // REGULAR, PREPAID, CREDIT_NOTE
-  advanceReceivedDate DateTime?     // When prepayment was received (for prepaid)
-  deliveryDueDate     DateTime?     // Expected delivery date (for prepaid)
-  prepaidStatus       ARPrepaidStatus? // Status for prepaid invoices
+  invoiceType         ARInvoiceType @default(REGULAR) // REGULAR, MILESTONE
+  advanceReceivedDate DateTime?     // When advance payment was received (for milestone)
+  deliveryDueDate     DateTime?     // Expected delivery date (for milestone)
+  milestoneStatus     ARMilestoneStatus? // Status for milestone invoices
+  accountingStatus    ARAccountingStatus?
+  mailToTSP           String?
   
   // ═══════════════════════════════════════════════════════════════════════════
-  // PREPAID LINKING FIELDS
+  // MILESTONE LINKING FIELDS
   // ═══════════════════════════════════════════════════════════════════════════
-  soNo                String?           // Sales Order Number (for prepaid invoices)
-  linkedInvoiceId     String?           // For prepaid: links to regular invoice after acceptance
-  linkedPrepaidId     String?           // For regular: links to accepted prepaid invoice
-  prepaidAcceptedAt   DateTime?         // When prepaid was accepted and linked
+  soNo                String?           // Sales Order Number (for milestone invoices)
+  linkedInvoiceId     String?           // For milestone: links to regular invoice after acceptance
+  linkedMilestoneId   String?           // For regular: links to accepted milestone invoice
+  milestoneAcceptedAt DateTime?         // When milestone was accepted and linked
   
   // ═══════════════════════════════════════════════════════════════════════════
-  // PREPAID MILESTONES & AGING
+  // MILESTONE PAYMENT TERMS & AGING
   // ═══════════════════════════════════════════════════════════════════════════
-  grnDate             DateTime?         // GRN Date Milestone
-  bgDate              DateTime?         // BG (Bank Guarantee) Date Milestone
-  othersDate          DateTime?         // Others Milestone Date
-  agingMilestone      ARMilestoneType?  // Which milestone to use for aging calculation
+  milestoneTerms      Json?             // Array of { termType: string, termDate: string, customLabel?: string }
   
-  // Self-referential relations for prepaid linking
-  linkedInvoice       ARInvoice?        @relation("PrepaidToInvoice", fields: [linkedInvoiceId], references: [id])
-  linkedFromPrepaids  ARInvoice[]       @relation("PrepaidToInvoice")
+  // Self-referential relations for milestone linking
+  linkedInvoice       ARInvoice?        @relation("MilestoneToInvoice", fields: [linkedInvoiceId], references: [id])
+  linkedFromMilestones ARInvoice[]      @relation("MilestoneToInvoice")
   
   // Remarks relation
   remarks             ARInvoiceRemark[]

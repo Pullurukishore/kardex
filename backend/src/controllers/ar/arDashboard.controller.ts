@@ -47,12 +47,12 @@ export const getEssentialDashboard = async (req: Request, res: Response) => {
             allInvoicesTotal,
             totalPaid
         ] = await Promise.all([
-            // Total Balance (what's owed) - EXCLUDE prepaid (already paid, not receivable)
+            // Total Balance (what's owed) - EXCLUDE milestone (already paid, not receivable)
             safeAggregate(
                 prisma.aRInvoice.aggregate({
                     where: {
                         status: { not: 'PAID' },
-                        invoiceType: { not: 'PREPAID' }  // Exclude prepaid - already collected
+                        invoiceType: { not: 'MILESTONE' }  // Exclude milestone - already collected
                     },
                     _sum: { balance: true },
                     _count: true
@@ -90,12 +90,9 @@ export const getEssentialDashboard = async (req: Request, res: Response) => {
                     balance: true,
                     totalAmount: true,
                     invoiceType: true,
-                    agingMilestone: true,
+                    milestoneTerms: true,
                     advanceReceivedDate: true,
-                    invoiceDate: true,
-                    grnDate: true,
-                    bgDate: true,
-                    othersDate: true
+                    invoiceDate: true
                 }
             })),
             // Critical overdue (top 5)
@@ -110,12 +107,10 @@ export const getEssentialDashboard = async (req: Request, res: Response) => {
                     balance: true,
                     dueDate: true,
                     invoiceType: true,
-                    agingMilestone: true,
+                    milestoneTerms: true,
                     advanceReceivedDate: true,
                     invoiceDate: true,
-                    grnDate: true,
-                    bgDate: true,
-                    othersDate: true
+                    soNo: true
                 }
             })),
             // Invoices created this month (for collection rate)
@@ -151,16 +146,18 @@ export const getEssentialDashboard = async (req: Request, res: Response) => {
 
         allUnpaidInvoices.forEach(inv => {
             let daysOverdue = 0;
-            if (inv.invoiceType === 'PREPAID' && inv.agingMilestone) {
-                let baseDate: any = null;
-                switch (inv.agingMilestone) {
-                    case 'ADVANCE': baseDate = inv.advanceReceivedDate; break;
-                    case 'INVOICE': baseDate = inv.invoiceDate; break;
-                    case 'GRN': baseDate = inv.grnDate; break;
-                    case 'BG': baseDate = inv.bgDate; break;
-                    case 'OTHERS': baseDate = inv.othersDate; break;
+            if (inv.invoiceType === 'MILESTONE' && inv.milestoneTerms) {
+                // For milestone invoices, use the earliest term date for aging
+                const terms = inv.milestoneTerms as any[];
+                if (Array.isArray(terms) && terms.length > 0) {
+                    const earliestTerm = terms.reduce((earliest: any, term: any) => {
+                        if (!earliest || new Date(term.termDate) < new Date(earliest.termDate)) return term;
+                        return earliest;
+                    }, null);
+                    if (earliestTerm?.termDate) {
+                        daysOverdue = calculateDaysBetween(new Date(earliestTerm.termDate), today);
+                    }
                 }
-                if (baseDate) daysOverdue = calculateDaysBetween(new Date(baseDate), today);
             } else {
                 daysOverdue = calculateDaysBetween(inv.dueDate, today);
             }
@@ -177,16 +174,17 @@ export const getEssentialDashboard = async (req: Request, res: Response) => {
         // Calculate critical overdue with days
         const criticalWithDays = criticalOverdue.map(inv => {
             let daysOverdue = 0;
-            if (inv.invoiceType === 'PREPAID' && inv.agingMilestone) {
-                let baseDate: any = null;
-                switch (inv.agingMilestone) {
-                    case 'ADVANCE': baseDate = inv.advanceReceivedDate; break;
-                    case 'INVOICE': baseDate = inv.invoiceDate; break;
-                    case 'GRN': baseDate = inv.grnDate; break;
-                    case 'BG': baseDate = inv.bgDate; break;
-                    case 'OTHERS': baseDate = inv.othersDate; break;
+            if (inv.invoiceType === 'MILESTONE' && inv.milestoneTerms) {
+                const terms = inv.milestoneTerms as any[];
+                if (Array.isArray(terms) && terms.length > 0) {
+                    const earliestTerm = terms.reduce((earliest: any, term: any) => {
+                        if (!earliest || new Date(term.termDate) < new Date(earliest.termDate)) return term;
+                        return earliest;
+                    }, null);
+                    if (earliestTerm?.termDate) {
+                        daysOverdue = calculateDaysBetween(new Date(earliestTerm.termDate), today);
+                    }
                 }
-                if (baseDate) daysOverdue = calculateDaysBetween(new Date(baseDate), today);
             } else if (inv.dueDate) {
                 daysOverdue = Math.max(0, calculateDaysBetween(inv.dueDate, today));
             }
@@ -386,7 +384,7 @@ export const getCriticalOverdue = async (req: Request, res: Response) => {
             where: { status: 'OVERDUE' },
             orderBy: { balance: 'desc' },
             take: limit,
-            select: { id: true, invoiceNumber: true, bpCode: true, customerName: true, totalAmount: true, balance: true, dueDate: true, riskClass: true, status: true }
+            select: { id: true, invoiceNumber: true, bpCode: true, customerName: true, totalAmount: true, balance: true, dueDate: true, riskClass: true, status: true, soNo: true }
         }));
 
         const today = new Date();
