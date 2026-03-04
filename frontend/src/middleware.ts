@@ -62,6 +62,17 @@ export async function middleware(request: NextRequest) {
   // If user is already authenticated and tries to visit any auth page (login, reset-password, etc.),
   // redirect them to the appropriate dashboard instead of showing the auth page
   if (pathname.startsWith('/auth/') && authToken) {
+    // If we have an auth token but no role cookies, this is a stale session
+    // (e.g., after logout cleared role cookies but httpOnly accessToken persists)
+    // Clear the stale cookies and let them proceed to the login page
+    if (!userRole && !request.cookies.get('financeRole')?.value) {
+      const response = NextResponse.next();
+      // Clear stale httpOnly auth cookies that the client couldn't remove
+      response.cookies.delete('accessToken');
+      response.cookies.delete('token');
+      response.cookies.delete('refreshToken');
+      return response;
+    }
     const financeRoleForRedirect = request.cookies.get('financeRole')?.value as any;
     const redirectPath = getRoleBasedRedirect(userRole, financeRoleForRedirect);
     return NextResponse.redirect(new URL(redirectPath, request.url));
@@ -88,7 +99,27 @@ export async function middleware(request: NextRequest) {
   // Check if user has access to the requested route
   const financeRole = request.cookies.get('financeRole')?.value as any;
   if (!isRouteAccessible(pathname, userRole, financeRole)) {
+    // If no role is available at all, this is likely a stale session after logout
+    // Redirect to login and clear stale auth cookies to prevent infinite loops
+    if (!userRole && !financeRole) {
+      const loginUrl = new URL('/auth/login', request.url);
+      const response = NextResponse.redirect(loginUrl);
+      // Clear stale httpOnly auth cookies that the client couldn't remove
+      response.cookies.delete('accessToken');
+      response.cookies.delete('token');
+      response.cookies.delete('refreshToken');
+      return response;
+    }
     const redirectPath = getRoleBasedRedirect(userRole, financeRole);
+    // Prevent self-redirect loop: if we'd redirect to the same path, go to login instead
+    if (redirectPath === pathname) {
+      const loginUrl = new URL('/auth/login', request.url);
+      const response = NextResponse.redirect(loginUrl);
+      response.cookies.delete('accessToken');
+      response.cookies.delete('token');
+      response.cookies.delete('refreshToken');
+      return response;
+    }
     // Add a small delay header to prevent conflicts with client-side redirects
     const response = NextResponse.redirect(new URL(redirectPath, request.url));
     response.headers.set('X-Redirect-Reason', 'role-access');
