@@ -5,10 +5,11 @@ import api from '@/lib/api/axios';
 
 // Types
 export interface MilestonePaymentTerm {
-    termType: 'ABG' | 'PO' | 'DELIVERY' | 'FAR' | 'PBG' | 'FAR_PBG' | 'INVOICE_SUBMISSION' | 'OTHER';
+    termType: 'ABG' | 'PO' | 'DELIVERY' | 'FAR' | 'PBG' | 'FAR_PBG' | 'INVOICE_SUBMISSION' | 'PI' | 'OTHER';
     termDate: string;
     percentage?: number;
     customLabel?: string;
+    calculationBasis?: 'NET_AMOUNT' | 'TOTAL_AMOUNT'; // Whether % is on net amount or total (incl. tax)
 }
 export interface ARCustomer {
     id: string;
@@ -88,6 +89,7 @@ export interface ARInvoice {
     milestoneTerms?: MilestonePaymentTerm[];
     accountingStatus?: 'REVENUE_RECOGNISED' | 'BACKLOG';
     mailToTSP?: string;
+    bookingMonth?: string;
 }
 
 export interface ARPaymentHistory {
@@ -98,6 +100,7 @@ export interface ARPaymentHistory {
     paymentMode: string;
     referenceNo?: string;
     referenceBank?: string;
+    milestoneTerm?: string;
     notes?: string;
     recordedBy?: string;
     createdAt: string;
@@ -539,7 +542,7 @@ export const arApi = {
     },
 
     // Invoices
-    async getInvoices(params?: { search?: string; status?: string; customerId?: string; invoiceType?: string; page?: number; limit?: number }) {
+    async getInvoices(params?: { search?: string; status?: string; customerId?: string; invoiceType?: string; agingBucket?: string; page?: number; limit?: number }) {
         const res = await api.get('/ar/invoices', { params });
         return res.data;
     },
@@ -1000,6 +1003,21 @@ export const formatARDate = (date?: string | null): string => {
         month: 'short',
         year: 'numeric'
     });
+};
+
+export const formatARMonth = (monthStr?: string): string => {
+    if (!monthStr || monthStr === '-') return '-';
+    try {
+        const [year, month] = monthStr.split('-');
+        if (!year || !month) return monthStr;
+        const date = new Date(parseInt(year), parseInt(month) - 1);
+        return date.toLocaleDateString('en-IN', {
+            month: 'long',
+            year: 'numeric'
+        });
+    } catch {
+        return monthStr;
+    }
 };
 
 // ═══════════════════════════════════════════════════════════════════════════

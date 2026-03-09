@@ -3,15 +3,16 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { arApi, ARInvoice, ARPaymentHistory, formatARCurrency, formatARDate, MilestonePaymentTerm } from '@/lib/ar-api';
+import { arApi, ARInvoice, ARPaymentHistory, formatARCurrency, formatARDate, formatARMonth, MilestonePaymentTerm } from '@/lib/ar-api';
 import {
-  ArrowLeft, Pencil, Trash2, FileText, Calendar, User, Clock,
+  ArrowLeft, Pencil, Trash2, FileText, Calendar, User, Clock, CheckCircle2,
   AlertTriangle, CheckCircle, Loader2, Mail, Phone, MapPin,
   IndianRupee, Package, TrendingUp, XCircle, Timer, Banknote,
-  ArrowDownRight, ArrowUpRight, Sparkles, Wallet, BadgeCheck,
+  ArrowDownRight, ArrowUpRight, Sparkles, Wallet, BadgeCheck, Flag,
   Scale, Link2, Tag, Truck, RefreshCw, Plus, X, Copy, Shield,
   PackageCheck, PackageX, Receipt, MessageSquare, ChevronLeft,
-  Hash, CreditCard, Building
+  Hash, CreditCard, Building, ShieldAlert, ShieldCheck,
+  BarChart3
 } from 'lucide-react';
 
 export default function MilestoneViewPage() {
@@ -30,7 +31,7 @@ export default function MilestoneViewPage() {
   const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
   const [paymentForm, setPaymentForm] = useState({
     amount: '', paymentDate: new Date().toISOString().split('T')[0],
-    paymentMode: '', referenceBank: '', notes: ''
+    paymentMode: '', referenceBank: '', notes: '', milestoneTerm: ''
   });
 
   // Remarks
@@ -83,7 +84,7 @@ export default function MilestoneViewPage() {
 
   const closePaymentModal = () => {
     setShowPaymentModal(false); setEditingPaymentId(null);
-    setPaymentForm({ amount: '', paymentDate: new Date().toISOString().split('T')[0], paymentMode: '', referenceBank: '', notes: '' });
+    setPaymentForm({ amount: '', paymentDate: new Date().toISOString().split('T')[0], paymentMode: '', referenceBank: '', notes: '', milestoneTerm: '' });
   };
 
   const handlePaymentSubmit = async (e: React.FormEvent) => {
@@ -91,7 +92,7 @@ export default function MilestoneViewPage() {
     if (!paymentForm.amount || parseFloat(paymentForm.amount) <= 0) { alert('Please enter a valid amount'); return; }
     try {
       setPaymentLoading(true);
-      const paymentData = { amount: parseFloat(paymentForm.amount), paymentDate: paymentForm.paymentDate, paymentMode: paymentForm.paymentMode, referenceBank: paymentForm.referenceBank, notes: paymentForm.notes };
+      const paymentData = { amount: parseFloat(paymentForm.amount), paymentDate: paymentForm.paymentDate, paymentMode: paymentForm.paymentMode, referenceBank: paymentForm.referenceBank, notes: paymentForm.notes, milestoneTerm: paymentForm.milestoneTerm || null };
       if (editingPaymentId) await arApi.updatePayment(invoice.id, editingPaymentId, paymentData);
       else await arApi.addPayment(invoice.id, paymentData);
       closePaymentModal(); await loadInvoice(invoice.id);
@@ -100,7 +101,7 @@ export default function MilestoneViewPage() {
 
   const handleEditPayment = (payment: ARPaymentHistory) => {
     setEditingPaymentId(payment.id);
-    setPaymentForm({ amount: payment.amount.toString(), paymentDate: new Date(payment.paymentDate).toISOString().split('T')[0], paymentMode: payment.paymentMode, referenceBank: payment.referenceBank || '', notes: payment.notes || '' });
+    setPaymentForm({ amount: payment.amount.toString(), paymentDate: new Date(payment.paymentDate).toISOString().split('T')[0], paymentMode: payment.paymentMode, referenceBank: payment.referenceBank || '', notes: payment.notes || '', milestoneTerm: payment.milestoneTerm || '' });
     setShowPaymentModal(true);
   };
 
@@ -121,7 +122,7 @@ export default function MilestoneViewPage() {
           <div className="absolute inset-3 rounded-full border-4 border-t-transparent border-r-[#E17F70] border-b-transparent border-l-transparent animate-spin" style={{ animationDirection: 'reverse', animationDuration: '0.8s' }} />
           <Wallet className="absolute inset-0 m-auto w-6 h-6 text-[#546A7A]" />
         </div>
-        <p className="text-[#5D6E73] font-medium">Loading milestone payment...</p>
+        <p className="text-[#5D6E73] font-medium">Loading milestone details...</p>
       </div>
     </div>
   );
@@ -148,25 +149,81 @@ export default function MilestoneViewPage() {
   const daysOverdue = invoice.dueByDays || 0;
   const isOverdue = invoice.status === 'OVERDUE' || (daysOverdue > 0 && invoice.status !== 'PAID');
 
-  const getDeliveryDueDays = () => {
-    if (!invoice.deliveryDueDate) return null;
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const dueDate = new Date(invoice.deliveryDueDate); dueDate.setHours(0, 0, 0, 0);
-    return Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-  };
-  const deliveryDueDays = getDeliveryDueDays();
-  const isDeliveryOverdue = deliveryDueDays !== null && deliveryDueDays < 0 && invoice.milestoneStatus !== 'FULLY_DELIVERED';
+  // Collection allocation per milestone term based on overall receipts
+  const milestoneTerms: MilestonePaymentTerm[] = (invoice.milestoneTerms as MilestonePaymentTerm[]) || [];
+  const netAmount = Number(invoice.netAmount || 0);
+  let remainingReceipts = totalReceived;
+  const termCollections = milestoneTerms
+    .slice()
+    .sort((a, b) => new Date(a.termDate).getTime() - new Date(b.termDate).getTime())
+    .map((term) => {
+      const percentage = term.percentage || 0;
+      const isNetBasis = term.calculationBasis !== 'TOTAL_AMOUNT';
+      const baseAmount = isNetBasis ? netAmount : totalAmount;
+      const allocatedAmount = (baseAmount * percentage) / 100;
+      const collectedForTerm = Math.min(allocatedAmount, Math.max(0, remainingReceipts));
+      remainingReceipts -= collectedForTerm;
+      const pendingForTerm = Math.max(0, allocatedAmount - collectedForTerm);
+      const collectedPercent = allocatedAmount > 0 ? (collectedForTerm / allocatedAmount) * 100 : 0;
+      return {
+        termId: `${term.termType}-${term.termDate}-${percentage}`,
+        allocatedAmount,
+        collectedForTerm,
+        pendingForTerm,
+        collectedPercent,
+        isNetBasis,
+      };
+    });
 
-  const getMilestoneStatusConfig = (status?: string) => {
-    switch (status) {
-      case 'AWAITING_DELIVERY': return { bg: 'bg-gradient-to-r from-[#CE9F6B] to-[#976E44]', label: 'Awaiting Delivery', icon: Package };
-      case 'PARTIALLY_DELIVERED': return { bg: 'bg-gradient-to-r from-[#6F8A9D] to-[#546A7A]', label: 'Partially Delivered', icon: Truck };
-      case 'FULLY_DELIVERED': return { bg: 'bg-gradient-to-r from-[#82A094] to-[#4F6A64]', label: 'Fully Delivered', icon: CheckCircle };
-      case 'EXPIRED': return { bg: 'bg-gradient-to-r from-[#E17F70] to-[#9E3B47]', label: 'Expired', icon: XCircle };
-      case 'LINKED': return { bg: 'bg-gradient-to-r from-[#82A094] to-[#546A7A]', label: 'Linked', icon: Link2 };
-      default: return { bg: 'bg-gradient-to-r from-[#AEBFC3] to-[#92A2A5]', label: 'Unknown', icon: Package };
+  // Overdue and Not Due calculations
+  const overdueAmount = termCollections
+    .filter(tc => {
+      const term = milestoneTerms.find(t => `${t.termType}-${t.termDate}-${t.percentage || 0}` === tc.termId);
+      if (!term) return false;
+      const termDate = new Date(term.termDate);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const termAging = Math.floor((today.getTime() - termDate.getTime()) / (1000 * 60 * 60 * 24));
+      return termAging > 0 && tc.collectedPercent < 99 && invoice.milestoneStatus !== 'FULLY_DELIVERED';
+    })
+    .reduce((sum, tc) => sum + tc.pendingForTerm, 0);
+
+  const notDueAmount = Math.max(0, balanceAmount - overdueAmount);
+
+  // Compute worst-case aging across milestone terms (only for unpaid items)
+  const worstTermAging = milestoneTerms.length > 0
+    ? Math.max(0, ...milestoneTerms.map(t => {
+        const aging = Math.floor((new Date().setHours(0,0,0,0) - new Date(t.termDate).setHours(0,0,0,0)) / (1000 * 60 * 60 * 24));
+        const allocation = termCollections.find(tc => tc.termId === `${t.termType}-${t.termDate}-${t.percentage || 0}`);
+        const isTermPaid = (allocation?.collectedPercent || 0) >= 99;
+        return (aging > 0 && !isTermPaid) ? aging : 0;
+      }))
+    : 0;
+
+  const getMilestoneStatusConfig = (ms?: string) => {
+    switch (ms) {
+      case 'AWAITING_DELIVERY': return { label: 'Awaiting Delivery', bg: 'bg-gradient-to-r from-[#CE9F6B] to-[#976E44]', icon: Package, glow: 'shadow-[#CE9F6B]/30' };
+      case 'PARTIALLY_DELIVERED': return { label: 'Partially Delivered', bg: 'bg-gradient-to-r from-[#6F8A9D] to-[#546A7A]', icon: Truck, glow: 'shadow-[#6F8A9D]/30' };
+      case 'FULLY_DELIVERED': return { label: 'Fully Delivered', bg: 'bg-gradient-to-r from-[#82A094] to-[#4F6A64]', icon: PackageCheck, glow: 'shadow-[#82A094]/30' };
+      case 'EXPIRED': return { label: 'Expired', bg: 'bg-gradient-to-r from-[#E17F70] to-[#9E3B47]', icon: PackageX, glow: 'shadow-[#E17F70]/30' };
+      case 'LINKED': return { label: 'Linked', bg: 'bg-gradient-to-r from-[#82A094] to-[#4F6A64]', icon: BadgeCheck, glow: 'shadow-[#82A094]/30' };
+      default: return { label: 'Pending', bg: 'bg-gradient-to-r from-[#AEBFC3] to-[#92A2A5]', icon: Package, glow: 'shadow-[#AEBFC3]/30' };
     }
   };
+  const milestoneStatusConf = getMilestoneStatusConfig(invoice.milestoneStatus);
+  const MilestoneStatusIcon = milestoneStatusConf.icon;
+
+  const getRiskConfig = (risk: string) => {
+    switch (risk) {
+      case 'CRITICAL': return { bg: 'bg-[#9E3B47]/10', text: 'text-[#9E3B47]', border: 'border-[#9E3B47]/30', icon: ShieldAlert };
+      case 'HIGH': return { bg: 'bg-[#E17F70]/10', text: 'text-[#E17F70]', border: 'border-[#E17F70]/30', icon: ShieldAlert };
+      case 'MEDIUM': return { bg: 'bg-[#CE9F6B]/10', text: 'text-[#976E44]', border: 'border-[#CE9F6B]/30', icon: Shield };
+      default: return { bg: 'bg-[#82A094]/10', text: 'text-[#4F6A64]', border: 'border-[#82A094]/30', icon: ShieldCheck };
+    }
+  };
+  const riskConfig = getRiskConfig(invoice.riskClass);
+
+
 
   const getStatusConfig = (s: string) => {
     switch (s) {
@@ -179,14 +236,12 @@ export default function MilestoneViewPage() {
   };
 
   const statusConfig = getStatusConfig(invoice.status);
-  const milestoneStatusConfig = getMilestoneStatusConfig(invoice.milestoneStatus);
   const StatusIcon = statusConfig.icon;
-  const MilestoneIcon = milestoneStatusConfig.icon;
 
-  const termOptions: Record<string, string> = { ABG: 'ABG', PO: 'PO', DELIVERY: 'Delivery', FAR: 'FAR', PBG: 'PBG', FAR_PBG: 'FAR & PBG', INVOICE_SUBMISSION: 'Invoice Submission', OTHER: 'Other' };
+  const termOptions: Record<string, string> = { ABG: 'ABG', PO: 'PO', DELIVERY: 'Delivery', FAR: 'FAR', PBG: 'PBG', FAR_PBG: 'FAR & PBG', INVOICE_SUBMISSION: 'Invoice Submission', PI: 'PI', OTHER: 'Other' };
 
   const tabs = [
-    { key: 'details' as const, label: 'Details', icon: FileText },
+    { key: 'details' as const, label: 'Details', icon: Flag },
     { key: 'payments' as const, label: 'Payments', icon: Receipt },
     { key: 'remarks' as const, label: 'Remarks', icon: MessageSquare },
     { key: 'activity' as const, label: 'Activity', icon: Clock },
@@ -250,7 +305,7 @@ export default function MilestoneViewPage() {
               {/* Main Identity */}
               <div className="flex items-center gap-5">
                 <div className="p-3 sm:p-4 rounded-[1.5rem] bg-gradient-to-br from-[#E17F70] to-[#CE9F6B] shadow-2xl shadow-[#E17F70]/30 flex-shrink-0 animate-scale-in">
-                  <FileText className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
+                  <Flag className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
                 </div>
                 <div>
                   <div className="flex items-center gap-3">
@@ -276,8 +331,8 @@ export default function MilestoneViewPage() {
               {/* Entity Info */}
               <div className="flex items-center gap-6 p-4 rounded-3xl bg-[#AEBFC3]/5 border border-[#AEBFC3]/10 w-fit">
                 <div className="flex items-center gap-3 border-r border-[#AEBFC3]/20 pr-6">
-                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#6F8A9D] to-[#546A7A] flex items-center justify-center text-white text-xl font-black shadow-lg">
-                    {invoice.customerName.charAt(0)}
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#6F8A9D] to-[#546A7A] flex items-center justify-center text-white shadow-lg">
+                    <Building className="w-6 h-6" />
                   </div>
                   <div>
                     <h2 className="font-bold text-[#546A7A] leading-tight">{invoice.customerName}</h2>
@@ -304,47 +359,70 @@ export default function MilestoneViewPage() {
                       </div>
                     </div>
                   )}
+                  {/* Risk Class Badge */}
+                  <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl shadow-sm border ${riskConfig.bg} ${riskConfig.border}`}>
+                    <riskConfig.icon className={`w-3.5 h-3.5 ${riskConfig.text}`} />
+                    <div>
+                      <p className="text-[10px] uppercase font-bold text-[#92A2A5] leading-none mb-0.5">Risk</p>
+                      <p className={`text-xs font-bold leading-none ${riskConfig.text}`}>{invoice.riskClass}</p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* Status & Timing */}
-            <div className="flex flex-col items-start md:items-end gap-4 min-w-fit">
-              <div className={`group relative px-8 py-4 rounded-[2rem] bg-gradient-to-br ${statusConfig.bg} shadow-2xl transition-all hover:scale-105 ${statusConfig.glow}`}>
+            <div className="flex flex-col items-start md:items-end gap-3 min-w-fit">
+              {/* Payment Status Badge */}
+              <div className={`group relative px-6 py-3 rounded-[1.5rem] bg-gradient-to-br ${statusConfig.bg} shadow-2xl transition-all hover:scale-105 ${statusConfig.glow}`}>
                 <div className="flex items-center gap-3">
-                  <StatusIcon className="w-7 h-7 text-white" />
+                  <StatusIcon className="w-6 h-6 text-white" />
                   <div className="text-left">
-                    <p className="text-[10px] font-black text-white/60 uppercase tracking-widest leading-none mb-1">Invoice Status</p>
-                    <p className="text-xl font-black text-white leading-none">{invoice.status}</p>
+                    <p className="text-[9px] font-black text-white/60 uppercase tracking-widest leading-none mb-1">Payment Status</p>
+                    <p className="text-lg font-black text-white leading-none">{invoice.status}</p>
                   </div>
                 </div>
               </div>
 
-              <div className="flex flex-col gap-2 w-full">
-                <div className={`flex items-center justify-between gap-3 px-4 py-2.5 rounded-2xl ${milestoneStatusConfig.bg} text-white shadow-lg`}>
-                  <div className="flex items-center gap-2">
-                    <MilestoneIcon className="w-4 h-4" />
-                    <span className="text-sm font-bold tracking-wide uppercase">{milestoneStatusConfig.label}</span>
-                  </div>
-                </div>
-
-                {deliveryDueDays !== null && invoice.milestoneStatus !== 'FULLY_DELIVERED' && (
-                  <div className={`flex items-center justify-between gap-3 px-4 py-2.5 rounded-2xl bg-white border-2 shadow-sm ${deliveryDueDays < 0 ? 'border-[#E17F70]/20 text-[#9E3B47]' : 'border-[#82A094]/20 text-[#4F6A64]'}`}>
-                    <div className="flex items-center gap-2 text-sm font-bold">
-                      <Timer className="w-4 h-4" />
-                      <span>{deliveryDueDays < 0 ? 'Delivery Overdue' : 'Due for Delivery'}</span>
+              {/* Milestone Delivery Status Badge */}
+              {invoice.milestoneStatus && (
+                <div className={`group relative px-6 py-3 rounded-[1.5rem] bg-gradient-to-br ${milestoneStatusConf.bg} shadow-xl transition-all hover:scale-105 ${milestoneStatusConf.glow}`}>
+                  <div className="flex items-center gap-3">
+                    <MilestoneStatusIcon className="w-5 h-5 text-white" />
+                    <div className="text-left">
+                      <p className="text-[9px] font-black text-white/60 uppercase tracking-widest leading-none mb-1">Delivery</p>
+                      <p className="text-sm font-black text-white leading-none">{milestoneStatusConf.label}</p>
                     </div>
-                    <span className="text-lg font-black">{Math.abs(deliveryDueDays)}d</span>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
+
+              {/* Aging Days Indicator */}
+              {worstTermAging > 0 && invoice.milestoneStatus !== 'FULLY_DELIVERED' && (
+                <div className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#E17F70]/10 border border-[#E17F70]/25">
+                  <AlertTriangle className="w-4 h-4 text-[#E17F70] animate-pulse" />
+                  <div>
+                    <p className="text-[9px] font-black text-[#E17F70]/70 uppercase tracking-widest leading-none mb-0.5">Max Aging</p>
+                    <p className="text-sm font-black text-[#9E3B47] leading-none">{worstTermAging} days overdue</p>
+                  </div>
+                </div>
+              )}
+              {worstTermAging === 0 && invoice.status !== 'PAID' && milestoneTerms.length > 0 && (
+                <div className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#82A094]/10 border border-[#82A094]/25">
+                  <Timer className="w-4 h-4 text-[#4F6A64]" />
+                  <div>
+                    <p className="text-[9px] font-black text-[#82A094]/70 uppercase tracking-widest leading-none mb-0.5">Aging</p>
+                    <p className="text-sm font-black text-[#4F6A64] leading-none">On Track</p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
       </div>
 
       {/* Financial Summary - Premium Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         {/* Total Amount */}
         <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#546A7A] via-[#6F8A9D] to-[#546A7A] p-4 sm:p-6 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02]">
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500" />
@@ -355,7 +433,7 @@ export default function MilestoneViewPage() {
               <span className="text-white/80 text-xs sm:text-sm font-medium">Total Amount</span>
             </div>
             <p className="text-lg sm:text-2xl font-bold text-white">{formatARCurrency(totalAmount)}</p>
-            <p className="text-white/60 text-[10px] sm:text-xs mt-2">Invoice value</p>
+            <p className="text-white/60 text-[10px] sm:text-xs mt-2">Milestone value</p>
           </div>
         </div>
 
@@ -404,30 +482,42 @@ export default function MilestoneViewPage() {
           </div>
         </div>
 
-        {/* Balance */}
+        {/* Overdue Amount */}
         <div className={`group relative overflow-hidden rounded-2xl p-4 sm:p-6 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02] ${
-          balanceAmount <= 0 
-            ? 'bg-gradient-to-br from-[#82A094] via-[#4F6A64] to-[#82A094]' 
-            : isOverdue 
+          overdueAmount > 0 
             ? 'bg-gradient-to-br from-[#E17F70] via-[#9E3B47] to-[#E17F70]'
-            : 'bg-gradient-to-br from-[#CE9F6B] via-[#976E44] to-[#CE9F6B]'
+            : 'bg-gradient-to-br from-[#82A094]/40 to-[#4F6A64]/40 border border-[#82A094]/20'
         }`}>
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500" />
           <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full -ml-12 -mb-12" />
           <div className="relative">
             <div className="flex items-center gap-2 mb-3">
-              <div className="p-2 rounded-lg bg-white/20"><Wallet className="w-5 h-5 text-white" /></div>
-              <span className="text-white/80 text-xs sm:text-sm font-medium">Balance Due</span>
+              <div className="p-2 rounded-lg bg-white/20"><AlertTriangle className="w-5 h-5 text-white" /></div>
+              <span className="text-white/80 text-xs sm:text-sm font-medium">Overdue Amount</span>
             </div>
-            <p className="text-xl sm:text-3xl font-bold text-white">{formatARCurrency(Math.abs(balanceAmount))}</p>
+            <p className="text-lg sm:text-2xl font-bold text-white">{formatARCurrency(overdueAmount)}</p>
             <p className="text-white/60 text-[10px] sm:text-xs mt-2 flex items-center gap-1">
-              {balanceAmount <= 0 ? (
-                <><BadgeCheck className="w-3 h-3" /> Fully Paid</>
-              ) : isOverdue ? (
-                <><AlertTriangle className="w-3 h-3" /> Overdue</>
-              ) : (
-                <><Clock className="w-3 h-3" /> Pending</>
-              )}
+              {overdueAmount > 0 ? 'Action required' : 'No overdue'}
+            </p>
+          </div>
+        </div>
+
+        {/* Not Due Amount */}
+        <div className={`group relative overflow-hidden rounded-2xl p-4 sm:p-6 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02] ${
+          notDueAmount > 0 
+            ? 'bg-gradient-to-br from-[#6F8A9D] via-[#546A7A] to-[#6F8A9D]'
+            : 'bg-gradient-to-br from-[#AEBFC3]/40 to-[#92A2A5]/40 border border-[#AEBFC3]/20'
+        }`}>
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500" />
+          <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full -ml-12 -mb-12" />
+          <div className="relative">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="p-2 rounded-lg bg-white/20"><Timer className="w-5 h-5 text-white" /></div>
+              <span className="text-white/80 text-xs sm:text-sm font-medium">Not Due Amount</span>
+            </div>
+            <p className="text-lg sm:text-2xl font-bold text-white">{formatARCurrency(notDueAmount)}</p>
+            <p className="text-white/60 text-[10px] sm:text-xs mt-2 flex items-center gap-1">
+              Future collection
             </p>
           </div>
         </div>
@@ -447,14 +537,16 @@ export default function MilestoneViewPage() {
           </div>
           <div className="text-right">
             <p className="text-2xl font-bold text-[#546A7A]">{Math.round(paymentProgress)}%</p>
-            <p className="text-xs text-[#92A2A5]">{formatARCurrency(totalReceived)} of {formatARCurrency(totalAmount)}</p>
+            <p className="text-xs text-[#92A2A5]">
+              {formatARCurrency(totalReceived)} of {formatARCurrency(totalAmount)}
+            </p>
           </div>
         </div>
         <div className="relative h-6 bg-[#AEBFC3]/20 rounded-full overflow-hidden">
-          <div 
+          <div
             className={`absolute inset-y-0 left-0 rounded-full transition-all duration-1000 ${
-              paymentProgress >= 100 
-                ? 'bg-gradient-to-r from-[#82A094] via-[#4F6A64] to-[#82A094]' 
+              paymentProgress >= 100
+                ? 'bg-gradient-to-r from-[#82A094] via-[#4F6A64] to-[#82A094]'
                 : paymentProgress >= 50
                 ? 'bg-gradient-to-r from-[#CE9F6B] via-[#976E44] to-[#CE9F6B]'
                 : 'bg-gradient-to-r from-[#6F8A9D] via-[#546A7A] to-[#6F8A9D]'
@@ -465,18 +557,160 @@ export default function MilestoneViewPage() {
           </div>
           <div className="absolute inset-0 flex items-center justify-between px-1">
             {[25, 50, 75].map((m) => (
-              <div key={m} className={`w-1 h-3 rounded-full ${paymentProgress >= m ? 'bg-white/50' : 'bg-[#92A2A5]/30'}`} style={{ marginLeft: `${m - 1}%` }} />
+              <div
+                key={m}
+                className={`w-1 h-3 rounded-full ${
+                  paymentProgress >= m ? 'bg-white/50' : 'bg-[#92A2A5]/30'
+                }`}
+                style={{ marginLeft: `${m - 1}%` }}
+              />
             ))}
           </div>
         </div>
         <div className="flex items-center justify-between mt-4">
           {['Pending', 'In Progress', 'Almost There', 'Completed'].map((label, i) => (
             <div key={label} className="flex flex-col items-center">
-              <div className={`w-3 h-3 rounded-full mb-1 ${paymentProgress >= (i * 33) ? 'bg-[#82A094]' : 'bg-[#AEBFC3]/40'}`} />
-              <span className={`text-xs ${paymentProgress >= (i * 33) ? 'text-[#5D6E73]' : 'text-[#AEBFC3]'}`}>{label}</span>
+              <div
+                className={`w-3 h-3 rounded-full mb-1 ${
+                  paymentProgress >= i * 33 ? 'bg-[#82A094]' : 'bg-[#AEBFC3]/40'
+                }`}
+              />
+              <span
+                className={`text-xs ${
+                  paymentProgress >= i * 33 ? 'text-[#5D6E73]' : 'text-[#AEBFC3]'
+                }`}
+              >
+                {label}
+              </span>
             </div>
           ))}
         </div>
+      </div>
+
+      {/* Payment Terms & Aging */}
+      <div className="bg-white rounded-2xl border border-[#AEBFC3]/20 shadow-lg overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#AEBFC3]/15 bg-gradient-to-r from-[#546A7A] to-[#6F8A9D]">
+          <div className="flex items-center gap-2.5">
+            <Sparkles className="w-4 h-4 text-white/80" />
+            <h3 className="font-bold text-white text-sm">Payment Terms & Aging</h3>
+            <span className="px-2 py-0.5 rounded-full bg-white/20 text-[10px] font-bold text-white">{milestoneTerms.length} Terms</span>
+          </div>
+          <div className="hidden sm:flex items-center gap-3 text-[10px] font-bold text-white/70">
+            <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-[#E17F70]" /> Overdue</div>
+            <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-[#82A094]" /> On Track</div>
+          </div>
+        </div>
+
+        {milestoneTerms.length > 0 ? (
+          <div className="divide-y divide-[#AEBFC3]/10">
+            {milestoneTerms.map((term, index) => {
+              const termDate = new Date(term.termDate);
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              const termAging = Math.floor((today.getTime() - termDate.getTime()) / (1000 * 60 * 60 * 24));
+              const percentage = term.percentage || 0;
+              const allocation = termCollections.find((t) => t.termId === `${term.termType}-${term.termDate}-${percentage}`);
+              const collectedForTerm = allocation?.collectedForTerm || 0;
+              const pendingForTerm = allocation?.pendingForTerm || 0;
+              const collectedPercent = allocation?.collectedPercent || 0;
+              const isFullyPaid = collectedPercent >= 99;
+              // BUG FIX: Only flag as overdue if term is NOT fully paid and milestone isn't fully delivered
+              const isTermOverdue = termAging > 0 && !isFullyPaid && invoice.milestoneStatus !== 'FULLY_DELIVERED';
+
+              return (
+                <div key={index} className={`flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-0 px-5 py-4 transition-colors ${
+                  isTermOverdue ? 'bg-[#E17F70]/[0.03]' : index % 2 === 0 ? 'bg-white' : 'bg-[#F8FAFB]/50'
+                } hover:bg-[#546A7A]/[0.03]`}>
+                  {/* Term Identity */}
+                  <div className="sm:w-[22%] flex items-center gap-3">
+                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 text-[10px] font-bold ${
+                      isFullyPaid ? 'bg-[#82A094] text-white' : 
+                      isTermOverdue ? 'bg-[#E17F70]/10 text-[#E17F70]' : 
+                      'bg-[#546A7A]/10 text-[#546A7A]'
+                    }`}>
+                      {isFullyPaid ? <CheckCircle className="w-3.5 h-3.5" /> : index + 1}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-bold text-[#546A7A] text-sm truncate">
+                        {term.termType === 'OTHER' ? term.customLabel : termOptions[term.termType] || term.termType}
+                      </p>
+                      <div className="flex items-center gap-1.5 text-[10px] text-[#92A2A5]">
+                        <span className="font-semibold text-[#CE9F6B]">{percentage}%</span>
+                        <span className={`px-1 py-0.5 rounded text-[8px] font-bold ${
+                          allocation?.isNetBasis ? 'bg-[#6F8A9D]/10 text-[#6F8A9D]' : 'bg-[#CE9F6B]/15 text-[#976E44]'
+                        }`}>
+                          {allocation?.isNetBasis ? 'Net' : 'Total'}
+                        </span>
+                        <span>•</span>
+                        <span>{formatARDate(term.termDate)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Allocated / Received / Pending values */}
+                  <div className="sm:w-[44%] sm:px-4">
+                    <div className="grid grid-cols-3 gap-3 mb-1.5">
+                      <div>
+                        <p className="text-[9px] font-bold text-[#92A2A5] uppercase">Allocated</p>
+                        <p className="text-xs font-bold text-[#546A7A]">{formatARCurrency(allocation?.allocatedAmount || 0)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] font-bold text-[#82A094] uppercase">Received</p>
+                        <p className="text-xs font-bold text-[#4F6A64]">{formatARCurrency(collectedForTerm)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] font-bold text-[#92A2A5] uppercase">Pending</p>
+                        <p className={`text-xs font-bold ${pendingForTerm > 0 ? 'text-[#E17F70]' : 'text-[#82A094]'}`}>{formatARCurrency(pendingForTerm)}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-1.5 bg-[#AEBFC3]/15 rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full rounded-full transition-all duration-700 ${
+                            isFullyPaid ? 'bg-[#82A094]' : collectedPercent >= 50 ? 'bg-[#CE9F6B]' : 'bg-[#6F8A9D]'
+                          }`}
+                          style={{ width: `${Math.min(100, collectedPercent)}%` }}
+                        />
+                      </div>
+                      <span className={`text-[10px] font-bold min-w-[32px] text-right ${
+                        isFullyPaid ? 'text-[#82A094]' : collectedPercent >= 50 ? 'text-[#CE9F6B]' : 'text-[#6F8A9D]'
+                      }`}>{Math.round(collectedPercent)}%</span>
+                    </div>
+                  </div>
+
+                  {/* Aging */}
+                  <div className="sm:w-[34%] flex items-center justify-end gap-3">
+                    <div className="text-right">
+                      <p className={`text-base font-bold leading-tight ${
+                        isFullyPaid ? 'text-[#82A094]' : isTermOverdue ? 'text-[#9E3B47]' : 'text-[#546A7A]'
+                      }`}>
+                        {isFullyPaid ? 'Cleared' : termAging > 0 ? `${termAging}d` : `${Math.abs(termAging)}d`}
+                      </p>
+                      <p className="text-[9px] font-semibold text-[#92A2A5] uppercase">
+                        {isFullyPaid ? 'Paid' : termAging > 0 ? 'Overdue' : 'Left'}
+                      </p>
+                    </div>
+                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                      isFullyPaid ? 'bg-[#82A094]/10' : isTermOverdue ? 'bg-[#E17F70]/10' : 'bg-[#546A7A]/10'
+                    }`}>
+                      {isFullyPaid ? <CheckCircle2 className="w-3.5 h-3.5 text-[#82A094]" /> : 
+                       isTermOverdue ? <AlertTriangle className="w-3.5 h-3.5 text-[#E17F70]" /> : 
+                       <Timer className="w-3.5 h-3.5 text-[#546A7A]" />}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="text-center py-10 text-[#92A2A5]">
+            <Tag className="w-8 h-8 mx-auto mb-2 opacity-25" />
+            <p className="font-medium text-sm mb-1">No payment terms defined</p>
+            <Link href={`/finance/ar/milestones/${params.id}/edit`} className="text-[#CE9F6B] text-xs font-bold hover:underline">
+              Add payment terms →
+            </Link>
+          </div>
+        )}
       </div>
 
       {/* Tabs Navigation */}
@@ -510,10 +744,13 @@ export default function MilestoneViewPage() {
                   <div className="space-y-3">
                     {[
                       { label: 'SO Number', value: invoice.soNo || '-', icon: Hash },
+                      { label: 'Invoice Number', value: invoice.invoiceNumber || '-', icon: FileText },
                       { label: 'Created Date', value: formatARDate(invoice.invoiceDate), icon: Calendar },
                       { label: 'Due Date', value: formatARDate(invoice.dueDate), icon: Calendar, highlight: isOverdue },
-                      { label: 'Payment Terms', value: invoice.actualPaymentTerms || '-', icon: CreditCard },
+                      { label: 'Booking Month', value: formatARMonth(invoice.bookingMonth), icon: BarChart3 },
                       { label: 'Category', value: invoice.type || 'NB', icon: Tag },
+                      { label: 'Risk Class', value: invoice.riskClass || '-', icon: Shield },
+                      { label: 'Milestone Status', value: milestoneStatusConf.label, icon: Package },
                     ].map((item) => (
                       <div key={item.label} className="flex items-center gap-3 p-3 rounded-xl bg-[#AEBFC3]/5 hover:bg-[#AEBFC3]/10 transition-colors">
                         <item.icon className={`w-4 h-4 ${item.highlight ? 'text-[#E17F70]' : 'text-[#6F8A9D]'}`} />
@@ -542,7 +779,8 @@ export default function MilestoneViewPage() {
                                invoice.accountingStatus === 'BACKLOG' ? 'Backlog' : '-', 
                         highlight: !!invoice.accountingStatus 
                       },
-                      ...(invoice.mailToTSP && invoice.mailToTSP !== 'false' ? [{ label: 'Mail to TSP', value: invoice.mailToTSP }] : []),
+                      ...(invoice.mailToTSP && invoice.mailToTSP !== 'false' ? [{ label: 'TSP Assigned', value: invoice.mailToTSP }] : []),
+                      { label: 'Payment Terms', value: invoice.actualPaymentTerms || '-' },
                     ].map((item: any) => (
                       <div key={item.label} className="flex items-center gap-3 p-3 rounded-xl bg-[#AEBFC3]/5 hover:bg-[#AEBFC3]/10 transition-colors">
                         <span className="text-[#92A2A5] text-sm w-24">{item.label}</span>
@@ -599,92 +837,26 @@ export default function MilestoneViewPage() {
                 </div>
               </div>
 
-              {/* Milestone Terms Section */}
-              <div className="mt-8 pt-8 border-t border-[#AEBFC3]/20">
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-xl bg-gradient-to-br from-[#CE9F6B]/20 to-[#E17F70]/20"><Sparkles className="w-5 h-5 text-[#CE9F6B]" /></div>
-                    <div>
-                      <h3 className="font-bold text-[#546A7A]">Payment Terms & Aging</h3>
-                      <p className="text-sm text-[#92A2A5]">Individual milestone tracking</p>
+                {/* Contractual Payment Terms Summary */}
+                <div className="lg:col-span-2">
+                  <h4 className="flex items-center gap-2 text-lg font-bold text-[#546A7A] mb-4">
+                    <div className="p-2 rounded-lg bg-[#CE9F6B]/10"><FileText className="w-5 h-5 text-[#CE9F6B]" /></div>
+                    Contractual Payment Terms (Full Summary)
+                  </h4>
+                  <div className="p-5 rounded-2xl bg-[#CE9F6B]/5 border border-[#CE9F6B]/20 relative overflow-hidden group">
+                    <div className="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-110 transition-transform duration-500">
+                      <FileText className="w-24 h-24 text-[#CE9F6B]" />
                     </div>
-                  </div>
-                  <div className="hidden sm:flex items-center gap-4 text-xs font-semibold">
-                    <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-[#E17F70]" /><span className="text-[#5D6E73]">Overdue</span></div>
-                    <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-[#82A094]" /><span className="text-[#5D6E73]">On Track</span></div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                  {(invoice.milestoneTerms as MilestonePaymentTerm[] || []).map((term, index) => {
-                    const termDate = new Date(term.termDate);
-                    const today = new Date(); today.setHours(0, 0, 0, 0);
-                    const termAging = Math.floor((today.getTime() - termDate.getTime()) / (1000 * 60 * 60 * 24));
-                    const isTermOverdue = termAging > 0 && invoice.milestoneStatus !== 'FULLY_DELIVERED';
-                    return (
-                      <div key={index} className={`relative p-5 rounded-2xl border-2 transition-all hover:scale-[1.02] ${isTermOverdue ? 'bg-gradient-to-br from-[#E17F70]/5 to-[#9E3B47]/5 border-[#E17F70]/20' : 'bg-gradient-to-br from-[#82A094]/5 to-[#4F6A64]/5 border-[#82A094]/20'}`}>
-                        <div className="flex items-center justify-between mb-4">
-                          <div className={`p-2 rounded-xl ${isTermOverdue ? 'bg-[#E17F70]/20' : 'bg-[#82A094]/20'}`}>
-                            <Calendar className={`w-5 h-5 ${isTermOverdue ? 'text-[#E17F70]' : 'text-[#82A094]'}`} />
-                          </div>
-                          <span className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase ${isTermOverdue ? 'bg-[#E17F70] text-white' : 'bg-[#82A094] text-white'}`}>
-                            {isTermOverdue ? 'Overdue' : 'On Track'}
-                          </span>
-                        </div>
-                        <h4 className="font-bold text-[#546A7A] mb-1">{term.termType === 'OTHER' ? term.customLabel : (termOptions[term.termType] || term.termType)}</h4>
-                        {term.percentage !== undefined && term.percentage > 0 && <p className="text-xs text-[#976E44] font-bold mb-1">{term.percentage}% allocation</p>}
-                        <p className="text-xs text-[#92A2A5] mb-4">Target: {formatARDate(term.termDate)}</p>
-                        <div className="flex items-center justify-between pt-4 border-t border-[#AEBFC3]/20">
-                          <div>
-                            <p className="text-[10px] text-[#92A2A5] uppercase font-bold">Current Aging</p>
-                            <p className={`text-xl font-black ${isTermOverdue ? 'text-[#9E3B47]' : 'text-[#4F6A64]'}`}>
-                              {termAging > 0 ? `${termAging} Days` : `${Math.abs(termAging)} Days Left`}
-                            </p>
-                          </div>
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isTermOverdue ? 'bg-[#9E3B47]/10' : 'bg-[#4F6A64]/10'}`}>
-                            {isTermOverdue ? <AlertTriangle className="w-5 h-5 text-[#9E3B47]" /> : <CheckCircle className="w-5 h-5 text-[#4F6A64]" />}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {(!invoice.milestoneTerms || invoice.milestoneTerms.length === 0) && (
-                    <div className="col-span-full text-center py-12 text-[#92A2A5]">
-                      <Tag className="w-10 h-10 mx-auto mb-3 opacity-30" />
-                      <p className="font-medium">No payment terms defined</p>
-                      <Link href={`/finance/ar/milestones/${encodeURIComponent(invoice.invoiceNumber)}/edit`} className="text-[#CE9F6B] text-sm font-semibold hover:underline mt-2 inline-block">
-                        Add payment terms →
-                      </Link>
-                    </div>
-                  )}
-                </div>
-
-                {/* Delivery Summary Strip */}
-                <div className="mt-8 pt-6 border-t border-[#AEBFC3]/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
-                  <div className="flex flex-wrap gap-4">
-                    <div className="bg-[#AEBFC3]/10 px-4 py-2 rounded-xl">
-                      <span className="text-xs text-[#92A2A5] block">Expected Delivery</span>
-                      <span className="font-bold text-[#546A7A]">{invoice.deliveryDueDate ? formatARDate(invoice.deliveryDueDate) : 'N/A'}</span>
-                    </div>
-                    <div className={`px-4 py-2 rounded-xl ${isDeliveryOverdue ? 'bg-[#E17F70]/10' : 'bg-[#82A094]/10'}`}>
-                      <span className="text-xs text-[#92A2A5] block">Delivery Status</span>
-                      <span className={`font-bold ${isDeliveryOverdue ? 'text-[#9E3B47]' : 'text-[#4F6A64]'}`}>
-                        {isDeliveryOverdue ? 'Overdue' : invoice.milestoneStatus?.replace(/_/g, ' ') || 'Pending'}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="text-left sm:text-right">
-                    <span className="text-xs text-[#92A2A5] block">Overall Aging</span>
-                    <div className="flex items-center gap-2">
-                      <Timer className={`w-4 h-4 ${daysOverdue > 0 ? 'text-[#E17F70]' : 'text-[#82A094]'}`} />
-                      <span className={`text-xl font-black ${daysOverdue > 0 ? 'text-[#9E3B47]' : 'text-[#4F6A64]'}`}>
-                        {daysOverdue > 0 ? `${daysOverdue} Days Overdue` : `${Math.abs(daysOverdue)} Days Left`}
-                      </span>
-                    </div>
+                    {invoice.actualPaymentTerms ? (
+                      <p className="text-[#5D6E73] font-medium leading-relaxed whitespace-pre-wrap relative z-10">
+                        {invoice.actualPaymentTerms}
+                      </p>
+                    ) : (
+                      <p className="text-[#92A2A5] italic text-sm relative z-10">No manual payment terms summary provided.</p>
+                    )}
                   </div>
                 </div>
               </div>
-            </div>
           )}
 
           {/* Payments Tab */}
@@ -707,10 +879,21 @@ export default function MilestoneViewPage() {
                       <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#82A094] to-[#4F6A64] flex items-center justify-center text-white font-bold shadow-lg">
                         {index + 1}
                       </div>
-                      <div className="flex-1 flex flex-col sm:grid sm:grid-cols-5 gap-4 items-start sm:items-center">
+                      <div className="flex-1 flex flex-col sm:grid sm:grid-cols-6 gap-4 items-start sm:items-center">
                         <div className="w-full sm:w-auto">
                           <p className="text-[10px] sm:text-xs text-[#92A2A5] uppercase font-bold sm:normal-case sm:font-normal">Date</p>
                           <p className="font-medium text-[#546A7A] text-sm sm:text-base">{formatARDate(payment.paymentDate)}</p>
+                        </div>
+                        <div className="w-full sm:w-auto">
+                          <p className="text-[10px] sm:text-xs text-[#92A2A5] uppercase font-bold sm:normal-case sm:font-normal">Payment Term</p>
+                          {payment.milestoneTerm ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-[#CE9F6B]/10 text-[#976E44] text-xs font-bold">
+                              <Tag className="w-3 h-3" />
+                              {payment.milestoneTerm === 'OTHER' ? 'Other' : (termOptions[payment.milestoneTerm] || payment.milestoneTerm)}
+                            </span>
+                          ) : (
+                            <p className="font-medium text-[#92A2A5] text-xs">-</p>
+                          )}
                         </div>
                         <div className="w-full sm:w-auto">
                           <p className="text-[10px] sm:text-xs text-[#92A2A5] uppercase font-bold sm:normal-case sm:font-normal">Mode & Bank</p>
@@ -728,6 +911,11 @@ export default function MilestoneViewPage() {
                         <div className="w-full sm:text-right">
                           <p className="text-[10px] sm:text-xs text-[#92A2A5] uppercase font-bold sm:normal-case sm:font-normal">Amount</p>
                           <p className="font-bold text-[#4F6A64] text-base sm:text-lg">{formatARCurrency(payment.amount)}</p>
+                          {payment.notes && (
+                            <p className="text-[10px] text-[#92A2A5] mt-0.5 italic truncate max-w-[200px]" title={payment.notes}>
+                              <MessageSquare className="w-2.5 h-2.5 inline mr-1" />{payment.notes}
+                            </p>
+                          )}
                         </div>
                         <div className="flex items-center justify-end gap-2 w-full sm:w-auto mt-2 sm:mt-0">
                           <button onClick={() => handleEditPayment(payment)} className="flex-1 sm:flex-none flex items-center justify-center gap-2 sm:gap-0 px-4 sm:px-2 py-2 rounded-lg bg-[#6F8A9D]/10 text-[#6F8A9D] hover:bg-[#6F8A9D]/20 transition-all font-semibold sm:font-normal text-xs sm:text-base" title="Edit payment">
@@ -920,33 +1108,119 @@ export default function MilestoneViewPage() {
 
       {/* Payment Modal */}
       {showPaymentModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl w-full max-w-lg p-8 shadow-2xl relative animate-scale-in">
-            <button onClick={closePaymentModal} className="absolute top-4 right-4 p-2 rounded-xl hover:bg-[#AEBFC3]/20 transition-colors">
-              <X className="w-5 h-5 text-[#5D6E73]" />
-            </button>
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-3 rounded-2xl bg-gradient-to-br from-[#82A094] to-[#4F6A64] shadow-lg">
-                <IndianRupee className="w-6 h-6 text-white" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={(e) => { if (e.target === e.currentTarget) closePaymentModal(); }}>
+          <div className="bg-white rounded-[2rem] w-full max-w-xl shadow-2xl relative animate-scale-in overflow-hidden">
+            {/* Gradient Header with Balance Info */}
+            <div className="relative bg-gradient-to-r from-[#546A7A] via-[#6F8A9D] to-[#546A7A] px-7 py-5 overflow-hidden">
+              <div className="absolute -top-12 -right-12 w-40 h-40 bg-white/10 rounded-full blur-xl" />
+              <div className="absolute -bottom-8 -left-8 w-32 h-32 bg-white/5 rounded-full blur-lg" />
+              <button onClick={closePaymentModal} className="absolute top-4 right-4 p-1.5 rounded-xl bg-white/10 hover:bg-white/20 transition-colors">
+                <X className="w-4 h-4 text-white" />
+              </button>
+              <div className="relative flex items-center gap-3.5">
+                <div className="p-2.5 rounded-xl bg-white/20 backdrop-blur-sm shadow-lg">
+                  <IndianRupee className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white tracking-tight">{editingPaymentId ? 'Edit Payment' : 'Record Payment'}</h3>
+                  <p className="text-[11px] text-white/60">{invoice?.invoiceNumber ?? ''} • {invoice?.customerName ?? ''}</p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-xl font-bold text-[#546A7A]">{editingPaymentId ? 'Edit Payment' : 'Record Payment'}</h3>
-                <p className="text-sm text-[#92A2A5]">{editingPaymentId ? 'Update this' : 'Add a'} payment record for {invoice.invoiceNumber}</p>
+              {/* Quick Balance Strip */}
+              <div className="relative flex items-center gap-4 mt-4 pt-3 border-t border-white/15">
+                <div className="flex-1">
+                  <p className="text-[9px] uppercase tracking-widest text-white/50 font-bold">Total</p>
+                  <p className="text-sm font-bold text-white">{formatARCurrency(totalAmount)}</p>
+                </div>
+                <div className="flex-1">
+                  <p className="text-[9px] uppercase tracking-widest text-white/50 font-bold">Received</p>
+                  <p className="text-sm font-bold text-[#A8E6CF]">{formatARCurrency(totalReceived)}</p>
+                </div>
+                <div className="flex-1">
+                  <p className="text-[9px] uppercase tracking-widest text-white/50 font-bold">Balance</p>
+                  <p className={`text-sm font-bold ${balanceAmount > 0 ? 'text-[#FFB8B8]' : 'text-[#A8E6CF]'}`}>{formatARCurrency(Math.abs(balanceAmount))}</p>
+                </div>
+                <div className="flex-1 text-right">
+                  <p className="text-[9px] uppercase tracking-widest text-white/50 font-bold">Progress</p>
+                  <p className="text-sm font-bold text-white">{Math.round(paymentProgress)}%</p>
+                </div>
               </div>
             </div>
-            <form onSubmit={handlePaymentSubmit} className="space-y-5">
-              <div>
-                <label className="block text-sm font-semibold text-[#5D6E73] mb-2">Amount (₹) <span className="text-[#E17F70]">*</span></label>
-                <input type="number" step="0.01" required value={paymentForm.amount} onChange={e => setPaymentForm({...paymentForm, amount: e.target.value})} className="w-full h-14 px-4 rounded-xl bg-[#AEBFC3]/10 border-2 border-[#AEBFC3]/30 text-[#546A7A] focus:border-[#82A094] focus:outline-none focus:ring-4 focus:ring-[#82A094]/20 transition-all font-mono text-xl" placeholder="0.00" />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-[#5D6E73] mb-2">Payment Date <span className="text-[#E17F70]">*</span></label>
-                <input type="date" required value={paymentForm.paymentDate} onChange={e => setPaymentForm({...paymentForm, paymentDate: e.target.value})} className="w-full h-12 px-3 rounded-xl bg-[#AEBFC3]/10 border-2 border-[#AEBFC3]/30 text-[#546A7A] focus:border-[#82A094] focus:outline-none transition-all" />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+            {/* Form Body */}
+            <form onSubmit={handlePaymentSubmit} className="px-7 py-5 space-y-4">
+              {/* Payment Term - Visual Card Selector */}
+              {milestoneTerms.length > 0 && (
                 <div>
-                  <label className="block text-sm font-semibold text-[#5D6E73] mb-2">Reference Bank <span className="text-[#E17F70]">*</span></label>
-                  <select value={paymentForm.referenceBank} onChange={e => setPaymentForm({...paymentForm, referenceBank: e.target.value})} className="w-full h-12 px-3 rounded-xl bg-[#AEBFC3]/10 border-2 border-[#AEBFC3]/30 text-[#546A7A] focus:border-[#82A094] focus:outline-none transition-all" required>
+                  <label className="flex items-center gap-1.5 text-xs font-bold text-[#5D6E73] mb-2 uppercase tracking-wider">
+                    <Tag className="w-3.5 h-3.5 text-[#CE9F6B]" /> Milestone Stage <span className="text-[#E17F70]">*</span>
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {milestoneTerms.map((term, idx) => {
+                      const label = term.termType === 'OTHER' ? (term.customLabel || 'Other') : (termOptions[term.termType] || term.termType);
+                      const pct = term.percentage ? `${term.percentage}%` : '';
+                      const isSelected = paymentForm.milestoneTerm === term.termType;
+                      const allocation = termCollections.find((t) => t.termId === `${term.termType}-${term.termDate}-${term.percentage || 0}`);
+                      const stageProgress = allocation?.collectedPercent || 0;
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setPaymentForm({...paymentForm, milestoneTerm: term.termType})}
+                          className={`relative group p-2.5 rounded-xl border-2 text-left transition-all duration-200 ${
+                            isSelected
+                              ? 'border-[#82A094] bg-[#82A094]/5 shadow-md shadow-[#82A094]/10 ring-1 ring-[#82A094]/20'
+                              : 'border-[#AEBFC3]/25 bg-white hover:border-[#AEBFC3]/50 hover:bg-[#AEBFC3]/5'
+                          }`}
+                        >
+                          {isSelected && (
+                            <div className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-[#82A094] flex items-center justify-center shadow-sm">
+                              <CheckCircle className="w-3 h-3 text-white" />
+                            </div>
+                          )}
+                          <p className={`text-xs font-bold truncate ${isSelected ? 'text-[#4F6A64]' : 'text-[#546A7A]'}`}>{label}</p>
+                          <div className="flex items-center justify-between mt-1">
+                            {pct && <span className="text-[10px] font-bold text-[#CE9F6B]">{pct}</span>}
+                            <span className={`text-[9px] font-semibold ${stageProgress >= 99 ? 'text-[#82A094]' : 'text-[#92A2A5]'}`}>
+                              {stageProgress >= 99 ? '✓ Paid' : `${Math.round(stageProgress)}%`}
+                            </span>
+                          </div>
+                          {/* Mini progress bar */}
+                          <div className="h-1 bg-[#AEBFC3]/15 rounded-full mt-1.5 overflow-hidden">
+                            <div className={`h-full rounded-full transition-all ${isSelected ? 'bg-[#82A094]' : 'bg-[#AEBFC3]/40'}`} style={{ width: `${Math.min(100, stageProgress)}%` }} />
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {/* Hidden required input for form validation */}
+                  <input type="text" value={paymentForm.milestoneTerm} required className="sr-only" tabIndex={-1} onChange={() => {}} />
+                </div>
+              )}
+
+              {/* Amount & Date Row */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="flex items-center gap-1.5 text-xs font-bold text-[#5D6E73] mb-1.5 uppercase tracking-wider">
+                    <IndianRupee className="w-3.5 h-3.5 text-[#82A094]" /> Amount <span className="text-[#E17F70]">*</span>
+                  </label>
+                  <input type="number" step="0.01" required value={paymentForm.amount} onChange={e => setPaymentForm({...paymentForm, amount: e.target.value})} className="w-full h-12 px-3.5 rounded-xl bg-[#AEBFC3]/8 border-2 border-[#AEBFC3]/25 text-[#546A7A] focus:border-[#82A094] focus:outline-none focus:ring-3 focus:ring-[#82A094]/15 transition-all font-mono text-lg font-bold" placeholder="0.00" />
+                </div>
+                <div>
+                  <label className="flex items-center gap-1.5 text-xs font-bold text-[#5D6E73] mb-1.5 uppercase tracking-wider">
+                    <Calendar className="w-3.5 h-3.5 text-[#6F8A9D]" /> Date <span className="text-[#E17F70]">*</span>
+                  </label>
+                  <input type="date" required value={paymentForm.paymentDate} onChange={e => setPaymentForm({...paymentForm, paymentDate: e.target.value})} className="w-full h-12 px-3 rounded-xl bg-[#AEBFC3]/8 border-2 border-[#AEBFC3]/25 text-[#546A7A] focus:border-[#82A094] focus:outline-none transition-all text-sm font-medium" />
+                </div>
+              </div>
+
+              {/* Bank & Mode Row */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="flex items-center gap-1.5 text-xs font-bold text-[#5D6E73] mb-1.5 uppercase tracking-wider">
+                    <Building className="w-3.5 h-3.5 text-[#CE9F6B]" /> Bank <span className="text-[#E17F70]">*</span>
+                  </label>
+                  <select value={paymentForm.referenceBank} onChange={e => setPaymentForm({...paymentForm, referenceBank: e.target.value})} className="w-full h-12 px-3 rounded-xl bg-[#AEBFC3]/8 border-2 border-[#AEBFC3]/25 text-[#546A7A] focus:border-[#82A094] focus:outline-none transition-all text-sm font-medium" required>
                     <option value="" disabled>Select Bank</option>
                     <option value="HDFC">HDFC Bank</option>
                     <option value="DB">Deutsche Bank (DB)</option>
@@ -954,8 +1228,10 @@ export default function MilestoneViewPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-[#5D6E73] mb-2">Mode <span className="text-[#E17F70]">*</span></label>
-                  <select value={paymentForm.paymentMode} onChange={e => setPaymentForm({...paymentForm, paymentMode: e.target.value})} className="w-full h-12 px-3 rounded-xl bg-[#AEBFC3]/10 border-2 border-[#AEBFC3]/30 text-[#546A7A] focus:border-[#82A094] focus:outline-none transition-all" required>
+                  <label className="flex items-center gap-1.5 text-xs font-bold text-[#5D6E73] mb-1.5 uppercase tracking-wider">
+                    <CreditCard className="w-3.5 h-3.5 text-[#E17F70]" /> Mode <span className="text-[#E17F70]">*</span>
+                  </label>
+                  <select value={paymentForm.paymentMode} onChange={e => setPaymentForm({...paymentForm, paymentMode: e.target.value})} className="w-full h-12 px-3 rounded-xl bg-[#AEBFC3]/8 border-2 border-[#AEBFC3]/25 text-[#546A7A] focus:border-[#82A094] focus:outline-none transition-all text-sm font-medium" required>
                     <option value="" disabled>Select Mode</option>
                     <option value="Receipt">Receipt</option>
                     <option value="TDS">TDS</option>
@@ -964,14 +1240,22 @@ export default function MilestoneViewPage() {
                   </select>
                 </div>
               </div>
+
+              {/* Notes */}
               <div>
-                <label className="block text-sm font-semibold text-[#5D6E73] mb-2">Notes (Optional)</label>
-                <textarea value={paymentForm.notes} onChange={e => setPaymentForm({...paymentForm, notes: e.target.value})} className="w-full px-4 py-3 rounded-xl bg-[#AEBFC3]/10 border-2 border-[#AEBFC3]/30 text-[#546A7A] focus:border-[#82A094] focus:outline-none transition-all resize-none h-20" placeholder="Add any notes..." />
+                <label className="flex items-center gap-1.5 text-xs font-bold text-[#5D6E73] mb-1.5 uppercase tracking-wider">
+                  <MessageSquare className="w-3.5 h-3.5 text-[#92A2A5]" /> Notes <span className="text-[#92A2A5] font-normal normal-case tracking-normal">(optional)</span>
+                </label>
+                <textarea value={paymentForm.notes} onChange={e => setPaymentForm({...paymentForm, notes: e.target.value})} className="w-full px-3.5 py-2.5 rounded-xl bg-[#AEBFC3]/8 border-2 border-[#AEBFC3]/25 text-[#546A7A] focus:border-[#82A094] focus:outline-none transition-all resize-none h-16 text-sm" placeholder="Add remarks or reference details..." />
               </div>
-              <div className="flex gap-3 pt-4">
-                <button type="button" onClick={closePaymentModal} className="flex-1 py-3.5 rounded-xl border-2 border-[#AEBFC3]/40 text-[#5D6E73] font-semibold hover:bg-[#AEBFC3]/10 transition-all">Cancel</button>
-                <button type="submit" disabled={paymentLoading} className="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-[#82A094] to-[#4F6A64] text-white font-bold hover:shadow-lg hover:shadow-[#82A094]/40 transition-all flex items-center justify-center gap-2">
-                  {paymentLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle className="w-5 h-5" />}
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-2 border-t border-[#AEBFC3]/15">
+                <button type="button" onClick={closePaymentModal} className="flex-1 py-3 rounded-xl border-2 border-[#AEBFC3]/30 text-[#5D6E73] font-semibold hover:bg-[#AEBFC3]/10 hover:border-[#AEBFC3]/50 transition-all text-sm">
+                  Cancel
+                </button>
+                <button type="submit" disabled={paymentLoading} className="flex-[1.5] py-3 rounded-xl bg-gradient-to-r from-[#82A094] to-[#4F6A64] text-white font-bold hover:shadow-xl hover:shadow-[#82A094]/30 transition-all flex items-center justify-center gap-2 text-sm disabled:opacity-60">
+                  {paymentLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
                   {editingPaymentId ? 'Update Payment' : 'Record Payment'}
                 </button>
               </div>

@@ -6,11 +6,11 @@ import Link from 'next/link';
 import { arApi, ARInvoice, ARPaymentHistory, MatchingMilestone, formatARCurrency, formatARDate } from '@/lib/ar-api';
 import { 
   ArrowLeft, Pencil, Trash2, FileText, Calendar, User, Clock, 
-  AlertTriangle, CheckCircle, Loader2, Mail, Phone, MapPin, Building, 
+  AlertTriangle, CheckCircle, CheckCircle2, Loader2, Mail, Phone, MapPin, Building, 
   CreditCard, Hash, Receipt, Truck, MessageSquare, Shield, Copy, 
-  RefreshCw, Plus, X, IndianRupee, Package, TrendingUp, XCircle,
+  RefreshCw, Plus, X, IndianRupee, Package, TrendingUp, XCircle, ArrowRight, PlusCircle,
   ChevronRight, Timer, Banknote, ArrowDownRight, ArrowUpRight, Sparkles,
-  Wallet, CreditCard as CardIcon, BadgeCheck, Scale, Link2, Tag
+  Wallet, CreditCard as CardIcon, BadgeCheck, Scale, Link2, Tag, PackageX
 } from 'lucide-react';
 
 export default function InvoiceViewPage() {
@@ -313,9 +313,51 @@ export default function InvoiceViewPage() {
   const daysOverdue = invoice.dueByDays || 0;
   const isOverdue = invoice.status === 'OVERDUE' || (daysOverdue > 0 && invoice.status !== 'PAID');
   const isPaid = invoice.status === 'PAID';
-
   // Milestone-specific computed values
   const isMilestone = invoice.invoiceType === 'MILESTONE';
+  const termOptions: Record<string, string> = { ABG: 'ABG', PO: 'PO', DELIVERY: 'Delivery', FAR: 'FAR', PBG: 'PBG', FAR_PBG: 'FAR & PBG', INVOICE_SUBMISSION: 'Invoice Submission', PI: 'PI', OTHER: 'Other' };
+
+  // Collection allocation per milestone term based on overall receipts
+  const milestoneTermsArr: any[] = (invoice.milestoneTerms as any[]) || [];
+  let remainingReceipts = totalReceived;
+  const termCollections = milestoneTermsArr
+    .slice()
+    .sort((a, b: any) => new Date(a.termDate).getTime() - new Date(b.termDate).getTime())
+    .map((term: any) => {
+      const percentage = term.percentage || 0;
+      const isNetBasis = term.calculationBasis !== 'TOTAL_AMOUNT';
+      const baseAmount = isNetBasis ? netAmount : totalAmount;
+      const allocatedAmount = (baseAmount * percentage) / 100;
+      const collectedForTerm = Math.min(allocatedAmount, Math.max(0, remainingReceipts));
+      remainingReceipts -= collectedForTerm;
+      const pendingForTerm = Math.max(0, allocatedAmount - collectedForTerm);
+      const collectedPercent = allocatedAmount > 0 ? (collectedForTerm / allocatedAmount) * 100 : 0;
+      return {
+        termId: `${term.termType}-${term.termDate}-${percentage}`,
+        allocatedAmount,
+        collectedForTerm,
+        pendingForTerm,
+        collectedPercent,
+        isNetBasis,
+      };
+    });
+
+  // Overdue and Not Due calculations
+  const overdueAmount = isMilestone 
+    ? termCollections
+        .filter((tc: any) => {
+          const term = milestoneTermsArr.find((t: any) => `${t.termType}-${t.termDate}-${t.percentage || 0}` === tc.termId);
+          if (!term) return false;
+          const termDate = new Date(term.termDate);
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const termAging = Math.floor((today.getTime() - termDate.getTime()) / (1000 * 60 * 60 * 24));
+          return termAging > 0 && tc.collectedPercent < 99 && invoice.milestoneStatus !== 'FULLY_DELIVERED';
+        })
+        .reduce((sum: number, tc: any) => sum + tc.pendingForTerm, 0)
+    : (isOverdue ? balanceAmount : 0);
+
+  const notDueAmount = Math.max(0, balanceAmount - overdueAmount);
   const getDeliveryDueDays = () => {
     if (!invoice.deliveryDueDate) return null;
     const today = new Date();
@@ -573,8 +615,77 @@ export default function InvoiceViewPage() {
         </div>
       </div>
 
+      {/* Smart Discovery: Matching Milestones - Prominent placement for reconciliation suggestions */}
+      {!isMilestone && matchingMilestones.length > 0 && (() => {
+        const linkedCount = matchingMilestones.filter(m => (m as any).linkedInvoiceId === invoice?.id).length;
+        const hasNewPaymentsCount = matchingMilestones.filter(m => (m as any).untransferredPayments > 0).length;
+        const totalNewPaymentsAmount = matchingMilestones.reduce((sum, m) => sum + ((m as any).untransferredAmount || 0), 0);
+        
+        return (
+          <div className="relative group overflow-hidden rounded-[2rem] bg-gradient-to-br from-[#546A7A] to-[#6F8A9D] p-6 shadow-2xl border border-white/10 mb-6 transition-all hover:scale-[1.005]">
+            {/* Animated Background Pattern */}
+            <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -mr-32 -mt-32 group-hover:bg-[#CE9F6B]/10 transition-colors duration-700" />
+            <div className="absolute bottom-0 left-0 w-48 h-48 bg-[#CE9F6B]/5 rounded-full blur-3xl -ml-24 -mb-24" />
+            
+            <div className="relative flex flex-col lg:flex-row items-center justify-between gap-6">
+              <div className="flex items-center gap-5">
+                <div className="relative w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center shadow-inner border border-white/20 flex-shrink-0">
+                  <Sparkles className="w-8 h-8 text-[#CE9F6B] animate-pulse" />
+                  <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#E17F70] border-2 border-[#546A7A] animate-bounce" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[10px] font-black tracking-widest text-[#CE9F6B] uppercase">Smart Match Detected</span>
+                    <span className="px-2 py-0.5 rounded-full bg-white/10 text-white/50 text-[9px] font-bold">via PO: {invoice?.poNo}</span>
+                  </div>
+                  <h3 className="text-xl font-bold text-white">Import Milestone Payments?</h3>
+                  <p className="text-white/70 text-sm max-w-md">
+                    We found {matchingMilestones.length} milestone{matchingMilestones.length > 1 ? 's' : ''} with 
+                    {hasNewPaymentsCount > 0 ? (
+                      <span className="text-[#CE9F6B] font-bold mx-1">{formatARCurrency(totalNewPaymentsAmount)}</span>
+                    ) : ' available payments'} to import.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto">
+                {/* Visual Connection */}
+                <div className="hidden sm:flex items-center gap-3 bg-black/10 rounded-2xl px-4 py-2 border border-white/10">
+                  <div className="flex flex-col">
+                    <span className="text-[8px] text-white/40 font-bold uppercase tracking-tighter">Source</span>
+                    <span className="text-xs font-mono text-white/80">MILESTONE</span>
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-[#CE9F6B]" />
+                  <div className="flex flex-col">
+                    <span className="text-[8px] text-white/40 font-bold uppercase tracking-tighter">Target</span>
+                    <span className="text-xs font-mono text-white/80">INVOICE</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <button
+                    onClick={() => setShowLinkModal(true)}
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-[#CE9F6B] text-[#546A7A] font-black hover:bg-white hover:shadow-xl transition-all text-sm group/btn"
+                  >
+                    <PlusCircle className="w-4 h-4 group-hover/btn:rotate-90 transition-transform" />
+                    {linkedCount > 0 ? 'Review & Link' : 'Start Import'}
+                  </button>
+                  <button
+                    onClick={() => setMatchingMilestones([])}
+                    className="p-3 rounded-xl bg-white/5 text-white/60 hover:bg-white/10 hover:text-white transition-colors"
+                    title="Dismiss"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Financial Summary - Premium Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         {/* Total Amount */}
         <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#546A7A] via-[#6F8A9D] to-[#546A7A] p-4 sm:p-6 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02]">
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500" />
@@ -642,32 +753,42 @@ export default function InvoiceViewPage() {
           </div>
         </div>
 
-        {/* Balance */}
+        {/* Overdue Amount */}
         <div className={`group relative overflow-hidden rounded-2xl p-4 sm:p-6 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02] ${
-          balanceAmount <= 0 
-            ? 'bg-gradient-to-br from-[#82A094] via-[#4F6A64] to-[#82A094]' 
-            : isOverdue 
+          overdueAmount > 0 
             ? 'bg-gradient-to-br from-[#E17F70] via-[#9E3B47] to-[#E17F70]'
-            : 'bg-gradient-to-br from-[#CE9F6B] via-[#976E44] to-[#CE9F6B]'
+            : 'bg-gradient-to-br from-[#82A094]/40 to-[#4F6A64]/40 border border-[#82A094]/20'
         }`}>
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500" />
           <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full -ml-12 -mb-12" />
           <div className="relative">
             <div className="flex items-center gap-2 mb-3">
-              <div className="p-2 rounded-lg bg-white/20">
-                <Wallet className="w-5 h-5 text-white" />
-              </div>
-              <span className="text-white/80 text-xs sm:text-sm font-medium">Balance Due</span>
+              <div className="p-2 rounded-lg bg-white/20"><AlertTriangle className="w-5 h-5 text-white" /></div>
+              <span className="text-white/80 text-xs sm:text-sm font-medium">Overdue Amount</span>
             </div>
-            <p className="text-xl sm:text-3xl font-bold text-white">{formatARCurrency(Math.abs(balanceAmount))}</p>
+            <p className="text-lg sm:text-2xl font-bold text-white">{formatARCurrency(overdueAmount)}</p>
             <p className="text-white/60 text-[10px] sm:text-xs mt-2 flex items-center gap-1">
-              {balanceAmount <= 0 ? (
-                <><BadgeCheck className="w-3 h-3" /> Fully Paid</>
-              ) : isOverdue ? (
-                <><AlertTriangle className="w-3 h-3" /> Overdue</>
-              ) : (
-                <><Clock className="w-3 h-3" /> Pending</>
-              )}
+              {overdueAmount > 0 ? 'Action required' : 'No overdue'}
+            </p>
+          </div>
+        </div>
+
+        {/* Not Due Amount */}
+        <div className={`group relative overflow-hidden rounded-2xl p-4 sm:p-6 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02] ${
+          notDueAmount > 0 
+            ? 'bg-gradient-to-br from-[#6F8A9D] via-[#546A7A] to-[#6F8A9D]'
+            : 'bg-gradient-to-br from-[#AEBFC3]/40 to-[#92A2A5]/40 border border-[#AEBFC3]/20'
+        }`}>
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500" />
+          <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full -ml-12 -mb-12" />
+          <div className="relative">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="p-2 rounded-lg bg-white/20"><Timer className="w-5 h-5 text-white" /></div>
+              <span className="text-white/80 text-xs sm:text-sm font-medium">Not Due Amount</span>
+            </div>
+            <p className="text-lg sm:text-2xl font-bold text-white">{formatARCurrency(notDueAmount)}</p>
+            <p className="text-white/60 text-[10px] sm:text-xs mt-2 flex items-center gap-1">
+              Future collection
             </p>
           </div>
         </div>
@@ -675,106 +796,133 @@ export default function InvoiceViewPage() {
 
       {/* Milestone Payments & Aging Timeline */}
       {isMilestone && (
-        <div className="bg-white rounded-2xl border border-[#CE9F6B]/20 p-6 shadow-lg overflow-hidden relative">
-          <div className="absolute top-0 right-0 p-3 opacity-10">
-            <Sparkles className="w-12 h-12 text-[#CE9F6B]" />
-          </div>
-          
-          <div className="flex items-center justify-between mb-8">
+        <div className="bg-white rounded-[2rem] border border-[#AEBFC3]/20 shadow-xl overflow-hidden">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-[#AEBFC3]/15 bg-gradient-to-r from-[#546A7A] to-[#6F8A9D]">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-gradient-to-br from-[#CE9F6B]/20 to-[#E17F70]/20">
-                <Timer className="w-5 h-5 text-[#CE9F6B]" />
-              </div>
+              <Sparkles className="w-5 h-5 text-white/80" />
               <div>
-                <h3 className="font-bold text-[#546A7A]">Milestone Payment Aging</h3>
-                <p className="text-sm text-[#92A2A5]">View aging for each payment term individually</p>
+                <h3 className="font-bold text-white text-base">Milestone Payment Aging</h3>
+                <p className="text-[10px] text-white/60 uppercase font-black tracking-widest">Reconciliation Timeline</p>
               </div>
             </div>
-            
-            <div className="hidden sm:flex items-center gap-4 text-xs font-semibold">
+            <div className="hidden sm:flex items-center gap-4 text-[10px] font-bold text-white/70">
               <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 rounded-full bg-[#E17F70]" />
-                <span className="text-[#5D6E73]">Overdue</span>
+                <div className="w-2.5 h-2.5 rounded-full bg-[#E17F70]" />
+                <span>Overdue</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 rounded-full bg-[#82A094]" />
-                <span className="text-[#5D6E73]">On Track</span>
+                <div className="w-2.5 h-2.5 rounded-full bg-[#82A094]" />
+                <span>On Track</span>
               </div>
             </div>
-          </div>
-          
-          {/* Dynamic Milestone Terms List */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {(invoice.milestoneTerms as any[] || []).map((term, index) => {
-              const termDate = new Date(term.termDate);
-              const today = new Date();
-              today.setHours(0, 0, 0, 0);
-              const diffTime = today.getTime() - termDate.getTime();
-              const termAging = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-              const isTermOverdue = termAging > 0 && invoice.milestoneStatus !== 'FULLY_DELIVERED';
-              
-              return (
-                <div key={index} className={`relative p-5 rounded-2xl border-2 transition-all hover:scale-[1.02] ${
-                  isTermOverdue 
-                    ? 'bg-gradient-to-br from-[#E17F70]/5 to-[#9E3B47]/5 border-[#E17F70]/20' 
-                    : 'bg-gradient-to-br from-[#82A094]/5 to-[#4F6A64]/5 border-[#82A094]/20'
-                }`}>
-                  <div className="flex items-center justify-between mb-4">
-                    <div className={`p-2 rounded-xl ${isTermOverdue ? 'bg-[#E17F70]/20' : 'bg-[#82A094]/20'}`}>
-                      <Calendar className={`w-5 h-5 ${isTermOverdue ? 'text-[#E17F70]' : 'text-[#82A094]'}`} />
-                    </div>
-                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase ${
-                      isTermOverdue ? 'bg-[#E17F70] text-white' : 'bg-[#82A094] text-white'
-                    }`}>
-                      {isTermOverdue ? 'Overdue' : 'On Track'}
-                    </span>
-                  </div>
-                  
-                  <h4 className="font-bold text-[#546A7A] mb-1">
-                    {term.termType === 'OTHER' ? term.customLabel : term.termType}
-                  </h4>
-                  <p className="text-xs text-[#92A2A5] mb-4">Target: {formatARDate(term.termDate)}</p>
-                  
-                  <div className="flex items-center justify-between pt-4 border-t border-[#AEBFC3]/20">
-                    <div>
-                      <p className="text-[10px] text-[#92A2A5] uppercase font-bold">Current Aging</p>
-                      <p className={`text-xl font-black ${isTermOverdue ? 'text-[#9E3B47]' : 'text-[#4F6A64]'}`}>
-                        {termAging > 0 ? `${termAging} Days` : `${Math.abs(termAging)} Days Left`}
-                      </p>
-                    </div>
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isTermOverdue ? 'bg-[#9E3B47]/10' : 'bg-[#4F6A64]/10'}`}>
-                      {isTermOverdue ? <AlertTriangle className="w-5 h-5 text-[#9E3B47]" /> : <CheckCircle className="w-5 h-5 text-[#4F6A64]" />}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
           </div>
 
-          <div className="mt-8 pt-6 border-t border-[#AEBFC3]/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
-            <div className="flex flex-wrap gap-4">
-              <div className="bg-[#AEBFC3]/10 px-4 py-2 rounded-xl">
-                <span className="text-xs text-[#92A2A5] block">Expected Delivery</span>
-                <span className="font-bold text-[#546A7A] text-sm sm:text-base">{invoice.deliveryDueDate ? formatARDate(invoice.deliveryDueDate) : 'N/A'}</span>
-              </div>
-              <div className={`px-4 py-2 rounded-xl ${isDeliveryOverdue ? 'bg-[#E17F70]/10' : 'bg-[#82A094]/10'}`}>
-                <span className="text-xs text-[#92A2A5] block">Delivery Status</span>
-                <span className={`font-bold text-sm sm:text-base ${isDeliveryOverdue ? 'text-[#9E3B47]' : 'text-[#4F6A64]'}`}>
-                  {isDeliveryOverdue ? 'Overdue' : invoice.milestoneStatus?.replace('_', ' ') || 'Pending'}
-                </span>
-              </div>
+          {milestoneTermsArr.length > 0 ? (
+            <div className="divide-y divide-[#AEBFC3]/10">
+              {milestoneTermsArr.map((term, index) => {
+                const termDate = new Date(term.termDate);
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const termAging = Math.floor((today.getTime() - termDate.getTime()) / (1000 * 60 * 60 * 24));
+                const percentage = term.percentage || 0;
+                const allocation = termCollections.find((t) => t.termId === `${term.termType}-${term.termDate}-${percentage}`);
+                const collectedForTerm = allocation?.collectedForTerm || 0;
+                const pendingForTerm = allocation?.pendingForTerm || 0;
+                const collectedPercent = allocation?.collectedPercent || 0;
+                const isFullyPaid = collectedPercent >= 99;
+                const isTermOverdue = termAging > 0 && !isFullyPaid && invoice.milestoneStatus !== 'FULLY_DELIVERED';
+
+                return (
+                  <div key={index} className={`flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-0 px-6 py-5 transition-colors ${
+                    isTermOverdue ? 'bg-[#E17F70]/[0.03]' : index % 2 === 0 ? 'bg-white' : 'bg-[#F8FAFB]/50'
+                  } hover:bg-[#546A7A]/[0.02]`}>
+                    
+                    {/* Term Identity */}
+                    <div className="sm:w-[25%] flex items-center gap-4">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-xs font-black shadow-sm ${
+                        isFullyPaid ? 'bg-[#82A094] text-white shadow-[#82A094]/20' : 
+                        isTermOverdue ? 'bg-[#E17F70]/10 text-[#E17F70]' : 
+                        'bg-[#546A7A]/10 text-[#546A7A]'
+                      }`}>
+                        {isFullyPaid ? <CheckCircle2 className="w-5 h-5" /> : index + 1}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-bold text-[#546A7A] text-sm truncate">
+                          {term.termType === 'OTHER' ? term.customLabel : termOptions[term.termType] || term.termType}
+                        </p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-xs font-black text-[#CE9F6B] uppercase">{percentage}%</span>
+                          <span className="text-[10px] text-[#92A2A5] font-medium">{formatARDate(term.termDate)}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Allocated / Received / Pending values */}
+                    <div className="sm:w-[45%] lg:px-6">
+                      <div className="grid grid-cols-3 gap-4 mb-2">
+                        <div>
+                          <p className="text-[9px] font-black text-[#92A2A5] uppercase tracking-tighter">Allocated</p>
+                          <p className="text-xs font-bold text-[#546A7A]">{formatARCurrency(allocation?.allocatedAmount || 0)}</p>
+                        </div>
+                        <div>
+                          <p className="text-[9px] font-black text-[#82A094] uppercase tracking-tighter">Received</p>
+                          <p className="text-xs font-bold text-[#4F6A64]">{formatARCurrency(collectedForTerm)}</p>
+                        </div>
+                        <div>
+                          <p className="text-[9px] font-black text-[#92A2A5] uppercase tracking-tighter">Pending</p>
+                          <p className={`text-xs font-bold ${pendingForTerm > 0 ? 'text-[#E17F70]' : 'text-[#82A094]'}`}>{formatARCurrency(pendingForTerm)}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1 h-2 bg-[#AEBFC3]/15 rounded-full overflow-hidden shadow-inner">
+                          <div 
+                            className={`h-full rounded-full transition-all duration-1000 ${
+                              isFullyPaid ? 'bg-gradient-to-r from-[#82A094] to-[#4F6A64]' : 
+                              collectedPercent >= 50 ? 'bg-gradient-to-r from-[#CE9F6B] to-[#976E44]' : 
+                              'bg-gradient-to-r from-[#6F8A9D] to-[#546A7A]'
+                            }`}
+                            style={{ width: `${Math.min(100, collectedPercent)}%` }}
+                          />
+                        </div>
+                        <span className={`text-xs font-black min-w-[35px] text-right ${
+                          isFullyPaid ? 'text-[#82A094]' : collectedPercent >= 50 ? 'text-[#CE9F6B]' : 'text-[#6F8A9D]'
+                        }`}>{Math.round(collectedPercent)}%</span>
+                      </div>
+                    </div>
+
+                    {/* Aging Status */}
+                    <div className="sm:w-[30%] flex items-center justify-end gap-4">
+                      <div className="text-right">
+                        <p className={`text-lg font-black leading-tight ${
+                          isFullyPaid ? 'text-[#82A094]' : isTermOverdue ? 'text-[#9E3B47]' : 'text-[#4F6A64]'
+                        }`}>
+                          {isFullyPaid ? 'Cleared' : termAging > 0 ? `${termAging} Days` : `${Math.abs(termAging)} Days Left`}
+                        </p>
+                        <p className="text-[10px] font-black text-[#92A2A5] uppercase tracking-widest">
+                          {isFullyPaid ? 'Payment Received' : termAging > 0 ? 'OVERDUE' : 'ON TRACK'}
+                        </p>
+                      </div>
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm ${
+                        isFullyPaid ? 'bg-[#82A094]/10' : isTermOverdue ? 'bg-[#E17F70]/10' : 'bg-[#82A094]/10'
+                      }`}>
+                        {isFullyPaid ? <CheckCircle2 className="w-5 h-5 text-[#82A094]" /> : 
+                         isTermOverdue ? <AlertTriangle className="w-5 h-5 text-[#E17F70] animate-pulse" /> : 
+                         <Timer className="w-5 h-5 text-[#82A094]" />}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-            
-            <div className="text-left sm:text-right">
-              <span className="text-xs text-[#92A2A5] block">Overall Aging</span>
-              <div className="flex items-center gap-2">
-                <Timer className={`w-4 h-4 ${daysOverdue > 0 ? 'text-[#E17F70]' : 'text-[#82A094]'}`} />
-                <span className={`text-lg sm:text-xl font-black ${daysOverdue > 0 ? 'text-[#9E3B47]' : 'text-[#4F6A64]'}`}>
-                  {daysOverdue > 0 ? `${daysOverdue} Days Overdue` : `${Math.abs(daysOverdue)} Days Left`}
-                </span>
+          ) : (
+            <div className="text-center py-12 px-6">
+              <div className="w-16 h-16 rounded-2xl bg-[#AEBFC3]/10 flex items-center justify-center mx-auto mb-4">
+                <FileText className="w-8 h-8 text-[#AEBFC3]" />
               </div>
+              <p className="text-[#5D6E73] font-bold">No payment terms defined for this milestone.</p>
+              <p className="text-[#92A2A5] text-sm mt-1">Please update the milestone to add terms and track aging.</p>
             </div>
-          </div>
+          )}
         </div>
       )}
 
@@ -834,120 +982,7 @@ export default function InvoiceViewPage() {
         </div>
       </div>
 
-      {/* Matching Milestones Banner - For regular invoices with matching milestones */}
-      {!isMilestone && matchingMilestones.length > 0 && (() => {
-        const linkedCount = matchingMilestones.filter(m => (m as any).linkedInvoiceId === invoice?.id).length;
-        const availableCount = matchingMilestones.length - linkedCount;
-        const hasNewPaymentsCount = matchingMilestones.filter(m => (m as any).untransferredPayments > 0).length;
-        const totalNewPaymentsAmount = matchingMilestones.reduce((sum, m) => sum + ((m as any).untransferredAmount || 0), 0);
-        
-        // Use green theme if already linked, orange/brown if only matching found
-        const themeColor = linkedCount > 0 ? '#82A094' : '#CE9F6B';
-        const gradientFrom = linkedCount > 0 ? 'from-[#82A094]/10' : 'from-[#CE9F6B]/10';
-        const gradientTo = linkedCount > 0 ? 'to-[#4F6A64]/10' : 'to-[#E17F70]/10';
-        const iconGradient = linkedCount > 0 ? 'from-[#82A094] to-[#4F6A64]' : 'from-[#CE9F6B] to-[#E17F70]';
-        const shadowColor = linkedCount > 0 ? 'shadow-[#82A094]/30' : 'shadow-[#CE9F6B]/30';
 
-        return (
-        <div className={`bg-gradient-to-r ${gradientFrom} ${gradientTo} rounded-2xl border border-${linkedCount > 0 ? '[#82A094]/30' : '[#CE9F6B]/30'} p-6 shadow-lg mb-6`}>
-          <div className="flex flex-col lg:flex-row items-start justify-between gap-6">
-            <div className="flex items-start gap-4">
-              <div className={`p-3 rounded-xl bg-gradient-to-br ${iconGradient} shadow-lg ${shadowColor} mt-1 flex-shrink-0`}>
-                {linkedCount > 0 ? <BadgeCheck className="w-6 h-6 text-white" /> : <Wallet className="w-6 h-6 text-white" />}
-              </div>
-              <div>
-                <h3 className="font-bold text-[#546A7A] flex items-center gap-2 flex-wrap">
-                  {linkedCount > 0 ? <CheckCircle className="w-4 h-4 text-[#82A094]" /> : <Sparkles className="w-4 h-4 text-[#CE9F6B]" />}
-                  {hasNewPaymentsCount > 0 ? 'New Payments Available!' : linkedCount > 0 ? 'Milestone Payments Linked' : 'Matching Milestone Payment Found!'}
-                </h3>
-                <p className="text-sm text-[#5D6E73] mt-1">
-                  {linkedCount > 0 ? (
-                    <>This invoice has been linked to <span className="font-bold text-[#546A7A]">{linkedCount}</span> milestone payment{linkedCount > 1 ? 's' : ''}.</>
-                  ) : (
-                    <>Matching milestone payment found with PO <span className="font-mono font-bold text-[#546A7A]">{invoice?.poNo}</span>.</>
-                  )}
-                  {hasNewPaymentsCount > 0 && (
-                    <span className="text-[#E17F70] font-bold animate-pulse block sm:inline mt-1 sm:mt-0 sm:ml-1"> • {formatARCurrency(totalNewPaymentsAmount)} new available</span>
-                  )}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 w-full sm:w-auto">
-              {(availableCount > 0 || hasNewPaymentsCount > 0) && (
-                <button
-                  onClick={() => setShowLinkModal(true)}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#CE9F6B] to-[#E17F70] text-white font-bold hover:shadow-lg hover:shadow-[#CE9F6B]/30 transition-all text-sm"
-                >
-                  <Link2 className="w-4 h-4" />
-                  {hasNewPaymentsCount > 0 ? 'Transfer New' : 'Link More'}
-                </button>
-              )}
-              {availableCount === 0 && hasNewPaymentsCount === 0 && linkedCount > 0 && (
-                <button
-                  onClick={() => setShowLinkModal(true)}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#82A094] text-white font-bold hover:shadow-lg transition-all text-sm"
-                >
-                  <CheckCircle className="w-4 h-4" />
-                  View Linked
-                </button>
-              )}
-            </div>
-          </div>
-          
-          {/* Detailed breakdown for linked milestones OR quick preview for available ones */}
-          <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-            {linkedCount > 0 ? (
-              // Detailed breakdown for linked milestones
-              (invoice as any).linkedFromMilestones?.map((milestone: any) => (
-                <div key={milestone.id} className="bg-white/60 rounded-xl border border-[#82A094]/20 p-4 shadow-sm">
-                  <div className="flex items-center justify-between mb-3 pb-2 border-b border-[#82A094]/10">
-                    <div className="flex items-center gap-2">
-                      <Receipt className="w-4 h-4 text-[#82A094]" />
-                      <span className="font-bold text-[#546A7A]">{milestone.invoiceNumber}</span>
-                    </div>
-                    <div className="text-right">
-                      <span className="font-bold text-[#82A094]">
-                        {formatARCurrency(milestone.paymentHistory?.reduce((sum: number, p: any) => sum + Number(p.amount), 0) || 0)}
-                      </span>
-                      <p className="text-[10px] text-[#92A2A5] leading-none">transferred</p>
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    {milestone.paymentHistory?.map((payment: any) => (
-                      <div key={payment.id} className="flex items-center justify-between text-xs">
-                        <span className="text-[#5D6E73] font-medium">
-                          {formatARDate(payment.paymentDate)} • {payment.paymentMode}
-                        </span>
-                        <span className="font-bold text-[#546A7A]">{formatARCurrency(payment.amount)}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))
-            ) : (
-              // Simple preview for available milestones
-              matchingMilestones.slice(0, 2).map((milestone) => (
-                <div key={milestone.id} className="flex items-center justify-between p-4 rounded-xl border bg-white/80 border-[#AEBFC3]/20 shadow-sm">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-[#CE9F6B]/10">
-                      <Receipt className="w-4 h-4 text-[#CE9F6B]" />
-                    </div>
-                    <div>
-                      <p className="font-bold text-sm text-[#546A7A]">{milestone.invoiceNumber}</p>
-                      <p className="text-xs text-[#92A2A5]">{formatARDate(milestone.invoiceDate)}</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-bold text-[#CE9F6B]">{formatARCurrency(milestone.totalPayments)}</p>
-                    <p className="text-[10px] text-[#92A2A5]">available</p>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-        );
-})()}
 
       {/* Link Milestone Modal */}
       {showLinkModal && (

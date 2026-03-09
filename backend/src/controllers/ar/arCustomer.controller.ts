@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../../config/db';
+import { logInvoiceActivity, getUserFromRequest, getIpFromRequest } from './arActivityLog.controller';
 
 // Note: The AR module uses a denormalized structure - customer data is embedded in ARInvoice.
 // These functions provide customer-related queries from the ARInvoice table.
@@ -179,6 +180,32 @@ export const updateCustomer = async (req: Request, res: Response) => {
         if (updateResult.count === 0) {
             return res.status(404).json({ error: 'Customer not found' });
         }
+
+        // Get all affected invoice IDs for logging
+        const affectedInvoices = await prisma.aRInvoice.findMany({
+            where: { bpCode: id },
+            select: { id: true, invoiceNumber: true }
+        });
+
+        // Log activity for each affected invoice (first 10 to avoid performance issues)
+        const user = getUserFromRequest(req);
+        const ipAddress = getIpFromRequest(req);
+        const userAgent = req.headers['user-agent'] || null;
+
+        const logPromises = affectedInvoices.slice(0, 10).map(inv =>
+            logInvoiceActivity({
+                invoiceId: inv.id,
+                action: 'CUSTOMER_UPDATED',
+                description: `Customer information updated for BP Code ${id} (${updateResult.count} invoices affected)`,
+                performedById: user.id,
+                performedBy: user.name,
+                ipAddress,
+                userAgent,
+                metadata: { bpCode: id, updatedFields: Object.keys(req.body), invoiceCount: updateResult.count }
+            })
+        );
+
+        await Promise.all(logPromises);
 
         // Return updated customer info
         const updatedCustomer = await prisma.aRInvoice.findFirst({

@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../../config/db';
+import { logInvoiceActivity, getUserFromRequest, getIpFromRequest } from './arActivityLog.controller';
 
 // Get all payment terms
 export const getAllPaymentTerms = async (req: Request, res: Response) => {
@@ -61,6 +62,18 @@ export const createPaymentTerm = async (req: Request, res: Response) => {
             }
         });
 
+        // Log activity
+        const user = getUserFromRequest(req);
+        await logInvoiceActivity({
+            action: 'PAYMENT_TERM_CREATED',
+            description: `Payment term ${termCode} (${termName}) was created`,
+            performedById: user.id,
+            performedBy: user.name,
+            ipAddress: getIpFromRequest(req),
+            userAgent: req.headers['user-agent'] || null,
+            metadata: { termCode, termName, dueDays }
+        });
+
         res.status(201).json(term);
     } catch (error: any) {
 
@@ -84,6 +97,18 @@ export const updatePaymentTerm = async (req: Request, res: Response) => {
         const term = await prisma.aRPaymentTerms.update({
             where: { id },
             data: updateData
+        });
+
+        // Log activity
+        const user = getUserFromRequest(req);
+        await logInvoiceActivity({
+            action: 'PAYMENT_TERM_UPDATED',
+            description: `Payment term ${term.termCode} was updated`,
+            performedById: user.id,
+            performedBy: user.name,
+            ipAddress: getIpFromRequest(req),
+            userAgent: req.headers['user-agent'] || null,
+            metadata: { termCode: term.termCode, updateData }
         });
 
         res.json(term);
@@ -117,6 +142,17 @@ export const seedPaymentTerms = async (req: Request, res: Response) => {
                 })
             )
         );
+
+        // Log activity
+        const user = getUserFromRequest(req);
+        await logInvoiceActivity({
+            action: 'PAYMENT_TERM_UPDATED',
+            description: `Payment terms master was seeded/reset (${results.length} terms affected)`,
+            performedById: user.id,
+            performedBy: user.name,
+            ipAddress: getIpFromRequest(req),
+            userAgent: req.headers['user-agent'] || null
+        });
 
         res.json({ message: `Seeded ${results.length} payment terms`, terms: results });
     } catch (error: any) {

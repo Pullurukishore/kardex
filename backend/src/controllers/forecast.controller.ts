@@ -745,8 +745,11 @@ export class ForecastController {
                     // Deviation OR vs Booked
                     const devORvsBooked = orderReceived - ordersBooked;
 
-                    // Orders in hand (open funnel for this month) = Offers Value - Orders Received
-                    const ordersInHand = offersValue - orderReceived;
+                    // Orders in hand (open funnel for this month)
+                    // Logic: Count only offers created this month that are still OPEN
+                    const ordersInHand = monthOffers
+                        .filter(o => o.openFunnel === true)
+                        .reduce((sum, o) => sum + (o.offerValue ? Number(o.offerValue) : 0), 0);
 
                     // Monthly target
                     const buMonthly = monthlyTargetMap.get(monthStr) || monthlyBUTarget;
@@ -757,7 +760,7 @@ export class ForecastController {
                     // % Deviation: ((Actual - Target) / Target) × 100
                     // Standard deviation formula - compares actual orders to monthly target
                     let percentDev: number | null = null;
-                    if (buMonthly > 0 && orderReceived > 0) {
+                    if (buMonthly > 0) {
                         percentDev = ((orderReceived - buMonthly) / buMonthly) * 100;
                     }
 
@@ -766,8 +769,8 @@ export class ForecastController {
 
                     // Offer BU Month deviation: (Offers Value - Offer BU Month) / Offer BU Month × 100
                     // Positive = exceeded target, Negative = below target
-                    // Only show deviation if there are actual offers (otherwise show dash)
-                    const offerBUMonthDev = (offerBUMonth > 0 && offersValue > 0) ? ((offersValue - offerBUMonth) / offerBUMonth) * 100 : null;
+                    // Only show deviation if there is a target set
+                    const offerBUMonthDev = offerBUMonth > 0 ? ((offersValue - offerBUMonth) / offerBUMonth) * 100 : null;
 
                     monthlyData.push({
                         month: monthStr,
@@ -921,7 +924,9 @@ export class ForecastController {
                         offersValue: allOffersValue,
                         orderReceived: allOrdersReceived,
                         ordersBooked: allOrdersReceived, // Same as orderReceived
-                        ordersInHand: allOffersValue - allOrdersReceived, // Recalculate based on all offers (Old logic)
+                        ordersInHand: offers
+                            .filter(o => o.openFunnel === true)
+                            .reduce((sum, o) => sum + (o.offerValue ? Number(o.offerValue) : 0), 0),
                         buMonthly: totalBUMonthly,
                         offerBUMonth: totalOfferBUMonth,
                     },
@@ -1158,8 +1163,11 @@ export class ForecastController {
                         return sum + value;
                     }, 0);
 
-                    // Orders in hand (open funnel for this month) = Offers Value - Orders Received
-                    const ordersInHand = offersValue - orderReceived;
+                    // Orders in hand (open funnel for this month)
+                    // Logic: Count only offers created this month that are still OPEN
+                    const ordersInHand = monthOffers
+                        .filter(o => o.openFunnel === true)
+                        .reduce((sum, o) => sum + (o.offerValue ? Number(o.offerValue) : 0), 0);
 
                     // Monthly target
                     const buMonthly = monthlyTargetMap.get(monthStr) || monthlyBUTarget;
@@ -1167,15 +1175,15 @@ export class ForecastController {
                     // % Deviation: ((Actual - Target) / Target) × 100
                     // Standard deviation formula - compares actual orders to monthly target
                     let percentDev: number | null = null;
-                    if (buMonthly > 0 && orderReceived > 0) {
+                    if (buMonthly > 0) {
                         percentDev = ((orderReceived - buMonthly) / buMonthly) * 100;
                     }
 
                     // Offer BU Month = BU/Monthly × 4
                     const offerBUMonth = buMonthly * 4;
 
-                    // Offer BU Month deviation - only show if there are actual offers
-                    const offerBUMonthDev = (offerBUMonth > 0 && offersValue > 0) ? ((offersValue - offerBUMonth) / offerBUMonth) * 100 : null;
+                    // Offer BU Month deviation - only show if there is a target set
+                    const offerBUMonthDev = offerBUMonth > 0 ? ((offersValue - offerBUMonth) / offerBUMonth) * 100 : null;
 
                     monthlyData.push({
                         month: monthStr,
@@ -1950,6 +1958,616 @@ export class ForecastController {
         } catch (error: any) {
             logger.error('Get Forecast Analytics error:', error);
             return res.status(500).json({ error: 'Failed to fetch Forecast Analytics' });
+        }
+    }
+
+    // ==========================================
+    // GROWTH REPORT
+    // ==========================================
+
+    static getGrowthReportWrapper(req: any, res: Response) {
+        return ForecastController.getGrowthReport(req as AuthenticatedRequest, res);
+    }
+
+    /**
+     * Growth Report API
+     * Returns Target vs Offer Value vs Won with month-range & zone/user filters
+     * Supports: All Zones, individual Zone, individual User, month-to-month range
+     * Returns: total + product-wise breakdown, growth metrics, auto-generated insights
+     */
+    static async getGrowthReport(req: AuthenticatedRequest, res: Response) {
+        try {
+            const { year, fromMonth, toMonth, zoneId, userId } = req.query;
+            const targetYear = year ? parseInt(year as string) : new Date().getFullYear();
+            const startMonth = fromMonth ? parseInt(fromMonth as string) : 1;
+            const endMonth = toMonth ? parseInt(toMonth as string) : 12;
+            const filterZoneId = zoneId ? parseInt(zoneId as string) : null;
+            const filterUserId = userId ? parseInt(userId as string) : null;
+
+            const monthNames = [
+                'January', 'February', 'March', 'April', 'May', 'June',
+                'July', 'August', 'September', 'October', 'November', 'December'
+            ];
+
+            const productTypes = [
+                { key: 'CONTRACT', label: 'Contract' },
+                { key: 'BD_SPARE', label: 'BD Spare' },
+                { key: 'SPARE_PARTS', label: 'Spare Parts' },
+                { key: 'KARDEX_CONNECT', label: 'Kardex Connect' },
+                { key: 'RELOCATION', label: 'Relocation' },
+                { key: 'SOFTWARE', label: 'Software' },
+                { key: 'OTHERS', label: 'Repairs & Others' },
+                { key: 'RETROFIT_KIT', label: 'Retrofit Kit' },
+                { key: 'UPGRADE_KIT', label: 'Optilife Upgrade' },
+            ];
+
+            const yearStart = new Date(targetYear, 0, 1);
+            const yearEnd = new Date(targetYear, 11, 31, 23, 59, 59);
+            const targetYearStr = String(targetYear);
+
+            // Get zones
+            const zones = await prisma.serviceZone.findMany({
+                where: {
+                    isActive: true,
+                    ...(filterZoneId && { id: filterZoneId }),
+                },
+                orderBy: { name: 'asc' },
+            });
+
+            // ---- Build monthly data ----
+            interface MonthGrowthData {
+                month: number;
+                monthLabel: string;
+                monthStr: string;
+                target: number;
+                offerValue: number;
+                wonValue: number;
+                offerCount: number;
+                wonCount: number;
+                achievementPercent: number;
+                hitRatePercent: number;
+                growthPercent: number | null; // MoM growth on wonValue
+            }
+
+            interface ProductGrowthData {
+                productType: string;
+                productLabel: string;
+                target: number;
+                offerValue: number;
+                wonValue: number;
+                offerCount: number;
+                wonCount: number;
+                achievementPercent: number;
+                hitRatePercent: number;
+                monthlyData: MonthGrowthData[];
+            }
+
+            const totalMonthlyData: MonthGrowthData[] = [];
+            const productDataMap: Map<string, { target: number; offerValue: number; wonValue: number; offerCount: number; wonCount: number; monthlyData: Map<number, MonthGrowthData> }> = new Map();
+
+            // Initialize product data map
+            productTypes.forEach(pt => {
+                const monthMap = new Map<number, MonthGrowthData>();
+                for (let m = startMonth; m <= endMonth; m++) {
+                    monthMap.set(m, {
+                        month: m,
+                        monthLabel: monthNames[m - 1],
+                        monthStr: `${targetYear}-${String(m).padStart(2, '0')}`,
+                        target: 0, offerValue: 0, wonValue: 0, offerCount: 0, wonCount: 0,
+                        achievementPercent: 0, hitRatePercent: 0, growthPercent: null,
+                    });
+                }
+                productDataMap.set(pt.key, { target: 0, offerValue: 0, wonValue: 0, offerCount: 0, wonCount: 0, monthlyData: monthMap });
+            });
+
+            // Get all offers across zones for filtered range
+            for (const zone of zones) {
+                // Get yearly targets (overall and product-specific)
+                let yearlyTargets: any[];
+                if (filterUserId) {
+                    // Only fetch and add user target once to the total sum
+                    if (zones.indexOf(zone) === 0) {
+                        yearlyTargets = await prisma.userTarget.findMany({
+                            where: {
+                                userId: filterUserId,
+                                targetPeriod: String(targetYear),
+                                periodType: 'YEARLY',
+                            },
+                        });
+                    } else {
+                        yearlyTargets = [];
+                    }
+                } else {
+                    yearlyTargets = await prisma.zoneTarget.findMany({
+                        where: {
+                            serviceZoneId: zone.id,
+                            targetPeriod: String(targetYear),
+                            periodType: 'YEARLY',
+                        },
+                    });
+                }
+
+                const overallTarget = yearlyTargets.find(t => t.productType === null);
+                const productTargets = yearlyTargets.filter(t => t.productType !== null);
+                let zoneYearlyTarget: number;
+                if (overallTarget) {
+                    zoneYearlyTarget = toNumber(overallTarget.targetValue);
+                } else {
+                    zoneYearlyTarget = productTargets.reduce((sum, t) => sum + toNumber(t.targetValue), 0);
+                }
+
+                // Build product target map for this zone
+                const productTargetMap = new Map<string, number>();
+                productTargets.forEach(t => {
+                    if (t.productType) {
+                        productTargetMap.set(t.productType, toNumber(t.targetValue));
+                    }
+                });
+
+                // Monthly targets
+                let monthlyTargets: any[];
+                if (filterUserId) {
+                    // Only fetch user monthly targets once
+                    if (zones.indexOf(zone) === 0) {
+                        monthlyTargets = await prisma.userTarget.findMany({
+                            where: {
+                                userId: filterUserId,
+                                targetPeriod: { startsWith: `${targetYear}-` },
+                                periodType: 'MONTHLY',
+                                productType: null,
+                            },
+                        });
+                    } else {
+                        monthlyTargets = [];
+                    }
+                } else {
+                    monthlyTargets = await prisma.zoneTarget.findMany({
+                        where: {
+                            serviceZoneId: zone.id,
+                            targetPeriod: { startsWith: `${targetYear}-` },
+                            periodType: 'MONTHLY',
+                            productType: null,
+                        },
+                    });
+                }
+                const monthlyTargetMap = new Map<string, number>();
+                monthlyTargets.forEach(t => monthlyTargetMap.set(t.targetPeriod, toNumber(t.targetValue)));
+
+                const monthlyBUTarget = zoneYearlyTarget / 12;
+
+                // Get all offers for this zone in the year
+                const offers = await prisma.offer.findMany({
+                    where: {
+                        zoneId: zone.id,
+                        createdAt: { gte: yearStart, lte: yearEnd },
+                        ...(filterUserId && {
+                            OR: [
+                                { assignedToId: filterUserId },
+                                { createdById: filterUserId },
+                            ],
+                        }),
+                    },
+                    select: {
+                        id: true,
+                        offerValue: true,
+                        poValue: true,
+                        stage: true,
+                        offerMonth: true,
+                        poReceivedMonth: true,
+                        productType: true,
+                        assignedToId: true,
+                        createdById: true,
+                    },
+                });
+
+                // Process each month in range
+                for (let month = startMonth; month <= endMonth; month++) {
+                    const monthStr = `${targetYear}-${String(month).padStart(2, '0')}`;
+                    const buTarget = monthlyTargetMap.get(monthStr) || monthlyBUTarget;
+
+                    // Offers for this month
+                    const monthOffers = offers.filter(o => o.offerMonth === monthStr);
+                    const offerValue = monthOffers.reduce((sum, o) => sum + toNumber(o.offerValue), 0);
+                    const offerCount = monthOffers.length;
+
+                    // Won offers for this month
+                    const wonThisMonth = offers.filter(o =>
+                        (o.stage === 'WON' || o.stage === 'PO_RECEIVED') &&
+                        ((o.poReceivedMonth && o.poReceivedMonth === monthStr) ||
+                            (!o.poReceivedMonth && o.offerMonth === monthStr))
+                    );
+                    const wonValue = wonThisMonth.reduce((sum, o) => {
+                        const value = o.poValue ? toNumber(o.poValue) : toNumber(o.offerValue);
+                        return sum + value;
+                    }, 0);
+                    const wonCount = wonThisMonth.length;
+
+                    // Find or create total monthly entry
+                    let totalEntry = totalMonthlyData.find(d => d.month === month);
+                    if (!totalEntry) {
+                        totalEntry = {
+                            month, monthLabel: monthNames[month - 1], monthStr,
+                            target: 0, offerValue: 0, wonValue: 0, offerCount: 0, wonCount: 0,
+                            achievementPercent: 0, hitRatePercent: 0, growthPercent: null,
+                        };
+                        totalMonthlyData.push(totalEntry);
+                    }
+                    totalEntry.target += buTarget;
+                    totalEntry.offerValue += offerValue;
+                    totalEntry.wonValue += wonValue;
+                    totalEntry.offerCount += offerCount;
+                    totalEntry.wonCount += wonCount;
+
+                    // Product-wise breakdown
+                    for (const pt of productTypes) {
+                        const ptOffers = monthOffers.filter(o => o.productType === pt.key);
+                        const ptOfferValue = ptOffers.reduce((sum, o) => sum + toNumber(o.offerValue), 0);
+                        const ptWonThisMonth = wonThisMonth.filter(o => o.productType === pt.key);
+                        const ptWonValue = ptWonThisMonth.reduce((sum, o) => {
+                            return sum + (o.poValue ? toNumber(o.poValue) : toNumber(o.offerValue));
+                        }, 0);
+
+                        const ptMonthlyTarget = (productTargetMap.get(pt.key) || 0) / 12;
+
+                        const productData = productDataMap.get(pt.key)!;
+                        const ptMonthEntry = productData.monthlyData.get(month)!;
+                        ptMonthEntry.target += ptMonthlyTarget;
+                        ptMonthEntry.offerValue += ptOfferValue;
+                        ptMonthEntry.wonValue += ptWonValue;
+                        ptMonthEntry.offerCount += ptOffers.length;
+                        ptMonthEntry.wonCount += ptWonThisMonth.length;
+
+                        productData.target += ptMonthlyTarget;
+                        productData.offerValue += ptOfferValue;
+                        productData.wonValue += ptWonValue;
+                        productData.offerCount += ptOffers.length;
+                        productData.wonCount += ptWonThisMonth.length;
+                    }
+                }
+            }
+
+            // Calculate percentages and MoM growth
+            totalMonthlyData.sort((a, b) => a.month - b.month);
+            for (let i = 0; i < totalMonthlyData.length; i++) {
+                const d = totalMonthlyData[i];
+                d.achievementPercent = d.target > 0 ? Math.round((d.wonValue / d.target) * 1000) / 10 : 0;
+                d.hitRatePercent = d.offerValue > 0 ? Math.round((d.wonValue / d.offerValue) * 1000) / 10 : 0;
+                if (i > 0) {
+                    const prev = totalMonthlyData[i - 1];
+                    d.growthPercent = prev.wonValue > 0
+                        ? Math.round(((d.wonValue - prev.wonValue) / prev.wonValue) * 1000) / 10
+                        : null;
+                }
+            }
+
+            // Calculate product-wise percentages
+            const productGrowthData: ProductGrowthData[] = [];
+            for (const pt of productTypes) {
+                const pData = productDataMap.get(pt.key)!;
+                const monthlyArr = Array.from(pData.monthlyData.values()).sort((a, b) => a.month - b.month);
+
+                // Calculate MoM growth and percentages for product months
+                for (let i = 0; i < monthlyArr.length; i++) {
+                    const d = monthlyArr[i];
+                    d.achievementPercent = d.target > 0 ? Math.round((d.wonValue / d.target) * 1000) / 10 : 0;
+                    d.hitRatePercent = d.offerValue > 0 ? Math.round((d.wonValue / d.offerValue) * 1000) / 10 : 0;
+                    if (i > 0) {
+                        const prev = monthlyArr[i - 1];
+                        d.growthPercent = prev.wonValue > 0
+                            ? Math.round(((d.wonValue - prev.wonValue) / prev.wonValue) * 1000) / 10
+                            : null;
+                    }
+                }
+
+                // Only include products that have data
+                if (pData.offerCount > 0 || pData.wonCount > 0 || pData.target > 0) {
+                    productGrowthData.push({
+                        productType: pt.key,
+                        productLabel: pt.label,
+                        target: pData.target,
+                        offerValue: pData.offerValue,
+                        wonValue: pData.wonValue,
+                        offerCount: pData.offerCount,
+                        wonCount: pData.wonCount,
+                        achievementPercent: pData.target > 0 ? Math.round((pData.wonValue / pData.target) * 1000) / 10 : 0,
+                        hitRatePercent: pData.offerValue > 0 ? Math.round((pData.wonValue / pData.offerValue) * 1000) / 10 : 0,
+                        monthlyData: monthlyArr,
+                    });
+                }
+            }
+
+            // Totals
+            const totalTarget = totalMonthlyData.reduce((s, d) => s + d.target, 0);
+            const totalOfferValue = totalMonthlyData.reduce((s, d) => s + d.offerValue, 0);
+            const totalWonValue = totalMonthlyData.reduce((s, d) => s + d.wonValue, 0);
+            const totalOfferCount = totalMonthlyData.reduce((s, d) => s + d.offerCount, 0);
+            const totalWonCount = totalMonthlyData.reduce((s, d) => s + d.wonCount, 0);
+
+            // ── AUTO-GENERATED DETAILED INSIGHTS ────────────────────────
+            const fmtVal = (v: number) => {
+                if (v >= 10000000) return `₹${(v / 10000000).toFixed(2)} Cr`;
+                if (v >= 100000) return `₹${(v / 100000).toFixed(2)} L`;
+                if (v >= 1000) return `₹${(v / 1000).toFixed(1)} K`;
+                return `₹${v.toFixed(0)}`;
+            };
+
+            const overallAchievement = totalTarget > 0 ? Math.round((totalWonValue / totalTarget) * 1000) / 10 : 0;
+            const overallHitRate = totalOfferValue > 0 ? Math.round((totalWonValue / totalOfferValue) * 1000) / 10 : 0;
+            const gap = totalTarget - totalWonValue;
+            const monthsInRange = endMonth - startMonth + 1;
+            const elapsedMonths = totalMonthlyData.filter(d => d.wonValue > 0 || d.offerCount > 0).length || 1;
+            const remainingMonths = monthsInRange - elapsedMonths;
+            const avgMonthlyWon = elapsedMonths > 0 ? totalWonValue / elapsedMonths : 0;
+            const requiredMonthlyPace = remainingMonths > 0 && gap > 0 ? gap / remainingMonths : 0;
+
+            // ── 1. PERFORMANCE SUMMARY
+            const performance: { status: string; statusColor: string; points: { text: string; type: string }[] } = {
+                status: overallAchievement >= 100 ? 'AHEAD' : overallAchievement >= 75 ? 'ON_TRACK' : overallAchievement >= 50 ? 'NEEDS_ATTENTION' : 'CRITICAL',
+                statusColor: overallAchievement >= 100 ? 'emerald' : overallAchievement >= 75 ? 'blue' : overallAchievement >= 50 ? 'amber' : 'red',
+                points: [],
+            };
+
+            if (overallAchievement >= 100) {
+                performance.points.push({ text: `Target exceeded! Achievement stands at ${overallAchievement}% — surplus of ${fmtVal(Math.abs(gap))} over target`, type: 'success' });
+            } else if (overallAchievement >= 75) {
+                performance.points.push({ text: `Good progress at ${overallAchievement}% achievement. Remaining gap: ${fmtVal(gap)}`, type: 'info' });
+            } else {
+                performance.points.push({ text: `Behind target at ${overallAchievement}% achievement. Remaining gap: ${fmtVal(gap)}`, type: 'warning' });
+            }
+
+            performance.points.push({ text: `Average monthly order booking: ${fmtVal(avgMonthlyWon)} across ${elapsedMonths} active month(s)`, type: 'info' });
+
+            if (gap > 0 && remainingMonths > 0) {
+                performance.points.push({ text: `To meet target, need ${fmtVal(requiredMonthlyPace)}/month for the remaining ${remainingMonths} month(s) — ${requiredMonthlyPace > avgMonthlyWon * 1.5 ? 'aggressive ramp-up required' : requiredMonthlyPace > avgMonthlyWon ? 'moderate push needed' : 'achievable at current pace'}`, type: requiredMonthlyPace > avgMonthlyWon * 1.5 ? 'warning' : 'info' });
+            }
+
+            performance.points.push({ text: `Total pipeline generated: ${fmtVal(totalOfferValue)} across ${totalOfferCount} offers`, type: 'info' });
+            performance.points.push({ text: `Conversion rate: ${overallHitRate}% of pipeline converted to orders (${totalWonCount} wins from ${totalOfferCount} offers)`, type: overallHitRate >= 30 ? 'success' : overallHitRate >= 15 ? 'info' : 'warning' });
+
+            // ── 2. MONTHLY TRENDS
+            const trends: { text: string; type: string }[] = [];
+            const monthsWithGrowth = totalMonthlyData.filter(d => d.growthPercent !== null);
+
+            // Best & worst months
+            if (totalMonthlyData.length > 0) {
+                const bestMonth = totalMonthlyData.reduce((best, d) => d.wonValue > best.wonValue ? d : best, totalMonthlyData[0]);
+                const monthsWithWon = totalMonthlyData.filter(d => d.wonValue > 0);
+                const worstMonth = monthsWithWon.length > 0 ? monthsWithWon.reduce((w, d) => d.wonValue < w.wonValue ? d : w, monthsWithWon[0]) : null;
+
+                trends.push({ text: `🏆 Peak month: ${bestMonth.monthLabel} with ${fmtVal(bestMonth.wonValue)} won (${bestMonth.achievementPercent}% achievement)`, type: 'success' });
+                if (worstMonth && worstMonth.month !== bestMonth.month) {
+                    trends.push({ text: `📉 Lowest month: ${worstMonth.monthLabel} with ${fmtVal(worstMonth.wonValue)} won (${worstMonth.achievementPercent}% achievement)`, type: 'warning' });
+                }
+
+                // Months exceeding target
+                const aboveTargetMonths = totalMonthlyData.filter(d => d.achievementPercent >= 100);
+                const belowTargetMonths = totalMonthlyData.filter(d => d.achievementPercent < 100 && (d.wonValue > 0 || d.offerCount > 0));
+                if (aboveTargetMonths.length > 0) {
+                    trends.push({ text: `✅ Target met in ${aboveTargetMonths.length} of ${monthsInRange} months: ${aboveTargetMonths.map(m => m.monthLabel.slice(0, 3)).join(', ')}`, type: 'success' });
+                }
+                if (belowTargetMonths.length > 0) {
+                    trends.push({ text: `⚠️ Target missed in ${belowTargetMonths.length} months: ${belowTargetMonths.map(m => `${m.monthLabel.slice(0, 3)} (${m.achievementPercent}%)`).join(', ')}`, type: 'warning' });
+                }
+
+                // Zero activity months
+                const zeroMonths = totalMonthlyData.filter(d => d.wonValue === 0 && d.offerCount === 0);
+                if (zeroMonths.length > 0) {
+                    trends.push({ text: `🔴 No activity recorded in: ${zeroMonths.map(m => m.monthLabel.slice(0, 3)).join(', ')}`, type: 'error' });
+                }
+            }
+
+            // Growth streak & trend direction
+            if (monthsWithGrowth.length >= 2) {
+                const avgGrowth = monthsWithGrowth.reduce((sum, d) => sum + (d.growthPercent || 0), 0) / monthsWithGrowth.length;
+                // Consecutive growth streak
+                let growthStreak = 0;
+                let declineStreak = 0;
+                for (let i = monthsWithGrowth.length - 1; i >= 0; i--) {
+                    if ((monthsWithGrowth[i].growthPercent || 0) > 0) { growthStreak++; } else break;
+                }
+                for (let i = monthsWithGrowth.length - 1; i >= 0; i--) {
+                    if ((monthsWithGrowth[i].growthPercent || 0) < 0) { declineStreak++; } else break;
+                }
+
+                if (growthStreak >= 3) {
+                    trends.push({ text: `🔥 ${growthStreak}-month consecutive growth streak! Momentum is strong`, type: 'success' });
+                } else if (growthStreak >= 2) {
+                    trends.push({ text: `📈 ${growthStreak} consecutive months of positive growth`, type: 'success' });
+                }
+                if (declineStreak >= 3) {
+                    trends.push({ text: `⚠️ ${declineStreak}-month decline streak — urgent attention needed`, type: 'error' });
+                } else if (declineStreak >= 2) {
+                    trends.push({ text: `📉 Declining for ${declineStreak} consecutive months`, type: 'warning' });
+                }
+
+                // Average growth
+                if (avgGrowth > 10) {
+                    trends.push({ text: `🚀 Strong avg. MoM growth: +${avgGrowth.toFixed(1)}% — accelerating trajectory`, type: 'success' });
+                } else if (avgGrowth > 0) {
+                    trends.push({ text: `📈 Positive avg. MoM growth: +${avgGrowth.toFixed(1)}%`, type: 'info' });
+                } else if (avgGrowth < -10) {
+                    trends.push({ text: `🔻 Steep avg. MoM decline: ${avgGrowth.toFixed(1)}% — needs immediate action`, type: 'error' });
+                } else if (avgGrowth < 0) {
+                    trends.push({ text: `📉 Negative avg. MoM growth: ${avgGrowth.toFixed(1)}%`, type: 'warning' });
+                } else {
+                    trends.push({ text: `➡️ Flat growth trend: ${avgGrowth.toFixed(1)}% average — look for new growth drivers`, type: 'info' });
+                }
+
+                // Volatility check
+                const growthValues = monthsWithGrowth.map(d => d.growthPercent || 0);
+                const variance = growthValues.reduce((sum, g) => sum + Math.pow(g - avgGrowth, 2), 0) / growthValues.length;
+                const stdDev = Math.sqrt(variance);
+                if (stdDev > 30) {
+                    trends.push({ text: `⚡ High volatility in performance (σ=${stdDev.toFixed(0)}%) — results are inconsistent month to month`, type: 'warning' });
+                }
+            }
+
+            // ── 3. PRODUCT ANALYSIS
+            const products: { text: string; type: string }[] = [];
+            if (productGrowthData.length > 0) {
+                const sortedProducts = [...productGrowthData].sort((a, b) => b.wonValue - a.wonValue);
+                const bestProduct = sortedProducts[0];
+                const productsWithWon = sortedProducts.filter(p => p.wonValue > 0);
+
+                products.push({ text: `🏅 Top product: ${bestProduct.productLabel} — ${fmtVal(bestProduct.wonValue)} won (${bestProduct.achievementPercent}% of target, ${bestProduct.hitRatePercent}% hit rate)`, type: 'success' });
+
+                // Runners up
+                if (productsWithWon.length >= 2) {
+                    products.push({ text: `🥈 Second best: ${sortedProducts[1].productLabel} — ${fmtVal(sortedProducts[1].wonValue)} won (${sortedProducts[1].achievementPercent}% achievement)`, type: 'info' });
+                }
+
+                // Products exceeding target
+                const overachievers = productGrowthData.filter(p => p.achievementPercent >= 100);
+                if (overachievers.length > 0) {
+                    products.push({ text: `✅ Target exceeded in: ${overachievers.map(p => `${p.productLabel} (${p.achievementPercent}%)`).join(', ')}`, type: 'success' });
+                }
+
+                // Products with high offers but low conversion
+                const lowConversion = productGrowthData.filter(p => p.offerCount >= 3 && p.hitRatePercent < 10 && p.offerValue > 0);
+                if (lowConversion.length > 0) {
+                    products.push({ text: `🔍 Low conversion products (high offers, low wins): ${lowConversion.map(p => `${p.productLabel} (${p.hitRatePercent}% hit rate, ${p.offerCount} offers)`).join(', ')}`, type: 'warning' });
+                }
+
+                // Underperforming products (target set but very low achievement)
+                const underperforming = productGrowthData.filter(p => p.target > 0 && p.achievementPercent < 25);
+                if (underperforming.length > 0) {
+                    products.push({ text: `⚠️ Significantly below target: ${underperforming.map(p => `${p.productLabel} (${p.achievementPercent}% of ${fmtVal(p.target)} target)`).join(', ')}`, type: 'error' });
+                }
+
+                // Zero-won products
+                const zeroWon = productGrowthData.filter(p => p.wonValue === 0 && p.offerCount > 0);
+                if (zeroWon.length > 0) {
+                    products.push({ text: `🚫 No orders won yet in: ${zeroWon.map(p => `${p.productLabel} (${p.offerCount} offers pending)`).join(', ')}`, type: 'warning' });
+                }
+
+                // Product diversity
+                if (productsWithWon.length >= 1 && totalWonValue > 0) {
+                    const topShare = Math.round((bestProduct.wonValue / totalWonValue) * 100);
+                    if (topShare > 70) {
+                        products.push({ text: `⚡ Revenue concentration risk: ${bestProduct.productLabel} accounts for ${topShare}% of all won value — diversification recommended`, type: 'warning' });
+                    } else if (productsWithWon.length >= 3) {
+                        products.push({ text: `✅ Good product diversification: ${productsWithWon.length} product categories generating revenue`, type: 'success' });
+                    }
+                }
+            }
+
+            // ── 4. CONVERSION & PIPELINE
+            const conversion: { text: string; type: string }[] = [];
+            if (totalOfferCount > 0) {
+                const avgDealSize = totalWonCount > 0 ? totalWonValue / totalWonCount : 0;
+                const avgOfferSize = totalOfferValue / totalOfferCount;
+                const pipelineCoverage = totalTarget > 0 ? Math.round((totalOfferValue / totalTarget) * 100) : 0;
+
+                conversion.push({ text: `📊 Pipeline coverage: ${pipelineCoverage}% of target (${fmtVal(totalOfferValue)} pipeline vs ${fmtVal(totalTarget)} target) — ${pipelineCoverage >= 300 ? 'healthy pipeline' : pipelineCoverage >= 200 ? 'adequate coverage' : 'pipeline needs building'}`, type: pipelineCoverage >= 300 ? 'success' : pipelineCoverage >= 200 ? 'info' : 'warning' });
+                conversion.push({ text: `💰 Average deal size: ${fmtVal(avgDealSize)} per won order | Average offer size: ${fmtVal(avgOfferSize)} per offer`, type: 'info' });
+
+                if (totalWonCount > 0 && totalOfferCount > 0) {
+                    const winRatio = `${totalWonCount}:${totalOfferCount}`;
+                    conversion.push({ text: `🎯 Win ratio: ${winRatio} (${totalWonCount} won from ${totalOfferCount} offers = ${overallHitRate}%)`, type: overallHitRate >= 25 ? 'success' : 'info' });
+                }
+
+                // Offer value vs won value gap
+                const funnelLeakage = totalOfferValue > 0 ? Math.round(((totalOfferValue - totalWonValue) / totalOfferValue) * 100) : 0;
+                if (funnelLeakage > 0) {
+                    conversion.push({ text: `🔄 Funnel efficiency: ${fmtVal(totalWonValue)} captured from ${fmtVal(totalOfferValue)} pipeline (${100 - funnelLeakage}% conversion, ${funnelLeakage}% still in funnel or lost)`, type: 'info' });
+                }
+            }
+
+            // ── 5. RECOMMENDATIONS
+            const recommendations: { text: string; type: string }[] = [];
+            if (overallAchievement < 50) {
+                recommendations.push({ text: `Increase pipeline generation significantly — current pipeline is insufficient to meet targets`, type: 'action' });
+            }
+            if (overallHitRate < 15 && totalOfferCount >= 5) {
+                recommendations.push({ text: `Focus on improving offer quality and follow-ups — hit rate of ${overallHitRate}% indicates opportunity for better conversion`, type: 'action' });
+            }
+            if (totalOfferCount > 0 && totalWonCount === 0) {
+                recommendations.push({ text: `No orders won yet in this period — prioritize closing pending offers`, type: 'action' });
+            }
+
+            const lowConvProducts = productGrowthData.filter(p => p.offerCount >= 3 && p.hitRatePercent < 10);
+            if (lowConvProducts.length > 0) {
+                recommendations.push({ text: `Review pricing and approach for ${lowConvProducts.map(p => p.productLabel).join(', ')} — high activity but low conversion`, type: 'action' });
+            }
+
+            const underperformingProducts = productGrowthData.filter(p => p.target > 0 && p.achievementPercent < 25);
+            if (underperformingProducts.length > 0) {
+                recommendations.push({ text: `Allocate more resources to ${underperformingProducts.map(p => p.productLabel).join(', ')} to close the target gap`, type: 'action' });
+            }
+
+            if (gap > 0 && requiredMonthlyPace > avgMonthlyWon * 2) {
+                recommendations.push({ text: `Target gap of ${fmtVal(gap)} requires ${(requiredMonthlyPace / avgMonthlyWon).toFixed(1)}x current monthly pace — consider target reforecasting or exceptional measures`, type: 'action' });
+            }
+
+            if (recommendations.length === 0 && overallAchievement >= 100) {
+                recommendations.push({ text: `Excellent performance! Consider setting stretch targets for continued growth`, type: 'action' });
+                recommendations.push({ text: `Document successful strategies from this period for replication`, type: 'action' });
+            }
+
+            const insights = {
+                performance,
+                trends,
+                products,
+                conversion,
+                recommendations,
+            };
+
+            // Get zone list for filter dropdown
+            const allZones = await prisma.serviceZone.findMany({
+                where: { isActive: true },
+                select: { id: true, name: true },
+                orderBy: { name: 'asc' },
+            });
+
+            // Get users for filter dropdown (if zoneId is selected)
+            let zoneUsers: { id: number; name: string }[] = [];
+            if (filterZoneId) {
+                const usersInZone = await prisma.user.findMany({
+                    where: {
+                        isActive: true,
+                        OR: [
+                            {
+                                role: { in: ['ZONE_MANAGER', 'ZONE_USER'] },
+                                serviceZones: { some: { serviceZoneId: filterZoneId } },
+                            },
+                            {
+                                role: 'ADMIN',
+                                createdOffers: { some: { zoneId: filterZoneId } },
+                            },
+                        ],
+                    },
+                    select: { id: true, name: true },
+                    orderBy: { name: 'asc' },
+                });
+                zoneUsers = usersInZone.map(u => ({ id: u.id, name: u.name || `User ${u.id}` }));
+            }
+
+            return res.json({
+                year: targetYear,
+                fromMonth: startMonth,
+                toMonth: endMonth,
+                filters: {
+                    zoneId: filterZoneId,
+                    userId: filterUserId,
+                    zones: allZones,
+                    users: zoneUsers,
+                },
+                totals: {
+                    target: totalTarget,
+                    offerValue: totalOfferValue,
+                    wonValue: totalWonValue,
+                    offerCount: totalOfferCount,
+                    wonCount: totalWonCount,
+                    achievementPercent: totalTarget > 0 ? Math.round((totalWonValue / totalTarget) * 1000) / 10 : 0,
+                    hitRatePercent: totalOfferValue > 0 ? Math.round((totalWonValue / totalOfferValue) * 1000) / 10 : 0,
+                },
+                monthlyData: totalMonthlyData,
+                productData: productGrowthData,
+                insights,
+            });
+        } catch (error: any) {
+            logger.error('Get Growth Report error:', error);
+            return res.status(500).json({ error: 'Failed to fetch Growth Report data' });
         }
     }
 }

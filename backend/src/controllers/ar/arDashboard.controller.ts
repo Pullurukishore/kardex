@@ -36,55 +36,69 @@ export const getEssentialDashboard = async (req: Request, res: Response) => {
             totalBalance,
             overdueBalance,
             pendingCount,
-            collectionsMTD,
             paidCount,
             partialCount,
             overdueCount,
+            allInvoicesTotal,
+            standardPaid,
             allUnpaidInvoices,
             criticalOverdue,
             totalInvoicesThisMonth,
             paidThisMonth,
-            allInvoicesTotal,
-            totalPaid
+            milestoneAgg,
+            allMilestoneInvoices
         ] = await Promise.all([
-            // Total Balance (what's owed) - EXCLUDE milestone (already paid, not receivable)
+            // Total Balance (what's owed) - Strictly REGULAR
             safeAggregate(
                 prisma.aRInvoice.aggregate({
                     where: {
                         status: { not: 'PAID' },
-                        invoiceType: { not: 'MILESTONE' }  // Exclude milestone - already collected
+                        invoiceType: 'REGULAR'
                     },
                     _sum: { balance: true },
                     _count: true
                 }),
                 { _sum: { balance: null }, _count: 0 }
             ),
-            // Overdue Balance
+            // Overdue Balance - Strictly REGULAR
             safeAggregate(
                 prisma.aRInvoice.aggregate({
-                    where: { status: 'OVERDUE' },
+                    where: { status: 'OVERDUE', invoiceType: 'REGULAR' },
                     _sum: { balance: true }
                 }),
                 { _sum: { balance: null } }
             ),
-            // Pending Count
-            safeCount(prisma.aRInvoice.count({ where: { status: 'PENDING' } })),
-            // Collections MTD
+            // Pending Count - Strictly REGULAR
+            safeCount(prisma.aRInvoice.count({ where: { status: 'PENDING', invoiceType: 'REGULAR' } })),
+            // Status Counts - Strictly REGULAR
+            safeCount(prisma.aRInvoice.count({ where: { status: 'PAID', invoiceType: 'REGULAR' } })),
+            safeCount(prisma.aRInvoice.count({ where: { status: 'PARTIAL', invoiceType: 'REGULAR' } })),
+            safeCount(prisma.aRInvoice.count({ where: { status: 'OVERDUE', invoiceType: 'REGULAR' } })),
+
+            // Total Amount (Standard only)
             safeAggregate(
-                prisma.aRPaymentHistory.aggregate({
-                    where: { paymentDate: { gte: startOfMonth } },
-                    _sum: { amount: true },
+                prisma.aRInvoice.aggregate({
+                    where: { invoiceType: 'REGULAR' },
+                    _sum: { totalAmount: true },
                     _count: true
                 }),
-                { _sum: { amount: null }, _count: 0 }
+                { _sum: { totalAmount: null }, _count: 0 }
             ),
-            // Status Counts
-            safeCount(prisma.aRInvoice.count({ where: { status: 'PAID' } })),
-            safeCount(prisma.aRInvoice.count({ where: { status: 'PARTIAL' } })),
-            safeCount(prisma.aRInvoice.count({ where: { status: 'OVERDUE' } })),
-            // All unpaid invoices for aging
+            // Total Collected (Sum totalReceipts of REGULAR invoices)
+            safeAggregate(
+                prisma.aRInvoice.aggregate({
+                    where: { invoiceType: 'REGULAR' },
+                    _sum: { totalReceipts: true },
+                    _count: true
+                }),
+                { _sum: { totalReceipts: null }, _count: 0 }
+            ),
+            // All unpaid invoices for aging - Strictly REGULAR
             safeFindMany(prisma.aRInvoice.findMany({
-                where: { status: { not: 'PAID' } },
+                where: {
+                    status: { not: 'PAID' },
+                    invoiceType: 'REGULAR'
+                },
                 select: {
                     dueDate: true,
                     balance: true,
@@ -95,9 +109,9 @@ export const getEssentialDashboard = async (req: Request, res: Response) => {
                     invoiceDate: true
                 }
             })),
-            // Critical overdue (top 5)
+            // Critical overdue (top 5) - Strictly REGULAR
             safeFindMany(prisma.aRInvoice.findMany({
-                where: { status: 'OVERDUE' },
+                where: { status: 'OVERDUE', invoiceType: 'REGULAR' },
                 orderBy: { balance: 'desc' },
                 take: 5,
                 select: {
@@ -113,27 +127,57 @@ export const getEssentialDashboard = async (req: Request, res: Response) => {
                     soNo: true
                 }
             })),
-            // Invoices created this month (for collection rate)
-            safeCount(prisma.aRInvoice.count({ where: { invoiceDate: { gte: startOfMonth } } })),
+            // Invoices created this month (for rate)
+            safeCount(prisma.aRInvoice.count({ where: { invoiceDate: { gte: startOfMonth }, invoiceType: 'REGULAR' } })),
             // Paid this month
-            safeCount(prisma.aRInvoice.count({ where: { status: 'PAID', updatedAt: { gte: startOfMonth } } })),
-            // Total Amount (all invoices - for reference)
+            safeCount(prisma.aRInvoice.count({ where: { status: 'PAID', updatedAt: { gte: startOfMonth }, invoiceType: 'REGULAR' } })),
+            // ═══ MILESTONE-SPECIFIC QUERIES ═══
+            // Milestone Total Value
             safeAggregate(
                 prisma.aRInvoice.aggregate({
-                    _sum: { totalAmount: true },
+                    where: { invoiceType: 'MILESTONE' },
+                    _sum: { totalAmount: true, totalReceipts: true, balance: true },
                     _count: true
                 }),
-                { _sum: { totalAmount: null }, _count: 0 }
+                { _sum: { totalAmount: null, totalReceipts: null, balance: null }, _count: 0 }
             ),
-            // Total Collected (sum of ALL payments - includes partial payments)
-            safeAggregate(
-                prisma.aRPaymentHistory.aggregate({
-                    _sum: { amount: true },
-                    _count: true
-                }),
-                { _sum: { amount: null }, _count: 0 }
-            )
+            // All milestone invoices (for milestones section)
+            safeFindMany(prisma.aRInvoice.findMany({
+                where: { invoiceType: 'MILESTONE', status: { not: 'PAID' } },
+                select: {
+                    id: true,
+                    soNo: true,
+                    poNo: true,
+                    customerName: true,
+                    bpCode: true,
+                    totalAmount: true,
+                    totalReceipts: true,
+                    balance: true,
+                    milestoneTerms: true,
+                    milestoneStatus: true,
+                    status: true
+                },
+                orderBy: { totalAmount: 'desc' }
+            }))
         ]);
+
+        // Secondary query for MTD Collections (filtered by Regular vs Milestone)
+        const regularInvoiceIds = await prisma.aRInvoice.findMany({
+            where: { invoiceType: 'REGULAR' },
+            select: { id: true }
+        }).then(list => list.map(inv => inv.id));
+
+        const collectionsMTD = await safeAggregate(
+            prisma.aRPaymentHistory.aggregate({
+                where: {
+                    paymentDate: { gte: startOfMonth },
+                    invoiceId: { in: regularInvoiceIds }
+                },
+                _sum: { amount: true },
+                _count: true
+            }),
+            { _sum: { amount: null }, _count: 0 }
+        );
 
         // Calculate aging buckets
         const aging = {
@@ -145,23 +189,7 @@ export const getEssentialDashboard = async (req: Request, res: Response) => {
         };
 
         allUnpaidInvoices.forEach(inv => {
-            let daysOverdue = 0;
-            if (inv.invoiceType === 'MILESTONE' && inv.milestoneTerms) {
-                // For milestone invoices, use the earliest term date for aging
-                const terms = inv.milestoneTerms as any[];
-                if (Array.isArray(terms) && terms.length > 0) {
-                    const earliestTerm = terms.reduce((earliest: any, term: any) => {
-                        if (!earliest || new Date(term.termDate) < new Date(earliest.termDate)) return term;
-                        return earliest;
-                    }, null);
-                    if (earliestTerm?.termDate) {
-                        daysOverdue = calculateDaysBetween(new Date(earliestTerm.termDate), today);
-                    }
-                }
-            } else {
-                daysOverdue = calculateDaysBetween(inv.dueDate, today);
-            }
-
+            const daysOverdue = calculateDaysBetween(inv.dueDate, today);
             const amount = Number(inv.balance ?? inv.totalAmount ?? 0);
 
             if (daysOverdue <= 0) { aging.current.count++; aging.current.amount += amount; }
@@ -173,27 +201,126 @@ export const getEssentialDashboard = async (req: Request, res: Response) => {
 
         // Calculate critical overdue with days
         const criticalWithDays = criticalOverdue.map(inv => {
-            let daysOverdue = 0;
-            if (inv.invoiceType === 'MILESTONE' && inv.milestoneTerms) {
-                const terms = inv.milestoneTerms as any[];
-                if (Array.isArray(terms) && terms.length > 0) {
-                    const earliestTerm = terms.reduce((earliest: any, term: any) => {
-                        if (!earliest || new Date(term.termDate) < new Date(earliest.termDate)) return term;
-                        return earliest;
-                    }, null);
-                    if (earliestTerm?.termDate) {
-                        daysOverdue = calculateDaysBetween(new Date(earliestTerm.termDate), today);
-                    }
-                }
-            } else if (inv.dueDate) {
-                daysOverdue = Math.max(0, calculateDaysBetween(inv.dueDate, today));
-            }
-
             return {
                 ...inv,
-                daysOverdue
+                daysOverdue: inv.dueDate ? Math.max(0, calculateDaysBetween(inv.dueDate, today)) : 0
             };
         });
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        // MILESTONE CALCULATIONS
+        // ═══════════════════════════════════════════════════════════════════════════
+
+        let overdueMilestoneTerms = 0;
+        let overdueMilestoneAmount = 0;
+
+        const milestoneAging = {
+            current: { count: 0, amount: 0 },
+            days1to30: { count: 0, amount: 0 },
+            days31to60: { count: 0, amount: 0 },
+            days61to90: { count: 0, amount: 0 },
+            over90: { count: 0, amount: 0 }
+        };
+
+        const milestoneStatusCounts = {
+            pending: 0,
+            partial: 0,
+            paid: 0,
+            overdue: 0,
+            total: allMilestoneInvoices.length
+        };
+
+        const milestoneStages = {
+            advance: { pending: 0, overdue: 0, paid: 0 },
+            dispatch: { pending: 0, overdue: 0, paid: 0 },
+            installation: { pending: 0, overdue: 0, paid: 0 },
+            others: { pending: 0, overdue: 0, paid: 0 }
+        };
+
+        const processedMilestones = allMilestoneInvoices.map(inv => {
+            const terms = (inv.milestoneTerms as any[]) || [];
+            let invOverdueTerms = 0;
+            let worstAging = 0;
+            let earliestOverdueTermDate: Date | null = null;
+
+            // 1. Process Individual Terms
+            terms.forEach(term => {
+                const termDate = new Date(term.termDate);
+                const isPaid = term.status === 'PAID';
+
+                // Track Stages Breakdown
+                const label = (term.label || '').toLowerCase();
+                let category: 'advance' | 'dispatch' | 'installation' | 'others' = 'others';
+                if (label.includes('advance')) category = 'advance';
+                else if (label.includes('dispatch')) category = 'dispatch';
+                else if (label.includes('install')) category = 'installation';
+
+                if (isPaid) {
+                    milestoneStages[category].paid++;
+                } else if (termDate < today) {
+                    milestoneStages[category].overdue++;
+                } else {
+                    milestoneStages[category].pending++;
+                }
+
+                // Track Overdue Terms for Aging
+                if (termDate < today && !isPaid) {
+                    const agingDays = calculateDaysBetween(termDate, today);
+                    if (agingDays > 0) {
+                        invOverdueTerms++;
+                        if (agingDays > worstAging) worstAging = agingDays;
+                        if (!earliestOverdueTermDate || termDate < earliestOverdueTermDate) {
+                            earliestOverdueTermDate = termDate;
+                        }
+                    }
+                }
+            });
+
+            // 2. Aggregate Totals
+            overdueMilestoneTerms += invOverdueTerms;
+            if (invOverdueTerms > 0) {
+                overdueMilestoneAmount += Number(inv.balance || 0);
+            }
+
+            // 3. Milestone Aging Buckets
+            const invBalance = Number(inv.balance || 0);
+            if (!earliestOverdueTermDate) {
+                milestoneAging.current.count++;
+                milestoneAging.current.amount += invBalance;
+            } else {
+                const agingDays = calculateDaysBetween(earliestOverdueTermDate, today);
+                if (agingDays <= 30) { milestoneAging.days1to30.count++; milestoneAging.days1to30.amount += invBalance; }
+                else if (agingDays <= 60) { milestoneAging.days31to60.count++; milestoneAging.days31to60.amount += invBalance; }
+                else if (agingDays <= 90) { milestoneAging.days61to90.count++; milestoneAging.days61to90.amount += invBalance; }
+                else { milestoneAging.over90.count++; milestoneAging.over90.amount += invBalance; }
+            }
+
+            // 4. Milestone Status Counts
+            if (inv.status === 'PAID') milestoneStatusCounts.paid++;
+            else if (inv.status === 'OVERDUE' || invOverdueTerms > 0) milestoneStatusCounts.overdue++;
+            else if (inv.status === 'PARTIAL') milestoneStatusCounts.partial++;
+            else milestoneStatusCounts.pending++;
+
+            return {
+                id: inv.id,
+                soNo: inv.soNo,
+                poNo: inv.poNo,
+                customerName: inv.customerName,
+                bpCode: inv.bpCode,
+                totalAmount: Number(inv.totalAmount || 0),
+                totalReceipts: Number(inv.totalReceipts || 0),
+                balance: invBalance,
+                overdueTerms: invOverdueTerms,
+                worstAging,
+                milestoneStatus: inv.milestoneStatus,
+                status: inv.status
+            };
+        });
+
+        const criticalMilestones = processedMilestones
+            .filter(m => m.overdueTerms > 0)
+            .sort((a, b) => b.worstAging - a.worstAging || b.overdueTerms - a.overdueTerms)
+            .slice(0, 5);
 
         // ═══════════════════════════════════════════════════════════════════════════
         // PERFORMANCE INDICATORS (Good/Bad Percentages)
@@ -201,7 +328,7 @@ export const getEssentialDashboard = async (req: Request, res: Response) => {
 
         const totalInvoices = pendingCount + partialCount + paidCount + overdueCount;
         const totalInvoicedAmount = Number(allInvoicesTotal._sum?.totalAmount ?? 0);
-        const totalCollectedAmount = Number(totalPaid._sum?.amount ?? 0);
+        const totalCollectedAmount = Number(standardPaid._sum?.totalReceipts ?? 0);
 
         // 1. Collection Rate: % of AMOUNT collected vs invoiced (amount-based, not count-based)
         const collectionRate = totalInvoicedAmount > 0 ? Math.round((totalCollectedAmount / totalInvoicedAmount) * 100) : 0;
@@ -220,18 +347,61 @@ export const getEssentialDashboard = async (req: Request, res: Response) => {
         const currentRate = totalAgingAmount > 0 ? Math.round((aging.current.amount / totalAgingAmount) * 100) : 0;
         const currentStatus = currentRate >= 60 ? 'GOOD' : currentRate >= 40 ? 'AVERAGE' : 'BAD';
 
+        // ═══════════════════════════════════════════════════════════════════════════
+        // MILESTONE PERFORMANCE INDICATORS
+        // ═══════════════════════════════════════════════════════════════════════════
+
+        const totalMilestonesCount = allMilestoneInvoices.length;
+        const milestoneTotalAmt = Number(milestoneAgg._sum?.totalAmount ?? 0);
+        const milestoneCollectedAmt = Number(milestoneAgg._sum?.totalReceipts ?? 0);
+
+        // 1. Milestone Collection Rate
+        const milestoneCollectionRate = milestoneTotalAmt > 0 ? Math.round((milestoneCollectedAmt / milestoneTotalAmt) * 100) : 0;
+        const milestoneCollectionStatus = milestoneCollectionRate >= 70 ? 'GOOD' : milestoneCollectionRate >= 50 ? 'AVERAGE' : 'BAD';
+
+        // 2. Milestone Overdue Rate
+        const milestoneOverdueCount = processedMilestones.filter(m => m.overdueTerms > 0 || m.status === 'OVERDUE').length;
+        const milestoneOverdueRate = totalMilestonesCount > 0 ? Math.round((milestoneOverdueCount / totalMilestonesCount) * 100) : 0;
+        const milestoneOverdueStatus = milestoneOverdueRate <= 10 ? 'GOOD' : milestoneOverdueRate <= 25 ? 'AVERAGE' : 'BAD';
+
+        // 3. Milestone On-Time Rate
+        const milestoneOnTimeRate = 100 - milestoneOverdueRate;
+        const milestoneOnTimeStatus = milestoneOnTimeRate >= 90 ? 'GOOD' : milestoneOnTimeRate >= 75 ? 'AVERAGE' : 'BAD';
+
+        // 4. Milestone Current Rate
+        const totalMilestoneAgingAmount = milestoneAging.current.amount + milestoneAging.days1to30.amount + milestoneAging.days31to60.amount + milestoneAging.days61to90.amount + milestoneAging.over90.amount;
+        const milestoneCurrentRate = totalMilestoneAgingAmount > 0 ? Math.round((milestoneAging.current.amount / totalMilestoneAgingAmount) * 100) : 0;
+        const milestoneCurrentStatus = milestoneCurrentRate >= 60 ? 'GOOD' : milestoneCurrentRate >= 40 ? 'AVERAGE' : 'BAD';
+
         res.json({
             kpis: {
                 totalAmount: Number(allInvoicesTotal._sum?.totalAmount ?? 0),
                 totalAllInvoices: allInvoicesTotal._count ?? 0,
-                totalCollected: Number(totalPaid._sum?.amount ?? 0),
-                totalPayments: totalPaid._count ?? 0,
+                totalCollected: Number(standardPaid._sum?.totalReceipts ?? 0),
+                totalPayments: standardPaid._count ?? 0,
                 totalBalance: Number(totalBalance._sum?.balance ?? 0),
                 totalInvoices: totalBalance._count ?? 0,
                 overdueAmount: Number(overdueBalance._sum?.balance ?? 0),
                 pendingCount,
                 collectionsMTD: Number(collectionsMTD._sum?.amount ?? 0),
                 paymentsCount: collectionsMTD._count ?? 0
+            },
+            milestoneKpis: {
+                totalValue: Number(milestoneAgg._sum?.totalAmount ?? 0),
+                totalCollected: Number(milestoneAgg._sum?.totalReceipts ?? 0),
+                totalOutstanding: Number(milestoneAgg._sum?.balance ?? 0),
+                overdueAmount: overdueMilestoneAmount,
+                overdueTermsCount: overdueMilestoneTerms,
+                totalMilestones: milestoneAgg._count ?? 0,
+                statusCounts: milestoneStatusCounts,
+                aging: milestoneAging,
+                stages: milestoneStages,
+                performance: {
+                    collectionRate: { value: milestoneCollectionRate, status: milestoneCollectionStatus, label: 'Collection Rate' },
+                    overdueRate: { value: milestoneOverdueRate, status: milestoneOverdueStatus, label: 'Overdue Rate' },
+                    onTimeRate: { value: milestoneOnTimeRate, status: milestoneOnTimeStatus, label: 'On-Time Rate' },
+                    currentRate: { value: milestoneCurrentRate, status: milestoneCurrentStatus, label: 'Current (Not Due)' }
+                }
             },
             statusCounts: {
                 pending: pendingCount,
@@ -247,7 +417,8 @@ export const getEssentialDashboard = async (req: Request, res: Response) => {
                 currentRate: { value: currentRate, status: currentStatus, label: 'Current (Not Due)' }
             },
             aging,
-            criticalOverdue: criticalWithDays
+            criticalOverdue: criticalWithDays,
+            criticalMilestones
         });
     } catch (error: any) {
 

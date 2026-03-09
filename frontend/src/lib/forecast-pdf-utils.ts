@@ -1012,8 +1012,8 @@ export async function generateForecastPdf(
         doc.setFontSize(7)
         doc.setTextColor(...COLORS.white)
 
-        const colTitleX = [22, 60, 118, 168, 222]
-        const colTitles = ['ZONE', 'ACHIEVEMENT', 'OFFR. PIPE.', 'TARGET', 'PERFORMANCE']
+        const colTitleX = [22, 60, 118, 142, 168, 195, 222]
+        const colTitles = ['ZONE', 'ACHIEVEMENT', 'OFFERS', 'TOT. FUNNEL', 'TARGET', 'WON', 'OFFER FUNNEL']
         colTitles.forEach((title, i) => {
             doc.text(title, colTitleX[i], y + 5.5)
         })
@@ -1022,10 +1022,10 @@ export async function generateForecastPdf(
 
         zoneCardData.forEach((zd, idx) => {
             // Page break check — use a temporary array to avoid comma operator issues in some environments
-            const pageBreakCheck: [number, number] = needsNewPage(doc, y, rowH + 5, pageNum, data, filter, filterLabels, selectedZone?.zoneName, logoBase64);
+            const pageBreakCheck: [number, number] = needsNewPage(doc, y, rowH + 5, pageNum, data, filter, filterLabels, selectedZone?.zoneName, logoBase64, selectedMonth);
             y = pageBreakCheck[0];
             pageNum.val = pageBreakCheck[1];
-            if (y === drawHeader(doc, data.year, filterLabels[filter], selectedZone?.zoneName, logoBase64, selectedMonth)) {
+            if (y === drawHeader(doc, data.year, filterLabels[filter] + (monthName ? ` (${monthName})` : ''), selectedZone?.zoneName, logoBase64, selectedMonth)) {
                 // Redraw header on new page
                 doc.setFillColor(...COLORS.headerBg)
                 doc.roundedRect(15, y, tableW, headerH, 1, 1, 'F')
@@ -1143,19 +1143,22 @@ export async function generateForecastPdf(
                 doc.setFont('helvetica', 'normal');
                 doc.setFontSize(6.5); // Increased for consistency
                 doc.setTextColor(...COLORS.accentCyan);
-                doc.text(label, tx, y + 6, { align: 'center' });
+                doc.text(label, tx, y + 6);
+
 
                 doc.setFont('helvetica', 'bold');
                 doc.setFontSize(9.5); // Clear bold values
                 doc.setTextColor(...COLORS.white);
-                doc.text(value, tx, y + 12, { align: 'center' });
+                doc.text(value, tx, y + 12);
+
             };
 
             drawTotalMetric('Offers', displayTotals.noOfOffers.toString(), tColX[0])
-            drawTotalMetric('Total Funnel', fmtCrLakh(displayTotals.offersValue), tColX[1])
+            drawTotalMetric('Tot Funnel', fmtCrLakh(displayTotals.offersValue), tColX[1])
             drawTotalMetric('Target', fmtCrLakh(displayTotals.yearlyTarget), tColX[2])
-            drawTotalMetric('Orders Won', fmtCrLakh(displayTotals.ordersReceived), tColX[3])
-            drawTotalMetric('Offer Funnel', fmtCrLakh(displayTotals.openFunnel), tColX[4])
+            drawTotalMetric('Won', fmtCrLakh(displayTotals.ordersReceived), tColX[3])
+            drawTotalMetric('Off Funnel', fmtCrLakh(displayTotals.openFunnel), tColX[4])
+
             drawTotalMetric('% DEV', fmtPct(totalDevPct, 0), tColX[5])
             drawTotalMetric('BALANCE', totalBalance > 0 ? fmtCrLakh(totalBalance) : `SURPLUS ${fmtCrLakh(Math.abs(totalBalance))}`, tColX[6])
 
@@ -1168,7 +1171,7 @@ export async function generateForecastPdf(
             drawFooter(doc, pageNum.val)
             pageNum.val++
             doc.addPage()
-            let aY = drawHeader(doc, data.year, filterLabels[filter], undefined, logoBase64, selectedMonth)
+            let aY = drawHeader(doc, data.year, filterLabels[filter] + (monthName ? ` (${monthName})` : ''), undefined, logoBase64, selectedMonth)
 
             aY = drawSectionTitle(doc, aY, 'VISUAL ANALYTICS DASHBOARD')
             aY += 15
@@ -1571,7 +1574,7 @@ export async function generateForecastPdf(
             drawFooter(doc, pageNum.val)
             pageNum.val++
             doc.addPage()
-            y = drawHeader(doc, data.year, filterLabels[filter], selectedZone?.zoneName, logoBase64, selectedMonth)
+            y = drawHeader(doc, data.year, filterLabels[filter] + (monthName ? ` (${monthName})` : ''), selectedZone?.zoneName, logoBase64, selectedMonth)
         } else {
             // For individual zone, continue on same page with tighter spacing
             y = (doc as any).lastAutoTable?.finalY || y + 8
@@ -2009,8 +2012,8 @@ export async function generateForecastPdf(
         doc.setFontSize(7)
         doc.setTextColor(...COLORS.white)
 
-        const colTitleX = [22, 60, 118, 158, 198, 248]
-        const colTitles = ['NAME', 'ACHIEVEMENT', 'Pipeline', 'TARGET', 'PERFORMANCE', 'HIT RATE']
+        const colTitleX = [22, 60, 105, 125, 150, 175, 200, 240]
+        const colTitles = ['NAME', 'ACHIEVEMENT', 'OFFERS', 'TOT. FUNNEL', 'TARGET', 'WON', 'OFFER FUNNEL', 'HIT RATE']
         colTitles.forEach((title, i) => {
             doc.text(title, colTitleX[i], y + 5.5)
         })
@@ -2070,17 +2073,17 @@ export async function generateForecastPdf(
                 doc.text(val, mx, y + 10.5);
             };
 
-            // Column Mapping: Offers (118), Total Funnel (138), Target (158), Won (178), Offer Funnel (198), Hit Rate (248)
-            drawUserMetric('OFFERS', ud.uNoOfOffers.toString(), 118);
-            drawUserMetric('TOT. FUNNEL', fmtCrLakh(ud.uOffersValue), 138);
-            drawUserMetric('TARGET', fmtCrLakh(ud.uTarget), 158, COLORS.accentAmber);
-            drawUserMetric('WON', ud.uOrdersReceived === 0 ? '0' : fmtCrLakh(ud.uOrdersReceived), 178, COLORS.positive);
-            drawUserMetric('OFFER FUNNEL', ud.uOrdersInHand === 0 ? '0' : fmtCrLakh(ud.uOrdersInHand), 198, COLORS.accentOrange);
+            // Column Mapping: Offers (105), Total Funnel (125), Target (150), Won (175), Offer Funnel (200), Hit Rate (240)
+            drawUserMetric('OFFERS', ud.uNoOfOffers.toString(), 105);
+            drawUserMetric('TOT. FUNNEL', fmtCrLakh(ud.uOffersValue), 125);
+            drawUserMetric('TARGET', fmtCrLakh(ud.uTarget), 150, COLORS.accentAmber);
+            drawUserMetric('WON', ud.uOrdersReceived === 0 ? '0' : fmtCrLakh(ud.uOrdersReceived), 175, COLORS.positive);
+            drawUserMetric('OFFER FUNNEL', ud.uOrdersInHand === 0 ? '0' : fmtCrLakh(ud.uOrdersInHand), 200, COLORS.accentOrange);
 
             // Hit Rate
             const hitRateVal = ud.user.hitRate !== undefined ? `${ud.user.hitRate.toFixed(1)}%` : '-';
             const hitRateColor: [number, number, number] = ud.user.hitRate >= 50 ? COLORS.positive : ud.user.hitRate >= 30 ? COLORS.warning : COLORS.negative;
-            drawUserMetric('HIT RATE', hitRateVal, 248, hitRateColor);
+            drawUserMetric('HIT RATE', hitRateVal, 240, hitRateColor);
 
             doc.setDrawColor(...COLORS.cardBorder);
             doc.setLineWidth(0.12);
@@ -2289,7 +2292,7 @@ export async function generateForecastPdf(
 
                 // Force section to stay together: calculate total height (14mm per row + 20mm title/padding)
                 const totalSectionH = uniqueCategories.length * 14 + 20
-                    ;[y, pageNum.val] = needsNewPage(doc, y, totalSectionH, pageNum, data, filter, filterLabels, user.zoneName, logoBase64)
+                    ;[y, pageNum.val] = needsNewPage(doc, y, totalSectionH, pageNum, data, filter, filterLabels, user.zoneName, logoBase64, selectedMonth)
 
                 y = drawSectionTitle(doc, y + 4, `PRODUCT PERFORMANCE ANALYSIS - ${user.userName.toUpperCase()}`, COLORS.kardexMid)
                 y += 2
@@ -2356,7 +2359,7 @@ export async function generateForecastPdf(
             drawFooter(doc, pageNum.val)
             pageNum.val++
             doc.addPage()
-            let uAY = drawHeader(doc, data.year, filterLabels[filter], selectedZone?.zoneName, logoBase64, selectedMonth)
+            let uAY = drawHeader(doc, data.year, filterLabels[filter] + (monthName ? ` (${monthName})` : ''), selectedZone?.zoneName, logoBase64, selectedMonth)
 
             uAY += 5
 
@@ -2633,7 +2636,7 @@ export async function generateForecastPdf(
             uAY += 10
 
             usersToShow.forEach((user) => {
-                ;[uAY, pageNum.val] = needsNewPage(doc, uAY, 11, pageNum, data, filter, filterLabels, selectedZone?.zoneName, logoBase64)
+                ;[uAY, pageNum.val] = needsNewPage(doc, uAY, 11, pageNum, data, filter, filterLabels, selectedZone?.zoneName, logoBase64, selectedMonth)
 
                 doc.setFont('helvetica', 'normal')
                 doc.setFontSize(6.5)

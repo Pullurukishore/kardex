@@ -45,7 +45,55 @@ interface DashboardData {
     days61to90: { count: number; amount: number };
     over90: { count: number; amount: number };
   };
+  milestoneKpis: {
+    totalValue: number;
+    totalCollected: number;
+    totalOutstanding: number;
+    overdueAmount: number;
+    overdueTermsCount: number;
+    totalMilestones: number;
+    statusCounts: {
+      pending: number;
+      partial: number;
+      paid: number;
+      overdue: number;
+      total: number;
+    };
+    aging: {
+      current: { count: number; amount: number };
+      days1to30: { count: number; amount: number };
+      days31to60: { count: number; amount: number };
+      days61to90: { count: number; amount: number };
+      over90: { count: number; amount: number };
+    };
+    stages: {
+      advance: { pending: number; overdue: number; paid: number };
+      dispatch: { pending: number; overdue: number; paid: number };
+      installation: { pending: number; overdue: number; paid: number };
+      others: { pending: number; overdue: number; paid: number };
+    };
+    performance: {
+      collectionRate: { value: number; status: 'GOOD' | 'AVERAGE' | 'BAD'; label: string };
+      overdueRate: { value: number; status: 'GOOD' | 'AVERAGE' | 'BAD'; label: string };
+      onTimeRate: { value: number; status: 'GOOD' | 'AVERAGE' | 'BAD'; label: string };
+      currentRate: { value: number; status: 'GOOD' | 'AVERAGE' | 'BAD'; label: string };
+    };
+  };
   criticalOverdue: { invoiceNumber: string; customerName: string; balance: number; daysOverdue: number }[];
+  criticalMilestones: {
+    id: string;
+    soNo: string;
+    poNo: string;
+    customerName: string;
+    bpCode: string;
+    totalAmount: number;
+    totalReceipts: number;
+    balance: number;
+    overdueTerms: number;
+    worstAging: number;
+    milestoneStatus: string;
+    status: string;
+  }[];
   recentInvoices: { id: string; invoiceNumber: string; customerName: string; totalAmount: number; balance: number; status: string; invoiceDate: string; dueDate: string }[];
 }
 
@@ -95,6 +143,12 @@ export default function ARDashboardPage() {
     return (data.aging.current?.amount || 0) + (data.aging.days1to30?.amount || 0) + (data.aging.days31to60?.amount || 0) + (data.aging.days61to90?.amount || 0) + (data.aging.over90?.amount || 0);
   };
 
+  const getMilestoneAgingTotal = () => {
+    if (!data?.milestoneKpis?.aging) return 0;
+    const a = data.milestoneKpis.aging;
+    return (a.current?.amount || 0) + (a.days1to30?.amount || 0) + (a.days31to60?.amount || 0) + (a.days61to90?.amount || 0) + (a.over90?.amount || 0);
+  };
+
   if (loading) {
     return (
       <div className="space-y-6 p-4 sm:p-0">
@@ -136,7 +190,12 @@ export default function ARDashboardPage() {
       {/* ROW 1: 6 Essential KPIs - Enhanced Cards */}
       {/* ═══════════════════════════════════════════════════════════════════════════ */}
       
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+      <div className="flex items-center gap-2 mb-1">
+        <h2 className="text-xs font-bold text-[#546A7A] uppercase tracking-widest">Invoice</h2>
+        <div className="h-px flex-1 bg-[#AEBFC3]/30" />
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {/* Total Invoiced */}
         <div className="bg-gradient-to-br from-[#5D6E73] to-[#3D4E53] rounded-2xl p-5 text-white shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all cursor-pointer relative overflow-hidden">
           <div className="absolute top-0 right-0 w-20 h-20 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
@@ -144,9 +203,9 @@ export default function ARDashboardPage() {
             <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center mb-3">
               <DollarSign className="w-5 h-5 text-white" />
             </div>
-            <div className="text-xs text-white/70 font-medium mb-1">Total Invoiced</div>
+            <div className="text-xs text-white/70 font-medium mb-1 uppercase tracking-wider">Invoice Total</div>
             <div className="text-xl font-bold mb-1">{formatARCurrency(data?.kpis?.totalAmount || 0)}</div>
-            <div className="text-xs text-white/60">{data?.kpis?.totalAllInvoices || 0} invoices</div>
+            <div className="text-[10px] text-white/60 font-bold uppercase">{data?.kpis?.totalAllInvoices || 0} Invoices</div>
           </div>
         </div>
 
@@ -157,9 +216,9 @@ export default function ARDashboardPage() {
             <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center mb-3">
               <CheckCircle2 className="w-5 h-5 text-white" />
             </div>
-            <div className="text-xs text-white/70 font-medium mb-1">Collected</div>
+            <div className="text-xs text-white/70 font-medium mb-1 uppercase tracking-wider">Invoice Collected</div>
             <div className="text-xl font-bold mb-1">{formatARCurrency(data?.kpis?.totalCollected || 0)}</div>
-            <div className="text-xs text-white/60">{data?.kpis?.totalPayments || 0} payments</div>
+            <div className="text-[10px] text-white/60 font-bold uppercase">{data?.kpis?.totalPayments || 0} Payments</div>
           </div>
         </div>
 
@@ -170,9 +229,9 @@ export default function ARDashboardPage() {
             <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center mb-3">
               <Clock className="w-5 h-5 text-white" />
             </div>
-            <div className="text-xs text-white/70 font-medium mb-1">Outstanding</div>
+            <div className="text-xs text-white/70 font-medium mb-1 uppercase tracking-wider">Invoice Outstanding</div>
             <div className="text-xl font-bold mb-1">{formatARCurrency(data?.kpis?.totalBalance || 0)}</div>
-            <div className="text-xs text-white/60">{data?.kpis?.totalInvoices || 0} unpaid</div>
+            <div className="text-[10px] text-white/60 font-bold uppercase">Balance Receivable</div>
           </div>
         </div>
 
@@ -183,35 +242,74 @@ export default function ARDashboardPage() {
             <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center mb-3">
               <AlertTriangle className="w-5 h-5 text-white" />
             </div>
-            <div className="text-xs text-white/70 font-medium mb-1">Overdue</div>
+            <div className="text-xs text-white/70 font-medium mb-1 uppercase tracking-wider">Invoice Overdue</div>
             <div className="text-xl font-bold mb-1">{formatARCurrency(data?.kpis?.overdueAmount || 0)}</div>
-            <div className="text-xs text-white/60">{data?.statusCounts?.overdue || 0} past due</div>
+            <div className="text-[10px] text-white/60 font-bold uppercase">{data?.statusCounts?.overdue || 0} Past Due</div>
+          </div>
+        </div>
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════════════════════════ */}
+      {/* ROW 1.5: Milestone Summary */}
+      {/* ═══════════════════════════════════════════════════════════════════════════ */}
+      
+      <div className="flex items-center gap-2 mb-1">
+        <h2 className="text-xs font-bold text-[#546A7A] uppercase tracking-widest">Milestone Payment</h2>
+        <div className="h-px flex-1 bg-[#AEBFC3]/30" />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 sm:gap-4">
+        {/* Milestone Total */}
+        <div className="bg-gradient-to-br from-[#CE9F6B] to-[#976E44] rounded-2xl p-5 text-white shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all cursor-pointer relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
+          <div className="relative">
+            <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center mb-3">
+              <DollarSign className="w-5 h-5 text-white" />
+            </div>
+            <div className="text-xs text-white/70 font-medium mb-1 uppercase tracking-wider">Milestone Total</div>
+            <div className="text-xl font-bold mb-1">{formatARCurrency(data?.milestoneKpis?.totalValue || 0)}</div>
+            <div className="text-[10px] text-white/60 font-bold uppercase">{data?.milestoneKpis?.totalMilestones || 0} Milestones tracked</div>
           </div>
         </div>
 
-        {/* Pending */}
-        <div className="bg-gradient-to-br from-[#CE9F6B] to-[#976E44] rounded-2xl p-5 text-white shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all cursor-pointer relative overflow-hidden">
+        {/* Milestone Collected */}
+        <div className="bg-gradient-to-br from-[#A2B9AF] to-[#82A094] rounded-2xl p-5 text-white shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all cursor-pointer relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
+          <div className="relative">
+            <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center mb-3">
+              <CheckCircle2 className="w-5 h-5 text-white" />
+            </div>
+            <div className="text-xs text-white/70 font-medium mb-1 uppercase tracking-wider">Milestone Collected</div>
+            <div className="text-xl font-bold mb-1">{formatARCurrency(data?.milestoneKpis?.totalCollected || 0)}</div>
+            <div className="text-[10px] text-white/60 font-bold uppercase">
+              {((data?.milestoneKpis?.totalCollected || 0) / (data?.milestoneKpis?.totalValue || 1) * 100).toFixed(1)}% Collection Rate
+            </div>
+          </div>
+        </div>
+
+        {/* Milestone Outstanding */}
+        <div className="bg-gradient-to-br from-[#AEBFC3] to-[#92A2A5] rounded-2xl p-5 text-white shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all cursor-pointer relative overflow-hidden">
           <div className="absolute top-0 right-0 w-20 h-20 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
           <div className="relative">
             <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center mb-3">
               <Clock className="w-5 h-5 text-white" />
             </div>
-            <div className="text-xs text-white/70 font-medium mb-1">Pending</div>
-            <div className="text-xl font-bold mb-1">{data?.kpis?.pendingCount || 0}</div>
-            <div className="text-xs text-white/60">awaiting payment</div>
+            <div className="text-xs text-white/70 font-medium mb-1 uppercase tracking-wider">Milestone Outstanding</div>
+            <div className="text-xl font-bold mb-1">{formatARCurrency(data?.milestoneKpis?.totalOutstanding || 0)}</div>
+            <div className="text-[10px] text-white/60 font-bold uppercase">Balance Receivable</div>
           </div>
         </div>
 
-        {/* Collections MTD */}
-        <div className="bg-gradient-to-br from-[#6F8A9D] to-[#546A7A] rounded-2xl p-5 text-white shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all cursor-pointer relative overflow-hidden">
+        {/* Milestone Overdue */}
+        <div className="bg-gradient-to-br from-[#9E3B47] to-[#75242D] rounded-2xl p-5 text-white shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all cursor-pointer relative overflow-hidden">
           <div className="absolute top-0 right-0 w-20 h-20 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
           <div className="relative">
             <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center mb-3">
-              <TrendingUp className="w-5 h-5 text-white" />
+              <AlertTriangle className="w-5 h-5 text-white" />
             </div>
-            <div className="text-xs text-white/70 font-medium mb-1">Collections MTD</div>
-            <div className="text-xl font-bold mb-1">{formatARCurrency(data?.kpis?.collectionsMTD || 0)}</div>
-            <div className="text-xs text-white/60">{data?.kpis?.paymentsCount || 0} this month</div>
+            <div className="text-xs text-white/70 font-medium mb-1 uppercase tracking-wider">Milestone Overdue</div>
+            <div className="text-xl font-bold mb-1">{formatARCurrency(data?.milestoneKpis?.overdueAmount || 0)}</div>
+            <div className="text-[10px] text-white/60 font-bold uppercase">{data?.milestoneKpis?.overdueTermsCount || 0} stages past due</div>
           </div>
         </div>
       </div>
@@ -246,18 +344,13 @@ export default function ARDashboardPage() {
               return (
                 <div key={item.label} className="group hover:bg-[#F8FAFB] rounded-xl p-2 -mx-2 transition-colors cursor-pointer">
                   <div className="flex items-center gap-3">
-                    {/* Icon Badge */}
                     <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${item.color} flex items-center justify-center text-white text-lg shadow-md group-hover:scale-110 transition-transform`}>
                       {item.icon}
                     </div>
-                    
-                    {/* Label & Description */}
                     <div className="w-24">
                       <div className="text-sm font-semibold text-[#546A7A]">{item.label}</div>
                       <div className="text-xs text-[#5D6E73]">{item.desc}</div>
                     </div>
-                    
-                    {/* Progress Bar */}
                     <div className="flex-1">
                       <div className="h-6 bg-[#F0F4F5] rounded-lg overflow-hidden">
                         <div 
@@ -268,8 +361,6 @@ export default function ARDashboardPage() {
                         </div>
                       </div>
                     </div>
-                    
-                    {/* Count */}
                     <div className="text-right w-16">
                       <div className="text-xl font-bold text-[#546A7A]">{item.value}</div>
                       <div className="text-xs text-[#5D6E73]">{pct.toFixed(1)}%</div>
@@ -281,11 +372,11 @@ export default function ARDashboardPage() {
           </div>
         </div>
 
-        {/* Aging Summary - Enhanced with Details */}
+        {/* Invoice Aging Summary */}
         <div className="bg-white rounded-2xl border p-6 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="font-bold text-[#546A7A] text-lg">Aging Summary</h3>
+              <h3 className="font-bold text-[#546A7A] text-lg">Invoice Aging Summary</h3>
               <p className="text-xs text-[#5D6E73] mt-1">Outstanding balance by days overdue</p>
             </div>
             <div className="text-right">
@@ -296,11 +387,11 @@ export default function ARDashboardPage() {
           
           <div className="space-y-3">
             {[
-              { label: 'Current', desc: 'Not yet due', key: 'current', color: 'from-[#82A094] to-[#4F6A64]', bgColor: 'bg-[#82A094]' },
-              { label: '1-30 Days', desc: 'Slightly overdue', key: 'days1to30', color: 'from-[#6F8A9D] to-[#546A7A]', bgColor: 'bg-[#6F8A9D]' },
-              { label: '31-60 Days', desc: 'Follow up needed', key: 'days31to60', color: 'from-[#CE9F6B] to-[#976E44]', bgColor: 'bg-[#CE9F6B]' },
-              { label: '61-90 Days', desc: 'High risk', key: 'days61to90', color: 'from-[#E17F70] to-[#CE9F6B]', bgColor: 'bg-[#E17F70]' },
-              { label: '90+ Days', desc: 'Critical - escalate', key: 'over90', color: 'from-[#9E3B47] to-[#75242D]', bgColor: 'bg-[#9E3B47]' },
+              { label: 'Current', desc: 'Not yet due', key: 'current', agingParam: 'current', color: 'from-[#82A094] to-[#4F6A64]', bgColor: 'bg-[#82A094]' },
+              { label: '1-30 Days', desc: 'Slightly overdue', key: 'days1to30', agingParam: '1-30', color: 'from-[#6F8A9D] to-[#546A7A]', bgColor: 'bg-[#6F8A9D]' },
+              { label: '31-60 Days', desc: 'Follow up needed', key: 'days31to60', agingParam: '31-60', color: 'from-[#CE9F6B] to-[#976E44]', bgColor: 'bg-[#CE9F6B]' },
+              { label: '61-90 Days', desc: 'High risk', key: 'days61to90', agingParam: '61-90', color: 'from-[#E17F70] to-[#CE9F6B]', bgColor: 'bg-[#E17F70]' },
+              { label: '90+ Days', desc: 'Critical - escalate', key: 'over90', agingParam: '90%2B', color: 'from-[#9E3B47] to-[#75242D]', bgColor: 'bg-[#9E3B47]' },
             ].map(item => {
               const bucket = data?.aging?.[item.key as keyof typeof data.aging];
               const total = getAgingTotal();
@@ -308,18 +399,13 @@ export default function ARDashboardPage() {
               const count = bucket?.count || 0;
               const amount = bucket?.amount || 0;
               return (
-                <div key={item.key} className="group hover:bg-[#F8FAFB] rounded-xl p-2 -mx-2 transition-colors">
+                <Link key={item.key} href={`/finance/ar/invoices?agingBucket=${item.agingParam}`} className="block group hover:bg-[#F8FAFB] rounded-xl p-2 -mx-2 transition-colors cursor-pointer">
                   <div className="flex items-center gap-3">
-                    {/* Status Dot */}
                     <div className={`w-3 h-3 rounded-full ${item.bgColor} flex-shrink-0`} />
-                    
-                    {/* Label & Description */}
                     <div className="w-24">
                       <div className="text-sm font-semibold text-[#546A7A]">{item.label}</div>
                       <div className="text-xs text-[#5D6E73] opacity-75">{item.desc}</div>
                     </div>
-                    
-                    {/* Progress Bar */}
                     <div className="flex-1">
                       <div className="h-6 bg-[#F0F4F5] rounded-lg overflow-hidden">
                         <div 
@@ -330,19 +416,16 @@ export default function ARDashboardPage() {
                         </div>
                       </div>
                     </div>
-                    
-                    {/* Count & Amount */}
                     <div className="text-right w-28">
                       <div className="text-sm font-bold text-[#546A7A]">{formatARCurrency(amount)}</div>
                       <div className="text-xs text-[#5D6E73]">{count} invoice{count !== 1 ? 's' : ''}</div>
                     </div>
+                    <ArrowUpRight className="w-3.5 h-3.5 text-[#AEBFC3] group-hover:text-[#546A7A] transition-colors flex-shrink-0" />
                   </div>
-                </div>
+                </Link>
               );
             })}
           </div>
-          
-          {/* Legend */}
           <div className="mt-4 pt-4 border-t border-[#AEBFC3]/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs text-[#5D6E73]">
             <span>🟢 Current = On Track</span>
             <span>🟡 1-60 Days = Monitor</span>
@@ -352,13 +435,136 @@ export default function ARDashboardPage() {
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════════════════ */}
+      {/* ROW 3: Milestone Status + Stages Breakdown */}
+      {/* ═══════════════════════════════════════════════════════════════════════════ */}
+      
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Milestone Project Status */}
+        <div className="bg-white rounded-2xl border p-6 shadow-sm">
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h3 className="font-bold text-[#546A7A] text-lg">Milestone Status</h3>
+              <p className="text-xs text-[#5D6E73] mt-1">Milestone distribution by health</p>
+            </div>
+            <div className="text-right">
+              <div className="text-xs text-[#5D6E73]">Total Milestones</div>
+              <div className="text-lg font-bold text-[#546A7A]">{data?.milestoneKpis?.statusCounts?.total || 0}</div>
+            </div>
+          </div>
+          
+          <div className="space-y-3">
+            {[
+              { label: 'Pending', desc: 'No terms overdue', value: data?.milestoneKpis?.statusCounts?.pending || 0, color: 'from-[#CE9F6B] to-[#976E44]', bgColor: 'bg-[#CE9F6B]', icon: '📋' },
+              { label: 'Partial', desc: 'Some terms paid', value: data?.milestoneKpis?.statusCounts?.partial || 0, color: 'from-[#6F8A9D] to-[#546A7A]', bgColor: 'bg-[#6F8A9D]', icon: '🛠' },
+              { label: 'Paid', desc: 'All terms cleared', value: data?.milestoneKpis?.statusCounts?.paid || 0, color: 'from-[#82A094] to-[#4F6A64]', bgColor: 'bg-[#82A094]', icon: '✅' },
+              { label: 'Overdue', desc: 'One or more stages late', value: data?.milestoneKpis?.statusCounts?.overdue || 0, color: 'from-[#9E3B47] to-[#75242D]', bgColor: 'bg-[#9E3B47]', icon: '🚨' },
+            ].map(item => {
+              const total = data?.milestoneKpis?.statusCounts?.total || 1;
+              const pct = total > 0 ? (item.value / total) * 100 : 0;
+              return (
+                <div key={item.label} className="group hover:bg-[#F8FAFB] rounded-xl p-2 -mx-2 transition-colors cursor-pointer">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${item.color} flex items-center justify-center text-white text-lg shadow-md group-hover:scale-110 transition-transform`}>
+                      {item.icon}
+                    </div>
+                    <div className="w-24">
+                      <div className="text-sm font-semibold text-[#546A7A]">{item.label}</div>
+                      <div className="text-xs text-[#5D6E73]">{item.desc}</div>
+                    </div>
+                    <div className="flex-1">
+                      <div className="h-6 bg-[#F0F4F5] rounded-lg overflow-hidden">
+                        <div 
+                          className={`h-full bg-gradient-to-r ${item.color} rounded-lg flex items-center justify-end pr-2 transition-all duration-500`}
+                          style={{ width: `${Math.max(pct, 0)}%`, minWidth: pct > 0 ? '35px' : '0' }}
+                        >
+                          {pct >= 10 && <span className="text-xs text-white font-medium">{pct.toFixed(0)}%</span>}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right w-16">
+                      <div className="text-xl font-bold text-[#546A7A]">{item.value}</div>
+                      <div className="text-xs text-[#5D6E73]">{pct.toFixed(1)}%</div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Milestone Aging Summary - Matching Invoice Aging Styling */}
+        <div className="bg-white rounded-2xl border p-6 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="font-bold text-[#546A7A] text-lg">Milestone Aging Summary</h3>
+              <p className="text-xs text-[#5D6E73] mt-1">Outstanding milestone balance by days overdue</p>
+            </div>
+            <div className="text-right">
+              <div className="text-xs text-[#5D6E73]">Total Milestone Outstanding</div>
+              <div className="text-lg font-bold text-[#546A7A]">{formatARCurrency(getMilestoneAgingTotal())}</div>
+            </div>
+          </div>
+          
+          <div className="space-y-3">
+            {[
+              { label: 'Current', desc: 'Not yet due', key: 'current', agingParam: 'current', color: 'from-[#82A094] to-[#4F6A64]', bgColor: 'bg-[#82A094]' },
+              { label: '1-30 Days', desc: 'Slightly overdue', key: 'days1to30', agingParam: '1-30', color: 'from-[#CE9F6B] to-[#976E44]', bgColor: 'bg-[#CE9F6B]' },
+              { label: '31-60 Days', desc: 'Attention needed', key: 'days31to60', agingParam: '31-60', color: 'from-[#976E44] to-[#CE9F6B]', bgColor: 'bg-[#976E44]' },
+              { label: '61-90 Days', desc: 'High risk', key: 'days61to90', agingParam: '61-90', color: 'from-[#E17F70] to-[#9E3B47]', bgColor: 'bg-[#E17F70]' },
+              { label: '90+ Days', desc: 'Critical action', key: 'over90', agingParam: '90%2B', color: 'from-[#9E3B47] to-[#75242D]', bgColor: 'bg-[#9E3B47]' },
+            ].map(item => {
+              const aging = data?.milestoneKpis?.aging;
+              const bucket = aging ? (aging as any)[item.key] : null;
+              const total = getMilestoneAgingTotal();
+              const pct = total > 0 ? ((bucket?.amount || 0) / total) * 100 : 0;
+              const count = bucket?.count || 0;
+              const amount = bucket?.amount || 0;
+              return (
+                <Link key={item.key} href={`/finance/ar/milestones?agingBucket=${item.agingParam}`} className="block group hover:bg-[#F8FAFB] rounded-xl p-2 -mx-2 transition-colors cursor-pointer">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-3 h-3 rounded-full ${item.bgColor} flex-shrink-0`} />
+                    <div className="w-24">
+                      <div className="text-sm font-semibold text-[#546A7A]">{item.label}</div>
+                      <div className="text-xs text-[#5D6E73] opacity-75">{item.desc}</div>
+                    </div>
+                    <div className="flex-1">
+                      <div className="h-6 bg-[#F0F4F5] rounded-lg overflow-hidden">
+                        <div 
+                          className={`h-full bg-gradient-to-r ${item.color} rounded-lg flex items-center justify-end pr-2 transition-all duration-500`} 
+                          style={{ width: `${Math.max(pct, 0)}%`, minWidth: pct > 0 ? '40px' : '0' }}
+                        >
+                          {pct >= 15 && <span className="text-xs text-white font-medium">{pct.toFixed(0)}%</span>}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right w-28">
+                      <div className="text-sm font-bold text-[#546A7A]">{formatARCurrency(amount)}</div>
+                      <div className="text-xs text-[#5D6E73]">{count} milestone{count !== 1 ? 's' : ''}</div>
+                    </div>
+                    <ArrowUpRight className="w-3.5 h-3.5 text-[#AEBFC3] group-hover:text-[#546A7A] transition-colors flex-shrink-0" />
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+          <div className="mt-4 pt-4 border-t border-[#AEBFC3]/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs text-[#5D6E73]">
+            <span>🟢 Current = On Track</span>
+            <span>🟡 1-60 Days = Monitor</span>
+            <span>🔴 60+ Days = Action Required</span>
+          </div>
+        </div>
+      </div>
+
+
+
+      {/* ═══════════════════════════════════════════════════════════════════════════ */}
       {/* ROW 3: Performance Indicators (Enhanced with Circular Gauges) */}
       {/* ═══════════════════════════════════════════════════════════════════════════ */}
       
       <div className="bg-white rounded-2xl border p-6 shadow-sm">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h3 className="font-bold text-[#546A7A] text-lg">Performance Indicators</h3>
+            <h3 className="font-bold text-[#546A7A] text-lg">Invoice Performance Indicators</h3>
             <p className="text-xs text-[#5D6E73] mt-1">Key AR health metrics at a glance</p>
           </div>
         </div>
@@ -369,18 +575,15 @@ export default function ARDashboardPage() {
             const isAverage = perf.status === 'AVERAGE';
             const isBad = perf.status === 'BAD';
             
-            // Calculate circle progress
             const radius = 40;
             const circumference = 2 * Math.PI * radius;
             const progress = (perf.value / 100) * circumference;
             
-            // Colors based on status
             const ringColor = isGood ? '#82A094' : isAverage ? '#CE9F6B' : '#E17F70';
             const bgColor = isGood ? 'bg-[#82A094]/10' : isAverage ? 'bg-[#CE9F6B]/10' : 'bg-[#E17F70]/10';
             const textColor = isGood ? 'text-[#4F6A64]' : isAverage ? 'text-[#976E44]' : 'text-[#9E3B47]';
             const statusBg = isGood ? 'bg-[#82A094]' : isAverage ? 'bg-[#CE9F6B]' : 'bg-[#E17F70]';
             
-            // Description for each metric
             const descriptions: Record<string, string> = {
               collectionRate: 'Amount collected vs invoiced',
               overdueRate: 'Invoices past due date',
@@ -390,12 +593,9 @@ export default function ARDashboardPage() {
             
             return (
               <div key={key} className={`${bgColor} rounded-2xl p-5 text-center group hover:scale-[1.02] transition-transform`}>
-                {/* Circular Progress */}
                 <div className="relative w-24 h-24 mx-auto mb-4">
                   <svg className="w-24 h-24 transform -rotate-90" viewBox="0 0 100 100">
-                    {/* Background circle */}
                     <circle cx="50" cy="50" r={radius} fill="none" stroke="#E5E7EB" strokeWidth="8" />
-                    {/* Progress circle */}
                     <circle 
                       cx="50" cy="50" r={radius} fill="none" 
                       stroke={ringColor} strokeWidth="8" strokeLinecap="round"
@@ -404,17 +604,78 @@ export default function ARDashboardPage() {
                       className="transition-all duration-1000"
                     />
                   </svg>
-                  {/* Center text */}
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
                     <span className={`text-2xl font-bold ${textColor}`}>{perf.value}%</span>
                   </div>
                 </div>
                 
-                {/* Label */}
                 <div className={`text-sm font-bold ${textColor} mb-1`}>{perf.label}</div>
                 <div className="text-xs text-[#5D6E73] mb-3">{descriptions[key] || ''}</div>
                 
-                {/* Status Badge */}
+                <div className={`inline-flex items-center gap-1.5 ${statusBg} text-white text-xs font-bold px-3 py-1 rounded-full`}>
+                  {isGood && <CheckCircle2 className="w-3 h-3" />}
+                  {isAverage && <Minus className="w-3 h-3" />}
+                  {isBad && <XCircle className="w-3 h-3" />}
+                  {perf.status}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Milestone Performance Indicators */}
+      <div className="bg-white rounded-2xl border p-6 shadow-sm">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h3 className="font-bold text-[#546A7A] text-lg">Milestone Performance Indicators</h3>
+            <p className="text-xs text-[#5D6E73] mt-1">Key milestone health metrics at a glance</p>
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+          {data?.milestoneKpis?.performance && Object.entries(data.milestoneKpis.performance).map(([key, perf]) => {
+            const isGood = perf.status === 'GOOD';
+            const isAverage = perf.status === 'AVERAGE';
+            const isBad = perf.status === 'BAD';
+            
+            const radius = 40;
+            const circumference = 2 * Math.PI * radius;
+            const progress = (perf.value / 100) * circumference;
+            
+            const ringColor = isGood ? '#82A094' : isAverage ? '#CE9F6B' : '#E17F70';
+            const bgColor = isGood ? 'bg-[#82A094]/10' : isAverage ? 'bg-[#CE9F6B]/10' : 'bg-[#E17F70]/10';
+            const textColor = isGood ? 'text-[#4F6A64]' : isAverage ? 'text-[#976E44]' : 'text-[#9E3B47]';
+            const statusBg = isGood ? 'bg-[#82A094]' : isAverage ? 'bg-[#CE9F6B]' : 'bg-[#E17F70]';
+            
+            const descriptions: Record<string, string> = {
+              collectionRate: 'Milestone value collected vs total',
+              overdueRate: 'Milestones with overdue stages',
+              onTimeRate: 'Milestones with all stages on time',
+              currentRate: 'Milestone balance not yet overdue'
+            };
+            
+            return (
+              <div key={key} className={`${bgColor} rounded-2xl p-5 text-center group hover:scale-[1.02] transition-transform`}>
+                <div className="relative w-24 h-24 mx-auto mb-4">
+                  <svg className="w-24 h-24 transform -rotate-90" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r={radius} fill="none" stroke="#E5E7EB" strokeWidth="8" />
+                    <circle 
+                      cx="50" cy="50" r={radius} fill="none" 
+                      stroke={ringColor} strokeWidth="8" strokeLinecap="round"
+                      strokeDasharray={circumference}
+                      strokeDashoffset={circumference - progress}
+                      className="transition-all duration-1000"
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className={`text-2xl font-bold ${textColor}`}>{perf.value}%</span>
+                  </div>
+                </div>
+                
+                <div className={`text-sm font-bold ${textColor} mb-1`}>{perf.label}</div>
+                <div className="text-xs text-[#5D6E73] mb-3">{descriptions[key] || ''}</div>
+                
                 <div className={`inline-flex items-center gap-1.5 ${statusBg} text-white text-xs font-bold px-3 py-1 rounded-full`}>
                   {isGood && <CheckCircle2 className="w-3 h-3" />}
                   {isAverage && <Minus className="w-3 h-3" />}
@@ -428,82 +689,113 @@ export default function ARDashboardPage() {
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════════════════ */}
-      {/* ROW 4: Critical Overdue List - Enhanced */}
+      {/* ROW 3.75: Critical Milestone Aging (New) */}
       {/* ═══════════════════════════════════════════════════════════════════════════ */}
       
-      <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between p-6 border-b bg-gradient-to-r from-[#E17F70]/5 to-transparent">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#E17F70] to-[#9E3B47] flex items-center justify-center text-white shadow-lg">
-              <AlertTriangle className="w-5 h-5" />
+      {data?.criticalMilestones && data.criticalMilestones.length > 0 && (
+        <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
+          <div className="flex items-center justify-between p-6 border-b bg-gradient-to-r from-[#CE9F6B]/5 to-transparent">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#CE9F6B] to-[#976E44] flex items-center justify-center text-white shadow-lg">
+                <Clock className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-bold text-[#546A7A] text-lg">Critical Milestone Aging</h3>
+                <p className="text-xs text-[#5D6E73]">Milestones with overdue payment stages</p>
+              </div>
             </div>
-            <div>
-              <h3 className="font-bold text-[#546A7A] text-lg">Critical Overdue</h3>
-              <p className="text-xs text-[#5D6E73]">Invoices requiring immediate attention</p>
-            </div>
+            <Link href="/finance/ar/milestones?status=OVERDUE" className="flex items-center gap-2 text-sm text-white bg-[#CE9F6B] hover:bg-[#976E44] px-4 py-2 rounded-lg transition-colors">
+              View All Milestones <ArrowUpRight className="w-4 h-4" />
+            </Link>
           </div>
-          <Link href="/finance/ar/invoices?status=OVERDUE" className="flex items-center gap-2 text-sm text-white bg-[#E17F70] hover:bg-[#9E3B47] px-4 py-2 rounded-lg transition-colors">
-            View All <ArrowUpRight className="w-4 h-4" />
-          </Link>
-        </div>
-        
-        {!data?.criticalOverdue?.length ? (
-          <div className="py-16 text-center">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-[#82A094]/10 flex items-center justify-center">
-              <CheckCircle2 className="w-8 h-8 text-[#82A094]" />
-            </div>
-            <div className="text-lg font-semibold text-[#546A7A] mb-1">All Clear!</div>
-            <div className="text-sm text-[#5D6E73]">No critical overdue invoices at this time</div>
+          
+          {/* Header (Detailed) */}
+          <div className="hidden lg:flex items-center gap-4 px-6 py-3 bg-[#F8FAFB] text-[10px] font-bold text-[#92A2A5] uppercase tracking-wider border-b">
+            <div className="w-8">Rank</div>
+            <div className="flex-1">Sales Order / Milestone Details</div>
+            <div className="w-48">Customer & Entity</div>
+            <div className="w-32 text-right">Progress</div>
+            <div className="w-40 text-right">Financial Details</div>
+            <div className="w-32 text-center">Status / Aging</div>
           </div>
-        ) : (
+
           <div className="divide-y divide-[#AEBFC3]/10">
-            {data.criticalOverdue.map((inv, i) => {
-              const severity = inv.daysOverdue > 90 ? 'critical' : inv.daysOverdue > 60 ? 'high' : 'medium';
-              const severityColors = {
-                critical: 'bg-[#9E3B47] border-[#9E3B47]',
-                high: 'bg-[#E17F70] border-[#E17F70]',
-                medium: 'bg-[#CE9F6B] border-[#CE9F6B]'
-              };
-              const severityLabels = {
-                critical: 'CRITICAL',
-                high: 'HIGH',
-                medium: 'MEDIUM'
-              };
-              
-              return (
-                <div key={i} className="flex items-center gap-4 p-4 hover:bg-[#E17F70]/5 transition-colors group">
-                  {/* Rank Badge */}
-                  <div className="w-8 h-8 rounded-lg bg-[#F8FAFB] flex items-center justify-center text-sm font-bold text-[#546A7A]">
-                    #{i + 1}
-                  </div>
-                  
-                  {/* Invoice Info */}
-                  <div className="flex-1 min-w-0">
-                    <Link href={`/finance/ar/invoices/${inv.invoiceNumber}`} className="text-sm font-bold text-[#E17F70] hover:underline group-hover:text-[#9E3B47]">
-                      {inv.invoiceNumber}
+            {data?.criticalMilestones?.map((ms, i) => (
+              <div key={ms.id} className="flex flex-col lg:flex-row lg:items-center gap-4 p-4 lg:px-6 hover:bg-[#CE9F6B]/5 transition-colors group relative">
+                {/* Rank (Absolute on mobile) */}
+                <div className="hidden lg:flex w-8 h-8 rounded-lg bg-[#CE9F6B]/10 items-center justify-center text-sm font-bold text-[#976E44]">
+                  #{i + 1}
+                </div>
+                
+                {/* Order Info */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <Link href={`/finance/ar/milestones/${ms.id}`} className="text-sm font-bold text-[#CE9F6B] hover:underline group-hover:text-[#976E44]">
+                      {ms.soNo || 'SO-N/A'}
                     </Link>
-                    <div className="text-sm text-[#546A7A] truncate">{inv.customerName}</div>
+                    <span className="text-[10px] bg-[#546A7A]/10 text-[#546A7A] px-1.5 py-0.5 rounded font-black uppercase">
+                      {ms.poNo || 'NO-PO'}
+                    </span>
                   </div>
-                  
-                  {/* Balance */}
-                  <div className="text-right">
-                    <div className="text-lg font-bold text-[#546A7A]">{formatARCurrency(Number(inv.balance))}</div>
-                    <div className="text-xs text-[#5D6E73]">Outstanding</div>
+                  <div className="text-[10px] text-[#92A2A5] font-bold uppercase tracking-widest mt-0.5">Milestone Ref #</div>
+                </div>
+
+                {/* Customer Info */}
+                <div className="w-full lg:w-48 min-w-0">
+                  <div className="text-sm font-bold text-[#546A7A] truncate line-clamp-1">{ms.customerName}</div>
+                  <div className="text-[10px] text-[#976E44] font-bold tracking-tighter uppercase">{ms.bpCode || 'N/A'}</div>
+                </div>
+
+                {/* Progress Bar (Detailed) */}
+                <div className="w-full lg:w-32">
+                  <div className="flex justify-between items-center mb-1 lg:hidden">
+                     <span className="text-[10px] font-bold text-[#92A2A5]">COLLECTION</span>
+                     <span className="text-[10px] font-bold text-[#4F6A64]">{Math.round((ms.totalReceipts/ms.totalAmount)*100)}%</span>
                   </div>
-                  
-                  {/* Days Overdue with Severity */}
-                  <div className="text-center w-24">
-                    <div className={`inline-flex items-center gap-1 ${severityColors[severity]} text-white text-xs font-bold px-3 py-1.5 rounded-lg`}>
-                      +{inv.daysOverdue}d
-                    </div>
-                    <div className="text-xs text-[#5D6E73] mt-1">{severityLabels[severity]}</div>
+                  <div className="w-full h-1.5 bg-[#AEBFC3]/10 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-[#82A094] to-[#4F6A64] transition-all duration-1000" 
+                      style={{ width: `${(ms.totalReceipts / (ms.totalAmount || 1)) * 100}%` }}
+                    />
                   </div>
                 </div>
-              );
-            })}
+                
+                {/* Amounts (Detailed) */}
+                <div className="flex lg:flex-col items-center lg:items-end justify-between lg:justify-center w-full lg:w-40 lg:text-right">
+                  <div className="lg:hidden text-[10px] font-bold text-[#92A2A5]">BALANCE</div>
+                  <div>
+                     <div className="text-sm font-bold text-[#E17F70]">{formatARCurrency(ms.balance)}</div>
+                     <div className="text-[9px] text-[#92A2A5] font-bold uppercase tracking-tighter">Total: {formatARCurrency(ms.totalAmount)}</div>
+                  </div>
+                </div>
+                
+                {/* Status / Aging Badge (Detailed) */}
+                <div className="flex items-center justify-between lg:justify-center w-full lg:w-32 gap-2">
+                  <div className="lg:hidden text-[10px] font-bold text-[#92A2A5]">AGING</div>
+                  <div className="flex flex-col items-center">
+                    <div className={`px-2 py-0.5 rounded text-[8px] font-black uppercase mb-1 ${
+                       ms.milestoneStatus === 'FULLY_DELIVERED' ? 'bg-[#82A094]/10 text-[#4F6A64]' : 
+                       ms.milestoneStatus === 'PARTIALLY_DELIVERED' ? 'bg-[#6F8A9D]/10 text-[#546A7A]' :
+                       'bg-[#CE9F6B]/10 text-[#976E44]'
+                    }`}>
+                      {(ms.milestoneStatus || 'PENDING').replace('_', ' ')}
+                    </div>
+                    <div className={`inline-flex items-center gap-1 p-1 px-2 rounded-lg border shadow-sm transition-all ${
+                      ms.worstAging > 30 ? 'bg-[#9E3B47] border-[#9E3B47] text-white' : 'bg-[#E17F70]/5 border-[#E17F70]/20 text-[#9E3B47]'
+                    }`}>
+                      <span className="text-[10px] font-black tracking-tighter">+{ms.worstAging}d</span>
+                      <span className="w-px h-2 bg-current opacity-30" />
+                      <span className="text-[8px] font-black leading-none">{ms.overdueTerms}T</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+
     </div>
   );
 }

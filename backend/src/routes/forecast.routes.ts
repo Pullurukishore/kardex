@@ -56,6 +56,13 @@ router.get(
     ForecastController.getForecastAnalyticsWrapper
 );
 
+// Get Growth Report data (Target vs Offer Value vs Won, with filters)
+router.get(
+    '/growth-report',
+    requireRole(['ADMIN']),
+    ForecastController.getGrowthReportWrapper
+);
+
 export default router;
 
 

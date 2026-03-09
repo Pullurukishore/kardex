@@ -16,6 +16,7 @@ export const getAllInvoices = async (req: Request, res: Response) => {
             toDate,
             overdueOnly,
             invoiceType, // Filter by invoice type (REGULAR, MILESTONE)
+            agingBucket, // Filter by aging bucket (current, 1-30, 31-60, 61-90, 90+)
             page = 1,
             limit = 20
         } = req.query;
@@ -69,6 +70,7 @@ export const getAllInvoices = async (req: Request, res: Response) => {
                     customerName: true,
                     poNo: true,
                     totalAmount: true,
+                    netAmount: true,
                     invoiceDate: true,
                     dueDate: true,
                     balance: true,
@@ -85,6 +87,7 @@ export const getAllInvoices = async (req: Request, res: Response) => {
                     milestoneTerms: true,
                     accountingStatus: true,
                     mailToTSP: true,
+                    bookingMonth: true,
                 }
             }),
             prisma.aRInvoice.count({ where })
@@ -137,13 +140,30 @@ export const getAllInvoices = async (req: Request, res: Response) => {
             };
         });
 
+        // Filter by aging bucket if specified
+        let filteredInvoices = invoicesWithOverdue;
+        if (agingBucket) {
+            const bucket = String(agingBucket);
+            filteredInvoices = invoicesWithOverdue.filter(inv => {
+                const days = inv.dueByDays;
+                switch (bucket) {
+                    case 'current': return days <= 0; // Not yet due
+                    case '1-30': return days >= 1 && days <= 30;
+                    case '31-60': return days >= 31 && days <= 60;
+                    case '61-90': return days >= 61 && days <= 90;
+                    case '90+': return days > 90;
+                    default: return true;
+                }
+            });
+        }
+
         res.json({
-            data: invoicesWithOverdue,
+            data: agingBucket ? filteredInvoices : invoicesWithOverdue,
             pagination: {
                 page: Number(page),
                 limit: Number(limit),
-                total,
-                totalPages: Math.ceil(total / Number(limit))
+                total: agingBucket ? filteredInvoices.length : total,
+                totalPages: agingBucket ? 1 : Math.ceil(total / Number(limit))
             }
         });
     } catch (error: any) {
@@ -167,8 +187,9 @@ export const getInvoiceById = async (req: Request, res: Response) => {
                 }
             });
         } else {
-            invoice = await prisma.aRInvoice.findUnique({
+            invoice = await prisma.aRInvoice.findFirst({
                 where: { invoiceNumber: id },
+                orderBy: { invoiceType: 'desc' }, // REGULAR comes after MILESTONE alphabetically
                 include: {
                     linkedFromMilestones: true,
                     linkedInvoice: true
@@ -245,7 +266,7 @@ export const getInvoiceById = async (req: Request, res: Response) => {
 export const addPaymentRecord = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
-        const { amount, paymentDate, paymentTime, paymentMode, referenceNo, referenceBank, notes } = req.body;
+        const { amount, paymentDate, paymentTime, paymentMode, referenceNo, referenceBank, notes, milestoneTerm } = req.body;
 
         // Get current user name from request (outside transaction)
         const recordedBy = (req as any).user?.name || (req as any).user?.email || 'System';
@@ -273,6 +294,7 @@ export const addPaymentRecord = async (req: Request, res: Response) => {
                     referenceNo,
                     referenceBank,
                     notes,
+                    milestoneTerm: milestoneTerm || null,
                     recordedBy
                 }
             });
@@ -316,12 +338,12 @@ export const addPaymentRecord = async (req: Request, res: Response) => {
         await logInvoiceActivity({
             invoiceId: id,
             action: 'PAYMENT_RECORDED',
-            description: `Payment of ₹${parsedAmount.toLocaleString()} recorded via ${paymentMode}${referenceNo ? ` (Ref: ${referenceNo})` : ''}`,
+            description: `Payment of ₹${parsedAmount.toLocaleString()} recorded via ${paymentMode}${milestoneTerm ? ` for Stage: ${milestoneTerm}` : ''}${referenceNo ? ` (Ref: ${referenceNo})` : ''}`,
             performedById: user.id,
             performedBy: user.name,
             ipAddress,
             userAgent,
-            metadata: { amount: parsedAmount, paymentMode, referenceNo, newBalance: result.balance, newStatus: result.status }
+            metadata: { amount: parsedAmount, paymentMode, referenceNo, milestoneTerm: milestoneTerm || null, newBalance: result.balance, newStatus: result.status }
         });
 
         res.json(result.payment);
@@ -338,7 +360,7 @@ export const addPaymentRecord = async (req: Request, res: Response) => {
 export const updatePaymentRecord = async (req: Request, res: Response) => {
     try {
         const { id, paymentId } = req.params;
-        const { amount, paymentDate, paymentMode, referenceBank, notes } = req.body;
+        const { amount, paymentDate, paymentMode, referenceBank, notes, milestoneTerm } = req.body;
 
         const user = getUserFromRequest(req);
         const parsedAmount = parseFloat(amount);
@@ -361,7 +383,8 @@ export const updatePaymentRecord = async (req: Request, res: Response) => {
                     paymentDate: new Date(paymentDate),
                     paymentMode,
                     referenceBank,
-                    notes
+                    notes,
+                    milestoneTerm: milestoneTerm || null
                 }
             });
 
@@ -544,7 +567,8 @@ export const createInvoice = async (req: Request, res: Response) => {
             type,
             milestoneTerms,
             accountingStatus,
-            mailToTSP
+            mailToTSP,
+            bookingMonth
         } = req.body;
 
         if (!invoiceNumber || !customerId || !totalAmount) {
@@ -592,7 +616,8 @@ export const createInvoice = async (req: Request, res: Response) => {
                 type: type || null,
                 milestoneTerms: milestoneTerms || null,
                 accountingStatus: accountingStatus || null,
-                mailToTSP: mailToTSP || null
+                mailToTSP: mailToTSP || null,
+                bookingMonth: bookingMonth || null
             }
         });
 
@@ -601,7 +626,7 @@ export const createInvoice = async (req: Request, res: Response) => {
         await logInvoiceActivity({
             invoiceId: invoice.id,
             action: 'INVOICE_CREATED',
-            description: `Invoice ${invoiceNumber} created for ${req.body.customerName || customerId} - Amount: ₹${parseFloat(totalAmount).toLocaleString()}`,
+            description: `${invoiceType === 'MILESTONE' ? 'Milestone Payment' : 'Invoice'} ${invoiceNumber} created for ${req.body.customerName || customerId} - Amount: ₹${parseFloat(totalAmount).toLocaleString()}`,
             performedById: user.id,
             performedBy: user.name,
             ipAddress: getIpFromRequest(req),
@@ -720,7 +745,8 @@ export const updateInvoice = async (req: Request, res: Response) => {
             milestoneStatus: 'Milestone Status',
             milestoneTerms: 'Milestone Terms',
             accountingStatus: 'Accounting Status',
-            mailToTSP: 'Mail to TSP'
+            mailToTSP: 'Mail to TSP',
+            bookingMonth: 'Booking Month'
         };
 
         // Build detailed change description
@@ -892,8 +918,9 @@ export const getInvoiceRemarks = async (req: Request, res: Response) => {
         });
 
         if (!invoice) {
-            invoice = await prisma.aRInvoice.findUnique({
+            invoice = await prisma.aRInvoice.findFirst({
                 where: { invoiceNumber: id },
+                orderBy: { invoiceType: 'desc' },
                 select: { id: true }
             });
         }
@@ -943,8 +970,9 @@ export const addInvoiceRemark = async (req: Request, res: Response) => {
         });
 
         if (!invoice) {
-            invoice = await prisma.aRInvoice.findUnique({
+            invoice = await prisma.aRInvoice.findFirst({
                 where: { invoiceNumber: id },
+                orderBy: { invoiceType: 'desc' },
                 select: { id: true }
             });
         }
@@ -997,8 +1025,9 @@ export const getInvoiceActivityLog = async (req: Request, res: Response) => {
         });
 
         if (!invoice) {
-            invoice = await prisma.aRInvoice.findUnique({
+            invoice = await prisma.aRInvoice.findFirst({
                 where: { invoiceNumber: id },
+                orderBy: { invoiceType: 'desc' },
                 select: { id: true }
             });
         }
@@ -1042,33 +1071,45 @@ export const getMatchingMilestones = async (req: Request, res: Response) => {
         // Get the regular invoice
         const invoice = await prisma.aRInvoice.findUnique({
             where: { id },
-            select: { id: true, poNo: true, invoiceType: true, linkedMilestoneId: true }
+            select: { id: true, poNo: true, invoiceNumber: true, invoiceType: true, linkedMilestoneId: true }
         });
 
         if (!invoice) {
             return res.status(404).json({ error: 'Invoice not found' });
         }
 
-        if (!invoice.poNo) {
-            return res.json({ milestones: [], message: 'No PO number on this invoice' });
+        // Extract base PO number if available
+        const basePO = invoice.poNo ? invoice.poNo.split(/[\s,]+/)[0].trim() : '';
+
+        // Build OR conditions for matching
+        const orConditions: any[] = [];
+
+        // PO-based matching (only if PO exists)
+        if (basePO) {
+            orConditions.push(
+                { poNo: basePO },  // Exact match on base PO
+                { poNo: { startsWith: basePO } },  // Milestone PO starts with base PO
+                { poNo: { contains: basePO } },  // Milestone PO contains base PO
+            );
+            if (invoice.poNo) {
+                orConditions.push({ poNo: invoice.poNo });  // Exact full PO match
+            }
         }
 
-        // Extract base PO number (first part before any space, "Dtd:", or date suffix)
-        // Examples: "3791225209 Dtd:7/2/2025" -> "3791225209", "PO-12345" -> "PO-12345"
-        const basePO = invoice.poNo.split(/[\s,]+/)[0].trim();
+        // Invoice Number-based matching
+        if (invoice.invoiceNumber) {
+            orConditions.push({ invoiceNumber: invoice.invoiceNumber });
+        }
 
+        if (orConditions.length === 0) {
+            return res.json({ milestones: [], message: 'No PO number or Invoice Number to match' });
+        }
 
-        // Find milestone invoices with matching PO number
-        // Use contains for flexible matching - either invoice might have date suffix
+        // Find milestone invoices with matching PO number or Invoice Number
         const matchingMilestones = await prisma.aRInvoice.findMany({
             where: {
                 invoiceType: 'MILESTONE',
-                OR: [
-                    { poNo: basePO },  // Exact match on base PO
-                    { poNo: { startsWith: basePO } },  // Milestone PO starts with base PO
-                    { poNo: { contains: basePO } },  // Milestone PO contains base PO
-                    { poNo: invoice.poNo }  // Exact full match
-                ]
+                OR: orConditions
                 // Note: linkedInvoiceId and milestoneStatus filters removed for flexibility
                 // The UI will handle showing only relevant milestones
             },
@@ -1197,8 +1238,11 @@ export const acceptMilestone = async (req: Request, res: Response) => {
             const posMatch = regularBasePO && milestoneBasePO && regularBasePO === milestoneBasePO;
             const posContainEachOther = regularBasePO && milestoneBasePO &&
                 (regularBasePO.includes(milestoneBasePO) || milestoneBasePO.includes(regularBasePO));
+            // Allow linking when invoice numbers match exactly
+            const invoiceNumbersMatch = regularInvoice.invoiceNumber && milestoneInvoice.invoiceNumber
+                && regularInvoice.invoiceNumber === milestoneInvoice.invoiceNumber;
 
-            if (!posMatch && !posContainEachOther && !invoiceNumberContainsPO) {
+            if (!posMatch && !posContainEachOther && !invoiceNumberContainsPO && !invoiceNumbersMatch) {
                 throw new Error(`PO numbers do not match: ${regularBasePO || '(empty)'} vs ${milestoneBasePO || '(empty)'}. Milestone invoice number: ${milestoneInvoice.invoiceNumber}`);
             }
 

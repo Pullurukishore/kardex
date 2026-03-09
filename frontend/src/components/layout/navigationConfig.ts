@@ -14,6 +14,7 @@ import {
   Clock,
   History,
   Image as ImageIcon,
+  TrendingUp,
 } from "lucide-react";
 
 export type NavItem = {
@@ -85,6 +86,14 @@ export const adminNavigation: NavItem[] = [
         roles: [UserRole.ADMIN],
         iconColor: "text-[#976E44]",
         iconBgColor: "bg-[#CE9F6B]/10"
+      },
+      {
+        title: "Growth Report",
+        href: "/admin/growth-report",
+        icon: TrendingUp,
+        roles: [UserRole.ADMIN],
+        iconColor: "text-[#546A7A]",
+        iconBgColor: "bg-[#6F8A9D]/10"
       }
     ]
   },
@@ -750,6 +759,14 @@ export const adminOffersNavigation: NavItem[] = [
     iconColor: "text-[#976E44]",
     iconBgColor: "bg-[#CE9F6B]/10"
   },
+  {
+    title: "Growth Report",
+    href: "/admin/growth-report",
+    icon: TrendingUp,
+    roles: [UserRole.ADMIN],
+    iconColor: "text-[#546A7A]",
+    iconBgColor: "bg-[#6F8A9D]/10"
+  }
 ];
 
 // Zone Manager Tickets Navigation (flattened)

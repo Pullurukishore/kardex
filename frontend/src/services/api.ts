@@ -617,6 +617,11 @@ class ApiService {
     return response.data;
   }
 
+  async getGrowthReport(params?: any) {
+    const response = await api.get(`${this.baseURL}/forecast/growth-report`, { params });
+    return response.data;
+  }
+
   // Dashboard methods for Offer Analytics
   // These methods fetch comprehensive offer/sales data for dashboard display
   async getAdminDashboard(params?: any) {

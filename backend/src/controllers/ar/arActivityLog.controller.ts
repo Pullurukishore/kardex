@@ -14,10 +14,14 @@ export type ARActivityAction =
     | 'REMARK_ADDED'
     | 'INVOICE_IMPORTED'
     | 'MILESTONE_LINKED'      // When a milestone payment is linked to a regular invoice
-    | 'LINKED_TO_INVOICE';  // When a milestone is linked (logged on the milestone payment)
+    | 'LINKED_TO_INVOICE'    // When a milestone is linked (logged on the milestone payment)
+    | 'CUSTOMER_UPDATED'     // When customer info (denormalized) is updated
+    | 'PAYMENT_TERM_CREATED' // When a new payment term is added
+    | 'PAYMENT_TERM_UPDATED' // When a payment term is modified
+    | 'PAYMENT_TERM_DELETED'; // When a payment term is removed
 
 interface LogActivityParams {
-    invoiceId: string;
+    invoiceId?: string | null;
     action: ARActivityAction;
     description: string;
     fieldName?: string;
@@ -38,7 +42,7 @@ export const logInvoiceActivity = async (params: LogActivityParams) => {
     try {
         await prisma.aRInvoiceActivityLog.create({
             data: {
-                invoiceId: params.invoiceId,
+                invoiceId: params.invoiceId || null,
                 action: params.action,
                 description: params.description,
                 fieldName: params.fieldName || null,

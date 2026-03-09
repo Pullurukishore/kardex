@@ -608,7 +608,7 @@ export function FinanceClientWrapper({ children }: FinanceLayoutProps) {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8F9FB]">
+    <div className="h-screen overflow-hidden bg-[#F8F9FB]">
       <Suspense fallback={<div className="w-64 fixed h-screen bg-white/50 backdrop-blur-xl" />}>
         <FinanceSidebar 
           isMobile={isMobile}

@@ -11,6 +11,17 @@ export default function NewInvoicePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Helper to format numbers with Indian commas
+  const formatWithCommas = (val: string | number) => {
+    if (val === undefined || val === null || val === '') return '';
+    const num = typeof val === 'string' ? parseFloat(val.replace(/,/g, '')) : val;
+    if (isNaN(num)) return '';
+    return new Intl.NumberFormat('en-IN').format(num);
+  };
+
+  // Helper to strip commas
+  const unformatNumber = (val: string) => val.replace(/,/g, '');
+
   const [formData, setFormData] = useState({
     invoiceNumber: '',
     bpCode: '',
@@ -27,7 +38,28 @@ export default function NewInvoicePage() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    
+    // Handle comma formatting for financial fields
+    if (['netAmount', 'taxAmount', 'totalAmount'].includes(name)) {
+      const rawValue = unformatNumber(value);
+      // Allow only numbers and one decimal point
+      if (rawValue !== '' && !/^\d*\.?\d*$/.test(rawValue)) return;
+      
+      setFormData(prev => {
+        const newData = { ...prev, [name]: rawValue };
+        
+        // Auto-calculate Total if Net or Tax changes
+        if (name === 'netAmount' || name === 'taxAmount') {
+          const net = parseFloat(unformatNumber(newData.netAmount) || '0');
+          const tax = parseFloat(unformatNumber(newData.taxAmount) || '0');
+          newData.totalAmount = (net + tax).toString();
+        }
+        
+        return newData;
+      });
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -48,9 +80,9 @@ export default function NewInvoicePage() {
         customerId: formData.bpCode,
         customerName: formData.customerName || '',
         poNo: formData.poNo || undefined,
-        totalAmount: parseFloat(formData.totalAmount),
-        netAmount: formData.netAmount ? parseFloat(formData.netAmount) : parseFloat(formData.totalAmount),
-        taxAmount: formData.taxAmount ? parseFloat(formData.taxAmount) : undefined,
+        totalAmount: parseFloat(unformatNumber(formData.totalAmount) || '0'),
+        netAmount: parseFloat(unformatNumber(formData.netAmount) || '0'),
+        taxAmount: formData.taxAmount ? parseFloat(unformatNumber(formData.taxAmount) || '0') : undefined,
         invoiceDate: formData.invoiceDate,
         dueDate: formData.dueDate || undefined,
         invoiceType: 'REGULAR',
@@ -67,7 +99,8 @@ export default function NewInvoicePage() {
     }
   };
 
-  const inputClass = "w-full h-12 px-4 rounded-xl bg-[#AEBFC3]/10 border-2 border-[#AEBFC3]/30 text-[#546A7A] placeholder:text-[#92A2A5] focus:border-[#E17F70]/50 focus:outline-none focus:ring-4 focus:ring-[#E17F70]/10 transition-all font-medium";
+  const inputClass = "w-full h-12 px-4 rounded-xl bg-[#AEBFC3]/10 border-2 border-[#AEBFC3]/30 text-[#546A7A] placeholder:text-[#92A2A5] focus:border-[#E17F70]/50 focus:outline-none focus:ring-4 focus:ring-[#E17F70]/10 transition-all duration-300 font-medium hover:border-[#AEBFC3]/50";
+  const labelClass = "block text-[#5D6E73] text-sm font-semibold mb-2";
 
   return (
     <div className="space-y-6 w-full relative">
@@ -146,23 +179,7 @@ export default function NewInvoicePage() {
               />
             </div>
 
-            <div>
-              <label className="block text-[#5D6E73] text-sm font-semibold mb-2">
-                Type <span className="text-[#E17F70]">*</span>
-              </label>
-              <select
-                name="type"
-                value={formData.type}
-                onChange={handleChange}
-                className={inputClass}
-                required
-              >
-                <option value="">Select Type</option>
-                <option value="LCS">LCS</option>
-                <option value="NB">NB</option>
-                <option value="FINANCE">Finance</option>
-              </select>
-            </div>
+
 
             <div>
               <label className="block text-[#5D6E73] text-sm font-semibold mb-2">
@@ -180,16 +197,14 @@ export default function NewInvoicePage() {
             </div>
 
             <div>
-              <label className="block text-[#5D6E73] text-sm font-semibold mb-2">
-                Customer Name
-              </label>
+              <label className={labelClass}>Customer Name</label>
               <input
                 type="text"
                 name="customerName"
                 value={formData.customerName}
                 onChange={handleChange}
                 className={inputClass}
-                placeholder="Customer display name"
+                placeholder="Customer Name (Optional)"
               />
             </div>
 
@@ -242,52 +257,60 @@ export default function NewInvoicePage() {
           </div>
         </div>
 
-        {/* Amount Details */}
-        <div className="bg-white/90 backdrop-blur-xl rounded-2xl border border-[#82A094]/20 p-6 shadow-lg">
+        {/* Financial Details */}
+        <div className="bg-white/90 backdrop-blur-xl rounded-2xl border border-[#82A094]/20 p-6 shadow-lg hover:shadow-xl transition-all duration-300 group">
           <h3 className="text-lg font-bold text-[#546A7A] mb-5 flex items-center gap-2">
-            <div className="p-2 rounded-lg bg-gradient-to-br from-[#82A094] to-[#4F6A64]">
+            <div className="p-2 rounded-lg bg-gradient-to-br from-[#82A094] to-[#4F6A64] shadow-lg shadow-[#82A094]/20 group-hover:shadow-[#82A094]/40 transition-all duration-300">
               <IndianRupee className="w-5 h-5 text-white" />
             </div>
             Financial Details
           </h3>
-          <div className="grid grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
             <div>
-              <label className="block text-[#5D6E73] text-sm font-semibold mb-2">
+               <label className={labelClass}>Category <span className="text-[#E17F70]">*</span></label>
+               <select name="type" value={formData.type} onChange={handleChange} className={inputClass} required>
+                 <option value="">Select Category</option>
+                 <option value="LCS">LCS</option>
+                 <option value="NB">NB</option>
+                 <option value="FINANCE">Finance</option>
+               </select>
+            </div>
+            <div>
+              <label className={labelClass}>
                 Total Amount (₹) <span className="text-[#E17F70]">*</span>
               </label>
               <input
-                type="number"
+                type="text"
                 name="totalAmount"
-                value={formData.totalAmount}
+                value={formatWithCommas(formData.totalAmount)}
+                readOnly
+                className={inputClass + " bg-gray-50 border-gray-200 cursor-not-allowed"}
+                placeholder="0.00"
+                required
+              />
+              <p className="text-[10px] text-[#92A2A5] mt-1 italic">Auto-calculated: Net + Tax</p>
+            </div>
+            <div>
+              <label className={labelClass}>Net Amount (₹) <span className="text-[#E17F70]">*</span></label>
+              <input
+                type="text"
+                name="netAmount"
+                value={formatWithCommas(formData.netAmount)}
                 onChange={handleChange}
                 className={inputClass}
-                placeholder="0.00"
-                step="0.01"
+                placeholder="Enter net amount"
                 required
               />
             </div>
             <div>
-              <label className="block text-[#5D6E73] text-sm font-semibold mb-2">Net Amount (₹)</label>
+              <label className={labelClass}>Tax Amount (₹)</label>
               <input
-                type="number"
-                name="netAmount"
-                value={formData.netAmount}
-                onChange={handleChange}
-                className={inputClass}
-                placeholder="Defaults to Total"
-                step="0.01"
-              />
-            </div>
-            <div>
-              <label className="block text-[#5D6E73] text-sm font-semibold mb-2">Tax Amount (₹)</label>
-              <input
-                type="number"
+                type="text"
                 name="taxAmount"
-                value={formData.taxAmount}
+                value={formatWithCommas(formData.taxAmount)}
                 onChange={handleChange}
                 className={inputClass}
-                placeholder="Optional"
-                step="0.01"
+                placeholder="Enter tax amount"
               />
             </div>
           </div>

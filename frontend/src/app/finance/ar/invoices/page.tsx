@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { arApi, ARInvoice, formatARCurrency, formatARDate } from '@/lib/ar-api';
 import { Search, ChevronLeft, ChevronRight, FileText, Plus, TrendingUp, AlertTriangle, Clock, CheckCircle2, IndianRupee, Calendar, Building2, Upload, Shield, Layers, Zap, Tag } from 'lucide-react';
@@ -13,10 +14,20 @@ export default function ARInvoicesPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
+  const searchParams = useSearchParams();
+  const agingBucket = searchParams.get('agingBucket') || '';
+
+  const agingBucketLabels: Record<string, string> = {
+    'current': 'Current (Not Yet Due)',
+    '1-30': '1-30 Days Overdue',
+    '31-60': '31-60 Days Overdue',
+    '61-90': '61-90 Days Overdue',
+    '90+': '90+ Days Overdue',
+  };
 
   useEffect(() => {
     loadInvoices();
-  }, [search, status, page]);
+  }, [search, status, page, agingBucket]);
 
   const loadInvoices = async () => {
     try {
@@ -25,8 +36,9 @@ export default function ARInvoicesPage() {
         search, 
         status, 
         invoiceType: 'REGULAR', // Hardcoded to Regular
+        agingBucket: agingBucket || undefined,
         page, 
-        limit: 25 
+        limit: agingBucket ? 500 : 25 
       });
       setInvoices(result.data);
       setTotalPages(result.pagination.totalPages);
@@ -106,6 +118,18 @@ export default function ARInvoicesPage() {
           </Link>
         </div>
       </div>
+
+      {/* Aging Bucket Active Filter */}
+      {agingBucket && (
+        <div className="flex items-center gap-3 bg-gradient-to-r from-[#546A7A]/5 to-[#6F8A9D]/5 rounded-xl border border-[#546A7A]/20 p-3">
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4 text-[#546A7A]" />
+            <span className="text-sm font-bold text-[#546A7A]">Aging Filter:</span>
+            <span className="px-2.5 py-1 rounded-lg bg-[#546A7A] text-white text-xs font-bold">{agingBucketLabels[agingBucket] || agingBucket}</span>
+          </div>
+          <Link href="/finance/ar/invoices" className="ml-auto text-xs font-bold text-[#E17F70] hover:text-[#9E3B47] transition-colors">✕ Clear Filter</Link>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 bg-white rounded-xl border border-[#AEBFC3]/30 p-3">

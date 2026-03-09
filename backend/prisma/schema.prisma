@@ -1099,7 +1099,7 @@ model ARInvoice {
   // ═══════════════════════════════════════════════════════════════════════════
   // SAP FIELDS (Mandatory - Green columns from SAP Excel)
   // ═══════════════════════════════════════════════════════════════════════════
-  invoiceNumber       String    @unique // Doc. No. (A)
+  invoiceNumber       String    // Doc. No. (A) - Unique removed to allow Milestone-Invoice matching
   bpCode              String            // Customer Code (C)
   customerName        String            // Customer Name (D)
   poNo                String?           // Customer Ref. No. (F)
@@ -1156,6 +1156,7 @@ model ARInvoice {
   milestoneStatus     ARMilestoneStatus? // Status for milestone invoices
   accountingStatus    ARAccountingStatus?
   mailToTSP           String?
+  bookingMonth        String?           // Booking Month (Manual Tracking)
   
   // ═══════════════════════════════════════════════════════════════════════════
   // MILESTONE LINKING FIELDS
@@ -1230,6 +1231,7 @@ model ARPaymentHistory {
   referenceNo     String?   // Cheque No, UTR No
   notes           String?
   referenceBank   String?   // HDFC, DB
+  milestoneTerm   String?   // Milestone payment term (ABG, PO, DELIVERY, FAR, PBG, etc.)
   recordedBy      String?   // User who recorded this payment
   createdAt       DateTime  @default(now())
   
@@ -1243,7 +1245,7 @@ model ARPaymentHistory {
 // AR Invoice Activity Log - Comprehensive audit trail for compliance and fraud prevention
 model ARInvoiceActivityLog {
   id            String   @id @default(uuid())
-  invoiceId     String
+  invoiceId     String?
   action        String   // CREATED, UPDATED, PAYMENT_ADDED, STATUS_CHANGED, DELIVERY_UPDATED, REMARK_ADDED, DELETED
   description   String   // Human-readable description of the action
   fieldName     String?  // Field that was changed (for updates)
