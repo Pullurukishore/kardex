@@ -489,7 +489,7 @@ export const getDSOReport = async (req: Request, res: Response) => {
         }>();
 
         invoices.forEach(inv => {
-            const date = new Date(inv.invoiceDate);
+            const date = inv.invoiceDate ? new Date(inv.invoiceDate) : new Date();
             const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
             const period = date.toLocaleString('default', { month: 'short', year: 'numeric' });
 

@@ -496,10 +496,12 @@ export const importFromExcel = async (req: Request, res: Response) => {
                 await prisma.$transaction(async (tx) => {
                     for (const row of validRows) {
                         // Check if invoice already exists
-                        const existingInvoice = await tx.aRInvoice.findUnique({
+                        const existingInvoice = await tx.aRInvoice.findFirst({
                             where: { invoiceNumber: row.invoiceNumber },
                             select: { id: true }
                         });
+
+                        let upsertedInvoice;
 
                         // If invoice exists, delete associated payment history first
                         // This ensures a clean slate when re-importing the same invoices
@@ -507,44 +509,47 @@ export const importFromExcel = async (req: Request, res: Response) => {
                             await tx.aRPaymentHistory.deleteMany({
                                 where: { invoiceId: existingInvoice.id }
                             });
-                        }
 
-                        const upsertedInvoice = await tx.aRInvoice.upsert({
-                            where: { invoiceNumber: row.invoiceNumber },
-                            create: {
-                                invoiceNumber: row.invoiceNumber,
-                                bpCode: row.bpCode,
-                                customerName: row.customerName,
-                                poNo: row.poNo,
-                                totalAmount: row.totalAmount,
-                                netAmount: row.netAmount,
-                                taxAmount: row.taxAmount,
-                                invoiceDate: row.invoiceDate,
-                                dueDate: row.finalDueDate,
-                                balance: row.balance,
-                                riskClass: row.riskClass,
-                                dueByDays: row.dueByDays,
-                                status: (row.dueByDays !== null && row.dueByDays > 0) ? 'OVERDUE' : 'PENDING'
-                            },
-                            update: {
-                                bpCode: row.bpCode,
-                                customerName: row.customerName,
-                                poNo: row.poNo,
-                                totalAmount: row.totalAmount,
-                                netAmount: row.netAmount,
-                                taxAmount: row.taxAmount,
-                                invoiceDate: row.invoiceDate,
-                                dueDate: row.finalDueDate,
-                                // Reset payment-related fields on re-import
-                                balance: row.balance,
-                                receipts: 0,
-                                adjustments: 0,
-                                totalReceipts: 0,
-                                riskClass: row.riskClass,
-                                dueByDays: row.dueByDays,
-                                status: (row.dueByDays !== null && row.dueByDays > 0) ? 'OVERDUE' : 'PENDING'
-                            }
-                        });
+                            upsertedInvoice = await tx.aRInvoice.update({
+                                where: { id: existingInvoice.id },
+                                data: {
+                                    bpCode: row.bpCode,
+                                    customerName: row.customerName,
+                                    poNo: row.poNo,
+                                    totalAmount: row.totalAmount,
+                                    netAmount: row.netAmount,
+                                    taxAmount: row.taxAmount,
+                                    invoiceDate: row.invoiceDate,
+                                    dueDate: row.finalDueDate,
+                                    // Reset payment-related fields on re-import
+                                    balance: row.balance,
+                                    receipts: 0,
+                                    adjustments: 0,
+                                    totalReceipts: 0,
+                                    riskClass: row.riskClass,
+                                    dueByDays: row.dueByDays,
+                                    status: (row.dueByDays !== null && row.dueByDays > 0) ? 'OVERDUE' : 'PENDING'
+                                }
+                            });
+                        } else {
+                            upsertedInvoice = await tx.aRInvoice.create({
+                                data: {
+                                    invoiceNumber: row.invoiceNumber,
+                                    bpCode: row.bpCode,
+                                    customerName: row.customerName,
+                                    poNo: row.poNo,
+                                    totalAmount: row.totalAmount,
+                                    netAmount: row.netAmount,
+                                    taxAmount: row.taxAmount,
+                                    invoiceDate: row.invoiceDate,
+                                    dueDate: row.finalDueDate,
+                                    balance: row.balance,
+                                    riskClass: row.riskClass,
+                                    dueByDays: row.dueByDays,
+                                    status: (row.dueByDays !== null && row.dueByDays > 0) ? 'OVERDUE' : 'PENDING'
+                                }
+                            });
+                        }
                         importedInvoices.push({
                             id: upsertedInvoice.id,
                             invoiceNumber: row.invoiceNumber,

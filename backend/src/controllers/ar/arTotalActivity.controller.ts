@@ -116,31 +116,34 @@ export const getAllActivities = async (req: Request, res: Response) => {
             });
 
             // Get invoice details for each activity
-            const invoiceIds = [...new Set(rawInvoiceActivities.map(a => a.invoiceId))];
+            const invoiceIds = [...new Set(rawInvoiceActivities.map(a => a.invoiceId).filter((id): id is string => id !== null))];
             const invoices = await prisma.aRInvoice.findMany({
                 where: { id: { in: invoiceIds } },
                 select: { id: true, invoiceNumber: true, customerName: true }
             });
             const invoiceMap = new Map(invoices.map(i => [i.id, i]));
 
-            invoiceActivities = rawInvoiceActivities.map(a => ({
-                id: a.id,
-                type: 'INVOICE' as const,
-                action: a.action,
-                description: a.description,
-                invoiceId: a.invoiceId,
-                invoiceNumber: invoiceMap.get(a.invoiceId)?.invoiceNumber || 'Deleted Invoice',
-                customerName: invoiceMap.get(a.invoiceId)?.customerName || '',
-                fieldName: a.fieldName || undefined,
-                oldValue: a.oldValue || undefined,
-                newValue: a.newValue || undefined,
-                performedBy: a.performedBy || undefined,
-                performedById: a.performedById || undefined,
-                ipAddress: a.ipAddress || undefined,
-                userAgent: a.userAgent || undefined,
-                metadata: a.metadata,
-                createdAt: a.createdAt
-            }));
+            invoiceActivities = rawInvoiceActivities.map(a => {
+                const inv = a.invoiceId ? invoiceMap.get(a.invoiceId) : null;
+                return {
+                    id: a.id,
+                    type: 'INVOICE' as const,
+                    action: a.action,
+                    description: a.description,
+                    invoiceId: a.invoiceId || undefined,
+                    invoiceNumber: inv?.invoiceNumber || 'Deleted Invoice',
+                    customerName: inv?.customerName || '',
+                    fieldName: a.fieldName || undefined,
+                    oldValue: a.oldValue || undefined,
+                    newValue: a.newValue || undefined,
+                    performedBy: a.performedBy || undefined,
+                    performedById: a.performedById || undefined,
+                    ipAddress: a.ipAddress || undefined,
+                    userAgent: a.userAgent || undefined,
+                    metadata: a.metadata,
+                    createdAt: a.createdAt
+                };
+            });
         }
 
         // Fetch session activities
@@ -353,7 +356,7 @@ export const getRecentActivities = async (req: Request, res: Response) => {
         ]);
 
         // Get invoice details
-        const invoiceIds = [...new Set(invoiceActivities.map(a => a.invoiceId))];
+        const invoiceIds = [...new Set(invoiceActivities.map(a => a.invoiceId).filter((id): id is string => id !== null))];
         const invoices = await prisma.aRInvoice.findMany({
             where: { id: { in: invoiceIds } },
             select: { id: true, invoiceNumber: true, customerName: true }
@@ -361,16 +364,19 @@ export const getRecentActivities = async (req: Request, res: Response) => {
         const invoiceMap = new Map(invoices.map(i => [i.id, i]));
 
         const combined = [
-            ...invoiceActivities.map(a => ({
-                id: a.id,
-                type: 'INVOICE' as const,
-                action: a.action,
-                description: a.description,
-                invoiceNumber: invoiceMap.get(a.invoiceId)?.invoiceNumber,
-                customerName: invoiceMap.get(a.invoiceId)?.customerName,
-                performedBy: a.performedBy,
-                createdAt: a.createdAt
-            })),
+            ...invoiceActivities.map(a => {
+                const inv = a.invoiceId ? invoiceMap.get(a.invoiceId) : null;
+                return {
+                    id: a.id,
+                    type: 'INVOICE' as const,
+                    action: a.action,
+                    description: a.description,
+                    invoiceNumber: inv?.invoiceNumber,
+                    customerName: inv?.customerName,
+                    performedBy: a.performedBy,
+                    createdAt: a.createdAt
+                };
+            }),
             ...sessionActivities.map(a => ({
                 id: a.id,
                 type: 'SESSION' as const,
