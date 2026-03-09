@@ -3,16 +3,16 @@
 import { Suspense } from 'react'
 import dynamic from 'next/dynamic'
 
-// Dynamically import the growth report dashboard component
-const GrowthReportDashboard = dynamic(
+// Dynamically import the growth pillar dashboard component
+const GrowthPillarDashboard = dynamic(
   () => import('@/components/reports/GrowthReportDashboard'),
   { 
-    loading: () => <GrowthReportSkeleton />,
+    loading: () => <GrowthPillarSkeleton />,
     ssr: false 
   }
 )
 
-function GrowthReportSkeleton() {
+function GrowthPillarSkeleton() {
   return (
     <div className="animate-pulse space-y-6">
       <div className="flex items-center justify-between">
@@ -35,13 +35,13 @@ function GrowthReportSkeleton() {
   )
 }
 
-export default function GrowthReportPage() {
+export default function GrowthPillarPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#AEBFC3]/10 via-[#96AEC2]/10 to-[#A2B9AF]/10 p-4 md:p-6 lg:p-8">
-      <title>Growth Report | Kardex Remstar</title>
+      <title>Growth Pillar | Kardex Remstar</title>
       
-      <Suspense fallback={<GrowthReportSkeleton />}>
-        <GrowthReportDashboard />
+      <Suspense fallback={<GrowthPillarSkeleton />}>
+        <GrowthPillarDashboard />
       </Suspense>
     </div>
   )

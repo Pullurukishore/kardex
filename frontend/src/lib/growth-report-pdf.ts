@@ -1,5 +1,5 @@
 /**
- * Growth Report PDF Generation Utility — Kardex Brand Design
+ * Growth Pillar PDF Generation Utility — Kardex Brand Design
  * Generates premium growth analytics PDF using jsPDF + autoTable
  * Matches the design language from forecast-pdf-utils.ts
  *
@@ -89,7 +89,7 @@ interface GrowthInsights {
     recommendations: InsightItem[]
 }
 
-export interface GrowthReportPdfData {
+export interface GrowthPillarPdfData {
     year: number
     fromMonth: number
     toMonth: number
@@ -159,7 +159,7 @@ function drawGradientHeader(doc: any, pageW: number) {
     doc.rect(0, 29.5, pageW, 0.5, 'F')
 }
 
-function drawHeader(doc: any, data: GrowthReportPdfData, logoBase64: string | null): number {
+function drawHeader(doc: any, data: GrowthPillarPdfData, logoBase64: string | null): number {
     const pageW = doc.internal.pageSize.getWidth()
     drawGradientHeader(doc, pageW)
 
@@ -181,7 +181,7 @@ function drawHeader(doc: any, data: GrowthReportPdfData, logoBase64: string | nu
 
     // Title
     doc.setFont('helvetica', 'bold'); doc.setFontSize(14); doc.setTextColor(...COLORS.white)
-    doc.text('Growth Analytics Report', 62, 13)
+    doc.text('Growth Pillar Analytics', 62, 13)
 
     // Subtitle
     doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...COLORS.accentCyan)
@@ -212,7 +212,7 @@ function drawFooter(doc: any, pageNum: number) {
     doc.setFillColor(...COLORS.accentCyan)
     doc.rect(0, pageH - 10, pageW, 0.4, 'F')
     doc.setFont('helvetica', 'normal'); doc.setFontSize(6); doc.setTextColor(...COLORS.accentCyan)
-    doc.text('Kardex Remstar  |  Growth Analytics Report  |  Confidential', 15, pageH - 4)
+    doc.text('Kardex Remstar  |  Growth Pillar Analytics  |  Confidential', 15, pageH - 4)
     doc.setTextColor(...COLORS.white)
     doc.text(`Page ${pageNum}`, pageW - 25, pageH - 4)
 }
@@ -246,7 +246,7 @@ function drawKPICard(doc: any, x: number, y: number, w: number, h: number, label
     }
 }
 
-function ensurePage(doc: any, y: number, needed: number, pageNum: { val: number }, data: GrowthReportPdfData, logoBase64: string | null): number {
+function ensurePage(doc: any, y: number, needed: number, pageNum: { val: number }, data: GrowthPillarPdfData, logoBase64: string | null): number {
     if (y + needed > doc.internal.pageSize.getHeight() - 15) {
         drawFooter(doc, pageNum.val)
         pageNum.val++
@@ -257,7 +257,7 @@ function ensurePage(doc: any, y: number, needed: number, pageNum: { val: number 
 }
 
 // ============ Main PDF Generator ============
-export async function generateGrowthReportPdf(data: GrowthReportPdfData): Promise<void> {
+export async function generateGrowthPillarPdf(data: GrowthPillarPdfData): Promise<void> {
     const { default: jsPDF } = await import('jspdf')
     const autoTableModule = await import('jspdf-autotable')
     const autoTable = autoTableModule.default || autoTableModule
@@ -550,6 +550,6 @@ export async function generateGrowthReportPdf(data: GrowthReportPdfData): Promis
 
     // Save
     const zoneName = data.filters.zoneId ? data.filters.zones.find(z => z.id === data.filters.zoneId)?.name?.replace(/\s+/g, '_') : 'All_Zones'
-    const fileName = `Growth_Report_${data.year}_${MONTH_NAMES[data.fromMonth - 1].substring(0, 3)}-${MONTH_NAMES[data.toMonth - 1].substring(0, 3)}_${zoneName}.pdf`
+    const fileName = `Growth_Pillar_${data.year}_${MONTH_NAMES[data.fromMonth - 1].substring(0, 3)}-${MONTH_NAMES[data.toMonth - 1].substring(0, 3)}_${zoneName}.pdf`
     doc.save(fileName)
 }

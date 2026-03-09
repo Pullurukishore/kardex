@@ -88,7 +88,7 @@ export const adminNavigation: NavItem[] = [
         iconBgColor: "bg-[#CE9F6B]/10"
       },
       {
-        title: "Growth Report",
+        title: "Growth Pillar",
         href: "/admin/growth-report",
         icon: TrendingUp,
         roles: [UserRole.ADMIN],
@@ -760,7 +760,7 @@ export const adminOffersNavigation: NavItem[] = [
     iconBgColor: "bg-[#CE9F6B]/10"
   },
   {
-    title: "Growth Report",
+    title: "Growth Pillar",
     href: "/admin/growth-report",
     icon: TrendingUp,
     roles: [UserRole.ADMIN],

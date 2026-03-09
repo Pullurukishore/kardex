@@ -617,7 +617,7 @@ class ApiService {
     return response.data;
   }
 
-  async getGrowthReport(params?: any) {
+  async getGrowthPillar(params?: any) {
     const response = await api.get(`${this.baseURL}/forecast/growth-report`, { params });
     return response.data;
   }

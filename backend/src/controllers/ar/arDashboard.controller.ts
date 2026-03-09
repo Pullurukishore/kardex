@@ -155,7 +155,8 @@ export const getEssentialDashboard = async (req: Request, res: Response) => {
                     balance: true,
                     milestoneTerms: true,
                     milestoneStatus: true,
-                    status: true
+                    status: true,
+                    netAmount: true
                 },
                 orderBy: { totalAmount: 'desc' }
             }))
@@ -239,17 +240,33 @@ export const getEssentialDashboard = async (req: Request, res: Response) => {
 
         const processedMilestones = allMilestoneInvoices.map(inv => {
             const terms = (inv.milestoneTerms as any[]) || [];
+            const sortedTerms = [...terms].sort((a, b) => new Date(a.termDate).getTime() - new Date(b.termDate).getTime());
+
             let invOverdueTerms = 0;
             let worstAging = 0;
             let earliestOverdueTermDate: Date | null = null;
+            let totalPendingOverdueForInv = 0;
 
-            // 1. Process Individual Terms
-            terms.forEach(term => {
+            // Allocate Receipts to Terms (matching frontend logic)
+            const tAmt = Number(inv.totalAmount || 0);
+            const nAmt = Number(inv.netAmount || 0);
+            let remainingReceipts = Number(inv.totalReceipts || 0);
+
+            sortedTerms.forEach(term => {
                 const termDate = new Date(term.termDate);
-                const isPaid = term.status === 'PAID';
+                const percentage = term.percentage || 0;
+                const isNetBasis = term.calculationBasis !== 'TOTAL_AMOUNT';
+                const baseAmount = isNetBasis ? nAmt : tAmt;
+                const allocatedAmount = (baseAmount * percentage) / 100;
+
+                const collectedForTerm = Math.min(allocatedAmount, Math.max(0, remainingReceipts));
+                remainingReceipts -= collectedForTerm;
+
+                const pendingForTerm = Math.max(0, allocatedAmount - collectedForTerm);
+                const isPaid = allocatedAmount > 0 ? (collectedForTerm / allocatedAmount) >= 0.99 : true;
 
                 // Track Stages Breakdown
-                const label = (term.label || '').toLowerCase();
+                const label = (term.label || term.termType || '').toLowerCase();
                 let category: 'advance' | 'dispatch' | 'installation' | 'others' = 'others';
                 if (label.includes('advance')) category = 'advance';
                 else if (label.includes('dispatch')) category = 'dispatch';
@@ -264,10 +281,11 @@ export const getEssentialDashboard = async (req: Request, res: Response) => {
                 }
 
                 // Track Overdue Terms for Aging
-                if (termDate < today && !isPaid) {
+                if (termDate < today && !isPaid && inv.milestoneStatus !== 'FULLY_DELIVERED') {
                     const agingDays = calculateDaysBetween(termDate, today);
                     if (agingDays > 0) {
                         invOverdueTerms++;
+                        totalPendingOverdueForInv += pendingForTerm;
                         if (agingDays > worstAging) worstAging = agingDays;
                         if (!earliestOverdueTermDate || termDate < earliestOverdueTermDate) {
                             earliestOverdueTermDate = termDate;
@@ -279,7 +297,10 @@ export const getEssentialDashboard = async (req: Request, res: Response) => {
             // 2. Aggregate Totals
             overdueMilestoneTerms += invOverdueTerms;
             if (invOverdueTerms > 0) {
-                overdueMilestoneAmount += Number(inv.balance || 0);
+                // We add the actual pending amount that is overdue, 
+                // but usually the balance of the whole invoice is shown if it's considered an "overdue milestone"
+                // To match the frontend's "ON TRACK" vs "OVERDUE", we use invOverdueTerms > 0.
+                overdueMilestoneAmount += totalPendingOverdueForInv;
             }
 
             // 3. Milestone Aging Buckets
@@ -297,7 +318,7 @@ export const getEssentialDashboard = async (req: Request, res: Response) => {
 
             // 4. Milestone Status Counts
             if (inv.status === 'PAID') milestoneStatusCounts.paid++;
-            else if (inv.status === 'OVERDUE' || invOverdueTerms > 0) milestoneStatusCounts.overdue++;
+            else if (invOverdueTerms > 0) milestoneStatusCounts.overdue++;
             else if (inv.status === 'PARTIAL') milestoneStatusCounts.partial++;
             else milestoneStatusCounts.pending++;
 
@@ -307,7 +328,7 @@ export const getEssentialDashboard = async (req: Request, res: Response) => {
                 poNo: inv.poNo,
                 customerName: inv.customerName,
                 bpCode: inv.bpCode,
-                totalAmount: Number(inv.totalAmount || 0),
+                totalAmount: tAmt,
                 totalReceipts: Number(inv.totalReceipts || 0),
                 balance: invBalance,
                 overdueTerms: invOverdueTerms,

@@ -13,7 +13,7 @@ import {
   XCircle, Info, Rocket, ShieldCheck,
 } from 'lucide-react';
 import { apiService } from '@/services/api';
-import { generateGrowthReportPdf } from '@/lib/growth-report-pdf';
+import { generateGrowthPillarPdf } from '@/lib/growth-report-pdf';
 
 // ─── TYPES ──────────────────────────────────────────────────────────────
 interface MonthData {
@@ -60,7 +60,7 @@ interface GrowthInsights {
   recommendations: InsightItem[];
 }
 
-interface GrowthReportData {
+interface GrowthPillarData {
   year: number;
   fromMonth: number;
   toMonth: number;
@@ -199,9 +199,9 @@ const InsightRow = ({ item }: { item: InsightItem }) => {
 };
 
 // ─── MAIN COMPONENT ─────────────────────────────────────────────────────
-export default function GrowthReportDashboard() {
+export default function GrowthPillarDashboard() {
   const printRef = useRef<HTMLDivElement>(null);
-  const [data, setData] = useState<GrowthReportData | null>(null);
+  const [data, setData] = useState<GrowthPillarData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
@@ -222,10 +222,10 @@ export default function GrowthReportDashboard() {
       const params: any = { year, fromMonth, toMonth };
       if (zoneId) params.zoneId = zoneId;
       if (userId) params.userId = userId;
-      const result = await apiService.getGrowthReport(params);
+      const result = await apiService.getGrowthPillar(params);
       setData(result);
     } catch (err: any) {
-      setError(err.message || 'Failed to load growth report');
+      setError(err.message || 'Failed to load growth pillar');
     } finally {
       setLoading(false);
     }
@@ -248,7 +248,7 @@ export default function GrowthReportDashboard() {
     if (!data) return;
     try {
       setPdfLoading(true);
-      await generateGrowthReportPdf(data);
+      await generateGrowthPillarPdf(data as any);
     } catch (err) {
       console.error('PDF generation failed:', err);
     } finally {
@@ -264,7 +264,7 @@ export default function GrowthReportDashboard() {
       <div className="p-4 rounded-full bg-red-100 dark:bg-red-900/30">
         <TrendingDown className="w-8 h-8 text-red-500" />
       </div>
-      <p className="text-lg font-medium text-gray-800 dark:text-gray-200">Failed to load report</p>
+      <p className="text-lg font-medium text-gray-800 dark:text-gray-200">Failed to load growth pillar</p>
       <p className="text-sm text-gray-500">{error}</p>
       <button onClick={fetchData} className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700 transition-colors">
         Retry
@@ -312,7 +312,7 @@ export default function GrowthReportDashboard() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
             <TrendingUp className="w-7 h-7 text-indigo-600" />
-            Growth Report
+            Growth Pillar
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             {FULL_MONTHS[fromMonth - 1]} – {FULL_MONTHS[toMonth - 1]} {year}
