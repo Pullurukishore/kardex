@@ -347,6 +347,10 @@ export default function ViewCustomerPage() {
                 <label className="text-[#92A2A5] text-xs uppercase tracking-wider font-medium mb-2 block">Department</label>
                 <p className="text-[#546A7A] font-medium">{customer.department || <span className="text-[#AEBFC3]">Not specified</span>}</p>
               </div>
+              <div>
+                <label className="text-[#92A2A5] text-xs uppercase tracking-wider font-medium mb-2 block">Credit Limit</label>
+                <p className="text-[#546A7A] font-medium">{customer.creditLimit ? formatARCurrency(customer.creditLimit) : <span className="text-[#AEBFC3]">Not specified</span>}</p>
+              </div>
             </div>
           </div>
 

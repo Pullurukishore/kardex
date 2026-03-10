@@ -38,6 +38,7 @@ export const getAllCustomers = async (req: Request, res: Response) => {
                 region: true,
                 department: true,
                 personInCharge: true,
+                creditLimit: true,
             },
             distinct: ['bpCode'],
             skip,
@@ -78,6 +79,7 @@ export const getAllCustomers = async (req: Request, res: Response) => {
                 region: customer.region,
                 department: customer.department,
                 personInCharge: customer.personInCharge,
+                creditLimit: customer.creditLimit ? Number(customer.creditLimit) : undefined,
                 totalInvoiceAmount: stats?._sum.totalAmount || 0,
                 outstandingBalance: stats?._sum.balance || 0,
                 _count: { invoices: stats?._count._all || 0 }
@@ -116,6 +118,7 @@ export const getCustomerById = async (req: Request, res: Response) => {
                 region: true,
                 department: true,
                 personInCharge: true,
+                creditLimit: true,
             }
         });
 
@@ -140,6 +143,7 @@ export const getCustomerById = async (req: Request, res: Response) => {
             region: customerInvoice.region,
             department: customerInvoice.department,
             personInCharge: customerInvoice.personInCharge,
+            creditLimit: customerInvoice.creditLimit ? Number(customerInvoice.creditLimit) : undefined,
             invoices,
         };
 
@@ -162,7 +166,7 @@ export const createCustomer = async (req: Request, res: Response) => {
 export const updateCustomer = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
-        const { emailId, contactNo, region, department, personInCharge, riskClass } = req.body;
+        const { emailId, contactNo, region, department, personInCharge, riskClass, creditLimit } = req.body;
 
         // Update customer info on all invoices with this bpCode
         const updateResult = await prisma.aRInvoice.updateMany({
@@ -174,6 +178,7 @@ export const updateCustomer = async (req: Request, res: Response) => {
                 ...(department !== undefined && { department }),
                 ...(personInCharge !== undefined && { personInCharge }),
                 ...(riskClass !== undefined && { riskClass }),
+                ...(creditLimit !== undefined && { creditLimit }),
             }
         });
 
@@ -219,6 +224,7 @@ export const updateCustomer = async (req: Request, res: Response) => {
                 region: true,
                 department: true,
                 personInCharge: true,
+                creditLimit: true,
             }
         });
 

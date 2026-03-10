@@ -68,7 +68,7 @@ export const validatePin = async (req: Request, res: Response) => {
     // Set secure cookie (httpOnly: false so frontend can read it for validation)
     const cookieOptions = {
       httpOnly: false, // Allow JavaScript access for frontend validation
-      secure: process.env.NODE_ENV === 'production' && !req.headers.host?.includes('172.28.91.10') && !req.headers.host?.includes('10.91.1.12') && !req.headers.host?.includes('10.91.1.48') && !req.headers.host?.includes('localhost'),
+      secure: process.env.NODE_ENV === 'production' && !req.headers.host?.includes('172.28.91.10') && !req.headers.host?.includes('10.91.1.12') && !req.headers.host?.includes('10.91.1.48') && !req.headers.host?.includes('10.91.1.49') && !req.headers.host?.includes('localhost'),
       sameSite: 'lax' as const, // 'lax' for better compatibility
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
       path: '/', // Ensure cookie is available for all paths

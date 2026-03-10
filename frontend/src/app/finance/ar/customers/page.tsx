@@ -115,6 +115,7 @@ export default function ARCustomersPage() {
                 <th className="text-center py-5 px-6 text-xs font-bold text-white uppercase tracking-wider">Invoices</th>
                 <th className="text-right py-5 px-6 text-xs font-bold text-white uppercase tracking-wider">Total Invoiced</th>
                 <th className="text-right py-5 px-6 text-xs font-bold text-white uppercase tracking-wider">Balance Due</th>
+                <th className="text-right py-5 px-6 text-xs font-bold text-white uppercase tracking-wider">Credit Limit</th>
                 <th className="text-center py-5 px-6 text-xs font-bold text-white uppercase tracking-wider">Risk Class</th>
                 <th className="text-center py-5 px-6 text-xs font-bold text-white uppercase tracking-wider">Actions</th>
               </tr>
@@ -123,7 +124,7 @@ export default function ARCustomersPage() {
               {loading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i} className="bg-white">
-                    {Array.from({ length: 8 }).map((_, j) => (
+                    {Array.from({ length: 9 }).map((_, j) => (
                       <td key={j} className="py-5 px-6">
                         <div 
                           className="h-5 bg-gradient-to-r from-[#AEBFC3]/30 to-[#82A094]/20 rounded-lg animate-pulse" 
@@ -135,7 +136,7 @@ export default function ARCustomersPage() {
                 ))
               ) : customers.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-20 text-center">
+                  <td colSpan={9} className="py-20 text-center">
                     <div className="inline-flex items-center justify-center w-24 h-24 rounded-2xl bg-gradient-to-br from-[#82A094]/10 to-[#4F6A64]/10 border-2 border-[#82A094]/20 mb-5">
                       <Building2 className="w-12 h-12 text-[#82A094]" />
                     </div>
@@ -179,6 +180,34 @@ export default function ARCustomersPage() {
                         <span className={`font-bold ${customer.outstandingBalance && customer.outstandingBalance > 0 ? 'text-[#E17F70]' : 'text-[#82A094]'}`}>
                           {customer.outstandingBalance ? formatARCurrency(customer.outstandingBalance) : <span className="text-[#82A094]">₹0</span>}
                         </span>
+                      </div>
+                    </td>
+                    <td className="py-5 px-6">
+                      <div className="flex flex-col gap-1.5 min-w-[120px]">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-[#546A7A] font-bold">
+                            {customer.creditLimit ? formatARCurrency(customer.creditLimit) : <span className="text-[#AEBFC3]">No Limit</span>}
+                          </span>
+                        </div>
+                        {customer.creditLimit && customer.creditLimit > 0 ? (
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 h-2 bg-[#AEBFC3]/20 rounded-full overflow-hidden">
+                              <div 
+                                className={`h-full rounded-full ${
+                                  ((customer.outstandingBalance || 0) / customer.creditLimit) * 100 > 90 ? 'bg-[#E17F70]' 
+                                  : ((customer.outstandingBalance || 0) / customer.creditLimit) * 100 > 75 ? 'bg-[#CE9F6B]' 
+                                  : 'bg-[#82A094]'
+                                }`}
+                                style={{ width: `${Math.min(100, Math.max(0, ((customer.outstandingBalance || 0) / customer.creditLimit) * 100))}%` }}
+                              />
+                            </div>
+                            <span className="text-[10px] text-[#92A2A5] font-medium whitespace-nowrap">
+                              {Math.round(((customer.outstandingBalance || 0) / customer.creditLimit) * 100)}% used
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="h-2 w-full bg-transparent"></div>
+                        )}
                       </div>
                     </td>
                     <td className="py-5 px-6 text-center">
@@ -297,6 +326,12 @@ export default function ARCustomersPage() {
                 <span className="text-xs text-[#5D6E73]">Total Invoiced</span>
                 <span className="text-sm font-bold text-[#546A7A]">
                   {customer.totalInvoiceAmount ? formatARCurrency(customer.totalInvoiceAmount) : '₹0'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between mt-2 pt-2 border-t border-[#82A094]/10">
+                <span className="text-xs text-[#5D6E73]">Credit Limit</span>
+                <span className="text-sm font-bold text-[#546A7A]">
+                  {customer.creditLimit ? formatARCurrency(customer.creditLimit) : '-'}
                 </span>
               </div>
             </Link>

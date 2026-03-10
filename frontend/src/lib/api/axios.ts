@@ -5,7 +5,7 @@ import { getCookie, setCookie, deleteCookie } from 'cookies-next';
 const COOKIE_OPTIONS = {
   path: '/',
   sameSite: 'lax' as const,
-  secure: process.env.NODE_ENV === 'production' && typeof window !== 'undefined' && !window.location.hostname.includes('172.28.91.10') && !window.location.hostname.includes('10.91.1.12') && !window.location.hostname.includes('10.91.1.48') && window.location.hostname !== 'localhost'
+  secure: process.env.NODE_ENV === 'production' && typeof window !== 'undefined' && !window.location.hostname.includes('172.28.91.10') && !window.location.hostname.includes('10.91.1.12') && !window.location.hostname.includes('10.91.1.48') && !window.location.hostname.includes('10.91.1.49') && window.location.hostname !== 'localhost'
 };
 
 import { isTokenExpired } from '../auth-utils';

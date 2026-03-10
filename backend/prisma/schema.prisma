@@ -1126,6 +1126,7 @@ model ARInvoice {
   department          String?           // Department (Cust. Master)
   personInCharge      String?           // Person In-charge (Cust. Master)
   pocName             String?           // POC Name (Cust. Master)
+  creditLimit         Decimal?  @db.Decimal(15, 2) // Credit Limit (Cust. Master)
   
   // ═══════════════════════════════════════════════════════════════════════════
   // MANUAL TRACKING FIELDS

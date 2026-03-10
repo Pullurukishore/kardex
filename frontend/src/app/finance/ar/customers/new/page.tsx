@@ -31,6 +31,7 @@ export default function NewCustomerPage() {
     contactNo: '',
     emailId: '',
     riskClass: 'LOW',
+    creditLimit: '',
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -63,6 +64,7 @@ export default function NewCustomerPage() {
         contactNo: formData.contactNo || undefined,
         emailId: formData.emailId || undefined,
         riskClass: formData.riskClass as any,
+        creditLimit: formData.creditLimit ? Number(formData.creditLimit) : undefined,
       });
       setSuccess(true);
       setTimeout(() => {
@@ -185,20 +187,34 @@ export default function NewCustomerPage() {
                   placeholder="North India"
                 />
               </div>
-              <div>
-                <label className="block text-[#5D6E73] text-sm font-medium mb-2">Department</label>
-                <input
-                  type="text"
-                  name="department"
-                  value={formData.department}
-                  onChange={handleChange}
-                  className="w-full h-12 px-4 rounded-xl bg-[#AEBFC3]/10 border-2 border-[#AEBFC3]/30 text-[#546A7A] placeholder:text-[#92A2A5] focus:border-[#82A094]/50 focus:outline-none focus:ring-4 focus:ring-[#82A094]/10 transition-all"
-                  placeholder="Finance"
-                />
+                <div>
+                  <label className="block text-[#5D6E73] text-sm font-medium mb-2">Department</label>
+                  <input
+                    type="text"
+                    name="department"
+                    value={formData.department}
+                    onChange={handleChange}
+                    className="w-full h-12 px-4 rounded-xl bg-[#AEBFC3]/10 border-2 border-[#AEBFC3]/30 text-[#546A7A] placeholder:text-[#92A2A5] focus:border-[#82A094]/50 focus:outline-none focus:ring-4 focus:ring-[#82A094]/10 transition-all"
+                    placeholder="Finance"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[#5D6E73] text-sm font-medium mb-2">
+                    Credit Limit
+                  </label>
+                  <input
+                    type="number"
+                    name="creditLimit"
+                    value={formData.creditLimit}
+                    onChange={handleChange}
+                    className="w-full h-12 px-4 rounded-xl bg-[#AEBFC3]/10 border-2 border-[#AEBFC3]/30 text-[#546A7A] placeholder:text-[#92A2A5] focus:border-[#82A094]/50 focus:outline-none focus:ring-4 focus:ring-[#82A094]/10 transition-all"
+                    placeholder="1000000"
+                    min="0"
+                  />
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
         {/* Contact Information */}
         <div className="bg-white/90 backdrop-blur-xl rounded-2xl border border-[#82A094]/20 overflow-hidden shadow-lg">
