@@ -52,12 +52,20 @@ export default function NewMilestonePage() {
     { value: 'OTHER', label: 'Other' },
   ];
 
+  // Get term types already used (excluding OTHER which can be repeated)
+  const usedTermTypes: string[] = formData.milestoneTerms
+    .map(t => t.termType)
+    .filter(t => t !== 'OTHER');
+
   const addTerm = () => {
+    // Find the first unused term type
+    const firstAvailable = termOptions.find(opt => opt.value === 'OTHER' || !usedTermTypes.includes(opt.value));
+    const termType = firstAvailable?.value || 'OTHER';
     setFormData(prev => ({
       ...prev,
       milestoneTerms: [
         ...prev.milestoneTerms,
-        { termType: 'ABG', termDate: '', percentage: 0, calculationBasis: 'NET_AMOUNT' }
+        { termType: termType as any, termDate: '', percentage: 0, calculationBasis: 'NET_AMOUNT' }
       ]
     }));
   };
@@ -73,7 +81,7 @@ export default function NewMilestonePage() {
     let finalValue: any = value;
     
     // Validation for percentage
-    if (field === 'percentage') {
+    if (field === 'percentage' || field === 'taxPercentage') {
       const numValue = parseFloat(value as string);
       if (!isNaN(numValue)) {
         finalValue = Math.min(100, Math.max(0, numValue));
@@ -92,10 +100,21 @@ export default function NewMilestonePage() {
   // Helper to get the calculated amount for a term
   const getTermAmount = (term: MilestonePaymentTerm) => {
     const pct = Number(term.percentage) || 0;
-    const isNet = term.calculationBasis === 'NET_AMOUNT';
-    const baseAmount = isNet ? parseFloat(formData.netAmount || '0') : parseFloat(formData.totalAmount || '0');
-    return (baseAmount * pct) / 100;
+    const netAmount = parseFloat(formData.netAmount || '0');
+    const netPortion = (netAmount * pct) / 100;
+    
+    if (term.calculationBasis === 'TOTAL_AMOUNT') {
+      const taxPct = Number(term.taxPercentage) || 0;
+      const taxAmount = parseFloat(formData.taxAmount || '0');
+      const taxPortion = (taxAmount * taxPct) / 100;
+      return netPortion + taxPortion;
+    }
+    
+    return netPortion;
   };
+
+  // Total allocated amount (sum of each term's calculated amount) based on total amount
+  const totalAllocatedAmount = formData.milestoneTerms.reduce((sum, term) => sum + getTermAmount(term), 0);
 
   const totalPercentage = formData.milestoneTerms.reduce((sum, term) => sum + (Number(term.percentage) || 0), 0);
 
@@ -145,6 +164,11 @@ export default function NewMilestonePage() {
     }
     if (formData.milestoneTerms.length === 0) {
       setError('At least one payment term is required for milestone payments');
+      return;
+    }
+
+    if (totalPercentage > 100) {
+      setError('Total percentage allocation cannot exceed 100%');
       return;
     }
     
@@ -481,6 +505,11 @@ export default function NewMilestonePage() {
               <div className="flex items-center gap-2">
                 <BarChart3 className="w-4 h-4 text-[#CE9F6B]" />
                 <span className="text-sm font-bold text-[#546A7A]">Total Allocation</span>
+                {totalAllocatedAmount > 0 && (
+                  <span className="text-xs font-semibold text-[#82A094] bg-[#82A094]/10 px-2 py-0.5 rounded-full">
+                    ₹{totalAllocatedAmount.toLocaleString('en-IN', { maximumFractionDigits: 0 })} / ₹{parseFloat(formData.totalAmount || '0').toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 <span className={`text-sm font-black ${totalPercentage > 100 ? 'text-red-500' : totalPercentage === 100 ? 'text-[#82A094]' : 'text-[#CE9F6B]'}`}>
@@ -550,6 +579,7 @@ export default function NewMilestonePage() {
           <div className="space-y-3">
             {formData.milestoneTerms.map((term, index) => {
               const isOther = term.termType === 'OTHER';
+              const hasTax = term.calculationBasis === 'TOTAL_AMOUNT';
               
               return (
                 <div key={index} className="relative flex flex-col gap-3 bg-white p-4 rounded-xl border border-gray-200 shadow-sm transition-all duration-300 hover:border-[#CE9F6B]/40 hover:shadow-md group/term">
@@ -560,7 +590,7 @@ export default function NewMilestonePage() {
 
                   <div className="flex items-center gap-3 pl-4">
                     <div className="flex-1 grid grid-cols-12 gap-3 items-end">
-                      <div className={isOther ? "col-span-2" : "col-span-3"}>
+                      <div className={isOther ? "col-span-2" : (hasTax ? "col-span-2" : "col-span-3")}>
                         <label className="block text-[10px] font-bold text-[#976E44] uppercase mb-1.5 ml-1">
                           Term Type
                         </label>
@@ -571,13 +601,15 @@ export default function NewMilestonePage() {
                             onChange={(e) => updateTerm(index, 'termType', e.target.value)}
                             className="w-full h-10 pl-9 pr-3 rounded-lg border border-gray-200 text-sm font-semibold text-[#546A7A] focus:border-[#CE9F6B] focus:ring-2 focus:ring-[#CE9F6B]/10 transition-all"
                           >
-                            {termOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                            {termOptions
+                              .filter(opt => opt.value === 'OTHER' || opt.value === term.termType || !usedTermTypes.includes(opt.value))
+                              .map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                           </select>
                         </div>
                       </div>
                       
                       {isOther && (
-                        <div className="col-span-3">
+                        <div className={hasTax ? "col-span-2" : "col-span-3"}>
                           <label className="block text-[10px] font-bold text-[#976E44] uppercase mb-1.5 ml-1">
                             Manual Description
                           </label>
@@ -591,9 +623,9 @@ export default function NewMilestonePage() {
                         </div>
                       )}
 
-                      <div className={isOther ? "col-span-2" : "col-span-3"}>
+                      <div className={isOther ? "col-span-2" : (hasTax ? "col-span-2" : "col-span-3")}>
                         <label className="block text-[10px] font-bold text-[#976E44] uppercase mb-1.5 ml-1 text-center font-bold">
-                          %
+                          {hasTax ? 'Net %' : '%'}
                         </label>
                         <div className="relative">
                           <input
@@ -608,11 +640,13 @@ export default function NewMilestonePage() {
                           <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#92A2A5]">%</span>
                         </div>
                         {(Number(term.percentage) > 0 && (parseFloat(formData.totalAmount) > 0 || parseFloat(formData.netAmount) > 0)) && (
-                          <p className="text-[9px] font-semibold text-[#82A094] mt-1 text-center">= ₹{getTermAmount(term).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
+                          <p className={`text-[9px] font-semibold mt-1 text-center ${hasTax ? 'text-[#82A094] bg-[#82A094]/10 rounded-full px-2 py-0.5' : 'text-[#82A094]'}`}>
+                            {hasTax ? `Net: ₹${((parseFloat(formData.netAmount || '0') * (Number(term.percentage) || 0)) / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}` : `= ₹${getTermAmount(term).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`}
+                          </p>
                         )}
                       </div>
 
-                      <div className={isOther ? "col-span-3" : "col-span-3"}>
+                      <div className={hasTax ? "col-span-2" : "col-span-3"}>
                         <label className="block text-[10px] font-bold text-[#976E44] uppercase mb-1.5 ml-1 text-center">
                           Target Date
                         </label>
@@ -649,14 +683,45 @@ export default function NewMilestonePage() {
                             onClick={() => updateTerm(index, 'calculationBasis', 'TOTAL_AMOUNT')}
                             className={`flex-1 text-[10px] font-bold transition-all duration-200 border-l border-gray-200 ${
                               term.calculationBasis === 'TOTAL_AMOUNT'
-                                ? 'bg-gradient-to-r from-[#CE9F6B] to-[#976E44] text-white shadow-inner'
+                                ? 'bg-gradient-to-r from-[#E17F70] to-[#9E3B47] text-white shadow-inner'
                                 : 'text-[#92A2A5] hover:text-[#546A7A] hover:bg-white'
                             }`}
                           >
-                            Total
+                            Net + Tax
                           </button>
                         </div>
                       </div>
+
+                      {/* Tax % field - only visible when Net + Tax is selected */}
+                      {hasTax && (
+                        <div className="col-span-2">
+                          <label className="block text-[10px] font-bold text-[#E17F70] uppercase mb-1.5 ml-1 text-center">
+                            Tax %
+                          </label>
+                          <div className="relative">
+                            <input
+                              type="number"
+                              value={term.taxPercentage || ''}
+                              onChange={(e) => updateTerm(index, 'taxPercentage', e.target.value)}
+                              min="0"
+                              max="100"
+                              className="w-full h-10 px-3 pr-8 rounded-lg border border-[#E17F70]/30 bg-[#E17F70]/5 text-sm text-right font-bold transition-all focus:border-[#E17F70] focus:ring-2 focus:ring-[#E17F70]/10"
+                              placeholder="0"
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#E17F70]/60">%</span>
+                          </div>
+                          {(Number(term.taxPercentage) > 0 && parseFloat(formData.taxAmount || '0') > 0) && (
+                            <p className="text-[9px] font-semibold text-[#E17F70] mt-1 text-center bg-[#E17F70]/8 rounded-full px-2 py-0.5">
+                              Tax: ₹{((parseFloat(formData.taxAmount || '0') * (Number(term.taxPercentage) || 0)) / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                            </p>
+                          )}
+                          {(Number(term.percentage) > 0 || Number(term.taxPercentage) > 0) && getTermAmount(term) > 0 && (
+                            <p className="text-[9px] font-black text-white mt-1 text-center bg-gradient-to-r from-[#546A7A] to-[#6F8A9D] rounded-full px-2 py-0.5 shadow-sm">
+                              Total: ₹{getTermAmount(term).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
                     
                     <button 

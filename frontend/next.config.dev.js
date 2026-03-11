@@ -9,16 +9,7 @@ const nextConfig = {
   // Simplified webpack for development
   webpack: (config, { isServer, dev }) => {
     if (dev) {
-      // Skip all optimizations in development
-      config.optimization = {
-        ...config.optimization,
-        minimize: false,
-        splitChunks: false,
-      };
-
-      // Faster source maps
-      config.devtool = 'eval-cheap-module-source-map';
-
+      // Use default optimizations in development to avoid chunking issues
       return config;
     }
 

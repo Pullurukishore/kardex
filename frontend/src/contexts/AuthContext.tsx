@@ -66,7 +66,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const authCheckInProgress = useRef(false);
   const initialAuthCheck = useRef(false);
   const lastValidUser = useRef<User | null>(null);
-  const isInitializing = useRef(true);
+  const [isInitializing, setIsInitializing] = useState(true);
   const lastAuthCheckTime = useRef(0);
   // Refs to read current state without adding to effect dependencies
   const userRef = useRef<User | null>(null);
@@ -184,7 +184,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     setIsMounted(true);
     if (!isBrowser) {
-      isInitializing.current = false;
+      setIsInitializing(false);
       return;
     }
 
@@ -220,17 +220,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Tiny delay to ensure refs are set before checkAuth runs
     setTimeout(() => {
-      isInitializing.current = false;
+      setIsInitializing(false);
     }, 10);
   }, []);
 
   // Auth check effect - uses refs for user/accessToken to avoid re-triggering on state changes
   useEffect(() => {
     const checkAuth = async () => {
-      if (isInitializing.current) {
-        setTimeout(checkAuth, 100);
-        return;
-      }
+      if (isInitializing) return;
 
       if (!isOnline || authCheckInProgress.current) return;
 
@@ -306,16 +303,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
 
-    if (isBrowser && !pathname.startsWith('/auth/')) {
+    // Run checkAuth on all pages, including /auth/, to ensure we have the latest auth state
+    // but don't perform automatic redirects from here - let the middleware and page components handle that
+    if (isBrowser) {
       const timer = setTimeout(checkAuth, 50);
       const safetyTimer = setTimeout(() => { setIsLoading(false); initialAuthCheck.current = true; }, 3000);
       return () => { clearTimeout(timer); clearTimeout(safetyTimer); };
-    } else {
-      setIsLoading(false);
-      initialAuthCheck.current = true;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname, isOnline, clearAuthState, loadUser]);
+  }, [pathname, isOnline, isInitializing, clearAuthState, loadUser]);
 
   const login = async (email: string, password: string, rememberMe: boolean = false) => {
     setIsLoading(true);

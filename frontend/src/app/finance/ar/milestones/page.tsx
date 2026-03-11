@@ -9,7 +9,8 @@ import {
   TrendingUp, AlertTriangle, Clock, CheckCircle2, Calendar, 
   Wallet, Package, Timer, Truck, PackageCheck, PackageX, 
   BadgeCheck, Tag, Sparkles, ExternalLink,
-  ArrowRight, CheckCircle, Layers, ShieldAlert, ShieldCheck, Shield
+  ArrowRight, CheckCircle, Layers, ShieldAlert, ShieldCheck, Shield, MessageSquare,
+  Eye, Pencil, Trash2
 } from 'lucide-react';
 
 const termOptions: Record<string, string> = {
@@ -57,19 +58,28 @@ function MilestoneTimelineView({ invoice }: { invoice: ARInvoice }) {
     );
   }
 
-  // Calculate collections per term – respecting calculationBasis (matching view page logic)
+  // Calculate collections per term – respecting calculationBasis and taxPercentage
   let remainingReceipts = totalReceived;
   const termCollections = milestoneTerms.map((term) => {
     const percentage = term.percentage || 0;
+    const taxPercentage = term.taxPercentage || 0;
     const isNetBasis = term.calculationBasis !== 'TOTAL_AMOUNT';
-    const baseAmount = isNetBasis ? netAmount : totalAmount;
-    const allocatedAmount = (baseAmount * percentage) / 100;
+    
+    let allocatedAmount = 0;
+    if (isNetBasis) {
+      allocatedAmount = (netAmount * percentage) / 100;
+    } else {
+      const netPortion = (netAmount * percentage) / 100;
+      const taxPortion = (Number(invoice.taxAmount || 0) * taxPercentage) / 100;
+      allocatedAmount = netPortion + taxPortion;
+    }
+
     const collectedForTerm = Math.min(allocatedAmount, Math.max(0, remainingReceipts));
     remainingReceipts -= collectedForTerm;
     const pendingForTerm = Math.max(0, allocatedAmount - collectedForTerm);
     const collectedPercent = allocatedAmount > 0 ? (collectedForTerm / allocatedAmount) * 100 : 0;
     return {
-      termId: `${term.termType}-${term.termDate}-${percentage}`,
+      termId: `${term.termType}-${term.termDate}-${percentage}-${taxPercentage}`,
       allocatedAmount,
       collectedForTerm,
       pendingForTerm,
@@ -134,11 +144,11 @@ function MilestoneTimelineView({ invoice }: { invoice: ARInvoice }) {
                     {term.termType === 'OTHER' ? term.customLabel : termOptions[term.termType] || term.termType}
                   </p>
                   <div className="flex items-center gap-1.5 text-[10px] text-[#92A2A5]">
-                    <span className="font-semibold text-[#CE9F6B]">{percentage}%</span>
+                    <span className="font-semibold text-[#CE9F6B]">{percentage}% {term.taxPercentage ? `+ ${term.taxPercentage}% Tax` : ''}</span>
                     <span className={`px-1 py-0.5 rounded text-[8px] font-bold ${
                       allocation?.isNetBasis ? 'bg-[#6F8A9D]/10 text-[#6F8A9D]' : 'bg-[#CE9F6B]/15 text-[#976E44]'
                     }`}>
-                      {allocation?.isNetBasis ? 'Net' : 'Total'}
+                      {allocation?.isNetBasis ? 'Net' : 'Net+Tax'}
                     </span>
                     <span>•</span>
                     <span>{formatARDate(term.termDate)}</span>
@@ -374,9 +384,8 @@ export default function ARMilestonesPage() {
                 <th className="text-center py-4 px-4 border-b-2 border-[#546A7A]/20 text-[10px] font-bold uppercase text-[#546A7A] tracking-wider">Accounting</th>
                 <th className="text-center py-4 px-4 border-b-2 border-[#546A7A]/20 text-[10px] font-bold uppercase text-[#546A7A] tracking-wider">TSP</th>
                 <th className="text-center py-4 px-4 border-b-2 border-[#546A7A]/20 text-[10px] font-bold uppercase text-[#546A7A] tracking-wider">Book Month</th>
-                <th className="text-right py-4 px-4 border-b-2 border-[#546A7A]/20 text-[10px] font-bold uppercase text-[#4F6A64] tracking-wider">Total Value</th>
-                <th className="text-right py-4 px-4 border-b-2 border-[#546A7A]/20 text-[10px] font-bold uppercase text-[#6F8A9D] tracking-wider">Collected</th>
-                <th className="text-right py-4 px-4 border-b-2 border-[#546A7A]/20 text-[10px] font-bold uppercase text-[#9E3B47] tracking-wider">Outstanding</th>
+                <th className="text-left py-4 px-4 border-b-2 border-[#546A7A]/20 text-[10px] font-bold uppercase text-[#CE9F6B] tracking-wider">Latest Remark</th>
+                <th className="text-right py-4 px-4 border-b-2 border-[#546A7A]/20 text-[10px] font-bold uppercase text-[#546A7A] tracking-wider">Financial Overview</th>
                 <th className="text-center py-4 px-4 border-b-2 border-[#546A7A]/20 text-[10px] font-bold uppercase text-[#546A7A] tracking-wider">Status</th>
                 <th className="text-center py-4 px-4 border-b-2 border-[#546A7A]/20 text-[10px] font-bold uppercase text-[#546A7A] tracking-wider">Milestone Aging</th>
               </tr>
@@ -384,10 +393,10 @@ export default function ARMilestonesPage() {
             <tbody>
               {loading ? (
                 Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i} className="animate-pulse"><td colSpan={13} className="p-6"><div className="h-6 bg-[#AEBFC3]/10 rounded-xl" /></td></tr>
+                  <tr key={i} className="animate-pulse"><td colSpan={11} className="p-6"><div className="h-6 bg-[#AEBFC3]/10 rounded-xl" /></td></tr>
                 ))
               ) : invoices.length === 0 ? (
-                <tr><td colSpan={13} className="py-20 text-center text-[#92A2A5] font-medium italic">No milestone payments found matching your search.</td></tr>
+                <tr><td colSpan={11} className="py-20 text-center text-[#92A2A5] font-medium italic">No milestone payments found matching your search.</td></tr>
               ) : (
                 invoices.map((invoice, index) => {
                   const isExpanded = expandedRows.has(invoice.id);
@@ -402,8 +411,17 @@ export default function ARMilestonesPage() {
                     const overdueUnpaid: number[] = [];
                     sorted.forEach(t => {
                       const pct = t.percentage || 0;
-                      const base = t.calculationBasis !== 'TOTAL_AMOUNT' ? nAmt : tAmt;
-                      const alloc = (base * pct) / 100;
+                      const taxPct = t.taxPercentage || 0;
+                      let alloc = 0;
+                      
+                      if (t.calculationBasis !== 'TOTAL_AMOUNT') {
+                        alloc = (nAmt * pct) / 100;
+                      } else {
+                        const netPortion = (nAmt * pct) / 100;
+                        const taxPortion = (Number(invoice.taxAmount || 0) * taxPct) / 100;
+                        alloc = netPortion + taxPortion;
+                      }
+
                       const coll = Math.min(alloc, Math.max(0, remRec));
                       remRec -= coll;
                       const isPaid = alloc > 0 ? (coll / alloc) * 100 >= 99 : true;
@@ -459,10 +477,29 @@ export default function ARMilestonesPage() {
                         <td className="py-4 px-4 text-center">
                           <span className="text-xs font-bold text-[#546A7A]">{formatARMonth(invoice.bookingMonth)}</span>
                         </td>
-                        <td className="py-4 px-4 text-right font-bold text-[#4F6A64] text-sm">{formatARCurrency(Number(invoice.totalAmount))}</td>
-                        <td className="py-4 px-4 text-right text-[#6F8A9D] font-bold text-sm">{formatARCurrency(Number(invoice.totalReceipts))}</td>
-                        <td className="py-4 px-4 text-right font-bold text-[#E17F70] text-sm">
-                           {formatARCurrency(Number(invoice.balance))}
+                        <td className="py-4 px-4">
+                           {invoice.remarks && invoice.remarks.length > 0 ? (
+                             <div className="flex items-start gap-2 max-w-[180px] group/remark relative" title={invoice.remarks[0].content}>
+                                <MessageSquare className="w-3 h-3 text-[#CE9F6B] flex-shrink-0 mt-0.5" />
+                                <div className="flex flex-col min-w-0">
+                                  <p className="text-[10px] font-medium text-[#5D6E73] truncate leading-tight">{invoice.remarks[0].content}</p>
+                                  <p className="text-[8px] font-bold text-[#92A2A5] uppercase tracking-tighter mt-0.5">
+                                    {invoice.remarks[0].createdBy?.name?.split(' ')[0] || 'System'} • {new Date(invoice.remarks[0].createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+                                  </p>
+                                </div>
+                             </div>
+                           ) : (
+                             <span className="text-[10px] text-[#AEBFC3] italic">No remarks</span>
+                           )}
+                        </td>
+                        <td className="py-4 px-4 text-right">
+                           <div className="flex flex-col items-end">
+                              <p className="font-bold text-[#4F6A64] text-sm leading-none">{formatARCurrency(Number(invoice.totalAmount))}</p>
+                              <div className="flex items-center gap-1.5 mt-1">
+                                 <span className="text-[9px] font-bold text-[#6F8A9D]">Rec: {formatARCurrency(Number(invoice.totalReceipts))}</span>
+                                 <span className="text-[9px] font-black text-[#E17F70]">Bal: {formatARCurrency(Number(invoice.balance))}</span>
+                              </div>
+                           </div>
                         </td>
                         <td className="py-4 px-4">
                           {(() => {
@@ -497,7 +534,7 @@ export default function ARMilestonesPage() {
                         </td>
                       </tr>
                       {isExpanded && (
-                        <tr key={`${invoice.id}-timeline`}><td colSpan={13} className="p-0"><MilestoneTimelineView invoice={invoice} /></td></tr>
+                        <tr key={`${invoice.id}-timeline`}><td colSpan={11} className="p-0"><MilestoneTimelineView invoice={invoice} /></td></tr>
                       )}
                     </Fragment>
                   );
@@ -552,7 +589,16 @@ export default function ARMilestonesPage() {
                     
                     <div className="mb-4">
                        <h3 className="text-sm font-bold text-[#546A7A] mb-0.5">{invoice.customerName}</h3>
-                       <p className="text-[10px] text-[#92A2A5] font-bold uppercase tracking-widest">{invoice.bpCode}</p>
+                       <p className="text-[10px] text-[#92A2A5] font-bold uppercase tracking-widest leading-none">{invoice.bpCode}</p>
+                       
+                       {invoice.remarks && invoice.remarks.length > 0 && (
+                         <div className="mt-3 p-2.5 rounded-xl bg-[#CE9F6B]/5 border border-[#CE9F6B]/10 flex items-start gap-2">
+                           <MessageSquare className="w-3 h-3 text-[#CE9F6B] flex-shrink-0 mt-0.5" />
+                           <p className="text-[10px] text-[#5D6E73] font-medium leading-tight line-clamp-2 italic">
+                             &ldquo;{invoice.remarks[0].content}&rdquo;
+                           </p>
+                         </div>
+                       )}
                     </div>
 
                     <div className="grid grid-cols-2 gap-4 pt-4 border-t border-[#AEBFC3]/10">

@@ -292,9 +292,9 @@ export function TicketBasicInfoForm({ control, zones, isSubmitting, hideZoneSele
                           ))}
                         </>
                       ) : (
-                        <SelectItem value="" disabled>
+                        <div className="p-4 text-center text-sm text-[#AEBFC3]">
                           No active zones available
-                        </SelectItem>
+                        </div>
                       )}
                     </SelectContent>
                   </Select>

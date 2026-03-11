@@ -19,7 +19,7 @@ interface BankAccountsLayoutProps {
 
 const allNavItems = [
   { href: '/finance/bank-accounts', label: 'All Vendors', icon: Building2, description: 'View all vendor accounts', roles: [FinanceRole.FINANCE_ADMIN, FinanceRole.FINANCE_USER, FinanceRole.FINANCE_VIEWER] },
-  { href: '/finance/bank-accounts/new', label: 'Add Vendor', icon: Plus, description: 'Create vendor account', roles: [FinanceRole.FINANCE_ADMIN, FinanceRole.FINANCE_USER] },
+  { href: '/finance/bank-accounts/new', label: 'Add Vendor', icon: Plus, description: 'Create vendor account', roles: [FinanceRole.FINANCE_USER] },
   { href: '/finance/bank-accounts/requests', label: 'Requests', icon: Clock, description: 'Vendor approvals', roles: [FinanceRole.FINANCE_ADMIN, FinanceRole.FINANCE_USER, FinanceRole.FINANCE_VIEWER] },
   { href: '/finance/bank-accounts/payments', label: 'Bulk Payments', icon: CreditCard, description: 'Excel bulk payments', roles: [FinanceRole.FINANCE_ADMIN, FinanceRole.FINANCE_USER] },
   { href: '/finance/bank-accounts/payment-batches', label: 'Payment Approvals', icon: Shield, description: 'Review & approve batches' },

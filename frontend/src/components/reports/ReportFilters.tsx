@@ -100,14 +100,14 @@ export function ReportFilters({
         </label>
         <Select 
           value={localFilters.zoneId || ''}
-          onValueChange={(value) => handleFilterChange('zoneId', value || undefined)}
+          onValueChange={(value) => handleFilterChange('zoneId', value === 'all' ? undefined : value)}
           disabled={isZoneUser}
         >
           <SelectTrigger className={isZoneUser ? 'bg-[#AEBFC3]/10 cursor-not-allowed' : ''}>
             <SelectValue placeholder="All zones" />
           </SelectTrigger>
           <SelectContent>
-            {!isZoneUser && <SelectItem value="">All zones</SelectItem>}
+            {!isZoneUser && <SelectItem value="all">All zones</SelectItem>}
             {zones.map((zone) => (
               <SelectItem key={zone.id} value={String(zone.id)}>
                 {zone.name}

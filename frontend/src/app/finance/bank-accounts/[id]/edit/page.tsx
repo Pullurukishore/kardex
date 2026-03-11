@@ -147,8 +147,8 @@ export default function EditBankAccountPage() {
 
     // Real-time input filtering
     if (name === 'bpCode') {
-      if (value !== '' && !isNumericOnly(value)) {
-        setFieldErrors(prev => ({ ...prev, bpCode: 'Vendor Code accepts numbers only' }));
+      if (value !== '' && !isAlphanumeric(value)) {
+        setFieldErrors(prev => ({ ...prev, bpCode: 'Vendor Code must be alphanumeric' }));
         return;
       }
       setFieldErrors(prev => ({ ...prev, bpCode: '' }));
@@ -327,8 +327,8 @@ export default function EditBankAccountPage() {
       }
 
       // Field format validations
-      if (!isNumericOnly(formData.bpCode)) {
-        setError('Vendor Code must contain numbers only');
+      if (!isAlphanumeric(formData.bpCode)) {
+        setError('Vendor Code must be alphanumeric');
         setSaving(false);
         return;
       }
@@ -400,8 +400,9 @@ export default function EditBankAccountPage() {
         return;
       }
 
-      // Mandatory check for Document based on selected context (single select)
-      const selectedContext = formData.accountCategory; // Use formData.accountCategory directly
+      // Verification documents are optional
+      /**
+      const selectedContext = formData.accountCategory;
       if (selectedContext) {
         const hasFile = attachments.some(a => a.vendorType === selectedContext);
         if (!hasFile) {
@@ -415,6 +416,7 @@ export default function EditBankAccountPage() {
           return;
         }
       }
+      **/
 
       const dataToSubmit = {
       ...formData,
@@ -685,9 +687,7 @@ export default function EditBankAccountPage() {
                     name="bpCode"
                     value={formData.bpCode}
                     onChange={handleChange}
-                    maxLength={7}
-                    inputMode="numeric"
-                    pattern="[0-9]*"
+                    maxLength={10}
                     className={`w-full px-4 py-3.5 bg-[#F8FAFB] border rounded-xl text-[#546A7A] focus:outline-none focus:ring-2 focus:ring-[#CE9F6B]/20 focus:bg-white transition-all uppercase tracking-wider font-bold ${
                       fieldErrors.bpCode ? 'border-[#E17F70] focus:border-[#E17F70]' : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B]/50'
                     }`}
@@ -1297,9 +1297,9 @@ export default function EditBankAccountPage() {
                       {typeAttachments.length === 0 ? (
                         <div className="p-8 rounded-[2rem] border-2 border-dashed border-[#AEBFC3]/30 bg-white/50 flex flex-col items-center justify-center text-center group hover:border-[#CE9F6B]/30 transition-all">
                           <p className="text-[#92A2A5] text-xs font-medium mb-1">
-                            {type.id === 'DOMESTIC' ? 'Bank Letter or Cancelled Cheque is mandatory' : 
-                             type.id === 'INTERNATIONAL' ? 'Bank Letter is mandatory' : 
-                             'One verification document is mandatory'}
+                            {type.id === 'DOMESTIC' ? 'Bank Letter or Cancelled Cheque recommended' : 
+                             type.id === 'INTERNATIONAL' ? 'Bank Letter recommended' : 
+                             'One verification document recommended'}
                           </p>
                           <p className="text-[#92A2A5] text-[10px] mb-4 opacity-70">No {type.label.toLowerCase()} documents uploaded yet</p>
                           <label className="flex items-center gap-2 px-5 py-2 rounded-xl bg-[#F8FAFB] border border-[#AEBFC3]/30 text-[#546A7A] text-[10px] font-bold uppercase tracking-wider cursor-pointer hover:bg-white hover:border-[#CE9F6B]/50 hover:text-[#CE9F6B] transition-all">
@@ -1575,10 +1575,10 @@ export default function EditBankAccountPage() {
               </div>
 
               {uploadVendorType === 'INTERNATIONAL' && (
-                <div className="p-3 bg-[#E17F70]/10 border border-[#E17F70]/20 rounded-xl flex gap-3 animate-in fade-in zoom-in duration-200">
-                  <AlertCircle className="w-5 h-5 text-[#E17F70] shrink-0 mt-0.5" />
-                  <p className="text-xs text-[#E17F70] font-medium leading-relaxed">
-                    For international vendors, a **Bank Letter** is mandatory for verification.
+                <div className="p-3 bg-[#6F8A9D]/10 border border-[#6F8A9D]/20 rounded-xl flex gap-3 animate-in fade-in zoom-in duration-200">
+                  <Info className="w-5 h-5 text-[#6F8A9D] shrink-0 mt-0.5" />
+                  <p className="text-xs text-[#6F8A9D] font-medium leading-relaxed">
+                    For international vendors, a **Bank Letter** is recommended for verification.
                   </p>
                 </div>
               )}

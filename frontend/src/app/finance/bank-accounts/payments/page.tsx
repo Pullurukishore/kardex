@@ -1064,6 +1064,8 @@ export default function PaymentsPage() {
                                                                 <Wallet className="w-3 h-3 shrink-0" /> 
                                                                 <span className="truncate">{p.accountNumber}</span>
                                                                 <span className="text-slate-200">•</span>
+                                                                <span className="text-slate-500 font-medium truncate max-w-[120px]">{p.bankName}</span>
+                                                                <span className="text-slate-200">•</span>
                                                                 <span className="text-[#B18E63] font-bold">{p.ifscCode}</span>
                                                             </div>
                                                         </div>
@@ -1075,15 +1077,21 @@ export default function PaymentsPage() {
                                                     <div className="relative group/input">
                                                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold transition-colors group-focus-within/input:text-[#B18E63]">{activeCurrencySymbol}</span>
                                                         <Input 
-                                                            type="number" 
+                                                            type="text" 
+                                                            inputMode="decimal"
                                                             className={cn(
                                                                 "pl-7 h-11 text-sm font-bold tabular-nums border-slate-200 transition-all shadow-none rounded-xl",
                                                                 "bg-slate-50/50 focus:bg-white focus:border-[#B18E63]/40 focus:ring-1 focus:ring-[#B18E63]/20",
                                                                 (p.amount ?? 0) > 0 ? "text-slate-800" : "text-slate-400"
                                                             )}
                                                             placeholder="0.00"
-                                                            value={p.amount || ''}
-                                                            onChange={(e) => updatePayment(p.tempId, { amount: parseFloat(e.target.value) || 0 })}
+                                                            value={p.amount ? p.amount.toLocaleString('en-IN', { maximumFractionDigits: 2 }) : ''}
+                                                            onChange={(e) => {
+                                                                const val = e.target.value.replace(/,/g, '');
+                                                                if (val === '' || !isNaN(Number(val))) {
+                                                                    updatePayment(p.tempId, { amount: val === '' ? 0 : parseFloat(val) });
+                                                                }
+                                                            }}
                                                         />
                                                         {(p.amount ?? 0) > 0 && (
                                                             <CheckCircle2 className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-emerald-400" />
@@ -1179,7 +1187,11 @@ export default function PaymentsPage() {
                                                 </div>
                                                 <div className="min-w-0">
                                                     <h4 className="font-black text-[#546A7A] truncate text-sm tracking-tight">{p.vendorName}</h4>
-                                                    <p className="text-[10px] font-bold text-[#AEBFC3] font-mono mt-0.5 uppercase">{p.ifscCode}</p>
+                                                    <div className="flex items-center gap-1.5 mt-0.5">
+                                                        <p className="text-[10px] font-bold text-[#AEBFC3] font-mono uppercase">{p.ifscCode}</p>
+                                                        <span className="text-[10px] text-[#AEBFC3]">•</span>
+                                                        <p className="text-[10px] font-bold text-slate-400 truncate max-w-[100px]">{p.bankName}</p>
+                                                    </div>
                                                 </div>
                                             </div>
                                             <Button 
@@ -1198,11 +1210,17 @@ export default function PaymentsPage() {
                                                 <div className="relative group/input">
                                                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[10px] font-black">{activeCurrencySymbol}</span>
                                                     <Input 
-                                                        type="number" 
+                                                        type="text" 
+                                                        inputMode="decimal"
                                                         className="pl-7 h-10 text-xs font-black tabular-nums border-slate-200 bg-slate-50/50 rounded-xl"
                                                         placeholder="0.00"
-                                                        value={p.amount || ''}
-                                                        onChange={(e) => updatePayment(p.tempId, { amount: parseFloat(e.target.value) || 0 })}
+                                                        value={p.amount ? p.amount.toLocaleString('en-IN', { maximumFractionDigits: 2 }) : ''}
+                                                        onChange={(e) => {
+                                                            const val = e.target.value.replace(/,/g, '');
+                                                            if (val === '' || !isNaN(Number(val))) {
+                                                                updatePayment(p.tempId, { amount: val === '' ? 0 : parseFloat(val) });
+                                                            }
+                                                        }}
                                                     />
                                                 </div>
                                             </div>

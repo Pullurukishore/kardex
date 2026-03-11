@@ -34,8 +34,9 @@ export function getRoleBasedRedirect(role?: UserRole | string, financeRole?: Fin
 
 export function isRouteAccessible(route: string, userRole?: UserRole | string, financeRole?: FinanceRole | string): boolean {
   // Public routes accessible to everyone
-  const publicRoutes = ['/auth/login', '/auth/reset-password', '/pin-access'];
-  if (publicRoutes.includes(route)) return true;
+  // Including prefix checks using startsWith later
+  const publicRoutes = ['/auth/login', '/auth/reset-password', '/auth/register', '/pin-access'];
+  if (publicRoutes.includes(route) || route.startsWith('/auth/')) return true;
 
   // Normalize roles (handle string "undefined" from cookies)
   const normalizedUserRole = (userRole === 'undefined' || !userRole) ? null : userRole;

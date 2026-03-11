@@ -143,9 +143,11 @@ export default function LoginPage() {
         }
 
         // Quick delay to show the success animation, then redirect
+        // Using window.location.href instead of router.replace for the final hop
+        // to ensure a clean state and avoid issues with lingering middleware redirects or stale state
         setTimeout(() => {
-          router.replace(redirectPath);
-        }, 500);
+          window.location.href = redirectPath;
+        }, 800);
       } else {
         triggerError(result.error || "Invalid credentials");
       }

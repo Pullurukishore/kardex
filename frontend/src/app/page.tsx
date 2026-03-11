@@ -33,10 +33,10 @@ export default function Home() {
   useEffect(() => {
     const progressInterval = setInterval(() => {
       setProgress(prev => {
-        if (prev >= 90) return prev;
-        return prev + Math.random() * 12;
+        if (prev >= 95) return prev;
+        return prev + Math.random() * 25;
       });
-    }, 250);
+    }, 100);
     return () => clearInterval(progressInterval);
   }, []);
 
@@ -76,7 +76,7 @@ export default function Home() {
           }
         }
       }
-    }, 500);
+    }, 100);
     return () => clearTimeout(redirectTimer);
   }, [isLoading, isAuthenticated, user]);
 

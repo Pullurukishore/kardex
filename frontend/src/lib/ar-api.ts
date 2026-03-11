@@ -9,7 +9,8 @@ export interface MilestonePaymentTerm {
     termDate: string;
     percentage?: number;
     customLabel?: string;
-    calculationBasis?: 'NET_AMOUNT' | 'TOTAL_AMOUNT'; // Whether % is on net amount or total (incl. tax)
+    calculationBasis?: 'NET_AMOUNT' | 'TOTAL_AMOUNT'; // Whether % is on net amount or net + tax
+    taxPercentage?: number; // When TOTAL_AMOUNT, what % of tax amount to add
 }
 export interface ARCustomer {
     id: string;
@@ -90,6 +91,19 @@ export interface ARInvoice {
     accountingStatus?: 'REVENUE_RECOGNISED' | 'BACKLOG';
     mailToTSP?: string;
     bookingMonth?: string;
+    remarks?: ARRemark[];
+}
+
+export interface ARRemark {
+    id: string;
+    invoiceId: string;
+    content: string;
+    createdById: number;
+    createdAt: string;
+    createdBy?: {
+        name: string;
+        email?: string;
+    };
 }
 
 export interface ARPaymentHistory {

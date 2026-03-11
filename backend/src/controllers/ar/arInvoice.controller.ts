@@ -88,6 +88,17 @@ export const getAllInvoices = async (req: Request, res: Response) => {
                     accountingStatus: true,
                     mailToTSP: true,
                     bookingMonth: true,
+                    remarks: {
+                        take: 1,
+                        orderBy: { createdAt: 'desc' },
+                        include: {
+                            createdBy: {
+                                select: {
+                                    name: true
+                                }
+                            }
+                        }
+                    }
                 }
             }),
             prisma.aRInvoice.count({ where })
@@ -657,24 +668,23 @@ export const updateInvoice = async (req: Request, res: Response) => {
         const userAgent = req.headers['user-agent'] || null;
 
         // Convert date strings to Date objects
-        if (updateData.dueDate) {
-            updateData.dueDate = new Date(updateData.dueDate);
-        }
-        if (updateData.invoiceDate) {
-            updateData.invoiceDate = new Date(updateData.invoiceDate);
-        }
-        if (updateData.sentHandoverDate) {
-            updateData.sentHandoverDate = new Date(updateData.sentHandoverDate);
-        }
-        if (updateData.impactDate) {
-            updateData.impactDate = new Date(updateData.impactDate);
-        }
-        if (updateData.advanceReceivedDate) {
-            updateData.advanceReceivedDate = new Date(updateData.advanceReceivedDate);
-        }
-        if (updateData.deliveryDueDate) {
-            updateData.deliveryDueDate = new Date(updateData.deliveryDueDate);
-        }
+        const dateFields = [
+            'dueDate',
+            'invoiceDate',
+            'sentHandoverDate',
+            'impactDate',
+            'advanceReceivedDate',
+            'deliveryDueDate',
+            'milestoneAcceptedAt'
+        ];
+
+        dateFields.forEach(field => {
+            if (updateData[field] !== undefined) {
+                // If it's an empty string or null, set to null
+                // Otherwise convert to Date object
+                updateData[field] = updateData[field] ? new Date(updateData[field]) : null;
+            }
+        });
         // milestoneTerms is a JSON array, no date conversion needed
 
         // Convert numeric strings to numbers

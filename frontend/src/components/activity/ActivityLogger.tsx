@@ -1073,9 +1073,9 @@ function ActivityLoggerComponent({
                             {acceptedSchedules.filter(
                               (schedule) => schedule.activityType === formData.activityType
                             ).length === 0 ? (
-                              <SelectItem value="" disabled>
-                                <span className="text-[#979796]">No schedules available for this activity type</span>
-                              </SelectItem>
+                              <div className="p-3 text-center text-sm text-[#979796]">
+                                No schedules available for this activity type
+                              </div>
                             ) : (
                               acceptedSchedules
                                 .filter(

@@ -968,14 +968,16 @@ export default function BankAccountsPage() {
                 <span className="hidden sm:inline">Approvals</span>
                 <span className="sm:hidden">Pending</span>
               </Link>
-              <Link 
-                href="/finance/bank-accounts/new"
-                className="flex items-center gap-2 px-4 py-2.5 lg:px-5 lg:py-3 rounded-xl text-white font-bold shadow-lg hover:shadow-xl transition-all text-sm hover:scale-[1.02] whitespace-nowrap"
-                style={{ background: 'linear-gradient(135deg, #82A094 0%, #4F6A64 100%)' }}
-              >
-                <Plus className="w-4 h-4" />
-                <span>{isAdmin ? 'Add' : 'Request'}</span>
-              </Link>
+              {!isAdmin && (
+                <Link 
+                  href="/finance/bank-accounts/new"
+                  className="flex items-center gap-2 px-4 py-2.5 lg:px-5 lg:py-3 rounded-xl text-white font-bold shadow-lg hover:shadow-xl transition-all text-sm hover:scale-[1.02] whitespace-nowrap"
+                  style={{ background: 'linear-gradient(135deg, #82A094 0%, #4F6A64 100%)' }}
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Request</span>
+                </Link>
+              )}
             </div>
           </div>
         </div>

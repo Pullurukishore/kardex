@@ -99,29 +99,31 @@ export async function middleware(request: NextRequest) {
   // Check if user has access to the requested route
   const financeRole = request.cookies.get('financeRole')?.value as any;
   if (!isRouteAccessible(pathname, userRole, financeRole)) {
-    // If no role is available at all, this is likely a stale session after logout
-    // Redirect to login and clear stale auth cookies to prevent infinite loops
-    if (!userRole && !financeRole) {
-      const loginUrl = new URL('/auth/login', request.url);
-      const response = NextResponse.redirect(loginUrl);
-      // Clear stale httpOnly auth cookies that the client couldn't remove
-      response.cookies.delete('accessToken');
-      response.cookies.delete('token');
-      response.cookies.delete('refreshToken');
-      return response;
+    // If we have an authToken but no role, it might be a new session or roles haven't synced yet
+    // Instead of deleting everything and redirecting to login, we can try to let the client handle it
+    // if we are reasonably sure they ARE authenticated.
+    if (authToken && !userRole && !financeRole) {
+      // Allow the request to proceed; the client-side AuthContext will fetch the user and set roles
+      return NextResponse.next();
     }
+
     const redirectPath = getRoleBasedRedirect(userRole, financeRole);
     // Prevent self-redirect loop: if we'd redirect to the same path, go to login instead
     if (redirectPath === pathname) {
       const loginUrl = new URL('/auth/login', request.url);
       const response = NextResponse.redirect(loginUrl);
-      response.cookies.delete('accessToken');
-      response.cookies.delete('token');
-      response.cookies.delete('refreshToken');
+      // Only clear cookies if we are REALLY sure they are invalid (no authToken)
+      if (!authToken) {
+        response.cookies.delete('accessToken');
+        response.cookies.delete('token');
+        response.cookies.delete('refreshToken');
+      }
       return response;
     }
-    // Add a small delay header to prevent conflicts with client-side redirects
-    const response = NextResponse.redirect(new URL(redirectPath, request.url));
+
+    // Ensure the redirect path is absolute
+    const absoluteRedirectUrl = new URL(redirectPath, request.url);
+    const response = NextResponse.redirect(absoluteRedirectUrl);
     response.headers.set('X-Redirect-Reason', 'role-access');
     return response;
   }

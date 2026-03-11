@@ -20,19 +20,23 @@ export default function PinGuard({ children }: PinGuardProps) {
     setIsMounted(true);
 
     const checkPinAccess = async () => {
-      if (!pathname) return;
-
-      const publicRoutes = ['/pin-access', '/admin/pin-management', '/favicon.ico', '/_next', '/api/auth'];
-      const isPublicRoute = pathname === '/pin-access' || publicRoutes.some(route => route !== '/pin-access' && pathname.startsWith(route));
-
-      if (isPublicRoute) {
-        setIsValidated(true);
+      // Use a safety timeout to prevent infinite loading if something hangs
+      const safetyTimeout = setTimeout(() => {
         setIsLoading(false);
         setHasChecked(true);
-        return;
-      }
+      }, 3000);
 
       try {
+        const currentPath = pathname || (typeof window !== 'undefined' ? window.location.pathname : '/');
+        
+        const publicRoutes = ['/pin-access', '/admin/pin-management', '/favicon.ico', '/_next', '/api/auth'];
+        const isPublicRoute = currentPath === '/pin-access' || publicRoutes.some(route => currentPath.startsWith(route));
+
+        if (isPublicRoute) {
+          setIsValidated(true);
+          return;
+        }
+
         const pinSession = document.cookie.split('; ').find(row => row.startsWith('pinSession='));
         const localSession = localStorage.getItem('pinAccessSession');
         const urlParams = new URL(window.location.href).searchParams;
@@ -41,11 +45,41 @@ export default function PinGuard({ children }: PinGuardProps) {
         if (pinSession || localSession || forceBypass === 'true') {
           setIsValidated(true);
         } else {
-          router.replace('/pin-access');
+          // If not validated and not a public route, redirect
+          // Using window.location.href for the initial "gate" redirect is more reliable than router.replace
+          // on the first page load/hydration.
+          if (typeof window !== 'undefined') {
+            const currentUrl = new URL(window.location.href);
+            let path = currentUrl.pathname;
+            
+            // If we are already on a login path with its own callback, 
+            // just remember the base login path to avoid messy nesting
+            if (path.startsWith('/auth/')) {
+              path = '/auth/login';
+            } else if (currentUrl.search) {
+              // Otherwise, keep the search params but maybe clean them?
+              // For now, let's just use the pathname if it's not root
+              path = currentUrl.pathname + currentUrl.search;
+            }
+
+            // If it's a "start" path (root or login), don't bother with a callbackUrl
+            // This keeps the URL clean as /pin-access
+            const isStartPath = !path || path === '/' || path.startsWith('/auth/');
+            
+            const target = !isStartPath && path !== '/pin-access' 
+              ? `/pin-access?callbackUrl=${encodeURIComponent(path)}` 
+              : '/pin-access';
+              
+            window.location.href = target;
+          }
         }
       } catch (error) {
-        router.replace('/pin-access');
+        console.error('Pin check error:', error);
+        if (typeof window !== 'undefined') {
+          window.location.href = '/pin-access';
+        }
       } finally {
+        clearTimeout(safetyTimeout);
         setIsLoading(false);
         setHasChecked(true);
       }

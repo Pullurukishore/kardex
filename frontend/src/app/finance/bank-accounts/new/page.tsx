@@ -110,9 +110,8 @@ export default function NewBankAccountPage() {
 
     // Real-time input filtering
     if (name === 'bpCode') {
-      // Numbers only for Vendor Code
-      if (value !== '' && !isNumericOnly(value)) {
-        setFieldErrors(prev => ({ ...prev, bpCode: 'Vendor Code accepts numbers only' }));
+      if (value !== '' && !isAlphanumeric(value)) {
+        setFieldErrors(prev => ({ ...prev, bpCode: 'Vendor Code must be alphanumeric' }));
         return;
       }
       setFieldErrors(prev => ({ ...prev, bpCode: '' }));
@@ -420,8 +419,8 @@ export default function NewBankAccountPage() {
       if (!formData.bpCode) {
         return { valid: false, message: 'BP Code / Vendor Code is required' };
       }
-      if (!isNumericOnly(formData.bpCode)) {
-        return { valid: false, message: 'Vendor Code must contain numbers only' };
+      if (!isAlphanumeric(formData.bpCode)) {
+        return { valid: false, message: 'Vendor Code must be alphanumeric' };
       }
       if (!formData.vendorName) {
         return { valid: false, message: 'Vendor name is required' };
@@ -497,17 +496,7 @@ export default function NewBankAccountPage() {
         return { valid: false, message: 'Please go back and select an Account Category in Step 2' };
       }
 
-      // Single-select: validate the one selected type
-      const hasFile = selectedFiles.some(f => f.vendorType === selectedCategory);
-      if (!hasFile) {
-        const messages: Record<string, string> = {
-          'DOMESTIC': 'Step 3: Domestic requires a Bank Letter or Cancelled Cheque upload',
-          'INTERNATIONAL': 'Step 3: International requires a Bank Letter upload',
-          'EMPLOYEE': 'Step 3: Employee requires one verification document'
-        };
-        return { valid: false, message: messages[selectedCategory] || 'Step 3: Please upload the required document' };
-      }
-
+      // Documents are optional
       return { valid: true };
     }
     return { valid: true };
@@ -730,10 +719,8 @@ export default function NewBankAccountPage() {
                   name="bpCode"
                   value={formData.bpCode}
                   onChange={handleChange}
-                  placeholder="e.g. 12345 or 001"
-                  maxLength={7}
-                  inputMode="numeric"
-                  pattern="[0-9]*"
+                  placeholder="e.g. CUS8999 or 12345"
+                  maxLength={10}
                   className={`w-full px-4 py-2.5 rounded-xl text-sm font-bold uppercase tracking-wider transition-all focus:outline-none border-2 bg-[#F8FAFB] text-[#546A7A] ${
                     fieldErrors.bpCode ? 'border-[#E17F70] focus:border-[#E17F70]' : 'border-[#AEBFC3] focus:border-[#CE9F6B]/50'
                   }`}
@@ -1327,7 +1314,7 @@ export default function NewBankAccountPage() {
                 <div className="flex items-center gap-3">
                   <h3 className="text-sm font-black uppercase tracking-widest flex items-center gap-2 text-[#546A7A]">
                     <Upload className="w-4 h-4 text-[#82A094]" />
-                    Upload Documents <span className="text-[#E17F70]">*</span>
+                    Upload Documents
                   </h3>
                 </div>
 
@@ -1386,9 +1373,9 @@ export default function NewBankAccountPage() {
                                   ))
                                 ) : (
                                   <p className="text-[#92A2A5] text-sm font-medium">
-                                    {typeId === 'DOMESTIC' ? 'Bank Letter or Cancelled Cheque is mandatory.' : 
-                                     typeId === 'INTERNATIONAL' ? 'Bank Letter is mandatory.' : 
-                                     'One verification document is mandatory.'}
+                                    {typeId === 'DOMESTIC' ? 'Bank Letter or Cancelled Cheque recommended.' : 
+                                     typeId === 'INTERNATIONAL' ? 'Bank Letter recommended.' : 
+                                     'One verification document recommended.'}
                                   </p>
                                 )}
                               </div>
@@ -1476,7 +1463,7 @@ export default function NewBankAccountPage() {
                   <div className="relative group/submit w-full md:w-auto">
                     <Button
                       type="submit"
-                      disabled={loading || !!success || !formData.accountCategory || !selectedFiles.some(f => f.vendorType === formData.accountCategory)}
+                      disabled={loading || !!success || !formData.accountCategory}
                       className={`w-full md:w-auto px-10 h-12 rounded-xl font-black text-white shadow-xl transition-all ${
                         success 
                           ? 'bg-gradient-to-r from-[#82A094] to-[#4F6A64]'
@@ -1493,9 +1480,9 @@ export default function NewBankAccountPage() {
                       {loading ? 'Processing...' : success ? 'Success!' : isAdmin ? 'Create Account' : 'Submit Request'}
                       {!loading && !success && <Sparkles className="w-4 h-4 ml-2" />}
                     </Button>
-                    {(!formData.accountCategory || !selectedFiles.some(f => f.vendorType === formData.accountCategory)) && !success && (
+                    {(!formData.accountCategory) && !success && (
                       <div className="absolute bottom-full mb-3 right-0 px-4 py-2 rounded-xl text-[10px] font-bold bg-[#E17F70] text-white opacity-0 group-hover/submit:opacity-100 transition-opacity pointer-events-none shadow-lg">
-                        ⚠ Please ensure category is selected and document is uploaded
+                        ⚠ Please ensure category is selected
                       </div>
                     )}
                   </div>

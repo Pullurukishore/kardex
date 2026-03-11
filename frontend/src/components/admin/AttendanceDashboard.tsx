@@ -251,12 +251,12 @@ export function AttendanceDashboard() {
             </div>
             <div>
               <label className="text-sm font-medium mb-2 block">Status</label>
-              <Select value={filters.status} onValueChange={(value) => handleFilterChange('status', value)}>
+              <Select value={filters.status || 'all'} onValueChange={(value) => handleFilterChange('status', value === 'all' ? '' : value)}>
                 <SelectTrigger>
                   <SelectValue placeholder="All statuses" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All statuses</SelectItem>
+                  <SelectItem value="all">All statuses</SelectItem>
                   <SelectItem value="CHECKED_IN">Checked In</SelectItem>
                   <SelectItem value="CHECKED_OUT">Checked Out</SelectItem>
                   <SelectItem value="EARLY_CHECKOUT">Early Checkout</SelectItem>

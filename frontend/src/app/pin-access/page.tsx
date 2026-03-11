@@ -71,6 +71,18 @@ export default function PinAccessPage() {
   
   // Determine redirect path based on user role and any module selection
   const getRedirectPath = () => {
+    // Check for callbackUrl in the URL params first
+    if (typeof window !== 'undefined') {
+      const urlParams = new URL(window.location.href).searchParams;
+      const callback = urlParams.get('callbackUrl');
+      if (callback && callback.startsWith('/') && !callback.startsWith('/pin-access')) {
+        return callback;
+      }
+    }
+
+    // If not logged in at all, go straight to login
+    if (!user) return '/auth/login';
+
     const selectedModule = localStorage.getItem('selectedModule');
     if (selectedModule === 'finance') return '/finance/select';
     if (selectedModule === 'fsm') return '/fsm/select';

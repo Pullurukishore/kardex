@@ -149,36 +149,83 @@ export default function MilestoneViewPage() {
   const daysOverdue = invoice.dueByDays || 0;
   const isOverdue = invoice.status === 'OVERDUE' || (daysOverdue > 0 && invoice.status !== 'PAID');
 
-  // Collection allocation per milestone term based on overall receipts
+  // Target payments to specific terms, then distribute balance via FIFO
   const milestoneTerms: MilestonePaymentTerm[] = (invoice.milestoneTerms as MilestonePaymentTerm[]) || [];
   const netAmount = Number(invoice.netAmount || 0);
-  let remainingReceipts = totalReceived;
+
+  // 1. Group all payments by their target milestoneTerm
+  const paymentsByTarget: Record<string, number> = {};
+  let genericPool = 0;
+
+  (invoice.paymentHistory || []).forEach(p => {
+    if (p.milestoneTerm) {
+      paymentsByTarget[p.milestoneTerm] = (paymentsByTarget[p.milestoneTerm] || 0) + (Number(p.amount) || 0);
+    } else {
+      genericPool += (Number(p.amount) || 0);
+    }
+  });
+
+  // 2. Initial pass to calculate allocated amounts and apply specific payments
   const termCollections = milestoneTerms
     .slice()
     .sort((a, b) => new Date(a.termDate).getTime() - new Date(b.termDate).getTime())
     .map((term) => {
       const percentage = term.percentage || 0;
+      const taxPercentage = term.taxPercentage || 0;
       const isNetBasis = term.calculationBasis !== 'TOTAL_AMOUNT';
-      const baseAmount = isNetBasis ? netAmount : totalAmount;
-      const allocatedAmount = (baseAmount * percentage) / 100;
-      const collectedForTerm = Math.min(allocatedAmount, Math.max(0, remainingReceipts));
-      remainingReceipts -= collectedForTerm;
-      const pendingForTerm = Math.max(0, allocatedAmount - collectedForTerm);
-      const collectedPercent = allocatedAmount > 0 ? (collectedForTerm / allocatedAmount) * 100 : 0;
+      const termId = `${term.termType}-${term.termDate}-${percentage}-${taxPercentage}`;
+      
+      let allocatedAmount = 0;
+      if (isNetBasis) {
+        allocatedAmount = (netAmount * percentage) / 100;
+      } else {
+        const netPortion = (netAmount * percentage) / 100;
+        const taxPortion = (Number(invoice.taxAmount || 0) * taxPercentage) / 100;
+        allocatedAmount = netPortion + taxPortion;
+      }
+
+      // Start with payments specifically targeted at this term
+      // Fallback to termType for legacy payments that might just store 'ABG' instead of the full ID
+      let collectedForTerm = (paymentsByTarget[termId] || 0) + (paymentsByTarget[term.termType] || 0);
+      
+      // Clear the termType targeted payments so they aren't double-counted if multiple terms have same type
+      if (paymentsByTarget[term.termType]) {
+        delete paymentsByTarget[term.termType];
+      }
+
+      // If a specific payment exceeds the term amount, the excess flows to the generic pool
+      if (collectedForTerm > allocatedAmount) {
+        genericPool += (collectedForTerm - allocatedAmount);
+        collectedForTerm = allocatedAmount;
+      }
+
       return {
-        termId: `${term.termType}-${term.termDate}-${percentage}`,
+        termId,
         allocatedAmount,
         collectedForTerm,
-        pendingForTerm,
-        collectedPercent,
         isNetBasis,
+        termDate: term.termDate,
+        pendingForTerm: 0,
+        collectedPercent: 0,
       };
     });
+
+  // 3. Second pass: distribute generic pool (FIFO) to fill remaining gaps
+  termCollections.forEach(tc => {
+    const gap = Math.max(0, tc.allocatedAmount - tc.collectedForTerm);
+    const fromGeneric = Math.min(gap, genericPool);
+    tc.collectedForTerm += fromGeneric;
+    genericPool -= fromGeneric;
+    
+    // Final percentages
+    tc.pendingForTerm = Math.max(0, tc.allocatedAmount - tc.collectedForTerm);
+    tc.collectedPercent = tc.allocatedAmount > 0 ? (tc.collectedForTerm / tc.allocatedAmount) * 100 : 0;
+  });
 
   // Overdue and Not Due calculations
   const overdueAmount = termCollections
     .filter(tc => {
-      const term = milestoneTerms.find(t => `${t.termType}-${t.termDate}-${t.percentage || 0}` === tc.termId);
+      const term = milestoneTerms.find(t => `${t.termType}-${t.termDate}-${t.percentage || 0}-${t.taxPercentage || 0}` === tc.termId);
       if (!term) return false;
       const termDate = new Date(term.termDate);
       const today = new Date();
@@ -194,7 +241,7 @@ export default function MilestoneViewPage() {
   const worstTermAging = milestoneTerms.length > 0
     ? Math.max(0, ...milestoneTerms.map(t => {
         const aging = Math.floor((new Date().setHours(0,0,0,0) - new Date(t.termDate).setHours(0,0,0,0)) / (1000 * 60 * 60 * 24));
-        const allocation = termCollections.find(tc => tc.termId === `${t.termType}-${t.termDate}-${t.percentage || 0}`);
+        const allocation = termCollections.find(tc => tc.termId === `${t.termType}-${t.termDate}-${t.percentage || 0}-${t.taxPercentage || 0}`);
         const isTermPaid = (allocation?.collectedPercent || 0) >= 99;
         return (aging > 0 && !isTermPaid) ? aging : 0;
       }))
@@ -609,7 +656,8 @@ export default function MilestoneViewPage() {
               today.setHours(0, 0, 0, 0);
               const termAging = Math.floor((today.getTime() - termDate.getTime()) / (1000 * 60 * 60 * 24));
               const percentage = term.percentage || 0;
-              const allocation = termCollections.find((t) => t.termId === `${term.termType}-${term.termDate}-${percentage}`);
+              const taxPercentage = term.taxPercentage || 0;
+              const allocation = termCollections.find((t) => t.termId === `${term.termType}-${term.termDate}-${percentage}-${taxPercentage}`);
               const collectedForTerm = allocation?.collectedForTerm || 0;
               const pendingForTerm = allocation?.pendingForTerm || 0;
               const collectedPercent = allocation?.collectedPercent || 0;
@@ -635,11 +683,11 @@ export default function MilestoneViewPage() {
                         {term.termType === 'OTHER' ? term.customLabel : termOptions[term.termType] || term.termType}
                       </p>
                       <div className="flex items-center gap-1.5 text-[10px] text-[#92A2A5]">
-                        <span className="font-semibold text-[#CE9F6B]">{percentage}%</span>
+                        <span className="font-semibold text-[#CE9F6B]">{percentage}% {term.taxPercentage ? `+ ${term.taxPercentage}% Tax` : ''}</span>
                         <span className={`px-1 py-0.5 rounded text-[8px] font-bold ${
                           allocation?.isNetBasis ? 'bg-[#6F8A9D]/10 text-[#6F8A9D]' : 'bg-[#CE9F6B]/15 text-[#976E44]'
                         }`}>
-                          {allocation?.isNetBasis ? 'Net' : 'Total'}
+                          {allocation?.isNetBasis ? 'Net' : 'Net+Tax'}
                         </span>
                         <span>•</span>
                         <span>{formatARDate(term.termDate)}</span>
@@ -659,8 +707,10 @@ export default function MilestoneViewPage() {
                         <p className="text-xs font-bold text-[#4F6A64]">{formatARCurrency(collectedForTerm)}</p>
                       </div>
                       <div>
-                        <p className="text-[9px] font-bold text-[#92A2A5] uppercase">Pending</p>
-                        <p className={`text-xs font-bold ${pendingForTerm > 0 ? 'text-[#E17F70]' : 'text-[#82A094]'}`}>{formatARCurrency(pendingForTerm)}</p>
+                        <p className={`text-[9px] font-bold uppercase ${pendingForTerm > 0 ? (termAging > 0 ? 'text-[#9E3B47]' : 'text-[#CE9F6B]') : 'text-[#92A2A5]'}`}>
+                          {isFullyPaid ? 'Pending' : termAging > 0 ? 'Due' : 'Not Due'}
+                        </p>
+                        <p className={`text-xs font-bold ${pendingForTerm > 0 ? (termAging > 0 ? 'text-[#9E3B47]' : 'text-[#CE9F6B]') : 'text-[#82A094]'}`}>{formatARCurrency(pendingForTerm)}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -687,7 +737,7 @@ export default function MilestoneViewPage() {
                         {isFullyPaid ? 'Cleared' : termAging > 0 ? `${termAging}d` : `${Math.abs(termAging)}d`}
                       </p>
                       <p className="text-[9px] font-semibold text-[#92A2A5] uppercase">
-                        {isFullyPaid ? 'Paid' : termAging > 0 ? 'Overdue' : 'Left'}
+                        {isFullyPaid ? 'Paid' : termAging > 0 ? 'Overdue' : 'Not Due'}
                       </p>
                     </div>
                     <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${
@@ -889,7 +939,24 @@ export default function MilestoneViewPage() {
                           {payment.milestoneTerm ? (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-[#CE9F6B]/10 text-[#976E44] text-xs font-bold">
                               <Tag className="w-3 h-3" />
-                              {payment.milestoneTerm === 'OTHER' ? 'Other' : (termOptions[payment.milestoneTerm] || payment.milestoneTerm)}
+                              {(() => {
+                                const termId = payment.milestoneTerm;
+                                // Try to find the actual term in current milestone definition for the best label (especially for OTHER)
+                                const actualTerm = milestoneTerms.find(t => `${t.termType}-${t.termDate}-${t.percentage || 0}-${t.taxPercentage || 0}` === termId);
+                                if (actualTerm) {
+                                  return actualTerm.termType === 'OTHER' ? (actualTerm.customLabel || 'Other') : (termOptions[actualTerm.termType] || actualTerm.termType);
+                                }
+                                
+                                // Fallback: Parse the composite ID if term not found/deleted
+                                if (termId.includes('-')) {
+                                  const parts = termId.split('-');
+                                  const type = parts[0];
+                                  return termOptions[type] || type;
+                                }
+                                
+                                // Fallback: Simple term type (Legacy payments)
+                                return termOptions[termId] || termId;
+                              })()}
                             </span>
                           ) : (
                             <p className="font-medium text-[#92A2A5] text-xs">-</p>
@@ -1158,15 +1225,15 @@ export default function MilestoneViewPage() {
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     {milestoneTerms.map((term, idx) => {
                       const label = term.termType === 'OTHER' ? (term.customLabel || 'Other') : (termOptions[term.termType] || term.termType);
-                      const pct = term.percentage ? `${term.percentage}%` : '';
-                      const isSelected = paymentForm.milestoneTerm === term.termType;
-                      const allocation = termCollections.find((t) => t.termId === `${term.termType}-${term.termDate}-${term.percentage || 0}`);
+                      const currentTermId = `${term.termType}-${term.termDate}-${term.percentage || 0}-${term.taxPercentage || 0}`;
+                      const isSelected = paymentForm.milestoneTerm === currentTermId;
+                      const allocation = termCollections.find((t) => t.termId === currentTermId);
                       const stageProgress = allocation?.collectedPercent || 0;
                       return (
                         <button
                           key={idx}
                           type="button"
-                          onClick={() => setPaymentForm({...paymentForm, milestoneTerm: term.termType})}
+                          onClick={() => setPaymentForm({...paymentForm, milestoneTerm: currentTermId})}
                           className={`relative group p-2.5 rounded-xl border-2 text-left transition-all duration-200 ${
                             isSelected
                               ? 'border-[#82A094] bg-[#82A094]/5 shadow-md shadow-[#82A094]/10 ring-1 ring-[#82A094]/20'
@@ -1180,7 +1247,9 @@ export default function MilestoneViewPage() {
                           )}
                           <p className={`text-xs font-bold truncate ${isSelected ? 'text-[#4F6A64]' : 'text-[#546A7A]'}`}>{label}</p>
                           <div className="flex items-center justify-between mt-1">
-                            {pct && <span className="text-[10px] font-bold text-[#CE9F6B]">{pct}</span>}
+                            <span className="text-[10px] font-bold text-[#CE9F6B]">
+                              {term.percentage}% {term.taxPercentage ? `+ ${term.taxPercentage}% T` : ''}
+                            </span>
                             <span className={`text-[9px] font-semibold ${stageProgress >= 99 ? 'text-[#82A094]' : 'text-[#92A2A5]'}`}>
                               {stageProgress >= 99 ? '✓ Paid' : `${Math.round(stageProgress)}%`}
                             </span>

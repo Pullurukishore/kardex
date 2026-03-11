@@ -25,7 +25,7 @@ export default function TicketFilters({ searchParams }: TicketFiltersProps) {
   const updateFilter = (key: string, value: string) => {
     const newParams = new URLSearchParams(params.toString());
     
-    if (value) {
+    if (value && value !== 'all') {
       newParams.set(key, value);
     } else {
       newParams.delete(key);
@@ -74,7 +74,7 @@ export default function TicketFilters({ searchParams }: TicketFiltersProps) {
               <SelectValue placeholder="All Statuses" />
             </SelectTrigger>
             <SelectContent className="max-h-60 overflow-y-auto">
-              <SelectItem value="">All Statuses</SelectItem>
+              <SelectItem value="all">All Statuses</SelectItem>
               {Object.values(TicketStatus).map((status) => (
                 <SelectItem key={status} value={status}>
                   {formatEnumValue(status)}
@@ -92,7 +92,7 @@ export default function TicketFilters({ searchParams }: TicketFiltersProps) {
               <SelectValue placeholder="All Priorities" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Priorities</SelectItem>
+              <SelectItem value="all">All Priorities</SelectItem>
               {Object.values(Priority).map((priority) => (
                 <SelectItem key={priority} value={priority}>
                   {priority}
