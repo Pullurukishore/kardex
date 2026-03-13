@@ -54,12 +54,29 @@ export default function ViewCustomerPage() {
 
   // Calculate financial stats
   const calculateStats = () => {
-    if (!customer?.invoices) return { total: 0, outstanding: 0, paid: 0, overdueCount: 0 };
-    const total = customer.invoices.reduce((sum, inv) => sum + (inv.totalAmount || 0), 0);
-    const outstanding = customer.invoices.reduce((sum, inv) => sum + (inv.balance || 0), 0);
+    if (!customer) return { total: 0, outstanding: 0, paid: 0, overdueCount: 0, creditLimit: 0, utilization: 0, totalInvoices: 0 };
+    
+    // Use backend-calculated totals if available, otherwise fallback to frontend calculation
+    const activeInvoices = (customer.invoices || []).filter(inv => inv.status !== 'CANCELLED');
+    
+    const total = customer.totalInvoiceAmount !== undefined ? customer.totalInvoiceAmount : 
+                 activeInvoices.reduce((sum, inv) => sum + (inv.totalAmount || 0), 0);
+                 
+    const outstanding = customer.outstandingBalance !== undefined ? customer.outstandingBalance : 
+                       activeInvoices.reduce((sum, inv) => sum + (inv.balance || 0), 0);
+                       
     const paid = total - outstanding;
-    const overdueCount = customer.invoices.filter(inv => inv.status === 'OVERDUE').length;
-    return { total, outstanding, paid, overdueCount };
+    
+    const overdueCount = customer.overdueCount !== undefined ? customer.overdueCount : 
+                        activeInvoices.filter(inv => inv.status === 'OVERDUE').length;
+                        
+    const totalInvoices = customer.invoiceCount !== undefined ? customer.invoiceCount : 
+                         activeInvoices.length;
+
+    const creditLimit = (customer.creditLimit !== null && customer.creditLimit !== undefined) ? customer.creditLimit : undefined;
+    const utilization = creditLimit !== undefined ? (creditLimit > 0 ? (outstanding / creditLimit) * 100 : (outstanding > 0 ? 100 : 0)) : 0;
+    
+    return { total, outstanding, paid, overdueCount, creditLimit, utilization, totalInvoices };
   };
 
   if (loading) {
@@ -98,7 +115,7 @@ export default function ViewCustomerPage() {
   const stats = calculateStats();
 
   return (
-    <div className="space-y-6 w-full relative">
+    <div className="space-y-6 w-full relative overflow-hidden">
       {/* Decorative Background */}
       <div className="absolute -top-20 -right-20 w-72 h-72 bg-gradient-to-br from-[#82A094]/10 to-[#4F6A64]/10 rounded-full blur-3xl pointer-events-none" />
       
@@ -154,7 +171,7 @@ export default function ViewCustomerPage() {
       </div>
 
       {/* Financial Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="bg-white rounded-2xl border border-[#82A094]/20 p-5 shadow-lg hover:shadow-xl transition-all">
           <div className="flex items-center justify-between mb-3">
             <span className="text-[#92A2A5] text-sm font-medium">Total Invoiced</span>
@@ -163,7 +180,7 @@ export default function ViewCustomerPage() {
             </div>
           </div>
           <p className="text-2xl font-bold text-[#546A7A]">{formatARCurrency(stats.total)}</p>
-          <p className="text-xs text-[#92A2A5] mt-1">{customer.invoices?.length || 0} invoices</p>
+          <p className="text-xs text-[#92A2A5] mt-1">{stats.totalInvoices} invoices</p>
         </div>
 
         <div className="bg-white rounded-2xl border border-[#E17F70]/20 p-5 shadow-lg hover:shadow-xl transition-all">
@@ -177,6 +194,35 @@ export default function ViewCustomerPage() {
             {formatARCurrency(stats.outstanding)}
           </p>
           <p className="text-xs text-[#92A2A5] mt-1">{stats.overdueCount} overdue invoices</p>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-[#AEBFC3]/20 p-5 shadow-lg hover:shadow-xl transition-all">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[#92A2A5] text-sm font-medium">Credit Limit</span>
+            <div className="p-2 rounded-xl bg-[#AEBFC3]/15">
+              <Shield className="w-5 h-5 text-[#546A7A]" />
+            </div>
+          </div>
+          <p className="text-2xl font-bold text-[#546A7A]">
+            {stats.creditLimit !== undefined ? formatARCurrency(stats.creditLimit) : 'N/A'}
+          </p>
+          {stats.creditLimit !== undefined ? (
+            <div className="mt-2 space-y-1">
+              <div className="w-full h-1.5 bg-[#AEBFC3]/10 rounded-full overflow-hidden">
+                <div 
+                  className={`h-full rounded-full transition-all duration-1000 ${
+                    stats.utilization > 90 ? 'bg-[#E17F70]' : stats.utilization > 70 ? 'bg-[#CE9F6B]' : 'bg-[#82A094]'
+                  }`}
+                  style={{ width: `${Math.min(100, stats.utilization)}%` }}
+                />
+              </div>
+              <p className="text-[10px] font-bold text-[#92A2A5] uppercase tracking-tighter">
+                {Math.round(stats.utilization)}% Utilization
+              </p>
+            </div>
+          ) : (
+            <p className="text-xs text-[#AEBFC3] mt-1 italic">No limit set</p>
+          )}
         </div>
 
         <div className="bg-white rounded-2xl border border-[#82A094]/20 p-5 shadow-lg hover:shadow-xl transition-all">
@@ -199,7 +245,7 @@ export default function ViewCustomerPage() {
               <Receipt className="w-5 h-5 text-[#CE9F6B]" />
             </div>
           </div>
-          <p className="text-2xl font-bold text-[#546A7A]">{customer.invoices?.length || 0}</p>
+          <p className="text-2xl font-bold text-[#546A7A]">{stats.totalInvoices}</p>
           <p className="text-xs text-[#92A2A5] mt-1">Total invoices</p>
         </div>
       </div>

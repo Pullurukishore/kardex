@@ -481,6 +481,11 @@ const MobileVendorCard = ({
             <div className="flex items-center gap-2 mt-0.5">
               <p className="text-[10px] text-[#92A2A5] font-mono leading-none">{account.bpCode || 'No BP Code'}</p>
               <div className={`w-1.5 h-1.5 rounded-full ${account.isActive ? 'bg-[#82A094]' : 'bg-[#AEBFC3]'}`} />
+              {account.attachments && account.attachments.length > 0 ? (
+                <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-500/20 px-1.5 py-0.5 rounded uppercase tracking-wider">Verified</span>
+              ) : (
+                <span className="text-[9px] font-bold text-red-500 bg-red-50 border border-red-500/20 px-1.5 py-0.5 rounded uppercase tracking-wider">Pending</span>
+              )}
             </div>
           </div>
         </div>
@@ -631,6 +636,12 @@ const VendorTable = ({
                 <th className="px-4 py-3.5 text-center text-xs font-bold uppercase tracking-wider">
                   <div className="flex items-center justify-center gap-1.5">
                     <Shield className="h-3.5 w-3.5 text-white/70" />
+                    KYC
+                  </div>
+                </th>
+                <th className="px-4 py-3.5 text-center text-xs font-bold uppercase tracking-wider">
+                  <div className="flex items-center justify-center gap-1.5">
+                    <Shield className="h-3.5 w-3.5 text-white/70" />
                     Status
                   </div>
                 </th>
@@ -751,6 +762,19 @@ const VendorTable = ({
                       `}>
                         {account.currency}
                       </span>
+                    </td>
+
+                    {/* KYC Status */}
+                    <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                      {account.attachments && account.attachments.length > 0 ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold rounded-md bg-emerald-50 text-emerald-600 uppercase tracking-widest border border-emerald-500/20 shadow-sm">
+                          Verified
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold rounded-md bg-red-50 text-red-500 uppercase tracking-widest border border-red-500/20 shadow-sm">
+                          Pending
+                        </span>
+                      )}
                     </td>
 
                     {/* Status */}

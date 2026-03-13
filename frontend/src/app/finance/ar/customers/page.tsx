@@ -44,7 +44,7 @@ export default function ARCustomersPage() {
   };
 
   return (
-    <div className="space-y-6 relative">
+    <div className="space-y-6 w-full relative overflow-hidden pb-8 p-4 sm:p-0">
       {/* Decorative Background */}
       <div className="absolute -top-20 -right-20 w-72 h-72 bg-gradient-to-br from-[#82A094]/10 to-[#4F6A64]/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute -bottom-40 -left-20 w-96 h-96 bg-gradient-to-tr from-[#A2B9AF]/10 to-[#82A094]/10 rounded-full blur-3xl pointer-events-none" />
@@ -103,70 +103,62 @@ export default function ARCustomersPage() {
         </div>
       </div>
 
-      {/* Desktop Table - Hidden on mobile */}
-      <div className="hidden md:block bg-white/90 backdrop-blur-xl rounded-2xl border border-[#82A094]/20 overflow-hidden shadow-xl">
+      {/* Desktop Table View */}
+      <div className="hidden md:block bg-white rounded-2xl border border-[#AEBFC3]/40 overflow-hidden shadow-2xl">
+        <div className="px-5 py-4 border-b border-[#AEBFC3]/30 bg-gradient-to-r from-[#4F6A64] to-[#82A094]">
+          <div className="flex items-center justify-between font-bold text-white text-xs uppercase tracking-wider">
+            <div className="flex items-center gap-3">
+              <Sparkles className="w-5 h-5 opacity-90" />
+              <span>Customer Master Table</span>
+            </div>
+            <div className="opacity-80">
+              {customers.length} entries shown
+            </div>
+          </div>
+        </div>
+
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full border-separate border-spacing-0">
             <thead>
-              <tr className="bg-gradient-to-r from-[#4F6A64] via-[#82A094] to-[#A2B9AF]">
-                <th className="text-left py-5 px-6 text-xs font-bold text-white uppercase tracking-wider">BP Code</th>
-                <th className="text-left py-5 px-6 text-xs font-bold text-white uppercase tracking-wider">Customer Name</th>
-                <th className="text-left py-5 px-6 text-xs font-bold text-white uppercase tracking-wider">Region</th>
-                <th className="text-center py-5 px-6 text-xs font-bold text-white uppercase tracking-wider">Invoices</th>
-                <th className="text-right py-5 px-6 text-xs font-bold text-white uppercase tracking-wider">Total Invoiced</th>
-                <th className="text-right py-5 px-6 text-xs font-bold text-white uppercase tracking-wider">Balance Due</th>
-                <th className="text-right py-5 px-6 text-xs font-bold text-white uppercase tracking-wider">Credit Limit</th>
-                <th className="text-center py-5 px-6 text-xs font-bold text-white uppercase tracking-wider">Risk Class</th>
-                <th className="text-center py-5 px-6 text-xs font-bold text-white uppercase tracking-wider">Actions</th>
+              <tr className="bg-[#F8FAFB]">
+                <th className="w-[10%] text-left py-4 px-4 border-b-2 border-[#4F6A64]/20 text-[10px] font-bold uppercase text-[#4F6A64] tracking-wider">BP Code</th>
+                <th className="w-[22%] text-left py-4 px-4 border-b-2 border-[#4F6A64]/20 text-[10px] font-bold uppercase text-[#546A7A] tracking-wider">Customer / Region</th>
+                <th className="w-[8%] text-center py-4 px-4 border-b-2 border-[#4F6A64]/20 text-[10px] font-bold uppercase text-[#546A7A] tracking-wider">Invoices</th>
+                <th className="w-[14%] text-right py-4 px-4 border-b-2 border-[#4F6A64]/20 text-[10px] font-bold uppercase text-[#546A7A] tracking-wider">Total Invoiced</th>
+                <th className="w-[14%] text-right py-4 px-4 border-b-2 border-[#4F6A64]/20 text-[10px] font-bold uppercase text-[#546A7A] tracking-wider">Balance Due</th>
+                <th className="w-[14%] text-right py-4 px-4 border-b-2 border-[#4F6A64]/20 text-[10px] font-bold uppercase text-[#546A7A] tracking-wider">Credit Limit</th>
+                <th className="w-[10%] text-center py-4 px-4 border-b-2 border-[#4F6A64]/20 text-[10px] font-bold uppercase text-[#546A7A] tracking-wider">Risk Class</th>
+                <th className="w-[8%] text-center py-4 px-4 border-b-2 border-[#4F6A64]/20 text-[10px] font-bold uppercase text-[#546A7A] tracking-wider">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#AEBFC3]/15">
+            <tbody>
               {loading ? (
                 Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i} className="bg-white">
-                    {Array.from({ length: 9 }).map((_, j) => (
-                      <td key={j} className="py-5 px-6">
-                        <div 
-                          className="h-5 bg-gradient-to-r from-[#AEBFC3]/30 to-[#82A094]/20 rounded-lg animate-pulse" 
-                          style={{ width: `${60 + Math.random() * 40}%`, animationDelay: `${j * 0.1}s` }} 
-                        />
-                      </td>
-                    ))}
-                  </tr>
+                  <tr key={i} className="animate-pulse"><td colSpan={8} className="p-6"><div className="h-6 bg-[#AEBFC3]/10 rounded-xl" /></td></tr>
                 ))
               ) : customers.length === 0 ? (
-                <tr>
-                  <td colSpan={9} className="py-20 text-center">
-                    <div className="inline-flex items-center justify-center w-24 h-24 rounded-2xl bg-gradient-to-br from-[#82A094]/10 to-[#4F6A64]/10 border-2 border-[#82A094]/20 mb-5">
-                      <Building2 className="w-12 h-12 text-[#82A094]" />
-                    </div>
-                    <div className="text-[#546A7A] font-semibold text-lg mb-2">No customers found</div>
-                    <div className="text-[#92A2A5] text-sm">Try adjusting your search or add a new customer</div>
-                  </td>
-                </tr>
+                <tr><td colSpan={8} className="py-20 text-center text-[#92A2A5] font-medium italic">No customers found matching your search.</td></tr>
               ) : (
                 customers.map((customer, index) => (
                   <tr 
                     key={customer.id} 
-                    className={`${index % 2 === 0 ? 'bg-white' : 'bg-[#AEBFC3]/5'} hover:bg-gradient-to-r hover:from-[#82A094]/5 hover:to-[#4F6A64]/5 transition-all cursor-pointer group`}
+                    className={`group cursor-pointer transition-all ${index % 2 === 0 ? 'bg-white' : 'bg-[#F8FAFB]/40'} hover:bg-[#F0F4F7]`}
                     onClick={() => router.push(`/finance/ar/customers/${customer.id}`)}
                   >
-                    <td className="py-5 px-6">
+                    <td className="py-4 px-4 text-left">
                       <span className="text-[#82A094] font-bold text-sm bg-[#82A094]/10 px-3 py-1 rounded-lg">{customer.bpCode}</span>
                     </td>
-                    <td className="py-5 px-6">
-                      <span className="text-[#546A7A] font-semibold group-hover:text-[#4F6A64]">{customer.customerName}</span>
+                    <td className="py-4 px-4 overflow-hidden">
+                      <div className="text-sm font-bold text-[#546A7A] truncate group-hover:text-[#4F6A64] group-hover:underline transition-all decoration-2 underline-offset-4">{customer.customerName}</div>
+                      <div className="text-[10px] text-[#92A2A5] font-bold tracking-widest uppercase">{customer.region || '-'}</div>
                     </td>
-                    <td className="py-5 px-6 text-[#5D6E73]">
-                      {customer.region || <span className="text-[#AEBFC3]">-</span>}
-                    </td>
-                    <td className="py-5 px-6 text-center">
+                    <td className="py-4 px-4 text-center">
                       <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#82A094]/10 text-[#4F6A64]">
                         <Receipt className="w-3.5 h-3.5" />
                         <span className="font-bold text-sm">{customer._count?.invoices || 0}</span>
                       </div>
                     </td>
-                    <td className="py-5 px-6 text-right">
+                    <td className="py-4 px-4 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <TrendingUp className="w-4 h-4 text-[#82A094]" />
                         <span className="text-[#546A7A] font-bold">
@@ -174,7 +166,7 @@ export default function ARCustomersPage() {
                         </span>
                       </div>
                     </td>
-                    <td className="py-5 px-6 text-right">
+                    <td className="py-4 px-4 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <Wallet className="w-4 h-4 text-[#E17F70]" />
                         <span className={`font-bold ${customer.outstandingBalance && customer.outstandingBalance > 0 ? 'text-[#E17F70]' : 'text-[#82A094]'}`}>
@@ -182,27 +174,31 @@ export default function ARCustomersPage() {
                         </span>
                       </div>
                     </td>
-                    <td className="py-5 px-6">
-                      <div className="flex flex-col gap-1.5 min-w-[120px]">
-                        <div className="flex items-center justify-between text-xs">
+                     <td className="py-4 px-4 text-right">
+                      <div className="flex flex-col items-end gap-1.5 min-w-[140px]">
+                        <div className="text-xs">
                           <span className="text-[#546A7A] font-bold">
-                            {customer.creditLimit ? formatARCurrency(customer.creditLimit) : <span className="text-[#AEBFC3]">No Limit</span>}
+                            {(customer.creditLimit !== null && customer.creditLimit !== undefined) ? formatARCurrency(customer.creditLimit) : <span className="text-[#AEBFC3]">No Limit</span>}
                           </span>
                         </div>
-                        {customer.creditLimit && customer.creditLimit > 0 ? (
-                          <div className="flex items-center gap-2">
-                            <div className="flex-1 h-2 bg-[#AEBFC3]/20 rounded-full overflow-hidden">
+                        {customer.creditLimit !== null && customer.creditLimit !== undefined ? (
+                          <div className="flex items-center gap-2 w-full justify-end">
+                            <div className="flex-1 max-w-[80px] h-2 bg-[#AEBFC3]/20 rounded-full overflow-hidden">
                               <div 
-                                className={`h-full rounded-full ${
-                                  ((customer.outstandingBalance || 0) / customer.creditLimit) * 100 > 90 ? 'bg-[#E17F70]' 
-                                  : ((customer.outstandingBalance || 0) / customer.creditLimit) * 100 > 75 ? 'bg-[#CE9F6B]' 
+                                className={`h-full rounded-full transition-all duration-700 ${
+                                  customer.creditLimit > 0 && ((customer.outstandingBalance || 0) / customer.creditLimit) * 100 > 90 ? 'bg-[#E17F70]' 
+                                  : customer.creditLimit > 0 && ((customer.outstandingBalance || 0) / customer.creditLimit) * 100 > 75 ? 'bg-[#CE9F6B]' 
                                   : 'bg-[#82A094]'
                                 }`}
-                                style={{ width: `${Math.min(100, Math.max(0, ((customer.outstandingBalance || 0) / customer.creditLimit) * 100))}%` }}
+                                style={{ 
+                                  width: `${customer.creditLimit > 0 
+                                    ? Math.min(100, Math.max(0, ((customer.outstandingBalance || 0) / customer.creditLimit) * 100)) 
+                                    : (customer.outstandingBalance || 0) > 0 ? 100 : 0}%` 
+                                }}
                               />
                             </div>
-                            <span className="text-[10px] text-[#92A2A5] font-medium whitespace-nowrap">
-                              {Math.round(((customer.outstandingBalance || 0) / customer.creditLimit) * 100)}% used
+                            <span className="text-[10px] text-[#92A2A5] font-bold whitespace-nowrap w-10 text-right">
+                              {customer.creditLimit > 0 ? Math.round(((customer.outstandingBalance || 0) / customer.creditLimit) * 100) : ((customer.outstandingBalance || 0) > 0 ? '100' : '0')}%
                             </span>
                           </div>
                         ) : (
@@ -210,13 +206,13 @@ export default function ARCustomersPage() {
                         )}
                       </div>
                     </td>
-                    <td className="py-5 px-6 text-center">
+                    <td className="py-4 px-4 text-center">
                       <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold ${getRiskBadge(customer.riskClass)}`}>
                         {customer.riskClass === 'CRITICAL' && <AlertTriangle className="w-3 h-3" />}
                         {customer.riskClass}
                       </span>
                     </td>
-                    <td className="py-5 px-6" onClick={(e) => e.stopPropagation()}>
+                    <td className="py-4 px-4 text-center" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-center gap-2">
                         <Link
                           href={`/finance/ar/customers/${customer.id}`}
@@ -241,29 +237,16 @@ export default function ARCustomersPage() {
           </table>
         </div>
 
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between px-6 py-5 border-t border-[#82A094]/15 bg-gradient-to-r from-[#82A094]/5 via-[#4F6A64]/5 to-transparent">
-            <span className="text-sm text-[#5D6E73]">
-              Showing <span className="text-[#546A7A] font-bold">{Math.min((page - 1) * 20 + 1, total)}</span> to <span className="text-[#546A7A] font-bold">{Math.min(page * 20, total)}</span> of <span className="text-[#82A094] font-bold">{total}</span> customers
-            </span>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className="p-2.5 rounded-xl bg-white border-2 border-[#AEBFC3]/40 text-[#5D6E73] hover:bg-gradient-to-r hover:from-[#82A094]/10 hover:to-[#4F6A64]/10 hover:border-[#82A094]/40 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-              >
-                <ChevronLeft className="w-5 h-5" />
+        {/* Improved Pagination */}
+        {!loading && totalPages > 1 && (
+          <div className="p-5 border-t border-[#AEBFC3]/20 flex justify-between items-center bg-[#F8FAFB]">
+            <span className="text-xs font-bold text-[#92A2A5] tracking-widest uppercase">Page {page} of {totalPages}</span>
+            <div className="flex gap-3">
+              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="flex items-center gap-2 px-4 py-2 bg-white border border-[#AEBFC3]/30 rounded-xl text-xs font-bold text-[#546A7A] hover:bg-white/50 disabled:opacity-30 shadow-sm transition-all">
+                <ChevronLeft className="w-4 h-4" /> Previous
               </button>
-              <span className="px-5 py-2.5 text-sm font-bold text-white bg-gradient-to-r from-[#4F6A64] to-[#82A094] rounded-xl shadow-lg">
-                {page} / {totalPages}
-              </span>
-              <button
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
-                className="p-2.5 rounded-xl bg-white border-2 border-[#AEBFC3]/40 text-[#5D6E73] hover:bg-gradient-to-r hover:from-[#82A094]/10 hover:to-[#4F6A64]/10 hover:border-[#82A094]/40 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-              >
-                <ChevronRight className="w-5 h-5" />
+              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="flex items-center gap-2 px-4 py-2 bg-[#4F6A64] rounded-xl text-xs font-bold text-white hover:bg-[#82A094] disabled:opacity-30 shadow-lg transition-all">
+                Next <ChevronRight className="w-4 h-4" />
               </button>
             </div>
           </div>

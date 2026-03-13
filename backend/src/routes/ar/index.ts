@@ -16,6 +16,7 @@ import * as financeUserController from '../../controllers/ar/financeUser.control
 import * as dashboardController from '../../controllers/ar/arDashboard.controller';
 import * as activityController from '../../controllers/ar/arTotalActivity.controller';
 import * as reportsController from '../../controllers/ar/arReports.controller';
+import * as bankReportsController from '../../controllers/ar/bankReports.controller';
 import * as paymentBatchController from '../../controllers/ar/paymentBatch.controller';
 
 // Import auth middleware
@@ -200,6 +201,11 @@ router.get('/reports/invoices/status', requireARRead, reportsController.getInvoi
 router.get('/reports/invoices/milestone', requireARRead, reportsController.getMilestoneAnalysisReport);
 router.get('/reports/invoices/delivery', requireARRead, reportsController.getDeliveryStatusReport);
 
+// Bank Account Reports
+router.get('/reports/bank-accounts/audit', requireFinanceRead, bankReportsController.getVendorMasterAudit);
+router.get('/reports/bank-accounts/compliance', requireFinanceRead, bankReportsController.getComplianceMetrics);
+router.get('/reports/bank-accounts/payments', requireFinanceRead, bankReportsController.getPaymentVolumeInsights);
+
 // Legacy report endpoints (backward compatibility)
 router.get('/reports/aging', requireARRead, reportsController.getAgingReport);
 router.get('/reports/collection-efficiency', requireARRead, reportsController.getCollectionEfficiency);
@@ -216,5 +222,6 @@ router.post('/payment-batches', requireFinanceWrite, paymentBatchController.subm
 router.put('/payment-batches/:id/review', requireFinanceApprover, paymentBatchController.reviewBatch);
 router.get('/payment-batches/:id/download', requireFinanceRead, paymentBatchController.downloadBatch);
 router.put('/payment-batches/:id/resubmit', requireFinanceWrite, paymentBatchController.resubmitRejectedItems);
+router.delete('/payment-batches/:id/items/:itemId', requireFinanceWrite, paymentBatchController.deleteBatchItem);
 
 export default router;

@@ -275,152 +275,177 @@ export default function PaymentBatchesPage() {
             )}
           </div>
         ) : (
-          <div className="space-y-3">
-            {displayedBatches.map(batch => {
-              const cfg = STATUS_CONFIG[batch.status] || STATUS_CONFIG.PENDING;
-              const StatusIcon = cfg.icon;
-              const approvalPct = batch.totalItems > 0 && batch.approvedItems != null
-                ? Math.round((batch.approvedItems / batch.totalItems) * 100)
-                : null;
-              const isReviewed = batch.status !== 'PENDING';
-              const approvedAmt = Number(batch.approvedAmount || 0);
-              const rejectedAmt = Number(batch.totalAmount) - approvedAmt;
+          <div className="bg-white/80 backdrop-blur-sm border border-[#AEBFC3]/25 rounded-2xl overflow-hidden shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse min-w-[900px]">
+                <thead>
+                  <tr className="bg-gradient-to-r from-[#546A7A] to-[#6F8A9D]">
+                    <th className="px-5 py-4 text-[10px] font-black text-white/90 uppercase tracking-widest border-b border-[#6F8A9D]/40 w-[20%]">Batch Details</th>
+                    <th className="px-5 py-4 text-[10px] font-black text-white/90 uppercase tracking-widest border-b border-[#6F8A9D]/40 w-[15%]">Submission</th>
+                    <th className="px-5 py-4 text-[10px] font-black text-white/90 uppercase tracking-widest border-b border-[#6F8A9D]/40 w-[15%] text-center">Approval Progress</th>
+                    <th className="px-5 py-4 text-[10px] font-black text-white/90 uppercase tracking-widest border-b border-[#6F8A9D]/40 w-[20%] text-right">Transactions</th>
+                    <th className="px-5 py-4 text-[10px] font-black text-white/90 uppercase tracking-widest border-b border-[#6F8A9D]/40 w-[15%] text-center">Status</th>
+                    <th className="px-5 py-4 text-[10px] font-black text-white/90 uppercase tracking-widest border-b border-[#6F8A9D]/40 w-[10%] text-center">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#AEBFC3]/15">
+                  {displayedBatches.map((batch, idx) => {
+                    const cfg = STATUS_CONFIG[batch.status] || STATUS_CONFIG.PENDING;
+                    const StatusIcon = cfg.icon;
+                    const approvalPct = batch.totalItems > 0 && batch.approvedItems != null
+                      ? Math.round((batch.approvedItems / batch.totalItems) * 100)
+                      : 0;
+                    const isReviewed = batch.status !== 'PENDING';
+                    const approvedAmt = Number(batch.approvedAmount || 0);
+                    const rejectedAmt = Number(batch.totalAmount) - approvedAmt;
 
-              return (
-                <Link key={batch.id} href={`/finance/bank-accounts/payment-batches/${batch.id}`}>
-                  <div className="group bg-white/80 backdrop-blur-sm border border-[#AEBFC3]/25 rounded-2xl hover:shadow-lg hover:shadow-[#6F8A9D]/10 hover:border-[#96AEC2]/40 transition-all cursor-pointer overflow-hidden">
-                    {/* Status-coloured top accent bar */}
-                    <div className={cn('h-1 w-full', cfg.dot)} />
-                    <div className="p-4 sm:p-5">
-                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                        {/* Left Content */}
-                        <div className="flex items-start gap-4 min-w-0">
-                          <div className={cn('w-10 h-10 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center border shrink-0', cfg.bg, cfg.border)}>
-                            <StatusIcon className={cn('w-5 h-5', cfg.color)} />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2 flex-wrap mb-1">
-                              <h3 className="font-bold text-[#546A7A] group-hover:text-[#4F6A64] transition-colors font-mono text-sm sm:text-base">
+                    return (
+                      <tr key={batch.id} className={cn(
+                        "group transition-colors hover:bg-gradient-to-r hover:from-[#96AEC2]/10 hover:to-transparent cursor-pointer",
+                        idx % 2 === 1 ? "bg-[#96AEC2]/5" : "bg-white/40"
+                      )} onClick={() => window.location.href = `/finance/bank-accounts/payment-batches/${batch.id}`}>
+                        
+                        {/* 1. Batch Details */}
+                        <td className="px-5 py-4 align-top">
+                          <div className="flex items-start gap-3">
+                            <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center border shadow-sm shrink-0", cfg.bg, cfg.border)}>
+                              <StatusIcon className={cn("w-4 h-4", cfg.color)} />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <h3 className="font-bold text-[#546A7A] group-hover:text-[#4F6A64] transition-colors font-mono text-sm leading-none">
                                 {batch.batchNumber}
                               </h3>
-                              <span className={cn(
-                                'text-[10px] font-bold px-2 py-0.5 rounded-full border h-5 flex items-center',
-                                cfg.bg, cfg.border, cfg.color
-                              )}>
-                                {cfg.label}
-                              </span>
-                              {batch.exportFormat && (
-                                <span className="text-[9px] font-black font-mono bg-[#96AEC2]/10 text-[#546A7A] px-1.5 py-0.5 rounded border border-[#96AEC2]/20 uppercase">
-                                  {batch.exportFormat}
+                              <div className="flex items-center gap-2 mt-2 flex-wrap">
+                                {batch.exportFormat && (
+                                  <span className="text-[9px] font-black font-mono bg-[#96AEC2]/15 text-[#546A7A] px-1.5 py-0.5 rounded border border-[#96AEC2]/30 uppercase">
+                                    {batch.exportFormat}
+                                  </span>
+                                )}
+                                <span className="text-[10px] font-black font-mono bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded border border-slate-200 uppercase">
+                                  {batch.currency || 'INR'}
                                 </span>
+                              </div>
+                              {batch.notes && (
+                                <p className="text-[10px] text-[#92A2A5] mt-1.5 font-medium truncate max-w-[180px]" title={batch.notes}>
+                                  "{batch.notes}"
+                                </p>
                               )}
                             </div>
-                            
-                            {/* Meta Info */}
-                            <div className="flex items-center gap-x-3 gap-y-1.5 text-[11px] text-[#92A2A5] flex-wrap font-medium">
-                              {isAdmin && batch.requestedBy?.name && (
-                                <span className="flex items-center gap-1 text-[#5D6E73]">
-                                  <User className="w-3 h-3 text-[#6F8A9D]" /> {batch.requestedBy.name}
-                                </span>
-                              )}
-                              <span className="flex items-center gap-1">
-                                <Calendar className="w-3 h-3 text-[#6F8A9D]" /> {formatARDate(batch.requestedAt)}
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <Hash className="w-3 h-3 text-[#6F8A9D]" /> {batch.totalItems} items
-                              </span>
-                              {batch.currency && (
-                                <span className="font-black bg-[#96AEC2]/10 text-[#546A7A] px-1.5 py-0.5 rounded text-[10px] border border-[#96AEC2]/20">
-                                  {batch.currency}
-                                </span>
-                              )}
-                            </div>
+                          </div>
+                        </td>
 
-                            {batch.notes && (
-                              <p className="text-xs text-[#ABACA9] mt-2 italic truncate max-w-sm">"{batch.notes}"</p>
+                        {/* 2. Submission Info */}
+                        <td className="px-5 py-4 align-top">
+                          <div className="space-y-1.5">
+                            {isAdmin && batch.requestedBy?.name ? (
+                              <div className="flex items-center gap-1.5 text-xs text-[#546A7A] font-semibold">
+                                <User className="w-3.5 h-3.5 text-[#6F8A9D]" />
+                                <span className="truncate max-w-[120px]">{batch.requestedBy.name}</span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1.5 text-xs text-[#546A7A] font-semibold">
+                                <User className="w-3.5 h-3.5 text-[#6F8A9D]" />
+                                <span>You</span>
+                              </div>
                             )}
+                            <div className="flex items-center gap-1.5 text-[10px] text-[#92A2A5] font-bold uppercase tracking-wide">
+                              <Calendar className="w-3 h-3" />
+                              {formatARDate(batch.requestedAt)}
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* 3. Approval Progress */}
+                        <td className="px-5 py-4 align-top text-center">
+                          <div className="flex flex-col items-center justify-center space-y-2 w-full max-w-[140px] mx-auto">
+                            <span className="text-[10px] font-bold text-[#546A7A] uppercase tracking-widest flex items-center gap-1">
+                              <Hash className="w-3 h-3 text-[#6F8A9D]" /> {batch.totalItems} Items
+                            </span>
                             
-                            {/* Approval progress bar (Only on Mobile - Integrated) */}
-                            {isReviewed && approvalPct !== null && (
-                              <div className="mt-3 sm:hidden">
-                                <div className="h-1 bg-[#AEBFC3]/20 rounded-full overflow-hidden flex">
+                            {isReviewed ? (
+                              <div className="w-full">
+                                <div className="h-1.5 bg-[#AEBFC3]/20 rounded-full overflow-hidden flex w-full">
                                   <div
                                     className="h-full bg-gradient-to-r from-[#82A094] to-[#4F6A64] transition-all"
                                     style={{ width: `${approvalPct}%` }}
                                   />
                                   {100 - approvalPct > 0 && (
                                     <div
-                                      className="h-full bg-[#E17F70]/40 transition-all"
+                                      className="h-full bg-gradient-to-r from-[#E17F70]/40 to-[#E17F70]/60 transition-all"
                                       style={{ width: `${100 - approvalPct}%` }}
                                     />
                                   )}
                                 </div>
-                                <div className="flex justify-between items-center mt-1 text-[9px] font-bold text-[#ABACA9] uppercase tracking-tighter">
-                                  <span>{approvalPct}% Approved</span>
-                                  <span>{batch.approvedItems}/{batch.totalItems} Items</span>
+                                <div className="flex justify-between items-center mt-1 text-[9px] font-bold uppercase tracking-tighter">
+                                  <span className="text-[#4F6A64]">{batch.approvedItems} Appr.</span>
+                                  {batch.totalItems - (batch.approvedItems || 0) > 0 && (
+                                    <span className="text-[#75242D]">{batch.totalItems - (batch.approvedItems || 0)} Rej.</span>
+                                  )}
                                 </div>
                               </div>
-                            )}
-
-                            {/* Desktop Approval Progress */}
-                            {isReviewed && approvalPct !== null && (
-                              <div className="mt-3 hidden sm:flex items-center gap-2">
-                                <div className="flex-1 max-w-[160px] h-1.5 bg-[#AEBFC3]/20 rounded-full overflow-hidden flex">
-                                  <div
-                                    className="h-full bg-gradient-to-r from-[#82A094] to-[#4F6A64] rounded-l-full transition-all"
-                                    style={{ width: `${approvalPct}%` }}
-                                  />
-                                  {100 - approvalPct > 0 && (
-                                    <div
-                                      className="h-full bg-[#E17F70]/40 transition-all"
-                                      style={{ width: `${100 - approvalPct}%` }}
-                                    />
-                                  )}
-                                </div>
-                                <span className="text-[10px] text-[#ABACA9] font-bold uppercase tracking-wider">
-                                  {batch.approvedItems}/{batch.totalItems} approved
+                            ) : (
+                              <div className="w-full text-center">
+                                <span className="text-[9px] font-black text-[#CE9F6B] bg-[#CE9F6B]/10 px-2 py-0.5 rounded-full uppercase tracking-tighter border border-[#CE9F6B]/20">
+                                  Awaiting Approval
                                 </span>
                               </div>
                             )}
-
-                            {!isAdmin && batch.status === 'REJECTED' && batch.reviewNotes && (
-                              <p className="text-[10px] text-[#75242D] mt-2 flex items-center gap-1 bg-[#E17F70]/10 px-2 py-1 rounded-lg border border-[#E17F70]/20 w-fit font-bold uppercase tracking-tighter">
-                                <XCircle className="w-3 h-3" /> {batch.reviewNotes}
-                              </p>
-                            )}
                           </div>
-                        </div>
+                        </td>
 
-                        {/* Right Content — Amount & Actions */}
-                        <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-1 sm:gap-1.5 mt-2 sm:mt-0 pt-3 sm:pt-0 border-t sm:border-t-0 border-[#AEBFC3]/10">
-                          <div className="sm:text-right">
-                            <p className="text-base sm:text-lg font-black text-[#546A7A] tabular-nums">
-                              {formatARCurrency(batch.totalAmount, batch.currency)}
-                            </p>
-                            {isReviewed && batch.approvedAmount != null && (
-                              <div className="flex sm:flex-col gap-2 sm:gap-0.5 mt-0.5">
-                                <p className="text-[10px] sm:text-xs text-[#4F6A64] font-black flex items-center gap-1 justify-start sm:justify-end">
-                                  <CheckCheck className="w-3 h-3" /> {formatARCurrency(approvedAmt, batch.currency)}
+                        {/* 4. Transactions (Amounts) */}
+                        <td className="px-5 py-4 align-top text-right">
+                          <p className="text-sm font-black text-[#546A7A] tabular-nums mb-1 border-b border-[#AEBFC3]/20 pb-1 inline-block">
+                            {formatARCurrency(batch.totalAmount, batch.currency)}
+                          </p>
+                          {isReviewed && batch.approvedAmount != null && (
+                            <div className="flex flex-col items-end gap-0.5 mt-1">
+                              <p className="text-[10px] text-[#4F6A64] font-black flex items-center gap-1">
+                                <span className="opacity-70 font-bold uppercase tracking-tighter text-[8px]">Approved</span>
+                                {formatARCurrency(approvedAmt, batch.currency)} <CheckCheck className="w-3 h-3" />
+                              </p>
+                              {rejectedAmt > 0 && (
+                                <p className="text-[10px] text-[#75242D] font-bold flex items-center gap-1 opacity-80">
+                                  <span className="opacity-70 font-bold uppercase tracking-tighter text-[8px]">Rejected</span>
+                                  {formatARCurrency(rejectedAmt, batch.currency)} <XCircle className="w-3 h-3" />
                                 </p>
-                                {rejectedAmt > 0 && (
-                                  <p className="text-[10px] sm:text-xs text-[#75242D] font-bold flex items-center gap-1 justify-start sm:justify-end">
-                                    <XCircle className="w-3 h-3" /> {formatARCurrency(rejectedAmt, batch.currency)}
-                                  </p>
-                                )}
+                              )}
+                            </div>
+                          )}
+                        </td>
+
+                        {/* 5. Status */}
+                        <td className="px-5 py-4 align-middle text-center">
+                           <span className={cn(
+                              'text-[9px] font-black px-2.5 py-1.5 rounded-lg border flex items-center justify-center gap-1.5 mx-auto max-w-[120px] shadow-sm uppercase tracking-widest',
+                              cfg.bg, cfg.border, cfg.color
+                            )}>
+                              {cfg.label}
+                            </span>
+                            {!isAdmin && batch.status === 'REJECTED' && batch.reviewNotes && (
+                              <div className="mt-1.5 text-[9px] text-[#75242D] flex items-center justify-center gap-1 max-w-[120px] mx-auto opacity-70 truncate font-bold uppercase tracking-tighter" title={batch.reviewNotes}>
+                                <AlertCircle className="w-3 h-3 shrink-0" /> {batch.reviewNotes}
                               </div>
                             )}
-                          </div>
-                          
-                          <div className="flex items-center gap-1.5 text-[10px] font-black text-[#6F8A9D] uppercase tracking-widest sm:opacity-0 group-hover:opacity-100 transition-opacity bg-[#6F8A9D]/5 sm:bg-transparent px-3 py-1.5 sm:p-0 rounded-full">
-                            Details <ChevronRight className="w-3.5 h-3.5" />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </Link>
-              );
-            })}
+                        </td>
+
+                        {/* 6. Action */}
+                        <td className="px-5 py-4 align-middle text-center">
+                           <div className="flex justify-center">
+                              <Link href={`/finance/bank-accounts/payment-batches/${batch.id}`} onClick={(e) => e.stopPropagation()}>
+                                <Button size="sm" variant="ghost" className="h-8 w-8 p-0 rounded-lg hover:bg-[#6F8A9D]/10 text-[#546A7A] hover:text-[#6F8A9D]">
+                                  <ChevronRight className="w-4 h-4" />
+                                </Button>
+                              </Link>
+                           </div>
+                        </td>
+
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
     </div>

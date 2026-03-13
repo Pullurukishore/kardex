@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { arApi, formatARCurrency } from '@/lib/ar-api';
 import { 
-  TrendingUp, DollarSign, AlertTriangle, Clock, 
+  TrendingUp, IndianRupee, AlertTriangle, Clock, 
   CheckCircle2, RefreshCw, ArrowUpRight, XCircle, Minus
 } from 'lucide-react';
 
@@ -201,7 +201,7 @@ export default function ARDashboardPage() {
           <div className="absolute top-0 right-0 w-20 h-20 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
           <div className="relative">
             <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center mb-3">
-              <DollarSign className="w-5 h-5 text-white" />
+              <IndianRupee className="w-5 h-5 text-white" />
             </div>
             <div className="text-xs text-white/70 font-medium mb-1 uppercase tracking-wider">Invoice Total</div>
             <div className="text-xl font-bold mb-1">{formatARCurrency(data?.kpis?.totalAmount || 0)}</div>
@@ -264,7 +264,7 @@ export default function ARDashboardPage() {
           <div className="absolute top-0 right-0 w-20 h-20 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
           <div className="relative">
             <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center mb-3">
-              <DollarSign className="w-5 h-5 text-white" />
+              <IndianRupee className="w-5 h-5 text-white" />
             </div>
             <div className="text-xs text-white/70 font-medium mb-1 uppercase tracking-wider">Milestone Total</div>
             <div className="text-xl font-bold mb-1">{formatARCurrency(data?.milestoneKpis?.totalValue || 0)}</div>
@@ -687,115 +687,6 @@ export default function ARDashboardPage() {
           })}
         </div>
       </div>
-
-      {/* ═══════════════════════════════════════════════════════════════════════════ */}
-      {/* ROW 3.75: Critical Milestone Aging (New) */}
-      {/* ═══════════════════════════════════════════════════════════════════════════ */}
-      
-      {data?.criticalMilestones && data.criticalMilestones.length > 0 && (
-        <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between p-6 border-b bg-gradient-to-r from-[#CE9F6B]/5 to-transparent">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#CE9F6B] to-[#976E44] flex items-center justify-center text-white shadow-lg">
-                <Clock className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="font-bold text-[#546A7A] text-lg">Critical Milestone Aging</h3>
-                <p className="text-xs text-[#5D6E73]">Milestones with overdue payment stages</p>
-              </div>
-            </div>
-            <Link href="/finance/ar/milestones?status=OVERDUE" className="flex items-center gap-2 text-sm text-white bg-[#CE9F6B] hover:bg-[#976E44] px-4 py-2 rounded-lg transition-colors">
-              View All Milestones <ArrowUpRight className="w-4 h-4" />
-            </Link>
-          </div>
-          
-          {/* Header (Detailed) */}
-          <div className="hidden lg:flex items-center gap-4 px-6 py-3 bg-[#F8FAFB] text-[10px] font-bold text-[#92A2A5] uppercase tracking-wider border-b">
-            <div className="w-8">Rank</div>
-            <div className="flex-1">Sales Order / Milestone Details</div>
-            <div className="w-48">Customer & Entity</div>
-            <div className="w-32 text-right">Progress</div>
-            <div className="w-40 text-right">Financial Details</div>
-            <div className="w-32 text-center">Status / Aging</div>
-          </div>
-
-          <div className="divide-y divide-[#AEBFC3]/10">
-            {data?.criticalMilestones?.map((ms, i) => (
-              <div key={ms.id} className="flex flex-col lg:flex-row lg:items-center gap-4 p-4 lg:px-6 hover:bg-[#CE9F6B]/5 transition-colors group relative">
-                {/* Rank (Absolute on mobile) */}
-                <div className="hidden lg:flex w-8 h-8 rounded-lg bg-[#CE9F6B]/10 items-center justify-center text-sm font-bold text-[#976E44]">
-                  #{i + 1}
-                </div>
-                
-                {/* Order Info */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <Link href={`/finance/ar/milestones/${ms.id}`} className="text-sm font-bold text-[#CE9F6B] hover:underline group-hover:text-[#976E44]">
-                      {ms.soNo || 'SO-N/A'}
-                    </Link>
-                    <span className="text-[10px] bg-[#546A7A]/10 text-[#546A7A] px-1.5 py-0.5 rounded font-black uppercase">
-                      {ms.poNo || 'NO-PO'}
-                    </span>
-                  </div>
-                  <div className="text-[10px] text-[#92A2A5] font-bold uppercase tracking-widest mt-0.5">Milestone Ref #</div>
-                </div>
-
-                {/* Customer Info */}
-                <div className="w-full lg:w-48 min-w-0">
-                  <div className="text-sm font-bold text-[#546A7A] truncate line-clamp-1">{ms.customerName}</div>
-                  <div className="text-[10px] text-[#976E44] font-bold tracking-tighter uppercase">{ms.bpCode || 'N/A'}</div>
-                </div>
-
-                {/* Progress Bar (Detailed) */}
-                <div className="w-full lg:w-32">
-                  <div className="flex justify-between items-center mb-1 lg:hidden">
-                     <span className="text-[10px] font-bold text-[#92A2A5]">COLLECTION</span>
-                     <span className="text-[10px] font-bold text-[#4F6A64]">{Math.round((ms.totalReceipts/ms.totalAmount)*100)}%</span>
-                  </div>
-                  <div className="w-full h-1.5 bg-[#AEBFC3]/10 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-gradient-to-r from-[#82A094] to-[#4F6A64] transition-all duration-1000" 
-                      style={{ width: `${(ms.totalReceipts / (ms.totalAmount || 1)) * 100}%` }}
-                    />
-                  </div>
-                </div>
-                
-                {/* Amounts (Detailed) */}
-                <div className="flex lg:flex-col items-center lg:items-end justify-between lg:justify-center w-full lg:w-40 lg:text-right">
-                  <div className="lg:hidden text-[10px] font-bold text-[#92A2A5]">BALANCE</div>
-                  <div>
-                     <div className="text-sm font-bold text-[#E17F70]">{formatARCurrency(ms.balance)}</div>
-                     <div className="text-[9px] text-[#92A2A5] font-bold uppercase tracking-tighter">Total: {formatARCurrency(ms.totalAmount)}</div>
-                  </div>
-                </div>
-                
-                {/* Status / Aging Badge (Detailed) */}
-                <div className="flex items-center justify-between lg:justify-center w-full lg:w-32 gap-2">
-                  <div className="lg:hidden text-[10px] font-bold text-[#92A2A5]">AGING</div>
-                  <div className="flex flex-col items-center">
-                    <div className={`px-2 py-0.5 rounded text-[8px] font-black uppercase mb-1 ${
-                       ms.milestoneStatus === 'FULLY_DELIVERED' ? 'bg-[#82A094]/10 text-[#4F6A64]' : 
-                       ms.milestoneStatus === 'PARTIALLY_DELIVERED' ? 'bg-[#6F8A9D]/10 text-[#546A7A]' :
-                       'bg-[#CE9F6B]/10 text-[#976E44]'
-                    }`}>
-                      {(ms.milestoneStatus || 'PENDING').replace('_', ' ')}
-                    </div>
-                    <div className={`inline-flex items-center gap-1 p-1 px-2 rounded-lg border shadow-sm transition-all ${
-                      ms.worstAging > 30 ? 'bg-[#9E3B47] border-[#9E3B47] text-white' : 'bg-[#E17F70]/5 border-[#E17F70]/20 text-[#9E3B47]'
-                    }`}>
-                      <span className="text-[10px] font-black tracking-tighter">+{ms.worstAging}d</span>
-                      <span className="w-px h-2 bg-current opacity-30" />
-                      <span className="text-[8px] font-black leading-none">{ms.overdueTerms}T</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-
     </div>
   );
 }

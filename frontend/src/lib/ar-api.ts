@@ -25,6 +25,8 @@ export interface ARCustomer {
     creditLimit?: number;
     totalInvoiceAmount?: number;
     outstandingBalance?: number;
+    overdueCount?: number;
+    invoiceCount?: number;
     createdAt: string;
     _count?: { invoices: number };
 }
@@ -797,6 +799,24 @@ export const arApi = {
         await api.delete(`/ar/bank-accounts/attachments/${attachmentId}`);
     },
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BANK ACCOUNT REPORTS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    async getVendorMasterAudit(params?: { search?: string; activeOnly?: boolean; msmeOnly?: boolean }) {
+        const res = await api.get('/ar/reports/bank-accounts/audit', { params });
+        return res.data;
+    },
+
+    async getBankComplianceMetrics() {
+        const res = await api.get('/ar/reports/bank-accounts/compliance');
+        return res.data;
+    },
+
+    async getBankPaymentInsights(days = 30) {
+        const res = await api.get('/ar/reports/bank-accounts/payments', { params: { days } });
+        return res.data;
+    },
     async updateBankAccountAttachmentVendorType(attachmentId: string, vendorType: string): Promise<BankAccountAttachment> {
         const res = await api.put(`/ar/bank-accounts/attachments/${attachmentId}/vendor-type`, { vendorType });
         return res.data;
@@ -1170,5 +1190,11 @@ export const downloadPaymentBatch = async (id: string): Promise<{
 // Re-submit rejected items for another approval round (FINANCE_USER)
 export const resubmitRejectedItems = async (id: string, items?: any[]): Promise<{ message: string; batch: PaymentBatch }> => {
     const response = await api.put(`/ar/payment-batches/${id}/resubmit`, { items });
+    return response.data;
+};
+
+// Delete an item from a batch
+export const deleteBatchItem = async (id: string, itemId: string): Promise<{ message: string }> => {
+    const response = await api.delete(`/ar/payment-batches/${id}/items/${itemId}`);
     return response.data;
 };

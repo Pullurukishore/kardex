@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 import { 
   Building2, Plus, Clock, ArrowLeft, LogOut, ChevronDown, 
   Bell, Menu, X, HelpCircle, ChevronLeft, ChevronRight, Activity,
-  CreditCard, Shield
+  CreditCard, Shield, BarChart2
 } from 'lucide-react';
 import { FinanceRole } from '@/types/user.types';
 
@@ -23,6 +23,7 @@ const allNavItems = [
   { href: '/finance/bank-accounts/requests', label: 'Requests', icon: Clock, description: 'Vendor approvals', roles: [FinanceRole.FINANCE_ADMIN, FinanceRole.FINANCE_USER, FinanceRole.FINANCE_VIEWER] },
   { href: '/finance/bank-accounts/payments', label: 'Bulk Payments', icon: CreditCard, description: 'Excel bulk payments', roles: [FinanceRole.FINANCE_ADMIN, FinanceRole.FINANCE_USER] },
   { href: '/finance/bank-accounts/payment-batches', label: 'Payment Approvals', icon: Shield, description: 'Review & approve batches' },
+  { href: '/finance/bank-accounts/reports', label: 'Reports', icon: BarChart2, description: 'Vendor & compliance audit', roles: [FinanceRole.FINANCE_ADMIN, FinanceRole.FINANCE_USER, FinanceRole.FINANCE_VIEWER] },
   { href: '/finance/bank-accounts/activities', label: 'Activities', icon: Activity, description: 'Audit trail & logs', roles: [FinanceRole.FINANCE_ADMIN] },
 ];
 

@@ -155,11 +155,19 @@ export default function NewMilestonePage() {
     }
 
     if (!formData.soNo) {
-      setError('SO Number is required for milestone payments');
+      setError('Kardex SO number is required for milestone payments');
       return;
     }
     if (!formData.poNo) {
-      setError('PO Number is required for milestone payments');
+      setError('Kardex PO number is required for milestone payments');
+      return;
+    }
+    if (!formData.bpCode) {
+      setError('Customer Code is required');
+      return;
+    }
+    if (!formData.customerName) {
+      setError('Customer Name is required');
       return;
     }
     if (formData.milestoneTerms.length === 0) {
@@ -181,10 +189,9 @@ export default function NewMilestonePage() {
 
     try {
       setSaving(true);
-      const invoiceNumber = formData.invoiceNumber || `PRE-${formData.poNo}`;
       
       await arApi.createInvoice({
-        invoiceNumber,
+        invoiceNumber: formData.invoiceNumber,
         customerId: formData.bpCode,
         customerName: formData.customerName || '',
         poNo: formData.poNo,
@@ -214,8 +221,8 @@ export default function NewMilestonePage() {
   const labelClass = "block text-[#5D6E73] text-sm font-semibold mb-2";
 
   // Count filled fields for progress
-  const requiredFilled = [formData.soNo, formData.poNo, formData.totalAmount].filter(Boolean).length;
-  const formProgress = Math.round((requiredFilled / 3) * 100);
+  const requiredFilled = [formData.soNo, formData.poNo, formData.bpCode, formData.customerName, formData.totalAmount].filter(Boolean).length;
+  const formProgress = Math.round((requiredFilled / 5) * 100);
 
   return (
     <div className="space-y-6 relative w-full pb-10">
@@ -287,7 +294,7 @@ export default function NewMilestonePage() {
           <div>
             <p className="text-[#976E44] font-semibold text-sm">Milestone Payment Requirements</p>
             <p className="text-[#92A2A5] text-xs mt-1">
-              SO Number, PO Number, and Amount are mandatory. Add at least one payment term with a target date.
+              Kardex SO number, Kardex PO number, Customer details, and Amount are mandatory. Add at least one payment term with a target date.
             </p>
           </div>
         </div>
@@ -304,7 +311,7 @@ export default function NewMilestonePage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
             <div>
               <label className={labelClass}>
-                SO Number <span className="text-[#E17F70]">*</span>
+                Kardex SO number <span className="text-[#E17F70]">*</span>
               </label>
               <input
                 type="text"
@@ -318,7 +325,7 @@ export default function NewMilestonePage() {
             </div>
             <div>
               <label className={labelClass}>
-                PO Number <span className="text-[#E17F70]">*</span>
+                Kardex PO number <span className="text-[#E17F70]">*</span>
               </label>
               <input
                 type="text"
@@ -332,7 +339,7 @@ export default function NewMilestonePage() {
             </div>
             <div>
               <label className={labelClass}>
-                Customer Code
+                Customer Code <span className="text-[#E17F70]">*</span>
               </label>
               <input
                 type="text"
@@ -341,6 +348,7 @@ export default function NewMilestonePage() {
                 onChange={handleChange}
                 className={inputClass}
                 placeholder="CUST001"
+                required
               />
             </div>
             <div>
@@ -352,13 +360,13 @@ export default function NewMilestonePage() {
                 name="invoiceNumber"
                 value={formData.invoiceNumber}
                 onChange={handleChange}
-                placeholder="Auto: PRE-{PO}"
+                placeholder="Invoice Number"
                 className={inputClass}
               />
             </div>
             <div>
               <label className={labelClass}>
-                Customer Name
+                Customer Name <span className="text-[#E17F70]">*</span>
               </label>
               <input
                 type="text"
@@ -366,7 +374,8 @@ export default function NewMilestonePage() {
                 value={formData.customerName}
                 onChange={handleChange}
                 className={inputClass}
-                placeholder="Customer Name (Optional)"
+                placeholder="Customer Name"
+                required
               />
             </div>
             <div>

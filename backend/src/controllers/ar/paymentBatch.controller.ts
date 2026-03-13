@@ -468,8 +468,8 @@ export const resubmitRejectedItems = async (req: Request, res: Response) => {
             return res.status(404).json({ error: 'Payment batch not found' });
         }
 
-        if ((batch.status as any) !== 'PARTIALLY_APPROVED') {
-            return res.status(400).json({ error: 'Only partially approved batches can be re-submitted' });
+        if (!['PARTIALLY_APPROVED', 'REJECTED'].includes(batch.status)) {
+            return res.status(400).json({ error: 'Only partially approved or rejected batches can be re-submitted' });
         }
 
         // Ensure the requester is the one who originally submitted
@@ -478,10 +478,6 @@ export const resubmitRejectedItems = async (req: Request, res: Response) => {
         }
 
         const rejectedItems = batch.items.filter(i => i.status === 'REJECTED');
-        if (rejectedItems.length === 0) {
-            return res.status(400).json({ error: 'No rejected items to re-submit' });
-        }
-
         const { items: updatedItemsData } = req.body;
 
         // Reset rejected items to PENDING in a transaction
@@ -489,9 +485,9 @@ export const resubmitRejectedItems = async (req: Request, res: Response) => {
             // Update items if data provided
             if (updatedItemsData && Array.isArray(updatedItemsData)) {
                 for (const updatedItem of updatedItemsData) {
-                    const existingItem = rejectedItems.find(i => i.id === updatedItem.id);
+                    const existingItem = batch.items.find(i => i.id === updatedItem.id);
                     if (!existingItem) {
-                        throw new Error(`Item ${updatedItem.id} is not a rejected item in this batch`);
+                        throw new Error(`Item ${updatedItem.id} does not belong to this batch`);
                     }
 
                     await tx.paymentBatchItem.update({
@@ -580,5 +576,85 @@ export const resubmitRejectedItems = async (req: Request, res: Response) => {
         });
     } catch (error: any) {
         res.status(500).json({ error: 'Failed to re-submit rejected items', message: error.message });
+    }
+};
+// ───────────────────────────────────────────────────────────────────────────
+// DELETE /payment-batches/:id/items/:itemId — Remove an item from batch
+// ───────────────────────────────────────────────────────────────────────────
+export const deleteBatchItem = async (req: Request, res: Response) => {
+    try {
+        const { id, itemId } = req.params;
+        const userId = (req as any).user?.id || 1;
+
+        const batch = await prisma.paymentBatch.findUnique({
+            where: { id },
+            include: { items: true }
+        });
+
+        if (!batch) {
+            return res.status(404).json({ error: 'Payment batch not found' });
+        }
+
+        if (batch.requestedById !== userId) {
+            return res.status(403).json({ error: 'Only the original requester can modify this batch' });
+        }
+
+        if (!['PENDING', 'PARTIALLY_APPROVED', 'REJECTED'].includes(batch.status)) {
+            return res.status(400).json({ error: 'Cannot remove items from an approved batch' });
+        }
+
+        const item = batch.items.find(i => i.id === itemId);
+        if (!item) {
+            return res.status(404).json({ error: 'Item not found in this batch' });
+        }
+
+        await prisma.$transaction(async (tx) => {
+            // Delete the item
+            await tx.paymentBatchItem.delete({ where: { id: itemId } });
+
+            // Re-fetch remaining items to update totals
+            const remainingItems = await tx.paymentBatchItem.findMany({
+                where: { batchId: id }
+            });
+
+            if (remainingItems.length === 0) {
+                // If no items left, delete the batch or mark as cancelled?
+                // Let's just delete the batch if it's the last item
+                await tx.paymentBatch.delete({ where: { id } });
+                return { deletedBatch: true };
+            }
+
+            const totalAmount = remainingItems.reduce((sum, i) => sum.add(i.amount), new Decimal(0));
+            const approvedItems = remainingItems.filter(i => i.status === 'APPROVED');
+            const rejectedItems = remainingItems.filter(i => i.status === 'REJECTED');
+            const approvedAmount = approvedItems.reduce((sum, i) => sum.add(i.amount), new Decimal(0));
+
+            // Update status based on remaining items
+            let newStatus = batch.status;
+            if (approvedItems.length === remainingItems.length) {
+                newStatus = 'APPROVED';
+            } else if (rejectedItems.length === remainingItems.length) {
+                newStatus = 'REJECTED';
+            } else if (approvedItems.length > 0) {
+                newStatus = 'PARTIALLY_APPROVED';
+            }
+
+            await tx.paymentBatch.update({
+                where: { id },
+                data: {
+                    totalItems: remainingItems.length,
+                    totalAmount,
+                    approvedItems: approvedItems.length,
+                    approvedAmount,
+                    status: newStatus as any
+                }
+            });
+
+            return { deletedBatch: false };
+        });
+
+        res.json({ message: 'Item removed from batch' });
+    } catch (error: any) {
+        res.status(500).json({ error: 'Failed to remove item', message: error.message });
     }
 };

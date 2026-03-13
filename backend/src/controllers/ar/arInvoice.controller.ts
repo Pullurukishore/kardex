@@ -582,9 +582,9 @@ export const createInvoice = async (req: Request, res: Response) => {
             bookingMonth
         } = req.body;
 
-        if (!invoiceNumber || !customerId || !totalAmount) {
+        if (!customerId || !totalAmount) {
             return res.status(400).json({
-                error: 'Invoice Number, Customer, and Total Amount are required'
+                error: 'Customer, and Total Amount are required'
             });
         }
 
@@ -607,7 +607,7 @@ export const createInvoice = async (req: Request, res: Response) => {
 
         const invoice = await prisma.aRInvoice.create({
             data: {
-                invoiceNumber,
+                invoiceNumber: invoiceNumber || '',
                 bpCode: customerId,
                 customerName: req.body.customerName || '',
                 poNo,
@@ -710,7 +710,12 @@ export const updateInvoice = async (req: Request, res: Response) => {
             }
 
             // Recalculate balance and status if amounts changed
-            if (updateData.totalAmount !== undefined || updateData.totalReceipts !== undefined) {
+            if (updateData.status === 'CANCELLED') {
+                updateData.balance = 0;
+                updateData.receipts = 0;
+                updateData.adjustments = 0;
+                updateData.totalReceipts = 0;
+            } else if (updateData.totalAmount !== undefined || updateData.totalReceipts !== undefined) {
                 const totalAmount = updateData.totalAmount !== undefined
                     ? parseFloat(updateData.totalAmount)
                     : Number(existingInvoice.totalAmount);

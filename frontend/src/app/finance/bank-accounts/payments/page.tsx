@@ -1003,30 +1003,30 @@ export default function PaymentsPage() {
                         <div className="hidden lg:block overflow-x-auto">
                             <Table>
                                 <TableHeader>
-                                    <TableRow className="bg-slate-50/80 border-slate-100 hover:bg-slate-50/80">
-                                        <TableHead className="w-[50px] text-slate-400 font-bold uppercase text-[10px] tracking-wider py-3.5 text-center">#</TableHead>
-                                        <TableHead className="w-[260px] text-slate-400 font-bold uppercase text-[10px] tracking-wider py-3.5">
+                                    <TableRow className="bg-gradient-to-r from-[#546A7A] to-[#6F8A9D] border-0 hover:from-[#546A7A] hover:to-[#6F8A9D] shadow-md">
+                                        <TableHead className="w-[50px] text-white/90 font-bold uppercase text-[10px] tracking-wider py-4 text-center rounded-tl-lg">#</TableHead>
+                                        <TableHead className="w-[260px] text-white/90 font-bold uppercase text-[10px] tracking-wider py-4">
                                             <div className="flex items-center gap-1.5">
-                                                <Building2 className="w-3 h-3" /> Vendor & Account
+                                                <Building2 className="w-3 h-3 text-white/70" /> Vendor & Account
                                             </div>
                                         </TableHead>
-                                        <TableHead className="w-[160px] text-slate-400 font-bold uppercase text-[10px] tracking-wider py-3.5">
+                                        <TableHead className="w-[160px] text-white/90 font-bold uppercase text-[10px] tracking-wider py-4">
                                             <div className="flex items-center gap-1.5">
-                                                <IndianRupee className="w-3 h-3" /> Amount
+                                                <IndianRupee className="w-3 h-3 text-white/70" /> Amount
                                             </div>
                                         </TableHead>
-                                        <TableHead className="w-[160px] text-slate-400 font-bold uppercase text-[10px] tracking-wider py-3.5">
+                                        <TableHead className="w-[160px] text-white/90 font-bold uppercase text-[10px] tracking-wider py-4">
                                             <div className="flex items-center gap-1.5">
-                                                <CalendarIcon className="w-3 h-3" /> Value Date
+                                                <CalendarIcon className="w-3 h-3 text-white/70" /> Value Date
                                             </div>
                                         </TableHead>
-                                        <TableHead className="w-[140px] text-slate-400 font-bold uppercase text-[10px] tracking-wider py-3.5 text-center">
+                                        <TableHead className="w-[140px] text-white/90 font-bold uppercase text-[10px] tracking-wider py-4 text-center">
                                             <div className="flex items-center gap-1.5 justify-center">
-                                                <Zap className="w-3 h-3" /> Mode
+                                                <Zap className="w-3 h-3 text-white/70" /> Mode
                                             </div>
                                         </TableHead>
 
-                                        <TableHead className="text-right w-[70px] text-slate-400 font-bold uppercase text-[10px] tracking-wider py-3.5">Action</TableHead>
+                                        <TableHead className="text-right w-[70px] text-white/90 font-bold uppercase text-[10px] tracking-wider py-4 rounded-tr-lg">Action</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -1048,25 +1048,25 @@ export default function PaymentsPage() {
                                                 </TableCell>
 
                                                 {/* Vendor & Account */}
-                                                <TableCell className="py-4">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#6F8A9D] to-[#546A7A] flex items-center justify-center text-white text-[10px] font-bold shrink-0 shadow-sm">
-                                                            {p.vendorName?.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()}
+                                                <TableCell className="py-4 align-top">
+                                                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                                                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#6F8A9D] to-[#546A7A] flex items-center justify-center text-white text-[11px] font-black shrink-0 shadow-md">
+                                                            {p.vendorName?.split(' ').slice(0, 2).map(w => w?.[0] || '').join('').toUpperCase()}
                                                         </div>
-                                                        <div className="flex flex-col gap-0.5 min-w-0">
-                                                            <div className="flex items-center gap-2">
+                                                        <div className="flex flex-col gap-1 min-w-0">
+                                                            <div className="flex items-center gap-2 flex-wrap">
                                                                 <span className="font-bold text-sm text-slate-700 truncate">{p.vendorName}</span>
-                                                                <span className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-[#82A094]/10 text-[#4F6A64] shrink-0">
+                                                                <span className="inline-flex items-center gap-1 text-[9px] font-black px-2 py-0.5 rounded-md bg-[#82A094]/10 text-[#4F6A64] shrink-0 uppercase tracking-widest border border-[#82A094]/20">
                                                                     {CURRENCY_SYMBOLS[(p.bankAccount.currency || 'INR').toUpperCase()] || ''} {(p.bankAccount.currency || 'INR').toUpperCase()}
                                                                 </span>
                                                             </div>
                                                             <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-mono">
-                                                                <Wallet className="w-3 h-3 shrink-0" /> 
-                                                                <span className="truncate">{p.accountNumber}</span>
-                                                                <span className="text-slate-200">•</span>
-                                                                <span className="text-slate-500 font-medium truncate max-w-[120px]">{p.bankName}</span>
-                                                                <span className="text-slate-200">•</span>
-                                                                <span className="text-[#B18E63] font-bold">{p.ifscCode}</span>
+                                                                <Wallet className="w-3 h-3 shrink-0 text-slate-300" /> 
+                                                                <span className="truncate bg-slate-100/80 px-1.5 py-0.5 rounded text-slate-500">{p.accountNumber}</span>
+                                                                <span className="text-slate-200 hidden sm:inline">•</span>
+                                                                <span className="text-slate-500 font-medium truncate max-w-[140px] hidden sm:inline">{p.bankName}</span>
+                                                                <span className="text-slate-200 hidden sm:inline">•</span>
+                                                                <span className="text-[#B18E63] font-bold bg-[#B18E63]/5 px-1.5 py-0.5 rounded">{p.ifscCode}</span>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -1080,7 +1080,7 @@ export default function PaymentsPage() {
                                                             type="text" 
                                                             inputMode="decimal"
                                                             className={cn(
-                                                                "pl-7 h-11 text-sm font-bold tabular-nums border-slate-200 transition-all shadow-none rounded-xl",
+                                                                "pl-7 h-11 w-full min-w-[120px] text-sm font-bold tabular-nums border-slate-200 transition-all shadow-none rounded-xl",
                                                                 "bg-slate-50/50 focus:bg-white focus:border-[#B18E63]/40 focus:ring-1 focus:ring-[#B18E63]/20",
                                                                 (p.amount ?? 0) > 0 ? "text-slate-800" : "text-slate-400"
                                                             )}
@@ -1103,7 +1103,7 @@ export default function PaymentsPage() {
                                                 <TableCell className="py-4">
                                                     <Input 
                                                         type="date" 
-                                                        className="h-11 text-xs font-medium bg-slate-50/50 border-slate-200 focus:bg-white focus:border-[#6F8A9D]/40 focus:ring-1 focus:ring-[#6F8A9D]/20 transition-all shadow-none rounded-xl"
+                                                        className="h-11 w-full min-w-[130px] text-xs font-medium bg-slate-50/50 border-slate-200 focus:bg-white focus:border-[#6F8A9D]/40 focus:ring-1 focus:ring-[#6F8A9D]/20 transition-all shadow-none rounded-xl"
                                                         value={p.valueDate ? format(p.valueDate, 'yyyy-MM-dd') : ''}
                                                         onChange={(e) => updatePayment(p.tempId, { valueDate: new Date(e.target.value) })}
                                                     />
@@ -1115,7 +1115,7 @@ export default function PaymentsPage() {
                                                         value={p.transactionMode} 
                                                         onValueChange={(v: any) => updatePayment(p.tempId, { transactionMode: v })}
                                                     >
-                                                        <SelectTrigger className="h-11 text-xs font-bold bg-slate-50/50 border-slate-200 focus:bg-white transition-all shadow-none rounded-xl">
+                                                        <SelectTrigger className="h-11 w-full min-w-[110px] text-xs font-bold bg-slate-50/50 border-slate-200 focus:bg-white transition-all shadow-none rounded-xl">
                                                             <SelectValue />
                                                         </SelectTrigger>
                                                         <SelectContent>
@@ -1182,8 +1182,8 @@ export default function PaymentsPage() {
                                     <div key={p.tempId} className="py-6 space-y-4 animate-in fade-in slide-in-from-right-2 duration-300">
                                         <div className="flex items-start justify-between">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#6F8A9D] to-[#546A7A] flex items-center justify-center text-white text-[10px] font-black shrink-0 shadow-lg">
-                                                    {p.vendorName?.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()}
+                                                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#6F8A9D] to-[#546A7A] flex items-center justify-center text-white text-[11px] font-black shrink-0 shadow-md">
+                                                    {p.vendorName?.split(' ').slice(0, 2).map(w => w?.[0] || '').join('').toUpperCase()}
                                                 </div>
                                                 <div className="min-w-0">
                                                     <h4 className="font-black text-[#546A7A] truncate text-sm tracking-tight">{p.vendorName}</h4>

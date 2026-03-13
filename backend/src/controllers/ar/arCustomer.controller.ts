@@ -49,7 +49,10 @@ export const getAllCustomers = async (req: Request, res: Response) => {
         // Get total count of unique customers
         const totalAggregate = await prisma.aRInvoice.groupBy({
             by: ['bpCode'],
-            where,
+            where: { 
+                ...where,
+                status: { not: 'CANCELLED' }
+            },
         });
         const total = totalAggregate.length;
 
@@ -57,7 +60,10 @@ export const getAllCustomers = async (req: Request, res: Response) => {
         const pageBpCodes = invoices.map(i => i.bpCode);
         const financialStats = await prisma.aRInvoice.groupBy({
             by: ['bpCode'],
-            where: { bpCode: { in: pageBpCodes } },
+            where: { 
+                bpCode: { in: pageBpCodes },
+                status: { not: 'CANCELLED' }
+            },
             _sum: {
                 totalAmount: true,
                 balance: true
@@ -79,9 +85,9 @@ export const getAllCustomers = async (req: Request, res: Response) => {
                 region: customer.region,
                 department: customer.department,
                 personInCharge: customer.personInCharge,
-                creditLimit: customer.creditLimit ? Number(customer.creditLimit) : undefined,
-                totalInvoiceAmount: stats?._sum.totalAmount || 0,
-                outstandingBalance: stats?._sum.balance || 0,
+                creditLimit: (customer.creditLimit !== null && customer.creditLimit !== undefined) ? Number(customer.creditLimit) : undefined,
+                totalInvoiceAmount: stats?._sum.totalAmount !== null ? Number(stats?._sum.totalAmount) : 0,
+                outstandingBalance: stats?._sum.balance !== null ? Number(stats?._sum.balance) : 0,
                 _count: { invoices: stats?._count._all || 0 }
             };
         });
@@ -126,11 +132,34 @@ export const getCustomerById = async (req: Request, res: Response) => {
             return res.status(404).json({ error: 'Customer not found' });
         }
 
-        // Get all invoices for this customer
+        // Get latest invoices for UI list
         const invoices = await prisma.aRInvoice.findMany({
             where: { bpCode: id },
             orderBy: { invoiceDate: 'desc' },
             take: 10,
+        });
+
+        // Get total financial stats across ALL active invoices for this customer
+        const financialStats = await prisma.aRInvoice.aggregate({
+            where: { 
+                bpCode: id,
+                status: { not: 'CANCELLED' }
+            },
+            _sum: {
+                totalAmount: true,
+                balance: true
+            },
+            _count: {
+                _all: true
+            }
+        });
+
+        // Get overdue count strictly
+        const overdueCount = await prisma.aRInvoice.count({
+            where: { 
+                bpCode: id,
+                status: 'OVERDUE'
+            }
         });
 
         const customer = {
@@ -143,7 +172,11 @@ export const getCustomerById = async (req: Request, res: Response) => {
             region: customerInvoice.region,
             department: customerInvoice.department,
             personInCharge: customerInvoice.personInCharge,
-            creditLimit: customerInvoice.creditLimit ? Number(customerInvoice.creditLimit) : undefined,
+            creditLimit: (customerInvoice.creditLimit !== null && customerInvoice.creditLimit !== undefined) ? Number(customerInvoice.creditLimit) : undefined,
+            totalInvoiceAmount: financialStats?._sum.totalAmount !== null ? Number(financialStats?._sum.totalAmount) : 0,
+            outstandingBalance: financialStats?._sum.balance !== null ? Number(financialStats?._sum.balance) : 0,
+            invoiceCount: financialStats?._count._all || 0,
+            overdueCount,
             invoices,
         };
 

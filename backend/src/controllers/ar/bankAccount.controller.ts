@@ -54,6 +54,9 @@ export const getAllBankAccounts = async (req: Request, res: Response) => {
                 isMSME: true,
                 panNumber: true,
                 gstNumber: true,
+                attachments: {
+                    select: { id: true }
+                },
                 _count: {
                     select: { changeRequests: true }
                 }
@@ -75,6 +78,7 @@ export const getBankAccountById = async (req: Request, res: Response) => {
         const account = await prisma.bankAccount.findUnique({
             where: { id },
             include: {
+                attachments: true,
                 changeRequests: {
                     orderBy: { requestedAt: 'desc' },
                     take: 10

@@ -33,6 +33,7 @@ export default function EditCustomerPage() {
     contactNo: '',
     emailId: '',
     riskClass: 'LOW',
+    creditLimit: '',
   });
 
   useEffect(() => {
@@ -52,6 +53,7 @@ export default function EditCustomerPage() {
         contactNo: data.contactNo || '',
         emailId: data.emailId || '',
         riskClass: data.riskClass,
+        creditLimit: data.creditLimit ? String(data.creditLimit) : '',
       });
     } catch (err: any) {
       setError(err.message || 'Failed to load customer');
@@ -90,6 +92,7 @@ export default function EditCustomerPage() {
         contactNo: formData.contactNo || undefined,
         emailId: formData.emailId || undefined,
         riskClass: formData.riskClass as any,
+        creditLimit: formData.creditLimit ? Number(formData.creditLimit) : undefined,
       });
       setSuccess(true);
       setTimeout(() => {
@@ -117,7 +120,7 @@ export default function EditCustomerPage() {
   }
 
   return (
-    <div className="space-y-6 w-full relative">
+    <div className="space-y-6 w-full relative overflow-hidden">
       {/* Decorative Background */}
       <div className="absolute -top-20 -right-20 w-72 h-72 bg-gradient-to-br from-[#82A094]/10 to-[#4F6A64]/10 rounded-full blur-3xl pointer-events-none" />
       
@@ -240,6 +243,23 @@ export default function EditCustomerPage() {
                   onChange={handleChange}
                   className="w-full h-12 px-4 rounded-xl bg-[#AEBFC3]/10 border-2 border-[#AEBFC3]/30 text-[#546A7A] placeholder:text-[#92A2A5] focus:border-[#82A094]/50 focus:outline-none focus:ring-4 focus:ring-[#82A094]/10 transition-all"
                   placeholder="Finance"
+                />
+              </div>
+              <div>
+                <label className="block text-[#5D6E73] text-sm font-medium mb-2">
+                  Credit Limit
+                </label>
+                <input
+                  type="text"
+                  name="creditLimit"
+                  value={formData.creditLimit ? Number(formData.creditLimit.replace(/,/g, '')).toLocaleString('en-IN') : ''}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/,/g, '');
+                    if (val === '' || /^\d+$/.test(val)) {
+                      setFormData(prev => ({ ...prev, creditLimit: val }));
+                    }
+                  }}
+                  className="w-full h-12 px-4 rounded-xl bg-[#AEBFC3]/10 border-2 border-[#AEBFC3]/30 text-[#546A7A] placeholder:text-[#92A2A5] focus:border-[#82A094]/50 focus:outline-none focus:ring-4 focus:ring-[#82A094]/10 transition-all font-semibold"
                 />
               </div>
             </div>

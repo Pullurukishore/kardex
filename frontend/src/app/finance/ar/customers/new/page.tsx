@@ -78,7 +78,7 @@ export default function NewCustomerPage() {
   };
 
   return (
-    <div className="space-y-6 w-full relative">
+    <div className="space-y-6 w-full relative overflow-hidden">
       {/* Decorative Background */}
       <div className="absolute -top-20 -right-20 w-72 h-72 bg-gradient-to-br from-[#82A094]/10 to-[#4F6A64]/10 rounded-full blur-3xl pointer-events-none" />
       
@@ -203,13 +203,17 @@ export default function NewCustomerPage() {
                     Credit Limit
                   </label>
                   <input
-                    type="number"
+                    type="text"
                     name="creditLimit"
-                    value={formData.creditLimit}
-                    onChange={handleChange}
-                    className="w-full h-12 px-4 rounded-xl bg-[#AEBFC3]/10 border-2 border-[#AEBFC3]/30 text-[#546A7A] placeholder:text-[#92A2A5] focus:border-[#82A094]/50 focus:outline-none focus:ring-4 focus:ring-[#82A094]/10 transition-all"
-                    placeholder="1000000"
-                    min="0"
+                    value={formData.creditLimit ? Number(formData.creditLimit.replace(/,/g, '')).toLocaleString('en-IN') : ''}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/,/g, '');
+                      if (val === '' || /^\d+$/.test(val)) {
+                        setFormData(prev => ({ ...prev, creditLimit: val }));
+                      }
+                    }}
+                    className="w-full h-12 px-4 rounded-xl bg-[#AEBFC3]/10 border-2 border-[#AEBFC3]/30 text-[#546A7A] placeholder:text-[#92A2A5] focus:border-[#82A094]/50 focus:outline-none focus:ring-4 focus:ring-[#82A094]/10 transition-all font-semibold"
+                    
                   />
                 </div>
               </div>

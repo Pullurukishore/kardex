@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { FinanceRole } from '@/types/user.types';
 import {
   getPaymentBatchById, reviewPaymentBatch, downloadPaymentBatch,
-  resubmitRejectedItems, PaymentBatch, formatARCurrency, formatARDate
+  resubmitRejectedItems, deleteBatchItem, PaymentBatch, formatARCurrency, formatARDate
 } from '@/lib/ar-api';
 import {
   downloadICICICMS, downloadStandardPayment, downloadICICICMS_CSV, downloadICICICMS_TXT,
@@ -17,7 +17,7 @@ import {
   Download, Shield, Send, User, Calendar, Hash, Banknote,
   FileSpreadsheet, FileText, FileCode, Package, Building2,
   CreditCard, ChevronDown, TrendingUp,
-  CheckCheck, BanIcon, Info, Eye, RefreshCcw
+  CheckCheck, BanIcon, Info, Eye, RefreshCcw, Trash2
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
@@ -210,7 +210,8 @@ export default function BatchDetailPage() {
   const canDownload = batch.status === 'APPROVED';
   const isFinanceUser = user?.financeRole === FinanceRole.FINANCE_USER;
   const isRequester = user?.id === batch.requestedById;
-  const canResubmit = isPartiallyApproved && isRequester;
+  const canResubmit = ['APPROVED', 'PARTIALLY_APPROVED', 'REJECTED'].includes(batch.status) && isRequester;
+  const canEditBatch = canResubmit;
 
   const handleResubmit = async () => {
     if (!batch) return;
@@ -233,6 +234,21 @@ export default function BatchDetailPage() {
       toast.error(error?.response?.data?.error || 'Failed to re-submit rejected items');
     } finally {
       setResubmitting(false);
+    }
+  };
+
+  const handleDeleteItem = async (itemId: string) => {
+    if (!batch) return;
+    if (!confirm('Are you sure you want to remove this item from the batch?')) return;
+    
+    try {
+      await deleteBatchItem(batchId, itemId);
+      toast.success('Item removed from batch');
+      // Refresh batch data
+      const updated = await getPaymentBatchById(batchId);
+      setBatch(updated);
+    } catch (error: any) {
+      toast.error(error?.response?.data?.error || 'Failed to remove item');
     }
   };
 
@@ -507,20 +523,20 @@ export default function BatchDetailPage() {
           )}
         </div>
 
-        {/* ── Re-Request Rejected Items Banner ──────────────────────────────── */}
-        {canResubmit && (
+        {/* ── Re-Request / Edit Banner ──────────────────────────────── */}
+        {canResubmit && (batch.status !== 'APPROVED' || Object.keys(edits).length > 0) && (
           <div className="bg-gradient-to-r from-[#CE9F6B]/10 via-[#CE9F6B]/5 to-[#E17F70]/10 border border-[#CE9F6B]/40 rounded-2xl p-5 shadow-sm relative overflow-hidden">
             <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-[#CE9F6B] to-[#E17F70]" />
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ml-2">
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-xl bg-[#CE9F6B]/15 flex items-center justify-center shrink-0">
-                  <AlertCircle className="w-5 h-5 text-[#976E44]" />
+                  <RefreshCcw className="w-5 h-5 text-[#976E44]" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-[#976E44] text-sm">Some Items Were Rejected</h3>
+                  <h3 className="font-bold text-[#976E44] text-sm">Update & Re-Submit</h3>
                   <p className="text-xs text-[#976E44]/80 mt-0.5">
-                    {batch.items.filter(i => i.status === 'REJECTED').length} item(s) were rejected by the approver.
-                    Click below to re-submit them for another review. Once all items are approved, you can download the payment files.
+                    {batch.status === 'REJECTED' ? 'All items were rejected.' : batch.status === 'PARTIALLY_APPROVED' ? 'Some items were rejected.' : 'You can edit approved items and re-submit if needed.'}
+                    {" "}You can edit amounts, dates, or remove items before re-submitting for a new approval round.
                   </p>
                 </div>
               </div>
@@ -531,7 +547,7 @@ export default function BatchDetailPage() {
               >
                 {resubmitting
                   ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Re-Submitting…</>
-                  : <><RefreshCcw className="w-4 h-4 mr-2" /> Re-Request Rejected Items</>
+                  : <><RefreshCcw className="w-4 h-4 mr-2" /> Re-Submit Batch for Approval</>
                 }
               </Button>
             </div>
@@ -642,6 +658,9 @@ export default function BatchDetailPage() {
                     {isPending && isApprover && (
                       <th className="text-center px-4 py-3.5 text-xs font-bold text-white/90 uppercase tracking-wider">Decision</th>
                     )}
+                    {canEditBatch && (
+                      <th className="text-center px-4 py-3.5 text-xs font-bold text-white/90 uppercase tracking-wider">Actions</th>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#AEBFC3]/15">
@@ -681,7 +700,7 @@ export default function BatchDetailPage() {
                           <p className="text-xs text-slate-600 font-medium max-w-[120px] truncate">{item.bankName || '—'}</p>
                         </td>
                         <td className="px-4 py-3.5 text-center">
-                          {canResubmit && item.status === 'REJECTED' ? (
+                          {canResubmit ? (
                             <input
                               type="date"
                               value={edits[item.id]?.valueDate || (item.valueDate ? new Date(item.valueDate).toISOString().split('T')[0] : '')}
@@ -693,7 +712,7 @@ export default function BatchDetailPage() {
                           )}
                         </td>
                         <td className="px-4 py-3.5 text-center">
-                          {canResubmit && item.status === 'REJECTED' ? (
+                          {canResubmit ? (
                             <select
                               value={edits[item.id]?.transactionMode || item.transactionMode}
                               onChange={e => handleEditItem(item.id, 'transactionMode', e.target.value)}
@@ -710,7 +729,7 @@ export default function BatchDetailPage() {
                           )}
                         </td>
                         <td className="px-4 py-3.5 text-right">
-                          {canResubmit && item.status === 'REJECTED' ? (
+                          {canResubmit ? (
                             <input
                               type="number"
                               value={edits[item.id]?.amount !== undefined ? edits[item.id]?.amount : item.amount}
@@ -774,6 +793,17 @@ export default function BatchDetailPage() {
                             </div>
                           </td>
                         )}
+                        {canEditBatch && (
+                          <td className="px-4 py-3.5 text-center">
+                            <button
+                              onClick={() => handleDeleteItem(item.id)}
+                              className="p-2 text-[#E17F70] hover:bg-[#E17F70]/10 rounded-lg transition-colors"
+                              title="Remove item"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </td>
+                        )}
                       </tr>
                     );
                   })}
@@ -829,14 +859,24 @@ export default function BatchDetailPage() {
                           </div>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-sm font-black text-[#546A7A]">{formatARCurrency(Number(item.amount), batch.currency)}</p>
-                        <span className={cn(
-                          "text-[8px] font-black px-2 py-0.5 rounded-full border inline-block mt-1 uppercase tracking-widest",
-                          itemCfg.bg, itemCfg.border, itemCfg.color
-                        )}>
-                          {itemCfg.label}
-                        </span>
+                      <div className="flex flex-col items-end gap-2">
+                        <div className="text-right">
+                          <p className="text-sm font-black text-[#546A7A]">{formatARCurrency(Number(item.amount), batch.currency)}</p>
+                          <span className={cn(
+                            "text-[8px] font-black px-2 py-0.5 rounded-full border inline-block mt-1 uppercase tracking-widest",
+                            itemCfg.bg, itemCfg.border, itemCfg.color
+                          )}>
+                            {itemCfg.label}
+                          </span>
+                        </div>
+                        {canEditBatch && (
+                          <button
+                            onClick={() => handleDeleteItem(item.id)}
+                            className="p-1.5 text-[#E17F70] bg-[#E17F70]/10 rounded-lg"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     </div>
 
@@ -866,7 +906,7 @@ export default function BatchDetailPage() {
                     )}
 
                     {/* Edit Fields for Resubmission */}
-                    {canResubmit && item.status === 'REJECTED' && (
+                    {canResubmit && (
                       <div className="p-3 bg-amber-50/50 border border-amber-200/50 rounded-2xl space-y-3">
                         <p className="text-[9px] font-black text-amber-700 uppercase tracking-widest flex items-center gap-1.5">
                           <RefreshCcw className="w-3 h-3" /> Update Payment Details
