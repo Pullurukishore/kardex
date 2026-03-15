@@ -21,6 +21,9 @@ export const getDetailedAgingReport = async (req: Request, res: Response) => {
         if (customer) where.customerName = { contains: String(customer), mode: 'insensitive' };
         if (fromDate) where.invoiceDate = { ...where.invoiceDate, gte: new Date(String(fromDate)) };
         if (toDate) where.invoiceDate = { ...where.invoiceDate, lte: new Date(String(toDate)) };
+        
+        // Exclude linked milestones to prevent overcounting in reports
+        where.NOT = { milestoneStatus: 'LINKED' };
 
         const invoices = await prisma.aRInvoice.findMany({
             where,
@@ -83,7 +86,10 @@ export const getAgingSummary = async (req: Request, res: Response) => {
     try {
         const today = new Date();
         const invoices = await prisma.aRInvoice.findMany({
-            where: { status: { not: 'PAID' } },
+            where: { 
+                status: { not: 'PAID' },
+                NOT: { milestoneStatus: 'LINKED' }
+            },
             select: {
                 balance: true,
                 dueDate: true
@@ -149,7 +155,10 @@ export const getCustomerAgingReport = async (req: Request, res: Response) => {
         const { limit = 20, sortBy = 'balance' } = req.query;
 
         const invoices = await prisma.aRInvoice.findMany({
-            where: { status: { not: 'PAID' } },
+            where: { 
+                status: { not: 'PAID' },
+                NOT: { milestoneStatus: 'LINKED' }
+            },
             select: {
                 bpCode: true,
                 customerName: true,
@@ -233,7 +242,10 @@ export const getCustomerAgingReport = async (req: Request, res: Response) => {
 export const getRiskAgingReport = async (req: Request, res: Response) => {
     try {
         const invoices = await prisma.aRInvoice.findMany({
-            where: { status: { not: 'PAID' } },
+            where: { 
+                status: { not: 'PAID' },
+                NOT: { milestoneStatus: 'LINKED' }
+            },
             select: {
                 riskClass: true,
                 balance: true,
@@ -470,7 +482,8 @@ export const getDSOReport = async (req: Request, res: Response) => {
         // Get invoices created in the period
         const invoices = await prisma.aRInvoice.findMany({
             where: {
-                invoiceDate: { gte: startDate }
+                invoiceDate: { gte: startDate },
+                NOT: { milestoneStatus: 'LINKED' }
             },
             select: {
                 totalAmount: true,
@@ -541,7 +554,10 @@ export const getTopOutstandingCustomers = async (req: Request, res: Response) =>
         const { limit = 10 } = req.query;
 
         const invoices = await prisma.aRInvoice.findMany({
-            where: { status: { not: 'PAID' } },
+            where: { 
+                status: { not: 'PAID' },
+                NOT: { milestoneStatus: 'LINKED' }
+            },
             select: {
                 bpCode: true,
                 customerName: true,
@@ -609,7 +625,10 @@ export const getTopOutstandingCustomers = async (req: Request, res: Response) =>
 export const getCustomerRiskReport = async (req: Request, res: Response) => {
     try {
         const invoices = await prisma.aRInvoice.findMany({
-            where: { status: { not: 'PAID' } },
+            where: { 
+                status: { not: 'PAID' },
+                NOT: { milestoneStatus: 'LINKED' }
+            },
             select: {
                 bpCode: true,
                 customerName: true,
@@ -708,7 +727,10 @@ export const getInvoiceStatusSummary = async (req: Request, res: Response) => {
         }
 
         const invoices = await prisma.aRInvoice.findMany({
-            where,
+            where: {
+                ...where,
+                NOT: { milestoneStatus: 'LINKED' }
+            },
             select: {
                 status: true,
                 totalAmount: true,

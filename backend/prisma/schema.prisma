@@ -1092,6 +1092,24 @@ model ARPaymentTerms {
   @@map("ar_payment_terms_master")
 }
 
+// AR Customer Master - Stores persistent customer data independent of invoices
+model ARCustomer {
+  bpCode            String    @id
+  customerName      String
+  emailId           String?
+  contactNo         String?
+  region            String?
+  department        String?
+  personInCharge    String?
+  pocName           String?
+  creditLimit       Decimal?  @db.Decimal(15, 2)
+  riskClass         ARRiskClass @default(LOW)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@map("ar_customers")
+}
+
 // AR Invoice - Simplified table with SAP mandatory fields + manual tracking
 model ARInvoice {
   id                  String            @id @default(uuid())

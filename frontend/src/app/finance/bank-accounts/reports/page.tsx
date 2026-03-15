@@ -3,69 +3,139 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import * as XLSX from 'xlsx';
-import { 
-    Download, 
-    Search, 
-    CheckCircle2, 
-    AlertCircle, 
-    FileText, 
-    Building2,
-    ArrowUpRight,
-    TrendingUp,
-    ShieldCheck,
-    ArrowDownToLine,
-    Eye,
-    Copy,
-    Check,
-    Globe,
-    Landmark,
-    Activity,
-    User,
-    CreditCard,
-    Sparkles,
-    Mail
+import {
+    Download, Search, CheckCircle2, AlertCircle, FileText, Building2,
+    ArrowUpRight, TrendingUp, ShieldCheck, ArrowDownToLine, Eye, Copy,
+    Check, Landmark, Activity, Mail, RefreshCw, Hash, Zap,
+    BarChart3, Banknote, CreditCard, PieChart, ChevronDown, Filter,
+    Calendar, Globe, Home, Users, ChevronRight, Clock, ArrowRightLeft
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { arApi } from '@/lib/ar-api';
 import { toast } from 'sonner';
 
-// Lazy-load FilePreview — it pulls in heavy libraries like xlsx
 const FilePreview = dynamic(() => import('@/components/FilePreview'), {
-  ssr: false,
-  loading: () => null,
+    ssr: false, loading: () => null,
 });
+
+// ─── Avatar Colors ──────────────────────────────────────────────────────────
+const AVATAR_GRADIENTS = [
+    'from-indigo-500 to-violet-500', 'from-emerald-500 to-teal-500',
+    'from-amber-500 to-orange-500', 'from-rose-500 to-pink-500',
+    'from-cyan-500 to-blue-500', 'from-fuchsia-500 to-purple-500',
+    'from-lime-500 to-green-500', 'from-sky-500 to-indigo-400',
+];
+const getAvatarGradient = (name: string) => {
+    let h = 0;
+    for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
+    return AVATAR_GRADIENTS[Math.abs(h) % AVATAR_GRADIENTS.length];
+};
+
+const fmt = (val: number) => new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    maximumFractionDigits: 0
+}).format(val);
+
+// ─── Filter Types ───────────────────────────────────────────────────────────
+type FilterType = 'ALL' | 'VERIFIED' | 'PENDING' | 'DOMESTIC' | 'INTERNATIONAL' | 'MSME';
+const FILTERS: { key: FilterType; label: string; icon: React.ElementType; color: string; bg: string; }[] = [
+    { key: 'ALL', label: 'All', icon: Building2, color: '#6366F1', bg: '#EEF2FF' },
+    { key: 'VERIFIED', label: 'KYC Done', icon: CheckCircle2, color: '#10B981', bg: '#ECFDF5' },
+    { key: 'PENDING', label: 'KYC Pending', icon: AlertCircle, color: '#EF4444', bg: '#FEF2F2' },
+    { key: 'DOMESTIC', label: 'Domestic', icon: Home, color: '#059669', bg: '#ECFDF5' },
+    { key: 'INTERNATIONAL', label: 'International', icon: Globe, color: '#3B82F6', bg: '#EFF6FF' },
+    { key: 'MSME', label: 'MSME', icon: Users, color: '#7C3AED', bg: '#F5F3FF' },
+];
+
+// ─── Stat Card ──────────────────────────────────────────────────────────────
+const StatCard = ({ icon: Icon, label, value, sub, color, bg }: {
+    icon: React.ElementType; label: string; value: string | number;
+    sub?: string; color: string; bg: string;
+}) => (
+    <div className="group relative rounded-2xl bg-white border border-gray-100 p-4 hover:shadow-xl hover:scale-[1.02] hover:-translate-y-0.5 transition-all duration-300 overflow-hidden cursor-default">
+        <div className="absolute top-0 right-0 w-24 h-24 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-150 duration-700 opacity-60" style={{ background: bg }} />
+        <div className="relative flex items-start justify-between">
+            <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.15em] text-gray-400 mb-1">{label}</p>
+                <p className="text-3xl font-black tracking-tight text-gray-900">{value}</p>
+                {sub && <p className="text-[10px] font-bold mt-2 px-2.5 py-0.5 rounded-full inline-block" style={{ background: bg, color }}>{sub}</p>}
+            </div>
+            <div className="p-2.5 rounded-xl transition-transform group-hover:scale-110 duration-300" style={{ background: bg }}>
+                <Icon className="h-5 w-5" style={{ color }} />
+            </div>
+        </div>
+    </div>
+);
+
+// ─── Mini Bar ───────────────────────────────────────────────────────────────
+const MiniBar = ({ label, value, max, color }: { label: string; value: number; max: number; color: string; }) => (
+    <div className="flex items-center gap-3">
+        <span className="text-[10px] font-bold text-gray-500 w-20 truncate">{label}</span>
+        <div className="flex-1 h-1.5 rounded-full bg-gray-100 overflow-hidden">
+            <div className="h-full rounded-full transition-all duration-700" style={{ width: `${max > 0 ? (value / max) * 100 : 0}%`, background: color }} />
+        </div>
+        <span className="text-[11px] font-black text-gray-700 tabular-nums w-6 text-right">{value}</span>
+    </div>
+);
+
+// ─── Progress Ring ──────────────────────────────────────────────────────────
+const Ring = ({ pct, color, label }: { pct: number; color: string; label: string; }) => {
+    const r = 28, circ = 2 * Math.PI * r;
+    return (
+        <div className="flex items-center gap-3">
+            <svg width={64} height={64} className="-rotate-90">
+                <circle cx={32} cy={32} r={r} fill="none" stroke="#f3f4f6" strokeWidth={5} />
+                <circle cx={32} cy={32} r={r} fill="none" stroke={color} strokeWidth={5}
+                    strokeDasharray={circ} strokeDashoffset={circ - (circ * Math.min(pct, 100)) / 100}
+                    strokeLinecap="round" className="transition-all duration-1000" />
+            </svg>
+            <div className="-ml-[52px] w-10 text-center">
+                <p className="text-xs font-black text-gray-900">{pct}%</p>
+            </div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 ml-2">{label}</p>
+        </div>
+    );
+};
 
 export default function BankAccountReportsPage() {
     const [auditData, setAuditData] = useState<any[]>([]);
     const [summary, setSummary] = useState<any>(null);
     const [metrics, setMetrics] = useState<any>(null);
+    const [paymentInsights, setPaymentInsights] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [copied, setCopied] = useState<string | null>(null);
     const [previewFile, setPreviewFile] = useState<any>(null);
     const [showPreview, setShowPreview] = useState(false);
     const [exporting, setExporting] = useState(false);
+    const [activeFilter, setActiveFilter] = useState<FilterType>('ALL');
+    const [vendorPayments, setVendorPayments] = useState<any>(null);
+    const [vendorPaymentsLoading, setVendorPaymentsLoading] = useState(false);
+    const [paymentDays, setPaymentDays] = useState<number | undefined>(30);
+    const [paymentSearch, setPaymentSearch] = useState('');
+    const [expandedVendor, setExpandedVendor] = useState<string | null>(null);
 
-    useEffect(() => {
-        fetchData();
-    }, []);
+    useEffect(() => { fetchData(); }, []);
 
     const fetchData = async () => {
         try {
             setLoading(true);
-            const [audit, compliance] = await Promise.all([
+            const [audit, compliance, payments] = await Promise.all([
                 arApi.getVendorMasterAudit(),
-                arApi.getBankComplianceMetrics()
+                arApi.getBankComplianceMetrics(),
+                arApi.getBankPaymentInsights(30)
             ]);
             setAuditData(audit.data);
             setSummary(audit.summary);
             setMetrics(compliance);
+            setPaymentInsights(payments);
+            // Also fetch vendor payment history
+            fetchVendorPayments(30);
         } catch (error) {
             console.error('Failed to fetch report data:', error);
             toast.error('Failed to load report data');
@@ -76,53 +146,79 @@ export default function BankAccountReportsPage() {
 
     const handleExportMaster = async () => {
         if (exporting || auditData.length === 0) return;
-        
         try {
             setExporting(true);
             const toastId = toast.loading('Preparing master export...');
-            
-            // Format data for Excel
             const exportRows = auditData.map(row => ({
-                'Vendor Name': row.vendorName,
-                'BP Code': row.bpCode || 'N/A',
-                'Account Number': row.accountNumber,
-                'Beneficiary Name': row.beneficiaryName || row.vendorName,
-                'Bank Name': row.beneficiaryBankName,
-                'IFSC/SWIFT': row.ifscCode,
-                'Currency': row.currency,
-                'Account Type': row.accountType || 'Savings',
-                'Category': row.accountCategory,
-                'PAN Number': row.panNumber || '—',
-                'GST Number': row.gstNumber || '—',
-                'MSME Status': row.isMSME ? 'Registered' : 'Regular',
-                'Udyam Number': row.udyamRegNum || '—',
-                'Email ID': row.emailId || '—',
-                'KYC Status': row.kycStatus,
-                'Registration Date': new Date(row.createdAt).toLocaleDateString()
+                'Vendor Name': row.vendorName, 'BP Code': row.bpCode || 'N/A',
+                'Account Number': row.accountNumber, 'Beneficiary Name': row.beneficiaryName || row.vendorName,
+                'Bank Name': row.beneficiaryBankName, 'IFSC/SWIFT': row.ifscCode,
+                'Currency': row.currency, 'Account Type': row.accountType || 'Savings',
+                'Category': row.accountCategory, 'PAN Number': row.panNumber || '—',
+                'GST Number': row.gstNumber || '—', 'MSME Status': row.isMSME ? 'Registered' : 'Regular',
+                'Udyam Number': row.udyamRegNum || '—', 'Email ID': row.emailId || '—',
+                'KYC Status': row.kycStatus, 'Registration Date': new Date(row.createdAt).toLocaleDateString()
             }));
-
-            // Create workbook and worksheet
             const ws = XLSX.utils.json_to_sheet(exportRows);
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "Vendor Bank Master");
-
-            // Auto-size columns (rough estimate)
-            const maxWidths = Object.keys(exportRows[0] || {}).map(key => ({
+            ws['!cols'] = Object.keys(exportRows[0] || {}).map(key => ({
                 wch: Math.max(key.length, ...exportRows.map(row => String((row as any)[key]).length)) + 2
             }));
-            ws['!cols'] = maxWidths;
-
-            // Generate and download file
             XLSX.writeFile(wb, `Vendor_Bank_Master_${new Date().toISOString().split('T')[0]}.xlsx`);
-            
             toast.dismiss(toastId);
             toast.success('Master export downloaded successfully');
+        } catch { toast.error('Failed to export master data'); }
+        finally { setExporting(false); }
+    };
+
+    const fetchVendorPayments = async (days?: number, search?: string) => {
+        try {
+            setVendorPaymentsLoading(true);
+            const data = await arApi.getVendorPaymentHistory({ days, search: search || undefined });
+            setVendorPayments(data);
         } catch (error) {
-            console.error('Export failed:', error);
-            toast.error('Failed to export master data');
+            console.error('Failed to fetch vendor payment history:', error);
         } finally {
-            setExporting(false);
+            setVendorPaymentsLoading(false);
         }
+    };
+
+    const handlePaymentDaysChange = (d: number | undefined) => {
+        setPaymentDays(d);
+        fetchVendorPayments(d, paymentSearch);
+    };
+
+    const handlePaymentSearch = (val: string) => {
+        setPaymentSearch(val);
+        fetchVendorPayments(paymentDays, val);
+    };
+
+    const handleExportPaymentHistory = () => {
+        if (!vendorPayments?.vendors?.length) return;
+        const rows: any[] = [];
+        vendorPayments.vendors.forEach((v: any) => {
+            v.transactions.forEach((t: any) => {
+                rows.push({
+                    'Vendor Name': v.vendorName,
+                    'Account Number': v.accountNumber,
+                    'Bank': v.bankName,
+                    'BP Code': v.bpCode || '—',
+                    'Amount': t.amount,
+                    'Mode': t.transactionMode,
+                    'Payment Date': new Date(t.valueDate).toLocaleDateString('en-IN'),
+                    'Batch #': t.batchNumber,
+                    'Batch Status': t.batchStatus,
+                    'Requested By': t.requestedBy
+                });
+            });
+        });
+        const ws = XLSX.utils.json_to_sheet(rows);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Vendor Payment History');
+        ws['!cols'] = Object.keys(rows[0] || {}).map(k => ({ wch: Math.max(k.length, 15) }));
+        XLSX.writeFile(wb, `Vendor_Payment_History_${new Date().toISOString().split('T')[0]}.xlsx`);
+        toast.success('Payment history exported');
     };
 
     const copyToClipboard = useCallback((text: string, field: string) => {
@@ -131,443 +227,560 @@ export default function BankAccountReportsPage() {
         setTimeout(() => setCopied(null), 2000);
     }, []);
 
-    const handleDownloadDocument = (attachmentId: string) => {
-        arApi.downloadBankAccountAttachment(attachmentId);
-    };
+    const filteredAudit = auditData.filter(acc => {
+        const matchesSearch = acc.vendorName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (acc.bpCode && acc.bpCode.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            acc.accountNumber.includes(searchTerm) ||
+            (acc.beneficiaryName && acc.beneficiaryName.toLowerCase().includes(searchTerm.toLowerCase()));
+        if (!matchesSearch) return false;
+        if (activeFilter === 'ALL') return true;
+        if (activeFilter === 'VERIFIED') return acc.kycStatus === 'VERIFIED';
+        if (activeFilter === 'PENDING') return acc.kycStatus === 'PENDING';
+        if (activeFilter === 'DOMESTIC') return acc.accountCategory === 'DOMESTIC';
+        if (activeFilter === 'INTERNATIONAL') return acc.accountCategory === 'INTERNATIONAL';
+        if (activeFilter === 'MSME') return acc.isMSME;
+        return true;
+    });
 
-    const handlePreviewDocument = (file: any) => {
-        setPreviewFile(file);
-        setShowPreview(true);
+    const fmt = (n: number) => {
+        if (n >= 10000000) return `₹${(n / 10000000).toFixed(2)} Cr`;
+        if (n >= 100000) return `₹${(n / 100000).toFixed(2)} L`;
+        if (n >= 1000) return `₹${(n / 1000).toFixed(1)}K`;
+        return `₹${n.toFixed(0)}`;
     };
-
-    const filteredAudit = auditData.filter(acc => 
-        acc.vendorName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (acc.bpCode && acc.bpCode.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        acc.accountNumber.includes(searchTerm) ||
-        (acc.beneficiaryName && acc.beneficiaryName.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
 
     return (
-        <div className="p-4 md:p-6 space-y-6 bg-[#F8FAFB] min-h-screen">
-            {/* Header section with glassmorphism */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white/50 backdrop-blur-md p-6 rounded-3xl border border-white shadow-sm">
-                <div>
-                    <div className="flex items-center gap-2 mb-1">
-                        <div className="h-2 w-2 bg-blue-600 rounded-full animate-pulse" />
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600/70">Intelligence Hub</span>
+        <div className="min-h-screen bg-[#F7F8FA]">
+            {/* ══════════ HEADER ══════════ */}
+            <div className="px-4 md:px-6 pt-5 pb-3">
+                <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+                    <div>
+                        <div className="flex items-center gap-2 mb-0.5">
+                            <div className="h-2 w-2 bg-indigo-500 rounded-full animate-pulse" />
+                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-500">Intelligence Hub</span>
+                        </div>
+                        <h1 className="text-2xl font-black tracking-tight text-gray-900">Bank Account Reports</h1>
+                        <p className="text-gray-400 text-xs font-medium mt-0.5">Audit vendor master, compliance status & payment operations.</p>
                     </div>
-                    <h1 className="text-3xl font-black tracking-tight text-[#1A3352]">Bank Account Reports</h1>
-                    <p className="text-[#92A2A5] text-sm font-medium mt-1">Audit vendor master, compliance status, and payment operations.</p>
-                </div>
-                <div className="flex gap-3">
-                    <Button 
-                        variant="outline" 
-                        onClick={handleExportMaster}
-                        disabled={exporting || auditData.length === 0}
-                        className="rounded-xl border-[#AEBFC3]/30 text-[#546A7A] font-bold h-11 px-5 hover:bg-[#F8FAFB]"
-                    >
-                        <Download className="h-4 w-4 mr-2" />
-                        {exporting ? 'Exporting...' : 'Export Master'}
-                    </Button>
-                    <Button onClick={fetchData} className="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-700 text-white font-bold h-11 px-5 shadow-lg shadow-blue-200">
-                        <TrendingUp className="h-4 w-4 mr-2" />
-                        Refresh Data
-                    </Button>
+                    <div className="flex gap-2">
+                        <Button variant="outline" onClick={handleExportMaster} disabled={exporting || auditData.length === 0}
+                            className="rounded-xl border-gray-200 text-gray-600 font-bold h-10 px-4 text-xs hover:bg-gray-50">
+                            <Download className="h-3.5 w-3.5 mr-1.5" />{exporting ? 'Exporting...' : 'Export Excel'}
+                        </Button>
+                        <Button onClick={fetchData} className="rounded-xl bg-gradient-to-r from-indigo-500 to-violet-600 text-white font-bold h-10 px-4 text-xs shadow-md shadow-indigo-200 hover:shadow-lg">
+                            <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loading ? 'animate-spin' : ''}`} />Refresh
+                        </Button>
+                    </div>
                 </div>
             </div>
 
-            {/* Quick Stats Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card className="border-0 shadow-lg bg-gradient-to-br from-[#1A3352] to-[#2C5282] text-white relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 transition-transform group-hover:scale-110 duration-700" />
-                    <CardContent className="p-6 relative">
-                        <div className="flex justify-between items-start">
-                            <div>
-                                <p className="text-blue-100/70 text-[10px] font-black uppercase tracking-[0.15em]">Total Vendors</p>
-                                <h3 className="text-4xl font-black mt-2 text-white">{summary?.totalAccounts || 0}</h3>
-                            </div>
-                            <div className="p-3 bg-white/10 rounded-2xl backdrop-blur-md border border-white/10">
-                                <Building2 className="h-6 w-6 text-white" />
-                            </div>
-                        </div>
-                        <div className="mt-6 flex items-center justify-between">
-                            <span className="text-xs text-blue-100/60 font-bold uppercase tracking-wider">System Registered</span>
-                            <ArrowUpRight className="h-4 w-4 text-blue-300" />
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card className="border-0 shadow-lg bg-white relative overflow-hidden group">
-                    <div className="absolute bottom-0 right-0 w-24 h-24 bg-green-50 rounded-full -mr-8 -mb-8 transition-transform group-hover:scale-150 duration-700" />
-                    <CardContent className="p-6 relative">
-                        <div className="flex justify-between items-start">
-                            <div>
-                                <p className="text-[#92A2A5] text-[10px] font-black uppercase tracking-[0.15em]">KYC Verified</p>
-                                <h3 className="text-4xl font-black mt-2 text-[#1A3352]">{summary?.verifiedAccounts || 0}</h3>
-                            </div>
-                            <div className="p-3 bg-green-50 rounded-2xl border border-green-100 transition-colors group-hover:bg-green-100">
-                                <ShieldCheck className="h-6 w-6 text-green-600" />
-                            </div>
-                        </div>
-                        <div className="mt-6">
-                            <Badge className="bg-green-50 text-green-700 border-green-100 hover:bg-green-100 font-black text-[10px] px-3 py-1">
-                                {metrics?.compliance?.kycRate || 0}% Verification Rate
-                            </Badge>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card className="border-0 shadow-lg bg-white relative overflow-hidden group">
-                    <div className="absolute bottom-0 right-0 w-24 h-24 bg-purple-50 rounded-full -mr-8 -mb-8 transition-transform group-hover:scale-150 duration-700" />
-                    <CardContent className="p-6 relative">
-                        <div className="flex justify-between items-start">
-                            <div>
-                                <p className="text-[#92A2A5] text-[10px] font-black uppercase tracking-[0.15em]">MSME Scale</p>
-                                <h3 className="text-4xl font-black mt-2 text-[#1A3352]">{metrics?.distribution?.msme || 0}</h3>
-                            </div>
-                            <div className="p-3 bg-purple-50 rounded-2xl border border-purple-100 transition-colors group-hover:bg-purple-100">
-                                <FileText className="h-6 w-6 text-purple-600" />
-                            </div>
-                        </div>
-                        <div className="mt-6 text-[11px] font-bold text-[#92A2A5] uppercase tracking-wider">
-                            {metrics?.distribution?.nonMsme || 0} Standard Profiles
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card className="border-0 shadow-lg bg-white relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 w-24 h-24 bg-red-50 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-150 duration-700" />
-                    <CardContent className="p-6 relative">
-                        <div className="flex justify-between items-start">
-                            <div>
-                                <p className="text-[#92A2A5] text-[10px] font-black uppercase tracking-[0.15em]">Critical Gaps</p>
-                                <h3 className="text-4xl font-black mt-2 text-red-600">{summary?.pendingAccounts || 0}</h3>
-                            </div>
-                            <div className="p-3 bg-red-50 rounded-2xl border border-red-100 transition-colors group-hover:bg-red-100">
-                                <AlertCircle className="h-6 w-6 text-red-600 animate-pulse" />
-                            </div>
-                        </div>
-                        <div className="mt-6 flex items-center gap-2">
-                             <div className="h-1.5 w-1.5 bg-red-500 rounded-full animate-ping" />
-                             <span className="text-[10px] font-black text-red-500 uppercase tracking-widest leading-none">KYC Action Required</span>
-                        </div>
-                    </CardContent>
-                </Card>
+            {/* ══════════ STATS ROW ══════════ */}
+            <div className="px-4 md:px-6 pb-3 grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <StatCard icon={Building2} label="Total Vendors" value={summary?.totalAccounts || 0} sub="Registered" color="#6366F1" bg="#EEF2FF" />
+                <StatCard icon={ShieldCheck} label="KYC Verified" value={summary?.verifiedAccounts || 0} sub={`${metrics?.compliance?.kycRate || 0}% Rate`} color="#10B981" bg="#ECFDF5" />
+                <StatCard icon={FileText} label="MSME Vendors" value={metrics?.distribution?.msme || 0} sub={`${metrics?.distribution?.nonMsme || 0} Standard`} color="#3B82F6" bg="#EFF6FF" />
+                <StatCard icon={AlertCircle} label="KYC Pending" value={summary?.pendingAccounts || 0} sub="Action Required" color="#EF4444" bg="#FEF2F2" />
             </div>
 
-            <Tabs defaultValue="audit" className="w-full">
-                <TabsList className="bg-white/50 backdrop-blur-sm border border-[#AEBFC3]/20 p-1.5 h-14 rounded-2xl gap-2 shadow-sm">
-                    <TabsTrigger value="audit" className="px-8 rounded-xl font-bold text-sm data-[state=active]:bg-[#1A3352] data-[state=active]:text-white data-[state=active]:shadow-lg transition-all">Vendor Master Audit</TabsTrigger>
-                    <TabsTrigger value="compliance" className="px-8 rounded-xl font-bold text-sm data-[state=active]:bg-[#1A3352] data-[state=active]:text-white data-[state=active]:shadow-lg transition-all">Compliance Summary</TabsTrigger>
-                    <TabsTrigger value="payments" className="px-8 rounded-xl font-bold text-sm data-[state=active]:bg-[#1A3352] data-[state=active]:text-white data-[state=active]:shadow-lg transition-all">Payment Insights</TabsTrigger>
-                </TabsList>
+            {/* ══════════ COMPLIANCE + PAYMENTS DASHBOARD ROW ══════════ */}
+            <div className="px-4 md:px-6 pb-3 grid grid-cols-1 lg:grid-cols-3 gap-3">
+                {/* Compliance Snapshot */}
+                <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-shadow duration-300">
+                    <div className="flex items-center gap-2 mb-4">
+                        <div className="p-1.5 rounded-lg bg-indigo-50"><PieChart className="h-3.5 w-3.5 text-indigo-500" /></div>
+                        <h3 className="text-xs font-black uppercase tracking-wider text-gray-700">Compliance Snapshot</h3>
+                    </div>
+                    <div className="flex items-center justify-around mb-4">
+                        <Ring pct={parseFloat(metrics?.compliance?.kycRate || '0')} color="#10B981" label="KYC" />
+                        <Ring pct={parseFloat(metrics?.compliance?.msmeRate || '0')} color="#3B82F6" label="MSME" />
+                    </div>
+                    <div className="space-y-2.5 pt-3 border-t border-gray-100">
+                        <MiniBar label="Domestic" value={metrics?.distribution?.domestic || 0} max={metrics?.compliance?.total || 1} color="#10B981" />
+                        <MiniBar label="International" value={metrics?.distribution?.international || 0} max={metrics?.compliance?.total || 1} color="#3B82F6" />
+                        <MiniBar label="INR Accts" value={metrics?.distribution?.inr || 0} max={metrics?.compliance?.total || 1} color="#F59E0B" />
+                        <MiniBar label="Other Curr" value={metrics?.distribution?.otherCurrency || 0} max={metrics?.compliance?.total || 1} color="#8B5CF6" />
+                    </div>
+                </div>
 
-                <TabsContent value="audit" className="mt-6">
-                    <Card className="border-0 shadow-2xl rounded-3xl overflow-hidden bg-white">
-                        <CardHeader className="p-8 border-b border-[#AEBFC3]/10">
-                            <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-6">
-                                <div>
-                                    <div className="flex items-center gap-3 mb-2">
-                                        <div className="p-2 bg-blue-50 rounded-lg">
-                                            <Building2 className="h-5 w-5 text-blue-600" />
-                                        </div>
-                                        <CardTitle className="text-2xl font-black text-[#1A3352]">Vendor Detail & Document Control</CardTitle>
+                {/* Data Health */}
+                <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-shadow duration-300">
+                    <div className="flex items-center gap-2 mb-4">
+                        <div className="p-1.5 rounded-lg bg-rose-50"><Activity className="h-3.5 w-3.5 text-rose-500" /></div>
+                        <h3 className="text-xs font-black uppercase tracking-wider text-gray-700">Data Health</h3>
+                    </div>
+                    <div className="space-y-2.5">
+                        {[
+                            { label: 'Missing BP Code', val: metrics?.health?.missingBpCode || 0, icon: Hash, color: '#F59E0B', bg: '#FFFBEB' },
+                            { label: 'Missing Tax ID', val: metrics?.health?.missingTaxId || 0, icon: FileText, color: '#EF4444', bg: '#FEF2F2' },
+                            { label: 'Total Issues', val: metrics?.health?.totalIssues || 0, icon: AlertCircle, color: '#EF4444', bg: '#FEF2F2' },
+                        ].map(h => (
+                            <div key={h.label} className="flex items-center justify-between p-3 rounded-xl bg-gray-50/80 hover:bg-gray-50 transition-colors">
+                                <div className="flex items-center gap-2.5">
+                                    <div className="p-1.5 rounded-lg" style={{ background: h.bg }}>
+                                        <h.icon className="h-3.5 w-3.5" style={{ color: h.color }} />
                                     </div>
-                                    <CardDescription className="text-[#92A2A5] font-medium text-base">Comprehensive audit of all vendor financial master data and verification documents.</CardDescription>
+                                    <span className="text-[11px] font-bold text-gray-500">{h.label}</span>
                                 </div>
-                                <div className="relative w-full lg:w-96 shadow-sm hover:shadow-md transition-shadow duration-300">
-                                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-[#92A2A5]" />
-                                    <Input 
-                                        placeholder="Search by vendor, code, or account..." 
-                                        className="h-14 pl-12 rounded-2xl bg-white border-[#AEBFC3]/20 focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:border-blue-500 transition-all font-medium"
-                                        value={searchTerm}
-                                        onChange={(e) => setSearchTerm(e.target.value)}
-                                    />
-                                </div>
+                                <span className="text-base font-black tabular-nums" style={{ color: h.val > 0 ? h.color : '#10B981' }}>{h.val}</span>
                             </div>
-                        </CardHeader>
-                        <CardContent className="p-0">
-                            <ScrollArea className="w-full">
-                                <Table className="border-collapse min-w-[2000px]">
-                                    <TableHeader className="bg-[#F8FAFB]">
-                                        <TableRow className="hover:bg-transparent border-b border-[#AEBFC3]/10">
-                                            <TableHead className="w-[300px] border-r border-[#AEBFC3]/10 px-6 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-[#546A7A]">Primary Vendor Info</TableHead>
-                                            <TableHead className="w-[120px] px-6 text-[10px] font-black uppercase tracking-[0.2em] text-[#546A7A]">BP Code</TableHead>
-                                            <TableHead className="w-[280px] px-6 text-[10px] font-black uppercase tracking-[0.2em] text-[#546A7A]">Account Details</TableHead>
-                                            <TableHead className="w-[220px] px-6 text-[10px] font-black uppercase tracking-[0.2em] text-[#546A7A]">Bank & Routing</TableHead>
-                                            <TableHead className="w-[180px] px-6 text-[10px] font-black uppercase tracking-[0.2em] text-[#546A7A]">Compliance Status</TableHead>
-                                            <TableHead className="w-[200px] px-6 text-[10px] font-black uppercase tracking-[0.2em] text-[#546A7A]">Tax Information</TableHead>
-                                            <TableHead className="w-[200px] px-6 text-[10px] font-black uppercase tracking-[0.2em] text-[#546A7A]">MSME Registry</TableHead>
-                                            <TableHead className="px-6 text-right text-[10px] font-black uppercase tracking-[0.2em] text-[#546A7A]">Audit Evidence (Docs)</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {loading ? (
-                                            <TableRow>
-                                                <TableCell colSpan={8} className="h-64 text-center">
-                                                    <div className="flex flex-col items-center gap-4">
-                                                        <div className="h-10 w-10 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin" />
-                                                        <span className="text-sm font-bold text-[#92A2A5] uppercase tracking-widest">Compiling Database Audit...</span>
-                                                    </div>
-                                                </TableCell>
-                                            </TableRow>
-                                        ) : filteredAudit.length === 0 ? (
-                                            <TableRow>
-                                                <TableCell colSpan={8} className="h-64 text-center">
-                                                    <div className="flex flex-col items-center gap-4">
-                                                        <Search className="h-12 w-12 text-[#AEBFC3]/30" />
-                                                        <span className="text-sm font-bold text-[#92A2A5] uppercase tracking-widest">No matching master data found</span>
-                                                    </div>
-                                                </TableCell>
-                                            </TableRow>
-                                        ) : (
-                                            filteredAudit.map((row) => (
-                                                <TableRow key={row.id} className="hover:bg-[#F8FAFB]/50 border-b border-[#AEBFC3]/5 transition-colors group">
-                                                    {/* Primary Vendor Info */}
-                                                    <TableCell className="px-6 py-6 border-r border-[#AEBFC3]/5 sticky left-0 bg-white z-10 group-hover:bg-[#F8FAFB]/50 transition-colors">
-                                                        <div className="flex items-start gap-4">
-                                                            <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100/50 flex items-center justify-center font-black text-blue-600 text-lg shadow-sm shrink-0">
-                                                                {row.vendorName.charAt(0)}
-                                                            </div>
-                                                            <div className="min-w-0">
-                                                                <div className="font-black text-[#1A3352] text-base truncate group-hover:text-blue-700 transition-colors" title={row.vendorName}>{row.vendorName}</div>
-                                                                <div className="flex items-center gap-1.5 mt-1">
-                                                                    <Mail className="h-3 w-3 text-[#92A2A5]" />
-                                                                    <span className="text-xs font-bold text-[#92A2A5] truncate max-w-[150px]">{row.emailId || 'no-email@vendor.com'}</span>
-                                                                </div>
-                                                                {row.nickName && (
-                                                                    <div className="inline-block mt-2 px-2 py-0.5 rounded-md bg-[#F4F7F9] text-[10px] font-bold text-[#546A7A] uppercase tracking-wider">
-                                                                        AKA: {row.nickName}
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    </TableCell>
+                        ))}
+                    </div>
+                    <div className="mt-3 p-2.5 rounded-xl text-center" style={{ background: (metrics?.health?.totalIssues || 0) === 0 ? '#ECFDF5' : '#FEF2F2' }}>
+                        <p className="text-[10px] font-black uppercase tracking-wider" style={{ color: (metrics?.health?.totalIssues || 0) === 0 ? '#10B981' : '#EF4444' }}>
+                            {(metrics?.health?.totalIssues || 0) === 0 ? '✓ All Data Complete' : `⚠ ${metrics?.health?.totalIssues} Issues Need Attention`}
+                        </p>
+                    </div>
+                </div>
 
-                                                    {/* BP Code */}
-                                                    <TableCell className="px-6">
-                                                        <div className="font-mono font-black text-xs text-[#546A7A] bg-slate-50 px-3 py-2 rounded-xl border border-slate-100 inline-block">
-                                                            {row.bpCode || 'N/A'}
-                                                        </div>
-                                                    </TableCell>
-
-                                                    {/* Account Details */}
-                                                    <TableCell className="px-6">
-                                                        <div className="space-y-1.5">
-                                                            <div className="flex items-center justify-between">
-                                                                <span className="text-[10px] font-black uppercase tracking-widest text-[#AEBFC3]">Account Num</span>
-                                                                <div className="flex items-center gap-1.5">
-                                                                    <span className="font-mono text-sm font-black text-[#1A3352] tracking-wider">{row.accountNumber}</span>
-                                                                    <button onClick={() => copyToClipboard(row.accountNumber, `acc-${row.id}`)} className="h-6 w-6 rounded-md hover:bg-slate-100 flex items-center justify-center transition-colors">
-                                                                        {copied === `acc-${row.id}` ? <Check className="h-3 w-3 text-green-600" /> : <Copy className="h-3 w-3 text-[#92A2A5]" />}
-                                                                    </button>
-                                                                </div>
-                                                            </div>
-                                                            <div className="flex items-center justify-between pt-1 border-t border-[#AEBFC3]/5">
-                                                                <span className="text-[10px] font-black uppercase tracking-widest text-[#AEBFC3]">Beneficiary</span>
-                                                                <span className="text-[11px] font-black text-[#546A7A] truncate ml-4" title={row.beneficiaryName || row.vendorName}>
-                                                                    {row.beneficiaryName || row.vendorName}
-                                                                </span>
-                                                            </div>
-                                                            <div className="flex items-center gap-2 mt-2">
-                                                                <Badge className="bg-[#6F8A9D]/10 text-[#1A3352] border-0 text-[9px] font-black uppercase">
-                                                                    {row.accountType || 'Savings'}
-                                                                </Badge>
-                                                                <Badge className="bg-slate-100 text-slate-500 border-0 text-[10px] font-black">
-                                                                    {row.currency}
-                                                                </Badge>
-                                                            </div>
-                                                        </div>
-                                                    </TableCell>
-
-                                                    {/* Bank & Routing */}
-                                                    <TableCell className="px-6">
-                                                        <div className="flex items-start gap-3">
-                                                            <div className="p-2 bg-slate-50 rounded-xl border border-slate-100">
-                                                                <Landmark className="h-4 w-4 text-[#92A2A5]" />
-                                                            </div>
-                                                            <div className="min-w-0">
-                                                                <div className="font-black text-[#1A3352] text-xs truncate max-w-[150px]" title={row.beneficiaryBankName}>{row.beneficiaryBankName}</div>
-                                                                <div className="font-mono text-[11px] font-black text-blue-600 mt-1 flex items-center gap-1.5">
-                                                                    {row.ifscCode}
-                                                                    <button onClick={() => copyToClipboard(row.ifscCode, `ifsc-${row.id}`)} className="h-5 w-5 rounded-md hover:bg-blue-50 flex items-center justify-center transition-colors">
-                                                                         {copied === `ifsc-${row.id}` ? <Check className="h-2.5 w-2.5 text-green-600" /> : <Copy className="h-2.5 w-2.5 text-blue-400" />}
-                                                                    </button>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </TableCell>
-
-                                                    {/* Compliance Status */}
-                                                    <TableCell className="px-6">
-                                                        <div className="space-y-3">
-                                                            <div className="flex items-center gap-2">
-                                                                {row.kycStatus === 'VERIFIED' ? (
-                                                                    <Badge className="bg-green-50 text-green-700 border-green-100 hover:bg-green-50 flex items-center gap-1.5 py-1 px-3 shadow-sm rounded-lg">
-                                                                        <CheckCircle2 className="h-3.5 w-3.5" />
-                                                                        <span className="text-[10px] font-black uppercase tracking-wider">Verified</span>
-                                                                    </Badge>
-                                                                ) : (
-                                                                    <Badge className="bg-red-50 text-red-700 border-red-100 hover:bg-red-50 flex items-center gap-1.5 py-1 px-3 shadow-sm rounded-lg">
-                                                                        <AlertCircle className="h-3.5 w-3.5 animate-pulse" />
-                                                                        <span className="text-[10px] font-black uppercase tracking-wider">Pending</span>
-                                                                    </Badge>
-                                                                )}
-                                                            </div>
-                                                            <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${
-                                                                row.accountCategory === 'DOMESTIC' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
-                                                                row.accountCategory === 'INTERNATIONAL' ? 'bg-blue-50 text-blue-700 border border-blue-100' :
-                                                                'bg-amber-50 text-amber-700 border border-amber-100'
-                                                            }`}>
-                                                                {row.accountCategory === 'DOMESTIC' ? '🏠 Domestic' :
-                                                                 row.accountCategory === 'INTERNATIONAL' ? '🌐 Intl' :
-                                                                 '👤 Employee'}
-                                                            </div>
-                                                        </div>
-                                                    </TableCell>
-
-                                                    {/* Tax Info */}
-                                                    <TableCell className="px-6">
-                                                        <div className="space-y-2">
-                                                            <div className="flex items-center justify-between gap-4">
-                                                                <span className="text-[10px] font-black uppercase tracking-widest text-[#92A2A5]">PAN</span>
-                                                                <span className="font-mono text-[11px] font-black text-[#1A3352]">{row.panNumber || '—'}</span>
-                                                            </div>
-                                                            <div className="flex items-center justify-between gap-4">
-                                                                <span className="text-[10px] font-black uppercase tracking-widest text-[#92A2A5]">GST</span>
-                                                                <span className="font-mono text-[11px] font-black text-[#546A7A] truncate max-w-[120px]" title={row.gstNumber}>{row.gstNumber || '—'}</span>
-                                                            </div>
-                                                        </div>
-                                                    </TableCell>
-
-                                                    {/* MSME Registry */}
-                                                    <TableCell className="px-6">
-                                                        <div className="space-y-2">
-                                                            <Badge variant="outline" className={`rounded-lg py-1 px-3 font-black text-[10px] uppercase border-2 ${
-                                                                row.isMSME ? "bg-purple-50 border-purple-200 text-purple-700" : "bg-slate-50 border-slate-200 text-slate-400"
-                                                            }`}>
-                                                                {row.isMSME ? '⭐ MSME Registered' : 'Regular Vendor'}
-                                                            </Badge>
-                                                            {row.isMSME && row.udyamRegNum && (
-                                                                <div className="text-[9px] font-bold text-[#92A2A5] font-mono mt-1 pt-1 border-t border-purple-100">
-                                                                    UDYAM-{row.udyamRegNum}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </TableCell>
-
-                                                    {/* Audit Evidence (Docs) */}
-                                                    <TableCell className="px-6 text-right">
-                                                        <div className="flex justify-end gap-2">
-                                                            {row.attachments && row.attachments.length > 0 ? (
-                                                                row.attachments.map((att: any) => (
-                                                                    <div key={att.id} className="flex bg-white rounded-xl border border-[#AEBFC3]/20 shadow-sm overflow-hidden divide-x divide-[#AEBFC3]/10">
-                                                                        <button 
-                                                                            onClick={() => handlePreviewDocument(att)}
-                                                                            className="px-3 py-2 text-blue-600 hover:bg-blue-50 transition-colors flex items-center gap-1.5"
-                                                                            title={`Preview ${att.filename || 'Document'}`}
-                                                                        >
-                                                                            <Eye className="h-3.5 w-3.5" />
-                                                                            <span className="text-[10px] font-black uppercase">Preview</span>
-                                                                        </button>
-                                                                        <button 
-                                                                            onClick={() => handleDownloadDocument(att.id)}
-                                                                            className="px-3 py-2 text-[#546A7A] hover:bg-slate-50 transition-colors"
-                                                                            title={`Download ${att.filename || 'Document'}`}
-                                                                        >
-                                                                            <ArrowDownToLine className="h-3.5 w-3.5" />
-                                                                        </button>
-                                                                    </div>
-                                                                ))
-                                                            ) : (
-                                                                <div className="group flex items-center gap-2 px-4 py-2 bg-red-50 rounded-xl border border-red-100 text-red-400">
-                                                                    <FileText className="h-4 w-4 opacity-50" />
-                                                                    <span className="text-[10px] font-black uppercase tracking-widest italic group-hover:animate-pulse">Audit Gap</span>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))
-                                        )}
-                                    </TableBody>
-                                </Table>
-                                <ScrollBar orientation="horizontal" />
-                            </ScrollArea>
-                        </CardContent>
-                        {summary && (
-                            <div className="bg-[#F8FAFB] px-8 py-5 border-t border-[#AEBFC3]/10 flex flex-wrap gap-8 items-center justify-between">
-                                <div className="flex flex-wrap gap-8">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-2 h-2 rounded-full bg-blue-600 shadow-[0_0_8px_rgba(37,99,235,0.4)]" />
-                                        <span className="text-xs font-bold text-[#546A7A]">Total Records: <span className="font-black text-[#1A3352]">{summary.totalAccounts}</span></span>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
-                                        <span className="text-xs font-bold text-[#546A7A]">Verified: <span className="font-black text-[#1A3352]">{summary.verifiedAccounts}</span></span>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)] animate-pulse" />
-                                        <span className="text-xs font-bold text-[#546A7A]">Audit Required: <span className="font-black text-[#1A3352] text-red-600">{summary.pendingAccounts}</span></span>
-                                    </div>
-                                </div>
-                                <p className="text-[10px] font-black uppercase tracking-widest text-[#AEBFC3]">Reports sync with ERP • Real-time Data Feed</p>
-                            </div>
+                {/* Payment Insights */}
+                <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-shadow duration-300">
+                    <div className="flex items-center gap-2 mb-4">
+                        <div className="p-1.5 rounded-lg bg-emerald-50"><Banknote className="h-3.5 w-3.5 text-emerald-500" /></div>
+                        <h3 className="text-xs font-black uppercase tracking-wider text-gray-700">Payment Insights (30d)</h3>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 mb-4">
+                        <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-3 text-center border border-emerald-100/50">
+                            <p className="text-lg font-black text-gray-900">{fmt(paymentInsights?.summary?.totalAmount || 0)}</p>
+                            <p className="text-[9px] font-bold uppercase text-emerald-600 tracking-wider">Volume</p>
+                        </div>
+                        <div className="bg-gradient-to-br from-indigo-50 to-violet-50 rounded-xl p-3 text-center border border-indigo-100/50">
+                            <p className="text-lg font-black text-gray-900">{paymentInsights?.summary?.totalItems || 0}</p>
+                            <p className="text-[9px] font-bold uppercase text-indigo-600 tracking-wider">Transactions</p>
+                        </div>
+                    </div>
+                    <div className="space-y-2.5">
+                        <p className="text-[9px] font-black uppercase tracking-wider text-gray-400 mb-1">Top Banks</p>
+                        {(paymentInsights?.banks || []).slice(0, 4).map((b: any, i: number) => (
+                            <MiniBar key={i} label={b.name} value={b.count} max={paymentInsights?.banks?.[0]?.count || 1}
+                                color={['#6366F1', '#10B981', '#3B82F6', '#F59E0B'][i % 4]} />
+                        ))}
+                        {(!paymentInsights?.banks || paymentInsights.banks.length === 0) && (
+                            <p className="text-[10px] text-gray-400 text-center py-4">No payment data available</p>
                         )}
-                    </Card>
-                </TabsContent>
+                    </div>
+                </div>
+            </div>
 
-                <TabsContent value="compliance">
-                    <Card className="border-0 shadow-xl rounded-3xl overflow-hidden min-h-[500px] flex flex-col items-center justify-center p-12 text-center bg-white relative">
-                        <div className="absolute inset-0 bg-gradient-to-br from-indigo-50/30 to-white pointer-events-none" />
-                        <div className="relative">
-                            <div className="h-20 w-20 bg-indigo-50 rounded-[2rem] flex items-center justify-center mb-6 mx-auto border-2 border-dashed border-indigo-200">
-                                <Activity className="h-10 w-10 text-indigo-400" />
+            {/* ══════════ MASTER TABLE ══════════ */}
+            <div className="px-4 md:px-6 pb-6">
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                    {/* Table Header */}
+                    <div className="p-5 flex flex-col gap-4 border-b border-gray-100">
+                        <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-3">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 rounded-xl bg-indigo-50">
+                                    <Building2 className="h-4 w-4 text-indigo-500" />
+                                </div>
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <h2 className="text-sm font-black text-gray-900">Vendor Master Audit</h2>
+                                        <span className="text-[10px] font-black bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full tabular-nums">
+                                            {filteredAudit.length}{filteredAudit.length !== auditData.length ? ` / ${auditData.length}` : ''}
+                                        </span>
+                                    </div>
+                                    <p className="text-[11px] text-gray-400 font-medium">All vendor bank accounts with compliance & document status</p>
+                                </div>
                             </div>
-                            <h3 className="text-2xl font-black text-[#1A3352] mb-3">Compliance Analytics</h3>
-                            <p className="text-[#92A2A5] font-medium max-w-sm mx-auto mb-8 leading-relaxed">
-                                Generating high-fidelity distribution charts for KYC completion and Vendor classification.
-                            </p>
-                            <div className="grid grid-cols-2 gap-4 max-w-sm mx-auto">
-                                <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 hover:shadow-md transition-shadow">
-                                    <div className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-1">Domestic</div>
-                                    <div className="text-3xl font-black text-[#1A3352]">{metrics?.distribution?.domestic || 0}</div>
-                                </div>
-                                <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 hover:shadow-md transition-shadow">
-                                    <div className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-1">International</div>
-                                    <div className="text-3xl font-black text-[#1A3352]">{metrics?.distribution?.international || 0}</div>
-                                </div>
+                            <div className="relative w-full lg:w-72">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-300" />
+                                <Input placeholder="Search vendor, code, account..." value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="h-10 pl-10 rounded-xl bg-gray-50 border-gray-100 text-sm font-medium focus-visible:ring-1 focus-visible:ring-indigo-300" />
                             </div>
                         </div>
-                    </Card>
-                </TabsContent>
+                        {/* Filter Chips */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <Filter className="h-3.5 w-3.5 text-gray-300" />
+                            {FILTERS.map(f => (
+                                <button key={f.key} onClick={() => setActiveFilter(f.key)}
+                                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all duration-200 border ${
+                                        activeFilter === f.key
+                                            ? 'shadow-sm scale-[1.02]'
+                                            : 'bg-white text-gray-400 border-gray-100 hover:border-gray-200 hover:text-gray-600'
+                                    }`}
+                                    style={activeFilter === f.key ? { background: f.bg, color: f.color, borderColor: f.color + '30' } : {}}>
+                                    <f.icon className="h-3 w-3" />
+                                    {f.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
 
-                <TabsContent value="payments">
-                    <Card className="border-0 shadow-xl rounded-3xl overflow-hidden min-h-[500px] flex flex-col items-center justify-center p-12 text-center bg-white relative">
-                         <div className="absolute inset-0 bg-gradient-to-br from-emerald-50/30 to-white pointer-events-none" />
-                         <div className="relative">
-                            <div className="h-20 w-20 bg-emerald-50 rounded-[2rem] flex items-center justify-center mb-6 mx-auto border-2 border-dashed border-emerald-200">
-                                <CreditCard className="h-10 w-10 text-emerald-400" />
+                    {/* Table */}
+                    <ScrollArea className="w-full">
+                        <Table className="min-w-[1900px]">
+                            <TableHeader>
+                                <TableRow className="bg-gradient-to-r from-gray-50 via-gray-50/80 to-gray-50 hover:bg-gray-50 border-b border-gray-100">
+                                    {['Vendor', 'BP Code', 'Account / Beneficiary', 'Bank & IFSC', 'KYC', 'Category', 'PAN / GST', 'MSME', 'Registered', 'Documents'].map(h => (
+                                        <TableHead key={h} className="px-4 py-3.5 text-[10px] font-black uppercase tracking-[0.15em] text-gray-400 whitespace-nowrap">{h}</TableHead>
+                                    ))}
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {loading ? (
+                                    <TableRow><TableCell colSpan={10} className="h-52 text-center">
+                                        <div className="flex flex-col items-center gap-3">
+                                            <div className="h-9 w-9 border-[3px] border-gray-200 border-t-indigo-500 rounded-full animate-spin" />
+                                            <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Loading audit data...</span>
+                                        </div>
+                                    </TableCell></TableRow>
+                                ) : filteredAudit.length === 0 ? (
+                                    <TableRow><TableCell colSpan={10} className="h-52 text-center">
+                                        <div className="flex flex-col items-center gap-3">
+                                            <Search className="h-10 w-10 text-gray-200" />
+                                            <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">No matching records</span>
+                                            {activeFilter !== 'ALL' && (
+                                                <button onClick={() => setActiveFilter('ALL')} className="text-[10px] font-bold text-indigo-500 hover:underline">Clear filter</button>
+                                            )}
+                                        </div>
+                                    </TableCell></TableRow>
+                                ) : filteredAudit.map((row, idx) => (
+                                    <TableRow key={row.id} className={`group transition-colors border-b border-gray-50 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'} hover:bg-indigo-50/30`}>
+                                        {/* Vendor */}
+                                        <TableCell className="px-4 py-3.5">
+                                            <div className="flex items-center gap-3">
+                                                <div className={`h-9 w-9 rounded-xl bg-gradient-to-br ${getAvatarGradient(row.vendorName)} flex items-center justify-center text-white font-black text-sm shrink-0 shadow-sm`}>
+                                                    {row.vendorName.charAt(0)}
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <p className="font-bold text-sm text-gray-900 truncate max-w-[170px] group-hover:text-indigo-600 transition-colors">{row.vendorName}</p>
+                                                    <div className="flex items-center gap-1 mt-0.5">
+                                                        <Mail className="h-3 w-3 text-gray-300" />
+                                                        <span className="text-[10px] text-gray-400 truncate max-w-[130px]">{row.emailId || 'N/A'}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </TableCell>
+                                        {/* BP Code */}
+                                        <TableCell className="px-4">
+                                            <span className="font-mono text-[11px] font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded-md">{row.bpCode || '—'}</span>
+                                        </TableCell>
+                                        {/* Account */}
+                                        <TableCell className="px-4">
+                                            <div className="space-y-1">
+                                                <div className="flex items-center gap-1">
+                                                    <span className="font-mono text-xs font-bold text-gray-800">{row.accountNumber}</span>
+                                                    <button onClick={() => copyToClipboard(row.accountNumber, `acc-${row.id}`)} className="p-0.5 rounded hover:bg-gray-100 transition-colors">
+                                                        {copied === `acc-${row.id}` ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3 text-gray-300" />}
+                                                    </button>
+                                                </div>
+                                                <p className="text-[10px] text-gray-400 truncate max-w-[150px]">{row.beneficiaryName || row.vendorName}</p>
+                                                <div className="flex gap-1">
+                                                    <span className="text-[9px] font-bold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{row.accountType || 'Savings'}</span>
+                                                    <span className="text-[9px] font-bold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{row.currency}</span>
+                                                </div>
+                                            </div>
+                                        </TableCell>
+                                        {/* Bank */}
+                                        <TableCell className="px-4">
+                                            <div className="flex items-start gap-2">
+                                                <Landmark className="h-3.5 w-3.5 mt-0.5 text-gray-300 shrink-0" />
+                                                <div>
+                                                    <p className="text-xs font-bold text-gray-700 truncate max-w-[120px]">{row.beneficiaryBankName}</p>
+                                                    <div className="flex items-center gap-1 mt-0.5">
+                                                        <span className="font-mono text-[11px] font-bold text-indigo-500">{row.ifscCode}</span>
+                                                        <button onClick={() => copyToClipboard(row.ifscCode, `ifsc-${row.id}`)} className="p-0.5 rounded hover:bg-gray-100 transition-colors">
+                                                            {copied === `ifsc-${row.id}` ? <Check className="h-2.5 w-2.5 text-emerald-500" /> : <Copy className="h-2.5 w-2.5 text-gray-300" />}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </TableCell>
+                                        {/* KYC */}
+                                        <TableCell className="px-4">
+                                            {row.kycStatus === 'VERIFIED' ? (
+                                                <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-100">
+                                                    <CheckCircle2 className="h-3 w-3" /> Verified
+                                                </span>
+                                            ) : (
+                                                <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase px-2.5 py-1 rounded-lg bg-red-50 text-red-500 border border-red-100">
+                                                    <AlertCircle className="h-3 w-3" /> Pending
+                                                </span>
+                                            )}
+                                        </TableCell>
+                                        {/* Category */}
+                                        <TableCell className="px-4">
+                                            <span className={`text-[9px] font-black uppercase px-2 py-1 rounded-md inline-block ${
+                                                row.accountCategory === 'DOMESTIC' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
+                                                row.accountCategory === 'INTERNATIONAL' ? 'bg-blue-50 text-blue-600 border border-blue-100' :
+                                                'bg-amber-50 text-amber-600 border border-amber-100'
+                                            }`}>
+                                                {row.accountCategory === 'DOMESTIC' ? '🏠 Domestic' : row.accountCategory === 'INTERNATIONAL' ? '🌐 Intl' : '👤 Employee'}
+                                            </span>
+                                        </TableCell>
+                                        {/* PAN / GST */}
+                                        <TableCell className="px-4">
+                                            <div className="space-y-1">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[9px] font-black text-gray-300 w-7">PAN</span>
+                                                    <span className="font-mono text-[11px] font-bold text-gray-700">{row.panNumber || '—'}</span>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[9px] font-black text-gray-300 w-7">GST</span>
+                                                    <span className="font-mono text-[10px] font-bold text-gray-500 truncate max-w-[100px]">{row.gstNumber || '—'}</span>
+                                                </div>
+                                            </div>
+                                        </TableCell>
+                                        {/* MSME */}
+                                        <TableCell className="px-4">
+                                            <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-lg inline-block ${
+                                                row.isMSME ? 'bg-violet-50 text-violet-600 border border-violet-100' : 'bg-gray-50 text-gray-400 border border-gray-100'
+                                            }`}>
+                                                {row.isMSME ? '⭐ MSME' : 'Regular'}
+                                            </span>
+                                            {row.isMSME && row.udyamRegNum && (
+                                                <p className="text-[9px] font-mono text-gray-400 mt-1">UDYAM-{row.udyamRegNum}</p>
+                                            )}
+                                        </TableCell>
+                                        {/* Registered */}
+                                        <TableCell className="px-4">
+                                            <div className="flex items-center gap-1.5">
+                                                <Calendar className="h-3 w-3 text-gray-300" />
+                                                <span className="text-[11px] font-bold text-gray-500">
+                                                    {new Date(row.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                </span>
+                                            </div>
+                                        </TableCell>
+                                        {/* Documents */}
+                                        <TableCell className="px-4">
+                                            {row.attachments?.length > 0 ? (
+                                                <div className="flex items-center gap-1">
+                                                    {row.attachments.slice(0, 2).map((att: any) => (
+                                                        <div key={att.id} className="inline-flex rounded-lg overflow-hidden border border-gray-100 shadow-sm">
+                                                            <button onClick={() => { setPreviewFile(att); setShowPreview(true); }}
+                                                                className="px-2 py-1.5 flex items-center gap-1 text-indigo-500 hover:bg-indigo-50 transition-colors">
+                                                                <Eye className="h-3 w-3" /><span className="text-[9px] font-black uppercase">View</span>
+                                                            </button>
+                                                            <button onClick={() => arApi.downloadBankAccountAttachment(att.id)}
+                                                                className="px-1.5 py-1.5 text-gray-400 hover:bg-gray-50 transition-colors border-l border-gray-100">
+                                                                <ArrowDownToLine className="h-3 w-3" />
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                    {row.attachments.length > 2 && (
+                                                        <span className="text-[9px] font-bold text-gray-400 ml-1">+{row.attachments.length - 2}</span>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <span className="inline-flex items-center gap-1 text-[9px] font-black text-red-400 bg-red-50 border border-red-100 px-2.5 py-1.5 rounded-lg">
+                                                    <FileText className="h-3 w-3" /> Missing
+                                                </span>
+                                            )}
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                        <ScrollBar orientation="horizontal" />
+                    </ScrollArea>
+
+                    {/* Footer */}
+                    {summary && (
+                        <div className="px-5 py-3.5 flex flex-wrap gap-6 items-center justify-between border-t border-gray-50 bg-gray-50/50">
+                            <div className="flex flex-wrap gap-5">
+                                {[
+                                    { dot: '#6366F1', lbl: 'Total', val: summary.totalAccounts },
+                                    { dot: '#10B981', lbl: 'Verified', val: summary.verifiedAccounts },
+                                    { dot: '#EF4444', lbl: 'Pending', val: summary.pendingAccounts },
+                                    { dot: '#3B82F6', lbl: 'MSME', val: summary.msmeAccounts || metrics?.distribution?.msme || 0 },
+                                ].map(s => (
+                                    <div key={s.lbl} className="flex items-center gap-2">
+                                        <div className="w-2 h-2 rounded-full" style={{ background: s.dot, boxShadow: `0 0 6px ${s.dot}40` }} />
+                                        <span className="text-[11px] font-bold text-gray-400">{s.lbl}: <span className="font-black text-gray-700">{s.val}</span></span>
+                                    </div>
+                                ))}
                             </div>
-                            <h3 className="text-2xl font-black text-[#1A3352] mb-3">Payment Distribution Insights</h3>
-                            <p className="text-[#92A2A5] font-medium max-w-sm mx-auto mb-8 leading-relaxed">
-                                Detailed analysis of payment volumes, merchant distribution, and treasury routing.
-                            </p>
-                            <div className="inline-flex items-center gap-3 px-6 py-3 bg-emerald-50 rounded-xl border border-emerald-100 text-emerald-700 font-black text-[10px] uppercase tracking-widest animate-pulse">
-                                <TrendingUp className="h-4 w-4" />
-                                Synchronizing Treasury Data...
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-gray-300">Real-time ERP Data Feed</span>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* ══════════ VENDOR PAYMENT HISTORY ══════════ */}
+            <div className="px-4 md:px-6 pb-6">
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                    {/* Header */}
+                    <div className="p-5 flex flex-col gap-4 border-b border-gray-100">
+                        <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-3">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 rounded-xl bg-emerald-50">
+                                    <ArrowRightLeft className="h-4 w-4 text-emerald-500" />
+                                </div>
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <h2 className="text-sm font-black text-gray-900">Vendor Payment History</h2>
+                                        {vendorPayments && (
+                                            <span className="text-[10px] font-black bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full tabular-nums">
+                                                {vendorPayments.summary?.totalVendors || 0} vendors · {vendorPayments.summary?.totalTransactions || 0} txns
+                                            </span>
+                                        )}
+                                    </div>
+                                    <p className="text-[11px] text-gray-400 font-medium">Detailed payment transactions per vendor from approved batches</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                {/* Period Selector */}
+                                {[{ l: '30d', v: 30 }, { l: '90d', v: 90 }, { l: 'All', v: undefined as number | undefined }].map(p => (
+                                    <button key={p.l} onClick={() => handlePaymentDaysChange(p.v)}
+                                        className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border ${
+                                            paymentDays === p.v
+                                                ? 'bg-emerald-50 text-emerald-600 border-emerald-200 shadow-sm'
+                                                : 'bg-white text-gray-400 border-gray-100 hover:border-gray-200'
+                                        }`}>{p.l}</button>
+                                ))}
+                                <Button variant="outline" onClick={handleExportPaymentHistory}
+                                    disabled={!vendorPayments?.vendors?.length}
+                                    className="rounded-xl border-gray-200 text-gray-600 font-bold h-8 px-3 text-[10px] hover:bg-gray-50 ml-1">
+                                    <Download className="h-3 w-3 mr-1" />Export
+                                </Button>
                             </div>
                         </div>
-                    </Card>
-                </TabsContent>
-            </Tabs>
+                        <div className="relative w-full lg:w-72">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-300" />
+                            <Input placeholder="Search vendor name..." value={paymentSearch}
+                                onChange={(e) => handlePaymentSearch(e.target.value)}
+                                className="h-9 pl-10 rounded-xl bg-gray-50 border-gray-100 text-sm font-medium focus-visible:ring-1 focus-visible:ring-emerald-300" />
+                        </div>
+                    </div>
 
-            {/* Document Preview Dialog */}
-            <FilePreview 
-                isOpen={showPreview} 
-                onClose={() => setShowPreview(false)} 
-                file={previewFile} 
-            />
+                    {/* Vendor Payment Table */}
+                    <ScrollArea className="w-full">
+                        <div className="min-w-[900px]">
+                            {/* Table Header */}
+                            <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_40px] gap-2 px-5 py-3 bg-gradient-to-r from-gray-50 via-gray-50/80 to-gray-50 border-b border-gray-100">
+                                {['Vendor', 'Total Paid', 'Transactions', 'Last Payment', 'Avg Amount', ''].map(h => (
+                                    <span key={h} className="text-[10px] font-black uppercase tracking-[0.15em] text-gray-400">{h}</span>
+                                ))}
+                            </div>
+
+                            {/* Rows */}
+                            {vendorPaymentsLoading ? (
+                                <div className="flex flex-col items-center justify-center h-40 gap-3">
+                                    <div className="h-8 w-8 border-[3px] border-gray-200 border-t-emerald-500 rounded-full animate-spin" />
+                                    <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Loading payment history...</span>
+                                </div>
+                            ) : !vendorPayments?.vendors?.length ? (
+                                <div className="flex flex-col items-center justify-center h-40 gap-3">
+                                    <Banknote className="h-10 w-10 text-gray-200" />
+                                    <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">No payment history found</span>
+                                </div>
+                            ) : vendorPayments.vendors.map((vendor: any, idx: number) => (
+                                <div key={vendor.bankAccountId}>
+                                    {/* Vendor Row */}
+                                    <div
+                                        onClick={() => setExpandedVendor(expandedVendor === vendor.bankAccountId ? null : vendor.bankAccountId)}
+                                        className={`grid grid-cols-[2fr_1fr_1fr_1fr_1fr_40px] gap-2 px-5 py-3.5 cursor-pointer transition-all border-b border-gray-50 ${
+                                            idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'
+                                        } hover:bg-emerald-50/30 group`}>
+                                        {/* Vendor Info */}
+                                        <div className="flex items-center gap-3">
+                                            <div className={`h-8 w-8 rounded-lg bg-gradient-to-br ${getAvatarGradient(vendor.vendorName)} flex items-center justify-center text-white font-black text-xs shrink-0 shadow-sm`}>
+                                                {vendor.vendorName.charAt(0)}
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className="font-bold text-sm text-gray-900 truncate max-w-[200px] group-hover:text-emerald-600 transition-colors">{vendor.vendorName}</p>
+                                                <div className="flex items-center gap-2 mt-0.5">
+                                                    <span className="font-mono text-[10px] text-gray-400">{vendor.accountNumber}</span>
+                                                    {vendor.bpCode && <span className="text-[9px] font-bold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{vendor.bpCode}</span>}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {/* Total Paid */}
+                                        <div className="flex items-center">
+                                            <span className="text-sm font-black text-gray-900 tabular-nums">{fmt(vendor.totalAmount)}</span>
+                                        </div>
+                                        {/* Txn Count */}
+                                        <div className="flex items-center">
+                                            <span className="text-xs font-bold text-gray-600 bg-gray-100 px-2 py-0.5 rounded-md tabular-nums">{vendor.transactionCount}</span>
+                                        </div>
+                                        {/* Last Payment */}
+                                        <div className="flex items-center gap-1.5">
+                                            <Clock className="h-3 w-3 text-gray-300" />
+                                            <span className="text-[11px] font-bold text-gray-500">
+                                                {vendor.lastPaymentDate ? new Date(vendor.lastPaymentDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                                            </span>
+                                        </div>
+                                        {/* Avg Amount */}
+                                        <div className="flex items-center">
+                                            <span className="text-xs font-bold text-gray-500 tabular-nums">{fmt(vendor.avgAmount)}</span>
+                                        </div>
+                                        {/* Expand Icon */}
+                                        <div className="flex items-center justify-center">
+                                            <ChevronRight className={`h-4 w-4 text-gray-300 transition-transform duration-200 ${
+                                                expandedVendor === vendor.bankAccountId ? 'rotate-90 text-emerald-500' : ''
+                                            }`} />
+                                        </div>
+                                    </div>
+
+                                    {/* Expanded Transactions */}
+                                    {expandedVendor === vendor.bankAccountId && (
+                                        <div className="bg-gray-50/60 border-b border-gray-100">
+                                            <div className="px-8 py-2">
+                                                <div className="grid grid-cols-[1fr_1fr_1fr_1fr_1fr_1fr] gap-2 py-2 border-b border-gray-200/50">
+                                                    {['Date', 'Amount', 'Mode', 'Bank', 'Batch #', 'Requested By'].map(h => (
+                                                        <span key={h} className="text-[9px] font-black uppercase tracking-wider text-gray-400">{h}</span>
+                                                    ))}
+                                                </div>
+                                                {vendor.transactions.map((tx: any, ti: number) => (
+                                                    <div key={tx.id} className={`grid grid-cols-[1fr_1fr_1fr_1fr_1fr_1fr] gap-2 py-2.5 ${ti < vendor.transactions.length - 1 ? 'border-b border-gray-100/60' : ''}`}>
+                                                        <span className="text-[11px] font-bold text-gray-600">
+                                                            {new Date(tx.valueDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                        </span>
+                                                        <span className="text-[11px] font-black text-gray-800 tabular-nums">{fmt(tx.amount)}</span>
+                                                        <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md inline-flex items-center w-fit ${
+                                                            tx.transactionMode === 'NFT' ? 'bg-blue-50 text-blue-600 border border-blue-100' :
+                                                            tx.transactionMode === 'RTI' ? 'bg-violet-50 text-violet-600 border border-violet-100' :
+                                                            'bg-amber-50 text-amber-600 border border-amber-100'
+                                                        }`}>{tx.transactionMode === 'NFT' ? 'NEFT' : tx.transactionMode === 'RTI' ? 'RTGS' : tx.transactionMode}</span>
+                                                        <span className="text-[11px] font-bold text-gray-500 truncate">{vendor.bankName}</span>
+                                                        <span className="text-[10px] font-mono font-bold text-indigo-500">{tx.batchNumber}</span>
+                                                        <span className="text-[10px] font-bold text-gray-400">{tx.requestedBy}</span>
+                                                    </div>
+                                                ))}
+                                                {vendor.transactions.length > 0 && (
+                                                    <div className="pt-2 pb-1 flex items-center justify-between">
+                                                        <span className="text-[9px] font-black uppercase tracking-wider text-gray-300">
+                                                            {vendor.transactions.length} transaction{vendor.transactions.length !== 1 ? 's' : ''}
+                                                        </span>
+                                                        <span className="text-[10px] font-black text-emerald-600">
+                                                            Total: {fmt(vendor.totalAmount)}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                        <ScrollBar orientation="horizontal" />
+                    </ScrollArea>
+
+                    {/* Summary Footer */}
+                    {vendorPayments?.summary && vendorPayments.summary.totalTransactions > 0 && (
+                        <div className="px-5 py-3 flex flex-wrap gap-6 items-center justify-between border-t border-gray-100 bg-gray-50/50">
+                            <div className="flex flex-wrap gap-5">
+                                {[
+                                    { dot: '#10B981', lbl: 'Total Volume', val: fmt(vendorPayments.summary.totalAmount) },
+                                    { dot: '#6366F1', lbl: 'Vendors', val: vendorPayments.summary.totalVendors },
+                                    { dot: '#3B82F6', lbl: 'Transactions', val: vendorPayments.summary.totalTransactions },
+                                ].map(s => (
+                                    <div key={s.lbl} className="flex items-center gap-2">
+                                        <div className="w-2 h-2 rounded-full" style={{ background: s.dot, boxShadow: `0 0 6px ${s.dot}40` }} />
+                                        <span className="text-[11px] font-bold text-gray-400">{s.lbl}: <span className="font-black text-gray-700">{s.val}</span></span>
+                                    </div>
+                                ))}
+                            </div>
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-gray-300">
+                                {paymentDays ? `Last ${paymentDays} Days` : 'All Time'}
+                            </span>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Document Preview */}
+            <FilePreview isOpen={showPreview} onClose={() => setShowPreview(false)} file={previewFile} />
         </div>
     );
 }

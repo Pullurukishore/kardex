@@ -19,6 +19,7 @@ export interface ARCustomer {
     region?: string;
     department?: string;
     personInCharge?: string;
+    pocName?: string;
     contactNo?: string;
     emailId?: string;
     riskClass: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
@@ -532,6 +533,10 @@ export const arApi = {
         return res.data;
     },
 
+    async deleteCustomer(id: string): Promise<void> {
+        await api.delete(`/ar/customers/${id}`);
+    },
+
     // Payment Terms
     async getPaymentTerms(activeOnly = false): Promise<ARPaymentTerm[]> {
         const res = await api.get('/ar/payment-terms', { params: { activeOnly } });
@@ -695,6 +700,28 @@ export const arApi = {
         const res = await api.get('/ar/import/history');
         return res.data;
     },
+    
+    // Customer Imports
+    async previewCustomerExcel(file: File) {
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await api.post('/ar/customers/import/preview', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        return res.data;
+    },
+
+    async importCustomerExcel(file: File, selectedIndices?: number[]) {
+        const formData = new FormData();
+        formData.append('file', file);
+        if (selectedIndices && selectedIndices.length > 0) {
+            formData.append('selectedIndices', JSON.stringify(selectedIndices));
+        }
+        const res = await api.post('/ar/customers/import/excel', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        return res.data;
+    },
 
     // ═══════════════════════════════════════════════════════════════════════════
     // VENDOR ACCOUNTS
@@ -815,6 +842,11 @@ export const arApi = {
 
     async getBankPaymentInsights(days = 30) {
         const res = await api.get('/ar/reports/bank-accounts/payments', { params: { days } });
+        return res.data;
+    },
+
+    async getVendorPaymentHistory(params?: { days?: number; search?: string }) {
+        const res = await api.get('/ar/reports/bank-accounts/vendor-payment-history', { params });
         return res.data;
     },
     async updateBankAccountAttachmentVendorType(attachmentId: string, vendorType: string): Promise<BankAccountAttachment> {
@@ -1045,6 +1077,7 @@ export const formatARMonth = (monthStr?: string): string => {
         const [year, month] = monthStr.split('-');
         if (!year || !month) return monthStr;
         const date = new Date(parseInt(year), parseInt(month) - 1);
+        if (isNaN(date.getTime())) return monthStr;
         return date.toLocaleDateString('en-IN', {
             month: 'long',
             year: 'numeric'

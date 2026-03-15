@@ -10,6 +10,7 @@ import * as bankAccountController from '../../controllers/ar/bankAccount.control
 import * as bankAccountRequestController from '../../controllers/ar/bankAccountRequest.controller';
 import * as bankAccountAttachmentController from '../../controllers/ar/bankAccountAttachment.controller';
 import * as bankAccountImportController from '../../controllers/ar/bankAccountImport.controller';
+import * as customerImportController from '../../controllers/ar/arCustomerImport.controller';
 import * as bankAccountActivityController from '../../controllers/ar/bankAccountActivityLog.controller';
 import { bankDocUpload } from '../../config/bankDocMulter';
 import * as financeUserController from '../../controllers/ar/financeUser.controller';
@@ -158,6 +159,10 @@ router.post('/import/excel', requireFinanceWrite, upload.single('file'), importC
 router.get('/import/history', requireFinanceRead, importController.getImportHistory);
 router.get('/import/template', requireFinanceRead, importController.downloadTemplate);
 router.post('/import/recalculate', requireFinanceAdmin, importController.recalculateAll);
+
+// Customer Import Routes
+router.post('/customers/import/preview', requireFinanceWrite, upload.single('file'), customerImportController.previewExcel);
+router.post('/customers/import/excel', requireFinanceWrite, upload.single('file'), customerImportController.importFromExcel);
 
 // ═══════════════════════════════════════════════════════════════════════════
 // FINANCE USER ROUTES - Admin only

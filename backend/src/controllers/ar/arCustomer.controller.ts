@@ -2,67 +2,45 @@ import { Request, Response } from 'express';
 import prisma from '../../config/db';
 import { logInvoiceActivity, getUserFromRequest, getIpFromRequest } from './arActivityLog.controller';
 
-// Note: The AR module uses a denormalized structure - customer data is embedded in ARInvoice.
-// These functions provide customer-related queries from the ARInvoice table.
-
-// Get all unique customers from AR invoices with pagination
+/**
+ * Get all unique customers from ARCustomer master table with pagination and financial stats
+ */
 export const getAllCustomers = async (req: Request, res: Response) => {
     try {
         const { search, riskClass, page = 1, limit = 50 } = req.query;
 
-        // Build the where clause for ARInvoice
+        // Build where clause for ARCustomer
         const where: any = {};
-
         if (search) {
             where.OR = [
                 { bpCode: { contains: String(search), mode: 'insensitive' } },
                 { customerName: { contains: String(search), mode: 'insensitive' } },
             ];
         }
-
         if (riskClass) {
             where.riskClass = riskClass;
         }
 
         const skip = (Number(page) - 1) * Number(limit);
 
-        // Get distinct customers from ARInvoice
-        const invoices = await prisma.aRInvoice.findMany({
+        // 1. Fetch from Master Table as Primary Source
+        const customers = await prisma.aRCustomer.findMany({
             where,
-            select: {
-                bpCode: true,
-                customerName: true,
-                riskClass: true,
-                emailId: true,
-                contactNo: true,
-                region: true,
-                department: true,
-                personInCharge: true,
-                creditLimit: true,
-            },
-            distinct: ['bpCode'],
             skip,
             take: Number(limit),
             orderBy: { customerName: 'asc' },
         });
 
-        // Get total count of unique customers
-        const totalAggregate = await prisma.aRInvoice.groupBy({
-            by: ['bpCode'],
-            where: { 
-                ...where,
-                status: { not: 'CANCELLED' }
-            },
-        });
-        const total = totalAggregate.length;
+        const total = await prisma.aRCustomer.count({ where });
 
-        // Get totals for all customers in the current page batch in one query to avoid N+1
-        const pageBpCodes = invoices.map(i => i.bpCode);
+        // 2. Fetch financial stats from ARInvoice table for these specific customers
+        const pageBpCodes = customers.map((c: any) => c.bpCode);
         const financialStats = await prisma.aRInvoice.groupBy({
             by: ['bpCode'],
             where: { 
                 bpCode: { in: pageBpCodes },
-                status: { not: 'CANCELLED' }
+                status: { not: 'CANCELLED' },
+                NOT: { milestoneStatus: 'LINKED' }
             },
             _sum: {
                 totalAmount: true,
@@ -73,19 +51,12 @@ export const getAllCustomers = async (req: Request, res: Response) => {
             }
         });
 
-        const customersWithCounts = invoices.map((customer) => {
-            const stats = financialStats.find(s => s.bpCode === customer.bpCode);
+        const customersWithStats = customers.map((c: any) => {
+            const stats = financialStats.find((s: any) => s.bpCode === c.bpCode);
             return {
-                id: customer.bpCode,
-                bpCode: customer.bpCode,
-                customerName: customer.customerName,
-                riskClass: customer.riskClass,
-                emailId: customer.emailId,
-                contactNo: customer.contactNo,
-                region: customer.region,
-                department: customer.department,
-                personInCharge: customer.personInCharge,
-                creditLimit: (customer.creditLimit !== null && customer.creditLimit !== undefined) ? Number(customer.creditLimit) : undefined,
+                id: c.bpCode,
+                ...c,
+                creditLimit: c.creditLimit !== null ? Number(c.creditLimit) : 0,
                 totalInvoiceAmount: stats?._sum.totalAmount !== null ? Number(stats?._sum.totalAmount) : 0,
                 outstandingBalance: stats?._sum.balance !== null ? Number(stats?._sum.balance) : 0,
                 _count: { invoices: stats?._count._all || 0 }
@@ -93,7 +64,7 @@ export const getAllCustomers = async (req: Request, res: Response) => {
         });
 
         res.json({
-            data: customersWithCounts,
+            data: customersWithStats,
             pagination: {
                 page: Number(page),
                 limit: Number(limit),
@@ -102,48 +73,38 @@ export const getAllCustomers = async (req: Request, res: Response) => {
             }
         });
     } catch (error: any) {
-
         res.status(500).json({ error: 'Failed to fetch customers', message: error.message });
     }
 };
 
-// Get customer by BP Code (id in the route is bpCode)
+/**
+ * Get customer details by BP Code
+ */
 export const getCustomerById = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
 
-        // Get customer info from the first invoice with this bpCode
-        const customerInvoice = await prisma.aRInvoice.findFirst({
-            where: { bpCode: id },
-            select: {
-                bpCode: true,
-                customerName: true,
-                riskClass: true,
-                emailId: true,
-                contactNo: true,
-                region: true,
-                department: true,
-                personInCharge: true,
-                creditLimit: true,
-            }
+        // Fetch from Master Table
+        const master = await prisma.aRCustomer.findUnique({
+            where: { bpCode: id }
         });
 
-        if (!customerInvoice) {
-            return res.status(404).json({ error: 'Customer not found' });
+        if (!master) {
+            return res.status(404).json({ error: 'Customer not found in master records' });
         }
 
-        // Get latest invoices for UI list
+        // Get snapshot from invoices for activity display
         const invoices = await prisma.aRInvoice.findMany({
             where: { bpCode: id },
             orderBy: { invoiceDate: 'desc' },
             take: 10,
         });
 
-        // Get total financial stats across ALL active invoices for this customer
         const financialStats = await prisma.aRInvoice.aggregate({
             where: { 
                 bpCode: id,
-                status: { not: 'CANCELLED' }
+                status: { not: 'CANCELLED' },
+                NOT: { milestoneStatus: 'LINKED' }
             },
             _sum: {
                 totalAmount: true,
@@ -154,7 +115,6 @@ export const getCustomerById = async (req: Request, res: Response) => {
             }
         });
 
-        // Get overdue count strictly
         const overdueCount = await prisma.aRInvoice.count({
             where: { 
                 bpCode: id,
@@ -162,119 +122,148 @@ export const getCustomerById = async (req: Request, res: Response) => {
             }
         });
 
-        const customer = {
-            id: customerInvoice.bpCode,
-            bpCode: customerInvoice.bpCode,
-            customerName: customerInvoice.customerName,
-            riskClass: customerInvoice.riskClass,
-            emailId: customerInvoice.emailId,
-            contactNo: customerInvoice.contactNo,
-            region: customerInvoice.region,
-            department: customerInvoice.department,
-            personInCharge: customerInvoice.personInCharge,
-            creditLimit: (customerInvoice.creditLimit !== null && customerInvoice.creditLimit !== undefined) ? Number(customerInvoice.creditLimit) : undefined,
+        res.json({
+            id: master.bpCode,
+            ...master,
+            creditLimit: master.creditLimit !== null ? Number(master.creditLimit) : 0,
             totalInvoiceAmount: financialStats?._sum.totalAmount !== null ? Number(financialStats?._sum.totalAmount) : 0,
             outstandingBalance: financialStats?._sum.balance !== null ? Number(financialStats?._sum.balance) : 0,
             invoiceCount: financialStats?._count._all || 0,
             overdueCount,
             invoices,
-        };
-
-        res.json(customer);
+        });
     } catch (error: any) {
-
         res.status(500).json({ error: 'Failed to fetch customer', message: error.message });
     }
 };
 
-// Create customer - Not applicable in denormalized schema
-// Customer info is created with invoices
+/**
+ * Explicitly create a customer master record (without invoice)
+ */
 export const createCustomer = async (req: Request, res: Response) => {
-    res.status(400).json({
-        error: 'Customer creation is not supported. Customer data is managed through invoice imports.'
-    });
-};
-
-// Update customer - Updates customer info on all invoices with this bpCode
-export const updateCustomer = async (req: Request, res: Response) => {
     try {
-        const { id } = req.params;
-        const { emailId, contactNo, region, department, personInCharge, riskClass, creditLimit } = req.body;
+        const { bpCode, customerName, emailId, contactNo, region, department, personInCharge, riskClass, creditLimit } = req.body;
 
-        // Update customer info on all invoices with this bpCode
-        const updateResult = await prisma.aRInvoice.updateMany({
-            where: { bpCode: id },
-            data: {
-                ...(emailId !== undefined && { emailId }),
-                ...(contactNo !== undefined && { contactNo }),
-                ...(region !== undefined && { region }),
-                ...(department !== undefined && { department }),
-                ...(personInCharge !== undefined && { personInCharge }),
-                ...(riskClass !== undefined && { riskClass }),
-                ...(creditLimit !== undefined && { creditLimit }),
-            }
-        });
-
-        if (updateResult.count === 0) {
-            return res.status(404).json({ error: 'Customer not found' });
+        if (!bpCode || !customerName) {
+            return res.status(400).json({ error: 'BP Code and Customer Name are mandatory' });
         }
 
-        // Get all affected invoice IDs for logging
-        const affectedInvoices = await prisma.aRInvoice.findMany({
-            where: { bpCode: id },
-            select: { id: true, invoiceNumber: true }
-        });
-
-        // Log activity for each affected invoice (first 10 to avoid performance issues)
-        const user = getUserFromRequest(req);
-        const ipAddress = getIpFromRequest(req);
-        const userAgent = req.headers['user-agent'] || null;
-
-        const logPromises = affectedInvoices.slice(0, 10).map(inv =>
-            logInvoiceActivity({
-                invoiceId: inv.id,
-                action: 'CUSTOMER_UPDATED',
-                description: `Customer information updated for BP Code ${id} (${updateResult.count} invoices affected)`,
-                performedById: user.id,
-                performedBy: user.name,
-                ipAddress,
-                userAgent,
-                metadata: { bpCode: id, updatedFields: Object.keys(req.body), invoiceCount: updateResult.count }
-            })
-        );
-
-        await Promise.all(logPromises);
-
-        // Return updated customer info
-        const updatedCustomer = await prisma.aRInvoice.findFirst({
-            where: { bpCode: id },
-            select: {
-                bpCode: true,
-                customerName: true,
-                riskClass: true,
-                emailId: true,
-                contactNo: true,
-                region: true,
-                department: true,
-                personInCharge: true,
-                creditLimit: true,
+        const customer = await prisma.aRCustomer.create({
+            data: {
+                bpCode: bpCode.trim(),
+                customerName: customerName.trim(),
+                emailId,
+                contactNo,
+                region,
+                department,
+                personInCharge,
+                riskClass: riskClass || 'LOW',
+                creditLimit: creditLimit || 0
             }
         });
 
-        res.json({
-            id: id,
-            ...updatedCustomer,
-            message: `Updated ${updateResult.count} invoice(s)`
+        const user = getUserFromRequest(req);
+        await logInvoiceActivity({
+            invoiceId: null,
+            action: 'CUSTOMER_CREATED',
+            description: `New customer master created: ${customerName} (${bpCode})`,
+            performedById: user.id,
+            performedBy: user.name,
+            ipAddress: getIpFromRequest(req),
+            userAgent: req.headers['user-agent'] || null,
+            metadata: { bpCode }
         });
-    } catch (error: any) {
 
+        res.status(201).json(customer);
+    } catch (error: any) {
+        if (error.code === 'P2002') {
+            return res.status(400).json({ error: 'BP Code already exists' });
+        }
+        res.status(500).json({ error: 'Failed to create customer', message: error.message });
+    }
+};
+
+/**
+ * Update customer in both Master and Invoices
+ */
+export const updateCustomer = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params; // BP Code
+        const data = req.body;
+
+        // 1. Update Master Table
+        const updatedMaster = await prisma.aRCustomer.update({
+            where: { bpCode: id },
+            data: {
+                customerName: data.customerName,
+                emailId: data.emailId,
+                contactNo: data.contactNo,
+                region: data.region,
+                department: data.department,
+                personInCharge: data.personInCharge,
+                riskClass: data.riskClass,
+                creditLimit: data.creditLimit
+            }
+        });
+
+        // 2. Cascade update to all invoices
+        await prisma.aRInvoice.updateMany({
+            where: { bpCode: id },
+            data: {
+                customerName: data.customerName,
+                emailId: data.emailId,
+                contactNo: data.contactNo,
+                region: data.region,
+                department: data.department,
+                personInCharge: data.personInCharge,
+                riskClass: data.riskClass,
+                creditLimit: data.creditLimit
+            }
+        });
+
+        const user = getUserFromRequest(req);
+        await logInvoiceActivity({
+            invoiceId: null,
+            action: 'CUSTOMER_UPDATED',
+            description: `Customer master updated: ${id}`,
+            performedById: user.id,
+            performedBy: user.name,
+            ipAddress: getIpFromRequest(req),
+            userAgent: req.headers['user-agent'] || null,
+            metadata: { bpCode: id, fields: Object.keys(data) }
+        });
+
+        res.json(updatedMaster);
+    } catch (error: any) {
         res.status(500).json({ error: 'Failed to update customer', message: error.message });
     }
 };
 
-// Delete customer - Not supported in denormalized schema
+/**
+ * Delete customer master record
+ */
 export const deleteCustomer = async (req: Request, res: Response) => {
-    res.status(400).json({
-        error: 'Customer deletion is not supported. Delete individual invoices instead.'
-    });
+    try {
+        const { id } = req.params;
+
+        // Check if invoices exist
+        const invoiceCount = await prisma.aRInvoice.count({
+            where: { bpCode: id }
+        });
+
+        if (invoiceCount > 0) {
+            return res.status(400).json({ 
+                error: 'Cannot delete customer', 
+                message: `This customer has ${invoiceCount} active invoices. Delete invoices first.` 
+            });
+        }
+
+        await prisma.aRCustomer.delete({
+            where: { bpCode: id }
+        });
+
+        res.json({ message: 'Customer master record deleted successfully' });
+    } catch (error: any) {
+        res.status(500).json({ error: 'Failed to delete customer', message: error.message });
+    }
 };

@@ -117,6 +117,16 @@ export const submitBatch = async (req: Request, res: Response) => {
                         submittedByEmail: batch.requestedBy?.email || '',
                         submittedAt: new Date().toLocaleString('en-IN'),
                         actionUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/finance/bank-accounts/payment-batches/${batch.id}`,
+                        items: items.slice(0, 10).map(item => ({
+                            vendorName: item.vendorName,
+                            amount: parseFloat(item.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 }),
+                            bankName: item.bankName,
+                            accountNumber: item.accountNumber,
+                            ifscCode: item.ifscCode,
+                            bpCode: item.bpCode,
+                            transactionMode: item.transactionMode
+                        })),
+                        hasMoreItems: items.length > 10,
                         currentYear: new Date().getFullYear()
                     }
                 });
@@ -567,6 +577,16 @@ export const resubmitRejectedItems = async (req: Request, res: Response) => {
                         submittedByEmail: result.requestedBy?.email || '',
                         submittedAt: new Date().toLocaleString('en-IN'),
                         actionUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/finance/bank-accounts/payment-batches/${result.id}`,
+                        items: result.items.slice(0, 10).map(item => ({
+                            vendorName: item.vendorName,
+                            amount: parseFloat(item.amount.toString()).toLocaleString('en-IN', { minimumFractionDigits: 2 }),
+                            bankName: item.bankName,
+                            accountNumber: item.accountNumber,
+                            ifscCode: item.ifscCode,
+                            bpCode: item.bpCode,
+                            transactionMode: item.transactionMode
+                        })),
+                        hasMoreItems: result.items.length > 10,
                         currentYear: new Date().getFullYear()
                     }
                 });

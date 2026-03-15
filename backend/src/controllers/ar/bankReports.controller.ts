@@ -178,3 +178,131 @@ export const getPaymentVolumeInsights = async (req: Request, res: Response) => {
         res.status(500).json({ error: 'Failed to fetch payment volume insights' });
     }
 };
+
+/**
+ * Get Vendor Payment History
+ * Returns detailed payment transactions grouped by vendor
+ */
+export const getVendorPaymentHistory = async (req: Request, res: Response) => {
+    try {
+        const { days, search } = req.query;
+
+        const where: any = {
+            status: 'APPROVED'
+        };
+
+        // Date filter
+        if (days && Number(days) > 0) {
+            const startDate = new Date();
+            startDate.setDate(startDate.getDate() - Number(days));
+            where.batch = { requestedAt: { gte: startDate } };
+        }
+
+        // Search filter on vendor name
+        if (search) {
+            where.vendorName = { contains: String(search), mode: 'insensitive' };
+        }
+
+        const items = await prisma.paymentBatchItem.findMany({
+            where,
+            orderBy: { batch: { requestedAt: 'desc' } },
+            select: {
+                id: true,
+                vendorName: true,
+                bankAccountId: true,
+                accountNumber: true,
+                ifscCode: true,
+                bankName: true,
+                bpCode: true,
+                amount: true,
+                transactionMode: true,
+                valueDate: true,
+                status: true,
+                batch: {
+                    select: {
+                        id: true,
+                        batchNumber: true,
+                        requestedAt: true,
+                        status: true,
+                        currency: true,
+                        requestedBy: {
+                            select: { id: true, name: true }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Group by vendor (bankAccountId)
+        const vendorMap = new Map<string, {
+            vendorName: string;
+            bankAccountId: string;
+            accountNumber: string;
+            bankName: string;
+            bpCode: string | null;
+            totalAmount: number;
+            transactionCount: number;
+            lastPaymentDate: Date | null;
+            transactions: any[];
+        }>();
+
+        items.forEach(item => {
+            const key = item.bankAccountId;
+            const amount = Number(item.amount);
+
+            if (!vendorMap.has(key)) {
+                vendorMap.set(key, {
+                    vendorName: item.vendorName,
+                    bankAccountId: item.bankAccountId,
+                    accountNumber: item.accountNumber,
+                    bankName: item.bankName,
+                    bpCode: item.bpCode,
+                    totalAmount: 0,
+                    transactionCount: 0,
+                    lastPaymentDate: null,
+                    transactions: []
+                });
+            }
+
+            const vendor = vendorMap.get(key)!;
+            vendor.totalAmount += amount;
+            vendor.transactionCount++;
+
+            const txDate = item.valueDate || item.batch.requestedAt;
+            if (!vendor.lastPaymentDate || txDate > vendor.lastPaymentDate) {
+                vendor.lastPaymentDate = txDate;
+            }
+
+            vendor.transactions.push({
+                id: item.id,
+                amount,
+                transactionMode: item.transactionMode,
+                valueDate: item.valueDate,
+                batchNumber: item.batch.batchNumber,
+                batchStatus: item.batch.status,
+                batchDate: item.batch.requestedAt,
+                currency: item.batch.currency,
+                requestedBy: item.batch.requestedBy?.name || 'Unknown'
+            });
+        });
+
+        const vendors = Array.from(vendorMap.values())
+            .sort((a, b) => b.totalAmount - a.totalAmount)
+            .map(v => ({
+                ...v,
+                avgAmount: v.transactionCount > 0 ? v.totalAmount / v.transactionCount : 0
+            }));
+
+        res.json({
+            vendors,
+            summary: {
+                totalVendors: vendors.length,
+                totalAmount: vendors.reduce((sum, v) => sum + v.totalAmount, 0),
+                totalTransactions: vendors.reduce((sum, v) => sum + v.transactionCount, 0)
+            }
+        });
+    } catch (error: any) {
+        console.error('Vendor payment history error:', error);
+        res.status(500).json({ error: 'Failed to fetch vendor payment history' });
+    }
+};

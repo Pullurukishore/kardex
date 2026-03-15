@@ -10,7 +10,7 @@ import {
   Wallet, Package, Timer, Truck, PackageCheck, PackageX, 
   BadgeCheck, Tag, Sparkles, ExternalLink,
   ArrowRight, CheckCircle, Layers, ShieldAlert, ShieldCheck, Shield, MessageSquare,
-  Eye, Pencil, Trash2
+  Eye, Pencil, Trash2, FileSpreadsheet
 } from 'lucide-react';
 
 const termOptions: Record<string, string> = {
@@ -296,11 +296,21 @@ export default function ARMilestonesPage() {
         </div>
         <div className="flex items-center gap-2">
           <Link 
+            href="/finance/ar/milestones/import"
+            className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 rounded-lg bg-white border border-[#AEBFC3]/30 text-[#546A7A] text-sm font-semibold hover:bg-[#F8FAFB] transition-all shadow-sm"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-[#CE9F6B]" />
+            <span className="hidden sm:inline">Import Milestones</span>
+            <span className="sm:hidden text-[10px]">Import</span>
+          </Link>
+
+          <Link 
             href="/finance/ar/milestones/new"
             className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 rounded-lg bg-gradient-to-r from-[#E17F70] to-[#CE9F6B] text-white text-sm font-semibold hover:shadow-lg transition-all"
           >
             <Plus className="w-4 h-4" />
             <span className="hidden sm:inline">New Milestone</span>
+            <span className="sm:hidden text-[10px]">Add</span>
           </Link>
         </div>
       </div>

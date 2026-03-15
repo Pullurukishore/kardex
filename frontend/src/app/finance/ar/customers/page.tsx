@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { arApi, ARCustomer, formatARCurrency } from '@/lib/ar-api';
-import { Search, Plus, Users, ChevronLeft, ChevronRight, Building2, AlertTriangle, Eye, Pencil, Sparkles, Receipt, TrendingUp, Wallet } from 'lucide-react';
+import { Search, Plus, Users, ChevronLeft, ChevronRight, Building2, AlertTriangle, Eye, Pencil, Sparkles, Receipt, TrendingUp, Wallet, UploadCloud } from 'lucide-react';
 
 export default function ARCustomersPage() {
   const router = useRouter();
@@ -85,6 +85,13 @@ export default function ARCustomersPage() {
             <Plus className="w-5 h-5" />
             <span className="relative">Add Customer</span>
             <Sparkles className="w-4 h-4 text-[#82A094] hidden sm:block" />
+          </Link>
+          <Link 
+            href="/finance/ar/customers/import"
+            className="group relative flex items-center justify-center gap-2 px-4 sm:px-6 py-3 rounded-xl bg-white/10 backdrop-blur-sm text-white font-bold hover:bg-white/20 transition-all border border-white/30 min-h-[44px]"
+          >
+            <UploadCloud className="w-5 h-5" />
+            <span className="relative">Import</span>
           </Link>
         </div>
       </div>

@@ -105,7 +105,7 @@ export const getAllInvoices = async (req: Request, res: Response) => {
         ]);
 
         // Fetch payment modes for these invoices manually (since it's a loose relation)
-        const invoiceIds = invoices.map(inv => inv.id);
+        const invoiceIds = invoices.map((inv: any) => inv.id);
         const paymentModes = await prisma.aRPaymentHistory.findMany({
             where: { invoiceId: { in: invoiceIds } },
             select: { invoiceId: true, paymentMode: true }
@@ -119,7 +119,7 @@ export const getAllInvoices = async (req: Request, res: Response) => {
         }, {});
 
         // Calculate days overdue for each invoice and attach payment history
-        const invoicesWithOverdue = invoices.map(invoice => {
+        const invoicesWithOverdue = invoices.map((invoice: any) => {
             const today = new Date();
             let dueByDays = 0;
             let isOverdue = false;
@@ -155,7 +155,7 @@ export const getAllInvoices = async (req: Request, res: Response) => {
         let filteredInvoices = invoicesWithOverdue;
         if (agingBucket) {
             const bucket = String(agingBucket);
-            filteredInvoices = invoicesWithOverdue.filter(inv => {
+            filteredInvoices = invoicesWithOverdue.filter((inv: any) => {
                 const days = inv.dueByDays;
                 switch (bucket) {
                     case 'current': return days <= 0; // Not yet due
@@ -497,7 +497,7 @@ export const deletePaymentRecord = async (req: Request, res: Response) => {
             let newReceipts = 0;
             let newAdjustments = 0;
 
-            invoicePayments.forEach(p => {
+            invoicePayments.forEach((p: any) => {
                 const amt = Number(p.amount);
                 if (p.paymentMode === 'ADJUSTMENT' || p.paymentMode === 'CREDIT_NOTE') {
                     newAdjustments += amt;
@@ -579,7 +579,14 @@ export const createInvoice = async (req: Request, res: Response) => {
             milestoneTerms,
             accountingStatus,
             mailToTSP,
-            bookingMonth
+            bookingMonth,
+            // Master Fields
+            emailId,
+            contactNo,
+            region,
+            department,
+            personInCharge,
+            pocName
         } = req.body;
 
         if (!customerId || !totalAmount) {
@@ -605,6 +612,14 @@ export const createInvoice = async (req: Request, res: Response) => {
             calculatedDueDate = new Date(new Date(invoiceDate).getTime() + 30 * 24 * 60 * 60 * 1000);
         }
 
+        // Try to fetch remaining details from master if not provided
+        let masterData = null;
+        if (customerId && (!emailId || !contactNo || !region)) {
+            masterData = await prisma.aRCustomer.findUnique({
+                where: { bpCode: customerId }
+            });
+        }
+
         const invoice = await prisma.aRInvoice.create({
             data: {
                 invoiceNumber: invoiceNumber || '',
@@ -628,7 +643,43 @@ export const createInvoice = async (req: Request, res: Response) => {
                 milestoneTerms: milestoneTerms || null,
                 accountingStatus: accountingStatus || null,
                 mailToTSP: mailToTSP || null,
-                bookingMonth: bookingMonth || null
+                bookingMonth: bookingMonth || null,
+                // Master Fields
+                emailId: emailId || masterData?.emailId || null,
+                contactNo: contactNo || masterData?.contactNo || null,
+                region: region || masterData?.region || null,
+                department: department || masterData?.department || null,
+                personInCharge: personInCharge || masterData?.personInCharge || null,
+                pocName: pocName || masterData?.pocName || null
+            }
+        });
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        // AUTOMATIC CUSTOMER MASTER DISCOVERY
+        // ═══════════════════════════════════════════════════════════════════════════
+        // If this BP Code doesn't exist in Master, create it automatically
+        await prisma.aRCustomer.upsert({
+            where: { bpCode: customerId },
+            create: {
+                bpCode: customerId,
+                customerName: req.body.customerName || '',
+                emailId: emailId || masterData?.emailId || null,
+                contactNo: contactNo || masterData?.contactNo || null,
+                region: region || masterData?.region || null,
+                department: department || masterData?.department || null,
+                personInCharge: personInCharge || masterData?.personInCharge || null,
+                pocName: pocName || masterData?.pocName || null,
+                riskClass: 'LOW'
+            },
+            update: {
+                // Optionally update name/details if it changed
+                customerName: req.body.customerName || undefined,
+                emailId: emailId || undefined,
+                contactNo: contactNo || undefined,
+                region: region || undefined,
+                department: department || undefined,
+                personInCharge: personInCharge || undefined,
+                pocName: pocName || undefined
             }
         });
 

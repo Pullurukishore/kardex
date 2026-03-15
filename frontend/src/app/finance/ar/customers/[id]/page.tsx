@@ -7,15 +7,18 @@ import { arApi, ARCustomer, ARInvoice, formatARCurrency, formatARDate } from '@/
 import { 
   ArrowLeft, Pencil, Building2, User, Mail, Phone, MapPin, Shield, 
   Sparkles, AlertTriangle, FileText, TrendingUp, Wallet, Receipt,
-  Calendar, ChevronRight, Clock, CheckCircle2, XCircle
+  Calendar, ChevronRight, Clock, CheckCircle2, XCircle, Trash, AlertCircle
 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function ViewCustomerPage() {
   const params = useParams();
   const router = useRouter();
   const [customer, setCustomer] = useState<(ARCustomer & { invoices?: ARInvoice[] }) | null>(null);
   const [loading, setLoading] = useState(true);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { user: currentUser } = useAuth();
 
   useEffect(() => {
     loadCustomer();
@@ -24,12 +27,33 @@ export default function ViewCustomerPage() {
   const loadCustomer = async () => {
     try {
       setLoading(true);
+      setError(null);
       const data = await arApi.getCustomerById(params.id as string);
       setCustomer(data);
     } catch (err: any) {
       setError(err.message || 'Failed to load customer');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!customer) return;
+    
+    const confirmDelete = window.confirm(`Are you sure you want to delete customer "${customer.customerName}"? This action cannot be undone.`);
+    
+    if (confirmDelete) {
+      try {
+        setDeleteLoading(true);
+        await arApi.deleteCustomer(customer.id);
+        router.push('/finance/ar/customers');
+      } catch (err: any) {
+        console.error('Failed to delete customer:', err);
+        const errorMessage = err.response?.data?.error || err.message || 'Failed to delete customer';
+        alert(errorMessage);
+      } finally {
+        setDeleteLoading(false);
+      }
     }
   };
 
@@ -160,13 +184,30 @@ export default function ViewCustomerPage() {
               </div>
             </div>
           </div>
-          <Link
-            href={`/finance/ar/customers/${customer.id}/edit`}
-            className="group flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white text-[#4F6A64] font-bold hover:shadow-2xl hover:shadow-white/30 hover:-translate-y-0.5 transition-all"
-          >
-            <Pencil className="w-4 h-4" />
-            Edit Customer
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link
+              href={`/finance/ar/customers/${customer.id}/edit`}
+              className="group flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white text-[#4F6A64] font-bold hover:shadow-2xl hover:shadow-white/30 hover:-translate-y-0.5 transition-all"
+            >
+              <Pencil className="w-4 h-4" />
+              Edit Customer
+            </Link>
+            
+            {currentUser?.financeRole === 'FINANCE_ADMIN' && (
+              <button
+                onClick={handleDelete}
+                disabled={deleteLoading}
+                className="group flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#E17F70] text-white font-bold hover:shadow-2xl hover:shadow-[#E17F70]/30 hover:-translate-y-0.5 transition-all disabled:opacity-50"
+              >
+                {deleteLoading ? (
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <Trash className="w-4 h-4" />
+                )}
+                Delete
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -264,7 +305,11 @@ export default function ViewCustomerPage() {
             <div className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="group">
-                  <label className="text-[#92A2A5] text-xs uppercase tracking-wider font-medium mb-2 block">Person In Charge</label>
+                  <label className="text-[#92A2A5] text-xs uppercase tracking-wider font-medium mb-2 block">POC Name (Client Rep)</label>
+                  <p className="text-[#546A7A] font-semibold text-lg">{customer.pocName || <span className="text-[#AEBFC3]">Not specified</span>}</p>
+                </div>
+                <div className="group">
+                  <label className="text-[#92A2A5] text-xs uppercase tracking-wider font-medium mb-2 block">Person In Charge (Internal)</label>
                   <p className="text-[#546A7A] font-semibold text-lg">{customer.personInCharge || <span className="text-[#AEBFC3]">Not specified</span>}</p>
                 </div>
                 <div className="group">

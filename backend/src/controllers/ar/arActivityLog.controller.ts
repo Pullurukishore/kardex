@@ -16,9 +16,12 @@ export type ARActivityAction =
     | 'MILESTONE_LINKED'      // When a milestone payment is linked to a regular invoice
     | 'LINKED_TO_INVOICE'    // When a milestone is linked (logged on the milestone payment)
     | 'CUSTOMER_UPDATED'     // When customer info (denormalized) is updated
+    | 'CUSTOMER_IMPORTED'    // When customer info is updated via bulk import
     | 'PAYMENT_TERM_CREATED' // When a new payment term is added
     | 'PAYMENT_TERM_UPDATED' // When a payment term is modified
-    | 'PAYMENT_TERM_DELETED'; // When a payment term is removed
+    | 'PAYMENT_TERM_DELETED' // When a payment term is removed
+    | 'CUSTOMER_CREATED'     // When a new customer master is manually created
+    | 'CUSTOMER_DELETED';    // When a customer master record is deleted (if allowed)
 
 interface LogActivityParams {
     invoiceId?: string | null;
