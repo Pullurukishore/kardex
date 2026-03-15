@@ -224,18 +224,19 @@ export default function MilestoneImportPage() {
           
           return (
             <div key={s.key} className="flex items-center gap-2 sm:gap-3">
-              <div className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl transition-all duration-300 ${
+              <div className={`relative flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl transition-all duration-300 overflow-hidden ${
                 isActive 
-                  ? 'bg-[#CE9F6B]/10 border-2 border-[#CE9F6B]/40 shadow-lg shadow-[#CE9F6B]/5' 
+                  ? 'bg-gradient-to-r from-[#CE9F6B]/15 to-[#976E44]/10 border-2 border-[#CE9F6B]/40 shadow-lg shadow-[#CE9F6B]/10' 
                   : isPast 
-                    ? 'bg-[#CE9F6B]/5 border border-[#CE9F6B]/20'
+                    ? 'bg-gradient-to-r from-[#82A094]/10 to-[#4F6A64]/5 border-2 border-[#82A094]/30'
                     : 'bg-white border-2 border-[#AEBFC3]/30'
               }`}>
-                <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center transition-all ${
+                {isActive && <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-[#CE9F6B] to-[#976E44]" />}
+                <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center transition-all shadow-lg ${
                   isActive 
-                    ? 'bg-gradient-to-br from-[#CE9F6B] to-[#976E44]' 
+                    ? 'bg-gradient-to-br from-[#CE9F6B] to-[#976E44] shadow-[#CE9F6B]/30' 
                     : isPast 
-                      ? 'bg-[#CE9F6B]'
+                      ? 'bg-gradient-to-br from-[#82A094] to-[#4F6A64] shadow-[#82A094]/20'
                       : 'bg-[#AEBFC3]/30'
                 }`}>
                   {isPast ? (
@@ -245,11 +246,11 @@ export default function MilestoneImportPage() {
                   )}
                 </div>
                 <span className={`text-xs sm:text-sm font-bold ${
-                  isActive ? 'text-[#976E44]' : isPast ? 'text-[#CE9F6B]' : 'text-[#92A2A5]'
+                  isActive ? 'text-[#976E44]' : isPast ? 'text-[#4F6A64]' : 'text-[#92A2A5]'
                 }`}>{s.label}</span>
               </div>
               {index < 2 && (
-                <ArrowRight className={`w-3 h-3 sm:w-4 sm:h-4 ${isPast ? 'text-[#CE9F6B]' : 'text-[#AEBFC3]'}`} />
+                <ArrowRight className={`w-3 h-3 sm:w-4 sm:h-4 ${isPast ? 'text-[#82A094]' : 'text-[#AEBFC3]'}`} />
               )}
             </div>
           );
@@ -257,24 +258,30 @@ export default function MilestoneImportPage() {
       </div>
 
       {/* Premium Header - Milestone Gold Theme */}
-      <div className="relative overflow-hidden rounded-[32px] bg-gradient-to-br from-[#1F2937] via-[#374151] to-[#1F2937] p-6 sm:p-10 shadow-2xl">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#CE9F6B] via-[#976E44] to-[#E17F70] p-6 sm:p-8 shadow-2xl shadow-[#CE9F6B]/20 group">
+        {/* Animated Pattern Overlay */}
         <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-4 right-12 w-48 h-48 border-4 border-[#CE9F6B] rounded-full blur-2xl" />
-          <div className="absolute -bottom-8 left-12 w-64 h-64 border-4 border-[#CE9F6B] rounded-full blur-3xl" />
+          <div className="absolute top-4 right-12 w-40 h-40 border-4 border-white/50 rounded-full animate-pulse" />
+          <div className="absolute -bottom-8 left-12 w-56 h-56 border-4 border-white/30 rounded-full" />
+          <div className="absolute top-12 left-1/4 w-20 h-20 border-2 border-white/40 rounded-full" />
         </div>
+        
+        {/* Shimmer Effect */}
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full animate-[shimmer-slide_4s_ease-in-out_infinite]" />
 
         <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-6">
           <div className="flex items-center gap-5">
-            <div className="p-4 rounded-[24px] bg-[#CE9F6B]/20 backdrop-blur-md border border-[#CE9F6B]/30 shadow-xl shadow-black/20">
-              <FileSpreadsheet className="w-8 h-8 sm:w-10 sm:h-10 text-[#CE9F6B]" />
+            <div className="relative p-4 rounded-2xl bg-white/15 backdrop-blur-xl border border-white/20 shadow-2xl transition-transform hover:rotate-3">
+              <FileSpreadsheet className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
+              <div className="absolute -top-1 -right-1 w-3 h-3 bg-[#A2B9AF] rounded-full border-2 border-white animate-pulse" />
             </div>
             <div>
-              <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight flex items-center gap-3">
+              <h1 className="text-2xl sm:text-4xl font-bold text-white tracking-tight flex items-center gap-3">
                 Import Milestones
-                <Sparkles className="w-5 h-5 sm:w-7 sm:h-7 text-[#CE9F6B]" />
+                <Sparkles className="w-5 h-5 sm:w-7 sm:h-7 text-white/80 animate-pulse" />
               </h1>
-              <p className="text-white/60 text-sm sm:text-base mt-1 font-medium flex items-center gap-2">
-                <UploadCloud className="w-4 h-4 text-[#CE9F6B]" />
+              <p className="text-white/70 text-sm sm:text-base mt-1 font-medium flex items-center gap-2">
+                <UploadCloud className="w-4 h-4" />
                 <span>
                   {step === 'upload' && 'Upload Excel files to bulk import milestone receivables'}
                   {step === 'preview' && 'Review milestone data and validate records'}
@@ -286,7 +293,7 @@ export default function MilestoneImportPage() {
           
           <button 
             onClick={() => router.push('/finance/ar/milestones')}
-            className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-white/5 hover:bg-white/10 text-white/80 hover:text-white transition-all text-sm font-bold border border-white/10"
+            className="flex items-center gap-2 px-5 py-3 rounded-xl bg-white/15 backdrop-blur-md border border-white/20 text-white text-sm font-bold hover:bg-white/25 transition-all shadow-lg"
           >
             <ArrowLeft className="w-4 h-4" />
             Back to Dashboard
@@ -296,35 +303,39 @@ export default function MilestoneImportPage() {
 
       {/* Step 1: Upload Area */}
       {step === 'upload' && (
-        <div className="bg-white rounded-[40px] border-2 border-[#AEBFC3]/10 p-4 sm:p-8 shadow-xl shadow-black/5">
+        <div className="relative bg-white rounded-2xl border-2 border-[#CE9F6B]/30 p-4 sm:p-8 shadow-xl overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#CE9F6B] via-[#976E44] to-[#E17F70]" />
           <label 
-            className={`flex flex-col items-center justify-center cursor-pointer py-16 sm:py-24 border-4 border-dashed rounded-[32px] transition-all duration-500 group relative overflow-hidden ${
+            className={`relative flex flex-col items-center justify-center cursor-pointer py-16 sm:py-24 border-2 border-dashed rounded-2xl transition-all duration-500 group overflow-hidden ${
               dragActive 
-                ? 'border-[#CE9F6B] bg-[#CE9F6B]/5' 
-                : 'border-[#AEBFC3]/30 hover:border-[#CE9F6B]/50 hover:bg-[#CE9F6B]/5'
+                ? 'border-[#CE9F6B] bg-gradient-to-br from-[#CE9F6B]/10 to-[#976E44]/5 scale-[1.02]' 
+                : 'border-[#AEBFC3]/40 hover:border-[#CE9F6B]/60 hover:bg-gradient-to-br hover:from-[#CE9F6B]/5 hover:to-[#976E44]/5'
             }`}
             onDragEnter={handleDrag}
             onDragLeave={handleDrag}
             onDragOver={handleDrag}
             onDrop={handleDrop}
           >
-            <div className={`w-20 h-20 sm:w-28 sm:h-28 rounded-[32px] bg-gradient-to-br from-[#CE9F6B] to-[#976E44] flex items-center justify-center mb-8 transition-all duration-700 group-hover:scale-110 group-hover:rotate-6 shadow-2xl shadow-[#CE9F6B]/40 ${dragActive ? 'scale-110 rotate-6 shadow-3xl' : ''}`}>
+            {dragActive && <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#CE9F6B] to-[#976E44] animate-pulse" />}
+            <div className={`w-20 h-20 sm:w-28 sm:h-28 rounded-2xl bg-gradient-to-br from-[#CE9F6B] to-[#976E44] flex items-center justify-center mb-8 transition-all duration-700 group-hover:scale-110 group-hover:rotate-6 shadow-2xl shadow-[#CE9F6B]/30 ${dragActive ? 'scale-110 rotate-6' : ''}`}>
               <UploadCloud className="w-10 h-10 sm:w-14 sm:h-14 text-white" />
             </div>
             <div className="text-center relative z-10 px-6 max-w-lg">
-              <p className="text-[#1F2937] font-black text-xl sm:text-3xl mb-3">
+              <p className="text-[#546A7A] font-bold text-xl sm:text-3xl mb-3">
                 {dragActive ? 'Drop file to process' : 'Choose your Milestone file'}
               </p>
-              <p className="text-[#6B7280] text-sm sm:text-lg font-medium leading-relaxed">
+              <p className="text-[#92A2A5] text-sm sm:text-lg font-medium leading-relaxed">
                 Drag and drop your Excel sheet here or click to browse. We'll automatically detect the format.
               </p>
               <div className="mt-8 flex items-center justify-center gap-6">
-                <div className="flex items-center gap-2 text-[#9CA3AF] text-xs font-black uppercase tracking-[0.2em]">
-                  <FileSpreadsheet className="w-4 h-4" />
+                <div className="flex items-center gap-2 text-[#976E44] text-xs font-bold uppercase tracking-wide">
+                  <div className="p-1.5 rounded-lg bg-gradient-to-br from-[#CE9F6B]/20 to-[#976E44]/10">
+                    <FileSpreadsheet className="w-4 h-4" />
+                  </div>
                   .xlsx / .xls
                 </div>
-                <div className="w-1.5 h-1.5 rounded-full bg-[#AEBFC3]/30" />
-                <div className="flex items-center gap-2 text-[#9CA3AF] text-xs font-black uppercase tracking-[0.2em]">
+                <div className="w-1.5 h-1.5 rounded-full bg-[#CE9F6B]/30" />
+                <div className="flex items-center gap-2 text-[#976E44] text-xs font-bold uppercase tracking-wide">
                   <ArrowRight className="w-4 h-4" />
                   Max 5k Rows
                 </div>
@@ -343,17 +354,18 @@ export default function MilestoneImportPage() {
 
       {/* Step 2: Preview Step */}
       {step === 'preview' && preview && (
-        <div className="space-y-8 animate-in slide-in-from-bottom-8 duration-700">
+        <div className="space-y-6 animate-in slide-in-from-bottom-8 duration-700">
           {/* File Info & Stats */}
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            <div className="lg:col-span-2 bg-white rounded-[32px] border border-[#AEBFC3]/20 p-6 sm:p-8 shadow-xl flex items-center justify-between">
-              <div className="flex items-center gap-6">
-                <div className="w-16 h-16 rounded-[20px] bg-gradient-to-br from-[#CE9F6B] to-[#976E44] flex items-center justify-center shadow-2xl shadow-[#CE9F6B]/30 shrink-0">
-                  <FileCheck className="w-8 h-8 text-white" />
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+            <div className="lg:col-span-2 relative bg-white rounded-2xl border-2 border-[#CE9F6B]/30 p-6 shadow-xl flex items-center justify-between overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#CE9F6B] via-[#976E44] to-[#E17F70]" />
+              <div className="flex items-center gap-5">
+                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-[#CE9F6B] to-[#976E44] flex items-center justify-center shadow-xl shadow-[#CE9F6B]/20 shrink-0">
+                  <FileCheck className="w-7 h-7 text-white" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-[#1F2937] font-black text-lg truncate">{file?.name}</p>
-                  <p className="text-[#6B7280] text-sm font-bold mt-1">
+                  <p className="text-[#546A7A] font-bold text-lg truncate">{file?.name}</p>
+                  <p className="text-[#92A2A5] text-sm font-bold mt-1">
                     Sheet: <span className="text-[#CE9F6B]">"{preview.sheetName}"</span> • {totalRows} records found
                   </p>
                 </div>
@@ -361,48 +373,51 @@ export default function MilestoneImportPage() {
               <div className="flex items-center gap-3">
                 <button 
                   onClick={handleClear}
-                  className="p-3 rounded-xl bg-[#F3F4F6] text-[#6B7280] hover:text-[#9E3B47] hover:bg-[#E17F70]/10 transition-all"
+                  className="p-3 rounded-xl bg-[#E17F70]/10 text-[#9E3B47] hover:bg-[#E17F70]/20 transition-all border border-[#E17F70]/20"
                 >
                   <Trash2 className="w-5 h-5" />
                 </button>
               </div>
             </div>
 
-            <div className="bg-white rounded-[32px] border border-[#AEBFC3]/20 p-6 sm:p-8 shadow-xl flex flex-col justify-center">
+            <div className="relative bg-white rounded-2xl border-2 border-[#82A094]/30 p-6 shadow-xl flex flex-col justify-center overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#82A094] via-[#4F6A64] to-[#A2B9AF]" />
               <div className="flex items-center justify-between mb-2">
-                <p className="text-[10px] font-black text-[#9CA3AF] uppercase tracking-[0.2em]">Data Status</p>
+                <p className="text-[10px] font-bold text-[#92A2A5] uppercase tracking-wide">Data Status</p>
                 <div className="flex gap-1.5">
-                  <div className="w-2 h-2 rounded-full bg-[#82A094]" />
-                  <div className="w-2 h-2 rounded-full bg-[#E17F70]" />
+                  <div className="w-2 h-2 rounded-full bg-[#82A094] shadow-[0_0_6px_#82A094]" />
+                  <div className="w-2 h-2 rounded-full bg-[#E17F70] shadow-[0_0_6px_#E17F70]" />
                 </div>
               </div>
               <div className="flex items-end justify-between">
                 <div>
-                  <p className="text-3xl font-black text-[#1F2937]">{preview.validRows || 0}</p>
+                  <p className="text-3xl font-bold text-[#4F6A64]">{preview.validRows || 0}</p>
                   <p className="text-xs font-bold text-[#82A094] mt-1">Valid Records</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-3xl font-black text-[#E17F70]">{preview.invalidRows || 0}</p>
-                  <p className="text-xs font-bold text-[#CE9F6B] mt-1">Need Fix</p>
+                  <p className="text-3xl font-bold text-[#9E3B47]">{preview.invalidRows || 0}</p>
+                  <p className="text-xs font-bold text-[#E17F70] mt-1">Need Fix</p>
                 </div>
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-[#CE9F6B] to-[#976E44] rounded-[32px] p-6 sm:p-8 shadow-xl shadow-[#CE9F6B]/20 flex flex-col justify-center text-white">
-              <p className="text-[10px] font-black text-white/60 uppercase tracking-[0.2em] mb-2">Selection</p>
-              <p className="text-4xl font-black">{selectedRows.size}</p>
-              <p className="text-xs font-bold text-white/80 mt-1 uppercase tracking-wider">Rows to Import</p>
+            <div className="relative bg-gradient-to-br from-[#CE9F6B] via-[#976E44] to-[#E17F70] rounded-2xl p-6 shadow-xl shadow-[#CE9F6B]/20 flex flex-col justify-center text-white overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-1 bg-white/20" />
+              <p className="text-[10px] font-bold text-white/60 uppercase tracking-wide mb-2">Selection</p>
+              <p className="text-4xl font-bold">{selectedRows.size}</p>
+              <p className="text-xs font-bold text-white/80 mt-1 uppercase tracking-wide">Rows to Import</p>
             </div>
           </div>
 
           {/* Missing Columns Warning */}
           {preview.missingColumns && preview.missingColumns.length > 0 && (
-            <div className="p-6 rounded-[28px] bg-[#CE9F6B]/10 border-2 border-[#CE9F6B]/20 flex items-center gap-5">
-              <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center shadow-lg shrink-0">
-                <AlertTriangle className="w-6 h-6 text-[#CE9F6B]" />
+            <div className="relative p-5 rounded-xl bg-gradient-to-r from-[#CE9F6B]/10 to-[#976E44]/5 border-2 border-[#CE9F6B]/30 flex items-center gap-5 overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#976E44] via-[#CE9F6B] to-[#E17F70]" />
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#CE9F6B] to-[#976E44] flex items-center justify-center shadow-lg shrink-0">
+                <AlertTriangle className="w-6 h-6 text-white" />
               </div>
               <div>
-                <p className="text-[#976E44] font-black text-lg">Format Recommendation</p>
+                <p className="text-[#976E44] font-bold text-lg">Format Recommendation</p>
                 <p className="text-[#976E44]/80 text-sm font-medium mt-0.5">
                   We couldn't find these recommended columns: <span className="font-bold">{preview.missingColumns.join(', ')}</span>. The import will still proceed with available data.
                 </p>
@@ -411,24 +426,25 @@ export default function MilestoneImportPage() {
           )}
 
           {/* Data Preview Table */}
-          <div className="bg-white rounded-[40px] border border-[#AEBFC3]/20 shadow-2xl shadow-black/5 overflow-hidden">
-            <div className="p-6 sm:p-8 border-b border-[#AEBFC3]/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-white to-[#F8FAFB]">
+          <div className="relative bg-white rounded-2xl border-2 border-[#6F8A9D]/30 shadow-xl overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#546A7A] via-[#6F8A9D] to-[#96AEC2]" />
+            <div className="p-5 sm:p-6 border-b-2 border-[#6F8A9D]/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-[#546A7A] via-[#6F8A9D] to-[#546A7A]">
               <div className="flex items-center gap-4">
-                <div className="p-2.5 rounded-xl bg-[#F3F4F6] text-[#6F8A9D]">
-                  <Grid3X3 className="w-5 h-5" />
+                <div className="p-2.5 rounded-xl bg-white/15 border border-white/20">
+                  <Grid3X3 className="w-5 h-5 text-white" />
                 </div>
-                <h3 className="text-[#1F2937] font-black text-xl">Milestone Preview</h3>
+                <h3 className="text-white font-bold text-lg">Milestone Preview</h3>
               </div>
               <div className="flex items-center gap-4">
                 <button 
                   onClick={toggleAllRows}
-                  className="px-5 py-2.5 rounded-xl bg-white border border-[#AEBFC3]/30 hover:border-[#CE9F6B] hover:text-[#CE9F6B] text-[#546A7A] text-sm font-bold transition-all shadow-sm active:scale-95"
+                  className="px-4 py-2 rounded-xl bg-white/15 border border-white/20 text-white text-sm font-bold hover:bg-white/25 transition-all shadow-lg"
                 >
                   {selectedRows.size === preview?.preview?.filter((r:any)=>r._isValid!==false).length ? 'Unselect All' : 'Select All Valid'}
                 </button>
-                <div className="h-8 w-px bg-[#AEBFC3]/20 mx-1 hidden sm:block" />
-                <span className="text-[#9CA3AF] text-sm font-bold font-mono">
-                  {startIndex + 1}—{endIndex} <span className="text-[#AEBFC3] text-xs font-normal">of</span> {totalRows}
+                <div className="h-8 w-px bg-white/20 mx-1 hidden sm:block" />
+                <span className="text-white/80 text-sm font-bold">
+                  {startIndex + 1}—{endIndex} <span className="text-white/50 text-xs">of</span> {totalRows}
                 </span>
               </div>
             </div>
@@ -436,35 +452,35 @@ export default function MilestoneImportPage() {
             <div className="overflow-x-auto min-h-[400px]">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-[#F8FAFB] border-b border-[#AEBFC3]/10">
-                    <th className="px-6 py-5 w-16">
+                  <tr className="bg-gradient-to-r from-[#96AEC2]/10 via-[#6F8A9D]/5 to-transparent border-b-2 border-[#6F8A9D]/20">
+                    <th className="px-6 py-4 w-16">
                       <div className="flex items-center justify-center">
-                        <div className="w-5 h-5 rounded-md border-2 border-[#AEBFC3] bg-white" />
+                        <div className="w-5 h-5 rounded-lg border-2 border-[#6F8A9D]/30 bg-white" />
                       </div>
                     </th>
                     {/* Primary Importance Columns */}
-                    <th className="px-6 py-5 text-[10px] font-black text-[#9CA3AF] uppercase tracking-[0.2em] whitespace-nowrap">
+                    <th className="px-6 py-4 text-xs font-bold text-[#6F8A9D] uppercase tracking-wide whitespace-nowrap">
                       <div className="flex items-center gap-2"><Hash className="w-3 h-3" /> Invoice / SO</div>
                     </th>
-                    <th className="px-6 py-5 text-[10px] font-black text-[#9CA3AF] uppercase tracking-[0.2em] whitespace-nowrap">
+                    <th className="px-6 py-4 text-xs font-bold text-[#546A7A] uppercase tracking-wide whitespace-nowrap">
                       <div className="flex items-center gap-2"><User className="w-3 h-3" /> Customer</div>
                     </th>
-                    <th className="px-6 py-5 text-[10px] font-black text-[#9CA3AF] uppercase tracking-[0.2em] whitespace-nowrap">
+                    <th className="px-6 py-4 text-xs font-bold text-[#976E44] uppercase tracking-wide whitespace-nowrap">
                       <div className="flex items-center gap-2"><Calendar className="w-3 h-3" /> Period</div>
                     </th>
-                    <th className="px-6 py-5 text-[10px] font-black text-[#9CA3AF] uppercase tracking-[0.2em] whitespace-nowrap">
+                    <th className="px-6 py-4 text-xs font-bold text-[#82A094] uppercase tracking-wide whitespace-nowrap">
                       <div className="flex items-center gap-2"><Briefcase className="w-3 h-3" /> Status</div>
                     </th>
-                    <th className="px-6 py-5 text-[10px] font-black text-[#9CA3AF] uppercase tracking-[0.2em] whitespace-nowrap text-right">
+                    <th className="px-6 py-4 text-xs font-bold text-[#546A7A] uppercase tracking-wide whitespace-nowrap text-right">
                       <div className="flex items-center justify-end gap-2"><DollarSign className="w-3 h-3" /> Values</div>
                     </th>
-                    <th className="px-6 py-5 text-[10px] font-black text-[#9CA3AF] uppercase tracking-[0.2em] whitespace-nowrap">
+                    <th className="px-6 py-4 text-xs font-bold text-[#CE9F6B] uppercase tracking-wide whitespace-nowrap">
                       <div className="flex items-center gap-2"><MessageSquare className="w-3 h-3" /> Comments</div>
                     </th>
-                    <th className="px-6 py-5 text-[10px] font-black text-[#9CA3AF] uppercase tracking-[0.2em]">Feedback</th>
+                    <th className="px-6 py-4 text-xs font-bold text-[#546A7A] uppercase tracking-wide">Feedback</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#AEBFC3]/5">
+                <tbody className="divide-y divide-[#AEBFC3]/20">
                   {currentRows.map((row: any, i: number) => {
                     const globalIndex = startIndex + i;
                     const isSelected = selectedRows.has(globalIndex);
@@ -477,40 +493,38 @@ export default function MilestoneImportPage() {
                         onClick={() => isValid && toggleRowSelection(globalIndex)}
                         className={`group transition-all duration-300 ${
                           !isValid 
-                            ? 'bg-[#E17F70]/5 cursor-default' 
+                            ? 'bg-gradient-to-r from-[#E17F70]/5 to-[#9E3B47]/5 cursor-default' 
                             : isSelected 
-                              ? 'bg-[#CE9F6B]/10 hover:bg-[#CE9F6B]/15' 
-                              : 'bg-white hover:bg-[#F3F4F6]/50 opacity-100 cursor-pointer'
+                              ? 'bg-gradient-to-r from-[#CE9F6B]/10 to-[#976E44]/5 hover:from-[#CE9F6B]/15 hover:to-[#976E44]/10' 
+                              : 'bg-white hover:bg-[#96AEC2]/5 opacity-100 cursor-pointer'
                         }`}
                       >
-                        <td className="px-6 py-5">
+                        <td className="px-6 py-4">
                           <div className="flex items-center justify-center relative">
-                            <input 
-                              type="checkbox" 
-                              disabled={!isValid}
-                              checked={isSelected}
-                              onChange={() => toggleRowSelection(globalIndex)}
-                              className={`w-5 h-5 rounded-lg border-2 transition-all cursor-pointer ${
+                            <div 
+                              onClick={(e) => isValid && e.stopPropagation()}
+                              className={`w-6 h-6 rounded-lg border-2 transition-all flex items-center justify-center cursor-pointer ${
                                 !isValid 
-                                ? 'border-[#E17F70]/30 bg-[#E17F70]/20 cursor-not-allowed opacity-30' 
+                                ? 'border-[#E17F70]/30 bg-[#E17F70]/10 cursor-not-allowed' 
                                 : isSelected 
-                                  ? 'border-[#CE9F6B] bg-[#CE9F6B]' 
-                                  : 'border-[#AEBFC3] bg-white group-hover:border-[#CE9F6B]'
+                                  ? 'border-[#CE9F6B] bg-gradient-to-br from-[#CE9F6B] to-[#976E44] shadow-lg shadow-[#CE9F6B]/20' 
+                                  : 'border-[#AEBFC3]/40 bg-white group-hover:border-[#CE9F6B]/50'
                               }`}
-                            />
-                            {isSelected && <CheckCircle className="absolute inset-0 m-auto w-3 h-3 text-white pointer-events-none" />}
+                            >
+                              {isSelected && <CheckCircle className="w-3.5 h-3.5 text-white" />}
+                            </div>
                           </div>
                         </td>
 
                         {/* Invoice & SO No. */}
-                        <td className="px-6 py-5 whitespace-nowrap">
+                        <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex flex-col gap-0.5">
-                            <span className="text-sm font-black text-[#1F2937]">#{row.invoiceNumber || 'N/A'}</span>
+                            <span className="text-sm font-bold text-[#546A7A]">#{row.invoiceNumber || 'N/A'}</span>
                             <div className="flex items-center gap-1.5">
-                              <span className="text-[10px] font-bold text-[#9CA3AF]">SO: {row.soNo || 'N/A'}</span>
+                              <span className="text-[10px] font-bold text-[#92A2A5]">SO: {row.soNo || 'N/A'}</span>
                               {row.actualPaymentTerms && (
                                 <>
-                                  <span className="w-1 h-1 rounded-full bg-[#AEBFC3]/40" />
+                                  <span className="w-1 h-1 rounded-full bg-[#CE9F6B]/40" />
                                   <span className="text-[10px] font-bold text-[#CE9F6B]">{row.actualPaymentTerms}</span>
                                 </>
                               )}
@@ -519,36 +533,36 @@ export default function MilestoneImportPage() {
                         </td>
 
                         {/* Customer */}
-                        <td className="px-6 py-5">
+                        <td className="px-6 py-4">
                           <div className="max-w-[200px]">
-                            <p className="text-sm font-black text-[#1F2937] truncate">{row.customerName || 'N/A'}</p>
-                            {row.poNo && <p className="text-[10px] font-bold text-[#92A2A5] truncate mt-0.5">PO: {row.poNo}</p>}
+                            <p className="text-sm font-bold text-[#546A7A] truncate">{row.customerName || 'N/A'}</p>
+                            {row.poNo && <p className="text-[10px] font-bold text-[#976E44] truncate mt-0.5">PO: {row.poNo}</p>}
                           </div>
                         </td>
 
                         {/* Booking Month / Date */}
-                        <td className="px-6 py-5 whitespace-nowrap">
-                          <div className="flex flex-col gap-0.5">
-                            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-[#F3F4F6] w-fit">
-                              <Calendar className="w-3 h-3 text-[#5D6E73]" />
-                              <span className="text-[10px] font-black text-[#5D6E73] uppercase">{row.bookingMonth || 'N/A'}</span>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gradient-to-r from-[#CE9F6B]/15 to-[#976E44]/10 border border-[#CE9F6B]/20 w-fit">
+                              <Calendar className="w-3 h-3 text-[#976E44]" />
+                              <span className="text-[10px] font-bold text-[#976E44] uppercase">{row.bookingMonth || 'N/A'}</span>
                             </div>
-                            <span className="text-[10px] font-bold text-[#AEBFC3] ml-1">{row.invoiceDate || ''}</span>
+                            <span className="text-[10px] font-bold text-[#92A2A5] ml-1">{row.invoiceDate || ''}</span>
                           </div>
                         </td>
 
                         {/* Accounting Status */}
-                        <td className="px-6 py-5 whitespace-nowrap">
+                        <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex flex-col gap-1.5">
-                            <div className={`px-3 py-1 rounded-full text-[10px] font-black border w-fit ${
+                            <div className={`px-3 py-1.5 rounded-lg text-[10px] font-bold border-2 w-fit ${
                               row.accountingStatus?.toLowerCase().includes('revenue')
-                                ? 'bg-[#82A094]/10 text-[#4F6A64] border-[#82A094]/20'
-                                : 'bg-[#CE9F6B]/10 text-[#976E44] border-[#CE9F6B]/20'
+                                ? 'bg-gradient-to-r from-[#82A094]/15 to-[#4F6A64]/10 text-[#4F6A64] border-[#82A094]/30'
+                                : 'bg-gradient-to-r from-[#CE9F6B]/15 to-[#976E44]/10 text-[#976E44] border-[#CE9F6B]/30'
                             }`}>
                               {row.accountingStatus || 'BACKLOG'}
                             </div>
                             {row.mailToTSP && (
-                              <div className="flex items-center gap-1 text-[9px] font-bold text-[#9CA3AF]">
+                              <div className="flex items-center gap-1 text-[9px] font-bold text-[#92A2A5]">
                                 <UploadCloud className="w-2.5 h-2.5" />
                                 <span>TSP: {row.mailToTSP}</span>
                               </div>
@@ -557,10 +571,10 @@ export default function MilestoneImportPage() {
                         </td>
 
                         {/* Values (Amounts) */}
-                        <td className="px-6 py-5 whitespace-nowrap text-right">
+                        <td className="px-6 py-4 whitespace-nowrap text-right">
                           <div className="flex flex-col items-end gap-0.5">
-                            <span className="text-sm font-black text-[#1F2937]">₹{row.totalAmount || '0'}</span>
-                            <div className="flex items-center gap-2 text-[10px] font-bold text-[#AEBFC3]">
+                            <span className="text-sm font-bold text-[#546A7A]">₹{row.totalAmount || '0'}</span>
+                            <div className="flex items-center gap-2 text-[10px] font-bold text-[#92A2A5]">
                               <span>Net: ₹{row.netAmount || '0'}</span>
                               <span className="w-1 h-1 rounded-full bg-[#AEBFC3]/40" />
                               <span>GST: ₹{row.taxAmount || '0'}</span>
@@ -569,28 +583,28 @@ export default function MilestoneImportPage() {
                         </td>
 
                         {/* Finance Comments */}
-                        <td className="px-6 py-5">
-                          <p className="text-sm font-medium text-[#6B7280] max-w-[150px] truncate italic">
+                        <td className="px-6 py-4">
+                          <p className="text-sm font-medium text-[#92A2A5] max-w-[150px] truncate italic">
                             {row.financeComments || '---'}
                           </p>
                         </td>
-                        <td className="px-6 py-5 whitespace-nowrap">
+                        <td className="px-6 py-4 whitespace-nowrap">
                           {isValid ? (
                             <div className="flex items-center gap-2 text-[#82A094] group/status">
-                              <div className="w-8 h-8 rounded-full bg-[#82A094]/10 flex items-center justify-center border border-[#82A094]/20">
+                              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#82A094]/20 to-[#4F6A64]/10 flex items-center justify-center border-2 border-[#82A094]/30">
                                 <CheckCircle className="w-4 h-4" />
                               </div>
-                              <span className="text-[10px] font-black uppercase tracking-wider">Ready</span>
+                              <span className="text-[10px] font-bold uppercase tracking-wide">Ready</span>
                             </div>
                           ) : (
                             <div className="flex items-center gap-3 group/err relative">
-                              <div className="w-8 h-8 rounded-lg bg-[#E17F70]/10 flex items-center justify-center border border-[#E17F70]/30">
+                              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#E17F70]/20 to-[#9E3B47]/10 flex items-center justify-center border-2 border-[#E17F70]/30">
                                 <AlertTriangle className="w-4 h-4 text-[#E17F70]" />
                               </div>
-                              <span className="text-[10px] font-black uppercase tracking-wider text-[#E17F70]">Invalid</span>
+                              <span className="text-[10px] font-bold uppercase tracking-wide text-[#E17F70]">Invalid</span>
                               
-                              <div className="absolute right-full mr-4 top-1/2 -translate-y-1/2 hidden group-hover/err:block z-[60] p-4 bg-[#1F2937] text-white text-xs rounded-2xl w-64 shadow-2xl border border-white/10 animate-in fade-in zoom-in duration-250">
-                                <p className="font-black text-[9px] uppercase tracking-[0.2em] text-[#CE9F6B] mb-2 border-b border-white/10 pb-2">Validation Errors</p>
+                              <div className="absolute right-full mr-4 top-1/2 -translate-y-1/2 hidden group-hover/err:block z-[60] p-4 bg-[#546A7A] text-white text-xs rounded-xl w-64 shadow-2xl border border-white/10 animate-in fade-in zoom-in duration-250">
+                                <p className="font-bold text-[9px] uppercase tracking-wide text-[#CE9F6B] mb-2 border-b border-white/10 pb-2">Validation Errors</p>
                                 {rowErrors.map((e, idx) => (
                                   <div key={idx} className="flex gap-2 mb-2 last:mb-0">
                                     <div className="w-1.5 h-1.5 rounded-full bg-[#E17F70] mt-1 shrink-0" />
@@ -610,17 +624,18 @@ export default function MilestoneImportPage() {
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="px-8 py-6 border-t border-[#AEBFC3]/10 flex flex-col sm:flex-row items-center justify-between gap-4 bg-[#F8FAFB]/50">
-                <p className="text-[#9CA3AF] text-xs font-bold uppercase tracking-widest">
-                  Showing <span className="text-[#1F2937]">{startIndex + 1}—{endIndex}</span> of {totalRows}
+              <div className="relative px-6 py-5 border-t-2 border-[#6F8A9D]/20 flex flex-col sm:flex-row items-center justify-between gap-4 bg-gradient-to-r from-[#96AEC2]/5 via-transparent to-white overflow-hidden">
+                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#546A7A] via-[#6F8A9D] to-[#96AEC2]" />
+                <p className="text-[#92A2A5] text-xs font-bold uppercase tracking-wide">
+                  Showing <span className="text-[#546A7A]">{startIndex + 1}—{endIndex}</span> of {totalRows}
                 </p>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => setCurrentPage(1)}
                     disabled={currentPage === 1}
-                    className="p-2.5 rounded-xl bg-white border border-[#AEBFC3]/30 hover:bg-[#F3F4F6] disabled:opacity-30 transition-all shadow-sm"
+                    className="p-2.5 rounded-xl bg-white border-2 border-[#AEBFC3]/40 hover:bg-[#96AEC2]/10 hover:border-[#96AEC2] disabled:opacity-30 transition-all shadow-sm"
                   >
-                    <ChevronLeft className="w-5 h-5 text-[#5D6E73]" />
+                    <ChevronLeft className="w-5 h-5 text-[#546A7A]" />
                   </button>
                   <div className="flex items-center gap-1.5">
                     {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
@@ -629,10 +644,10 @@ export default function MilestoneImportPage() {
                         <button
                           key={pageNum}
                           onClick={() => setCurrentPage(pageNum)}
-                          className={`w-10 h-10 rounded-xl text-sm font-black transition-all shadow-sm ${
+                          className={`w-10 h-10 rounded-xl text-sm font-bold transition-all shadow-sm ${
                             currentPage === pageNum
-                              ? "bg-[#CE9F6B] text-white"
-                              : "bg-white border border-[#AEBFC3]/30 hover:bg-[#F3F4F6] text-[#5D6E73]"
+                              ? "bg-gradient-to-r from-[#CE9F6B] to-[#976E44] text-white shadow-lg shadow-[#CE9F6B]/20"
+                              : "bg-white border-2 border-[#AEBFC3]/40 hover:bg-[#CE9F6B]/10 hover:border-[#CE9F6B]/30 text-[#546A7A]"
                           }`}
                         >
                           {pageNum}
@@ -643,9 +658,9 @@ export default function MilestoneImportPage() {
                   <button
                     onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                     disabled={currentPage === totalPages}
-                    className="p-2.5 rounded-xl bg-white border border-[#AEBFC3]/30 hover:bg-[#F3F4F6] disabled:opacity-30 transition-all shadow-sm"
+                    className="p-2.5 rounded-xl bg-white border-2 border-[#AEBFC3]/40 hover:bg-[#96AEC2]/10 hover:border-[#96AEC2] disabled:opacity-30 transition-all shadow-sm"
                   >
-                    <ChevronRight className="w-5 h-5 text-[#5D6E73]" />
+                    <ChevronRight className="w-5 h-5 text-[#546A7A]" />
                   </button>
                 </div>
               </div>
@@ -653,14 +668,15 @@ export default function MilestoneImportPage() {
           </div>
 
           {/* Action Bar */}
-          <div className="bg-gradient-to-br from-[#1F2937] to-[#111827] rounded-[32px] p-8 shadow-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-6 border border-white/5">
+          <div className="relative bg-gradient-to-r from-[#546A7A] via-[#6F8A9D] to-[#546A7A] rounded-2xl p-6 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-6 overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#CE9F6B] via-[#976E44] to-[#E17F70]" />
             <div className="flex items-center gap-5">
-              <div className="w-14 h-14 rounded-2xl bg-[#CE9F6B]/20 flex items-center justify-center border border-[#CE9F6B]/30 shadow-inner">
-                <UploadCloud className="w-7 h-7 text-[#CE9F6B]" />
+              <div className="w-14 h-14 rounded-xl bg-white/15 flex items-center justify-center border border-white/20 shadow-lg">
+                <UploadCloud className="w-7 h-7 text-white" />
               </div>
               <div>
-                <p className="text-white font-black text-xl">Ready for Import</p>
-                <p className="text-[#9CA3AF] font-bold text-sm mt-0.5">
+                <p className="text-white font-bold text-xl">Ready for Import</p>
+                <p className="text-white/70 font-bold text-sm mt-0.5">
                   <span className="text-white">{selectedRows.size}</span> milestone records will be processed and upserted.
                 </p>
               </div>
@@ -669,14 +685,14 @@ export default function MilestoneImportPage() {
             <div className="flex items-center gap-4">
               <button 
                 onClick={handleBackToUpload}
-                className="px-8 py-4 rounded-2xl bg-white/5 hover:bg-white/10 text-white font-black transition-all border border-white/10"
+                className="px-6 py-3 rounded-xl bg-white/15 border border-white/20 text-white font-bold transition-all hover:bg-white/25"
               >
                 Upload Different File
               </button>
               <button 
                 onClick={handleImport}
                 disabled={selectedRows.size === 0}
-                className="px-10 py-4 bg-[#CE9F6B] text-white rounded-2xl font-black text-lg flex items-center gap-3 hover:bg-[#B68C5E] disabled:opacity-30 hover:shadow-2xl hover:shadow-[#CE9F6B]/30 transition-all active:scale-95 shadow-xl"
+                className="px-8 py-3 bg-white text-[#976E44] rounded-xl font-bold text-lg flex items-center gap-3 hover:shadow-xl hover:shadow-white/30 disabled:opacity-30 transition-all active:scale-95"
               >
                 Commit Import
                 <ArrowRight className="w-5 h-5" />
@@ -688,15 +704,18 @@ export default function MilestoneImportPage() {
 
       {/* Step 3: Importing */}
       {step === 'importing' && (
-        <div className="bg-white rounded-[40px] border-2 border-[#AEBFC3]/10 p-16 sm:p-24 flex flex-col items-center justify-center shadow-2xl shadow-black/5 text-center">
+        <div className="relative bg-white rounded-2xl border-2 border-[#CE9F6B]/30 p-16 sm:p-24 flex flex-col items-center justify-center shadow-xl text-center overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#CE9F6B] via-[#976E44] to-[#E17F70]" />
           <div className="relative mb-10">
-            <div className="w-32 h-32 rounded-full border-8 border-[#CE9F6B]/10 border-t-[#CE9F6B] animate-spin shadow-xl shadow-[#CE9F6B]/5"></div>
+            <div className="w-32 h-32 rounded-full border-8 border-[#CE9F6B]/10 border-t-[#CE9F6B] animate-spin shadow-xl shadow-[#CE9F6B]/20"></div>
             <div className="absolute inset-0 flex items-center justify-center">
-              <Upload className="w-10 h-10 text-[#CE9F6B] animate-bounce" />
+              <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-[#CE9F6B] to-[#976E44] flex items-center justify-center shadow-lg">
+                <Upload className="w-8 h-8 text-white animate-bounce" />
+              </div>
             </div>
           </div>
-          <h3 className="text-[#1F2937] text-3xl font-black mb-4">Upserting Milestones...</h3>
-          <p className="text-[#6B7280] text-lg font-bold max-w-md mx-auto leading-relaxed">
+          <h3 className="text-[#546A7A] text-3xl font-bold mb-4">Upserting Milestones...</h3>
+          <p className="text-[#92A2A5] text-lg font-bold max-w-md mx-auto leading-relaxed">
             We are committing <span className="text-[#CE9F6B]">{selectedRows.size}</span> records to the database. This includes mapping customer codes and creating remarks.
           </p>
         </div>
@@ -704,24 +723,25 @@ export default function MilestoneImportPage() {
 
       {/* Error State */}
       {error && (
-        <div className="bg-[#E17F70]/5 border-2 border-[#E17F70]/20 rounded-[32px] overflow-hidden shadow-xl animate-in shake duration-500">
-          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 p-8">
-            <div className="w-20 h-20 rounded-[24px] bg-[#E17F70]/10 flex items-center justify-center shrink-0 border border-[#E17F70]/20">
-              <XCircle className="w-10 h-10 text-[#9E3B47]" />
+        <div className="relative bg-gradient-to-r from-[#E17F70]/10 to-[#9E3B47]/5 border-2 border-[#E17F70]/30 rounded-2xl overflow-hidden shadow-xl animate-in shake duration-500">
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#9E3B47] via-[#E17F70] to-[#EEC1BF]" />
+          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 p-6">
+            <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-[#E17F70] to-[#9E3B47] flex items-center justify-center shrink-0 shadow-lg shadow-[#E17F70]/20">
+              <XCircle className="w-8 h-8 text-white" />
             </div>
             <div className="flex-1 text-center sm:text-left">
-              <h3 className="text-[#9E3B47] font-black text-2xl">{error.message}</h3>
+              <h3 className="text-[#9E3B47] font-bold text-2xl">{error.message}</h3>
               {error.details && <p className="text-[#9E3B47]/70 font-bold text-lg mt-1">{error.details}</p>}
               
               {error.missingColumns && error.missingColumns.length > 0 && (
-                <div className="mt-6 p-5 bg-white/50 rounded-2xl border border-[#E17F70]/10">
-                  <p className="text-[#9E3B47] text-sm font-black uppercase tracking-widest mb-3 flex items-center justify-center sm:justify-start gap-2">
-                    <AlertTriangle className="w-4 h-4 ml-[-2px]" />
+                <div className="mt-6 p-4 bg-white/50 rounded-xl border-2 border-[#E17F70]/20">
+                  <p className="text-[#9E3B47] text-sm font-bold uppercase tracking-wide mb-3 flex items-center justify-center sm:justify-start gap-2">
+                    <AlertTriangle className="w-4 h-4" />
                     Required Columns Missing
                   </p>
                   <div className="flex flex-wrap justify-center sm:justify-start gap-2">
                     {error.missingColumns.map((col, i) => (
-                      <span key={i} className="px-4 py-1.5 bg-[#E17F70] text-white text-xs font-black rounded-lg shadow-sm">
+                      <span key={i} className="px-3 py-1.5 bg-gradient-to-r from-[#E17F70] to-[#9E3B47] text-white text-xs font-bold rounded-lg shadow-lg shadow-[#E17F70]/20">
                         {col}
                       </span>
                     ))}
@@ -730,15 +750,15 @@ export default function MilestoneImportPage() {
               )}
 
               {error.error && (
-                <div className="mt-6 p-4 bg-[#1F2937]/5 rounded-xl text-left">
-                  <p className="text-[#92A2A5] text-[10px] font-black uppercase tracking-widest mb-2">Technical Exception</p>
+                <div className="mt-6 p-4 bg-[#546A7A]/5 rounded-xl text-left border border-[#AEBFC3]/20">
+                  <p className="text-[#92A2A5] text-[10px] font-bold uppercase tracking-wide mb-2">Technical Exception</p>
                   <p className="text-[#9E3B47] text-xs font-mono font-bold break-all leading-relaxed whitespace-pre-wrap">{error.error}</p>
                 </div>
               )}
             </div>
             <button 
               onClick={handleClear}
-              className="px-10 py-4 bg-[#9E3B47] text-white rounded-2xl font-black transition-all hover:bg-[#7D2F38] shadow-lg active:scale-95 whitespace-nowrap"
+              className="px-8 py-3 bg-gradient-to-r from-[#9E3B47] to-[#75242D] text-white rounded-xl font-bold transition-all hover:shadow-lg hover:shadow-[#E17F70]/20 active:scale-95 whitespace-nowrap"
             >
               Try Again
             </button>
@@ -748,55 +768,60 @@ export default function MilestoneImportPage() {
 
       {/* Result Outcome */}
       {result && (
-        <div className={`p-10 rounded-[40px] border-2 relative overflow-hidden shadow-2xl animate-in zoom-in duration-500 ${
+        <div className={`relative p-8 rounded-2xl border-2 overflow-hidden shadow-xl animate-in zoom-in duration-500 ${
           result.failed === 0 
-            ? 'bg-gradient-to-br from-[#82A094]/10 via-white to-white border-[#82A094]/30' 
-            : 'bg-gradient-to-br from-[#CE9F6B]/10 via-white to-white border-[#CE9F6B]/30'
+            ? 'bg-gradient-to-br from-[#82A094]/10 via-white to-[#A2B9AF]/5 border-[#82A094]/30' 
+            : 'bg-gradient-to-br from-[#CE9F6B]/10 via-white to-[#976E44]/5 border-[#CE9F6B]/30'
         }`}>
-          <div className="flex flex-col lg:flex-row items-center lg:items-start gap-10">
+          <div className={`absolute top-0 left-0 right-0 h-1.5 ${
+            result.failed === 0 
+              ? 'bg-gradient-to-r from-[#82A094] via-[#4F6A64] to-[#A2B9AF]' 
+              : 'bg-gradient-to-r from-[#CE9F6B] via-[#976E44] to-[#E17F70]'
+          }`} />
+          <div className="flex flex-col lg:flex-row items-center lg:items-start gap-8">
             <div 
-              className={`w-24 h-24 rounded-[32px] flex items-center justify-center shadow-2xl relative ${
+              className={`w-20 h-20 rounded-xl flex items-center justify-center shadow-xl relative ${
                 result.failed === 0 
-                  ? 'bg-gradient-to-br from-[#82A094] to-[#4F6A64] shadow-[#82A094]/40' 
-                  : 'bg-gradient-to-br from-[#CE9F6B] to-[#976E44] shadow-[#CE9F6B]/40'
+                  ? 'bg-gradient-to-br from-[#82A094] to-[#4F6A64] shadow-[#82A094]/30' 
+                  : 'bg-gradient-to-br from-[#CE9F6B] to-[#976E44] shadow-[#CE9F6B]/30'
               }`}
             >
-              <CheckCircle className="w-12 h-12 text-white" />
-              {result.failed === 0 && <Sparkles className="absolute -top-3 -right-3 w-8 h-8 text-[#CE9F6B] animate-pulse" />}
+              <CheckCircle className="w-10 h-10 text-white" />
+              {result.failed === 0 && <Sparkles className="absolute -top-2 -right-2 w-6 h-6 text-[#CE9F6B] animate-pulse" />}
             </div>
             <div className="flex-1 text-center lg:text-left">
-              <h3 className={`font-black text-3xl sm:text-4xl ${
+              <h3 className={`font-bold text-2xl sm:text-3xl ${
                 result.failed === 0 ? 'text-[#4F6A64]' : 'text-[#976E44]'
               }`}>
                 {result.failed === 0 ? 'Import Successful!' : 'Partial Import Complete'}
               </h3>
-              <p className="text-[#6B7280] font-bold text-lg mt-2">
-                We've processed <span className="text-[#1F2937] font-black">{result.total}</span> milestone records.
+              <p className="text-[#92A2A5] font-bold text-lg mt-2">
+                We've processed <span className="text-[#546A7A] font-bold">{result.total}</span> milestone records.
               </p>
               
-              <div className="mt-10 grid grid-cols-1 sm:grid-cols-3 gap-6">
+              <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {[
-                  { label: 'Total Rows', val: result.total, color: '#1F2937', bg: 'bg-[#F3F4F6]' },
-                  { label: 'Imported', val: result.success, color: '#82A094', bg: 'bg-[#82A094]/10' },
-                  { label: 'Failed', val: result.failed, color: '#E17F70', bg: 'bg-[#E17F70]/10' }
+                  { label: 'Total Rows', val: result.total, color: '#546A7A', bg: 'bg-gradient-to-r from-[#96AEC2]/15 to-[#6F8A9D]/10', border: 'border-[#6F8A9D]/20' },
+                  { label: 'Imported', val: result.success, color: '#4F6A64', bg: 'bg-gradient-to-r from-[#82A094]/15 to-[#4F6A64]/10', border: 'border-[#82A094]/20' },
+                  { label: 'Failed', val: result.failed, color: '#9E3B47', bg: 'bg-gradient-to-r from-[#E17F70]/15 to-[#9E3B47]/10', border: 'border-[#E17F70]/20' }
                 ].map((stat, idx) => (
-                  <div key={idx} className={`${stat.bg} rounded-[24px] p-6 border border-[#AEBFC3]/10`}>
-                    <p className="text-[#9CA3AF] text-[10px] font-black uppercase tracking-[0.2em] mb-2">{stat.label}</p>
-                    <p className="text-3xl font-black" style={{ color: stat.color }}>{stat.val}</p>
+                  <div key={idx} className={`${stat.bg} rounded-xl p-5 border-2 ${stat.border}`}>
+                    <p className="text-[#92A2A5] text-[10px] font-bold uppercase tracking-wide mb-1">{stat.label}</p>
+                    <p className="text-2xl font-bold" style={{ color: stat.color }}>{stat.val}</p>
                   </div>
                 ))}
               </div>
 
-              <div className="mt-10 flex flex-col sm:flex-row items-center gap-4">
+              <div className="mt-8 flex flex-col sm:flex-row items-center gap-4">
                 <button 
                   onClick={() => router.push('/finance/ar/milestones')}
-                  className="w-full sm:w-auto px-10 py-5 bg-[#1F2937] text-white rounded-2xl font-black text-lg hover:shadow-2xl transition-all active:scale-95"
+                  className="w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-[#546A7A] to-[#6F8A9D] text-white rounded-xl font-bold text-lg hover:shadow-lg hover:shadow-[#546A7A]/20 transition-all active:scale-95"
                 >
                   View Milestones
                 </button>
                 <button 
                   onClick={handleClear}
-                  className="w-full sm:w-auto px-10 py-5 bg-white border-2 border-[#AEBFC3]/30 text-[#546A7A] rounded-2xl font-black text-lg hover:bg-[#F3F4F6] transition-all"
+                  className="w-full sm:w-auto px-8 py-3 bg-white border-2 border-[#AEBFC3]/40 text-[#546A7A] rounded-xl font-bold text-lg hover:bg-[#96AEC2]/10 hover:border-[#96AEC2] transition-all"
                 >
                   Import Another
                 </button>
@@ -808,12 +833,13 @@ export default function MilestoneImportPage() {
 
       {/* Format Helper */}
       {step === 'upload' && (
-        <div className="bg-white rounded-[40px] border border-[#AEBFC3]/20 p-8 sm:p-10 shadow-xl shadow-black/5">
-          <div className="flex items-center gap-4 mb-8">
-            <div className="w-10 h-10 rounded-[14px] bg-[#CE9F6B]/10 flex items-center justify-center text-[#CE9F6B]">
-              <Info className="w-5 h-5 font-black" />
+        <div className="relative bg-white rounded-2xl border-2 border-[#6F8A9D]/30 p-6 sm:p-8 shadow-xl overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#546A7A] via-[#6F8A9D] to-[#96AEC2]" />
+          <div className="flex items-center gap-4 mb-6">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#CE9F6B] to-[#976E44] flex items-center justify-center shadow-lg shadow-[#CE9F6B]/20">
+              <Info className="w-5 h-5 text-white" />
             </div>
-            <h3 className="text-[#1F2937] font-black text-xl">Required Milestone Columns</h3>
+            <h3 className="text-[#546A7A] font-bold text-xl">Required Milestone Columns</h3>
           </div>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -827,12 +853,12 @@ export default function MilestoneImportPage() {
               { label: 'Invoice Date', desc: 'Billing Date', req: false },
               { label: 'Finance Comments', desc: 'Internal Remarks', req: false }
             ].map((col, i) => (
-              <div key={i} className="group p-5 rounded-2xl bg-[#F8FAFB] hover:bg-white border border-[#AEBFC3]/10 hover:border-[#CE9F6B]/30 hover:shadow-xl hover:shadow-[#CE9F6B]/5 transition-all duration-300">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[#1F2937] font-black text-sm">{col.label}</span>
-                  {col.req && <span className="text-[10px] font-black text-[#CE9F6B] uppercase tracking-wider">Required</span>}
+              <div key={i} className="group p-4 rounded-xl bg-gradient-to-br from-[#96AEC2]/5 to-[#6F8A9D]/5 hover:from-white hover:to-white border-2 border-[#AEBFC3]/20 hover:border-[#CE9F6B]/30 hover:shadow-lg hover:shadow-[#CE9F6B]/10 transition-all duration-300">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[#546A7A] font-bold text-sm">{col.label}</span>
+                  {col.req && <span className="text-[10px] font-bold text-[#CE9F6B] uppercase tracking-wide bg-[#CE9F6B]/10 px-2 py-0.5 rounded">Required</span>}
                 </div>
-                <p className="text-[#9CA3AF] text-xs font-medium leading-relaxed">{col.desc}</p>
+                <p className="text-[#92A2A5] text-xs font-medium leading-relaxed">{col.desc}</p>
               </div>
             ))}
           </div>

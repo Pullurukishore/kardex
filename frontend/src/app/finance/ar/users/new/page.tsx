@@ -146,19 +146,20 @@ export default function NewFinanceUserPage() {
     return (
       <MobileContainer>
         <div className="max-w-lg mx-auto py-12">
-          <Card className="text-center shadow-2xl border-0 bg-gradient-to-br from-[#CE9F6B]/10 to-[#E17F70]/20">
+          <Card className="relative text-center shadow-2xl border-2 border-[#82A094]/30 bg-gradient-to-br from-[#82A094]/10 to-[#4F6A64]/10 overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#82A094] via-[#4F6A64] to-[#A2B9AF]" />
             <CardHeader className="pb-4">
               <div className="flex justify-center mb-4">
                 <div className="relative">
-                  <div className="h-20 w-20 rounded-full bg-gradient-to-r from-[#976E44] to-[#CE9F6B] flex items-center justify-center shadow-lg">
+                  <div className="h-20 w-20 rounded-full bg-gradient-to-br from-[#82A094] to-[#4F6A64] flex items-center justify-center shadow-xl shadow-[#82A094]/30">
                     <CheckCircle className="h-10 w-10 text-white" />
                   </div>
-                  <div className="absolute -top-1 -right-1 h-6 w-6 rounded-full bg-[#E17F70] flex items-center justify-center">
+                  <div className="absolute -top-1 -right-1 h-6 w-6 rounded-full bg-gradient-to-r from-[#CE9F6B] to-[#E17F70] flex items-center justify-center shadow-lg">
                     <Sparkles className="h-3 w-3 text-white" />
                   </div>
                 </div>
               </div>
-              <CardTitle className="text-2xl font-bold text-[#976E44]">Finance User Created Successfully!</CardTitle>
+              <CardTitle className="text-2xl font-bold text-[#4F6A64]">Finance User Created Successfully!</CardTitle>
               <CardDescription className="text-[#5D6E73] mt-2">
                 The new finance user has been added to the system and will be redirected automatically.
               </CardDescription>
@@ -167,7 +168,7 @@ export default function NewFinanceUserPage() {
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                 <Button 
                   onClick={handleImmediateRedirect}
-                  className="bg-gradient-to-r from-[#976E44] to-[#CE9F6B] hover:from-[#865E38] hover:to-[#B88F5B] shadow-lg"
+                  className="bg-gradient-to-r from-[#976E44] to-[#CE9F6B] hover:shadow-lg hover:shadow-[#CE9F6B]/20 hover:-translate-y-0.5 active:scale-95 shadow-lg font-bold transition-all"
                 >
                   <Users className="mr-2 h-4 w-4" />
                   Go to Finance Users
@@ -175,7 +176,7 @@ export default function NewFinanceUserPage() {
                 <Button 
                   variant="outline" 
                   onClick={() => window.location.reload()}
-                  className="border-[#CE9F6B] text-[#976E44] hover:bg-[#CE9F6B]/10"
+                  className="border-2 border-[#AEBFC3]/40 text-[#5D6E73] hover:bg-[#AEBFC3]/10 hover:border-[#AEBFC3]/60 font-bold transition-all"
                 >
                   <UserPlus className="mr-2 h-4 w-4" />
                   Create Another
@@ -190,8 +191,15 @@ export default function NewFinanceUserPage() {
 
   return (
     <MobileContainer>
+      {/* Decorative Background */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-20 -right-20 w-[40rem] h-[40rem] bg-gradient-to-br from-[#CE9F6B]/10 to-[#976E44]/10 rounded-full blur-[8rem] opacity-50" />
+        <div className="absolute -bottom-40 -left-20 w-[30rem] h-[30rem] bg-gradient-to-br from-[#82A094]/10 to-[#4F6A64]/10 rounded-full blur-[6rem] opacity-50" />
+      </div>
+
       {/* Desktop Header with Gradient */}
-      <div className="hidden md:block relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#976E44] via-[#CE9F6B] to-[#E17F70] p-8 text-white mb-8 shadow-2xl">
+      <div className="hidden md:block relative overflow-hidden rounded-[2.5rem] bg-gradient-to-r from-[#976E44] via-[#CE9F6B] to-[#E17F70] p-8 text-white mb-8 shadow-2xl">
+        <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-[#CE9F6B] via-white/40 to-[#E17F70]" />
         <div className="absolute inset-0 bg-black/10"></div>
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-32 translate-x-32"></div>
         <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-24 -translate-x-24"></div>
@@ -201,19 +209,19 @@ export default function NewFinanceUserPage() {
               <Button 
                 variant="ghost" 
                 size="sm"
-                className="text-white hover:bg-white/20 hover:text-white border border-white/30"
+                className="text-white hover:bg-white/20 hover:text-white border-2 border-white/30 hover:scale-105 transition-all"
               >
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back to Finance Users
               </Button>
             </Link>
-            <Badge className="bg-white/20 text-white hover:bg-white/30 border-white/30">
+            <Badge className="bg-white/20 text-white hover:bg-white/30 border-2 border-white/30 font-bold">
               <UserPlus className="mr-1 h-3 w-3" />
               New Finance User
             </Badge>
           </div>
           <div className="flex items-center gap-6">
-            <div className="h-20 w-20 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center text-white shadow-lg">
+            <div className="h-20 w-20 rounded-2xl bg-white/20 backdrop-blur-sm border-2 border-white/30 flex items-center justify-center text-white shadow-xl">
               <Shield className="h-10 w-10" />
             </div>
             <div>
@@ -253,10 +261,12 @@ export default function NewFinanceUserPage() {
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
         {/* User Profile Card */}
-        <Card className="shadow-xl border-0 bg-gradient-to-br from-[#CE9F6B]/5 to-[#E17F70]/5 overflow-hidden">
-          <CardHeader className="bg-gradient-to-r from-[#CE9F6B]/10 to-[#E17F70]/10 border-b border-[#CE9F6B]/20">
+        <Card className="relative shadow-xl border-2 border-[#CE9F6B]/30 bg-gradient-to-br from-white to-[#CE9F6B]/5 overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#976E44] via-[#CE9F6B] to-[#E17F70]" />
+          <CardHeader className="bg-gradient-to-r from-[#CE9F6B]/10 to-[#E17F70]/10 border-b-2 border-[#CE9F6B]/20">
             <div className="flex items-center gap-3">
-              <div className="h-12 w-12 rounded-xl bg-gradient-to-r from-[#976E44] to-[#CE9F6B] flex items-center justify-center shadow-lg">
+              <div className="relative h-12 w-12 rounded-xl bg-gradient-to-br from-[#976E44] to-[#CE9F6B] flex items-center justify-center shadow-lg shadow-[#CE9F6B]/20 overflow-hidden">
+                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#CE9F6B] via-white/40 to-[#976E44]" />
                 <User className="h-6 w-6 text-white" />
               </div>
               <div>
@@ -271,8 +281,10 @@ export default function NewFinanceUserPage() {
             {/* Name and Email Row */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-3">
-                <Label htmlFor="name" className="flex items-center gap-2 text-sm font-semibold text-[#5D6E73]">
-                  <User className="h-4 w-4 text-[#976E44]" />
+                <Label htmlFor="name" className="flex items-center gap-2 text-sm font-bold text-[#5D6E73] uppercase tracking-wider">
+                  <div className="p-1 rounded bg-gradient-to-br from-[#976E44] to-[#CE9F6B]">
+                    <User className="h-3 w-3 text-white" />
+                  </div>
                   Full Name *
                 </Label>
                 <Input
@@ -280,22 +292,24 @@ export default function NewFinanceUserPage() {
                   type="text"
                   placeholder="Enter user's full name"
                   {...register('name')}
-                  className={`h-12 text-base transition-all duration-200 ${
+                  className={`h-12 text-base transition-all duration-200 border-2 bg-gradient-to-r from-[#AEBFC3]/5 to-transparent ${
                     errors.name 
                       ? 'border-[#9E3B47] focus:border-[#9E3B47] focus:ring-[#E17F70]/50' 
-                      : 'border-[#CE9F6B]/30 focus:border-[#CE9F6B] focus:ring-[#CE9F6B]/20'
+                      : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B] focus:ring-[#CE9F6B]/20'
                   }`}
                 />
                 {errors.name && (
-                  <p className="text-sm text-[#9E3B47] flex items-center gap-1">
+                  <p className="text-sm text-[#9E3B47] flex items-center gap-1 font-medium">
                     {errors.name.message}
                   </p>
                 )}
               </div>
               
               <div className="space-y-3">
-                <Label htmlFor="email" className="flex items-center gap-2 text-sm font-semibold text-[#5D6E73]">
-                  <Mail className="h-4 w-4 text-[#976E44]" />
+                <Label htmlFor="email" className="flex items-center gap-2 text-sm font-bold text-[#5D6E73] uppercase tracking-wider">
+                  <div className="p-1 rounded bg-gradient-to-br from-[#976E44] to-[#CE9F6B]">
+                    <Mail className="h-3 w-3 text-white" />
+                  </div>
                   Email Address *
                 </Label>
                 <Input
@@ -303,14 +317,14 @@ export default function NewFinanceUserPage() {
                   type="email"
                   placeholder="user@example.com"
                   {...register('email')}
-                  className={`h-12 text-base transition-all duration-200 ${
+                  className={`h-12 text-base transition-all duration-200 border-2 bg-gradient-to-r from-[#AEBFC3]/5 to-transparent ${
                     errors.email 
                       ? 'border-[#9E3B47] focus:border-[#9E3B47] focus:ring-[#E17F70]/50' 
-                      : 'border-[#CE9F6B]/30 focus:border-[#CE9F6B] focus:ring-[#CE9F6B]/20'
+                      : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B] focus:ring-[#CE9F6B]/20'
                   }`}
                 />
                 {errors.email && (
-                  <p className="text-sm text-[#9E3B47] flex items-center gap-1">
+                  <p className="text-sm text-[#9E3B47] flex items-center gap-1 font-medium">
                     {errors.email.message}
                   </p>
                 )}
@@ -319,8 +333,10 @@ export default function NewFinanceUserPage() {
 
             {/* Phone Number */}
             <div className="space-y-3">
-              <Label htmlFor="phone" className="flex items-center gap-2 text-sm font-semibold text-[#5D6E73]">
-                <Phone className="h-4 w-4 text-[#976E44]" />
+              <Label htmlFor="phone" className="flex items-center gap-2 text-sm font-bold text-[#5D6E73] uppercase tracking-wider">
+                <div className="p-1 rounded bg-gradient-to-br from-[#976E44] to-[#CE9F6B]">
+                  <Phone className="h-3 w-3 text-white" />
+                </div>
                 Phone Number
               </Label>
               <Input
@@ -328,15 +344,17 @@ export default function NewFinanceUserPage() {
                 type="tel"
                 placeholder="Enter phone number (optional)"
                 {...register('phone')}
-                className="h-12 text-base border-[#CE9F6B]/30 focus:border-[#CE9F6B] focus:ring-[#CE9F6B]/20"
+                className="h-12 text-base border-2 border-[#AEBFC3]/30 focus:border-[#CE9F6B] focus:ring-[#CE9F6B]/20 bg-gradient-to-r from-[#AEBFC3]/5 to-transparent"
               />
             </div>
 
             {/* Password Fields */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-3">
-                <Label htmlFor="password" className="flex items-center gap-2 text-sm font-semibold text-[#5D6E73]">
-                  <Shield className="h-4 w-4 text-[#E17F70]" />
+                <Label htmlFor="password" className="flex items-center gap-2 text-sm font-bold text-[#5D6E73] uppercase tracking-wider">
+                  <div className="p-1 rounded bg-gradient-to-br from-[#E17F70] to-[#9E3B47]">
+                    <Shield className="h-3 w-3 text-white" />
+                  </div>
                   Password *
                 </Label>
                 <div className="relative">
@@ -345,10 +363,10 @@ export default function NewFinanceUserPage() {
                     type={showPassword ? 'text' : 'password'}
                     placeholder="Enter a strong password"
                     {...register('password')}
-                    className={`h-12 text-base pr-12 transition-all duration-200 ${
+                    className={`h-12 text-base pr-12 transition-all duration-200 border-2 bg-gradient-to-r from-[#AEBFC3]/5 to-transparent ${
                       errors.password 
                         ? 'border-[#9E3B47] focus:border-[#9E3B47] focus:ring-[#E17F70]/50' 
-                        : 'border-[#CE9F6B]/30 focus:border-[#CE9F6B] focus:ring-[#CE9F6B]/20'
+                        : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B] focus:ring-[#CE9F6B]/20'
                     }`}
                   />
                   <Button
@@ -361,19 +379,21 @@ export default function NewFinanceUserPage() {
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </Button>
                 </div>
-                <p className="text-xs text-[#5D6E73]">
+                <p className="text-xs text-[#5D6E73] font-medium">
                   Password must be at least 6 characters long
                 </p>
                 {errors.password && (
-                  <p className="text-sm text-[#9E3B47]">
+                  <p className="text-sm text-[#9E3B47] font-medium">
                     {errors.password.message}
                   </p>
                 )}
               </div>
 
               <div className="space-y-3">
-                <Label htmlFor="confirmPassword" className="flex items-center gap-2 text-sm font-semibold text-[#5D6E73]">
-                  <Shield className="h-4 w-4 text-[#E17F70]" />
+                <Label htmlFor="confirmPassword" className="flex items-center gap-2 text-sm font-bold text-[#5D6E73] uppercase tracking-wider">
+                  <div className="p-1 rounded bg-gradient-to-br from-[#E17F70] to-[#9E3B47]">
+                    <Shield className="h-3 w-3 text-white" />
+                  </div>
                   Confirm Password *
                 </Label>
                 <div className="relative">
@@ -382,10 +402,10 @@ export default function NewFinanceUserPage() {
                     type={showConfirmPassword ? 'text' : 'password'}
                     placeholder="Confirm the password"
                     {...register('confirmPassword')}
-                    className={`h-12 text-base pr-12 transition-all duration-200 ${
+                    className={`h-12 text-base pr-12 transition-all duration-200 border-2 bg-gradient-to-r from-[#AEBFC3]/5 to-transparent ${
                       errors.confirmPassword 
                         ? 'border-[#9E3B47] focus:border-[#9E3B47] focus:ring-[#E17F70]/50' 
-                        : 'border-[#CE9F6B]/30 focus:border-[#CE9F6B] focus:ring-[#CE9F6B]/20'
+                        : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B] focus:ring-[#CE9F6B]/20'
                     }`}
                   />
                   <Button
@@ -399,7 +419,7 @@ export default function NewFinanceUserPage() {
                   </Button>
                 </div>
                 {errors.confirmPassword && (
-                  <p className="text-sm text-[#9E3B47]">
+                  <p className="text-sm text-[#9E3B47] font-medium">
                     {errors.confirmPassword.message}
                   </p>
                 )}
@@ -409,10 +429,12 @@ export default function NewFinanceUserPage() {
         </Card>
 
         {/* Role Selection Card */}
-        <Card className="shadow-xl border-0 bg-gradient-to-br from-[#E17F70]/5 to-[#CE9F6B]/5 overflow-hidden">
-          <CardHeader className="bg-gradient-to-r from-[#E17F70]/10 to-[#CE9F6B]/10 border-b border-[#E17F70]/20">
+        <Card className="relative shadow-xl border-2 border-[#E17F70]/30 bg-gradient-to-br from-white to-[#E17F70]/5 overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#9E3B47] via-[#E17F70] to-[#CE9F6B]" />
+          <CardHeader className="bg-gradient-to-r from-[#E17F70]/10 to-[#CE9F6B]/10 border-b-2 border-[#E17F70]/20">
             <div className="flex items-center gap-3">
-              <div className="h-12 w-12 rounded-xl bg-gradient-to-r from-[#9E3B47] to-[#E17F70] flex items-center justify-center shadow-lg">
+              <div className="relative h-12 w-12 rounded-xl bg-gradient-to-br from-[#9E3B47] to-[#E17F70] flex items-center justify-center shadow-lg shadow-[#E17F70]/20 overflow-hidden">
+                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#E17F70] via-white/40 to-[#9E3B47]" />
                 <Crown className="h-6 w-6 text-white" />
               </div>
               <div>
@@ -429,29 +451,30 @@ export default function NewFinanceUserPage() {
                 <div
                   key={role.value}
                   onClick={() => handleRoleSelect(role.value)}
-                  className={`relative p-6 rounded-2xl border-2 cursor-pointer transition-all duration-300 hover:shadow-lg ${
+                  className={`relative p-6 rounded-2xl border-2 cursor-pointer transition-all duration-300 hover:shadow-xl ${
                     selectedRole === role.value
-                      ? 'border-[#E17F70] bg-[#E17F70]/10 shadow-md ring-2 ring-[#E17F70]/30'
-                      : 'border-[#CE9F6B]/30 bg-white hover:border-[#CE9F6B] hover:bg-[#CE9F6B]/5'
+                      ? 'border-[#E17F70] bg-gradient-to-br from-[#E17F70]/10 to-[#9E3B47]/5 shadow-lg ring-2 ring-[#E17F70]/30'
+                      : 'border-[#AEBFC3]/30 bg-white hover:border-[#CE9F6B] hover:bg-[#CE9F6B]/5 hover:scale-[1.02]'
                   }`}
                 >
                   <div className="flex flex-col items-center text-center gap-3">
-                    <div className={`h-14 w-14 rounded-xl flex items-center justify-center ${
+                    <div className={`relative h-14 w-14 rounded-xl flex items-center justify-center overflow-hidden ${
                       selectedRole === role.value
-                        ? 'bg-gradient-to-r from-[#9E3B47] to-[#E17F70] text-white'
+                        ? 'bg-gradient-to-br from-[#9E3B47] to-[#E17F70] text-white shadow-lg shadow-[#E17F70]/20'
                         : 'bg-[#CE9F6B]/20 text-[#976E44]'
                     }`}>
+                      {selectedRole === role.value && <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#E17F70] via-white/40 to-[#9E3B47]" />}
                       {role.icon}
                     </div>
                     <div>
-                      <h4 className="font-semibold text-[#976E44]">{role.label}</h4>
+                      <h4 className="font-bold text-[#976E44]">{role.label}</h4>
                       <p className="text-xs text-[#5D6E73] mt-1">{role.description}</p>
                     </div>
                   </div>
                   
                   {selectedRole === role.value && (
                     <div className="absolute top-3 right-3">
-                      <div className="h-6 w-6 rounded-full bg-gradient-to-r from-[#9E3B47] to-[#E17F70] flex items-center justify-center shadow-lg">
+                      <div className="h-6 w-6 rounded-full bg-gradient-to-br from-[#9E3B47] to-[#E17F70] flex items-center justify-center shadow-lg shadow-[#E17F70]/20">
                         <CheckCircle className="h-4 w-4 text-white" />
                       </div>
                     </div>
@@ -468,12 +491,12 @@ export default function NewFinanceUserPage() {
         </Card>
 
         {/* Action Buttons */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-6 pt-8 border-t border-[#CE9F6B]/20">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-6 pt-8 border-t-2 border-[#AEBFC3]/20">
           <div className="flex items-center gap-3 text-sm text-[#5D6E73]">
-            <div className="h-8 w-8 rounded-lg bg-[#CE9F6B]/20 flex items-center justify-center">
-              <Crown className="h-4 w-4 text-[#976E44]" />
+            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-[#CE9F6B] to-[#976E44] flex items-center justify-center shadow-lg shadow-[#CE9F6B]/20">
+              <Crown className="h-4 w-4 text-white" />
             </div>
-            <span className="font-medium">
+            <span className="font-bold">
               Role: {getFinanceRoleDisplayName(selectedRole)}
             </span>
           </div>
@@ -483,7 +506,7 @@ export default function NewFinanceUserPage() {
               <Button 
                 type="button" 
                 variant="outline"
-                className="border-[#CE9F6B] text-[#976E44] hover:bg-[#CE9F6B]/10 h-12 px-6"
+                className="border-2 border-[#AEBFC3]/40 text-[#5D6E73] hover:bg-[#AEBFC3]/10 hover:border-[#AEBFC3]/60 h-12 px-6 font-bold transition-all"
               >
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Cancel
@@ -492,7 +515,7 @@ export default function NewFinanceUserPage() {
             <Button 
               type="submit" 
               disabled={loading}
-              className="bg-gradient-to-r from-[#976E44] to-[#CE9F6B] hover:from-[#865E38] hover:to-[#B88F5B] shadow-lg h-12 px-8 min-w-[180px]"
+              className="bg-gradient-to-r from-[#976E44] to-[#CE9F6B] hover:shadow-xl hover:shadow-[#CE9F6B]/30 hover:-translate-y-0.5 active:scale-95 shadow-lg h-12 px-8 min-w-[180px] font-bold transition-all"
             >
               {loading ? (
                 <>

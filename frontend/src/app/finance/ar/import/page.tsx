@@ -177,9 +177,15 @@ export default function ARImportPage() {
   const currentRows = preview?.preview?.slice(startIndex, endIndex) || [];
 
   return (
-    <div className="space-y-6 max-w-6xl">
+    <div className="space-y-6 max-w-6xl relative">
+      {/* Decorative Background */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-20 -right-20 w-[40rem] h-[40rem] bg-gradient-to-br from-[#82A094]/10 to-[#4F6A64]/10 rounded-full blur-[8rem] opacity-50" />
+        <div className="absolute -bottom-40 -left-20 w-[30rem] h-[30rem] bg-gradient-to-br from-[#CE9F6B]/10 to-[#976E44]/10 rounded-full blur-[6rem] opacity-50" />
+      </div>
+
       {/* Step Indicator */}
-      <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 mb-2">
+      <div className="relative flex flex-wrap items-center justify-center gap-3 sm:gap-4 mb-2">
         {[
           { key: 'upload', label: 'Upload', icon: UploadCloud },
           { key: 'preview', label: 'Review', icon: Eye },
@@ -225,14 +231,15 @@ export default function ARImportPage() {
       </div>
 
       {/* Premium Header - Green Import Theme */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#4F6A64] via-[#82A094] to-[#A2B9AF] p-5 sm:p-6 shadow-xl">
+      <div className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-r from-[#4F6A64] via-[#82A094] to-[#A2B9AF] p-5 sm:p-8 shadow-2xl">
+        <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-[#A2B9AF] via-white/40 to-[#82A094]" />
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-4 right-12 w-32 h-32 border-4 border-white rounded-full" />
           <div className="absolute -bottom-8 right-32 w-48 h-48 border-4 border-white rounded-full" />
         </div>
 
         <div className="relative flex items-center gap-3 sm:gap-4">
-          <div className="p-2 sm:p-3 rounded-xl sm:rounded-2xl bg-white/20 backdrop-blur-sm shadow-lg">
+          <div className="p-2.5 sm:p-3 rounded-xl sm:rounded-2xl bg-white/20 backdrop-blur-sm border-2 border-white/30 shadow-lg">
             <Upload className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
           </div>
           <div>
@@ -254,19 +261,21 @@ export default function ARImportPage() {
 
       {/* Step 1: Upload Area */}
       {step === 'upload' && (
-        <div className="bg-white rounded-2xl border-2 border-[#82A094]/20 p-4 sm:p-8 shadow-sm">
+        <div className="relative bg-white rounded-[2rem] border-2 border-[#82A094]/30 p-4 sm:p-8 shadow-lg overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#82A094] via-[#4F6A64] to-[#A2B9AF]" />
           <label 
             className={`flex flex-col items-center justify-center cursor-pointer py-12 sm:py-16 border-2 border-dashed rounded-2xl transition-all duration-300 group relative overflow-hidden ${
               dragActive 
-                ? 'border-[#82A094] bg-[#82A094]/10' 
-                : 'border-[#AEBFC3]/50 hover:border-[#82A094]/50 hover:bg-[#82A094]/5'
+                ? 'border-[#82A094] bg-gradient-to-r from-[#82A094]/10 to-[#4F6A64]/10' 
+                : 'border-[#AEBFC3]/50 hover:border-[#82A094]/50 hover:bg-gradient-to-r hover:from-[#82A094]/5 hover:to-[#4F6A64]/5'
             }`}
             onDragEnter={handleDrag}
             onDragLeave={handleDrag}
             onDragOver={handleDrag}
             onDrop={handleDrop}
           >
-            <div className={`w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-[#82A094] to-[#4F6A64] flex items-center justify-center mb-5 transition-all duration-500 group-hover:scale-110 group-hover:rotate-3 shadow-lg shadow-[#82A094]/40 ${dragActive ? 'scale-110 rotate-3' : ''}`}>
+            <div className={`relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-[#82A094] to-[#4F6A64] flex items-center justify-center mb-5 transition-all duration-500 group-hover:scale-110 group-hover:rotate-3 shadow-lg shadow-[#82A094]/40 ${dragActive ? 'scale-110 rotate-3' : ''}`}>
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#A2B9AF] via-white/40 to-[#82A094]" />
               <UploadCloud className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
             </div>
             <div className="text-center relative z-10 px-4">
@@ -291,7 +300,8 @@ export default function ARImportPage() {
       {step === 'preview' && preview && (
         <div className="space-y-6">
           {/* File Info & Actions */}
-          <div className="bg-white rounded-2xl border-2 border-[#82A094]/20 p-4 sm:p-6 shadow-sm">
+          <div className="relative bg-white rounded-[2rem] border-2 border-[#82A094]/30 p-4 sm:p-6 shadow-lg overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#82A094] via-[#4F6A64] to-[#A2B9AF]" />
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
               <div className="flex items-center gap-3 sm:gap-4">
                 <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl bg-gradient-to-br from-[#82A094] to-[#4F6A64] flex items-center justify-center shadow-lg shadow-[#82A094]/30 flex-shrink-0">
@@ -323,21 +333,24 @@ export default function ARImportPage() {
 
             {/* Validation Summary */}
             <div className="grid grid-cols-1 xs:grid-cols-3 gap-3 sm:gap-4 mb-6">
-              <div className="bg-[#AEBFC3]/10 rounded-xl p-3 sm:p-4 border border-[#AEBFC3]/20">
-                <p className="text-[#92A2A5] text-[10px] sm:text-xs uppercase tracking-wider mb-0.5 sm:mb-1">Total Rows</p>
+              <div className="relative bg-gradient-to-r from-[#AEBFC3]/10 to-[#92A2A5]/5 rounded-xl p-3 sm:p-4 border-2 border-[#AEBFC3]/20 overflow-hidden">
+                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#AEBFC3] to-[#92A2A5]" />
+                <p className="text-[#92A2A5] text-[10px] sm:text-xs uppercase tracking-wider mb-0.5 sm:mb-1 font-bold">Total Rows</p>
                 <p className="text-[#546A7A] text-xl sm:text-2xl font-bold">{totalRows}</p>
               </div>
-              <div className="bg-[#82A094]/10 rounded-xl p-3 sm:p-4 border border-[#82A094]/30">
+              <div className="relative bg-gradient-to-r from-[#82A094]/10 to-[#4F6A64]/5 rounded-xl p-3 sm:p-4 border-2 border-[#82A094]/30 overflow-hidden">
+                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#82A094] to-[#4F6A64]" />
                 <div className="flex items-center gap-2 mb-0.5 sm:mb-1">
-                  <CheckCircle className="w-3 h-3 text-[#82A094]" />
-                  <p className="text-[#82A094] text-[10px] sm:text-xs uppercase tracking-wider">Valid</p>
+                  <div className="p-0.5 rounded bg-gradient-to-br from-[#82A094] to-[#4F6A64]"><CheckCircle className="w-2.5 h-2.5 text-white" /></div>
+                  <p className="text-[#82A094] text-[10px] sm:text-xs uppercase tracking-wider font-bold">Valid</p>
                 </div>
                 <p className="text-[#4F6A64] text-xl sm:text-2xl font-bold">{preview.validRows || totalRows}</p>
               </div>
-              <div className={(preview.invalidRows || 0) > 0 ? "bg-[#E17F70]/10 border-[#E17F70]/30 rounded-xl p-3 sm:p-4 border" : "bg-[#AEBFC3]/10 border-[#AEBFC3]/20 rounded-xl p-3 sm:p-4 border"}>
+              <div className={`relative rounded-xl p-3 sm:p-4 border-2 overflow-hidden ${(preview.invalidRows || 0) > 0 ? "bg-gradient-to-r from-[#E17F70]/10 to-[#9E3B47]/5 border-[#E17F70]/30" : "bg-gradient-to-r from-[#AEBFC3]/10 to-[#92A2A5]/5 border-[#AEBFC3]/20"}`}>
+                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#E17F70] to-[#9E3B47]" />
                 <div className="flex items-center gap-2 mb-0.5 sm:mb-1">
-                  <AlertTriangle className="w-3 h-3 text-[#E17F70]" />
-                  <p className={(preview.invalidRows || 0) > 0 ? "text-[#E17F70] text-[10px] sm:text-xs uppercase tracking-wider" : "text-[#92A2A5] text-[10px] sm:text-xs uppercase tracking-wider"}>Invalid</p>
+                  <div className={`p-0.5 rounded ${(preview.invalidRows || 0) > 0 ? "bg-gradient-to-br from-[#E17F70] to-[#9E3B47]" : "bg-[#AEBFC3]"}`}><AlertTriangle className="w-2.5 h-2.5 text-white" /></div>
+                  <p className={(preview.invalidRows || 0) > 0 ? "text-[#E17F70] text-[10px] sm:text-xs uppercase tracking-wider font-bold" : "text-[#92A2A5] text-[10px] sm:text-xs uppercase tracking-wider font-bold"}>Invalid</p>
                 </div>
                 <p className={(preview.invalidRows || 0) > 0 ? "text-[#9E3B47] text-xl sm:text-2xl font-bold" : "text-[#92A2A5] text-xl sm:text-2xl font-bold"}>{preview.invalidRows || 0}</p>
               </div>
@@ -345,11 +358,12 @@ export default function ARImportPage() {
 
             {/* Missing Columns Warning */}
             {preview.missingColumns && preview.missingColumns.length > 0 && (
-              <div className="mb-6 p-4 bg-[#CE9F6B]/10 border-2 border-[#CE9F6B]/30 rounded-xl">
+              <div className="relative mb-6 p-4 bg-gradient-to-r from-[#CE9F6B]/10 to-[#976E44]/5 border-2 border-[#CE9F6B]/30 rounded-xl overflow-hidden">
+                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#CE9F6B] via-[#976E44] to-[#E17F70]" />
                 <div className="flex items-start gap-3">
-                  <AlertTriangle className="w-5 h-5 text-[#CE9F6B] flex-shrink-0 mt-0.5" />
+                  <div className="p-1.5 rounded-lg bg-gradient-to-br from-[#CE9F6B] to-[#976E44]"><AlertTriangle className="w-4 h-4 text-white flex-shrink-0" /></div>
                   <div>
-                    <p className="text-[#976E44] font-semibold">Missing Required Columns</p>
+                    <p className="text-[#976E44] font-bold">Missing Required Columns</p>
                     <p className="text-[#976E44]/70 text-sm mt-1">
                       The following columns are missing from your file: {preview.missingColumns.join(', ')}
                     </p>
@@ -538,11 +552,12 @@ export default function ARImportPage() {
           </div>
 
           {/* Import Confirmation */}
-          <div className="bg-gradient-to-r from-[#82A094]/15 via-[#82A094]/10 to-transparent rounded-2xl border-2 border-[#82A094]/30 p-5 sm:p-6">
+          <div className="relative bg-gradient-to-r from-[#82A094]/15 via-[#82A094]/10 to-transparent rounded-[2rem] border-2 border-[#82A094]/30 p-5 sm:p-6 overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#82A094] via-[#4F6A64] to-[#A2B9AF]" />
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5">
               <div className="flex items-center gap-4">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-[#82A094]/30 to-[#82A094]/10 flex items-center justify-center flex-shrink-0">
-                  <Upload className="w-5 h-5 sm:w-6 sm:h-6 text-[#4F6A64]" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-[#82A094] to-[#4F6A64] flex items-center justify-center flex-shrink-0 shadow-lg shadow-[#82A094]/20">
+                  <Upload className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                 </div>
                 <div>
                   <p className="text-[#546A7A] font-semibold text-sm sm:text-base">Ready to Import</p>
@@ -554,7 +569,7 @@ export default function ARImportPage() {
               <button
                 onClick={handleImport}
                 disabled={selectedRows.size === 0}
-                className="w-full sm:w-auto px-6 py-3 rounded-xl bg-gradient-to-r from-[#82A094] to-[#4F6A64] text-white font-semibold hover:shadow-lg hover:shadow-[#82A094]/40 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
+                className="w-full sm:w-auto px-6 py-3 rounded-xl bg-gradient-to-r from-[#82A094] to-[#4F6A64] text-white font-bold shadow-lg shadow-[#82A094]/20 hover:shadow-xl hover:shadow-[#82A094]/40 hover:-translate-y-0.5 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
               >
                 <Upload className="w-5 h-5" />
                 <span>Confirm Import</span>
@@ -567,21 +582,24 @@ export default function ARImportPage() {
 
       {/* Step 3: Importing */}
       {step === 'importing' && (
-        <div className="bg-white rounded-2xl border-2 border-[#82A094]/20 p-12 flex flex-col items-center justify-center shadow-sm">
-          <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-[#82A094] to-[#4F6A64] flex items-center justify-center mb-6 shadow-lg shadow-[#82A094]/40">
-            <div className="w-10 h-10 border-3 border-white/30 border-t-white rounded-full animate-spin" />
+        <div className="relative bg-white rounded-[2rem] border-2 border-[#82A094]/30 p-12 flex flex-col items-center justify-center shadow-lg overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#82A094] via-[#4F6A64] to-[#A2B9AF]" />
+          <div className="relative w-24 h-24 rounded-2xl bg-gradient-to-br from-[#82A094] to-[#4F6A64] flex items-center justify-center mb-6 shadow-2xl shadow-[#82A094]/40 overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#A2B9AF] via-white/40 to-[#82A094]" />
+            <div className="w-12 h-12 border-3 border-white/30 border-t-white rounded-full animate-spin" />
           </div>
-          <h3 className="text-[#546A7A] text-xl font-semibold mb-2">Importing Records...</h3>
-          <p className="text-[#92A2A5] text-sm">Please wait while we process your data</p>
+          <h3 className="text-[#546A7A] text-xl font-bold mb-2">Importing Records...</h3>
+          <p className="text-[#92A2A5] text-sm font-medium">Please wait while we process your data</p>
         </div>
       )}
 
       {/* Error */}
       {error && (
-        <div className="bg-[#E17F70]/10 border-2 border-[#E17F70]/30 rounded-xl overflow-hidden">
+        <div className="relative bg-gradient-to-r from-[#E17F70]/10 to-[#9E3B47]/5 border-2 border-[#E17F70]/30 rounded-xl overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#E17F70] via-[#9E3B47] to-[#75242D]" />
           <div className="flex items-start gap-4 p-5">
-            <div className="w-12 h-12 rounded-xl bg-[#E17F70]/20 flex items-center justify-center flex-shrink-0">
-              <XCircle className="w-6 h-6 text-[#9E3B47]" />
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#E17F70] to-[#9E3B47] flex items-center justify-center flex-shrink-0 shadow-lg shadow-[#E17F70]/20">
+              <XCircle className="w-6 h-6 text-white" />
             </div>
             <div className="flex-1">
               <p className="text-[#9E3B47] font-semibold text-lg">{error.message}</p>
@@ -624,19 +642,21 @@ export default function ARImportPage() {
 
       {/* Result */}
       {result && (
-        <div className={`p-6 rounded-2xl border-2 relative overflow-hidden ${
+        <div className={`relative p-6 rounded-[2rem] border-2 overflow-hidden ${
           result.failed === 0 
             ? 'bg-gradient-to-r from-[#82A094]/10 via-[#82A094]/5 to-transparent border-[#82A094]/30' 
             : 'bg-gradient-to-r from-[#CE9F6B]/10 via-[#CE9F6B]/5 to-transparent border-[#CE9F6B]/30'
         }`}>
+          <div className={`absolute top-0 left-0 right-0 h-1.5 ${result.failed === 0 ? 'bg-gradient-to-r from-[#82A094] via-[#4F6A64] to-[#A2B9AF]' : 'bg-gradient-to-r from-[#CE9F6B] via-[#976E44] to-[#E17F70]'}`} />
           <div className="flex items-start gap-5">
             <div 
-              className={`w-14 h-14 rounded-xl flex items-center justify-center shadow-lg ${
+              className={`relative w-14 h-14 rounded-xl flex items-center justify-center shadow-lg overflow-hidden ${
                 result.failed === 0 
                   ? 'bg-gradient-to-br from-[#82A094] to-[#4F6A64] shadow-[#82A094]/30' 
                   : 'bg-gradient-to-br from-[#CE9F6B] to-[#976E44] shadow-[#CE9F6B]/30'
               }`}
             >
+              <div className={`absolute top-0 left-0 right-0 h-1 ${result.failed === 0 ? 'bg-gradient-to-r from-[#A2B9AF] via-white/40 to-[#82A094]' : 'bg-gradient-to-r from-[#E17F70] via-white/40 to-[#CE9F6B]'}`} />
               <CheckCircle className="w-7 h-7 text-white" />
             </div>
             <div className="flex-1">
@@ -646,16 +666,19 @@ export default function ARImportPage() {
                 Import {result.failed === 0 ? 'Completed Successfully!' : 'Partially Completed'}
               </h3>
               <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-6">
-                <div className="bg-white rounded-xl p-3 sm:p-4 border border-[#AEBFC3]/30">
-                  <p className="text-[#92A2A5] text-[10px] sm:text-xs uppercase tracking-wider mb-0.5 sm:mb-1">Total</p>
+                <div className="relative bg-gradient-to-r from-[#AEBFC3]/10 to-[#92A2A5]/5 rounded-xl p-3 sm:p-4 border-2 border-[#AEBFC3]/30 overflow-hidden">
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#AEBFC3] to-[#92A2A5]" />
+                  <p className="text-[#92A2A5] text-[10px] sm:text-xs uppercase tracking-wider mb-0.5 sm:mb-1 font-bold">Total</p>
                   <p className="text-[#546A7A] text-xl sm:text-2xl font-bold">{result.total}</p>
                 </div>
-                <div className="bg-[#82A094]/10 rounded-xl p-3 sm:p-4 border border-[#82A094]/30">
-                  <p className="text-[#82A094] text-[10px] sm:text-xs uppercase tracking-wider mb-0.5 sm:mb-1">Success</p>
+                <div className="relative bg-gradient-to-r from-[#82A094]/10 to-[#4F6A64]/5 rounded-xl p-3 sm:p-4 border-2 border-[#82A094]/30 overflow-hidden">
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#82A094] to-[#4F6A64]" />
+                  <p className="text-[#82A094] text-[10px] sm:text-xs uppercase tracking-wider mb-0.5 sm:mb-1 font-bold">Success</p>
                   <p className="text-[#4F6A64] text-xl sm:text-2xl font-bold">{result.success}</p>
                 </div>
-                <div className="bg-[#E17F70]/10 rounded-xl p-3 sm:p-4 border border-[#E17F70]/30">
-                  <p className="text-[#E17F70] text-[10px] sm:text-xs uppercase tracking-wider mb-0.5 sm:mb-1">Failed</p>
+                <div className="relative bg-gradient-to-r from-[#E17F70]/10 to-[#9E3B47]/5 rounded-xl p-3 sm:p-4 border-2 border-[#E17F70]/30 overflow-hidden">
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#E17F70] to-[#9E3B47]" />
+                  <p className="text-[#E17F70] text-[10px] sm:text-xs uppercase tracking-wider mb-0.5 sm:mb-1 font-bold">Failed</p>
                   <p className="text-[#9E3B47] text-xl sm:text-2xl font-bold">{result.failed}</p>
                 </div>
               </div>
@@ -674,16 +697,17 @@ export default function ARImportPage() {
 
       {/* Instructions */}
       {step === 'upload' && (
-        <div className="bg-white rounded-2xl border-2 border-[#CE9F6B]/20 p-5 sm:p-6 shadow-sm">
-          <h3 className="text-[#546A7A] font-bold text-sm sm:text-base mb-4 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-[#CE9F6B]" />
+        <div className="relative bg-white rounded-[2rem] border-2 border-[#CE9F6B]/30 p-5 sm:p-6 shadow-lg overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#CE9F6B] via-[#976E44] to-[#E17F70]" />
+          <h3 className="text-[#546A7A] font-bold text-sm sm:text-base mb-4 flex items-center gap-3">
+            <div className="p-1.5 rounded-lg bg-gradient-to-br from-[#CE9F6B] to-[#976E44]"><Info className="w-4 h-4 text-white" /></div>
             Required SAP Format Columns
           </h3>
           <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 text-xs sm:text-sm font-medium">
             {['Doc. No.', 'Customer Code', 'Customer Name', 'Customer Ref. No.', 'Amount', 'Net', 'Tax', 'Document Date'].map((col, i) => (
-              <div key={i} className="flex items-center gap-2 p-2 rounded-lg bg-[#CE9F6B]/5 text-[#5D6E73] hover:bg-[#CE9F6B]/10 transition-colors">
-                <div className="w-1.5 h-1.5 rounded-full bg-[#CE9F6B] flex-shrink-0" />
-                <span>{col}</span>
+              <div key={i} className="flex items-center gap-2 p-2.5 rounded-xl bg-gradient-to-r from-[#CE9F6B]/5 to-[#976E44]/5 text-[#5D6E73] hover:from-[#CE9F6B]/10 hover:to-[#976E44]/10 border border-[#CE9F6B]/20 transition-colors">
+                <div className="p-0.5 rounded bg-gradient-to-br from-[#CE9F6B] to-[#976E44]"><span className="w-1.5 h-1.5 rounded-full bg-white flex-shrink-0 block" /></div>
+                <span className="font-bold">{col}</span>
               </div>
             ))}
           </div>

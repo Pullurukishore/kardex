@@ -192,8 +192,15 @@ export default function EditFinanceUserPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[200px]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#CE9F6B]"></div>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="relative w-16 h-16 mx-auto mb-4">
+            <div className="absolute inset-0 rounded-full border-4 border-[#AEBFC3]/30" />
+            <div className="absolute inset-0 rounded-full border-4 border-t-[#CE9F6B] border-r-transparent border-b-transparent border-l-transparent animate-spin" />
+            <User className="absolute inset-0 m-auto w-6 h-6 text-[#976E44]" />
+          </div>
+          <p className="text-[#5D6E73] font-medium">Loading user details...</p>
+        </div>
       </div>
     );
   }
@@ -201,13 +208,18 @@ export default function EditFinanceUserPage() {
   if (!financeUser) {
     return (
       <div>
-        <div className="text-center py-12">
-          <h2 className="text-xl font-semibold text-[#976E44]">Finance user not found</h2>
-          <p className="text-[#5D6E73] mt-2">The requested finance user could not be loaded.</p>
+        <div className="text-center py-16">
+          <div className="relative w-24 h-24 rounded-3xl bg-gradient-to-br from-[#E17F70]/20 to-[#9E3B47]/10 flex items-center justify-center mx-auto mb-6 shadow-xl overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#E17F70] via-[#9E3B47] to-[#75242D]" />
+            <User className="w-12 h-12 text-[#E17F70]" />
+          </div>
+          <h2 className="text-2xl font-bold text-[#976E44] mb-2">Finance User Not Found</h2>
+          <p className="text-[#5D6E73] mb-6">The requested finance user could not be loaded.</p>
           <Button 
-            className="mt-4 bg-gradient-to-r from-[#976E44] to-[#CE9F6B]" 
+            className="bg-gradient-to-r from-[#976E44] to-[#CE9F6B] hover:shadow-lg hover:shadow-[#CE9F6B]/20 hover:-translate-y-0.5 active:scale-95 font-bold transition-all" 
             onClick={() => router.push('/finance/ar/users')}
           >
+            <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Finance Users
           </Button>
         </div>
@@ -216,9 +228,16 @@ export default function EditFinanceUserPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
+      {/* Decorative Background */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-20 -right-20 w-[40rem] h-[40rem] bg-gradient-to-br from-[#CE9F6B]/10 to-[#976E44]/10 rounded-full blur-[8rem] opacity-50" />
+        <div className="absolute -bottom-40 -left-20 w-[30rem] h-[30rem] bg-gradient-to-br from-[#82A094]/10 to-[#4F6A64]/10 rounded-full blur-[6rem] opacity-50" />
+      </div>
+
       {/* Desktop Header with Gradient */}
-      <div className="hidden md:block relative overflow-hidden rounded-lg bg-gradient-to-r from-[#976E44] via-[#CE9F6B] to-[#E17F70] p-6 text-white">
+      <div className="hidden md:block relative overflow-hidden rounded-[2.5rem] bg-gradient-to-r from-[#976E44] via-[#CE9F6B] to-[#E17F70] p-6 text-white shadow-2xl">
+        <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-[#CE9F6B] via-white/40 to-[#E17F70]" />
         <div className="absolute inset-0 bg-black/10"></div>
         <div className="relative">
           <div className="flex items-center justify-between mb-4">
@@ -226,17 +245,17 @@ export default function EditFinanceUserPage() {
               variant="ghost" 
               size="sm"
               onClick={() => router.push('/finance/ar/users')}
-              className="text-white hover:bg-white/20 hover:text-white"
+              className="text-white hover:bg-white/20 hover:text-white border-2 border-white/30 hover:scale-105 transition-all"
             >
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Finance Users
             </Button>
             <Badge 
               variant={financeUser.isActive ? 'default' : 'secondary'}
-              className={financeUser.isActive 
-                ? 'bg-white/20 text-white hover:bg-white/30' 
-                : 'bg-gray-500/20 text-white/70 hover:bg-gray-500/30'
-              }
+              className={`border-2 font-bold ${financeUser.isActive 
+                ? 'bg-white/20 text-white hover:bg-white/30 border-white/30' 
+                : 'bg-gray-500/20 text-white/70 hover:bg-gray-500/30 border-gray-400/30'
+              }`}
             >
               {financeUser.isActive ? (
                 <>
@@ -252,7 +271,7 @@ export default function EditFinanceUserPage() {
             </Badge>
           </div>
           <div className="flex items-center gap-4">
-            <div className="h-16 w-16 rounded-full bg-white/20 flex items-center justify-center text-white font-bold text-xl">
+            <div className="h-16 w-16 rounded-full bg-white/20 border-2 border-white/30 flex items-center justify-center text-white font-bold text-xl shadow-xl">
               {(financeUser.name || financeUser.email).charAt(0).toUpperCase()}
             </div>
             <div>
@@ -297,15 +316,21 @@ export default function EditFinanceUserPage() {
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           {/* User Profile Edit Card */}
-          <Card className="shadow-lg border-0 bg-gradient-to-br from-[#CE9F6B]/5 to-[#E17F70]/5">
-            <CardHeader className="bg-gradient-to-r from-[#CE9F6B]/10 to-[#E17F70]/10 rounded-t-lg border-b border-[#CE9F6B]/20">
-              <CardTitle className="text-[#976E44] flex items-center gap-2">
-                <User className="h-5 w-5" />
-                User Profile
-              </CardTitle>
-              <CardDescription>
-                Update the finance user's profile information
-              </CardDescription>
+          <Card className="relative shadow-xl border-2 border-[#CE9F6B]/30 bg-gradient-to-br from-white to-[#CE9F6B]/5 overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#976E44] via-[#CE9F6B] to-[#E17F70]" />
+            <CardHeader className="bg-gradient-to-r from-[#CE9F6B]/10 to-[#E17F70]/10 rounded-t-lg border-b-2 border-[#CE9F6B]/20">
+              <div className="flex items-center gap-3">
+                <div className="relative p-2 rounded-xl bg-gradient-to-br from-[#976E44] to-[#CE9F6B] shadow-lg shadow-[#CE9F6B]/20 overflow-hidden">
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#CE9F6B] via-white/40 to-[#976E44]" />
+                  <User className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <CardTitle className="text-[#976E44]">User Profile</CardTitle>
+                  <CardDescription>
+                    Update the finance user's profile information
+                  </CardDescription>
+                </div>
+              </div>
             </CardHeader>
             <CardContent className="p-6 space-y-6">
               {/* Email Field */}
@@ -314,8 +339,10 @@ export default function EditFinanceUserPage() {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="flex items-center gap-2">
-                      <Mail className="h-4 w-4 text-[#976E44]" />
+                    <FormLabel className="flex items-center gap-2 text-sm font-bold text-[#5D6E73] uppercase tracking-wider">
+                      <div className="p-1 rounded bg-gradient-to-br from-[#976E44] to-[#CE9F6B]">
+                        <Mail className="h-3 w-3 text-white" />
+                      </div>
                       Email Address *
                     </FormLabel>
                     <FormControl>
@@ -323,7 +350,7 @@ export default function EditFinanceUserPage() {
                         type="email"
                         placeholder="Enter email address"
                         {...field}
-                        className="focus:ring-2 focus:ring-[#CE9F6B] border-[#CE9F6B]/30"
+                        className="focus:ring-2 focus:ring-[#CE9F6B] border-2 border-[#AEBFC3]/30 focus:border-[#CE9F6B] bg-gradient-to-r from-[#AEBFC3]/5 to-transparent"
                       />
                     </FormControl>
                     <FormMessage />
@@ -338,8 +365,10 @@ export default function EditFinanceUserPage() {
                   name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="flex items-center gap-2">
-                        <User className="h-4 w-4 text-[#976E44]" />
+                      <FormLabel className="flex items-center gap-2 text-sm font-bold text-[#5D6E73] uppercase tracking-wider">
+                        <div className="p-1 rounded bg-gradient-to-br from-[#976E44] to-[#CE9F6B]">
+                          <User className="h-3 w-3 text-white" />
+                        </div>
                         Full Name *
                       </FormLabel>
                       <FormControl>
@@ -347,7 +376,7 @@ export default function EditFinanceUserPage() {
                           type="text"
                           placeholder="Enter full name"
                           {...field}
-                          className="focus:ring-2 focus:ring-[#CE9F6B] border-[#CE9F6B]/30"
+                          className="focus:ring-2 focus:ring-[#CE9F6B] border-2 border-[#AEBFC3]/30 focus:border-[#CE9F6B] bg-gradient-to-r from-[#AEBFC3]/5 to-transparent"
                         />
                       </FormControl>
                       <FormMessage />
@@ -360,8 +389,10 @@ export default function EditFinanceUserPage() {
                   name="phone"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="flex items-center gap-2">
-                        <Phone className="h-4 w-4 text-[#976E44]" />
+                      <FormLabel className="flex items-center gap-2 text-sm font-bold text-[#5D6E73] uppercase tracking-wider">
+                        <div className="p-1 rounded bg-gradient-to-br from-[#976E44] to-[#CE9F6B]">
+                          <Phone className="h-3 w-3 text-white" />
+                        </div>
                         Phone Number
                       </FormLabel>
                       <FormControl>
@@ -369,7 +400,7 @@ export default function EditFinanceUserPage() {
                           type="tel"
                           placeholder="Enter phone number"
                           {...field}
-                          className="focus:ring-2 focus:ring-[#CE9F6B] border-[#CE9F6B]/30"
+                          className="focus:ring-2 focus:ring-[#CE9F6B] border-2 border-[#AEBFC3]/30 focus:border-[#CE9F6B] bg-gradient-to-r from-[#AEBFC3]/5 to-transparent"
                         />
                       </FormControl>
                       <FormMessage />
@@ -385,8 +416,10 @@ export default function EditFinanceUserPage() {
                   name="password"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="flex items-center gap-2">
-                        <Shield className="h-4 w-4 text-[#E17F70]" />
+                      <FormLabel className="flex items-center gap-2 text-sm font-bold text-[#5D6E73] uppercase tracking-wider">
+                        <div className="p-1 rounded bg-gradient-to-br from-[#E17F70] to-[#9E3B47]">
+                          <Shield className="h-3 w-3 text-white" />
+                        </div>
                         New Password
                       </FormLabel>
                       <FormControl>
@@ -395,7 +428,7 @@ export default function EditFinanceUserPage() {
                             type={showPassword ? 'text' : 'password'}
                             placeholder="Leave blank to keep current password"
                             {...field}
-                            className="focus:ring-2 focus:ring-[#CE9F6B] pr-12 border-[#CE9F6B]/30"
+                            className="focus:ring-2 focus:ring-[#CE9F6B] pr-12 border-2 border-[#AEBFC3]/30 focus:border-[#CE9F6B] bg-gradient-to-r from-[#AEBFC3]/5 to-transparent"
                           />
                           <Button
                             type="button"
@@ -408,7 +441,7 @@ export default function EditFinanceUserPage() {
                           </Button>
                         </div>
                       </FormControl>
-                      <FormDescription className="text-xs text-[#5D6E73]">
+                      <FormDescription className="text-xs text-[#5D6E73] font-medium">
                         Leave blank to keep the current password
                       </FormDescription>
                       <FormMessage />
@@ -421,8 +454,10 @@ export default function EditFinanceUserPage() {
                   name="confirmPassword"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="flex items-center gap-2">
-                        <Shield className="h-4 w-4 text-[#E17F70]" />
+                      <FormLabel className="flex items-center gap-2 text-sm font-bold text-[#5D6E73] uppercase tracking-wider">
+                        <div className="p-1 rounded bg-gradient-to-br from-[#E17F70] to-[#9E3B47]">
+                          <Shield className="h-3 w-3 text-white" />
+                        </div>
                         Confirm New Password
                       </FormLabel>
                       <FormControl>
@@ -431,7 +466,7 @@ export default function EditFinanceUserPage() {
                             type={showConfirmPassword ? 'text' : 'password'}
                             placeholder="Confirm new password"
                             {...field}
-                            className="focus:ring-2 focus:ring-[#CE9F6B] pr-12 border-[#CE9F6B]/30"
+                            className="focus:ring-2 focus:ring-[#CE9F6B] pr-12 border-2 border-[#AEBFC3]/30 focus:border-[#CE9F6B] bg-gradient-to-r from-[#AEBFC3]/5 to-transparent"
                           />
                           <Button
                             type="button"
@@ -455,13 +490,13 @@ export default function EditFinanceUserPage() {
                 control={form.control}
                 name="isActive"
                 render={({ field }) => (
-                  <FormItem className="flex items-center gap-3 p-4 bg-white rounded-lg shadow-sm border border-[#CE9F6B]/20">
-                    <div className="h-10 w-10 rounded-full bg-[#CE9F6B]/20 flex items-center justify-center">
-                      <UserCheck className="h-5 w-5 text-[#976E44]" />
+                  <FormItem className="flex items-center gap-3 p-4 bg-white rounded-xl shadow-lg border-2 border-[#82A094]/20">
+                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-[#82A094] to-[#4F6A64] flex items-center justify-center shadow-lg shadow-[#82A094]/20">
+                      <UserCheck className="h-5 w-5 text-white" />
                     </div>
                     <div className="flex-1">
-                      <FormLabel className="text-sm font-medium text-[#976E44]">Account Status</FormLabel>
-                      <FormDescription className="text-xs text-[#5D6E73]">
+                      <FormLabel className="text-sm font-bold text-[#4F6A64]">Account Status</FormLabel>
+                      <FormDescription className="text-xs text-[#5D6E73] font-medium">
                         {field.value ? 'User can access the finance module' : 'User is disabled'}
                       </FormDescription>
                     </div>
@@ -479,15 +514,21 @@ export default function EditFinanceUserPage() {
           </Card>
 
           {/* Role Selection Card */}
-          <Card className="shadow-lg border-0 bg-gradient-to-br from-[#E17F70]/5 to-[#CE9F6B]/5">
-            <CardHeader className="bg-gradient-to-r from-[#E17F70]/10 to-[#CE9F6B]/10 rounded-t-lg border-b border-[#E17F70]/20">
-              <CardTitle className="text-[#9E3B47] flex items-center gap-2">
-                <Crown className="h-5 w-5" />
-                Finance Role
-              </CardTitle>
-              <CardDescription>
-                Change the role and permissions for this user
-              </CardDescription>
+          <Card className="relative shadow-xl border-2 border-[#E17F70]/30 bg-gradient-to-br from-white to-[#E17F70]/5 overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#9E3B47] via-[#E17F70] to-[#CE9F6B]" />
+            <CardHeader className="bg-gradient-to-r from-[#E17F70]/10 to-[#CE9F6B]/10 rounded-t-lg border-b-2 border-[#E17F70]/20">
+              <div className="flex items-center gap-3">
+                <div className="relative p-2 rounded-xl bg-gradient-to-br from-[#9E3B47] to-[#E17F70] shadow-lg shadow-[#E17F70]/20 overflow-hidden">
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#E17F70] via-white/40 to-[#9E3B47]" />
+                  <Crown className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <CardTitle className="text-[#9E3B47]">Finance Role</CardTitle>
+                  <CardDescription>
+                    Change the role and permissions for this user
+                  </CardDescription>
+                </div>
+              </div>
             </CardHeader>
             <CardContent className="p-6">
               <FormField
@@ -500,29 +541,30 @@ export default function EditFinanceUserPage() {
                         <div
                           key={role.value}
                           onClick={() => handleRoleSelect(role.value)}
-                          className={`relative p-5 rounded-xl border-2 cursor-pointer transition-all duration-200 hover:shadow-md ${
+                          className={`relative p-5 rounded-xl border-2 cursor-pointer transition-all duration-200 hover:shadow-xl ${
                             selectedRole === role.value
-                              ? 'border-[#E17F70] bg-[#E17F70]/10 shadow-sm ring-2 ring-[#E17F70]/30'
-                              : 'border-[#CE9F6B]/30 bg-white hover:border-[#CE9F6B]'
+                              ? 'border-[#E17F70] bg-gradient-to-br from-[#E17F70]/10 to-[#9E3B47]/5 shadow-lg ring-2 ring-[#E17F70]/30'
+                              : 'border-[#AEBFC3]/30 bg-white hover:border-[#CE9F6B] hover:bg-[#CE9F6B]/5 hover:scale-[1.02]'
                           }`}
                         >
                           <div className="flex flex-col items-center text-center gap-2">
-                            <div className={`h-12 w-12 rounded-lg flex items-center justify-center ${
+                            <div className={`relative h-12 w-12 rounded-lg flex items-center justify-center overflow-hidden ${
                               selectedRole === role.value
-                                ? 'bg-gradient-to-r from-[#9E3B47] to-[#E17F70] text-white'
+                                ? 'bg-gradient-to-br from-[#9E3B47] to-[#E17F70] text-white shadow-lg shadow-[#E17F70]/20'
                                 : 'bg-[#CE9F6B]/20 text-[#976E44]'
                             }`}>
+                              {selectedRole === role.value && <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#E17F70] via-white/40 to-[#9E3B47]" />}
                               {role.icon}
                             </div>
                             <div>
-                              <h4 className="font-semibold text-[#976E44] text-sm">{role.label}</h4>
+                              <h4 className="font-bold text-[#976E44] text-sm">{role.label}</h4>
                               <p className="text-xs text-[#5D6E73] mt-1">{role.description}</p>
                             </div>
                           </div>
                           
                           {selectedRole === role.value && (
                             <div className="absolute top-2 right-2">
-                              <div className="h-5 w-5 rounded-full bg-[#E17F70] flex items-center justify-center">
+                              <div className="h-5 w-5 rounded-full bg-gradient-to-br from-[#9E3B47] to-[#E17F70] flex items-center justify-center shadow-lg shadow-[#E17F70]/20">
                                 <CheckCircle className="h-3 w-3 text-white" />
                               </div>
                             </div>
@@ -538,10 +580,12 @@ export default function EditFinanceUserPage() {
           </Card>
 
           {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 border-t border-[#CE9F6B]/20">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 border-t-2 border-[#AEBFC3]/20">
             <div className="flex items-center gap-2 text-sm text-[#5D6E73]">
-              <Crown className="h-4 w-4 text-[#976E44]" />
-              <span>
+              <div className="p-1 rounded bg-gradient-to-br from-[#CE9F6B] to-[#976E44]">
+                <Crown className="h-3 w-3 text-white" />
+              </div>
+              <span className="font-bold">
                 Role: {getFinanceRoleDisplayName(selectedRole)}
               </span>
             </div>
@@ -551,7 +595,7 @@ export default function EditFinanceUserPage() {
                 <Button 
                   type="button" 
                   variant="outline"
-                  className="border-[#CE9F6B] text-[#976E44] hover:bg-[#CE9F6B]/10"
+                  className="border-2 border-[#AEBFC3]/40 text-[#5D6E73] hover:bg-[#AEBFC3]/10 hover:border-[#AEBFC3]/60 font-bold transition-all"
                 >
                   <X className="mr-2 h-4 w-4" />
                   Cancel
@@ -560,7 +604,7 @@ export default function EditFinanceUserPage() {
               <Button 
                 type="submit" 
                 disabled={loading}
-                className="bg-gradient-to-r from-[#976E44] to-[#CE9F6B] hover:from-[#865E38] hover:to-[#B88F5B] shadow-lg min-w-[120px]"
+                className="bg-gradient-to-r from-[#976E44] to-[#CE9F6B] hover:shadow-xl hover:shadow-[#CE9F6B]/30 hover:-translate-y-0.5 active:scale-95 shadow-lg min-w-[120px] font-bold transition-all"
               >
                 {loading ? (
                   <>

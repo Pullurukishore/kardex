@@ -100,8 +100,15 @@ export default function FinanceUserDetailPage() {
   if (loading) {
     return (
       <div>
-        <div className="flex items-center justify-center h-64">
-          <div className="text-lg">Loading finance user details...</div>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <div className="relative w-16 h-16 mx-auto mb-4">
+              <div className="absolute inset-0 rounded-full border-4 border-[#AEBFC3]/30" />
+              <div className="absolute inset-0 rounded-full border-4 border-t-[#CE9F6B] border-r-transparent border-b-transparent border-l-transparent animate-spin" />
+              <User className="absolute inset-0 m-auto w-6 h-6 text-[#976E44]" />
+            </div>
+            <p className="text-[#5D6E73] font-medium">Loading finance user details...</p>
+          </div>
         </div>
       </div>
     );
@@ -110,11 +117,16 @@ export default function FinanceUserDetailPage() {
   if (!financeUser) {
     return (
       <div>
-        <div className="text-center py-12">
-          <h1 className="text-2xl font-bold text-[#976E44]">Finance User Not Found</h1>
-          <p className="text-[#5D6E73] mt-2">The requested finance user could not be found.</p>
-          <Link href="/finance/ar/users" className="mt-4 inline-block">
-            <Button className="bg-gradient-to-r from-[#976E44] to-[#CE9F6B] hover:from-[#865E38] hover:to-[#B88F5B]">
+        <div className="text-center py-16">
+          <div className="relative w-24 h-24 rounded-3xl bg-gradient-to-br from-[#E17F70]/20 to-[#9E3B47]/10 flex items-center justify-center mx-auto mb-6 shadow-xl overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#E17F70] via-[#9E3B47] to-[#75242D]" />
+            <User className="w-12 h-12 text-[#E17F70]" />
+          </div>
+          <h1 className="text-2xl font-bold text-[#976E44] mb-2">Finance User Not Found</h1>
+          <p className="text-[#5D6E73] mb-6">The requested finance user could not be found.</p>
+          <Link href="/finance/ar/users" className="inline-block">
+            <Button className="bg-gradient-to-r from-[#976E44] to-[#CE9F6B] hover:shadow-lg hover:shadow-[#CE9F6B]/20 hover:-translate-y-0.5 active:scale-95 font-bold transition-all">
+              <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Finance Users
             </Button>
           </Link>
@@ -124,13 +136,20 @@ export default function FinanceUserDetailPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
+      {/* Decorative Background */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-20 -right-20 w-[40rem] h-[40rem] bg-gradient-to-br from-[#CE9F6B]/10 to-[#976E44]/10 rounded-full blur-[8rem] opacity-50" />
+        <div className="absolute -bottom-40 -left-20 w-[30rem] h-[30rem] bg-gradient-to-br from-[#82A094]/10 to-[#4F6A64]/10 rounded-full blur-[6rem] opacity-50" />
+      </div>
+
       {/* Desktop Header with Gradient */}
-      <div className="hidden md:block relative overflow-hidden rounded-lg bg-gradient-to-r from-[#976E44] via-[#CE9F6B] to-[#E17F70] p-6 text-white">
+      <div className="hidden md:block relative overflow-hidden rounded-[2.5rem] bg-gradient-to-r from-[#976E44] via-[#CE9F6B] to-[#E17F70] p-6 text-white shadow-2xl">
+        <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-[#CE9F6B] via-white/40 to-[#E17F70]" />
         <div className="absolute inset-0 bg-black/10"></div>
         <div className="relative flex items-center justify-between">
           <div className="flex items-center gap-6">
-            <div className="h-16 w-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center border border-white/30">
+            <div className="h-16 w-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center border-2 border-white/30 shadow-xl">
               <User className="h-8 w-8 text-white" />
             </div>
             <div>
@@ -142,16 +161,16 @@ export default function FinanceUserDetailPage() {
               <div className="flex items-center gap-4 mt-2">
                 <Badge 
                   variant={financeUser.isActive ? 'default' : 'secondary'}
-                  className={financeUser.isActive 
+                  className={`border-2 font-bold ${financeUser.isActive 
                     ? 'bg-white/20 text-white border-white/30' 
                     : 'bg-gray-500/20 text-white/70 border-gray-400/30'
-                  }
+                  }`}
                 >
                   {financeUser.isActive ? 'Active' : 'Inactive'}
                 </Badge>
                 <Badge 
                   variant="outline"
-                  className="bg-white/10 text-white border-white/30 flex items-center gap-1"
+                  className="bg-white/10 text-white border-2 border-white/30 flex items-center gap-1 font-bold"
                 >
                   {getRoleIcon(financeUser.financeRole)}
                   {getFinanceRoleDisplayName(financeUser.financeRole)}
@@ -161,13 +180,13 @@ export default function FinanceUserDetailPage() {
           </div>
           <div className="flex items-center gap-3">
             <Link href="/finance/ar/users">
-              <Button variant="outline" className="bg-white/10 border-white/20 text-white hover:bg-white/20">
+              <Button variant="outline" className="bg-white/10 border-2 border-white/30 text-white hover:bg-white/20 hover:scale-105 transition-all font-bold">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back
               </Button>
             </Link>
             <Link href={`/finance/ar/users/${userId}/edit`}>
-              <Button className="bg-white text-[#976E44] hover:bg-[#EEC1BF] hover:text-[#9E3B47]">
+              <Button className="bg-white text-[#976E44] hover:bg-white/90 hover:scale-105 shadow-lg font-bold transition-all">
                 <Pencil className="mr-2 h-4 w-4" />
                 Edit
               </Button>
@@ -204,36 +223,48 @@ export default function FinanceUserDetailPage() {
         {/* Main Content */}
         <div className="lg:col-span-2 space-y-6">
           {/* Personal Information */}
-          <Card className="shadow-lg border-0 bg-gradient-to-br from-white to-[#CE9F6B]/10">
+          <Card className="relative shadow-xl border-2 border-[#CE9F6B]/30 bg-gradient-to-br from-white to-[#CE9F6B]/10 overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#976E44] via-[#CE9F6B] to-[#E17F70]" />
             <CardHeader className="pb-4">
-              <CardTitle className="flex items-center gap-2 text-xl text-[#976E44]">
-                <User className="h-6 w-6" />
-                Personal Information
-              </CardTitle>
-              <CardDescription>Basic details and contact information</CardDescription>
+              <div className="flex items-center gap-3">
+                <div className="relative p-2 rounded-xl bg-gradient-to-br from-[#976E44] to-[#CE9F6B] shadow-lg shadow-[#CE9F6B]/20 overflow-hidden">
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#CE9F6B] via-white/40 to-[#976E44]" />
+                  <User className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <CardTitle className="text-xl text-[#976E44]">Personal Information</CardTitle>
+                  <CardDescription>Basic details and contact information</CardDescription>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <label className="text-sm font-semibold text-[#5D6E73] uppercase tracking-wide">Full Name</label>
-                  <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-[#CE9F6B]/20">
-                    <User className="h-5 w-5 text-[#976E44]" />
+                  <label className="text-xs font-bold text-[#5D6E73] uppercase tracking-wider">Full Name</label>
+                  <div className="flex items-center gap-3 p-3 bg-white rounded-xl border-2 border-[#CE9F6B]/20 shadow-sm">
+                    <div className="p-1 rounded bg-gradient-to-br from-[#976E44] to-[#CE9F6B]">
+                      <User className="h-4 w-4 text-white" />
+                    </div>
                     <span className="font-medium text-[#546A7A]">
                       {financeUser.name || 'Not provided'}
                     </span>
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-semibold text-[#5D6E73] uppercase tracking-wide">Email Address</label>
-                  <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-[#CE9F6B]/20">
-                    <Mail className="h-5 w-5 text-[#CE9F6B]" />
+                  <label className="text-xs font-bold text-[#5D6E73] uppercase tracking-wider">Email Address</label>
+                  <div className="flex items-center gap-3 p-3 bg-white rounded-xl border-2 border-[#CE9F6B]/20 shadow-sm">
+                    <div className="p-1 rounded bg-gradient-to-br from-[#976E44] to-[#CE9F6B]">
+                      <Mail className="h-4 w-4 text-white" />
+                    </div>
                     <span className="font-medium text-[#546A7A] break-all">{financeUser.email}</span>
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-semibold text-[#5D6E73] uppercase tracking-wide">Phone Number</label>
-                  <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-[#CE9F6B]/20">
-                    <Phone className="h-5 w-5 text-[#976E44]" />
+                  <label className="text-xs font-bold text-[#5D6E73] uppercase tracking-wider">Phone Number</label>
+                  <div className="flex items-center gap-3 p-3 bg-white rounded-xl border-2 border-[#CE9F6B]/20 shadow-sm">
+                    <div className="p-1 rounded bg-gradient-to-br from-[#976E44] to-[#CE9F6B]">
+                      <Phone className="h-4 w-4 text-white" />
+                    </div>
                     <span className="font-medium text-[#546A7A]">
                       {financeUser.phone || 'Not provided'}
                     </span>
@@ -244,46 +275,56 @@ export default function FinanceUserDetailPage() {
           </Card>
 
           {/* Account Status */}
-          <Card className="shadow-lg border-0 bg-gradient-to-br from-white to-[#E17F70]/10">
+          <Card className="relative shadow-xl border-2 border-[#E17F70]/30 bg-gradient-to-br from-white to-[#E17F70]/10 overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#9E3B47] via-[#E17F70] to-[#CE9F6B]" />
             <CardHeader className="pb-4">
-              <CardTitle className="flex items-center gap-2 text-xl text-[#9E3B47]">
-                <Activity className="h-6 w-6" />
-                Account Status & Activity
-              </CardTitle>
-              <CardDescription>Current status and recent activity information</CardDescription>
+              <div className="flex items-center gap-3">
+                <div className="relative p-2 rounded-xl bg-gradient-to-br from-[#9E3B47] to-[#E17F70] shadow-lg shadow-[#E17F70]/20 overflow-hidden">
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#E17F70] via-white/40 to-[#9E3B47]" />
+                  <Activity className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <CardTitle className="text-xl text-[#9E3B47]">Account Status & Activity</CardTitle>
+                  <CardDescription>Current status and recent activity information</CardDescription>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <label className="text-sm font-semibold text-[#5D6E73] uppercase tracking-wide">Account Status</label>
-                  <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-[#E17F70]/20">
-                    <div className={`h-3 w-3 rounded-full ${
-                      financeUser.isActive ? 'bg-[#82A094]' : 'bg-[#979796]'
+                  <label className="text-xs font-bold text-[#5D6E73] uppercase tracking-wider">Account Status</label>
+                  <div className="flex items-center gap-3 p-3 bg-white rounded-xl border-2 border-[#E17F70]/20 shadow-sm">
+                    <div className={`h-3 w-3 rounded-full shadow-lg ${
+                      financeUser.isActive ? 'bg-gradient-to-br from-[#82A094] to-[#4F6A64] shadow-[#82A094]/30' : 'bg-[#979796]'
                     }`}></div>
                     <Badge 
                       variant={financeUser.isActive ? 'default' : 'secondary'}
-                      className={financeUser.isActive 
-                        ? 'bg-[#A2B9AF]/20 text-[#4F6A64] hover:bg-[#82A094]/30' 
-                        : 'bg-[#AEBFC3]/20 text-[#5D6E73] hover:bg-[#92A2A5]/30'
-                      }
+                      className={`font-bold ${financeUser.isActive 
+                        ? 'bg-gradient-to-r from-[#82A094] to-[#4F6A64] text-white shadow-lg shadow-[#82A094]/20' 
+                        : 'bg-[#AEBFC3]/20 text-[#5D6E73]'
+                      }`}
                     >
                       {financeUser.isActive ? 'Active' : 'Inactive'}
                     </Badge>
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-semibold text-[#5D6E73] uppercase tracking-wide">Finance Role</label>
-                  <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-[#E17F70]/20">
-                    {getRoleIcon(financeUser.financeRole)}
+                  <label className="text-xs font-bold text-[#5D6E73] uppercase tracking-wider">Finance Role</label>
+                  <div className="flex items-center gap-3 p-3 bg-white rounded-xl border-2 border-[#E17F70]/20 shadow-sm">
+                    <div className="p-1 rounded bg-gradient-to-br from-[#E17F70] to-[#9E3B47]">
+                      {getRoleIcon(financeUser.financeRole)}
+                    </div>
                     <Badge variant="outline" className={getFinanceRoleBadgeColor(financeUser.financeRole)}>
                       {getFinanceRoleDisplayName(financeUser.financeRole)}
                     </Badge>
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-semibold text-[#5D6E73] uppercase tracking-wide">Last Login</label>
-                  <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-[#E17F70]/20">
-                    <Clock className="h-5 w-5 text-[#E17F70]" />
+                  <label className="text-xs font-bold text-[#5D6E73] uppercase tracking-wider">Last Login</label>
+                  <div className="flex items-center gap-3 p-3 bg-white rounded-xl border-2 border-[#E17F70]/20 shadow-sm">
+                    <div className="p-1 rounded bg-gradient-to-br from-[#E17F70] to-[#9E3B47]">
+                      <Clock className="h-4 w-4 text-white" />
+                    </div>
                     <span className="font-medium text-[#546A7A]">
                       {financeUser.lastLoginAt 
                         ? new Date(financeUser.lastLoginAt).toLocaleDateString('en-US', {
@@ -299,9 +340,11 @@ export default function FinanceUserDetailPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-semibold text-[#5D6E73] uppercase tracking-wide">Account Created</label>
-                  <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-[#E17F70]/20">
-                    <Calendar className="h-5 w-5 text-[#E17F70]" />
+                  <label className="text-xs font-bold text-[#5D6E73] uppercase tracking-wider">Account Created</label>
+                  <div className="flex items-center gap-3 p-3 bg-white rounded-xl border-2 border-[#E17F70]/20 shadow-sm">
+                    <div className="p-1 rounded bg-gradient-to-br from-[#E17F70] to-[#9E3B47]">
+                      <Calendar className="h-4 w-4 text-white" />
+                    </div>
                     <span className="font-medium text-[#546A7A]">
                       {financeUser.createdAt 
                         ? new Date(financeUser.createdAt).toLocaleDateString('en-US', {
@@ -322,41 +365,45 @@ export default function FinanceUserDetailPage() {
         {/* Sidebar */}
         <div className="space-y-6">
           {/* Quick Overview */}
-          <Card className="shadow-lg border-0 bg-gradient-to-br from-white to-[#CE9F6B]/10">
+          <Card className="relative shadow-xl border-2 border-[#CE9F6B]/30 bg-gradient-to-br from-white to-[#CE9F6B]/10 overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#976E44] via-[#CE9F6B] to-[#E17F70]" />
             <CardHeader className="pb-4">
-              <CardTitle className="flex items-center gap-2 text-lg text-[#976E44]">
-                <Activity className="h-5 w-5" />
-                Quick Overview
-              </CardTitle>
+              <div className="flex items-center gap-3">
+                <div className="relative p-2 rounded-xl bg-gradient-to-br from-[#976E44] to-[#CE9F6B] shadow-lg shadow-[#CE9F6B]/20 overflow-hidden">
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#CE9F6B] via-white/40 to-[#976E44]" />
+                  <Activity className="h-4 w-4 text-white" />
+                </div>
+                <CardTitle className="text-lg text-[#976E44]">Quick Overview</CardTitle>
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="p-4 bg-white rounded-lg border border-[#CE9F6B]/20">
+              <div className="p-4 bg-white rounded-xl border-2 border-[#CE9F6B]/20 shadow-sm">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="h-8 w-8 bg-[#CE9F6B]/20 rounded-lg flex items-center justify-center">
+                    <div className="h-8 w-8 bg-gradient-to-br from-[#976E44] to-[#CE9F6B] rounded-lg flex items-center justify-center shadow-lg shadow-[#CE9F6B]/20">
                       {getRoleIcon(financeUser.financeRole)}
                     </div>
-                    <span className="text-sm font-medium text-[#5D6E73]">Role</span>
+                    <span className="text-sm font-bold text-[#5D6E73]">Role</span>
                   </div>
                   <Badge variant="outline" className={getFinanceRoleBadgeColor(financeUser.financeRole)}>
                     {getFinanceRoleDisplayName(financeUser.financeRole)}
                   </Badge>
                 </div>
               </div>
-              <div className="p-4 bg-white rounded-lg border border-[#CE9F6B]/20">
+              <div className="p-4 bg-white rounded-xl border-2 border-[#CE9F6B]/20 shadow-sm">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="h-8 w-8 bg-[#A2B9AF]/20 rounded-lg flex items-center justify-center">
-                      <Activity className="h-4 w-4 text-[#4F6A64]" />
+                    <div className="h-8 w-8 bg-gradient-to-br from-[#82A094] to-[#4F6A64] rounded-lg flex items-center justify-center shadow-lg shadow-[#82A094]/20">
+                      <Activity className="h-4 w-4 text-white" />
                     </div>
-                    <span className="text-sm font-medium text-[#5D6E73]">Status</span>
+                    <span className="text-sm font-bold text-[#5D6E73]">Status</span>
                   </div>
                   <Badge 
                     variant={financeUser.isActive ? 'default' : 'secondary'}
-                    className={financeUser.isActive 
-                      ? 'bg-[#A2B9AF]/20 text-[#4F6A64]' 
+                    className={`font-bold ${financeUser.isActive 
+                      ? 'bg-gradient-to-r from-[#82A094] to-[#4F6A64] text-white shadow-lg shadow-[#82A094]/20' 
                       : 'bg-[#AEBFC3]/20 text-[#5D6E73]'
-                    }
+                    }`}
                   >
                     {financeUser.isActive ? 'Active' : 'Inactive'}
                   </Badge>
@@ -366,61 +413,77 @@ export default function FinanceUserDetailPage() {
           </Card>
 
           {/* Quick Actions */}
-          <Card className="shadow-lg border-0 bg-gradient-to-br from-white to-[#EEC1BF]/20">
+          <Card className="relative shadow-xl border-2 border-[#E17F70]/30 bg-gradient-to-br from-white to-[#E17F70]/10 overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#9E3B47] via-[#E17F70] to-[#CE9F6B]" />
             <CardHeader className="pb-4">
-              <CardTitle className="flex items-center gap-2 text-lg text-[#9E3B47]">
-                <Settings className="h-5 w-5" />
-                Quick Actions
-              </CardTitle>
+              <div className="flex items-center gap-3">
+                <div className="relative p-2 rounded-xl bg-gradient-to-br from-[#9E3B47] to-[#E17F70] shadow-lg shadow-[#E17F70]/20 overflow-hidden">
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#E17F70] via-white/40 to-[#9E3B47]" />
+                  <Settings className="h-4 w-4 text-white" />
+                </div>
+                <CardTitle className="text-lg text-[#9E3B47]">Quick Actions</CardTitle>
+              </div>
             </CardHeader>
             <CardContent className="space-y-3">
               <Link href={`/finance/ar/users/${userId}/edit`} className="block">
-                <Button variant="outline" className="w-full justify-start h-12 bg-white hover:bg-[#CE9F6B]/10 border-[#CE9F6B] hover:border-[#CE9F6B]">
-                  <Pencil className="mr-3 h-5 w-5 text-[#976E44]" />
+                <Button variant="outline" className="w-full justify-start h-12 bg-white hover:bg-[#CE9F6B]/10 border-2 border-[#CE9F6B]/40 hover:border-[#CE9F6B] hover:scale-[1.02] transition-all">
+                  <div className="p-1 rounded bg-gradient-to-br from-[#976E44] to-[#CE9F6B] mr-3">
+                    <Pencil className="h-4 w-4 text-white" />
+                  </div>
                   <div className="text-left">
-                    <div className="font-medium text-[#976E44]">Edit Details</div>
+                    <div className="font-bold text-[#976E44]">Edit Details</div>
                     <div className="text-xs text-[#5D6E73]">Update information</div>
                   </div>
                 </Button>
               </Link>
               <Button
                 variant="outline"
-                className="w-full justify-start h-12 bg-white hover:bg-[#E17F70]/10 border-[#E17F70] hover:border-[#E17F70] text-[#9E3B47] hover:text-[#75242D]"
+                className="w-full justify-start h-12 bg-white hover:bg-[#E17F70]/10 border-2 border-[#E17F70]/40 hover:border-[#E17F70] hover:scale-[1.02] transition-all"
                 onClick={() => setDeleteDialogOpen(true)}
               >
-                <Trash2 className="mr-3 h-5 w-5" />
+                <div className="p-1 rounded bg-gradient-to-br from-[#E17F70] to-[#9E3B47] mr-3">
+                  <Trash2 className="h-4 w-4 text-white" />
+                </div>
                 <div className="text-left">
-                  <div className="font-medium">Delete User</div>
-                  <div className="text-xs opacity-70">Remove permanently</div>
+                  <div className="font-bold text-[#9E3B47]">Delete User</div>
+                  <div className="text-xs text-[#5D6E73]">Remove permanently</div>
                 </div>
               </Button>
             </CardContent>
           </Card>
 
           {/* Contact Information */}
-          <Card className="shadow-lg border-0 bg-gradient-to-br from-white to-[#A2B9AF]/10">
+          <Card className="relative shadow-xl border-2 border-[#82A094]/30 bg-gradient-to-br from-white to-[#A2B9AF]/10 overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#4F6A64] via-[#82A094] to-[#A2B9AF]" />
             <CardHeader className="pb-4">
-              <CardTitle className="flex items-center gap-2 text-lg text-[#4F6A64]">
-                <Mail className="h-5 w-5" />
-                Contact Info
-              </CardTitle>
+              <div className="flex items-center gap-3">
+                <div className="relative p-2 rounded-xl bg-gradient-to-br from-[#4F6A64] to-[#82A094] shadow-lg shadow-[#82A094]/20 overflow-hidden">
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#82A094] via-white/40 to-[#4F6A64]" />
+                  <Mail className="h-4 w-4 text-white" />
+                </div>
+                <CardTitle className="text-lg text-[#4F6A64]">Contact Info</CardTitle>
+              </div>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="p-3 bg-white rounded-lg border border-[#A2B9AF]/20">
+              <div className="p-3 bg-white rounded-xl border-2 border-[#82A094]/20 shadow-sm">
                 <div className="flex items-center gap-3">
-                  <Mail className="h-4 w-4 text-[#4F6A64]" />
+                  <div className="p-1 rounded bg-gradient-to-br from-[#4F6A64] to-[#82A094]">
+                    <Mail className="h-3 w-3 text-white" />
+                  </div>
                   <div>
-                    <div className="text-xs text-[#5D6E73] uppercase tracking-wide">Email</div>
+                    <div className="text-xs text-[#5D6E73] uppercase tracking-wider font-bold">Email</div>
                     <div className="font-medium text-[#546A7A] text-sm break-all">{financeUser.email}</div>
                   </div>
                 </div>
               </div>
               {financeUser.phone && (
-                <div className="p-3 bg-white rounded-lg border border-[#A2B9AF]/20">
+                <div className="p-3 bg-white rounded-xl border-2 border-[#82A094]/20 shadow-sm">
                   <div className="flex items-center gap-3">
-                    <Phone className="h-4 w-4 text-[#4F6A64]" />
+                    <div className="p-1 rounded bg-gradient-to-br from-[#4F6A64] to-[#82A094]">
+                      <Phone className="h-3 w-3 text-white" />
+                    </div>
                     <div>
-                      <div className="text-xs text-[#5D6E73] uppercase tracking-wide">Phone</div>
+                      <div className="text-xs text-[#5D6E73] uppercase tracking-wider font-bold">Phone</div>
                       <div className="font-medium text-[#546A7A] text-sm">{financeUser.phone}</div>
                     </div>
                   </div>
@@ -433,18 +496,23 @@ export default function FinanceUserDetailPage() {
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="border-2 border-[#E17F70]/30 shadow-2xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Finance User</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete {financeUser.email}? This action cannot be undone.
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 rounded-xl bg-gradient-to-br from-[#E17F70] to-[#9E3B47] shadow-lg shadow-[#E17F70]/20">
+                <Trash2 className="w-5 h-5 text-white" />
+              </div>
+              <AlertDialogTitle className="text-[#9E3B47]">Delete Finance User</AlertDialogTitle>
+            </div>
+            <AlertDialogDescription className="text-[#5D6E73]">
+              Are you sure you want to delete <span className="font-bold text-[#9E3B47]">{financeUser.email}</span>? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel className="border-2 border-[#AEBFC3]/40 hover:bg-[#AEBFC3]/10 font-bold">Cancel</AlertDialogCancel>
             <AlertDialogAction 
               onClick={handleDelete} 
-              className="bg-[#9E3B47] text-white hover:bg-[#75242D]"
+              className="bg-gradient-to-r from-[#E17F70] to-[#9E3B47] text-white font-bold shadow-lg shadow-[#E17F70]/20 hover:shadow-xl hover:-translate-y-0.5 active:scale-95 transition-all"
             >
               Delete
             </AlertDialogAction>

@@ -116,13 +116,16 @@ export default function MilestoneViewPage() {
   if (loading) return (
     <div className="flex items-center justify-center h-full min-h-[500px]">
       <div className="text-center">
-        <div className="relative w-20 h-20 mx-auto mb-6">
-          <div className="absolute inset-0 rounded-full border-4 border-[#AEBFC3]/30" />
+        <div className="relative w-24 h-24 mx-auto mb-6">
+          <div className="absolute inset-0 rounded-full border-4 border-[#AEBFC3]/20" />
           <div className="absolute inset-0 rounded-full border-4 border-t-[#CE9F6B] border-r-transparent border-b-transparent border-l-transparent animate-spin" />
           <div className="absolute inset-3 rounded-full border-4 border-t-transparent border-r-[#E17F70] border-b-transparent border-l-transparent animate-spin" style={{ animationDirection: 'reverse', animationDuration: '0.8s' }} />
-          <Wallet className="absolute inset-0 m-auto w-6 h-6 text-[#546A7A]" />
+          <div className="absolute inset-6 rounded-full border-2 border-t-[#82A094] border-r-transparent border-b-transparent border-l-transparent animate-spin" style={{ animationDuration: '1.2s' }} />
+          <div className="absolute inset-0 m-auto w-10 h-10 rounded-xl bg-gradient-to-br from-[#CE9F6B] to-[#976E44] flex items-center justify-center shadow-lg shadow-[#CE9F6B]/20">
+            <Wallet className="w-5 h-5 text-white" />
+          </div>
         </div>
-        <p className="text-[#5D6E73] font-medium">Loading milestone details...</p>
+        <p className="text-[#5D6E73] font-bold">Loading milestone details...</p>
       </div>
     </div>
   );
@@ -130,12 +133,13 @@ export default function MilestoneViewPage() {
   if (error || !invoice) return (
     <div className="flex items-center justify-center h-full min-h-[400px]">
       <div className="text-center max-w-md">
-        <div className="w-28 h-28 rounded-3xl bg-gradient-to-br from-[#CE9F6B]/20 to-[#E17F70]/20 flex items-center justify-center mx-auto mb-6 shadow-xl">
-          <Wallet className="w-14 h-14 text-[#CE9F6B]" />
+        <div className="relative w-28 h-28 rounded-3xl bg-gradient-to-br from-[#CE9F6B] to-[#976E44] flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-[#CE9F6B]/20 overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#E17F70] via-[#EEC1BF] to-[#9E3B47]" />
+          <Wallet className="w-14 h-14 text-white" />
         </div>
         <h2 className="text-2xl font-bold text-[#546A7A] mb-3">Milestone Payment Not Found</h2>
         <p className="text-[#92A2A5] mb-8">{error || "The milestone payment you're looking for doesn't exist."}</p>
-        <Link href="/finance/ar/milestones" className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#CE9F6B] to-[#E17F70] text-white font-semibold rounded-xl hover:shadow-lg transition-all">
+        <Link href="/finance/ar/milestones" className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#CE9F6B] to-[#976E44] text-white font-bold rounded-xl shadow-lg shadow-[#CE9F6B]/20 hover:shadow-xl hover:shadow-[#CE9F6B]/30 transition-all hover:-translate-y-0.5">
           <ArrowLeft className="w-4 h-4" /> Back to Milestones
         </Link>
       </div>
@@ -303,16 +307,18 @@ export default function MilestoneViewPage() {
       )}
 
       {/* Header Section */}
-      <div className="relative overflow-hidden rounded-[2.5rem] bg-white p-6 sm:p-10 shadow-2xl border border-[#AEBFC3]/20 transition-all">
+      <div className="relative overflow-hidden rounded-[2.5rem] bg-white p-6 sm:p-10 shadow-2xl border-2 border-[#CE9F6B]/30 transition-all">
         {/* Dynamic Background Glows */}
-        <div className="absolute -top-24 -left-24 w-96 h-96 bg-gradient-to-br from-[#E17F70]/20 to-transparent rounded-full blur-3xl animate-pulse" />
-        <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-gradient-to-br from-[#CE9F6B]/20 to-transparent rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+        <div className="absolute -top-24 -left-24 w-96 h-96 bg-gradient-to-br from-[#E17F70]/15 to-transparent rounded-full blur-3xl animate-pulse" />
+        <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-gradient-to-br from-[#CE9F6B]/15 to-transparent rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+        {/* Top Accent Bar */}
+        <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-[#CE9F6B] via-[#976E44] to-[#E17F70]" />
         
         <div className="relative z-10">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-10">
             <Link href="/finance/ar/milestones" className="group flex items-center gap-3 text-[#5D6E73] hover:text-[#546A7A] transition-all">
-              <div className="p-2.5 rounded-xl bg-white shadow-lg border border-[#AEBFC3]/20 group-hover:bg-[#AEBFC3]/10 transition-colors">
-                <ChevronLeft className="w-5 h-5" />
+              <div className="p-2.5 rounded-xl bg-gradient-to-br from-[#CE9F6B]/10 to-[#976E44]/10 shadow-lg border-2 border-[#CE9F6B]/20 group-hover:from-[#CE9F6B]/20 group-hover:to-[#976E44]/20 transition-colors">
+                <ChevronLeft className="w-5 h-5 text-[#976E44]" />
               </div>
               <span className="font-bold text-lg">Back to Milestones</span>
             </Link>
@@ -320,27 +326,27 @@ export default function MilestoneViewPage() {
             <div className="flex items-center gap-3 flex-wrap">
               <button 
                 onClick={() => loadInvoice(params.id as string)} 
-                className="p-3 rounded-2xl bg-[#AEBFC3]/10 text-[#5D6E73] hover:bg-[#AEBFC3]/20 transition-all hover:rotate-180 duration-500" 
+                className="p-3 rounded-2xl bg-gradient-to-br from-[#6F8A9D]/10 to-[#546A7A]/10 text-[#5D6E73] hover:from-[#6F8A9D]/20 hover:to-[#546A7A]/20 transition-all hover:rotate-180 duration-500 border-2 border-[#6F8A9D]/20" 
                 title="Refresh"
               >
                 <RefreshCw className="w-5 h-5 text-[#6F8A9D]" />
               </button>
               <button 
                 onClick={() => setShowPaymentModal(true)}
-                className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-[#82A094] to-[#4F6A64] text-white font-bold hover:shadow-xl hover:shadow-[#82A094]/30 transition-all hover:-translate-y-1"
+                className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-[#82A094] to-[#4F6A64] text-white font-bold shadow-lg shadow-[#82A094]/20 hover:shadow-xl hover:shadow-[#82A094]/30 transition-all hover:-translate-y-1 active:scale-95"
               >
                 <Plus className="w-5 h-5" /> Record Payment
               </button>
               <Link 
                 href={`/finance/ar/milestones/${invoice.id}/edit`}
-                className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-[#546A7A] text-white font-bold hover:bg-[#435561] hover:shadow-xl transition-all hover:-translate-y-1"
+                className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-[#546A7A] to-[#6F8A9D] text-white font-bold shadow-lg shadow-[#546A7A]/20 hover:shadow-xl transition-all hover:-translate-y-1"
               >
                 <Pencil className="w-5 h-5" /> Edit
               </Link>
               <button 
                 onClick={handleDelete}
                 disabled={deleting}
-                className="p-3 rounded-2xl bg-[#E17F70]/10 text-[#9E3B47] hover:bg-[#E17F70]/20 transition-all disabled:opacity-50"
+                className="p-3 rounded-2xl bg-gradient-to-br from-[#E17F70]/10 to-[#9E3B47]/10 text-[#9E3B47] hover:from-[#E17F70] hover:to-[#9E3B47] hover:text-white transition-all disabled:opacity-50 border-2 border-[#E17F70]/20 hover:border-[#E17F70]/40"
               >
                 {deleting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Trash2 className="w-5 h-5" />}
               </button>
@@ -351,7 +357,8 @@ export default function MilestoneViewPage() {
             <div className="flex-1 space-y-8">
               {/* Main Identity */}
               <div className="flex items-center gap-5">
-                <div className="p-3 sm:p-4 rounded-[1.5rem] bg-gradient-to-br from-[#E17F70] to-[#CE9F6B] shadow-2xl shadow-[#E17F70]/30 flex-shrink-0 animate-scale-in">
+                <div className="relative p-3 sm:p-4 rounded-[1.5rem] bg-gradient-to-br from-[#CE9F6B] to-[#976E44] shadow-2xl shadow-[#CE9F6B]/30 flex-shrink-0 animate-scale-in overflow-hidden">
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#E17F70] via-[#EEC1BF] to-[#9E3B47]" />
                   <Flag className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
                 </div>
                 <div>
@@ -376,9 +383,10 @@ export default function MilestoneViewPage() {
               </div>
 
               {/* Entity Info */}
-              <div className="flex items-center gap-6 p-4 rounded-3xl bg-[#AEBFC3]/5 border border-[#AEBFC3]/10 w-fit">
-                <div className="flex items-center gap-3 border-r border-[#AEBFC3]/20 pr-6">
-                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#6F8A9D] to-[#546A7A] flex items-center justify-center text-white shadow-lg">
+              <div className="relative flex items-center gap-6 p-4 rounded-3xl bg-gradient-to-r from-[#AEBFC3]/5 to-[#96AEC2]/5 border-2 border-[#AEBFC3]/20 w-fit overflow-hidden">
+                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#6F8A9D] via-[#546A7A] to-[#96AEC2]" />
+                <div className="flex items-center gap-3 border-r border-[#AEBFC3]/30 pr-6">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#6F8A9D] to-[#546A7A] flex items-center justify-center text-white shadow-lg shadow-[#6F8A9D]/20">
                     <Building className="w-6 h-6" />
                   </div>
                   <div>
@@ -389,8 +397,8 @@ export default function MilestoneViewPage() {
                 
                 <div className="flex flex-wrap items-center gap-4">
                   {invoice.poNo && (
-                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white shadow-sm border border-[#AEBFC3]/20">
-                      <div className="p-1 rounded-lg bg-[#CE9F6B]/10"><Tag className="w-3.5 h-3.5 text-[#CE9F6B]" /></div>
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#CE9F6B]/5 to-[#976E44]/5 shadow-sm border-2 border-[#CE9F6B]/20">
+                      <div className="p-1 rounded-lg bg-gradient-to-br from-[#CE9F6B] to-[#976E44]"><Tag className="w-3.5 h-3.5 text-white" /></div>
                       <div>
                         <p className="text-[10px] uppercase font-bold text-[#92A2A5] leading-none mb-0.5">PO Number</p>
                         <p className="text-xs font-bold text-[#546A7A] leading-none">{invoice.poNo}</p>
@@ -398,8 +406,8 @@ export default function MilestoneViewPage() {
                     </div>
                   )}
                   {invoice.region && (
-                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white shadow-sm border border-[#AEBFC3]/20">
-                      <div className="p-1 rounded-lg bg-[#82A094]/10"><MapPin className="w-3.5 h-3.5 text-[#82A094]" /></div>
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#82A094]/5 to-[#4F6A64]/5 shadow-sm border-2 border-[#82A094]/20">
+                      <div className="p-1 rounded-lg bg-gradient-to-br from-[#82A094] to-[#4F6A64]"><MapPin className="w-3.5 h-3.5 text-white" /></div>
                       <div>
                         <p className="text-[10px] uppercase font-bold text-[#92A2A5] leading-none mb-0.5">Region</p>
                         <p className="text-xs font-bold text-[#546A7A] leading-none">{invoice.region}</p>
@@ -407,7 +415,7 @@ export default function MilestoneViewPage() {
                     </div>
                   )}
                   {/* Risk Class Badge */}
-                  <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl shadow-sm border ${riskConfig.bg} ${riskConfig.border}`}>
+                  <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl shadow-sm border-2 ${riskConfig.bg} ${riskConfig.border}`}>
                     <riskConfig.icon className={`w-3.5 h-3.5 ${riskConfig.text}`} />
                     <div>
                       <p className="text-[10px] uppercase font-bold text-[#92A2A5] leading-none mb-0.5">Risk</p>
@@ -421,7 +429,8 @@ export default function MilestoneViewPage() {
             {/* Status & Timing */}
             <div className="flex flex-col items-start md:items-end gap-3 min-w-fit">
               {/* Payment Status Badge */}
-              <div className={`group relative px-6 py-3 rounded-[1.5rem] bg-gradient-to-br ${statusConfig.bg} shadow-2xl transition-all hover:scale-105 ${statusConfig.glow}`}>
+              <div className={`group relative px-6 py-3 rounded-[1.5rem] bg-gradient-to-br ${statusConfig.bg} shadow-2xl transition-all hover:scale-105 ${statusConfig.glow} overflow-hidden`}>
+                <div className="absolute top-0 left-0 right-0 h-1 bg-white/30" />
                 <div className="flex items-center gap-3">
                   <StatusIcon className="w-6 h-6 text-white" />
                   <div className="text-left">
@@ -433,7 +442,8 @@ export default function MilestoneViewPage() {
 
               {/* Milestone Delivery Status Badge */}
               {invoice.milestoneStatus && (
-                <div className={`group relative px-6 py-3 rounded-[1.5rem] bg-gradient-to-br ${milestoneStatusConf.bg} shadow-xl transition-all hover:scale-105 ${milestoneStatusConf.glow}`}>
+                <div className={`group relative px-6 py-3 rounded-[1.5rem] bg-gradient-to-br ${milestoneStatusConf.bg} shadow-xl transition-all hover:scale-105 ${milestoneStatusConf.glow} overflow-hidden`}>
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-white/30" />
                   <div className="flex items-center gap-3">
                     <MilestoneStatusIcon className="w-5 h-5 text-white" />
                     <div className="text-left">
@@ -446,7 +456,8 @@ export default function MilestoneViewPage() {
 
               {/* Aging Days Indicator */}
               {worstTermAging > 0 && invoice.milestoneStatus !== 'FULLY_DELIVERED' && (
-                <div className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#E17F70]/10 border border-[#E17F70]/25">
+                <div className="relative flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#E17F70]/10 to-[#9E3B47]/5 border-2 border-[#E17F70]/30 overflow-hidden">
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#E17F70] via-[#9E3B47] to-[#75242D]" />
                   <AlertTriangle className="w-4 h-4 text-[#E17F70] animate-pulse" />
                   <div>
                     <p className="text-[9px] font-black text-[#E17F70]/70 uppercase tracking-widest leading-none mb-0.5">Max Aging</p>
@@ -455,7 +466,8 @@ export default function MilestoneViewPage() {
                 </div>
               )}
               {worstTermAging === 0 && invoice.status !== 'PAID' && milestoneTerms.length > 0 && (
-                <div className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#82A094]/10 border border-[#82A094]/25">
+                <div className="relative flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#82A094]/10 to-[#4F6A64]/5 border-2 border-[#82A094]/30 overflow-hidden">
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#82A094] via-[#4F6A64] to-[#A2B9AF]" />
                   <Timer className="w-4 h-4 text-[#4F6A64]" />
                   <div>
                     <p className="text-[9px] font-black text-[#82A094]/70 uppercase tracking-widest leading-none mb-0.5">Aging</p>
@@ -571,11 +583,12 @@ export default function MilestoneViewPage() {
       </div>
 
       {/* Collection Progress */}
-      <div className="bg-white rounded-2xl border border-[#AEBFC3]/20 p-6 shadow-lg">
+      <div className="relative bg-white rounded-2xl border-2 border-[#82A094]/30 p-6 shadow-lg overflow-hidden">
+        <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#82A094] via-[#4F6A64] to-[#A2B9AF]" />
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-gradient-to-br from-[#82A094]/20 to-[#4F6A64]/20">
-              <TrendingUp className="w-5 h-5 text-[#4F6A64]" />
+            <div className="p-2.5 rounded-xl bg-gradient-to-br from-[#82A094] to-[#4F6A64] shadow-lg shadow-[#82A094]/20">
+              <TrendingUp className="w-5 h-5 text-white" />
             </div>
             <div>
               <h3 className="font-bold text-[#546A7A]">Collection Progress</h3>
@@ -635,16 +648,19 @@ export default function MilestoneViewPage() {
       </div>
 
       {/* Payment Terms & Aging */}
-      <div className="bg-white rounded-2xl border border-[#AEBFC3]/20 shadow-lg overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#AEBFC3]/15 bg-gradient-to-r from-[#546A7A] to-[#6F8A9D]">
+      <div className="relative bg-white rounded-2xl border-2 border-[#CE9F6B]/30 shadow-lg overflow-hidden">
+        <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#CE9F6B] via-[#976E44] to-[#E17F70]" />
+        <div className="flex items-center justify-between px-5 py-3.5 border-b-2 border-[#CE9F6B]/15 bg-gradient-to-r from-[#CE9F6B] to-[#976E44]">
           <div className="flex items-center gap-2.5">
-            <Sparkles className="w-4 h-4 text-white/80" />
+            <div className="p-1.5 rounded-lg bg-white/20">
+              <Sparkles className="w-4 h-4 text-white" />
+            </div>
             <h3 className="font-bold text-white text-sm">Payment Terms & Aging</h3>
             <span className="px-2 py-0.5 rounded-full bg-white/20 text-[10px] font-bold text-white">{milestoneTerms.length} Terms</span>
           </div>
           <div className="hidden sm:flex items-center gap-3 text-[10px] font-bold text-white/70">
             <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-[#E17F70]" /> Overdue</div>
-            <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-[#82A094]" /> On Track</div>
+            <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-[#A2B9AF]" /> On Track</div>
           </div>
         </div>
 
@@ -753,9 +769,12 @@ export default function MilestoneViewPage() {
             })}
           </div>
         ) : (
-          <div className="text-center py-10 text-[#92A2A5]">
-            <Tag className="w-8 h-8 mx-auto mb-2 opacity-25" />
-            <p className="font-medium text-sm mb-1">No payment terms defined</p>
+          <div className="text-center py-10">
+            <div className="relative w-16 h-16 rounded-2xl bg-gradient-to-br from-[#CE9F6B] to-[#976E44] flex items-center justify-center mx-auto mb-3 shadow-lg shadow-[#CE9F6B]/20 overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#E17F70] via-white/40 to-[#CE9F6B]" />
+              <Tag className="w-8 h-8 text-white" />
+            </div>
+            <p className="font-bold text-sm mb-1 text-[#5D6E73]">No payment terms defined</p>
             <Link href={`/finance/ar/milestones/${params.id}/edit`} className="text-[#CE9F6B] text-xs font-bold hover:underline">
               Add payment terms →
             </Link>
@@ -764,13 +783,14 @@ export default function MilestoneViewPage() {
       </div>
 
       {/* Tabs Navigation */}
-      <div className="flex items-center gap-2 bg-white rounded-2xl border border-[#AEBFC3]/20 p-2 shadow-lg mb-6 overflow-x-auto scrollbar-hide">
+      <div className="relative flex items-center gap-2 bg-white rounded-2xl border-2 border-[#AEBFC3]/30 p-2 shadow-lg mb-6 overflow-x-auto scrollbar-hide">
+        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#546A7A] via-[#6F8A9D] to-[#96AEC2]" />
         {tabs.map(tab => (
           <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-            className={`flex items-center gap-2 px-4 sm:px-5 py-3 rounded-xl font-medium transition-all flex-1 min-w-fit whitespace-nowrap justify-center ${
+            className={`flex items-center gap-2 px-4 sm:px-5 py-3 rounded-xl font-bold transition-all flex-1 min-w-fit whitespace-nowrap justify-center ${
               activeTab === tab.key
                 ? 'bg-gradient-to-r from-[#546A7A] to-[#6F8A9D] text-white shadow-lg'
-                : 'text-[#5D6E73] hover:bg-[#AEBFC3]/10'
+                : 'text-[#5D6E73] hover:bg-[#AEBFC3]/10 border-2 border-transparent hover:border-[#AEBFC3]/30'
             }`}>
             <tab.icon className="w-4 h-4" />
             <span className="text-sm sm:text-base">{tab.label}</span>
@@ -779,7 +799,8 @@ export default function MilestoneViewPage() {
       </div>
 
       {/* Tab Content */}
-      <div className="bg-white rounded-2xl border border-[#AEBFC3]/20 shadow-lg overflow-hidden">
+      <div className="relative bg-white rounded-2xl border-2 border-[#AEBFC3]/30 shadow-lg overflow-hidden">
+        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#6F8A9D] via-[#546A7A] to-[#96AEC2]" />
         <div className="p-6">
           {/* Details Tab */}
           {activeTab === 'details' && (
@@ -787,8 +808,8 @@ export default function MilestoneViewPage() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* Milestone Information */}
                 <div>
-                  <h4 className="flex items-center gap-2 text-lg font-bold text-[#546A7A] mb-4">
-                    <div className="p-2 rounded-lg bg-[#E17F70]/10"><Hash className="w-5 h-5 text-[#E17F70]" /></div>
+                  <h4 className="flex items-center gap-3 text-lg font-bold text-[#546A7A] mb-4">
+                    <div className="p-2.5 rounded-xl bg-gradient-to-br from-[#E17F70] to-[#9E3B47] shadow-lg shadow-[#E17F70]/20"><Hash className="w-5 h-5 text-white" /></div>
                     Milestone Information
                   </h4>
                   <div className="space-y-3">
@@ -813,8 +834,8 @@ export default function MilestoneViewPage() {
 
                 {/* Customer Details */}
                 <div>
-                  <h4 className="flex items-center gap-2 text-lg font-bold text-[#546A7A] mb-4">
-                    <div className="p-2 rounded-lg bg-[#6F8A9D]/10"><Building className="w-5 h-5 text-[#6F8A9D]" /></div>
+                  <h4 className="flex items-center gap-3 text-lg font-bold text-[#546A7A] mb-4">
+                    <div className="p-2.5 rounded-xl bg-gradient-to-br from-[#6F8A9D] to-[#546A7A] shadow-lg shadow-[#6F8A9D]/20"><Building className="w-5 h-5 text-white" /></div>
                     Customer Details
                   </h4>
                   <div className="space-y-3">
@@ -842,8 +863,8 @@ export default function MilestoneViewPage() {
 
                 {/* Financial Breakdown */}
                 <div>
-                  <h4 className="flex items-center gap-2 text-lg font-bold text-[#546A7A] mb-4">
-                    <div className="p-2 rounded-lg bg-[#82A094]/10"><IndianRupee className="w-5 h-5 text-[#82A094]" /></div>
+                  <h4 className="flex items-center gap-3 text-lg font-bold text-[#546A7A] mb-4">
+                    <div className="p-2.5 rounded-xl bg-gradient-to-br from-[#82A094] to-[#4F6A64] shadow-lg shadow-[#82A094]/20"><IndianRupee className="w-5 h-5 text-white" /></div>
                     Financial Breakdown
                   </h4>
                   <div className="space-y-3">
@@ -862,8 +883,8 @@ export default function MilestoneViewPage() {
 
                 {/* Contact Person */}
                 <div>
-                  <h4 className="flex items-center gap-2 text-lg font-bold text-[#546A7A] mb-4">
-                    <div className="p-2 rounded-lg bg-[#CE9F6B]/10"><User className="w-5 h-5 text-[#CE9F6B]" /></div>
+                  <h4 className="flex items-center gap-3 text-lg font-bold text-[#546A7A] mb-4">
+                    <div className="p-2.5 rounded-xl bg-gradient-to-br from-[#CE9F6B] to-[#976E44] shadow-lg shadow-[#CE9F6B]/20"><User className="w-5 h-5 text-white" /></div>
                     Contact Person
                   </h4>
                   <div className="space-y-3">
@@ -889,11 +910,12 @@ export default function MilestoneViewPage() {
 
                 {/* Contractual Payment Terms Summary */}
                 <div className="lg:col-span-2">
-                  <h4 className="flex items-center gap-2 text-lg font-bold text-[#546A7A] mb-4">
-                    <div className="p-2 rounded-lg bg-[#CE9F6B]/10"><FileText className="w-5 h-5 text-[#CE9F6B]" /></div>
+                  <h4 className="flex items-center gap-3 text-lg font-bold text-[#546A7A] mb-4">
+                    <div className="p-2.5 rounded-xl bg-gradient-to-br from-[#CE9F6B] to-[#976E44] shadow-lg shadow-[#CE9F6B]/20"><FileText className="w-5 h-5 text-white" /></div>
                     Contractual Payment Terms (Full Summary)
                   </h4>
-                  <div className="p-5 rounded-2xl bg-[#CE9F6B]/5 border border-[#CE9F6B]/20 relative overflow-hidden group">
+                  <div className="relative p-5 rounded-2xl bg-gradient-to-r from-[#CE9F6B]/5 to-[#976E44]/5 border-2 border-[#CE9F6B]/30 overflow-hidden group">
+                    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#CE9F6B] via-[#976E44] to-[#E17F70]" />
                     <div className="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-110 transition-transform duration-500">
                       <FileText className="w-24 h-24 text-[#CE9F6B]" />
                     </div>
@@ -913,11 +935,11 @@ export default function MilestoneViewPage() {
           {activeTab === 'payments' && (
             <div>
               <div className="flex items-center justify-between mb-6">
-                <h4 className="flex items-center gap-2 text-lg font-bold text-[#546A7A]">
-                  <div className="p-2 rounded-lg bg-[#82A094]/10"><Receipt className="w-5 h-5 text-[#82A094]" /></div>
+                <h4 className="flex items-center gap-3 text-lg font-bold text-[#546A7A]">
+                  <div className="p-2.5 rounded-xl bg-gradient-to-br from-[#82A094] to-[#4F6A64] shadow-lg shadow-[#82A094]/20"><Receipt className="w-5 h-5 text-white" /></div>
                   Payment History
                 </h4>
-                <button onClick={() => setShowPaymentModal(true)} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-[#82A094] to-[#4F6A64] text-white font-semibold hover:shadow-lg transition-all">
+                <button onClick={() => setShowPaymentModal(true)} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-[#82A094] to-[#4F6A64] text-white font-bold shadow-lg shadow-[#82A094]/20 hover:shadow-xl hover:shadow-[#82A094]/30 transition-all">
                   <Plus className="w-4 h-4" /> Add Payment
                 </button>
               </div>
@@ -998,12 +1020,13 @@ export default function MilestoneViewPage() {
                 </div>
               ) : (
                 <div className="text-center py-16">
-                  <div className="w-20 h-20 rounded-2xl bg-[#AEBFC3]/10 flex items-center justify-center mx-auto mb-4">
-                    <Receipt className="w-10 h-10 text-[#AEBFC3]" />
+                  <div className="relative w-20 h-20 rounded-2xl bg-gradient-to-br from-[#82A094] to-[#4F6A64] flex items-center justify-center mx-auto mb-4 shadow-lg shadow-[#82A094]/20 overflow-hidden">
+                    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#A2B9AF] via-white/40 to-[#82A094]" />
+                    <Receipt className="w-10 h-10 text-white" />
                   </div>
-                  <h3 className="text-lg font-semibold text-[#5D6E73] mb-2">No Payment Records</h3>
+                  <h3 className="text-lg font-bold text-[#5D6E73] mb-2">No Payment Records</h3>
                   <p className="text-[#92A2A5] mb-6">Start tracking payments by adding your first record.</p>
-                  <button onClick={() => setShowPaymentModal(true)} className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#82A094] to-[#4F6A64] text-white font-semibold rounded-xl hover:shadow-lg transition-all">
+                  <button onClick={() => setShowPaymentModal(true)} className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#82A094] to-[#4F6A64] text-white font-bold rounded-xl shadow-lg shadow-[#82A094]/20 hover:shadow-xl hover:shadow-[#82A094]/30 transition-all">
                     <Plus className="w-4 h-4" /> Add First Payment
                   </button>
                 </div>
@@ -1014,24 +1037,25 @@ export default function MilestoneViewPage() {
           {/* Remarks Tab */}
           {activeTab === 'remarks' && (
             <div>
-              <h4 className="flex items-center gap-2 text-lg font-bold text-[#546A7A] mb-6">
-                <div className="p-2 rounded-lg bg-[#6F8A9D]/10"><MessageSquare className="w-5 h-5 text-[#6F8A9D]" /></div>
+              <h4 className="flex items-center gap-3 text-lg font-bold text-[#546A7A] mb-6">
+                <div className="p-2.5 rounded-xl bg-gradient-to-br from-[#6F8A9D] to-[#546A7A] shadow-lg shadow-[#6F8A9D]/20"><MessageSquare className="w-5 h-5 text-white" /></div>
                 Remarks & Follow-ups
               </h4>
 
               {/* Add New Remark Form */}
-              <div className="mb-6 p-4 rounded-xl bg-[#AEBFC3]/10 border border-[#AEBFC3]/20">
+              <div className="relative mb-6 p-4 rounded-xl bg-gradient-to-r from-[#6F8A9D]/5 to-[#546A7A]/5 border-2 border-[#6F8A9D]/20 overflow-hidden">
+                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#6F8A9D] via-[#546A7A] to-[#96AEC2]" />
                 <div className="flex gap-3">
                   <textarea
                     value={newRemark}
                     onChange={(e) => setNewRemark(e.target.value)}
                     placeholder="Add a remark or follow-up note..."
-                    className="flex-1 px-4 py-3 rounded-xl bg-white border-2 border-[#AEBFC3]/30 text-[#546A7A] focus:border-[#6F8A9D] focus:outline-none resize-none h-20"
+                    className="flex-1 px-4 py-3 rounded-xl bg-white border-2 border-[#AEBFC3]/30 text-[#546A7A] focus:border-[#6F8A9D] focus:outline-none focus:ring-2 focus:ring-[#6F8A9D]/10 resize-none h-20 font-medium"
                   />
                   <button
                     onClick={handleAddRemark}
                     disabled={addingRemark || !newRemark.trim()}
-                    className="px-6 py-3 h-fit rounded-xl bg-gradient-to-r from-[#6F8A9D] to-[#546A7A] text-white font-semibold hover:shadow-lg transition-all disabled:opacity-50 flex items-center gap-2"
+                    className="px-6 py-3 h-fit rounded-xl bg-gradient-to-r from-[#6F8A9D] to-[#546A7A] text-white font-bold shadow-lg shadow-[#6F8A9D]/20 hover:shadow-xl transition-all disabled:opacity-50 flex items-center gap-2"
                   >
                     {addingRemark ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                     Add
@@ -1070,10 +1094,11 @@ export default function MilestoneViewPage() {
                 </div>
               ) : (
                 <div className="text-center py-16">
-                  <div className="w-20 h-20 rounded-2xl bg-[#AEBFC3]/10 flex items-center justify-center mx-auto mb-4">
-                    <MessageSquare className="w-10 h-10 text-[#AEBFC3]" />
+                  <div className="relative w-20 h-20 rounded-2xl bg-gradient-to-br from-[#6F8A9D] to-[#546A7A] flex items-center justify-center mx-auto mb-4 shadow-lg shadow-[#6F8A9D]/20 overflow-hidden">
+                    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#96AEC2] via-white/40 to-[#6F8A9D]" />
+                    <MessageSquare className="w-10 h-10 text-white" />
                   </div>
-                  <h3 className="text-lg font-semibold text-[#5D6E73] mb-2">No Remarks Yet</h3>
+                  <h3 className="text-lg font-bold text-[#5D6E73] mb-2">No Remarks Yet</h3>
                   <p className="text-[#92A2A5] mb-2">Add your first remark or follow-up note above.</p>
                 </div>
               )}
@@ -1085,8 +1110,8 @@ export default function MilestoneViewPage() {
             <div>
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-xl bg-gradient-to-br from-[#6F8A9D]/20 to-[#546A7A]/20">
-                    <Clock className="w-5 h-5 text-[#546A7A]" />
+                  <div className="p-2.5 rounded-xl bg-gradient-to-br from-[#6F8A9D] to-[#546A7A] shadow-lg shadow-[#6F8A9D]/20">
+                    <Clock className="w-5 h-5 text-white" />
                   </div>
                   <div>
                     <h3 className="font-bold text-[#546A7A]">Activity Log</h3>
@@ -1095,7 +1120,7 @@ export default function MilestoneViewPage() {
                 </div>
                 <button 
                   onClick={() => invoice && loadActivityLog(invoice.id)}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm text-[#6F8A9D] hover:bg-[#6F8A9D]/10 transition-colors"
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm text-[#6F8A9D] font-bold hover:bg-[#6F8A9D]/10 transition-colors border-2 border-[#6F8A9D]/20 hover:border-[#6F8A9D]/40"
                 >
                   <RefreshCw className={`w-4 h-4 ${activityLoading ? 'animate-spin' : ''}`} />
                   Refresh
@@ -1159,10 +1184,11 @@ export default function MilestoneViewPage() {
                 </div>
               ) : (
                 <div className="text-center py-16">
-                  <div className="w-20 h-20 rounded-2xl bg-[#AEBFC3]/10 flex items-center justify-center mx-auto mb-4">
-                    <Clock className="w-10 h-10 text-[#AEBFC3]" />
+                  <div className="relative w-20 h-20 rounded-2xl bg-gradient-to-br from-[#6F8A9D] to-[#546A7A] flex items-center justify-center mx-auto mb-4 shadow-lg shadow-[#6F8A9D]/20 overflow-hidden">
+                    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#96AEC2] via-white/40 to-[#6F8A9D]" />
+                    <Clock className="w-10 h-10 text-white" />
                   </div>
-                  <h3 className="text-lg font-semibold text-[#5D6E73] mb-2">No Activity Yet</h3>
+                  <h3 className="text-lg font-bold text-[#5D6E73] mb-2">No Activity Yet</h3>
                   <p className="text-[#92A2A5]">Activity will be recorded when changes are made.</p>
                 </div>
               )}
@@ -1178,7 +1204,8 @@ export default function MilestoneViewPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={(e) => { if (e.target === e.currentTarget) closePaymentModal(); }}>
           <div className="bg-white rounded-[2rem] w-full max-w-xl shadow-2xl relative animate-scale-in overflow-hidden">
             {/* Gradient Header with Balance Info */}
-            <div className="relative bg-gradient-to-r from-[#546A7A] via-[#6F8A9D] to-[#546A7A] px-7 py-5 overflow-hidden">
+            <div className="relative bg-gradient-to-r from-[#82A094] via-[#4F6A64] to-[#82A094] px-7 py-5 overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#A2B9AF] via-white/40 to-[#82A094]" />
               <div className="absolute -top-12 -right-12 w-40 h-40 bg-white/10 rounded-full blur-xl" />
               <div className="absolute -bottom-8 -left-8 w-32 h-32 bg-white/5 rounded-full blur-lg" />
               <button onClick={closePaymentModal} className="absolute top-4 right-4 p-1.5 rounded-xl bg-white/10 hover:bg-white/20 transition-colors">
@@ -1219,8 +1246,8 @@ export default function MilestoneViewPage() {
               {/* Payment Term - Visual Card Selector */}
               {milestoneTerms.length > 0 && (
                 <div>
-                  <label className="flex items-center gap-1.5 text-xs font-bold text-[#5D6E73] mb-2 uppercase tracking-wider">
-                    <Tag className="w-3.5 h-3.5 text-[#CE9F6B]" /> Milestone Stage <span className="text-[#E17F70]">*</span>
+                  <label className="flex items-center gap-2 text-xs font-bold text-[#5D6E73] mb-2 uppercase tracking-wider">
+                    <div className="p-1 rounded-lg bg-gradient-to-br from-[#CE9F6B] to-[#976E44]"><Tag className="w-3 h-3 text-white" /></div> Milestone Stage <span className="text-[#E17F70]">*</span>
                   </label>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     {milestoneTerms.map((term, idx) => {
@@ -1270,26 +1297,26 @@ export default function MilestoneViewPage() {
               {/* Amount & Date Row */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="flex items-center gap-1.5 text-xs font-bold text-[#5D6E73] mb-1.5 uppercase tracking-wider">
-                    <IndianRupee className="w-3.5 h-3.5 text-[#82A094]" /> Amount <span className="text-[#E17F70]">*</span>
+                  <label className="flex items-center gap-2 text-xs font-bold text-[#5D6E73] mb-1.5 uppercase tracking-wider">
+                    <div className="p-1 rounded-lg bg-gradient-to-br from-[#82A094] to-[#4F6A64]"><IndianRupee className="w-3 h-3 text-white" /></div> Amount <span className="text-[#E17F70]">*</span>
                   </label>
-                  <input type="number" step="0.01" required value={paymentForm.amount} onChange={e => setPaymentForm({...paymentForm, amount: e.target.value})} className="w-full h-12 px-3.5 rounded-xl bg-[#AEBFC3]/8 border-2 border-[#AEBFC3]/25 text-[#546A7A] focus:border-[#82A094] focus:outline-none focus:ring-3 focus:ring-[#82A094]/15 transition-all font-mono text-lg font-bold" placeholder="0.00" />
+                  <input type="number" step="0.01" required value={paymentForm.amount} onChange={e => setPaymentForm({...paymentForm, amount: e.target.value})} className="w-full h-12 px-3.5 rounded-xl bg-gradient-to-r from-[#82A094]/5 to-[#4F6A64]/5 border-2 border-[#82A094]/30 text-[#546A7A] focus:border-[#82A094] focus:outline-none focus:ring-3 focus:ring-[#82A094]/15 transition-all font-mono text-lg font-bold" placeholder="0.00" />
                 </div>
                 <div>
-                  <label className="flex items-center gap-1.5 text-xs font-bold text-[#5D6E73] mb-1.5 uppercase tracking-wider">
-                    <Calendar className="w-3.5 h-3.5 text-[#6F8A9D]" /> Date <span className="text-[#E17F70]">*</span>
+                  <label className="flex items-center gap-2 text-xs font-bold text-[#5D6E73] mb-1.5 uppercase tracking-wider">
+                    <div className="p-1 rounded-lg bg-gradient-to-br from-[#6F8A9D] to-[#546A7A]"><Calendar className="w-3 h-3 text-white" /></div> Date <span className="text-[#E17F70]">*</span>
                   </label>
-                  <input type="date" required value={paymentForm.paymentDate} onChange={e => setPaymentForm({...paymentForm, paymentDate: e.target.value})} className="w-full h-12 px-3 rounded-xl bg-[#AEBFC3]/8 border-2 border-[#AEBFC3]/25 text-[#546A7A] focus:border-[#82A094] focus:outline-none transition-all text-sm font-medium" />
+                  <input type="date" required value={paymentForm.paymentDate} onChange={e => setPaymentForm({...paymentForm, paymentDate: e.target.value})} className="w-full h-12 px-3 rounded-xl bg-gradient-to-r from-[#6F8A9D]/5 to-[#546A7A]/5 border-2 border-[#6F8A9D]/30 text-[#546A7A] focus:border-[#6F8A9D] focus:outline-none transition-all text-sm font-medium" />
                 </div>
               </div>
 
               {/* Bank & Mode Row */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="flex items-center gap-1.5 text-xs font-bold text-[#5D6E73] mb-1.5 uppercase tracking-wider">
-                    <Building className="w-3.5 h-3.5 text-[#CE9F6B]" /> Bank <span className="text-[#E17F70]">*</span>
+                  <label className="flex items-center gap-2 text-xs font-bold text-[#5D6E73] mb-1.5 uppercase tracking-wider">
+                    <div className="p-1 rounded-lg bg-gradient-to-br from-[#CE9F6B] to-[#976E44]"><Building className="w-3 h-3 text-white" /></div> Bank <span className="text-[#E17F70]">*</span>
                   </label>
-                  <select value={paymentForm.referenceBank} onChange={e => setPaymentForm({...paymentForm, referenceBank: e.target.value})} className="w-full h-12 px-3 rounded-xl bg-[#AEBFC3]/8 border-2 border-[#AEBFC3]/25 text-[#546A7A] focus:border-[#82A094] focus:outline-none transition-all text-sm font-medium" required>
+                  <select value={paymentForm.referenceBank} onChange={e => setPaymentForm({...paymentForm, referenceBank: e.target.value})} className="w-full h-12 px-3 rounded-xl bg-gradient-to-r from-[#CE9F6B]/5 to-[#976E44]/5 border-2 border-[#CE9F6B]/30 text-[#546A7A] focus:border-[#CE9F6B] focus:outline-none transition-all text-sm font-medium" required>
                     <option value="" disabled>Select Bank</option>
                     <option value="HDFC">HDFC Bank</option>
                     <option value="DB">Deutsche Bank (DB)</option>
@@ -1297,10 +1324,10 @@ export default function MilestoneViewPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="flex items-center gap-1.5 text-xs font-bold text-[#5D6E73] mb-1.5 uppercase tracking-wider">
-                    <CreditCard className="w-3.5 h-3.5 text-[#E17F70]" /> Mode <span className="text-[#E17F70]">*</span>
+                  <label className="flex items-center gap-2 text-xs font-bold text-[#5D6E73] mb-1.5 uppercase tracking-wider">
+                    <div className="p-1 rounded-lg bg-gradient-to-br from-[#E17F70] to-[#9E3B47]"><CreditCard className="w-3 h-3 text-white" /></div> Mode <span className="text-[#E17F70]">*</span>
                   </label>
-                  <select value={paymentForm.paymentMode} onChange={e => setPaymentForm({...paymentForm, paymentMode: e.target.value})} className="w-full h-12 px-3 rounded-xl bg-[#AEBFC3]/8 border-2 border-[#AEBFC3]/25 text-[#546A7A] focus:border-[#82A094] focus:outline-none transition-all text-sm font-medium" required>
+                  <select value={paymentForm.paymentMode} onChange={e => setPaymentForm({...paymentForm, paymentMode: e.target.value})} className="w-full h-12 px-3 rounded-xl bg-gradient-to-r from-[#E17F70]/5 to-[#9E3B47]/5 border-2 border-[#E17F70]/30 text-[#546A7A] focus:border-[#E17F70] focus:outline-none transition-all text-sm font-medium" required>
                     <option value="" disabled>Select Mode</option>
                     <option value="Receipt">Receipt</option>
                     <option value="TDS">TDS</option>
@@ -1312,18 +1339,18 @@ export default function MilestoneViewPage() {
 
               {/* Notes */}
               <div>
-                <label className="flex items-center gap-1.5 text-xs font-bold text-[#5D6E73] mb-1.5 uppercase tracking-wider">
-                  <MessageSquare className="w-3.5 h-3.5 text-[#92A2A5]" /> Notes <span className="text-[#92A2A5] font-normal normal-case tracking-normal">(optional)</span>
+                <label className="flex items-center gap-2 text-xs font-bold text-[#5D6E73] mb-1.5 uppercase tracking-wider">
+                  <div className="p-1 rounded-lg bg-gradient-to-br from-[#92A2A5] to-[#5D6E73]"><MessageSquare className="w-3 h-3 text-white" /></div> Notes <span className="text-[#92A2A5] font-normal normal-case tracking-normal">(optional)</span>
                 </label>
-                <textarea value={paymentForm.notes} onChange={e => setPaymentForm({...paymentForm, notes: e.target.value})} className="w-full px-3.5 py-2.5 rounded-xl bg-[#AEBFC3]/8 border-2 border-[#AEBFC3]/25 text-[#546A7A] focus:border-[#82A094] focus:outline-none transition-all resize-none h-16 text-sm" placeholder="Add remarks or reference details..." />
+                <textarea value={paymentForm.notes} onChange={e => setPaymentForm({...paymentForm, notes: e.target.value})} className="w-full px-3.5 py-2.5 rounded-xl bg-gradient-to-r from-[#AEBFC3]/5 to-[#92A2A5]/5 border-2 border-[#AEBFC3]/30 text-[#546A7A] focus:border-[#AEBFC3] focus:outline-none transition-all resize-none h-16 text-sm" placeholder="Add remarks or reference details..." />
               </div>
 
               {/* Action Buttons */}
-              <div className="flex gap-3 pt-2 border-t border-[#AEBFC3]/15">
-                <button type="button" onClick={closePaymentModal} className="flex-1 py-3 rounded-xl border-2 border-[#AEBFC3]/30 text-[#5D6E73] font-semibold hover:bg-[#AEBFC3]/10 hover:border-[#AEBFC3]/50 transition-all text-sm">
+              <div className="flex gap-3 pt-2 border-t-2 border-[#AEBFC3]/20">
+                <button type="button" onClick={closePaymentModal} className="flex-1 py-3 rounded-xl border-2 border-[#AEBFC3]/40 text-[#5D6E73] font-bold hover:bg-[#AEBFC3]/10 hover:border-[#AEBFC3]/60 transition-all text-sm">
                   Cancel
                 </button>
-                <button type="submit" disabled={paymentLoading} className="flex-[1.5] py-3 rounded-xl bg-gradient-to-r from-[#82A094] to-[#4F6A64] text-white font-bold hover:shadow-xl hover:shadow-[#82A094]/30 transition-all flex items-center justify-center gap-2 text-sm disabled:opacity-60">
+                <button type="submit" disabled={paymentLoading} className="flex-[1.5] py-3 rounded-xl bg-gradient-to-r from-[#82A094] to-[#4F6A64] text-white font-bold shadow-lg shadow-[#82A094]/20 hover:shadow-xl hover:shadow-[#82A094]/30 transition-all flex items-center justify-center gap-2 text-sm disabled:opacity-60 active:scale-95">
                   {paymentLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
                   {editingPaymentId ? 'Update Payment' : 'Record Payment'}
                 </button>

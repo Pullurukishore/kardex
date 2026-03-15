@@ -261,13 +261,16 @@ export default function EditMilestonePage() {
     return (
       <div className="flex items-center justify-center h-full min-h-[400px]">
         <div className="flex flex-col items-center gap-4">
-          <div className="relative w-20 h-20">
-            <div className="absolute inset-0 rounded-full border-4 border-[#AEBFC3]/30" />
+          <div className="relative w-24 h-24">
+            <div className="absolute inset-0 rounded-full border-4 border-[#AEBFC3]/20" />
             <div className="absolute inset-0 rounded-full border-4 border-t-[#CE9F6B] border-r-transparent border-b-transparent border-l-transparent animate-spin" />
             <div className="absolute inset-3 rounded-full border-4 border-t-transparent border-r-[#E17F70] border-b-transparent border-l-transparent animate-spin" style={{ animationDirection: 'reverse', animationDuration: '0.8s' }} />
-            <Wallet className="absolute inset-0 m-auto w-6 h-6 text-[#546A7A]" />
+            <div className="absolute inset-6 rounded-full border-2 border-t-[#82A094] border-r-transparent border-b-transparent border-l-transparent animate-spin" style={{ animationDuration: '1.2s' }} />
+            <div className="absolute inset-0 m-auto w-10 h-10 rounded-xl bg-gradient-to-br from-[#CE9F6B] to-[#976E44] flex items-center justify-center shadow-lg shadow-[#CE9F6B]/20">
+              <Wallet className="w-5 h-5 text-white" />
+            </div>
           </div>
-          <span className="text-[#92A2A5] text-sm font-medium">Loading milestone records...</span>
+          <span className="text-[#5D6E73] text-sm font-bold">Loading milestone records...</span>
         </div>
       </div>
     );
@@ -277,21 +280,22 @@ export default function EditMilestonePage() {
     return (
       <div className="flex items-center justify-center h-full min-h-[400px]">
         <div className="text-center">
-          <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-[#CE9F6B]/20 to-[#E17F70]/20 flex items-center justify-center mx-auto mb-4 shadow-xl">
-            <Wallet className="w-12 h-12 text-[#CE9F6B]" />
+          <div className="relative w-24 h-24 rounded-2xl bg-gradient-to-br from-[#CE9F6B] to-[#976E44] flex items-center justify-center mx-auto mb-4 shadow-2xl shadow-[#CE9F6B]/20 overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#E17F70] via-[#EEC1BF] to-[#9E3B47]" />
+            <Wallet className="w-12 h-12 text-white" />
           </div>
           <h2 className="text-xl font-bold text-[#546A7A] mb-2">Milestone Record Not Found</h2>
-          <Link href="/finance/ar/milestones" className="text-[#E17F70] hover:text-[#9E3B47] font-semibold transition-colors">
-            ← Back to Milestone Payments
+          <Link href="/finance/ar/milestones" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#CE9F6B] to-[#976E44] text-white font-bold shadow-lg shadow-[#CE9F6B]/20 hover:shadow-xl hover:shadow-[#CE9F6B]/30 transition-all hover:-translate-y-0.5">
+            <ArrowLeft className="w-4 h-4" /> Back to Milestones
           </Link>
         </div>
       </div>
     );
   }
 
-  const inputClass = "w-full h-12 px-4 rounded-xl bg-[#AEBFC3]/10 border-2 border-[#AEBFC3]/30 text-[#546A7A] placeholder:text-[#92A2A5] focus:border-[#CE9F6B]/50 focus:outline-none focus:ring-4 focus:ring-[#CE9F6B]/10 transition-all duration-300 font-medium hover:border-[#AEBFC3]/50";
-  const labelClass = "block text-[#5D6E73] text-sm font-semibold mb-3";
-  const selectClass = "w-full h-12 px-4 rounded-xl bg-white border-2 border-[#AEBFC3]/30 text-[#546A7A] focus:border-[#CE9F6B]/50 focus:outline-none focus:ring-4 focus:ring-[#CE9F6B]/10 transition-all duration-300 font-medium hover:border-[#AEBFC3]/50";
+  const inputClass = "w-full h-12 px-4 rounded-xl bg-gradient-to-r from-[#AEBFC3]/5 to-[#92A2A5]/5 border-2 border-[#AEBFC3]/30 text-[#546A7A] placeholder:text-[#92A2A5] focus:border-[#CE9F6B] focus:outline-none focus:ring-3 focus:ring-[#CE9F6B]/15 transition-all duration-300 font-medium hover:border-[#AEBFC3]/50";
+  const labelClass = "flex items-center gap-1.5 text-[#5D6E73] text-xs font-bold mb-2 uppercase tracking-wider";
+  const selectClass = "w-full h-12 px-4 rounded-xl bg-white border-2 border-[#AEBFC3]/30 text-[#546A7A] focus:border-[#CE9F6B] focus:outline-none focus:ring-3 focus:ring-[#CE9F6B]/15 transition-all duration-300 font-medium hover:border-[#AEBFC3]/50";
 
   return (
     <div className="space-y-6 relative w-full pb-10">
@@ -301,7 +305,8 @@ export default function EditMilestonePage() {
       </div>
 
       {/* Header */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#CE9F6B] via-[#E17F70] to-[#976E44] p-6 shadow-xl">
+      <div className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-r from-[#CE9F6B] via-[#976E44] to-[#E17F70] p-6 sm:p-8 shadow-2xl">
+        <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-[#E17F70] via-[#EEC1BF] to-[#9E3B47]" />
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-4 right-12 w-32 h-32 border-4 border-white rounded-full" />
           <div className="absolute -bottom-8 -left-8 w-48 h-48 border-4 border-white rounded-full" />
@@ -311,7 +316,7 @@ export default function EditMilestonePage() {
           <div className="flex items-center gap-4">
             <Link 
               href={`/finance/ar/milestones/${invoice!.id}`}
-              className="p-2.5 rounded-xl bg-white/20 backdrop-blur-sm border border-white/30 text-white hover:bg-white/30 transition-all duration-300 hover:scale-105"
+              className="p-2.5 rounded-xl bg-white/20 backdrop-blur-sm border-2 border-white/30 text-white hover:bg-white/30 transition-all duration-300 hover:scale-105"
             >
               <ArrowLeft className="w-5 h-5" />
             </Link>
@@ -346,21 +351,23 @@ export default function EditMilestonePage() {
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Error Banner */}
         {error && (
-          <div className="flex items-center gap-3 p-4 bg-red-50 border-2 border-red-200 rounded-xl text-red-600 font-medium animate-shake shadow-lg shadow-red-100">
-            <div className="p-1.5 rounded-lg bg-red-100">
-              <AlertCircle className="w-5 h-5 flex-shrink-0" />
+          <div className="relative flex items-center gap-3 p-4 bg-gradient-to-r from-[#E17F70]/10 to-[#9E3B47]/5 border-2 border-[#E17F70]/30 rounded-xl text-[#9E3B47] font-bold animate-shake shadow-lg shadow-[#E17F70]/10 overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#E17F70] via-[#9E3B47] to-[#75242D]" />
+            <div className="p-1.5 rounded-lg bg-gradient-to-br from-[#E17F70] to-[#9E3B47]">
+              <AlertCircle className="w-5 h-5 text-white flex-shrink-0" />
             </div>
             <span className="flex-1 text-sm">{error}</span>
-            <button type="button" onClick={() => setError(null)} className="p-1.5 rounded-lg hover:bg-red-100 transition-colors">
+            <button type="button" onClick={() => setError(null)} className="p-1.5 rounded-lg hover:bg-[#E17F70]/10 transition-colors">
               <X className="w-4 h-4" />
             </button>
           </div>
         )}
 
         {/* Order & Customer Info */}
-        <div className="bg-white/90 backdrop-blur-xl rounded-2xl border border-[#CE9F6B]/20 p-6 shadow-lg hover:shadow-xl transition-all duration-300 group">
-          <h3 className="text-lg font-bold text-[#546A7A] mb-5 flex items-center gap-2">
-            <div className="p-2 rounded-lg bg-gradient-to-br from-[#CE9F6B] to-[#976E44] shadow-lg shadow-[#CE9F6B]/20 group-hover:shadow-[#CE9F6B]/40 transition-all duration-300">
+        <div className="relative bg-white/90 backdrop-blur-xl rounded-[2rem] border-2 border-[#CE9F6B]/30 p-6 shadow-lg hover:shadow-xl transition-all duration-300 group overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#CE9F6B] via-[#976E44] to-[#E17F70]" />
+          <h3 className="text-lg font-bold text-[#546A7A] mb-5 flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-gradient-to-br from-[#CE9F6B] to-[#976E44] shadow-lg shadow-[#CE9F6B]/20 group-hover:shadow-[#CE9F6B]/40 transition-all duration-300">
               <Wallet className="w-5 h-5 text-white" />
             </div>
             Order & Customer Info
@@ -533,10 +540,10 @@ export default function EditMilestonePage() {
             </div>
           </div>
 
-          <div className="mt-6 border-t border-[#AEBFC3]/20 pt-6">
-            <h4 className="text-sm font-bold text-[#546A7A] uppercase tracking-wider mb-5 flex items-center gap-2">
-              <div className="p-1.5 rounded-lg bg-[#CE9F6B]/10">
-                <User className="w-4 h-4 text-[#CE9F6B]" />
+          <div className="relative mt-6 border-t-2 border-[#AEBFC3]/20 pt-6">
+            <h4 className="text-sm font-bold text-[#546A7A] uppercase tracking-wider mb-5 flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-gradient-to-br from-[#CE9F6B] to-[#976E44] shadow-lg shadow-[#CE9F6B]/20">
+                <User className="w-4 h-4 text-white" />
               </div>
               Supplemental Details
             </h4>
@@ -587,9 +594,10 @@ export default function EditMilestonePage() {
         </div>
 
         {/* Milestone Terms Builder */}
-        <div className="bg-white/90 backdrop-blur-xl rounded-2xl border border-[#CE9F6B]/20 p-6 shadow-lg hover:shadow-xl transition-all duration-300">
-          <h3 className="text-lg font-bold text-[#546A7A] mb-2 flex items-center gap-2">
-            <div className="p-2 rounded-lg bg-gradient-to-br from-[#CE9F6B] to-[#E17F70] shadow-lg shadow-[#CE9F6B]/20">
+        <div className="relative bg-white/90 backdrop-blur-xl rounded-[2rem] border-2 border-[#CE9F6B]/30 p-6 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#CE9F6B] via-[#976E44] to-[#E17F70]" />
+          <h3 className="text-lg font-bold text-[#546A7A] mb-2 flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-gradient-to-br from-[#CE9F6B] to-[#976E44] shadow-lg shadow-[#CE9F6B]/20">
               <Sparkles className="w-5 h-5 text-white" />
             </div>
             Milestone Payment Terms
@@ -655,16 +663,17 @@ export default function EditMilestonePage() {
 
           {/* Empty State */}
           {formData.milestoneTerms.length === 0 && (
-            <div className="text-center py-12 border-2 border-dashed border-[#CE9F6B]/20 rounded-2xl bg-[#CE9F6B]/[0.03] hover:bg-[#CE9F6B]/[0.06] transition-colors">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#CE9F6B]/20 to-[#E17F70]/20 flex items-center justify-center mx-auto mb-4">
-                <Tag className="w-8 h-8 text-[#CE9F6B]/60" />
+            <div className="text-center py-12 border-2 border-dashed border-[#CE9F6B]/30 rounded-2xl bg-gradient-to-r from-[#CE9F6B]/5 to-[#976E44]/5 hover:from-[#CE9F6B]/10 hover:to-[#976E44]/10 transition-colors">
+              <div className="relative w-16 h-16 rounded-2xl bg-gradient-to-br from-[#CE9F6B] to-[#976E44] flex items-center justify-center mx-auto mb-4 shadow-lg shadow-[#CE9F6B]/20 overflow-hidden">
+                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#E17F70] via-white/40 to-[#CE9F6B]" />
+                <Tag className="w-8 h-8 text-white" />
               </div>
-              <p className="text-[#546A7A] font-semibold mb-1">No Payment Terms Yet</p>
+              <p className="text-[#546A7A] font-bold mb-1">No Payment Terms Yet</p>
               <p className="text-[#92A2A5] text-sm mb-4">Click &quot;Add Term&quot; to define milestone payment schedule</p>
               <button
                 type="button"
                 onClick={addTerm}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#CE9F6B] to-[#976E44] text-white text-sm font-bold hover:shadow-lg hover:shadow-[#CE9F6B]/30 transition-all hover:-translate-y-0.5"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#CE9F6B] to-[#976E44] text-white text-sm font-bold shadow-lg shadow-[#CE9F6B]/20 hover:shadow-xl hover:shadow-[#CE9F6B]/30 transition-all hover:-translate-y-0.5"
               >
                 <Plus className="w-4 h-4" /> Add First Term
               </button>
@@ -827,9 +836,9 @@ export default function EditMilestonePage() {
           </div>
 
           {/* Manual Payment Terms Overview */}
-          <div className="mt-6 pt-6 border-t border-[#AEBFC3]/20">
-            <label className="block text-[#5D6E73] text-sm font-bold mb-4 flex items-center gap-2">
-              <FileText className="w-4 h-4 text-[#CE9F6B]" />
+          <div className="relative mt-6 pt-6 border-t-2 border-[#AEBFC3]/20">
+            <label className="flex items-center gap-2 text-[#5D6E73] text-xs font-bold mb-4 uppercase tracking-wider">
+              <div className="p-1.5 rounded-lg bg-gradient-to-br from-[#CE9F6B] to-[#976E44]"><FileText className="w-3.5 h-3.5 text-white" /></div>
               Contractual Payment Terms (Full Summary)
             </label>
             <textarea
@@ -845,27 +854,28 @@ export default function EditMilestonePage() {
         </div>
 
         {/* SAP Reference Data */}
-        <div className="bg-gradient-to-r from-[#F8FAFB] to-white rounded-2xl border border-[#AEBFC3]/20 p-6 hover:shadow-lg transition-all duration-300">
-          <h3 className="text-sm font-bold text-[#546A7A] mb-4 uppercase tracking-wider flex items-center gap-2">
-            <div className="p-1.5 rounded-lg bg-[#546A7A]/10">
-              <FileText className="w-4 h-4 text-[#546A7A]" />
+        <div className="relative bg-gradient-to-r from-[#F8FAFB] to-white rounded-[2rem] border-2 border-[#AEBFC3]/30 p-6 hover:shadow-lg transition-all duration-300 overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#546A7A] via-[#6F8A9D] to-[#96AEC2]" />
+          <h3 className="text-sm font-bold text-[#546A7A] mb-4 uppercase tracking-wider flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-gradient-to-br from-[#546A7A] to-[#6F8A9D] shadow-lg shadow-[#546A7A]/20">
+              <FileText className="w-4 h-4 text-white" />
             </div>
             SAP Reference Data
           </h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="p-3 rounded-xl bg-white border border-[#AEBFC3]/10 hover:border-[#AEBFC3]/30 transition-all">
+            <div className="p-3 rounded-xl bg-gradient-to-r from-[#546A7A]/5 to-[#6F8A9D]/5 border-2 border-[#546A7A]/20 hover:border-[#546A7A]/40 transition-all">
               <label className="text-[10px] font-bold text-[#92A2A5] uppercase mb-1 block">Total Amount</label>
               <p className="text-sm font-bold text-[#546A7A]">{formatARCurrency(Number(formData.totalAmount))}</p>
             </div>
-            <div className="p-3 rounded-xl bg-white border border-[#AEBFC3]/10 hover:border-[#AEBFC3]/30 transition-all">
+            <div className="p-3 rounded-xl bg-gradient-to-r from-[#6F8A9D]/5 to-[#96AEC2]/5 border-2 border-[#6F8A9D]/20 hover:border-[#6F8A9D]/40 transition-all">
               <label className="text-[10px] font-bold text-[#92A2A5] uppercase mb-1 block">BP Code</label>
               <p className="text-sm font-bold text-[#546A7A]">{formData.bpCode}</p>
             </div>
-            <div className="p-3 rounded-xl bg-white border border-[#AEBFC3]/10 hover:border-[#AEBFC3]/30 transition-all">
+            <div className="p-3 rounded-xl bg-gradient-to-r from-[#96AEC2]/5 to-[#A2B9AF]/5 border-2 border-[#96AEC2]/20 hover:border-[#96AEC2]/40 transition-all">
               <label className="text-[10px] font-bold text-[#92A2A5] uppercase mb-1 block">Invoice Date</label>
               <p className="text-sm font-bold text-[#546A7A]">{formData.invoiceDate}</p>
             </div>
-            <div className="p-3 rounded-xl bg-white border border-[#AEBFC3]/10 hover:border-[#AEBFC3]/30 transition-all">
+            <div className="p-3 rounded-xl bg-gradient-to-r from-[#A2B9AF]/5 to-[#82A094]/5 border-2 border-[#A2B9AF]/20 hover:border-[#A2B9AF]/40 transition-all">
               <label className="text-[10px] font-bold text-[#92A2A5] uppercase mb-1 block">Customer</label>
               <p className="text-sm font-bold text-[#546A7A] truncate">{formData.customerName}</p>
             </div>
@@ -876,14 +886,14 @@ export default function EditMilestonePage() {
         <div className="flex items-center justify-end gap-4 pt-2">
           <Link
             href={`/finance/ar/milestones/${invoice!.id}`}
-            className="px-8 py-3.5 rounded-xl bg-white border-2 border-[#AEBFC3]/40 text-[#5D6E73] font-semibold hover:bg-gray-50 hover:border-[#AEBFC3]/60 transition-all duration-300"
+            className="px-8 py-3.5 rounded-xl bg-white border-2 border-[#AEBFC3]/40 text-[#5D6E73] font-bold hover:bg-[#AEBFC3]/10 hover:border-[#AEBFC3]/60 transition-all duration-300"
           >
             Cancel
           </Link>
           <button
             type="submit"
             disabled={saving}
-            className="flex items-center gap-2 px-10 py-3.5 rounded-xl bg-gradient-to-r from-[#CE9F6B] to-[#E17F70] text-white font-bold shadow-lg hover:shadow-xl hover:shadow-[#CE9F6B]/30 transition-all duration-300 hover:-translate-y-0.5 disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-lg"
+            className="flex items-center gap-2 px-10 py-3.5 rounded-xl bg-gradient-to-r from-[#CE9F6B] to-[#976E44] text-white font-bold shadow-lg shadow-[#CE9F6B]/20 hover:shadow-xl hover:shadow-[#CE9F6B]/30 transition-all duration-300 hover:-translate-y-0.5 active:scale-95 disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-lg"
           >
             {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
             {saving ? 'Saving...' : 'Save Milestone'}

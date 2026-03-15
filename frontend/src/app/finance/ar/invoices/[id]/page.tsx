@@ -433,7 +433,13 @@ export default function InvoiceViewPage() {
   const StatusIcon = statusConfig.icon;
 
   return (
-    <div className="space-y-6 pb-10">
+    <div className="space-y-6 pb-10 relative">
+      {/* Decorative Background */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-20 -right-20 w-[40rem] h-[40rem] bg-gradient-to-br from-[#E17F70]/10 to-[#9E3B47]/10 rounded-full blur-[8rem] opacity-50" />
+        <div className="absolute -bottom-40 -left-20 w-[30rem] h-[30rem] bg-gradient-to-br from-[#82A094]/10 to-[#4F6A64]/10 rounded-full blur-[6rem] opacity-50" />
+      </div>
+
       {/* Toast */}
       {copied && (
         <div className="fixed top-6 right-6 px-5 py-3 bg-gradient-to-r from-[#82A094] to-[#4F6A64] text-white rounded-xl shadow-2xl z-50 flex items-center gap-2 animate-fade-in">
@@ -443,7 +449,9 @@ export default function InvoiceViewPage() {
       )}
 
       {/* Premium Header Card */}
-      <div className="relative overflow-hidden rounded-3xl bg-white border border-[#AEBFC3]/20 shadow-2xl">
+      <div className="relative overflow-hidden rounded-[2.5rem] bg-white border-2 border-[#E17F70]/20 shadow-2xl">
+        {/* Top Accent Bar */}
+        <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-[#E17F70] via-[#CE9F6B] to-[#9E3B47]" />
         {/* Background Pattern */}
         <div className="absolute inset-0 opacity-5">
           <div className="absolute top-0 left-0 w-64 h-64 bg-[#E17F70] rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
@@ -457,7 +465,7 @@ export default function InvoiceViewPage() {
               href={invoice.invoiceType === 'MILESTONE' ? '/finance/ar/milestones' : '/finance/ar/invoices'}
               className="flex items-center gap-2 text-[#5D6E73] hover:text-[#546A7A] transition-colors group"
             >
-              <div className="p-2 rounded-xl bg-[#AEBFC3]/10 group-hover:bg-[#AEBFC3]/20 transition-colors">
+              <div className="p-2.5 rounded-xl bg-[#AEBFC3]/10 border-2 border-[#AEBFC3]/20 group-hover:bg-[#AEBFC3]/20 group-hover:border-[#AEBFC3]/40 transition-all group-hover:scale-105">
                 <ArrowLeft className="w-5 h-5" />
               </div>
               <span className="font-medium">Back to {invoice.invoiceType === 'MILESTONE' ? 'Milestone Payments' : 'Invoices'}</span>
@@ -466,14 +474,14 @@ export default function InvoiceViewPage() {
             <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
               <button
                 onClick={() => loadInvoice(params.id as string)}
-                className="p-2.5 rounded-xl bg-[#AEBFC3]/10 text-[#5D6E73] hover:bg-[#AEBFC3]/20 transition-colors"
+                className="p-2.5 rounded-xl bg-[#AEBFC3]/10 border-2 border-[#AEBFC3]/20 text-[#5D6E73] hover:bg-[#AEBFC3]/20 hover:border-[#AEBFC3]/40 transition-all"
                 title="Refresh"
               >
                 <RefreshCw className="w-5 h-5" />
               </button>
               <button
                 onClick={() => setShowPaymentModal(true)}
-                className="flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#82A094] to-[#4F6A64] text-white font-semibold hover:shadow-lg hover:shadow-[#82A094]/30 transition-all text-sm sm:text-base"
+                className="flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#82A094] to-[#4F6A64] text-white font-bold shadow-lg shadow-[#82A094]/20 hover:shadow-xl hover:shadow-[#82A094]/40 hover:-translate-y-0.5 active:scale-95 transition-all text-sm sm:text-base"
               >
                 <IndianRupee className="w-4 h-4" />
                 <span className="hidden xs:inline">Record Payment</span>
@@ -484,7 +492,7 @@ export default function InvoiceViewPage() {
                   ? `/finance/ar/milestones/${encodeURIComponent(invoice.invoiceNumber)}/edit`
                   : `/finance/ar/invoices/${encodeURIComponent(invoice.invoiceNumber)}/edit`
                 }
-                className="flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl bg-[#546A7A] text-white font-semibold hover:bg-[#6F8A9D] transition-colors text-sm sm:text-base"
+                className="flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#546A7A] to-[#6F8A9D] text-white font-bold shadow-lg shadow-[#546A7A]/20 hover:shadow-xl hover:-translate-y-0.5 active:scale-95 transition-all text-sm sm:text-base"
               >
                 <Pencil className="w-4 h-4" />
                 Edit
@@ -492,7 +500,7 @@ export default function InvoiceViewPage() {
               <button
                 onClick={handleDelete}
                 disabled={deleting}
-                className="p-2.5 rounded-xl bg-[#E17F70]/10 text-[#9E3B47] hover:bg-[#E17F70]/20 transition-colors disabled:opacity-50"
+                className="p-2.5 rounded-xl bg-[#E17F70]/10 border-2 border-[#E17F70]/20 text-[#9E3B47] hover:bg-[#E17F70]/20 hover:border-[#E17F70]/40 transition-all disabled:opacity-50"
               >
                 {deleting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Trash2 className="w-5 h-5" />}
               </button>
@@ -504,7 +512,8 @@ export default function InvoiceViewPage() {
             <div className="flex-1 w-full">
               {/* Invoice Number with Copy */}
               <div className="flex items-center gap-3 mb-4">
-                <div className="p-2.5 sm:p-3 rounded-2xl bg-gradient-to-br from-[#E17F70] to-[#CE9F6B] shadow-lg shadow-[#E17F70]/20 flex-shrink-0">
+                <div className="relative p-2.5 sm:p-3 rounded-2xl bg-gradient-to-br from-[#E17F70] to-[#CE9F6B] shadow-lg shadow-[#E17F70]/20 flex-shrink-0 overflow-hidden">
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#CE9F6B] via-white/40 to-[#E17F70]" />
                   <FileText className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
                 </div>
                 <div>
@@ -687,7 +696,8 @@ export default function InvoiceViewPage() {
       {/* Financial Summary - Premium Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         {/* Total Amount */}
-        <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#546A7A] via-[#6F8A9D] to-[#546A7A] p-4 sm:p-6 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02]">
+        <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#546A7A] via-[#6F8A9D] to-[#546A7A] p-4 sm:p-6 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02] border-2 border-[#546A7A]/30">
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#A2B9AF] via-white/40 to-[#6F8A9D]" />
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500" />
           <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full -ml-12 -mb-12" />
           <div className="relative">
@@ -703,7 +713,8 @@ export default function InvoiceViewPage() {
         </div>
 
         {/* Net Amount */}
-        <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#6F8A9D] via-[#96AEC2] to-[#6F8A9D] p-4 sm:p-6 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02]">
+        <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#6F8A9D] via-[#96AEC2] to-[#6F8A9D] p-4 sm:p-6 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02] border-2 border-[#6F8A9D]/30">
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#AEBFC3] via-white/40 to-[#96AEC2]" />
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500" />
           <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full -ml-12 -mb-12" />
           <div className="relative">
@@ -719,7 +730,8 @@ export default function InvoiceViewPage() {
         </div>
 
         {/* Tax Amount */}
-        <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#CE9F6B] via-[#976E44] to-[#CE9F6B] p-4 sm:p-6 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02]">
+        <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#CE9F6B] via-[#976E44] to-[#CE9F6B] p-4 sm:p-6 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02] border-2 border-[#CE9F6B]/30">
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#E17F70] via-white/40 to-[#CE9F6B]" />
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500" />
           <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full -ml-12 -mb-12" />
           <div className="relative">
@@ -735,7 +747,8 @@ export default function InvoiceViewPage() {
         </div>
 
         {/* Receipts */}
-        <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#82A094] via-[#4F6A64] to-[#82A094] p-4 sm:p-6 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02]">
+        <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#82A094] via-[#4F6A64] to-[#82A094] p-4 sm:p-6 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02] border-2 border-[#82A094]/30">
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#A2B9AF] via-white/40 to-[#4F6A64]" />
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500" />
           <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full -ml-12 -mb-12" />
           <div className="relative">
@@ -754,11 +767,12 @@ export default function InvoiceViewPage() {
         </div>
 
         {/* Overdue Amount */}
-        <div className={`group relative overflow-hidden rounded-2xl p-4 sm:p-6 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02] ${
+        <div className={`group relative overflow-hidden rounded-2xl p-4 sm:p-6 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02] border-2 ${
           overdueAmount > 0 
-            ? 'bg-gradient-to-br from-[#E17F70] via-[#9E3B47] to-[#E17F70]'
-            : 'bg-gradient-to-br from-[#82A094]/40 to-[#4F6A64]/40 border border-[#82A094]/20'
+            ? 'bg-gradient-to-br from-[#E17F70] via-[#9E3B47] to-[#E17F70] border-[#E17F70]/30'
+            : 'bg-gradient-to-br from-[#82A094]/40 to-[#4F6A64]/40 border-[#82A094]/20'
         }`}>
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#E17F70] via-white/40 to-[#9E3B47]" />
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500" />
           <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full -ml-12 -mb-12" />
           <div className="relative">
@@ -774,11 +788,12 @@ export default function InvoiceViewPage() {
         </div>
 
         {/* Not Due Amount */}
-        <div className={`group relative overflow-hidden rounded-2xl p-4 sm:p-6 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02] ${
+        <div className={`group relative overflow-hidden rounded-2xl p-4 sm:p-6 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02] border-2 ${
           notDueAmount > 0 
-            ? 'bg-gradient-to-br from-[#6F8A9D] via-[#546A7A] to-[#6F8A9D]'
-            : 'bg-gradient-to-br from-[#AEBFC3]/40 to-[#92A2A5]/40 border border-[#AEBFC3]/20'
+            ? 'bg-gradient-to-br from-[#6F8A9D] via-[#546A7A] to-[#6F8A9D] border-[#6F8A9D]/30'
+            : 'bg-gradient-to-br from-[#AEBFC3]/40 to-[#92A2A5]/40 border-[#AEBFC3]/20'
         }`}>
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#AEBFC3] via-white/40 to-[#546A7A]" />
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500" />
           <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full -ml-12 -mb-12" />
           <div className="relative">
@@ -796,10 +811,11 @@ export default function InvoiceViewPage() {
 
       {/* Milestone Payments & Aging Timeline */}
       {isMilestone && (
-        <div className="bg-white rounded-[2rem] border border-[#AEBFC3]/20 shadow-xl overflow-hidden">
+        <div className="relative bg-white rounded-[2rem] border-2 border-[#CE9F6B]/30 shadow-xl overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#CE9F6B] via-[#976E44] to-[#E17F70]" />
           <div className="flex items-center justify-between px-6 py-4 border-b border-[#AEBFC3]/15 bg-gradient-to-r from-[#546A7A] to-[#6F8A9D]">
             <div className="flex items-center gap-3">
-              <Sparkles className="w-5 h-5 text-white/80" />
+              <div className="p-2 rounded-xl bg-white/20"><Sparkles className="w-5 h-5 text-white" /></div>
               <div>
                 <h3 className="font-bold text-white text-base">Milestone Payment Aging</h3>
                 <p className="text-[10px] text-white/60 uppercase font-black tracking-widest">Reconciliation Timeline</p>
@@ -927,12 +943,13 @@ export default function InvoiceViewPage() {
       )}
 
       {/* Collection Progress */}
-      <div className="bg-white rounded-2xl border border-[#AEBFC3]/20 p-6 shadow-lg">
+      <div className="relative bg-white rounded-[2rem] border-2 border-[#82A094]/30 p-6 shadow-lg overflow-hidden">
+        <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#82A094] via-[#4F6A64] to-[#A2B9AF]" />
 
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-gradient-to-br from-[#82A094]/20 to-[#4F6A64]/20">
-              <TrendingUp className="w-5 h-5 text-[#4F6A64]" />
+            <div className="p-2.5 rounded-xl bg-gradient-to-br from-[#82A094] to-[#4F6A64] shadow-lg shadow-[#82A094]/20">
+              <TrendingUp className="w-5 h-5 text-white" />
             </div>
             <div>
               <h3 className="font-bold text-[#546A7A]">Collection Progress</h3>
@@ -1135,7 +1152,7 @@ export default function InvoiceViewPage() {
       )}
 
       {/* Tabs Navigation */}
-      <div className="flex items-center gap-2 bg-white rounded-2xl border border-[#AEBFC3]/20 p-2 shadow-lg mb-6 overflow-x-auto scrollbar-hide">
+      <div className="flex items-center gap-2 bg-white rounded-[2rem] border-2 border-[#AEBFC3]/30 p-2 shadow-lg mb-6 overflow-x-auto scrollbar-hide">
         {[
           { id: 'details', label: 'Details', icon: FileText },
           { id: 'payments', label: 'Payments', icon: Receipt, count: invoice.paymentHistory?.length || 0 },
@@ -1167,7 +1184,7 @@ export default function InvoiceViewPage() {
       </div>
 
       {/* Tab Content */}
-      <div className="bg-white rounded-2xl border border-[#AEBFC3]/20 shadow-lg overflow-hidden">
+      <div className="relative bg-white rounded-[2rem] border-2 border-[#AEBFC3]/30 shadow-lg overflow-hidden">
         {activeTab === 'details' && (
           <div className="p-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1175,8 +1192,8 @@ export default function InvoiceViewPage() {
               <div className="space-y-6">
                 <div>
                   <h4 className="flex items-center gap-2 text-lg font-bold text-[#546A7A] mb-4">
-                    <div className="p-2 rounded-lg bg-[#E17F70]/10">
-                      <Hash className="w-5 h-5 text-[#E17F70]" />
+                    <div className="p-2 rounded-xl bg-gradient-to-br from-[#E17F70] to-[#CE9F6B] shadow-lg shadow-[#E17F70]/20">
+                      <Hash className="w-5 h-5 text-white" />
                     </div>
                     Invoice Information
                   </h4>
@@ -1200,8 +1217,8 @@ export default function InvoiceViewPage() {
                 {/* Financial Breakdown */}
                 <div>
                   <h4 className="flex items-center gap-2 text-lg font-bold text-[#546A7A] mb-4">
-                    <div className="p-2 rounded-lg bg-[#82A094]/10">
-                      <IndianRupee className="w-5 h-5 text-[#82A094]" />
+                    <div className="p-2 rounded-xl bg-gradient-to-br from-[#82A094] to-[#4F6A64] shadow-lg shadow-[#82A094]/20">
+                      <IndianRupee className="w-5 h-5 text-white" />
                     </div>
                     Financial Breakdown
                   </h4>
@@ -1270,8 +1287,8 @@ export default function InvoiceViewPage() {
               <div className="space-y-6">
                 <div>
                   <h4 className="flex items-center gap-2 text-lg font-bold text-[#546A7A] mb-4">
-                    <div className="p-2 rounded-lg bg-[#6F8A9D]/10">
-                      <Building className="w-5 h-5 text-[#6F8A9D]" />
+                    <div className="p-2 rounded-xl bg-gradient-to-br from-[#6F8A9D] to-[#546A7A] shadow-lg shadow-[#6F8A9D]/20">
+                      <Building className="w-5 h-5 text-white" />
                     </div>
                     Customer Details
                   </h4>
@@ -1292,8 +1309,8 @@ export default function InvoiceViewPage() {
                 
                 <div>
                   <h4 className="flex items-center gap-2 text-lg font-bold text-[#546A7A] mb-4">
-                    <div className="p-2 rounded-lg bg-[#CE9F6B]/10">
-                      <User className="w-5 h-5 text-[#CE9F6B]" />
+                    <div className="p-2 rounded-xl bg-gradient-to-br from-[#CE9F6B] to-[#976E44] shadow-lg shadow-[#CE9F6B]/20">
+                      <User className="w-5 h-5 text-white" />
                     </div>
                     Contact Person
                   </h4>
@@ -1324,9 +1341,10 @@ export default function InvoiceViewPage() {
             
             {/* Milestone Payment Schedule - Exclusive to Milestone Invoices */}
             {isMilestone && invoice.milestoneTerms && (invoice.milestoneTerms as any[]).length > 0 && (
-              <div className="mt-8 border-t border-[#AEBFC3]/20 pt-8">
+              <div className="mt-8 border-t-2 border-[#CE9F6B]/20 pt-8">
                 <h4 className="flex items-center gap-2 text-lg font-bold text-[#546A7A] mb-6">
-                  <div className="p-2 rounded-lg bg-gradient-to-br from-[#CE9F6B] to-[#E17F70]">
+                  <div className="relative p-2 rounded-xl bg-gradient-to-br from-[#CE9F6B] to-[#E17F70] shadow-lg shadow-[#CE9F6B]/20 overflow-hidden">
+                    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#E17F70] via-white/40 to-[#CE9F6B]" />
                     <Sparkles className="w-5 h-5 text-white" />
                   </div>
                   Milestone Payment Schedule
@@ -1372,11 +1390,10 @@ export default function InvoiceViewPage() {
 
             {/* Comments */}
             {invoice.comments && (
-              <div className="mt-8 p-6 rounded-2xl bg-[#AEBFC3]/5 border border-[#AEBFC3]/20 shadow-inner">
+              <div className="relative mt-8 p-6 rounded-2xl bg-gradient-to-r from-[#AEBFC3]/5 to-[#92A2A5]/5 border-2 border-[#AEBFC3]/20 shadow-inner overflow-hidden">
+                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#AEBFC3] to-[#92A2A5]" />
                 <div className="flex items-center gap-2 mb-3">
-                  <div className="p-1.5 rounded-lg bg-[#6F8A9D]/10">
-                    <MessageSquare className="w-4 h-4 text-[#6F8A9D]" />
-                  </div>
+                  <div className="p-1.5 rounded-lg bg-gradient-to-br from-[#6F8A9D] to-[#546A7A]"><MessageSquare className="w-4 h-4 text-white" /></div>
                   <span className="font-bold text-[#546A7A]">Comments & Internal Notes</span>
                 </div>
                 <p className="text-[#5D6E73] whitespace-pre-wrap text-sm leading-relaxed">{invoice.comments}</p>
@@ -1389,14 +1406,14 @@ export default function InvoiceViewPage() {
           <div className="p-6">
             <div className="flex items-center justify-between mb-6">
               <h4 className="flex items-center gap-2 text-lg font-bold text-[#546A7A]">
-                <div className="p-2 rounded-lg bg-[#82A094]/10">
-                  <Receipt className="w-5 h-5 text-[#82A094]" />
+                <div className="p-2 rounded-xl bg-gradient-to-br from-[#82A094] to-[#4F6A64] shadow-lg shadow-[#82A094]/20">
+                  <Receipt className="w-5 h-5 text-white" />
                 </div>
                 Payment History
               </h4>
               <button
                 onClick={() => setShowPaymentModal(true)}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-[#82A094] to-[#4F6A64] text-white font-semibold hover:shadow-lg transition-all"
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-[#82A094] to-[#4F6A64] text-white font-bold shadow-lg shadow-[#82A094]/20 hover:shadow-xl hover:shadow-[#82A094]/40 hover:-translate-y-0.5 active:scale-95 transition-all"
               >
                 <Plus className="w-4 h-4" />
                 Add Payment
@@ -1479,8 +1496,8 @@ export default function InvoiceViewPage() {
         {activeTab === 'delivery' && (
           <div className="p-6">
             <h4 className="flex items-center gap-2 text-lg font-bold text-[#546A7A] mb-6">
-              <div className="p-2 rounded-lg bg-[#CE9F6B]/10">
-                <Truck className="w-5 h-5 text-[#CE9F6B]" />
+              <div className="p-2 rounded-xl bg-gradient-to-br from-[#CE9F6B] to-[#976E44] shadow-lg shadow-[#CE9F6B]/20">
+                <Truck className="w-5 h-5 text-white" />
               </div>
               Delivery Information
             </h4>
@@ -1525,25 +1542,26 @@ export default function InvoiceViewPage() {
         {activeTab === 'remarks' && (
           <div className="p-6">
             <h4 className="flex items-center gap-2 text-lg font-bold text-[#546A7A] mb-6">
-              <div className="p-2 rounded-lg bg-[#6F8A9D]/10">
-                <MessageSquare className="w-5 h-5 text-[#6F8A9D]" />
+              <div className="p-2 rounded-xl bg-gradient-to-br from-[#6F8A9D] to-[#546A7A] shadow-lg shadow-[#6F8A9D]/20">
+                <MessageSquare className="w-5 h-5 text-white" />
               </div>
               Remarks & Follow-ups
             </h4>
             
             {/* Add New Remark Form */}
-            <div className="mb-6 p-4 rounded-xl bg-[#AEBFC3]/10 border border-[#AEBFC3]/20">
+            <div className="relative mb-6 p-4 rounded-xl bg-gradient-to-r from-[#AEBFC3]/10 to-[#92A2A5]/5 border-2 border-[#AEBFC3]/20 overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#AEBFC3] to-[#92A2A5]" />
               <div className="flex gap-3">
                 <textarea
                   value={newRemark}
                   onChange={(e) => setNewRemark(e.target.value)}
                   placeholder="Add a remark or follow-up note..."
-                  className="flex-1 px-4 py-3 rounded-xl bg-white border-2 border-[#AEBFC3]/30 text-[#546A7A] focus:border-[#6F8A9D] focus:outline-none resize-none h-20"
+                  className="flex-1 px-4 py-3 rounded-xl bg-white border-2 border-[#AEBFC3]/30 text-[#546A7A] focus:border-[#6F8A9D] focus:outline-none focus:ring-2 focus:ring-[#6F8A9D]/10 resize-none h-20 transition-all"
                 />
                 <button
                   onClick={handleAddRemark}
                   disabled={addingRemark || !newRemark.trim()}
-                  className="px-6 py-3 h-fit rounded-xl bg-gradient-to-r from-[#6F8A9D] to-[#546A7A] text-white font-semibold hover:shadow-lg transition-all disabled:opacity-50 flex items-center gap-2"
+                  className="px-6 py-3 h-fit rounded-xl bg-gradient-to-r from-[#6F8A9D] to-[#546A7A] text-white font-bold shadow-lg shadow-[#6F8A9D]/20 hover:shadow-xl hover:-translate-y-0.5 active:scale-95 transition-all disabled:opacity-50 flex items-center gap-2"
                 >
                   {addingRemark ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                   Add
@@ -1616,8 +1634,8 @@ export default function InvoiceViewPage() {
           <div className="p-6">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-gradient-to-br from-[#6F8A9D]/20 to-[#546A7A]/20">
-                  <Clock className="w-5 h-5 text-[#546A7A]" />
+                <div className="p-2.5 rounded-xl bg-gradient-to-br from-[#6F8A9D] to-[#546A7A] shadow-lg shadow-[#6F8A9D]/20">
+                  <Clock className="w-5 h-5 text-white" />
                 </div>
                 <div>
                   <h3 className="font-bold text-[#546A7A]">Activity Log</h3>
@@ -1727,16 +1745,18 @@ export default function InvoiceViewPage() {
       {/* Payment Modal */}
       {showPaymentModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl w-full max-w-lg p-8 shadow-2xl relative animate-scale-in">
+          <div className="relative bg-white rounded-[2rem] w-full max-w-lg p-8 shadow-2xl animate-scale-in overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-[#82A094] via-[#4F6A64] to-[#A2B9AF]" />
             <button 
               onClick={closePaymentModal}
-              className="absolute top-4 right-4 p-2 rounded-xl hover:bg-[#AEBFC3]/20 transition-colors"
+              className="absolute top-4 right-4 p-2 rounded-xl border-2 border-[#AEBFC3]/20 hover:bg-[#AEBFC3]/10 hover:border-[#AEBFC3]/40 transition-all"
             >
               <X className="w-5 h-5 text-[#5D6E73]" />
             </button>
             
             <div className="flex items-center gap-3 mb-6">
-              <div className="p-3 rounded-2xl bg-gradient-to-br from-[#82A094] to-[#4F6A64] shadow-lg">
+              <div className="relative p-3 rounded-2xl bg-gradient-to-br from-[#82A094] to-[#4F6A64] shadow-lg shadow-[#82A094]/20 overflow-hidden">
+                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#A2B9AF] via-white/40 to-[#4F6A64]" />
                 <IndianRupee className="w-6 h-6 text-white" />
               </div>
               <div>
@@ -1747,7 +1767,8 @@ export default function InvoiceViewPage() {
             
             <form onSubmit={handlePaymentSubmit} className="space-y-5">
               <div>
-                <label className="block text-sm font-semibold text-[#5D6E73] mb-2">
+                <label className="flex items-center gap-1.5 text-sm font-bold text-[#5D6E73] mb-2 uppercase tracking-wider">
+                  <div className="p-1 rounded bg-gradient-to-br from-[#82A094] to-[#4F6A64]"><IndianRupee className="w-3 h-3 text-white" /></div>
                   Amount (₹) <span className="text-[#E17F70]">*</span>
                 </label>
                 <input 
@@ -1756,13 +1777,14 @@ export default function InvoiceViewPage() {
                   required
                   value={paymentForm.amount}
                   onChange={e => setPaymentForm({...paymentForm, amount: e.target.value})}
-                  className="w-full h-14 px-4 rounded-xl bg-[#AEBFC3]/10 border-2 border-[#AEBFC3]/30 text-[#546A7A] focus:border-[#82A094] focus:outline-none focus:ring-4 focus:ring-[#82A094]/20 transition-all font-mono text-xl"
+                  className="w-full h-14 px-4 rounded-xl bg-gradient-to-r from-[#AEBFC3]/5 to-[#92A2A5]/5 border-2 border-[#AEBFC3]/30 text-[#546A7A] focus:border-[#82A094] focus:outline-none focus:ring-4 focus:ring-[#82A094]/15 transition-all font-mono text-xl font-bold"
                   placeholder="0.00"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-semibold text-[#5D6E73] mb-2">
+                <label className="flex items-center gap-1.5 text-sm font-bold text-[#5D6E73] mb-2 uppercase tracking-wider">
+                  <div className="p-1 rounded bg-gradient-to-br from-[#6F8A9D] to-[#546A7A]"><Calendar className="w-3 h-3 text-white" /></div>
                   Payment Date <span className="text-[#E17F70]">*</span>
                 </label>
                 <input 
@@ -1770,19 +1792,20 @@ export default function InvoiceViewPage() {
                   required
                   value={paymentForm.paymentDate}
                   onChange={e => setPaymentForm({...paymentForm, paymentDate: e.target.value})}
-                  className="w-full h-12 px-3 rounded-xl bg-[#AEBFC3]/10 border-2 border-[#AEBFC3]/30 text-[#546A7A] focus:border-[#82A094] focus:outline-none transition-all"
+                  className="w-full h-12 px-3 rounded-xl bg-gradient-to-r from-[#AEBFC3]/5 to-[#92A2A5]/5 border-2 border-[#AEBFC3]/30 text-[#546A7A] focus:border-[#6F8A9D] focus:outline-none focus:ring-2 focus:ring-[#6F8A9D]/10 transition-all font-medium"
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold text-[#5D6E73] mb-2">
+                  <label className="flex items-center gap-1.5 text-sm font-bold text-[#5D6E73] mb-2 uppercase tracking-wider">
+                    <div className="p-1 rounded bg-gradient-to-br from-[#CE9F6B] to-[#976E44]"><Building className="w-3 h-3 text-white" /></div>
                     Reference Bank <span className="text-[#E17F70]">*</span>
                   </label>
                   <select 
                     value={paymentForm.referenceBank}
                     onChange={e => setPaymentForm({...paymentForm, referenceBank: e.target.value})}
-                    className="w-full h-12 px-3 rounded-xl bg-[#AEBFC3]/10 border-2 border-[#AEBFC3]/30 text-[#546A7A] focus:border-[#82A094] focus:outline-none transition-all"
+                    className="w-full h-12 px-3 rounded-xl bg-gradient-to-r from-[#AEBFC3]/5 to-[#92A2A5]/5 border-2 border-[#AEBFC3]/30 text-[#546A7A] focus:border-[#CE9F6B] focus:outline-none focus:ring-2 focus:ring-[#CE9F6B]/10 transition-all font-medium"
                     required
                   >
                     <option value="" disabled>Select Bank</option>
@@ -1792,13 +1815,14 @@ export default function InvoiceViewPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-[#5D6E73] mb-2">
+                  <label className="flex items-center gap-1.5 text-sm font-bold text-[#5D6E73] mb-2 uppercase tracking-wider">
+                    <div className="p-1 rounded bg-gradient-to-br from-[#E17F70] to-[#CE9F6B]"><CreditCard className="w-3 h-3 text-white" /></div>
                     Mode <span className="text-[#E17F70]">*</span>
                   </label>
                   <select 
                     value={paymentForm.paymentMode}
                     onChange={e => setPaymentForm({...paymentForm, paymentMode: e.target.value})}
-                    className="w-full h-12 px-3 rounded-xl bg-[#AEBFC3]/10 border-2 border-[#AEBFC3]/30 text-[#546A7A] focus:border-[#82A094] focus:outline-none transition-all"
+                    className="w-full h-12 px-3 rounded-xl bg-gradient-to-r from-[#AEBFC3]/5 to-[#92A2A5]/5 border-2 border-[#AEBFC3]/30 text-[#546A7A] focus:border-[#E17F70] focus:outline-none focus:ring-2 focus:ring-[#E17F70]/10 transition-all font-medium"
                     required
                   >
                     <option value="" disabled>Select Mode</option>
@@ -1811,11 +1835,14 @@ export default function InvoiceViewPage() {
               </div>
               
               <div>
-                <label className="block text-sm font-semibold text-[#5D6E73] mb-2">Notes (Optional)</label>
+                <label className="flex items-center gap-1.5 text-sm font-bold text-[#5D6E73] mb-2 uppercase tracking-wider">
+                  <div className="p-1 rounded bg-gradient-to-br from-[#AEBFC3] to-[#92A2A5]"><MessageSquare className="w-3 h-3 text-white" /></div>
+                  Notes (Optional)
+                </label>
                 <textarea 
                   value={paymentForm.notes}
                   onChange={e => setPaymentForm({...paymentForm, notes: e.target.value})}
-                  className="w-full px-4 py-3 rounded-xl bg-[#AEBFC3]/10 border-2 border-[#AEBFC3]/30 text-[#546A7A] focus:border-[#82A094] focus:outline-none transition-all resize-none h-20"
+                  className="w-full px-4 py-3 rounded-xl bg-gradient-to-r from-[#AEBFC3]/5 to-[#92A2A5]/5 border-2 border-[#AEBFC3]/30 text-[#546A7A] focus:border-[#AEBFC3] focus:outline-none focus:ring-2 focus:ring-[#AEBFC3]/10 transition-all resize-none h-20 font-medium"
                   placeholder="Add any notes..."
                 />
               </div>
@@ -1824,14 +1851,14 @@ export default function InvoiceViewPage() {
                 <button 
                   type="button"
                   onClick={closePaymentModal}
-                  className="flex-1 py-3.5 rounded-xl border-2 border-[#AEBFC3]/40 text-[#5D6E73] font-semibold hover:bg-[#AEBFC3]/10 transition-all"
+                  className="flex-1 py-3.5 rounded-xl border-2 border-[#AEBFC3]/40 text-[#5D6E73] font-bold hover:bg-[#AEBFC3]/10 hover:border-[#AEBFC3]/60 transition-all"
                 >
                   Cancel
                 </button>
                 <button 
                   type="submit"
                   disabled={paymentLoading}
-                  className="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-[#82A094] to-[#4F6A64] text-white font-bold hover:shadow-lg hover:shadow-[#82A094]/40 transition-all flex items-center justify-center gap-2"
+                  className="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-[#82A094] to-[#4F6A64] text-white font-bold shadow-lg shadow-[#82A094]/20 hover:shadow-xl hover:shadow-[#82A094]/40 hover:-translate-y-0.5 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   {paymentLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle className="w-5 h-5" />}
                   {editingPaymentId ? 'Update Payment' : 'Record Payment'}

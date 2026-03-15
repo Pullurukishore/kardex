@@ -60,11 +60,11 @@ export default function ARInvoicesPage() {
 
   const getStatusStyle = (s: string) => {
     switch (s) {
-      case 'PAID': return 'bg-[#4F6A64] text-white';
-      case 'PARTIAL': return 'bg-[#CE9F6B] text-white';
-      case 'OVERDUE': return 'bg-[#E17F70] text-white';
-      case 'PENDING': return 'bg-[#96AEC2] text-white';
-      default: return 'bg-[#92A2A5] text-white';
+      case 'PAID': return 'bg-gradient-to-r from-[#4F6A64] to-[#82A094] text-white shadow-lg shadow-[#82A094]/20';
+      case 'PARTIAL': return 'bg-gradient-to-r from-[#CE9F6B] to-[#976E44] text-white shadow-lg shadow-[#CE9F6B]/20';
+      case 'OVERDUE': return 'bg-gradient-to-r from-[#E17F70] to-[#9E3B47] text-white shadow-lg shadow-[#E17F70]/20';
+      case 'PENDING': return 'bg-gradient-to-r from-[#96AEC2] to-[#6F8A9D] text-white shadow-lg shadow-[#96AEC2]/20';
+      default: return 'bg-gradient-to-r from-[#92A2A5] to-[#5D6E73] text-white';
     }
   };
 
@@ -80,18 +80,24 @@ export default function ARInvoicesPage() {
 
   const getRiskStyle = (risk: string) => {
     switch (risk) {
-      case 'CRITICAL': return 'bg-[#9E3B47] text-white font-bold';
-      case 'HIGH': return 'bg-[#E17F70] text-white';
-      case 'MEDIUM': return 'bg-[#CE9F6B] text-white';
-      case 'LOW': return 'bg-[#82A094] text-white';
-      default: return 'bg-[#AEBFC3] text-white';
+      case 'CRITICAL': return 'bg-gradient-to-r from-[#9E3B47] to-[#75242D] text-white font-bold shadow-lg shadow-[#9E3B47]/20 animate-pulse';
+      case 'HIGH': return 'bg-gradient-to-r from-[#E17F70] to-[#9E3B47] text-white shadow-lg shadow-[#E17F70]/20';
+      case 'MEDIUM': return 'bg-gradient-to-r from-[#CE9F6B] to-[#976E44] text-white shadow-lg shadow-[#CE9F6B]/20';
+      case 'LOW': return 'bg-gradient-to-r from-[#82A094] to-[#4F6A64] text-white shadow-lg shadow-[#82A094]/20';
+      default: return 'bg-gradient-to-r from-[#AEBFC3] to-[#92A2A5] text-white';
     }
   };
 
   return (
     <div className="space-y-4 sm:space-y-5 relative p-4 sm:p-0">
+      {/* Decorative Background */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-20 -right-20 w-[30rem] h-[30rem] bg-gradient-to-br from-[#546A7A]/10 to-[#6F8A9D]/10 rounded-full blur-[8rem] opacity-60" />
+        <div className="absolute -bottom-40 -left-20 w-[25rem] h-[25rem] bg-gradient-to-br from-[#E17F70]/10 to-[#9E3B47]/10 rounded-full blur-[6rem] opacity-50" />
+      </div>
+
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="p-2.5 rounded-xl shadow-lg bg-gradient-to-br from-[#546A7A] to-[#6F8A9D] shadow-[#546A7A]/20">
             <FileText className="w-5 h-5 text-white" />
@@ -104,14 +110,14 @@ export default function ARInvoicesPage() {
         <div className="flex items-center gap-2">
           <Link 
             href="/finance/ar/import"
-            className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 rounded-lg bg-white border border-[#AEBFC3]/50 text-[#546A7A] text-sm font-medium hover:border-[#6F8A9D] hover:bg-[#96AEC2]/5 transition-all min-h-[44px]"
+            className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 rounded-xl bg-white border-2 border-[#AEBFC3]/40 text-[#546A7A] text-sm font-bold hover:border-[#6F8A9D] hover:bg-[#96AEC2]/5 transition-all min-h-[44px]"
           >
             <Upload className="w-4 h-4" />
             <span className="hidden sm:inline">Import</span>
           </Link>
           <Link 
             href="/finance/ar/invoices/new"
-            className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 rounded-lg bg-gradient-to-r from-[#E17F70] to-[#CE9F6B] text-white text-sm font-semibold hover:shadow-lg hover:shadow-[#E17F70]/25 hover:-translate-y-0.5 transition-all min-h-[44px]"
+            className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#E17F70] to-[#9E3B47] text-white text-sm font-bold shadow-lg shadow-[#E17F70]/20 hover:shadow-xl hover:shadow-[#E17F70]/30 hover:-translate-y-0.5 active:scale-95 transition-all min-h-[44px]"
           >
             <Plus className="w-4 h-4" />
             <span className="hidden sm:inline">New Invoice</span>
@@ -121,18 +127,22 @@ export default function ARInvoicesPage() {
 
       {/* Aging Bucket Active Filter */}
       {agingBucket && (
-        <div className="flex items-center gap-3 bg-gradient-to-r from-[#546A7A]/5 to-[#6F8A9D]/5 rounded-xl border border-[#546A7A]/20 p-3">
+        <div className="relative flex items-center gap-3 bg-gradient-to-r from-[#546A7A]/10 to-[#6F8A9D]/5 rounded-xl border-2 border-[#546A7A]/30 p-3 overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#546A7A] via-[#6F8A9D] to-[#96AEC2]" />
           <div className="flex items-center gap-2">
-            <Clock className="w-4 h-4 text-[#546A7A]" />
+            <div className="p-1.5 rounded-lg bg-gradient-to-br from-[#546A7A] to-[#6F8A9D]">
+              <Clock className="w-3.5 h-3.5 text-white" />
+            </div>
             <span className="text-sm font-bold text-[#546A7A]">Aging Filter:</span>
-            <span className="px-2.5 py-1 rounded-lg bg-[#546A7A] text-white text-xs font-bold">{agingBucketLabels[agingBucket] || agingBucket}</span>
+            <span className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-[#546A7A] to-[#6F8A9D] text-white text-xs font-bold shadow-lg shadow-[#546A7A]/20">{agingBucketLabels[agingBucket] || agingBucket}</span>
           </div>
-          <Link href="/finance/ar/invoices" className="ml-auto text-xs font-bold text-[#E17F70] hover:text-[#9E3B47] transition-colors">✕ Clear Filter</Link>
+          <Link href="/finance/ar/invoices" className="ml-auto text-xs font-bold text-[#E17F70] hover:text-[#9E3B47] transition-colors px-2 py-1 rounded-lg hover:bg-[#E17F70]/10">✕ Clear Filter</Link>
         </div>
       )}
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 bg-white rounded-xl border border-[#AEBFC3]/30 p-3">
+      <div className="relative flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 bg-white rounded-2xl border-2 border-[#AEBFC3]/30 p-3 overflow-hidden">
+        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#546A7A] via-[#6F8A9D] to-[#96AEC2]" />
         <div className="w-full sm:flex-1 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#92A2A5]" />
           <input
@@ -140,7 +150,7 @@ export default function ARInvoicesPage() {
             placeholder="Search invoices..."
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-            className="w-full h-11 sm:h-10 pl-10 pr-4 rounded-lg bg-[#F8FAFB] border border-[#AEBFC3]/40 text-sm focus:border-[#6F8A9D] focus:outline-none transition-all"
+            className="w-full h-11 sm:h-10 pl-10 pr-4 rounded-xl bg-gradient-to-r from-[#AEBFC3]/5 to-[#92A2A5]/5 border-2 border-[#AEBFC3]/30 text-sm focus:border-[#6F8A9D] focus:outline-none focus:ring-2 focus:ring-[#6F8A9D]/10 transition-all font-medium"
           />
         </div>
         
@@ -152,8 +162,8 @@ export default function ARInvoicesPage() {
               <button
                 key={filter.value}
                 onClick={() => { setStatus(filter.value); setPage(1); }}
-                className={`flex items-center gap-1.5 px-3 py-2 sm:py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
-                  isActive ? 'bg-gradient-to-r from-[#546A7A] to-[#6F8A9D] text-white shadow-md' : 'text-[#5D6E73] hover:bg-[#546A7A]/10'
+                className={`flex items-center gap-1.5 px-3 py-2 sm:py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${
+                  isActive ? 'bg-gradient-to-r from-[#546A7A] to-[#6F8A9D] text-white shadow-lg shadow-[#546A7A]/20' : 'text-[#5D6E73] hover:bg-[#546A7A]/10 border-2 border-transparent hover:border-[#AEBFC3]/30'
                 }`}
               >
                 <Icon className="w-3.5 h-3.5" />
@@ -165,15 +175,20 @@ export default function ARInvoicesPage() {
       </div>
 
       {/* Desktop Table - Clean Kardex Design */}
-      <div className="hidden md:block bg-white rounded-xl border border-[#AEBFC3]/40 overflow-hidden shadow-lg">
-        <div className="px-5 py-3 border-b border-[#AEBFC3]/30 bg-gradient-to-r from-[#546A7A] to-[#6F8A9D]">
+      <div className="relative hidden md:block bg-white rounded-[2rem] border-2 border-[#AEBFC3]/30 overflow-hidden shadow-xl">
+        <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#546A7A] via-[#6F8A9D] to-[#96AEC2]" />
+        <div className="px-5 py-3.5 border-b-2 border-[#546A7A]/20 bg-gradient-to-r from-[#546A7A] to-[#6F8A9D]">
           <div className="flex items-center justify-between font-bold text-white text-sm">
             <div className="flex items-center gap-3">
-              <FileText className="w-5 h-5 opacity-90" />
+              <div className="p-1.5 rounded-lg bg-white/20">
+                <FileText className="w-5 h-5 text-white" />
+              </div>
               <span>Invoice Records</span>
             </div>
-            <div className="opacity-80 font-normal">
-              Showing {invoices.length} of {total} records
+            <div className="flex items-center gap-2 px-3 py-1 rounded-lg bg-white/15">
+              <span className="opacity-80 font-medium">
+                Showing {invoices.length} of {total} records
+              </span>
             </div>
           </div>
         </div>
@@ -181,17 +196,17 @@ export default function ARInvoicesPage() {
         <div className="overflow-x-auto">
           <table className="w-full border-collapse">
             <thead>
-              <tr className="bg-[#546A7A]/5">
-                <th className="text-left py-3 px-4 border-b-2 border-[#546A7A] bg-[#546A7A]/10 text-xs font-bold uppercase text-[#546A7A]">Invoice</th>
-                <th className="text-left py-3 px-4 border-b-2 border-[#6F8A9D] bg-[#6F8A9D]/10 text-xs font-bold uppercase text-[#6F8A9D]">Customer</th>
-                <th className="text-left py-3 px-4 border-b-2 border-[#976E44] bg-[#976E44]/10 text-xs font-bold uppercase text-[#976E44]">Type</th>
-                <th className="text-left py-3 px-4 border-b-2 border-[#82A094] bg-[#82A094]/10 text-xs font-bold uppercase text-[#4F6A64]">Date</th>
-                <th className="text-left py-3 px-4 border-b-2 border-[#E17F70] bg-[#E17F70]/10 text-xs font-bold uppercase text-[#E17F70]">Due Date</th>
-                <th className="text-right py-3 px-4 border-b-2 border-[#4F6A64] bg-[#4F6A64]/10 text-xs font-bold uppercase text-[#4F6A64]">Total</th>
-                <th className="text-right py-3 px-4 border-b-2 border-[#96AEC2] bg-[#96AEC2]/10 text-xs font-bold uppercase text-[#6F8A9D]">Received</th>
-                <th className="text-right py-3 px-4 border-b-2 border-[#9E3B47] bg-[#9E3B47]/10 text-xs font-bold uppercase text-[#9E3B47]">Balance</th>
-                <th className="text-center py-3 px-4 border-b-2 border-[#5D6E73] bg-[#5D6E73]/10 text-xs font-bold uppercase text-[#5D6E73]">Risk</th>
-                <th className="text-center py-3 px-4 border-b-2 border-[#757777] bg-[#757777]/10 text-xs font-bold uppercase text-[#5D6E73]">Status</th>
+              <tr>
+                <th className="text-left py-3 px-4 border-b-2 border-[#546A7A]/30 bg-gradient-to-r from-[#546A7A]/10 to-[#546A7A]/5 text-xs font-bold uppercase text-[#546A7A]">Invoice</th>
+                <th className="text-left py-3 px-4 border-b-2 border-[#6F8A9D]/30 bg-gradient-to-r from-[#6F8A9D]/10 to-[#6F8A9D]/5 text-xs font-bold uppercase text-[#6F8A9D]">Customer</th>
+                <th className="text-left py-3 px-4 border-b-2 border-[#976E44]/30 bg-gradient-to-r from-[#976E44]/10 to-[#976E44]/5 text-xs font-bold uppercase text-[#976E44]">Type</th>
+                <th className="text-left py-3 px-4 border-b-2 border-[#82A094]/30 bg-gradient-to-r from-[#82A094]/10 to-[#82A094]/5 text-xs font-bold uppercase text-[#4F6A64]">Date</th>
+                <th className="text-left py-3 px-4 border-b-2 border-[#E17F70]/30 bg-gradient-to-r from-[#E17F70]/10 to-[#E17F70]/5 text-xs font-bold uppercase text-[#E17F70]">Due Date</th>
+                <th className="text-right py-3 px-4 border-b-2 border-[#4F6A64]/30 bg-gradient-to-r from-[#4F6A64]/10 to-[#4F6A64]/5 text-xs font-bold uppercase text-[#4F6A64]">Total</th>
+                <th className="text-right py-3 px-4 border-b-2 border-[#96AEC2]/30 bg-gradient-to-r from-[#96AEC2]/10 to-[#96AEC2]/5 text-xs font-bold uppercase text-[#6F8A9D]">Received</th>
+                <th className="text-right py-3 px-4 border-b-2 border-[#9E3B47]/30 bg-gradient-to-r from-[#9E3B47]/10 to-[#9E3B47]/5 text-xs font-bold uppercase text-[#9E3B47]">Balance</th>
+                <th className="text-center py-3 px-4 border-b-2 border-[#5D6E73]/30 bg-gradient-to-r from-[#5D6E73]/10 to-[#5D6E73]/5 text-xs font-bold uppercase text-[#5D6E73]">Risk</th>
+                <th className="text-center py-3 px-4 border-b-2 border-[#75242D]/30 bg-gradient-to-r from-[#75242D]/10 to-[#75242D]/5 text-xs font-bold uppercase text-[#5D6E73]">Status</th>
               </tr>
             </thead>
             <tbody>
@@ -199,32 +214,39 @@ export default function ARInvoicesPage() {
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i} className="animate-pulse border-b border-[#AEBFC3]/15">
                     {Array.from({ length: 10 }).map((_, j) => (
-                      <td key={j} className="p-4"><div className="h-4 bg-[#AEBFC3]/10 rounded" /></td>
+                      <td key={j} className="p-4"><div className="h-4 bg-gradient-to-r from-[#AEBFC3]/10 to-[#92A2A5]/10 rounded-lg" /></td>
                     ))}
                   </tr>
                 ))
               ) : invoices.length === 0 ? (
                 <tr>
-                   <td colSpan={10} className="py-16 text-center text-[#92A2A5]">No invoices found</td>
+                   <td colSpan={10} className="py-16 text-center">
+                     <div className="flex flex-col items-center gap-3">
+                       <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#AEBFC3] to-[#92A2A5] flex items-center justify-center shadow-lg">
+                         <FileText className="w-8 h-8 text-white" />
+                       </div>
+                       <span className="text-[#5D6E73] font-bold">No invoices found</span>
+                     </div>
+                   </td>
                 </tr>
               ) : (
                 invoices.map((invoice, index) => (
                   <tr 
                     key={invoice.id}
                     onClick={() => window.location.href = `/finance/ar/invoices/${encodeURIComponent(invoice.invoiceNumber)}`}
-                    className={`cursor-pointer border-b border-[#AEBFC3]/15 transition-colors hover:bg-[#F8FAFB] ${
+                    className={`cursor-pointer border-b border-[#AEBFC3]/15 transition-all hover:bg-[#546A7A]/5 hover:shadow-md ${
                       index % 2 === 0 ? 'bg-white' : 'bg-[#F8FAFB]/40'
                     } ${invoice.status === 'OVERDUE' ? 'border-l-4 border-l-[#E17F70]' : 'border-l-4 border-l-transparent'}`}
                   >
                     <td className="py-3 px-4">
                       <div className="font-bold text-[#546A7A]">{invoice.invoiceNumber}</div>
-                      {invoice.poNo && <div className="text-[10px] text-[#976E44] bg-[#976E44]/5 px-1 rounded inline-block mt-0.5">PO: {invoice.poNo}</div>}
+                      {invoice.poNo && <div className="text-[10px] text-white bg-gradient-to-r from-[#976E44] to-[#CE9F6B] px-1.5 py-0.5 rounded inline-block mt-0.5 font-bold">PO: {invoice.poNo}</div>}
                     </td>
                     <td className="py-3 px-4">
                       <div className="text-sm font-semibold truncate max-w-[150px]">{invoice.customerName}</div>
                       <div className="text-[10px] text-[#92A2A5]">{invoice.bpCode}</div>
                     </td>
-                    <td className="py-3 px-4"><span className="text-[10px] font-bold px-1.5 py-0.5 bg-[#82A094]/10 text-[#4F6A64] rounded">{invoice.type || '-'}</span></td>
+                    <td className="py-3 px-4"><span className="text-[10px] font-bold px-2 py-1 bg-gradient-to-r from-[#82A094]/20 to-[#4F6A64]/20 text-[#4F6A64] rounded-lg border border-[#82A094]/30">{invoice.type || '-'}</span></td>
                     <td className="py-3 px-4 text-sm text-[#546A7A]">{formatARDate(invoice.invoiceDate)}</td>
                     <td className="py-3 px-4">
                       <div className={`text-sm ${invoice.status === 'OVERDUE' ? 'text-[#E17F70] font-bold' : 'text-[#546A7A]'}`}>
@@ -258,11 +280,11 @@ export default function ARInvoicesPage() {
         </div>
 
         {!loading && totalPages > 1 && (
-          <div className="p-4 border-t border-[#AEBFC3]/15 flex justify-between items-center bg-[#F8FAFB]">
-            <span className="text-sm text-[#5D6E73]">Page {page} of {totalPages}</span>
+          <div className="p-4 border-t-2 border-[#AEBFC3]/20 flex justify-between items-center bg-gradient-to-r from-[#F8FAFB] to-white">
+            <span className="text-sm font-bold text-[#5D6E73]">Page {page} of {totalPages}</span>
             <div className="flex gap-2">
-              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="p-1 px-3 border rounded-lg bg-white disabled:opacity-50 hover:bg-[#F4F7F9]"><ChevronLeft className="w-4 h-4" /></button>
-              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="p-1 px-3 border rounded-lg bg-white disabled:opacity-50 hover:bg-[#F4F7F9]"><ChevronRight className="w-4 h-4" /></button>
+              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="p-2 px-4 rounded-xl border-2 border-[#AEBFC3]/30 bg-white disabled:opacity-50 hover:bg-[#546A7A]/5 hover:border-[#546A7A]/30 transition-all font-bold"><ChevronLeft className="w-4 h-4 text-[#546A7A]" /></button>
+              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="p-2 px-4 rounded-xl border-2 border-[#AEBFC3]/30 bg-white disabled:opacity-50 hover:bg-[#546A7A]/5 hover:border-[#546A7A]/30 transition-all font-bold"><ChevronRight className="w-4 h-4 text-[#546A7A]" /></button>
             </div>
           </div>
         )}
@@ -271,16 +293,17 @@ export default function ARInvoicesPage() {
       {/* Mobile view focused on REGULAR */}
       <div className="md:hidden space-y-3">
           {invoices.map(invoice => (
-            <Link key={invoice.id} href={`/finance/ar/invoices/${encodeURIComponent(invoice.invoiceNumber)}`} className="block bg-white p-4 rounded-xl border border-[#AEBFC3]/30 shadow-sm transition-all active:scale-95">
+            <Link key={invoice.id} href={`/finance/ar/invoices/${encodeURIComponent(invoice.invoiceNumber)}`} className="relative block bg-white p-4 rounded-2xl border-2 border-[#AEBFC3]/30 shadow-lg transition-all active:scale-95 overflow-hidden">
+               <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#546A7A] via-[#6F8A9D] to-[#96AEC2]" />
                <div className="flex justify-between items-start mb-2">
                   <div>
                     <div className="font-bold text-[#546A7A]">{invoice.invoiceNumber}</div>
                     <div className="text-[10px] text-[#92A2A5]">{invoice.bpCode}</div>
                   </div>
-                  <span className={`px-2 py-1 rounded text-[10px] font-bold ${getStatusStyle(invoice.status)}`}>{invoice.status}</span>
+                  <span className={`px-2 py-1 rounded-lg text-[10px] font-bold ${getStatusStyle(invoice.status)}`}>{invoice.status}</span>
                </div>
-               <div className="text-sm text-[#546A7A] mb-1 font-semibold truncate">{invoice.customerName}</div>
-               <div className="flex justify-between items-end mt-4 pt-3 border-t border-[#AEBFC3]/10">
+               <div className="text-sm text-[#546A7A] mb-1 font-bold truncate">{invoice.customerName}</div>
+               <div className="flex justify-between items-end mt-4 pt-3 border-t-2 border-[#AEBFC3]/20">
                   <div className="text-[10px] text-[#92A2A5] font-bold uppercase">Balance</div>
                   <div className="text-lg font-bold text-[#E17F70]">{formatARCurrency(Number(invoice.balance))}</div>
                </div>

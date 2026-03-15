@@ -227,30 +227,38 @@ export default function NewMilestonePage() {
   return (
     <div className="space-y-6 relative w-full pb-10">
       <div className="absolute inset-0 overflow-hidden pointer-events-none rounded-2xl">
-        <div className="absolute -top-20 -right-20 w-[40rem] h-[40rem] bg-gradient-to-br from-[#E17F70]/20 to-[#CE9F6B]/20 rounded-full blur-[8rem] opacity-50" />
-        <div className="absolute -bottom-40 -left-20 w-[30rem] h-[30rem] bg-gradient-to-br from-[#82A094]/10 to-[#4F6A64]/10 rounded-full blur-[6rem] opacity-50" />
+        <div className="absolute -top-20 -right-20 w-[40rem] h-[40rem] bg-gradient-to-br from-[#E17F70]/15 to-[#CE9F6B]/15 rounded-full blur-[8rem] opacity-40" />
+        <div className="absolute -bottom-40 -left-20 w-[30rem] h-[30rem] bg-gradient-to-br from-[#82A094]/10 to-[#4F6A64]/10 rounded-full blur-[6rem] opacity-40" />
       </div>
       
       {/* Header */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#CE9F6B] via-[#E17F70] to-[#976E44] p-6 shadow-xl">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#CE9F6B] via-[#976E44] to-[#E17F70] p-6 shadow-2xl shadow-[#CE9F6B]/20 group">
+        {/* Animated Pattern Overlay */}
         <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-4 right-12 w-32 h-32 border-4 border-white rounded-full" />
-          <div className="absolute -bottom-8 -left-8 w-48 h-48 border-4 border-white rounded-full" />
+          <div className="absolute top-4 right-12 w-40 h-40 border-4 border-white/50 rounded-full animate-pulse" />
+          <div className="absolute -bottom-8 left-12 w-56 h-56 border-4 border-white/30 rounded-full" />
+          <div className="absolute top-12 left-1/4 w-20 h-20 border-2 border-white/40 rounded-full" />
         </div>
+        {/* Shimmer Effect */}
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full animate-[shimmer-slide_4s_ease-in-out_infinite]" />
         <div className="relative flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link 
               href="/finance/ar/milestones"
-              className="p-2.5 rounded-xl bg-white/20 backdrop-blur-sm border border-white/30 text-white hover:bg-white/30 transition-all duration-300 hover:scale-105"
+              className="p-2.5 rounded-xl bg-white/15 backdrop-blur-md border border-white/20 text-white hover:bg-white/25 transition-all duration-300 shadow-lg"
             >
               <ArrowLeft className="w-5 h-5" />
             </Link>
+            <div className="relative p-3 rounded-2xl bg-white/15 backdrop-blur-xl border border-white/20 shadow-2xl transition-transform hover:rotate-3">
+              <Wallet className="w-6 h-6 text-white" />
+              <div className="absolute -top-1 -right-1 w-3 h-3 bg-[#A2B9AF] rounded-full border-2 border-white animate-pulse" />
+            </div>
             <div>
               <h1 className="text-2xl font-bold text-white flex items-center gap-2">
                 New Milestone Payment
                 <Sparkles className="w-6 h-6 text-white/80 animate-pulse" />
               </h1>
-              <p className="text-white/80 text-sm mt-1">Create a new milestone payment tracking record</p>
+              <p className="text-white/70 text-sm mt-1">Create a new milestone payment tracking record</p>
             </div>
           </div>
           {/* Mini Progress Indicator */}
@@ -275,24 +283,26 @@ export default function NewMilestonePage() {
       <form onSubmit={handleSubmit} className="space-y-6 relative">
         {/* Error Banner */}
         {error && (
-          <div className="flex items-center gap-3 p-4 bg-red-50 border-2 border-red-200 rounded-xl text-red-600 font-medium animate-shake shadow-lg shadow-red-100">
-            <div className="p-1.5 rounded-lg bg-red-100">
-              <AlertCircle className="w-5 h-5 flex-shrink-0" />
+          <div className="relative flex items-center gap-3 p-4 bg-gradient-to-r from-[#E17F70]/10 to-[#9E3B47]/5 border-2 border-[#E17F70]/30 rounded-xl text-[#9E3B47] font-medium animate-shake shadow-lg shadow-[#E17F70]/10 overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#9E3B47] via-[#E17F70] to-[#EEC1BF]" />
+            <div className="p-2 rounded-xl bg-gradient-to-br from-[#E17F70] to-[#9E3B47] shadow-lg shadow-[#E17F70]/20">
+              <AlertCircle className="w-5 h-5 text-white flex-shrink-0" />
             </div>
-            <span className="flex-1 text-sm">{error}</span>
-            <button type="button" onClick={() => setError(null)} className="p-1.5 rounded-lg hover:bg-red-100 transition-colors">
+            <span className="flex-1 text-sm font-bold">{error}</span>
+            <button type="button" onClick={() => setError(null)} className="p-2 rounded-lg bg-white/50 hover:bg-white text-[#9E3B47] transition-colors border border-[#E17F70]/20">
               <X className="w-4 h-4" />
             </button>
           </div>
         )}
 
         {/* Info Banner */}
-        <div className="flex items-start gap-3 p-5 bg-gradient-to-r from-[#CE9F6B]/10 to-[#CE9F6B]/5 border-2 border-[#CE9F6B]/20 rounded-xl hover:border-[#CE9F6B]/30 transition-all duration-300">
-          <div className="p-2 rounded-lg bg-[#CE9F6B]/20">
-            <Info className="w-4 h-4 text-[#976E44]" />
+        <div className="relative flex items-start gap-4 p-5 bg-gradient-to-r from-[#CE9F6B]/10 to-[#976E44]/5 border-2 border-[#CE9F6B]/30 rounded-xl hover:border-[#CE9F6B]/40 transition-all duration-300 overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#CE9F6B] via-[#976E44] to-[#E17F70]" />
+          <div className="p-2.5 rounded-xl bg-gradient-to-br from-[#CE9F6B] to-[#976E44] shadow-lg shadow-[#CE9F6B]/20">
+            <Info className="w-4 h-4 text-white" />
           </div>
           <div>
-            <p className="text-[#976E44] font-semibold text-sm">Milestone Payment Requirements</p>
+            <p className="text-[#976E44] font-bold text-sm">Milestone Payment Requirements</p>
             <p className="text-[#92A2A5] text-xs mt-1">
               Kardex SO number, Kardex PO number, Customer details, and Amount are mandatory. Add at least one payment term with a target date.
             </p>
@@ -300,9 +310,10 @@ export default function NewMilestonePage() {
         </div>
 
         {/* Core Order Information */}
-        <div className="bg-white/90 backdrop-blur-xl rounded-2xl border border-[#CE9F6B]/20 p-6 shadow-lg hover:shadow-xl transition-all duration-300 group">
-          <h3 className="text-lg font-bold text-[#546A7A] mb-5 flex items-center gap-2">
-            <div className="p-2 rounded-lg bg-gradient-to-br from-[#CE9F6B] to-[#976E44] shadow-lg shadow-[#CE9F6B]/20 group-hover:shadow-[#CE9F6B]/40 transition-all duration-300">
+        <div className="relative bg-white/90 backdrop-blur-xl rounded-2xl border-2 border-[#CE9F6B]/30 p-6 shadow-lg hover:shadow-xl transition-all duration-300 group overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#CE9F6B] via-[#976E44] to-[#E17F70]" />
+          <h3 className="text-lg font-bold text-[#546A7A] mb-5 flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-gradient-to-br from-[#CE9F6B] to-[#976E44] shadow-lg shadow-[#CE9F6B]/20 group-hover:shadow-[#CE9F6B]/40 group-hover:scale-110 transition-all duration-300">
               <Wallet className="w-5 h-5 text-white" />
             </div>
             Order & Customer Info
@@ -441,9 +452,10 @@ export default function NewMilestonePage() {
         </div>
 
         {/* Financials */}
-        <div className="bg-white/90 backdrop-blur-xl rounded-2xl border border-[#82A094]/20 p-6 shadow-lg hover:shadow-xl transition-all duration-300 group">
-          <h3 className="text-lg font-bold text-[#546A7A] mb-5 flex items-center gap-2">
-            <div className="p-2 rounded-lg bg-gradient-to-br from-[#82A094] to-[#4F6A64] shadow-lg shadow-[#82A094]/20 group-hover:shadow-[#82A094]/40 transition-all duration-300">
+        <div className="relative bg-white/90 backdrop-blur-xl rounded-2xl border-2 border-[#82A094]/30 p-6 shadow-lg hover:shadow-xl transition-all duration-300 group overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#82A094] via-[#4F6A64] to-[#A2B9AF]" />
+          <h3 className="text-lg font-bold text-[#546A7A] mb-5 flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-gradient-to-br from-[#82A094] to-[#4F6A64] shadow-lg shadow-[#82A094]/20 group-hover:shadow-[#82A094]/40 group-hover:scale-110 transition-all duration-300">
               <IndianRupee className="w-5 h-5 text-white" />
             </div>
             Financial Details
@@ -500,9 +512,10 @@ export default function NewMilestonePage() {
       </div>
 
         {/* Milestone Terms Builder */}
-        <div className="bg-white/90 backdrop-blur-xl rounded-2xl border border-[#CE9F6B]/20 p-6 shadow-lg hover:shadow-xl transition-all duration-300">
-          <h3 className="text-lg font-bold text-[#546A7A] mb-2 flex items-center gap-2">
-            <div className="p-2 rounded-lg bg-gradient-to-br from-[#CE9F6B] to-[#E17F70] shadow-lg shadow-[#CE9F6B]/20">
+        <div className="relative bg-white/90 backdrop-blur-xl rounded-2xl border-2 border-[#CE9F6B]/30 p-6 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#CE9F6B] via-[#976E44] to-[#E17F70]" />
+          <h3 className="text-lg font-bold text-[#546A7A] mb-2 flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-gradient-to-br from-[#CE9F6B] to-[#976E44] shadow-lg shadow-[#CE9F6B]/20">
               <Sparkles className="w-5 h-5 text-white" />
             </div>
             Milestone Payment Terms
@@ -568,16 +581,17 @@ export default function NewMilestonePage() {
 
           {/* Empty State */}
           {formData.milestoneTerms.length === 0 && (
-            <div className="text-center py-12 border-2 border-dashed border-[#CE9F6B]/20 rounded-2xl bg-[#CE9F6B]/[0.03] hover:bg-[#CE9F6B]/[0.06] transition-colors">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#CE9F6B]/20 to-[#E17F70]/20 flex items-center justify-center mx-auto mb-4">
-                <Tag className="w-8 h-8 text-[#CE9F6B]/60" />
+            <div className="relative text-center py-12 border-2 border-dashed border-[#CE9F6B]/30 rounded-2xl bg-gradient-to-br from-[#CE9F6B]/5 to-[#976E44]/5 hover:from-[#CE9F6B]/10 hover:to-[#976E44]/10 transition-colors overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#CE9F6B] via-[#976E44] to-[#E17F70]" />
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#CE9F6B] to-[#976E44] flex items-center justify-center mx-auto mb-4 shadow-lg shadow-[#CE9F6B]/20">
+                <Tag className="w-8 h-8 text-white" />
               </div>
-              <p className="text-[#546A7A] font-semibold mb-1">No Payment Terms Yet</p>
+              <p className="text-[#546A7A] font-bold mb-1">No Payment Terms Yet</p>
               <p className="text-[#92A2A5] text-sm mb-4">Click &quot;Add Term&quot; to define milestone payment schedule</p>
               <button
                 type="button"
                 onClick={addTerm}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#CE9F6B] to-[#976E44] text-white text-sm font-bold hover:shadow-lg hover:shadow-[#CE9F6B]/30 transition-all hover:-translate-y-0.5"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#CE9F6B] to-[#976E44] text-white text-sm font-bold hover:shadow-lg hover:shadow-[#CE9F6B]/30 transition-all hover:-translate-y-0.5 active:scale-95"
               >
                 <Plus className="w-4 h-4" /> Add First Term
               </button>
@@ -591,24 +605,28 @@ export default function NewMilestonePage() {
               const hasTax = term.calculationBasis === 'TOTAL_AMOUNT';
               
               return (
-                <div key={index} className="relative flex flex-col gap-3 bg-white p-4 rounded-xl border border-gray-200 shadow-sm transition-all duration-300 hover:border-[#CE9F6B]/40 hover:shadow-md group/term">
+                <div key={index} className="relative flex flex-col gap-3 bg-white p-4 rounded-xl border-2 border-[#AEBFC3]/30 shadow-sm transition-all duration-300 hover:border-[#CE9F6B]/40 hover:shadow-lg hover:shadow-[#CE9F6B]/10 group/term overflow-hidden">
+                  {/* Top Accent Bar */}
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#CE9F6B] via-[#976E44] to-[#E17F70]" />
                   {/* Step Badge */}
-                  <div className="absolute -left-3 top-4 w-6 h-6 rounded-full bg-gradient-to-br from-[#CE9F6B] to-[#976E44] text-white text-[10px] font-black flex items-center justify-center shadow-lg shadow-[#CE9F6B]/30">
+                  <div className="absolute -left-2 top-3 w-7 h-7 rounded-lg bg-gradient-to-br from-[#CE9F6B] to-[#976E44] text-white text-xs font-bold flex items-center justify-center shadow-lg shadow-[#CE9F6B]/30">
                     {index + 1}
                   </div>
 
-                  <div className="flex items-center gap-3 pl-4">
+                  <div className="flex items-center gap-3 pl-5">
                     <div className="flex-1 grid grid-cols-12 gap-3 items-end">
                       <div className={isOther ? "col-span-2" : (hasTax ? "col-span-2" : "col-span-3")}>
                         <label className="block text-[10px] font-bold text-[#976E44] uppercase mb-1.5 ml-1">
                           Term Type
                         </label>
                         <div className="relative">
-                          <Tag className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#CE9F6B]" />
+                          <div className="absolute left-2.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-md bg-gradient-to-br from-[#CE9F6B]/20 to-[#976E44]/10 flex items-center justify-center">
+                            <Tag className="w-3 h-3 text-[#976E44]" />
+                          </div>
                           <select
                             value={term.termType}
                             onChange={(e) => updateTerm(index, 'termType', e.target.value)}
-                            className="w-full h-10 pl-9 pr-3 rounded-lg border border-gray-200 text-sm font-semibold text-[#546A7A] focus:border-[#CE9F6B] focus:ring-2 focus:ring-[#CE9F6B]/10 transition-all"
+                            className="w-full h-10 pl-10 pr-3 rounded-lg border-2 border-[#AEBFC3]/30 text-sm font-bold text-[#546A7A] focus:border-[#CE9F6B] focus:ring-2 focus:ring-[#CE9F6B]/10 transition-all bg-white"
                           >
                             {termOptions
                               .filter(opt => opt.value === 'OTHER' || opt.value === term.termType || !usedTermTypes.includes(opt.value))
@@ -626,14 +644,14 @@ export default function NewMilestonePage() {
                             type="text"
                             value={term.customLabel || ''}
                             onChange={(e) => updateTerm(index, 'customLabel', e.target.value)}
-                            className="w-full h-10 px-3 rounded-lg border-2 border-[#CE9F6B]/30 bg-[#F4F7F9] text-sm font-medium placeholder:text-[#92A2A5] focus:border-[#CE9F6B] focus:outline-none transition-all"
+                            className="w-full h-10 px-3 rounded-lg border-2 border-[#CE9F6B]/30 bg-gradient-to-r from-[#CE9F6B]/5 to-[#976E44]/5 text-sm font-bold text-[#546A7A] placeholder:text-[#92A2A5] focus:border-[#CE9F6B] focus:outline-none focus:ring-2 focus:ring-[#CE9F6B]/10 transition-all"
                             placeholder="e.g., after installation..."
                           />
                         </div>
                       )}
 
                       <div className={isOther ? "col-span-2" : (hasTax ? "col-span-2" : "col-span-3")}>
-                        <label className="block text-[10px] font-bold text-[#976E44] uppercase mb-1.5 ml-1 text-center font-bold">
+                        <label className="block text-[10px] font-bold text-[#976E44] uppercase mb-1.5 ml-1 text-center">
                           {hasTax ? 'Net %' : '%'}
                         </label>
                         <div className="relative">
@@ -643,13 +661,13 @@ export default function NewMilestonePage() {
                             onChange={(e) => updateTerm(index, 'percentage', e.target.value)}
                             min="0"
                             max="100"
-                            className="w-full h-10 px-3 pr-8 rounded-lg border border-gray-200 text-sm text-right font-bold transition-all focus:border-[#CE9F6B] focus:ring-2 focus:ring-[#CE9F6B]/10"
+                            className="w-full h-10 px-3 pr-8 rounded-lg border-2 border-[#AEBFC3]/30 text-sm text-right font-bold text-[#546A7A] transition-all focus:border-[#CE9F6B] focus:ring-2 focus:ring-[#CE9F6B]/10 bg-white"
                             placeholder="0"
                           />
-                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#92A2A5]">%</span>
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#CE9F6B]">%</span>
                         </div>
                         {(Number(term.percentage) > 0 && (parseFloat(formData.totalAmount) > 0 || parseFloat(formData.netAmount) > 0)) && (
-                          <p className={`text-[9px] font-semibold mt-1 text-center ${hasTax ? 'text-[#82A094] bg-[#82A094]/10 rounded-full px-2 py-0.5' : 'text-[#82A094]'}`}>
+                          <p className={`text-[9px] font-bold mt-1 text-center ${hasTax ? 'text-[#4F6A64] bg-gradient-to-r from-[#82A094]/15 to-[#4F6A64]/10 rounded-lg px-2 py-0.5 border border-[#82A094]/20' : 'text-[#4F6A64]'}`}>
                             {hasTax ? `Net: ₹${((parseFloat(formData.netAmount || '0') * (Number(term.percentage) || 0)) / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}` : `= ₹${getTermAmount(term).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`}
                           </p>
                         )}
@@ -660,12 +678,14 @@ export default function NewMilestonePage() {
                           Target Date
                         </label>
                         <div className="relative">
-                          <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#CE9F6B]" />
+                          <div className="absolute left-2.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-md bg-gradient-to-br from-[#CE9F6B]/20 to-[#976E44]/10 flex items-center justify-center">
+                            <Calendar className="w-3 h-3 text-[#976E44]" />
+                          </div>
                           <input
                             type="date"
                             value={term.termDate}
                             onChange={(e) => updateTerm(index, 'termDate', e.target.value)}
-                            className="w-full h-10 pl-9 pr-3 rounded-lg border border-gray-200 text-sm font-medium focus:border-[#CE9F6B] focus:ring-2 focus:ring-[#CE9F6B]/10 transition-all"
+                            className="w-full h-10 pl-10 pr-3 rounded-lg border-2 border-[#AEBFC3]/30 text-sm font-bold text-[#546A7A] focus:border-[#CE9F6B] focus:ring-2 focus:ring-[#CE9F6B]/10 transition-all bg-white"
                           />
                         </div>
                       </div>
@@ -675,14 +695,14 @@ export default function NewMilestonePage() {
                         <label className="block text-[10px] font-bold text-[#976E44] uppercase mb-1.5 ml-1 text-center">
                           Calc. On
                         </label>
-                        <div className="flex h-10 rounded-lg border border-gray-200 overflow-hidden bg-gray-50">
+                        <div className="flex h-10 rounded-lg border-2 border-[#AEBFC3]/30 overflow-hidden bg-white">
                           <button
                             type="button"
                             onClick={() => updateTerm(index, 'calculationBasis', 'NET_AMOUNT')}
                             className={`flex-1 text-[10px] font-bold transition-all duration-200 ${
                               (term.calculationBasis || 'NET_AMOUNT') === 'NET_AMOUNT'
-                                ? 'bg-gradient-to-r from-[#546A7A] to-[#6F8A9D] text-white shadow-inner'
-                                : 'text-[#92A2A5] hover:text-[#546A7A] hover:bg-white'
+                                ? 'bg-gradient-to-r from-[#546A7A] to-[#6F8A9D] text-white shadow-lg'
+                                : 'text-[#92A2A5] hover:text-[#546A7A] hover:bg-[#96AEC2]/10'
                             }`}
                           >
                             Net
@@ -690,10 +710,10 @@ export default function NewMilestonePage() {
                           <button
                             type="button"
                             onClick={() => updateTerm(index, 'calculationBasis', 'TOTAL_AMOUNT')}
-                            className={`flex-1 text-[10px] font-bold transition-all duration-200 border-l border-gray-200 ${
+                            className={`flex-1 text-[10px] font-bold transition-all duration-200 border-l-2 border-[#AEBFC3]/30 ${
                               term.calculationBasis === 'TOTAL_AMOUNT'
-                                ? 'bg-gradient-to-r from-[#E17F70] to-[#9E3B47] text-white shadow-inner'
-                                : 'text-[#92A2A5] hover:text-[#546A7A] hover:bg-white'
+                                ? 'bg-gradient-to-r from-[#E17F70] to-[#9E3B47] text-white shadow-lg'
+                                : 'text-[#92A2A5] hover:text-[#E17F70] hover:bg-[#E17F70]/10'
                             }`}
                           >
                             Net + Tax
@@ -704,7 +724,7 @@ export default function NewMilestonePage() {
                       {/* Tax % field - only visible when Net + Tax is selected */}
                       {hasTax && (
                         <div className="col-span-2">
-                          <label className="block text-[10px] font-bold text-[#E17F70] uppercase mb-1.5 ml-1 text-center">
+                          <label className="block text-[10px] font-bold text-[#9E3B47] uppercase mb-1.5 ml-1 text-center">
                             Tax %
                           </label>
                           <div className="relative">
@@ -714,18 +734,18 @@ export default function NewMilestonePage() {
                               onChange={(e) => updateTerm(index, 'taxPercentage', e.target.value)}
                               min="0"
                               max="100"
-                              className="w-full h-10 px-3 pr-8 rounded-lg border border-[#E17F70]/30 bg-[#E17F70]/5 text-sm text-right font-bold transition-all focus:border-[#E17F70] focus:ring-2 focus:ring-[#E17F70]/10"
+                              className="w-full h-10 px-3 pr-8 rounded-lg border-2 border-[#E17F70]/30 bg-gradient-to-r from-[#E17F70]/5 to-[#9E3B47]/5 text-sm text-right font-bold text-[#9E3B47] transition-all focus:border-[#E17F70] focus:ring-2 focus:ring-[#E17F70]/10"
                               placeholder="0"
                             />
-                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#E17F70]/60">%</span>
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#E17F70]">%</span>
                           </div>
                           {(Number(term.taxPercentage) > 0 && parseFloat(formData.taxAmount || '0') > 0) && (
-                            <p className="text-[9px] font-semibold text-[#E17F70] mt-1 text-center bg-[#E17F70]/8 rounded-full px-2 py-0.5">
+                            <p className="text-[9px] font-bold text-[#9E3B47] mt-1 text-center bg-gradient-to-r from-[#E17F70]/10 to-[#9E3B47]/5 rounded-lg px-2 py-0.5 border border-[#E17F70]/20">
                               Tax: ₹{((parseFloat(formData.taxAmount || '0') * (Number(term.taxPercentage) || 0)) / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                             </p>
                           )}
                           {(Number(term.percentage) > 0 || Number(term.taxPercentage) > 0) && getTermAmount(term) > 0 && (
-                            <p className="text-[9px] font-black text-white mt-1 text-center bg-gradient-to-r from-[#546A7A] to-[#6F8A9D] rounded-full px-2 py-0.5 shadow-sm">
+                            <p className="text-[9px] font-bold text-white mt-1 text-center bg-gradient-to-r from-[#546A7A] to-[#6F8A9D] rounded-lg px-2 py-0.5 shadow-lg">
                               Total: ₹{getTermAmount(term).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                             </p>
                           )}
@@ -736,7 +756,7 @@ export default function NewMilestonePage() {
                     <button 
                       type="button" 
                       onClick={() => removeTerm(index)} 
-                      className="p-2 text-red-400 hover:text-white hover:bg-red-500 rounded-lg transition-all duration-300 mt-auto mb-0.5 opacity-60 group-hover/term:opacity-100"
+                      className="p-2.5 rounded-xl bg-gradient-to-br from-[#E17F70]/10 to-[#9E3B47]/5 text-[#9E3B47] hover:from-[#E17F70] hover:to-[#9E3B47] hover:text-white transition-all duration-300 mt-auto mb-0.5 opacity-60 group-hover/term:opacity-100 border-2 border-[#E17F70]/20 hover:border-[#E17F70]/40 shadow-sm hover:shadow-lg hover:shadow-[#E17F70]/20"
                       title="Remove term"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -748,9 +768,12 @@ export default function NewMilestonePage() {
           </div>
 
           {/* Manual Payment Terms Overview */}
-          <div className="mt-6 pt-6 border-t border-gray-200">
+          <div className="relative mt-6 pt-6 border-t-2 border-[#AEBFC3]/20 overflow-hidden">
+            <div className="absolute top-0 left-0 w-24 h-1 bg-gradient-to-r from-[#CE9F6B] to-[#976E44]" />
             <label className="block text-[#5D6E73] text-sm font-bold mb-3 flex items-center gap-2">
-              <FileText className="w-4 h-4 text-[#CE9F6B]" />
+              <div className="p-1.5 rounded-lg bg-gradient-to-br from-[#CE9F6B] to-[#976E44]">
+                <FileText className="w-4 h-4 text-white" />
+              </div>
               Contractual Payment Terms (Full Summary)
             </label>
             <textarea
@@ -758,7 +781,7 @@ export default function NewMilestonePage() {
               value={formData.actualPaymentTerms}
               onChange={handleChange}
               rows={3}
-              className="w-full p-4 rounded-xl bg-white border-2 border-[#AEBFC3]/30 text-[#546A7A] placeholder:text-[#92A2A5] focus:border-[#CE9F6B] focus:outline-none focus:ring-4 focus:ring-[#CE9F6B]/10 transition-all font-medium text-sm hover:border-[#AEBFC3]/50"
+              className="w-full p-4 rounded-xl bg-gradient-to-r from-white to-[#96AEC2]/5 border-2 border-[#AEBFC3]/30 text-[#546A7A] placeholder:text-[#92A2A5] focus:border-[#CE9F6B] focus:outline-none focus:ring-4 focus:ring-[#CE9F6B]/10 transition-all font-medium text-sm hover:border-[#CE9F6B]/40"
               placeholder="e.g., 10% Advance against ABG, 60% on Dispatch, 30% after Installation..."
             />
             <p className="text-[10px] text-[#92A2A5] mt-2 italic">Copy-paste the exact terms from the PO or Contract for quick reference.</p>
@@ -766,17 +789,17 @@ export default function NewMilestonePage() {
         </div>
 
         {/* Actions */}
-        <div className="flex items-center justify-end gap-4 pt-2">
+        <div className="relative flex items-center justify-end gap-4 pt-2">
           <Link
             href="/finance/ar/milestones"
-            className="px-8 py-3.5 rounded-xl bg-white border-2 border-[#AEBFC3]/40 text-[#5D6E73] font-semibold hover:bg-gray-50 hover:border-[#AEBFC3]/60 transition-all duration-300"
+            className="px-8 py-3.5 rounded-xl bg-white border-2 border-[#AEBFC3]/40 text-[#5D6E73] font-bold hover:bg-[#96AEC2]/10 hover:border-[#6F8A9D] transition-all duration-300"
           >
             Cancel
           </Link>
           <button
             type="submit"
             disabled={saving}
-            className="flex items-center gap-2 px-10 py-3.5 rounded-xl bg-gradient-to-r from-[#CE9F6B] to-[#976E44] text-white font-bold shadow-lg hover:shadow-xl hover:shadow-[#CE9F6B]/30 transition-all duration-300 hover:-translate-y-0.5 disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-lg"
+            className="flex items-center gap-2 px-10 py-3.5 rounded-xl bg-gradient-to-r from-[#CE9F6B] to-[#976E44] text-white font-bold shadow-lg shadow-[#CE9F6B]/20 hover:shadow-xl hover:shadow-[#CE9F6B]/30 transition-all duration-300 hover:-translate-y-0.5 active:scale-95 disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-lg"
           >
             {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
             {saving ? 'Saving...' : 'Create Milestone Payment'}
