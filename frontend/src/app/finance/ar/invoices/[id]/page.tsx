@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { arApi, ARInvoice, ARPaymentHistory, MatchingMilestone, formatARCurrency, formatARDate } from '@/lib/ar-api';
+import { arApi, ARInvoice, ARPaymentHistory, MatchingMilestone, formatARCurrency, formatARDate, formatAmountForInput, parseFormattedAmount } from '@/lib/ar-api';
 import { 
   ArrowLeft, Pencil, Trash2, FileText, Calendar, User, Clock, 
   AlertTriangle, CheckCircle, CheckCircle2, Loader2, Mail, Phone, MapPin, Building, 
@@ -80,7 +80,8 @@ export default function InvoiceViewPage() {
     try {
       setLoading(true);
       setError(null);
-      const data = await arApi.getInvoiceById(id);
+      // Pass type='REGULAR' to ensure we get the regular invoice when invoice numbers match milestone
+      const data = await arApi.getInvoiceById(id, 'REGULAR');
       setInvoice(data);
     } catch (err) {
       console.error('Failed to load invoice:', err);
@@ -134,15 +135,25 @@ export default function InvoiceViewPage() {
     }
   };
 
-  // Auto-load matching milestones for non-milestone invoices with PO number
+  // Auto-load matching milestones for non-milestone invoices
   // Note: Check !== 'MILESTONE' to include older imported invoices where invoiceType may be null
-  // Note: Removed linkedMilestoneId check to allow linking multiple milestones
-  // Auto-load matching milestones for non-milestone invoices with PO number
+  // Note: Matching now primarily uses invoiceNumber for precision
   useEffect(() => {
-    if (invoice?.id && invoice?.invoiceType !== 'MILESTONE' && invoice?.poNo) {
+    if (invoice?.id && invoice?.invoiceType !== 'MILESTONE' && invoice?.invoiceNumber) {
       loadMatchingMilestones(invoice.id);
     }
-  }, [invoice?.id, invoice?.invoiceType, invoice?.poNo]);
+  }, [invoice?.id, invoice?.invoiceType, invoice?.invoiceNumber]);
+
+  // Handle Escape key to close payment modal
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closePaymentModal();
+    };
+    if (showPaymentModal) {
+      window.addEventListener('keydown', handleEscape);
+    }
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [showPaymentModal]);
 
   // Handle linking milestone to invoice
   const handleLinkMilestone = async (milestone: MatchingMilestone, transferPayments: boolean = true) => {
@@ -314,7 +325,13 @@ export default function InvoiceViewPage() {
   const isOverdue = invoice.status === 'OVERDUE' || (daysOverdue > 0 && invoice.status !== 'PAID');
   const isPaid = invoice.status === 'PAID';
   // Milestone-specific computed values
-  const isMilestone = invoice.invoiceType === 'MILESTONE';
+  // On the Regular Invoice page, we ALWAYS hide milestone-specific tracking/UI
+  const isMilestoneData = invoice.invoiceType === 'MILESTONE';
+  const isMilestone = false; // Force regular UI on this page
+  const showMilestoneTracking = false; 
+
+
+
   const termOptions: Record<string, string> = { ABG: 'ABG', PO: 'PO', DELIVERY: 'Delivery', FAR: 'FAR', PBG: 'PBG', FAR_PBG: 'FAR & PBG', INVOICE_SUBMISSION: 'Invoice Submission', PI: 'PI', OTHER: 'Other' };
 
   // Collection allocation per milestone term based on overall receipts
@@ -343,19 +360,11 @@ export default function InvoiceViewPage() {
     });
 
   // Overdue and Not Due calculations
-  const overdueAmount = isMilestone 
-    ? termCollections
-        .filter((tc: any) => {
-          const term = milestoneTermsArr.find((t: any) => `${t.termType}-${t.termDate}-${t.percentage || 0}` === tc.termId);
-          if (!term) return false;
-          const termDate = new Date(term.termDate);
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-          const termAging = Math.floor((today.getTime() - termDate.getTime()) / (1000 * 60 * 60 * 24));
-          return termAging > 0 && tc.collectedPercent < 99 && invoice.milestoneStatus !== 'FULLY_DELIVERED';
-        })
-        .reduce((sum: number, tc: any) => sum + tc.pendingForTerm, 0)
-    : (isOverdue ? balanceAmount : 0);
+  // On the Regular Invoice page, always use standard overdue logic based on balance and due date
+  const overdueAmount = (isOverdue ? balanceAmount : 0);
+
+
+
 
   const notDueAmount = Math.max(0, balanceAmount - overdueAmount);
   const getDeliveryDueDays = () => {
@@ -462,13 +471,14 @@ export default function InvoiceViewPage() {
           {/* Top Row - Back & Actions */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
             <Link 
-              href={invoice.invoiceType === 'MILESTONE' ? '/finance/ar/milestones' : '/finance/ar/invoices'}
+              href="/finance/ar/invoices"
               className="flex items-center gap-2 text-[#5D6E73] hover:text-[#546A7A] transition-colors group"
             >
               <div className="p-2.5 rounded-xl bg-[#AEBFC3]/10 border-2 border-[#AEBFC3]/20 group-hover:bg-[#AEBFC3]/20 group-hover:border-[#AEBFC3]/40 transition-all group-hover:scale-105">
                 <ArrowLeft className="w-5 h-5" />
               </div>
-              <span className="font-medium">Back to {invoice.invoiceType === 'MILESTONE' ? 'Milestone Payments' : 'Invoices'}</span>
+              <span className="font-medium">Back to Invoices</span>
+
             </Link>
             
             <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
@@ -484,8 +494,7 @@ export default function InvoiceViewPage() {
                 className="flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#82A094] to-[#4F6A64] text-white font-bold shadow-lg shadow-[#82A094]/20 hover:shadow-xl hover:shadow-[#82A094]/40 hover:-translate-y-0.5 active:scale-95 transition-all text-sm sm:text-base"
               >
                 <IndianRupee className="w-4 h-4" />
-                <span className="hidden xs:inline">Record Payment</span>
-                <span className="xs:hidden">Pay</span>
+                <span>Record Payment</span>
               </button>
               <Link
                 href={invoice.invoiceType === 'MILESTONE' 
@@ -567,12 +576,10 @@ export default function InvoiceViewPage() {
             {/* Status & Risk Badges */}
             <div className="flex flex-col items-start md:items-end gap-3 w-full md:w-auto">
               {/* Milestone Badge - Prominent */}
-              {isMilestone && (
-                <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-[#CE9F6B] to-[#E17F70] text-white shadow-lg shadow-[#CE9F6B]/30">
-                  <Wallet className="w-5 h-5" />
-                  <span className="font-bold">MILESTONE PAYMENT</span>
-                </div>
-              )}
+              {/* Milestone Badge - Hidden on Regular Invoice page */}
+
+
+
               
               <div className={`flex items-center gap-2 px-5 py-3 rounded-2xl ${statusConfig.bg} ${statusConfig.text} shadow-lg ${statusConfig.glow}`}>
                 <StatusIcon className="w-5 h-5" />
@@ -580,32 +587,15 @@ export default function InvoiceViewPage() {
               </div>
               
               <div className="flex items-center gap-2">
-                {/* Milestone Delivery Status */}
-                {isMilestone && milestoneStatusConfig && (
-                  <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg ${milestoneStatusConfig.bg} ${milestoneStatusConfig.text} text-sm font-semibold shadow-md`}>
-                    <milestoneStatusConfig.icon className="w-3.5 h-3.5" />
-                    {milestoneStatusConfig.label}
-                  </div>
-                )}
-                
+                {/* Global Status Configuration for Regular Invoice */}
                 {!isMilestone && (
                   <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg ${riskConfig.bg} ${riskConfig.text} text-sm font-semibold`}>
                     <Shield className="w-3.5 h-3.5" />
                     {riskConfig.label}
                   </div>
                 )}
-                
-                {/* Delivery countdown for milestone OR payment overdue for regular */}
-                {isMilestone && deliveryDueDays !== null && invoice.milestoneStatus !== 'FULLY_DELIVERED' && (
-                  <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold ${
-                    deliveryDueDays < 0 
-                      ? 'bg-[#E17F70]/10 text-[#9E3B47]' 
-                      : 'bg-[#82A094]/10 text-[#4F6A64]'
-                  }`}>
-                    <Timer className="w-3.5 h-3.5" />
-                    {deliveryDueDays < 0 ? `${Math.abs(deliveryDueDays)}d delivery overdue` : `${deliveryDueDays}d to delivery`}
-                  </div>
-                )}
+
+
                 
                 {!isMilestone && (invoice.dueByDays ?? 0) !== 0 && invoice.status !== 'PAID' && (
                   <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold ${
@@ -645,8 +635,9 @@ export default function InvoiceViewPage() {
                 <div>
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-[10px] font-black tracking-widest text-[#CE9F6B] uppercase">Smart Match Detected</span>
-                    <span className="px-2 py-0.5 rounded-full bg-white/10 text-white/50 text-[9px] font-bold">via PO: {invoice?.poNo}</span>
+                    <span className="px-2 py-0.5 rounded-full bg-white/10 text-white/50 text-[9px] font-bold">via Invoice No: {invoice?.invoiceNumber}</span>
                   </div>
+
                   <h3 className="text-xl font-bold text-white">Import Milestone Payments?</h3>
                   <p className="text-white/70 text-sm max-w-md">
                     We found {matchingMilestones.length} milestone{matchingMilestones.length > 1 ? 's' : ''} with 
@@ -810,137 +801,10 @@ export default function InvoiceViewPage() {
       </div>
 
       {/* Milestone Payments & Aging Timeline */}
-      {isMilestone && (
-        <div className="relative bg-white rounded-[2rem] border-2 border-[#CE9F6B]/30 shadow-xl overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#CE9F6B] via-[#976E44] to-[#E17F70]" />
-          <div className="flex items-center justify-between px-6 py-4 border-b border-[#AEBFC3]/15 bg-gradient-to-r from-[#546A7A] to-[#6F8A9D]">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-white/20"><Sparkles className="w-5 h-5 text-white" /></div>
-              <div>
-                <h3 className="font-bold text-white text-base">Milestone Payment Aging</h3>
-                <p className="text-[10px] text-white/60 uppercase font-black tracking-widest">Reconciliation Timeline</p>
-              </div>
-            </div>
-            <div className="hidden sm:flex items-center gap-4 text-[10px] font-bold text-white/70">
-              <div className="flex items-center gap-1.5">
-                <div className="w-2.5 h-2.5 rounded-full bg-[#E17F70]" />
-                <span>Overdue</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-2.5 h-2.5 rounded-full bg-[#82A094]" />
-                <span>On Track</span>
-              </div>
-            </div>
-          </div>
+      {/* Milestone Payments & Aging Timeline - Hidden on Regular Invoice page */}
 
-          {milestoneTermsArr.length > 0 ? (
-            <div className="divide-y divide-[#AEBFC3]/10">
-              {milestoneTermsArr.map((term, index) => {
-                const termDate = new Date(term.termDate);
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                const termAging = Math.floor((today.getTime() - termDate.getTime()) / (1000 * 60 * 60 * 24));
-                const percentage = term.percentage || 0;
-                const allocation = termCollections.find((t) => t.termId === `${term.termType}-${term.termDate}-${percentage}`);
-                const collectedForTerm = allocation?.collectedForTerm || 0;
-                const pendingForTerm = allocation?.pendingForTerm || 0;
-                const collectedPercent = allocation?.collectedPercent || 0;
-                const isFullyPaid = collectedPercent >= 99;
-                const isTermOverdue = termAging > 0 && !isFullyPaid && invoice.milestoneStatus !== 'FULLY_DELIVERED';
 
-                return (
-                  <div key={index} className={`flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-0 px-6 py-5 transition-colors ${
-                    isTermOverdue ? 'bg-[#E17F70]/[0.03]' : index % 2 === 0 ? 'bg-white' : 'bg-[#F8FAFB]/50'
-                  } hover:bg-[#546A7A]/[0.02]`}>
-                    
-                    {/* Term Identity */}
-                    <div className="sm:w-[25%] flex items-center gap-4">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-xs font-black shadow-sm ${
-                        isFullyPaid ? 'bg-[#82A094] text-white shadow-[#82A094]/20' : 
-                        isTermOverdue ? 'bg-[#E17F70]/10 text-[#E17F70]' : 
-                        'bg-[#546A7A]/10 text-[#546A7A]'
-                      }`}>
-                        {isFullyPaid ? <CheckCircle2 className="w-5 h-5" /> : index + 1}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-bold text-[#546A7A] text-sm truncate">
-                          {term.termType === 'OTHER' ? term.customLabel : termOptions[term.termType] || term.termType}
-                        </p>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-xs font-black text-[#CE9F6B] uppercase">{percentage}%</span>
-                          <span className="text-[10px] text-[#92A2A5] font-medium">{formatARDate(term.termDate)}</span>
-                        </div>
-                      </div>
-                    </div>
 
-                    {/* Allocated / Received / Pending values */}
-                    <div className="sm:w-[45%] lg:px-6">
-                      <div className="grid grid-cols-3 gap-4 mb-2">
-                        <div>
-                          <p className="text-[9px] font-black text-[#92A2A5] uppercase tracking-tighter">Allocated</p>
-                          <p className="text-xs font-bold text-[#546A7A]">{formatARCurrency(allocation?.allocatedAmount || 0)}</p>
-                        </div>
-                        <div>
-                          <p className="text-[9px] font-black text-[#82A094] uppercase tracking-tighter">Received</p>
-                          <p className="text-xs font-bold text-[#4F6A64]">{formatARCurrency(collectedForTerm)}</p>
-                        </div>
-                        <div>
-                          <p className="text-[9px] font-black text-[#92A2A5] uppercase tracking-tighter">Pending</p>
-                          <p className={`text-xs font-bold ${pendingForTerm > 0 ? 'text-[#E17F70]' : 'text-[#82A094]'}`}>{formatARCurrency(pendingForTerm)}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <div className="flex-1 h-2 bg-[#AEBFC3]/15 rounded-full overflow-hidden shadow-inner">
-                          <div 
-                            className={`h-full rounded-full transition-all duration-1000 ${
-                              isFullyPaid ? 'bg-gradient-to-r from-[#82A094] to-[#4F6A64]' : 
-                              collectedPercent >= 50 ? 'bg-gradient-to-r from-[#CE9F6B] to-[#976E44]' : 
-                              'bg-gradient-to-r from-[#6F8A9D] to-[#546A7A]'
-                            }`}
-                            style={{ width: `${Math.min(100, collectedPercent)}%` }}
-                          />
-                        </div>
-                        <span className={`text-xs font-black min-w-[35px] text-right ${
-                          isFullyPaid ? 'text-[#82A094]' : collectedPercent >= 50 ? 'text-[#CE9F6B]' : 'text-[#6F8A9D]'
-                        }`}>{Math.round(collectedPercent)}%</span>
-                      </div>
-                    </div>
-
-                    {/* Aging Status */}
-                    <div className="sm:w-[30%] flex items-center justify-end gap-4">
-                      <div className="text-right">
-                        <p className={`text-lg font-black leading-tight ${
-                          isFullyPaid ? 'text-[#82A094]' : isTermOverdue ? 'text-[#9E3B47]' : 'text-[#4F6A64]'
-                        }`}>
-                          {isFullyPaid ? 'Cleared' : termAging > 0 ? `${termAging} Days` : `${Math.abs(termAging)} Days Left`}
-                        </p>
-                        <p className="text-[10px] font-black text-[#92A2A5] uppercase tracking-widest">
-                          {isFullyPaid ? 'Payment Received' : termAging > 0 ? 'OVERDUE' : 'ON TRACK'}
-                        </p>
-                      </div>
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm ${
-                        isFullyPaid ? 'bg-[#82A094]/10' : isTermOverdue ? 'bg-[#E17F70]/10' : 'bg-[#82A094]/10'
-                      }`}>
-                        {isFullyPaid ? <CheckCircle2 className="w-5 h-5 text-[#82A094]" /> : 
-                         isTermOverdue ? <AlertTriangle className="w-5 h-5 text-[#E17F70] animate-pulse" /> : 
-                         <Timer className="w-5 h-5 text-[#82A094]" />}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="text-center py-12 px-6">
-              <div className="w-16 h-16 rounded-2xl bg-[#AEBFC3]/10 flex items-center justify-center mx-auto mb-4">
-                <FileText className="w-8 h-8 text-[#AEBFC3]" />
-              </div>
-              <p className="text-[#5D6E73] font-bold">No payment terms defined for this milestone.</p>
-              <p className="text-[#92A2A5] text-sm mt-1">Please update the milestone to add terms and track aging.</p>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Collection Progress */}
       <div className="relative bg-white rounded-[2rem] border-2 border-[#82A094]/30 p-6 shadow-lg overflow-hidden">
@@ -1339,54 +1203,10 @@ export default function InvoiceViewPage() {
               </div>
             </div>
             
-            {/* Milestone Payment Schedule - Exclusive to Milestone Invoices */}
-            {isMilestone && invoice.milestoneTerms && (invoice.milestoneTerms as any[]).length > 0 && (
-              <div className="mt-8 border-t-2 border-[#CE9F6B]/20 pt-8">
-                <h4 className="flex items-center gap-2 text-lg font-bold text-[#546A7A] mb-6">
-                  <div className="relative p-2 rounded-xl bg-gradient-to-br from-[#CE9F6B] to-[#E17F70] shadow-lg shadow-[#CE9F6B]/20 overflow-hidden">
-                    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#E17F70] via-white/40 to-[#CE9F6B]" />
-                    <Sparkles className="w-5 h-5 text-white" />
-                  </div>
-                  Milestone Payment Schedule
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                  {(invoice.milestoneTerms as any[]).map((term, index) => {
-                    const isOther = term.termType === 'OTHER';
-                    return (
-                      <div key={index} className="flex flex-col p-4 rounded-2xl bg-gradient-to-br from-white to-[#AEBFC3]/5 border border-[#CE9F6B]/20 shadow-sm transition-all hover:shadow-md hover:border-[#CE9F6B]/40">
-                        <div className="flex items-center justify-between mb-3 pb-2 border-b border-[#AEBFC3]/10">
-                          <span className="text-[10px] uppercase font-black tracking-wider text-[#976E44]">
-                            {isOther ? (term.customLabel || 'Other Term') : term.termType}
-                          </span>
-                          {!isOther && term.percentage && (
-                            <span className="px-2 py-0.5 rounded-lg bg-[#CE9F6B] text-white text-[10px] font-bold">
-                              {term.percentage}%
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center justify-between mt-auto pt-2">
-                          <div className="flex items-center gap-2 text-[#92A2A5]">
-                            <Calendar className="w-3.5 h-3.5 opacity-60" />
-                            <span className="text-xs font-medium">Target Date</span>
-                          </div>
-                          <span className="text-sm font-bold text-[#546A7A]">
-                            {term.termDate ? formatARDate(term.termDate) : 'Not set'}
-                          </span>
-                        </div>
-                        {!isOther && term.percentage && (
-                          <div className="mt-3 flex items-center justify-between pt-2 border-t border-[#AEBFC3]/10">
-                             <span className="text-[10px] font-bold text-[#92A2A5]">EXPECTED AMOUNT</span>
-                             <span className="text-sm font-black text-[#CE9F6B]">
-                               {formatARCurrency((totalAmount * Number(term.percentage)) / 100)}
-                             </span>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+            {/* Milestone Payment Schedule - Hidden on Regular Invoice page */}
+
+
+
 
             {/* Comments */}
             {invoice.comments && (
@@ -1744,7 +1564,7 @@ export default function InvoiceViewPage() {
 
       {/* Payment Modal */}
       {showPaymentModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={(e) => { if (e.target === e.currentTarget) closePaymentModal(); }}>
           <div className="relative bg-white rounded-[2rem] w-full max-w-lg p-8 shadow-2xl animate-scale-in overflow-hidden">
             <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-[#82A094] via-[#4F6A64] to-[#A2B9AF]" />
             <button 
@@ -1772,11 +1592,16 @@ export default function InvoiceViewPage() {
                   Amount (₹) <span className="text-[#E17F70]">*</span>
                 </label>
                 <input 
-                  type="number" 
-                  step="0.01"
+                  type="text" 
+                  inputMode="decimal"
                   required
-                  value={paymentForm.amount}
-                  onChange={e => setPaymentForm({...paymentForm, amount: e.target.value})}
+                  value={formatAmountForInput(paymentForm.amount)}
+                  onChange={e => {
+                    const raw = parseFormattedAmount(e.target.value);
+                    if (!isNaN(Number(raw)) || raw === '' || raw === '.') {
+                       setPaymentForm({...paymentForm, amount: raw});
+                    }
+                  }}
                   className="w-full h-14 px-4 rounded-xl bg-gradient-to-r from-[#AEBFC3]/5 to-[#92A2A5]/5 border-2 border-[#AEBFC3]/30 text-[#546A7A] focus:border-[#82A094] focus:outline-none focus:ring-4 focus:ring-[#82A094]/15 transition-all font-mono text-xl font-bold"
                   placeholder="0.00"
                 />

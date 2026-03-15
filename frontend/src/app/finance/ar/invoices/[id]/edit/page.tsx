@@ -49,7 +49,7 @@ export default function EditInvoicePage() {
   const loadInvoice = async (id: string) => {
     try {
       setLoading(true);
-      const data = await arApi.getInvoiceById(id);
+      const data = await arApi.getInvoiceById(id, 'REGULAR');
       
       // Redirect to milestone edit if it's a milestone invoice
       if (data.invoiceType === 'MILESTONE') {

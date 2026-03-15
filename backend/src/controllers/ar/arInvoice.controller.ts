@@ -79,6 +79,7 @@ export const getAllInvoices = async (req: Request, res: Response) => {
                     region: true,
                     invoiceType: true,
                     totalReceipts: true,
+                    linkedMilestoneId: true,
                     advanceReceivedDate: true,
                     deliveryDueDate: true,
                     milestoneStatus: true,
@@ -104,21 +105,29 @@ export const getAllInvoices = async (req: Request, res: Response) => {
             prisma.aRInvoice.count({ where })
         ]);
 
-        // Fetch payment modes for these invoices manually (since it's a loose relation)
+        // Fetch payment history for these invoices to calculate accurate totals
         const invoiceIds = invoices.map((inv: any) => inv.id);
-        const paymentModes = await prisma.aRPaymentHistory.findMany({
+
+        const payments = await prisma.aRPaymentHistory.findMany({
             where: { invoiceId: { in: invoiceIds } },
-            select: { invoiceId: true, paymentMode: true }
+            select: { invoiceId: true, amount: true, paymentMode: true }
         });
 
-        // Group payment modes by invoiceId
-        const paymentModesMap = paymentModes.reduce((acc: any, curr: any) => {
-            if (!acc[curr.invoiceId]) acc[curr.invoiceId] = [];
-            acc[curr.invoiceId].push({ paymentMode: curr.paymentMode });
+        // Group payments by invoiceId and compute accurate totals
+        const paymentsAggr = payments.reduce((acc: any, curr: any) => {
+            if (!acc[curr.invoiceId]) acc[curr.invoiceId] = { total: 0, receipts: 0, adjustments: 0, modes: [] };
+            const amt = Number(curr.amount);
+            if (curr.paymentMode === 'ADJUSTMENT' || curr.paymentMode === 'CREDIT_NOTE') {
+                acc[curr.invoiceId].adjustments += amt;
+            } else {
+                acc[curr.invoiceId].receipts += amt;
+            }
+            acc[curr.invoiceId].total += amt;
+            acc[curr.invoiceId].modes.push({ paymentMode: curr.paymentMode });
             return acc;
         }, {});
 
-        // Calculate days overdue for each invoice and attach payment history
+        // Calculate days overdue for each invoice and attach aggregated payment data
         const invoicesWithOverdue = invoices.map((invoice: any) => {
             const today = new Date();
             let dueByDays = 0;
@@ -143,9 +152,24 @@ export const getAllInvoices = async (req: Request, res: Response) => {
                 isOverdue = dueByDays > 0 && invoice.status !== 'PAID';
             }
 
+            // Use payment history totals for accurate display (overrides potentially stale stored values)
+            const paymentData = paymentsAggr[invoice.id];
+            const computedTotalReceipts = paymentData ? paymentData.total : Number(invoice.totalReceipts) || 0;
+            const computedBalance = Number(invoice.totalAmount) - computedTotalReceipts;
+
+            // Determine accurate status from computed values
+            let computedStatus = invoice.status;
+            if (invoice.status !== 'CANCELLED') {
+                if (computedBalance <= 0 && computedTotalReceipts > 0) computedStatus = 'PAID';
+                else if (computedTotalReceipts > 0) computedStatus = 'PARTIAL';
+            }
+
             return {
                 ...invoice,
-                paymentHistory: paymentModesMap[invoice.id] || [],
+                paymentHistory: paymentData?.modes || [],
+                totalReceipts: computedTotalReceipts,
+                balance: computedBalance,
+                status: computedStatus,
                 dueByDays,
                 isOverdue
             };
@@ -187,6 +211,7 @@ export const getAllInvoices = async (req: Request, res: Response) => {
 export const getInvoiceById = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
+        const { type } = req.query; // Optional: 'REGULAR' or 'MILESTONE' to disambiguate when invoice numbers match
 
         let invoice: any;
         if (id.length === 36) { // Likely UUID
@@ -198,9 +223,16 @@ export const getInvoiceById = async (req: Request, res: Response) => {
                 }
             });
         } else {
+            // When both REGULAR and MILESTONE invoices share the same invoice number,
+            // use the `type` query parameter to return the correct one
+            const whereClause: any = { invoiceNumber: id };
+            if (type === 'MILESTONE' || type === 'REGULAR') {
+                whereClause.invoiceType = type;
+            }
+
             invoice = await prisma.aRInvoice.findFirst({
-                where: { invoiceNumber: id },
-                orderBy: { invoiceType: 'desc' }, // REGULAR comes after MILESTONE alphabetically
+                where: whereClause,
+                orderBy: { invoiceType: 'desc' }, // REGULAR first (R > M alphabetically in desc)
                 include: {
                     linkedFromMilestones: true,
                     linkedInvoice: true
@@ -217,6 +249,52 @@ export const getInvoiceById = async (req: Request, res: Response) => {
             where: { invoiceId: invoice.id },
             orderBy: { paymentDate: 'desc' }
         });
+
+        // Compute accurate totalReceipts and balance from payment history
+        let computedReceipts = 0;
+        let computedAdjustments = 0;
+        paymentHistory.forEach((p: any) => {
+            const amt = Number(p.amount);
+            if (p.paymentMode === 'ADJUSTMENT' || p.paymentMode === 'CREDIT_NOTE') {
+                computedAdjustments += amt;
+            } else {
+                computedReceipts += amt;
+            }
+        });
+        const computedTotalReceipts = computedReceipts + computedAdjustments;
+        const computedBalance = Number(invoice.totalAmount) - computedTotalReceipts;
+
+        // Sync stored values if they differ from computed (auto-heal stale data)
+        const storedTotalReceipts = Number(invoice.totalReceipts || 0);
+        if (Math.abs(storedTotalReceipts - computedTotalReceipts) > 0.01) {
+            // Determine accurate status
+            let newStatus = invoice.status;
+            if (invoice.status !== 'CANCELLED') {
+                if (computedBalance <= 0 && computedTotalReceipts > 0) newStatus = 'PAID';
+                else if (computedTotalReceipts > 0) newStatus = 'PARTIAL';
+                else if (invoice.dueDate && new Date(invoice.dueDate) < new Date()) newStatus = 'OVERDUE';
+                else newStatus = 'PENDING';
+            }
+
+            // Update stored values in DB (non-blocking, best-effort)
+            prisma.aRInvoice.update({
+                where: { id: invoice.id },
+                data: {
+                    receipts: computedReceipts,
+                    adjustments: computedAdjustments,
+                    totalReceipts: computedTotalReceipts,
+                    balance: computedBalance,
+                    status: newStatus
+                }
+            }).catch(() => {}); // Fire-and-forget, don't block response
+
+            // Override invoice values for response
+            invoice.receipts = computedReceipts;
+            invoice.adjustments = computedAdjustments;
+            invoice.totalReceipts = computedTotalReceipts;
+            invoice.balance = computedBalance;
+            invoice.status = newStatus;
+        }
 
         // Fetch payment history for linked milestones
         if (invoice.linkedFromMilestones && invoice.linkedFromMilestones.length > 0) {
@@ -310,25 +388,31 @@ export const addPaymentRecord = async (req: Request, res: Response) => {
                 }
             });
 
-            // Calculate updated totals
-            const receipts = Number(invoice.receipts || 0);
-            const adjustments = Number(invoice.adjustments || 0);
+            // Recalculate totals from ALL payment history (prevents stale stored value drift)
+            const allPayments = await tx.aRPaymentHistory.findMany({
+                where: { invoiceId: id }
+            });
 
-            let newReceipts = receipts;
-            let newAdjustments = adjustments;
-
-            if (paymentMode === 'ADJUSTMENT' || paymentMode === 'CREDIT_NOTE') {
-                newAdjustments += parsedAmount;
-            } else {
-                newReceipts += parsedAmount;
-            }
+            let newReceipts = 0;
+            let newAdjustments = 0;
+            allPayments.forEach((p: any) => {
+                const amt = Number(p.amount);
+                if (p.paymentMode === 'ADJUSTMENT' || p.paymentMode === 'CREDIT_NOTE') {
+                    newAdjustments += amt;
+                } else {
+                    newReceipts += amt;
+                }
+            });
 
             const totalReceipts = newReceipts + newAdjustments;
             const balance = Number(invoice.totalAmount) - totalReceipts;
 
             let status = invoice.status;
-            if (balance <= 0) status = 'PAID';
-            else if (totalReceipts > 0) status = 'PARTIAL';
+            if (invoice.status !== 'CANCELLED') {
+                if (balance <= 0 && totalReceipts > 0) status = 'PAID';
+                else if (totalReceipts > 0) status = 'PARTIAL';
+                else status = 'PENDING';
+            }
 
             // Update invoice within same transaction
             await tx.aRInvoice.update({
@@ -423,9 +507,11 @@ export const updatePaymentRecord = async (req: Request, res: Response) => {
             const balance = Number(invoice.totalAmount) - totalReceipts;
 
             let status = invoice.status;
-            if (balance <= 0) status = 'PAID';
-            else if (totalReceipts > 0) status = 'PARTIAL';
-            else status = 'PENDING';
+            if (invoice.status !== 'CANCELLED') {
+                if (balance <= 0 && totalReceipts > 0) status = 'PAID';
+                else if (totalReceipts > 0) status = 'PARTIAL';
+                else status = 'PENDING';
+            }
 
             await tx.aRInvoice.update({
                 where: { id },
@@ -510,9 +596,11 @@ export const deletePaymentRecord = async (req: Request, res: Response) => {
             const balance = Number(invoice.totalAmount) - totalReceipts;
 
             let status = invoice.status;
-            if (balance <= 0) status = 'PAID';
-            else if (totalReceipts > 0) status = 'PARTIAL';
-            else status = 'PENDING';
+            if (invoice.status !== 'CANCELLED') {
+                if (balance <= 0 && totalReceipts > 0) status = 'PAID';
+                else if (totalReceipts > 0) status = 'PARTIAL';
+                else status = 'PENDING';
+            }
 
             await tx.aRInvoice.update({
                 where: { id },
@@ -1144,31 +1232,16 @@ export const getMatchingMilestones = async (req: Request, res: Response) => {
             return res.status(404).json({ error: 'Invoice not found' });
         }
 
-        // Extract base PO number if available
-        const basePO = invoice.poNo ? invoice.poNo.split(/[\s,]+/)[0].trim() : '';
-
         // Build OR conditions for matching
         const orConditions: any[] = [];
 
-        // PO-based matching (only if PO exists)
-        if (basePO) {
-            orConditions.push(
-                { poNo: basePO },  // Exact match on base PO
-                { poNo: { startsWith: basePO } },  // Milestone PO starts with base PO
-                { poNo: { contains: basePO } },  // Milestone PO contains base PO
-            );
-            if (invoice.poNo) {
-                orConditions.push({ poNo: invoice.poNo });  // Exact full PO match
-            }
-        }
-
-        // Invoice Number-based matching
+        // Invoice Number-based matching (Strict matching)
         if (invoice.invoiceNumber) {
             orConditions.push({ invoiceNumber: invoice.invoiceNumber });
         }
 
         if (orConditions.length === 0) {
-            return res.json({ milestones: [], message: 'No PO number or Invoice Number to match' });
+            return res.json({ milestones: [], message: 'No Invoice Number to match' });
         }
 
         // Find milestone invoices with matching PO number or Invoice Number
@@ -1290,26 +1363,12 @@ export const acceptMilestone = async (req: Request, res: Response) => {
             if (!milestoneInvoice) throw new Error('Milestone invoice not found');
             if (milestoneInvoice.invoiceType !== 'MILESTONE') throw new Error('Source must be a MILESTONE invoice');
 
-            // Compare base PO numbers (ignoring date suffixes like "Dtd:7/2/2025")
-            // Also allow matching by invoice number if milestone's invoice number contains base PO
-            const getBasePO = (po: string | null) => po ? po.split(/[\s,]+/)[0].trim() : '';
-            const regularBasePO = getBasePO(regularInvoice.poNo);
-            const milestoneBasePO = getBasePO(milestoneInvoice.poNo);
-
-            // Allow linking if:
-            // 1. Both POs match exactly
-            // 2. Milestone's invoice number contains the regular invoice's PO
-            // 3. PO fields contain each other (flexible matching)
-            const invoiceNumberContainsPO = regularBasePO && milestoneInvoice.invoiceNumber.includes(regularBasePO);
-            const posMatch = regularBasePO && milestoneBasePO && regularBasePO === milestoneBasePO;
-            const posContainEachOther = regularBasePO && milestoneBasePO &&
-                (regularBasePO.includes(milestoneBasePO) || milestoneBasePO.includes(regularBasePO));
-            // Allow linking when invoice numbers match exactly
+            // Allow linking ONLY when invoice numbers match exactly
             const invoiceNumbersMatch = regularInvoice.invoiceNumber && milestoneInvoice.invoiceNumber
                 && regularInvoice.invoiceNumber === milestoneInvoice.invoiceNumber;
 
-            if (!posMatch && !posContainEachOther && !invoiceNumberContainsPO && !invoiceNumbersMatch) {
-                throw new Error(`PO numbers do not match: ${regularBasePO || '(empty)'} vs ${milestoneBasePO || '(empty)'}. Milestone invoice number: ${milestoneInvoice.invoiceNumber}`);
+            if (!invoiceNumbersMatch) {
+                throw new Error(`Invoice numbers do not match: ${regularInvoice.invoiceNumber} vs ${milestoneInvoice.invoiceNumber}`);
             }
 
             // Check if this is a re-link (already linked before)
@@ -1332,8 +1391,10 @@ export const acceptMilestone = async (req: Request, res: Response) => {
             let totalTransferred = 0;
 
             if (transferPayments) {
+                // Get all milestone payments ordered by creation to ensure logical transfer
                 const milestonePayments = await tx.aRPaymentHistory.findMany({
-                    where: { invoiceId: milestoneId }
+                    where: { invoiceId: milestoneId },
+                    orderBy: { createdAt: 'asc' }
                 });
 
                 // Get already transferred payments to avoid duplicates
@@ -1342,6 +1403,7 @@ export const acceptMilestone = async (req: Request, res: Response) => {
                         invoiceId: id,
                         notes: { contains: `[From Milestone ${milestoneInvoice.invoiceNumber}]` }
                     },
+                    orderBy: { createdAt: 'asc' },
                     select: { amount: true, paymentDate: true }
                 });
 
@@ -1367,6 +1429,7 @@ export const acceptMilestone = async (req: Request, res: Response) => {
                             paymentTime: payment.paymentTime,
                             paymentMode: payment.paymentMode,
                             referenceNo: payment.referenceNo,
+                            referenceBank: payment.referenceBank,
                             notes: `[From Milestone ${milestoneInvoice.invoiceNumber}] ${payment.notes || ''}`.trim(),
                             recordedBy: user.name || 'System'
                         }
@@ -1374,19 +1437,54 @@ export const acceptMilestone = async (req: Request, res: Response) => {
                     totalTransferred += Number(payment.amount);
                 }
 
-                const currentReceipts = Number(regularInvoice.receipts || 0);
-                const currentAdjustments = Number(regularInvoice.adjustments || 0);
-                const newReceipts = currentReceipts + totalTransferred;
-                const newTotalReceipts = newReceipts + currentAdjustments;
+                // Support transferring imported milestone receipts when no payment history records exist
+                if (milestonePayments.length === 0 && Number(milestoneInvoice.receipts || 0) > 0) {
+                    const importedReceipts = Number(milestoneInvoice.receipts || 0);
+                    if (alreadyTransferredTotal < importedReceipts) {
+                        const amountToTransfer = importedReceipts - alreadyTransferredTotal;
+                        await tx.aRPaymentHistory.create({
+                            data: {
+                                invoiceId: id,
+                                amount: amountToTransfer,
+                                paymentDate: invoiceNumbersMatch && milestoneInvoice.invoiceDate ? new Date(milestoneInvoice.invoiceDate) : new Date(),
+                                paymentMode: 'ADJUSTMENT',
+                                notes: `[From Milestone ${milestoneInvoice.invoiceNumber}] Imported Receipts Transfer`,
+                                recordedBy: 'System'
+                            }
+                        });
+                        totalTransferred += amountToTransfer;
+                    }
+                }
+
+                // Recalculate invoice totals from ALL payment history (not stale stored values)
+                const allInvoicePayments = await tx.aRPaymentHistory.findMany({
+                    where: { invoiceId: id }
+                });
+
+                let newReceipts = 0;
+                let newAdjustments = 0;
+                allInvoicePayments.forEach((p: any) => {
+                    const amt = Number(p.amount);
+                    if (p.paymentMode === 'ADJUSTMENT' || p.paymentMode === 'CREDIT_NOTE') {
+                        newAdjustments += amt;
+                    } else {
+                        newReceipts += amt;
+                    }
+                });
+
+                const newTotalReceipts = newReceipts + newAdjustments;
                 const newBalance = Number(regularInvoice.totalAmount) - newTotalReceipts;
 
                 let newStatus: ARInvoiceStatus = regularInvoice.status;
-                if (newBalance <= 0) newStatus = 'PAID';
-                else if (newTotalReceipts > 0) newStatus = 'PARTIAL';
+                if (regularInvoice.status !== 'CANCELLED') {
+                    if (newBalance <= 0 && newTotalReceipts > 0) newStatus = 'PAID';
+                    else if (newTotalReceipts > 0) newStatus = 'PARTIAL';
+                    else newStatus = 'PENDING';
+                }
 
                 await tx.aRInvoice.update({
                     where: { id },
-                    data: { receipts: newReceipts, totalReceipts: newTotalReceipts, balance: newBalance, status: newStatus }
+                    data: { receipts: newReceipts, adjustments: newAdjustments, totalReceipts: newTotalReceipts, balance: newBalance, status: newStatus }
                 });
 
                 return { success: true, milestoneInvoiceNumber: milestoneInvoice.invoiceNumber, totalTransferred, newBalance, newStatus };

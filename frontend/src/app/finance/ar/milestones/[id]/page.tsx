@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { arApi, ARInvoice, ARPaymentHistory, formatARCurrency, formatARDate, formatARMonth, MilestonePaymentTerm } from '@/lib/ar-api';
+import { arApi, ARInvoice, ARPaymentHistory, formatARCurrency, formatARDate, formatARMonth, MilestonePaymentTerm, formatAmountForInput, parseFormattedAmount } from '@/lib/ar-api';
 import {
   ArrowLeft, Pencil, Trash2, FileText, Calendar, User, Clock, CheckCircle2,
   AlertTriangle, CheckCircle, Loader2, Mail, Phone, MapPin,
@@ -50,10 +50,22 @@ export default function MilestoneViewPage() {
     if (invoice?.id && activeTab === 'activity' && activityLogs.length === 0) loadActivityLog(invoice.id);
   }, [activeTab, invoice?.id]);
 
+  // Handle Escape key to close modal
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closePaymentModal();
+    };
+    if (showPaymentModal) {
+      window.addEventListener('keydown', handleEscape);
+    }
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [showPaymentModal]);
+
   const loadInvoice = async (id: string) => {
     try {
       setLoading(true); setError(null);
-      const data = await arApi.getInvoiceById(id);
+      // Pass type='MILESTONE' to ensure we get the milestone record when invoice numbers match
+      const data = await arApi.getInvoiceById(id, 'MILESTONE');
       if (data.invoiceType !== 'MILESTONE') { router.push(`/finance/ar/invoices/${id}`); return; }
       setInvoice(data);
     } catch { setError('Failed to load milestone payment'); }
@@ -1300,7 +1312,20 @@ export default function MilestoneViewPage() {
                   <label className="flex items-center gap-2 text-xs font-bold text-[#5D6E73] mb-1.5 uppercase tracking-wider">
                     <div className="p-1 rounded-lg bg-gradient-to-br from-[#82A094] to-[#4F6A64]"><IndianRupee className="w-3 h-3 text-white" /></div> Amount <span className="text-[#E17F70]">*</span>
                   </label>
-                  <input type="number" step="0.01" required value={paymentForm.amount} onChange={e => setPaymentForm({...paymentForm, amount: e.target.value})} className="w-full h-12 px-3.5 rounded-xl bg-gradient-to-r from-[#82A094]/5 to-[#4F6A64]/5 border-2 border-[#82A094]/30 text-[#546A7A] focus:border-[#82A094] focus:outline-none focus:ring-3 focus:ring-[#82A094]/15 transition-all font-mono text-lg font-bold" placeholder="0.00" />
+                  <input 
+                    type="text" 
+                    inputMode="decimal"
+                    required 
+                    value={formatAmountForInput(paymentForm.amount)} 
+                    onChange={e => {
+                      const raw = parseFormattedAmount(e.target.value);
+                      if (!isNaN(Number(raw)) || raw === '' || raw === '.') {
+                        setPaymentForm({...paymentForm, amount: raw});
+                      }
+                    }} 
+                    className="w-full h-12 px-3.5 rounded-xl bg-gradient-to-r from-[#82A094]/5 to-[#4F6A64]/5 border-2 border-[#82A094]/30 text-[#546A7A] focus:border-[#82A094] focus:outline-none focus:ring-3 focus:ring-[#82A094]/15 transition-all font-mono text-lg font-bold" 
+                    placeholder="0.00" 
+                  />
                 </div>
                 <div>
                   <label className="flex items-center gap-2 text-xs font-bold text-[#5D6E73] mb-1.5 uppercase tracking-wider">

@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { ARInvoiceStatus } from '@prisma/client';
 import * as XLSX from 'xlsx';
 import multer from 'multer';
 import path from 'path';
@@ -602,7 +603,15 @@ export const importFromExcel = async (req: Request, res: Response) => {
             mailToTSP: string | null;
             financeComments: string | null;
             invoiceType: 'REGULAR' | 'MILESTONE';
+            // Master Fields
+            emailId?: string | null;
+            contactNo?: string | null;
+            region?: string | null;
+            department?: string | null;
+            personInCharge?: string | null;
+            pocName?: string | null;
         }> = [];
+
         const errors: string[] = [];
 
         for (let i = 0; i < rows.length; i++) {
@@ -723,12 +732,6 @@ export const importFromExcel = async (req: Request, res: Response) => {
                             accountingStatus: row.accountingStatus,
                             mailToTSP: row.mailToTSP,
                             invoiceType: row.invoiceType,
-                            // Reset payment-related fields on re-import
-                            balance: row.totalAmount,
-                            receipts: 0,
-                            adjustments: 0,
-                            totalReceipts: 0,
-                            status: 'PENDING',
                             // Master Fields
                             emailId: row.emailId || null,
                             contactNo: row.contactNo || null,
@@ -737,31 +740,52 @@ export const importFromExcel = async (req: Request, res: Response) => {
                             personInCharge: row.personInCharge || null
                         };
 
-                        // Check if invoice already exists
+                        // Check if invoice already exists (by number AND type to prevent accidental overwrites)
                         const existingInvoice = await tx.aRInvoice.findFirst({
-                            where: { invoiceNumber: row.invoiceNumber },
-                            select: { id: true }
+                            where: { invoiceNumber: row.invoiceNumber, invoiceType: row.invoiceType },
+                            select: { id: true, receipts: true, adjustments: true, totalReceipts: true }
                         });
+
 
                         let upsertedInvoice;
 
                         if (existingInvoice) {
-                            await tx.aRPaymentHistory.deleteMany({
-                                where: { invoiceId: existingInvoice.id }
-                            });
+                            // If invoice exists, preserve receipts and recalculate balance/status
+                            const currentReceipts = Number(existingInvoice.receipts || 0);
+                            const currentAdjustments = Number(existingInvoice.adjustments || 0);
+                            const totalReceipts = currentReceipts + currentAdjustments;
+                            const newBalance = Number(row.totalAmount) - totalReceipts;
+                            
+                            let newStatus: ARInvoiceStatus = 'PENDING';
+                            if (newBalance <= 0) newStatus = 'PAID';
+                            else if (totalReceipts > 0) newStatus = 'PARTIAL';
 
                             upsertedInvoice = await tx.aRInvoice.update({
                                 where: { id: existingInvoice.id },
-                                data: upsertData
+                                data: {
+                                    ...upsertData,
+                                    receipts: currentReceipts,
+                                    adjustments: currentAdjustments,
+                                    totalReceipts: totalReceipts,
+                                    balance: newBalance,
+                                    status: newStatus
+                                }
                             });
                         } else {
+                            // New invoice - default to full balance and pending status
                             upsertedInvoice = await tx.aRInvoice.create({
                                 data: {
                                     invoiceNumber: row.invoiceNumber,
-                                    ...upsertData
+                                    ...upsertData,
+                                    balance: row.totalAmount,
+                                    receipts: 0,
+                                    adjustments: 0,
+                                    totalReceipts: 0,
+                                    status: 'PENDING'
                                 }
                             });
                         }
+
 
                         // 3. Update or Create Master Customer Record if BP Code exists
                         if (bpCode) {

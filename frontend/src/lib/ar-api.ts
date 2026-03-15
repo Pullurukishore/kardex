@@ -568,8 +568,9 @@ export const arApi = {
         return res.data;
     },
 
-    async getInvoiceById(id: string): Promise<ARInvoice> {
-        const res = await api.get(`/ar/invoices/${id}`);
+    async getInvoiceById(id: string, type?: 'REGULAR' | 'MILESTONE'): Promise<ARInvoice> {
+        const params = type ? { type } : undefined;
+        const res = await api.get(`/ar/invoices/${id}`, { params });
         return res.data;
     },
 
@@ -1061,6 +1062,40 @@ export const formatARCurrency = (amount: number, currency?: string): string => {
         maximumFractionDigits: 2
     })}`;
 };
+
+/**
+ * Formats a numeric string with commas for display in an input field.
+ * Supports Indian numbering system (en-IN).
+ */
+export const formatAmountForInput = (value: string | number): string => {
+    if (value === undefined || value === null || value === '') return '';
+    
+    // Remove existing commas if string
+    const cleanValue = value.toString().replace(/,/g, '');
+    
+    // Split into integer and decimal parts
+    const parts = cleanValue.split('.');
+    
+    // Format the integer part
+    const integerPart = parts[0];
+    if (integerPart === '' || integerPart === '-') return cleanValue;
+    
+    const num = parseFloat(integerPart);
+    if (isNaN(num)) return cleanValue;
+
+    // Use en-IN for Indian numbering system (10,00,000)
+    const formattedInteger = num.toLocaleString('en-IN');
+    
+    return parts.length > 1 ? `${formattedInteger}.${parts[1]}` : formattedInteger;
+};
+
+/**
+ * Strips commas from a formatted amount string.
+ */
+export const parseFormattedAmount = (value: string): string => {
+    return value.replace(/,/g, '');
+};
+
 
 export const formatARDate = (date?: string | null): string => {
     if (!date) return '-';
