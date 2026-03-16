@@ -183,7 +183,6 @@ export class ForecastController {
                             startsWith: `${targetYear}-`,
                         },
                         stage: { notIn: ['LOST'] }, // Exclude lost offers
-                        openFunnel: true,
                         // User filter - filter by assignedToId or createdById
                         ...(filterUserId && {
                             OR: [
@@ -1435,7 +1434,7 @@ export class ForecastController {
                 const offers = await prisma.offer.findMany({
                     where: {
                         zoneId: zone.id,
-                        offerMonth: {
+                        poExpectedMonth: {
                             startsWith: `${targetYear}-`,
                         },
                         stage: { notIn: ['LOST'] },
@@ -1452,6 +1451,7 @@ export class ForecastController {
                         id: true,
                         offerValue: true,
                         productType: true,
+                        poExpectedMonth: true,
                         assignedToId: true,
                         createdById: true,
                         probabilityPercentage: true,
@@ -1529,8 +1529,8 @@ export class ForecastController {
             const filterZoneId = zoneId ? parseInt(zoneId as string) : null;
             const filterUserId = userId ? parseInt(userId as string) : null;
 
-            const monthNames = ['MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC', 'JAN', 'FEB'];
-            const monthNumbers = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 1, 2]; // Financial year order
+            const monthNames = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+            const monthNumbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]; // Calendar year order
 
             // All product types
             const productTypes = [
@@ -1590,7 +1590,7 @@ export class ForecastController {
                 const offers = await prisma.offer.findMany({
                     where: {
                         zoneId: zone.id,
-                        offerMonth: {
+                        poExpectedMonth: {
                             startsWith: `${targetYear}-`,
                         },
                         stage: { notIn: ['LOST'] },
@@ -1607,7 +1607,7 @@ export class ForecastController {
                         id: true,
                         offerValue: true,
                         productType: true,
-                        offerMonth: true,
+                        poExpectedMonth: true,
                         assignedToId: true,
                         createdById: true,
                         probabilityPercentage: true,
@@ -1637,8 +1637,8 @@ export class ForecastController {
                         const productOffers = userOffers.filter(o => o.productType === product.key);
 
                         for (const offer of productOffers) {
-                            if (!offer.offerMonth) continue;
-                            const monthNum = parseInt(offer.offerMonth.split('-')[1]);
+                            if (!offer.poExpectedMonth) continue;
+                            const monthNum = parseInt(offer.poExpectedMonth.split('-')[1]);
                             const monthIdx = monthNumbers.indexOf(monthNum);
                             if (monthIdx >= 0) {
                                 const monthKey = monthNames[monthIdx];
