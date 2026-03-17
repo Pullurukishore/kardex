@@ -89,8 +89,8 @@ export const downloadICICICMS = async (payments: PaymentRow[], customFilename?: 
     payments.forEach(p => {
         const trnType = p.transactionMode === 'NFT' ? 'N' : p.transactionMode === 'RTI' ? 'R' : 'I';
         const cleanName = (p.vendorName || '').replace(/,/g, '').trim();
-        const beneCode = (p.bpCode || p.nickName || cleanName.substring(0, 15)).trim();
-        const custRef = (p.bpCode || p.nickName || cleanName.split(' ')[0].substring(0, 30)).trim();
+        const beneCode = (p.nickName || cleanName.substring(0, 15)).trim();
+        const custRef = (p.nickName || cleanName.split(' ')[0].substring(0, 30)).trim();
 
         const rowData = Array(31).fill("");
         rowData[0] = trnType;
@@ -154,7 +154,7 @@ export const downloadStandardPayment = async (payments: PaymentRow[], customFile
 
     payments.forEach(p => {
         const cleanName = (p.vendorName || '').replace(/,/g, '').trim();
-        const ref = (p.bpCode || p.nickName || cleanName.split(' ')[0].substring(0, 15)).trim();
+        const ref = (p.nickName || cleanName.split(' ')[0].substring(0, 15)).trim();
 
         const row = worksheet.addRow([
             p.transactionMode,
@@ -191,8 +191,8 @@ function buildICICIDataRows(payments: PaymentRow[], formatDate: (d: Date, f: str
     return payments.map(p => {
         const trnType = p.transactionMode === 'NFT' ? 'N' : p.transactionMode === 'RTI' ? 'R' : 'I';
         const cleanName = (p.vendorName || '').replace(/,/g, '').trim();
-        const beneCode = (p.bpCode || p.nickName || cleanName.substring(0, 15)).trim();
-        const custRef = (p.bpCode || p.nickName || cleanName.split(' ')[0].substring(0, 30)).trim();
+        const beneCode = (p.nickName || cleanName.substring(0, 15)).trim();
+        const custRef = (p.nickName || cleanName.split(' ')[0].substring(0, 30)).trim();
 
         const row = Array(31).fill('');
         row[0] = trnType;
@@ -215,7 +215,7 @@ function buildICICIDataRows(payments: PaymentRow[], formatDate: (d: Date, f: str
 function buildStandardDataRows(payments: PaymentRow[], formatDate: (d: Date, f: string) => string) {
     return payments.map(p => {
         const cleanName = (p.vendorName || '').replace(/,/g, '').trim();
-        const ref = (p.bpCode || p.nickName || cleanName.split(' ')[0].substring(0, 15)).trim();
+        const ref = (p.nickName || cleanName.split(' ')[0].substring(0, 15)).trim();
 
         return [
             p.transactionMode,

@@ -216,7 +216,7 @@ export default function PaymentsPage() {
             const q = vendorSearchQuery.toLowerCase();
             result = result.filter(a =>
                 a.vendorName.toLowerCase().includes(q) ||
-                (a.bpCode || '').toLowerCase().includes(q) ||
+                (a.nickName || '').toLowerCase().includes(q) ||
                 a.accountNumber.includes(vendorSearchQuery) ||
                 (a.beneficiaryBankName || '').toLowerCase().includes(q) ||
                 (a.ifscCode || '').toLowerCase().includes(q)
@@ -249,6 +249,7 @@ export default function PaymentsPage() {
             bankAccount: account,
             vendorName: account.vendorName,
             bpCode: account.bpCode || '',
+            nickName: account.nickName || '',
             accountNumber: account.accountNumber,
             ifscCode: account.ifscCode,
             bankName: account.beneficiaryBankName || '',
@@ -719,11 +720,11 @@ export default function PaymentsPage() {
                                                             <span className="font-mono text-[#6F8A9D] font-semibold">{a.ifscCode}</span>
                                                         </div>
 
-                                                        {/* Row 3: BP Code + Currency + MSME */}
+                                                        {/* Row 3: NickName + Currency + MSME */}
                                                         <div className="flex items-center gap-2">
-                                                            {a.bpCode && (
+                                                            {a.nickName && (
                                                                 <span className="text-[10px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md font-bold uppercase tracking-tight">
-                                                                    BP: {a.bpCode}
+                                                                    Nick: {a.nickName}
                                                                 </span>
                                                             )}
                                                             <span className="inline-flex items-center gap-1 text-[10px] text-[#4F6A64] bg-[#82A094]/10 px-2 py-0.5 rounded-md font-bold uppercase">
@@ -1624,8 +1625,8 @@ export default function PaymentsPage() {
                                         <tbody className="divide-y divide-slate-50">
                                             {pendingPayments.filter(p => p.amount && p.amount > 0).map((item) => {
                                                 const trnType = item.transactionMode === 'NFT' ? 'N' : item.transactionMode === 'RTI' ? 'R' : 'I';
-                                                const beneCode = item.bpCode || item.vendorName?.substring(0, 15).trim() || '';
-                                                const custRef = (item.bankAccount as any)?.nickName || item.vendorName?.split(' ')[0]?.substring(0, 30) || '';
+                                                const beneCode = item.nickName || item.vendorName?.substring(0, 15).trim() || '';
+                                                const custRef = item.nickName || item.vendorName?.split(' ')[0]?.substring(0, 30) || '';
                                                 const valueDate = item.valueDate ? new Date(item.valueDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '/') : '—';
                                                 return (
                                                     <tr key={item.tempId} className="hover:bg-[#6F8A9D]/5 transition-colors group">
