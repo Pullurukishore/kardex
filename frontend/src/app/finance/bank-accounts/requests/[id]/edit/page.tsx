@@ -166,6 +166,21 @@ export default function EditRequestPage() {
       if (formData.currency === 'Other') {
         apiData.currency = formData.otherCurrency || 'Other';
       }
+
+      // Check if any fields were changed compared to the rejected request
+      const hasFieldChanges = Object.keys(apiData).some(key => {
+        const newVal = (apiData as any)[key];
+        const oldVal = (originalRequest?.requestedData as any)?.[key];
+        // Treat undefined, null, and empty string as equivalent for comparison
+        if (!newVal && !oldVal) return false;
+        return newVal !== oldVal;
+      });
+
+      if (!hasFieldChanges && selectedFiles.length === 0) {
+        setError('No changes detected to the request details or attachments.');
+        setSubmitting(false);
+        return;
+      }
       
       // Create a NEW request based on the edited data
       const newRequest = await arApi.createBankAccountRequest({

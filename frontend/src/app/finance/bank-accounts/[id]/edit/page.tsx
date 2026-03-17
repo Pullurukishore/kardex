@@ -340,6 +340,16 @@ export default function EditBankAccountPage() {
         return;
       }
 
+      const hasAnyChanges = Object.keys(formData).some((key) =>
+        hasChanges(key as keyof FormData)
+      );
+
+      if (!hasAnyChanges) {
+        setError('No changes detected compared to the original account details.');
+        setSaving(false);
+        return;
+      }
+
       // Field format validations
       if (!isAlphanumeric(formData.bpCode)) {
         setError('Vendor Code must be alphanumeric');
@@ -549,6 +559,11 @@ export default function EditBankAccountPage() {
     // 1. Handle specialized boolean defaults
     if (field === 'isMSME') {
       return (currentValue || false) !== (originalValue || false);
+    }
+
+    if (field === 'isGstRegistered') {
+      const originalGstRegistered = !!originalAccount.gstNumber && originalAccount.gstNumber !== 'UNREGISTERED';
+      return currentValue !== originalGstRegistered;
     }
 
     // 2. Handle specialized string defaults that match loadAccount() logic
@@ -1432,7 +1447,8 @@ export default function EditBankAccountPage() {
                 {Object.keys(formData).map((key) => {
                   const field = key as keyof FormData;
                   const changed = hasChanges(field);
-                  if (!changed) return null;
+                  // Don't show transient/frontend-computed fields in the preview
+                  if (!changed || field === 'isGstRegistered') return null;
                   
                   const labels: Record<string, string> = {
                     bpCode: 'BP Code',
