@@ -376,6 +376,8 @@ export const login = async (req: Request, res: Response) => {
       user: {
         ...userData,
         financeRole: user.financeRole || null,
+        arRole: user.arRole || null,
+        vendorRole: user.vendorRole || null,
         customer: user.customer
       },
       token, // For backward compatibility
@@ -426,6 +428,8 @@ export const getCurrentUser = async (req: AuthenticatedRequest, res: Response) =
         name: true,
         role: true,
         financeRole: true,
+        arRole: true,
+        vendorRole: true,
         phone: true,
         customerId: true,
         zoneId: true,
@@ -617,6 +621,8 @@ export const refreshToken = async (req: Request, res: Response) => {
         email: true,
         role: true,
         financeRole: true,
+        arRole: true,
+        vendorRole: true,
         customerId: true,
         isActive: true,
         refreshToken: true,
@@ -763,6 +769,8 @@ export const refreshToken = async (req: Request, res: Response) => {
         email: user.email,
         role: user.role,
         financeRole: user.financeRole,
+        arRole: user.arRole || null,
+        vendorRole: user.vendorRole || null,
         customerId: user.customerId
       }
     };

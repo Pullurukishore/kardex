@@ -40,6 +40,7 @@ interface FormData {
   accountType: string;
   otherCurrency?: string;
   accountCategory?: string;
+  isGstRegistered: boolean;
 }
 
 export default function EditBankAccountPage() {
@@ -80,7 +81,8 @@ export default function EditBankAccountPage() {
     currency: 'INR',
     accountType: '',
     otherCurrency: '',
-    accountCategory: 'DOMESTIC'
+    accountCategory: 'DOMESTIC',
+    isGstRegistered: true
   });
 
   useEffect(() => {
@@ -119,7 +121,8 @@ export default function EditBankAccountPage() {
       currency: ['INR', 'EUR', 'USD'].includes(data.currency) ? data.currency : 'Other',
       accountType: data.accountType || '',
       otherCurrency: ['INR', 'EUR', 'USD'].includes(data.currency) ? '' : data.currency,
-      accountCategory: data.accountCategory || 'DOMESTIC'
+      accountCategory: data.accountCategory || 'DOMESTIC',
+      isGstRegistered: !!data.gstNumber && data.gstNumber !== 'UNREGISTERED'
     });
     setSelectedDocContexts([data.accountCategory || 'DOMESTIC']);
     } catch (error) {
@@ -245,6 +248,17 @@ export default function EditBankAccountPage() {
       return;
     }
 
+    if (name === 'isGstRegistered') {
+      setFormData(prev => ({
+        ...prev,
+        isGstRegistered: checked,
+        gstNumber: checked ? prev.gstNumber : ''
+      }));
+      setFieldErrors(prev => ({ ...prev, gstNumber: '' }));
+      setError('');
+      return;
+    }
+
     if (name === 'panNumber') {
       // PAN format: ABCDE1234F (10 chars)
       const upper = value.toUpperCase();
@@ -354,8 +368,8 @@ export default function EditBankAccountPage() {
       // Smart Mandatory Validation for GST/PAN (only for DOMESTIC and EMPLOYEE with INR)
       if (formData.accountCategory !== 'INTERNATIONAL') {
         if (formData.currency === 'INR') {
-          if (!formData.gstNumber) {
-            setError('GST Number is required for INR transactions');
+          if (formData.isGstRegistered && !formData.gstNumber) {
+            setError('GST Number is required for registered vendors');
             setSaving(false);
             return;
           }
@@ -422,7 +436,7 @@ export default function EditBankAccountPage() {
       ...formData,
       currency: formData.currency === 'Other' ? formData.otherCurrency : formData.currency,
       panNumber: formData.panNumber.toUpperCase(),
-      gstNumber: formData.gstNumber.toUpperCase()
+      gstNumber: formData.isGstRegistered ? formData.gstNumber.toUpperCase() : ''
     };
     
     // Remove temporary frontend fields
@@ -980,28 +994,60 @@ export default function EditBankAccountPage() {
               {formData.accountCategory !== 'INTERNATIONAL' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div className={`space-y-2 ${hasChanges('gstNumber') ? 'ring-2 ring-[#CE9F6B]/30 rounded-xl p-3 -m-3' : ''}`}>
-                  <label className="flex items-center gap-2 text-sm font-semibold text-[#5D6E73]">
-                    GST Number {formData.currency === 'INR' && <span className="text-[#E17F70]">*</span>}
-                    {hasChanges('gstNumber') && (
-                      <span className="ml-auto text-xs text-[#CE9F6B] font-medium">Modified</span>
-                    )}
-                  </label>
-                  <input
-                    type="text"
-                    name="gstNumber"
-                    value={formData.gstNumber}
-                    onChange={handleChange}
-                    maxLength={15}
-                    className={`w-full px-4 py-3.5 bg-[#F8FAFB] border rounded-xl text-[#546A7A] focus:outline-none focus:ring-2 focus:ring-[#CE9F6B]/20 focus:bg-white transition-all uppercase ${
-                      fieldErrors.gstNumber ? 'border-[#E17F70] focus:border-[#E17F70]' : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B]/50'
-                    }`}
-                  />
-                  <p className="text-[10px] text-[#92A2A5] mt-1">Format: 22AAAAA0000A1Z5 (Strict Character Rules)</p>
-                  {fieldErrors.gstNumber && (
-                    <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
-                      <AlertCircle className="w-3 h-3" />
-                      {fieldErrors.gstNumber}
-                    </p>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="flex items-center gap-2 text-sm font-semibold text-[#5D6E73]">
+                      <Shield className="w-4 h-4 text-[#CE9F6B]" />
+                      GST Registered?
+                    </label>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        name="isGstRegistered"
+                        checked={formData.isGstRegistered}
+                        onChange={handleChange}
+                        className="sr-only peer" 
+                      />
+                      <div 
+                        className="w-11 h-6 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"
+                        style={{ background: formData.isGstRegistered ? '#CE9F6B' : 'rgba(174,191,195,0.5)' }}
+                      />
+                    </label>
+                  </div>
+
+                  {formData.isGstRegistered ? (
+                    <>
+                      <label className="flex items-center gap-2 text-sm font-semibold text-[#5D6E73]">
+                        GST Number {formData.currency === 'INR' && <span className="text-[#E17F70]">*</span>}
+                        {hasChanges('gstNumber') && (
+                          <span className="ml-auto text-xs text-[#CE9F6B] font-medium">Modified</span>
+                        )}
+                      </label>
+                      <input
+                        type="text"
+                        name="gstNumber"
+                        value={formData.gstNumber}
+                        onChange={handleChange}
+                        maxLength={15}
+                        className={`w-full px-4 py-3.5 bg-[#F8FAFB] border rounded-xl text-[#546A7A] focus:outline-none focus:ring-2 focus:ring-[#CE9F6B]/20 focus:bg-white transition-all uppercase ${
+                          fieldErrors.gstNumber ? 'border-[#E17F70] focus:border-[#E17F70]' : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B]/50'
+                        }`}
+                      />
+                      <p className="text-[10px] text-[#92A2A5] mt-1">Format: 22AAAAA0000A1Z5 (Strict Character Rules)</p>
+                      {fieldErrors.gstNumber && (
+                        <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
+                          <AlertCircle className="w-3 h-3" />
+                          {fieldErrors.gstNumber}
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <div className="p-4 mt-2 rounded-2xl flex items-center gap-3 border border-[#CE9F6B]/20 bg-white shadow-sm">
+                      <Info className="w-5 h-5 text-[#CE9F6B]" />
+                      <div>
+                        <p className="text-sm font-bold text-[#546A7A]">Unregistered Vendor</p>
+                        <p className="text-[10px] font-medium text-[#92A2A5]">GST details are not required.</p>
+                      </div>
+                    </div>
                   )}
                 </div>
 

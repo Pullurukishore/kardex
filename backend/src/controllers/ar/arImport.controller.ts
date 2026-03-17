@@ -390,7 +390,7 @@ export const previewExcel = async (req: Request, res: Response) => {
             'Customer': ['Customer', 'Customer Name', 'BP Name', 'Sold-to party'],
             'Accounting status': ['Accounting status', 'Status', 'Accounting Status'],
             'Mail to TSP': ['Mail to TSP', 'TSP'],
-            'Invoice Date': ['Invoice Date', 'Document Date', 'Date'],
+            'Invoice Date': ['Invoice Date', 'Document Date'],
             'Due Date': ['Due Date'],
             'Order Value': ['Order Value', 'Net', 'Value'],
             'GST': ['GST', 'Tax'],
@@ -411,7 +411,8 @@ export const previewExcel = async (req: Request, res: Response) => {
             'Contact No': ['Contact No', 'Phone', 'Mobile'],
             'Region': ['Region', 'Location', 'Zone'],
             'Department': ['Department'],
-            'Person In-charge': ['Person In-charge', 'POC']
+            'Person In-charge': ['Person In-charge', 'POC'],
+            'Category': ['Category', 'Type', 'Service Type']
         };
 
         const displayHeaders = isMilestoneFormat ? milestoneRequiredColumns : sapRequiredColumns;
@@ -436,10 +437,11 @@ export const previewExcel = async (req: Request, res: Response) => {
                 totalAmount: getValue(row, 'Total Amount', 'Amount', 'Total'),
                 netAmount: getValue(row, 'Order Value', 'Net', 'Value'),
                 taxAmount: getValue(row, 'GST', 'Tax'),
-                invoiceDate: getValue(row, 'Invoice Date', 'Document Date', 'Date'),
+                invoiceDate: getValue(row, 'Invoice Date', 'Document Date'),
                 financeComments: getValue(row, 'Finance Comments', 'Remarks', 'Comments'),
                 mailToTSP: getValue(row, 'Mail to TSP', 'TSP'),
                 actualPaymentTerms: getValue(row, 'Actual Payment terms', 'Payment Terms', 'Terms'),
+                type: getValue(row, 'Category', 'Type', 'Service Type'),
                 // Master Fields
                 emailId: getValue(row, 'Email ID', 'Email', 'Contact Email'),
                 contactNo: getValue(row, 'Contact No', 'Phone', 'Mobile'),
@@ -543,7 +545,7 @@ export const importFromExcel = async (req: Request, res: Response) => {
             'customerName': ['Customer', 'Customer Name', 'BP Name', 'Sold-to party'],
             'accountingStatus': ['Accounting status', 'Status', 'Accounting Status'],
             'mailToTSP': ['Mail to TSP', 'TSP'],
-            'invoiceDate': ['Invoice Date', 'Document Date', 'Date'],
+            'invoiceDate': ['Invoice Date', 'Document Date'],
             'dueDate': ['Due Date'],
             'netAmount': ['Order Value', 'Net', 'Value'],
             'taxAmount': ['GST', 'Tax'],
@@ -558,7 +560,8 @@ export const importFromExcel = async (req: Request, res: Response) => {
             'totalAmount': ['Amount', 'Total Amount', 'TotalAmount', 'Original Amount', 'OriginalAmount'],
             'netAmount': ['Net', 'Net Amount', 'NetAmount'],
             'taxAmount': ['Tax', 'Tax Amount', 'TaxAmount'],
-            'invoiceDate': ['Document Date', 'DocumentDate', 'Invoice Date', 'InvoiceDate']
+            'invoiceDate': ['Document Date', 'DocumentDate', 'Invoice Date', 'InvoiceDate'],
+            'type': ['Category', 'Type', 'Service Type']
         };
 
         // Potential Resource Exhaustion Check (Hole #3)
@@ -610,6 +613,7 @@ export const importFromExcel = async (req: Request, res: Response) => {
             department?: string | null;
             personInCharge?: string | null;
             pocName?: string | null;
+            type?: string | null;
         }> = [];
 
         const errors: string[] = [];
@@ -640,6 +644,13 @@ export const importFromExcel = async (req: Request, res: Response) => {
             const mailToTSP = isMilestoneFormat ? getValue(row, ...possibleHeaders['mailToTSP'])?.toString()?.trim() : null;
             const actualPaymentTerms = isMilestoneFormat ? getValue(row, ...possibleHeaders['actualPaymentTerms'])?.toString()?.trim() : null;
             const financeComments = isMilestoneFormat ? getValue(row, ...possibleHeaders['financeComments'])?.toString()?.trim() : null;
+            const typeStr = getValue(row, ...possibleHeaders['type'] || ['Category', 'Type', 'Service Type'])?.toString()?.trim()?.toUpperCase() || null;
+            let finalType: any = null;
+            if (typeStr === 'LCS' || typeStr === 'NB' || typeStr === 'FINANCE') {
+                finalType = typeStr;
+            } else if (typeStr === 'NEW BUSINESS') {
+                finalType = 'NB';
+            }
             
             // Validation
             if (!invoiceNumber && !isMilestoneFormat) {
@@ -656,7 +667,7 @@ export const importFromExcel = async (req: Request, res: Response) => {
             }
 
             // Fallback for missing invoice number in milestone format
-            const finalInvoiceNumber = invoiceNumber || `TEMP-${soNo || 'MS'}-${Date.now()}-${i}`;
+            const finalInvoiceNumber = invoiceNumber || '';
 
             // Ignore Due Date from Excel even if provided - user adds it manually
             const dueDateFromExcel = null;
@@ -694,7 +705,8 @@ export const importFromExcel = async (req: Request, res: Response) => {
                 contactNo: getValue(row, 'Contact No', 'Phone', 'Mobile'),
                 region: getValue(row, 'Region', 'Location', 'Zone'),
                 department: getValue(row, 'Department'),
-                personInCharge: getValue(row, 'Person In-charge', 'POC')
+                personInCharge: getValue(row, 'Person In-charge', 'POC'),
+                type: finalType
             });
         }
 
@@ -737,7 +749,8 @@ export const importFromExcel = async (req: Request, res: Response) => {
                             contactNo: row.contactNo || null,
                             region: row.region || null,
                             department: row.department || null,
-                            personInCharge: row.personInCharge || null
+                            personInCharge: row.personInCharge || null,
+                            type: row.type || null
                         };
 
                         // Check if invoice already exists (by number AND type to prevent accidental overwrites)

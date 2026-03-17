@@ -50,6 +50,8 @@ export const getFinanceUsers = async (req: Request, res: Response) => {
                     name: true,
                     phone: true,
                     financeRole: true,
+                    arRole: true,
+                    vendorRole: true,
                     isActive: true,
                     lastLoginAt: true,
                     createdAt: true,
@@ -112,6 +114,8 @@ export const getFinanceUserById = async (req: Request, res: Response) => {
                 name: true,
                 phone: true,
                 financeRole: true,
+                arRole: true,
+                vendorRole: true,
                 isActive: true,
                 lastLoginAt: true,
                 createdAt: true,
@@ -150,7 +154,7 @@ export const getFinanceUserById = async (req: Request, res: Response) => {
 // Create a new finance user
 export const createFinanceUser = async (req: Request, res: Response) => {
     try {
-        const { email, name, phone, password, financeRole } = req.body;
+        const { email, name, phone, password, financeRole, arRole, vendorRole } = req.body;
 
         // Validate required fields
         if (!email || !password || !financeRole) {
@@ -192,6 +196,8 @@ export const createFinanceUser = async (req: Request, res: Response) => {
                 phone: phone || null,
                 password: hashedPassword,
                 financeRole: financeRole as FinanceRole,
+                arRole: arRole as FinanceRole || null,
+                vendorRole: vendorRole as FinanceRole || null,
                 tokenVersion: uuidv4(),
                 isActive: true,
             },
@@ -201,6 +207,8 @@ export const createFinanceUser = async (req: Request, res: Response) => {
                 name: true,
                 phone: true,
                 financeRole: true,
+                arRole: true,
+                vendorRole: true,
                 isActive: true,
                 createdAt: true,
                 updatedAt: true,
@@ -227,7 +235,7 @@ export const updateFinanceUser = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
         const userId = parseInt(id);
-        const { email, name, phone, password, financeRole, isActive } = req.body;
+        const { email, name, phone, password, financeRole, arRole, vendorRole, isActive } = req.body;
 
         if (isNaN(userId)) {
             return res.status(400).json({
@@ -282,6 +290,8 @@ export const updateFinanceUser = async (req: Request, res: Response) => {
         if (name !== undefined) updateData.name = name || null;
         if (phone !== undefined) updateData.phone = phone || null;
         if (financeRole) updateData.financeRole = financeRole as FinanceRole;
+        if (arRole !== undefined) updateData.arRole = arRole as FinanceRole || null;
+        if (vendorRole !== undefined) updateData.vendorRole = vendorRole as FinanceRole || null;
         if (typeof isActive === 'boolean') updateData.isActive = isActive;
 
         // Hash password if provided
@@ -300,6 +310,8 @@ export const updateFinanceUser = async (req: Request, res: Response) => {
                 name: true,
                 phone: true,
                 financeRole: true,
+                arRole: true,
+                vendorRole: true,
                 isActive: true,
                 lastLoginAt: true,
                 createdAt: true,

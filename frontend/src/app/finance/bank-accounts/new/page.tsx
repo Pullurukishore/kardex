@@ -39,6 +39,7 @@ interface FormData {
   accountType: string;
   otherCurrency?: string;
   accountCategory: string;
+  isGstRegistered: boolean;
 }
 
 export default function NewBankAccountPage() {
@@ -73,7 +74,8 @@ export default function NewBankAccountPage() {
     currency: 'INR',
     accountType: '',
     otherCurrency: '',
-    accountCategory: ''
+    accountCategory: '',
+    isGstRegistered: true
   });
 
   const [selectedFiles, setSelectedFiles] = useState<{file: File, vendorType: string}[]>([]);
@@ -214,6 +216,17 @@ export default function NewBankAccountPage() {
         }
       }
       setFormData(prev => ({ ...prev, gstNumber: formatted }));
+      setFieldErrors(prev => ({ ...prev, gstNumber: '' }));
+      setError('');
+      return;
+    }
+
+    if (name === 'isGstRegistered') {
+      setFormData(prev => ({
+        ...prev,
+        isGstRegistered: checked,
+        gstNumber: checked ? prev.gstNumber : ''
+      }));
       setFieldErrors(prev => ({ ...prev, gstNumber: '' }));
       setError('');
       return;
@@ -474,7 +487,7 @@ export default function NewBankAccountPage() {
       // GST/PAN required only for DOMESTIC and EMPLOYEE with INR currency
       if (selectedCategory !== 'INTERNATIONAL') {
         if (formData.currency === 'INR') {
-          if (!formData.gstNumber) {
+          if (formData.isGstRegistered && !formData.gstNumber) {
             return { valid: false, message: 'GST Number is required for INR transactions' };
           }
           if (!formData.panNumber) {
@@ -1054,26 +1067,59 @@ export default function NewBankAccountPage() {
               style={{ background: 'linear-gradient(135deg, rgba(206,159,107,0.08) 0%, rgba(151,110,68,0.04) 100%)', borderColor: 'rgba(206,159,107,0.2)' }}
             >
               <div className="space-y-3">
-                <label className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider" style={{ color: '#5D6E73' }}>
-                  <Shield className="w-4 h-4" style={{ color: '#CE9F6B' }} />
-                  GST Number {formData.currency === 'INR' && <span className="text-[#E17F70]">*</span>}
-                </label>
-                <input
-                  type="text"
-                  name="gstNumber"
-                  value={formData.gstNumber}
-                  onChange={handleChange}
-                  placeholder="22AAAAA0000A1Z5"
-                  maxLength={15}
-                  className={`w-full px-5 py-4 rounded-2xl font-mono font-bold uppercase transition-all focus:outline-none`}
-                  style={{ background: 'white', border: `2px solid ${fieldErrors.gstNumber ? '#E17F70' : '#AEBFC3'}`, color: '#546A7A' }}
-                />
-                <p className="text-[10px] text-[#92A2A5] mt-1">Format: 22AAAAA0000A1Z5 (Strict Character Rules)</p>
-                {fieldErrors.gstNumber && (
-                  <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
-                    <AlertCircle className="w-3 h-3" />
-                    {fieldErrors.gstNumber}
-                  </p>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider" style={{ color: '#5D6E73' }}>
+                    <Shield className="w-4 h-4" style={{ color: '#CE9F6B' }} />
+                    GST Registered?
+                  </label>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      name="isGstRegistered"
+                      checked={formData.isGstRegistered}
+                      onChange={handleChange}
+                      className="sr-only peer" 
+                    />
+                    <div 
+                      className="w-11 h-6 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"
+                      style={{ 
+                        background: formData.isGstRegistered ? '#CE9F6B' : 'rgba(174,191,195,0.5)'
+                      }}
+                    />
+                  </label>
+                </div>
+                
+                {formData.isGstRegistered ? (
+                  <>
+                    <label className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider" style={{ color: '#5D6E73' }}>
+                      GST Number {formData.currency === 'INR' && <span className="text-[#E17F70]">*</span>}
+                    </label>
+                    <input
+                      type="text"
+                      name="gstNumber"
+                      value={formData.gstNumber}
+                      onChange={handleChange}
+                      placeholder="22AAAAA0000A1Z5"
+                      maxLength={15}
+                      className={`w-full px-5 py-4 rounded-2xl font-mono font-bold uppercase transition-all focus:outline-none`}
+                      style={{ background: 'white', border: `2px solid ${fieldErrors.gstNumber ? '#E17F70' : '#AEBFC3'}`, color: '#546A7A' }}
+                    />
+                    <p className="text-[10px] text-[#92A2A5] mt-1">Format: 22AAAAA0000A1Z5 (Strict Character Rules)</p>
+                    {fieldErrors.gstNumber && (
+                      <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
+                        <AlertCircle className="w-3 h-3" />
+                        {fieldErrors.gstNumber}
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <div className="p-4 mt-2 rounded-2xl flex items-center gap-3 border border-[#CE9F6B]/20 bg-white shadow-sm">
+                    <Info className="w-5 h-5 text-[#CE9F6B]" />
+                    <div>
+                      <p className="text-sm font-bold text-[#546A7A]">Unregistered Vendor</p>
+                      <p className="text-[10px] font-medium text-[#92A2A5]">GST details are not required.</p>
+                    </div>
+                  </div>
                 )}
               </div>
 

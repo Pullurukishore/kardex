@@ -472,7 +472,7 @@ export default function BankAccountDetailPage() {
                       <div className="w-1.5 h-1.5 bg-[#82A094] rounded-full mt-2 shrink-0"></div>
                       <div className="min-w-0 flex-1">
                         <dt className="text-[10px] sm:text-xs text-[#AEBFC3] font-semibold uppercase tracking-wider">GST Number</dt>
-                        <dd className="text-sm sm:text-base font-mono font-bold text-[#546A7A] mt-0.5">{account.gstNumber || '—'}</dd>
+                        <dd className="text-sm sm:text-base font-mono font-bold text-[#546A7A] mt-0.5">{account.gstNumber || 'Unregistered'}</dd>
                       </div>
                     </div>
                     <div className="flex items-start gap-3">

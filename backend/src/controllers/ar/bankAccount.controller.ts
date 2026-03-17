@@ -114,7 +114,7 @@ export const createBankAccount = async (req: Request, res: Response) => {
         const currency = req.body.currency || 'INR';
         const category = accountCategory || 'DOMESTIC';
         if (currency === 'INR' && category !== 'INTERNATIONAL') {
-            if (!gstNumber) {
+            if (req.body.isGstRegistered !== false && !gstNumber) {
                 return res.status(400).json({ error: 'GST Number is required for INR transactions' });
             }
             if (!panNumber) {
@@ -187,6 +187,7 @@ export const updateBankAccount = async (req: Request, res: Response) => {
         delete updateData.id;
         delete updateData.createdById;
         delete updateData.createdAt;
+        delete updateData.isGstRegistered;
 
         // Check if account exists
         const existing = await prisma.bankAccount.findUnique({ where: { id } });

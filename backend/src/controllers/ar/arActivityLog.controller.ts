@@ -12,6 +12,8 @@ export type ARActivityAction =
     | 'STATUS_CHANGED'
     | 'DELIVERY_UPDATED'
     | 'REMARK_ADDED'
+    | 'REMARK_UPDATED'
+    | 'REMARK_DELETED'
     | 'INVOICE_IMPORTED'
     | 'MILESTONE_LINKED'      // When a milestone payment is linked to a regular invoice
     | 'LINKED_TO_INVOICE'    // When a milestone is linked (logged on the milestone payment)

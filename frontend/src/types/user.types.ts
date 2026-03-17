@@ -32,6 +32,8 @@ export type User = {
   email: string;
   role: UserRole;  // Primary FSM role
   financeRole?: FinanceRole;  // Finance module role (optional)
+  arRole?: FinanceRole | null;
+  vendorRole?: FinanceRole | null;
   allowedModules?: ModuleType[];  // Which modules user can access
   name: string | null;  // Allow null for name
   isActive?: boolean;

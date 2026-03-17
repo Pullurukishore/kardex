@@ -44,7 +44,8 @@ import {
   Flag,
   Ticket,
   Shield,
-  Headphones
+  Headphones,
+  Download
 } from 'lucide-react'
 import Link from 'next/link'
 import { apiService } from '@/services/api'
@@ -257,10 +258,18 @@ export default function TicketsListPage({
                   <p className="text-lg sm:text-2xl font-bold">{stats.critical}</p>
                 </div>
               </div>
-              <Button onClick={() => router.push(`${basePath}/create`)} className="bg-white text-[#9E3B47] hover:bg-[#EEC1BF] hover:text-[#75242D] shadow-lg font-semibold">
-                <Plus className="h-4 w-4 mr-2" />
-                New Ticket
-              </Button>
+              <div className="flex gap-2">
+                {role === UserRole.ADMIN && (
+                  <Button onClick={() => router.push(`${basePath}/import`)} className="bg-white/20 hover:bg-white/30 text-white border border-white/30 shadow-lg font-semibold">
+                    <Download className="h-4 w-4 mr-2" />
+                    Import
+                  </Button>
+                )}
+                <Button onClick={() => router.push(`${basePath}/create`)} className="bg-white text-[#9E3B47] hover:bg-[#EEC1BF] hover:text-[#75242D] shadow-lg font-semibold">
+                  <Plus className="h-4 w-4 mr-2" />
+                  New Ticket
+                </Button>
+              </div>
             </div>
           </div>
         </div>

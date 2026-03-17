@@ -44,7 +44,9 @@ export async function middleware(request: NextRequest) {
 
     // Check if user has access to the API route (skip for PIN auth endpoints)
     const financeRole = request.cookies.get('financeRole')?.value as any;
-    if (!isPinAuthEndpoint && !isRouteAccessible(pathname, userRole, financeRole)) {
+    const arRole = request.cookies.get('arRole')?.value as any;
+    const vendorRole = request.cookies.get('vendorRole')?.value as any;
+    if (!isPinAuthEndpoint && !isRouteAccessible(pathname, userRole, financeRole, arRole, vendorRole)) {
       return NextResponse.json(
         { error: 'You do not have permission to access this resource' },
         { status: 403 }
@@ -74,7 +76,9 @@ export async function middleware(request: NextRequest) {
       return response;
     }
     const financeRoleForRedirect = request.cookies.get('financeRole')?.value as any;
-    const redirectPath = getRoleBasedRedirect(userRole, financeRoleForRedirect);
+    const arRoleForRedirect = request.cookies.get('arRole')?.value as any;
+    const vendorRoleForRedirect = request.cookies.get('vendorRole')?.value as any;
+    const redirectPath = getRoleBasedRedirect(userRole, financeRoleForRedirect, arRoleForRedirect, vendorRoleForRedirect);
     return NextResponse.redirect(new URL(redirectPath, request.url));
   }
 
@@ -98,16 +102,18 @@ export async function middleware(request: NextRequest) {
 
   // Check if user has access to the requested route
   const financeRole = request.cookies.get('financeRole')?.value as any;
-  if (!isRouteAccessible(pathname, userRole, financeRole)) {
+  const arRole = request.cookies.get('arRole')?.value as any;
+  const vendorRole = request.cookies.get('vendorRole')?.value as any;
+  if (!isRouteAccessible(pathname, userRole, financeRole, arRole, vendorRole)) {
     // If we have an authToken but no role, it might be a new session or roles haven't synced yet
     // Instead of deleting everything and redirecting to login, we can try to let the client handle it
     // if we are reasonably sure they ARE authenticated.
-    if (authToken && !userRole && !financeRole) {
+    if (authToken && !userRole && !financeRole && !arRole && !vendorRole) {
       // Allow the request to proceed; the client-side AuthContext will fetch the user and set roles
       return NextResponse.next();
     }
 
-    const redirectPath = getRoleBasedRedirect(userRole, financeRole);
+    const redirectPath = getRoleBasedRedirect(userRole, financeRole, arRole, vendorRole);
     // Prevent self-redirect loop: if we'd redirect to the same path, go to login instead
     if (redirectPath === pathname) {
       const loginUrl = new URL('/auth/login', request.url);

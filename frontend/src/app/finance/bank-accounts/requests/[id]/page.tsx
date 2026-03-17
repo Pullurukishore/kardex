@@ -238,8 +238,8 @@ export default function RequestDetailPage() {
       {
         field: 'gstNumber',
         label: 'GST Number',
-        oldValue: (originalAccount as any)?.gstNumber || null,
-        newValue: (request.requestedData as any).gstNumber || null,
+        oldValue: (originalAccount as any)?.gstNumber || 'Unregistered',
+        newValue: (request.requestedData as any).gstNumber || 'Unregistered',
         icon: <Shield className="w-4 h-4" />
       },
       {

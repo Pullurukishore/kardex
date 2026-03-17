@@ -127,10 +127,10 @@ export default function EditMilestonePage() {
     return netPortion;
   };
 
-  // Total allocated amount (sum of each term's calculated amount) based on total amount
   const totalAllocatedAmount = formData.milestoneTerms.reduce((sum, term) => sum + getTermAmount(term), 0);
 
   const totalPercentage = formData.milestoneTerms.reduce((sum, term) => sum + (Number(term.percentage) || 0), 0);
+  const totalTaxPercentage = formData.milestoneTerms.reduce((sum, term) => sum + (Number(term.taxPercentage) || 0), 0);
 
   useEffect(() => {
     if (params.id) {
@@ -169,7 +169,7 @@ export default function EditMilestonePage() {
         region: data.region || '',
         department: data.department || '',
         personInCharge: data.personInCharge || '',
-        type: data.type || 'NB',
+        type: data.type || '',
         status: data.status || 'PENDING',
         invoiceType: 'MILESTONE',
         milestoneTerms: (data.milestoneTerms as MilestonePaymentTerm[]) || [],
@@ -216,6 +216,10 @@ export default function EditMilestonePage() {
     e.preventDefault();
     if (totalPercentage > 100) {
       setError('Total percentage allocation cannot exceed 100%');
+      return;
+    }
+    if (totalTaxPercentage > 100) {
+      setError('Total tax percentage allocation cannot exceed 100%');
       return;
     }
     setError(null);
@@ -520,6 +524,7 @@ export default function EditMilestonePage() {
             <div>
               <label className={labelClass}>Category</label>
               <select name="type" value={formData.type} onChange={handleChange} className={selectClass}>
+                <option value="">Select Category</option>
                 <option value="NB">NB</option>
                 <option value="LCS">LCS</option>
                 <option value="FINANCE">Finance</option>
@@ -527,18 +532,7 @@ export default function EditMilestonePage() {
             </div>
           </div>
 
-          <div className="mt-6 pt-6 border-t border-[#AEBFC3]/20 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-             <div>
-              <label className={labelClass}>Milestone Status</label>
-              <select name="milestoneStatus" value={formData.milestoneStatus} onChange={handleChange} className={selectClass}>
-                <option value="AWAITING_DELIVERY">Awaiting Delivery</option>
-                <option value="PARTIALLY_DELIVERED">Partially Delivered</option>
-                <option value="FULLY_DELIVERED">Fully Delivered</option>
-                <option value="EXPIRED">Expired</option>
-                <option value="LINKED">Linked (Invoice Generated)</option>
-              </select>
-            </div>
-          </div>
+
 
           <div className="relative mt-6 border-t-2 border-[#AEBFC3]/20 pt-6">
             <h4 className="text-sm font-bold text-[#546A7A] uppercase tracking-wider mb-5 flex items-center gap-3">
@@ -548,16 +542,6 @@ export default function EditMilestonePage() {
               Supplemental Details
             </h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-              <div>
-                <label className={labelClass}>Due Date (SAP)</label>
-                <input
-                  type="date"
-                  name="dueDate"
-                  value={formData.dueDate}
-                  onChange={handleChange}
-                  className={inputClass}
-                />
-              </div>
               <div>
                 <label className={labelClass}>Risk Class</label>
                 <select name="riskClass" value={formData.riskClass} onChange={handleChange} className={selectClass}>
@@ -589,6 +573,17 @@ export default function EditMilestonePage() {
                   className={inputClass}
                 />
               </div>
+              <div>
+                <label className={labelClass}>Email ID</label>
+                <input
+                  type="email"
+                  name="emailId"
+                  value={formData.emailId}
+                  onChange={handleChange}
+                  placeholder="Customer Email"
+                  className={inputClass}
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -603,43 +598,97 @@ export default function EditMilestonePage() {
             Milestone Payment Terms
           </h3>
 
-          {/* Allocation Progress Bar */}
-          <div className="mb-5">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-[#CE9F6B]" />
-                <span className="text-sm font-bold text-[#546A7A]">Total Allocation</span>
-                {totalAllocatedAmount > 0 && (
-                  <span className="text-xs font-semibold text-[#82A094] bg-[#82A094]/10 px-2 py-0.5 rounded-full">
-                    ₹{totalAllocatedAmount.toLocaleString('en-IN', { maximumFractionDigits: 0 })} / ₹{parseFloat(formData.totalAmount || '0').toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                  </span>
-                )}
+          {/* Allocation Overview Bar */}
+          <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between px-5 py-4 bg-gradient-to-r from-[#82A094]/15 to-[#82A094]/5 rounded-xl border border-[#82A094]/30 shadow-inner">
+            <div className="flex items-center gap-3 mb-3 sm:mb-0">
+              <div className="p-2 rounded-lg bg-white shadow-sm">
+                <BarChart3 className="w-5 h-5 text-[#4F6A64]" />
               </div>
-              <div className="flex items-center gap-2">
-                <span className={`text-sm font-black ${totalPercentage > 100 ? 'text-red-500' : totalPercentage === 100 ? 'text-[#82A094]' : 'text-[#CE9F6B]'}`}>
-                  {totalPercentage}%
-                </span>
-                <span className="text-xs text-[#92A2A5]">/ 100%</span>
-                {totalPercentage > 100 && <span className="text-[10px] font-bold text-red-500 bg-red-50 px-2 py-0.5 rounded-full">Exceeds!</span>}
-                {totalPercentage === 100 && <CheckCircle2 className="w-4 h-4 text-[#82A094]" />}
+              <div>
+                <span className="block text-sm font-bold text-[#4F6A64]">Total Value Allocation</span>
+                <span className="text-[10px] text-[#4F6A64]/70 uppercase font-bold tracking-wider">Net + Tax</span>
               </div>
             </div>
-            <div className="relative h-3 bg-[#AEBFC3]/15 rounded-full overflow-hidden">
-              <div
-                className={`absolute inset-y-0 left-0 rounded-full transition-all duration-700 ease-out ${
-                  totalPercentage > 100 ? 'bg-gradient-to-r from-red-400 to-red-500' :
-                  totalPercentage === 100 ? 'bg-gradient-to-r from-[#82A094] to-[#4F6A64]' :
-                  totalPercentage >= 50 ? 'bg-gradient-to-r from-[#CE9F6B] to-[#976E44]' :
-                  'bg-gradient-to-r from-[#6F8A9D] to-[#546A7A]'
-                }`}
-                style={{ width: `${Math.min(100, totalPercentage)}%` }}
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer" />
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-black text-[#4F6A64] bg-white px-3 py-1.5 rounded-lg shadow-sm border border-[#82A094]/20">
+                ₹{totalAllocatedAmount.toLocaleString('en-IN', { maximumFractionDigits: 0 })} <span className="text-[#82A094] mx-1">/</span> ₹{parseFloat(formData.totalAmount || '0').toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+              </span>
+              {(totalPercentage > 100 || totalTaxPercentage > 100) && (
+                  <span className="text-xs font-bold text-white bg-gradient-to-r from-[#E17F70] to-[#9E3B47] px-3 py-1.5 rounded-lg shadow-md animate-pulse hidden sm:block">Exceeds limits!</span>
+              )}
+            </div>
+          </div>
+
+          {/* Allocation Progress Bars */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            {/* Net Allocation Progress Bar */}
+            <div className="bg-[#AEBFC3]/5 p-4 rounded-xl border border-[#AEBFC3]/20">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <BarChart3 className="w-4 h-4 text-[#CE9F6B]" />
+                  <span className="text-sm font-bold text-[#546A7A]">Net Allocation</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`text-sm font-black ${totalPercentage > 100 ? 'text-red-500' : totalPercentage === 100 ? 'text-[#82A094]' : 'text-[#CE9F6B]'}`}>
+                    {totalPercentage}%
+                  </span>
+                  <span className="text-xs text-[#92A2A5]">/ 100%</span>
+                  {totalPercentage > 100 && <span className="text-[10px] font-bold text-red-500 bg-red-50 px-2 py-0.5 rounded-full">Exceeds!</span>}
+                  {totalPercentage === 100 && <CheckCircle2 className="w-4 h-4 text-[#82A094]" />}
+                </div>
               </div>
-              {/* Markers */}
-              {[25, 50, 75].map((m) => (
-                <div key={m} className="absolute top-0 bottom-0 w-px bg-white/40" style={{ left: `${m}%` }} />
-              ))}
+              <div className="relative h-2.5 bg-[#AEBFC3]/15 rounded-full overflow-hidden">
+                <div
+                  className={`absolute inset-y-0 left-0 rounded-full transition-all duration-700 ease-out ${
+                    totalPercentage > 100 ? 'bg-gradient-to-r from-red-400 to-red-500' :
+                    totalPercentage === 100 ? 'bg-gradient-to-r from-[#82A094] to-[#4F6A64]' :
+                    totalPercentage >= 50 ? 'bg-gradient-to-r from-[#CE9F6B] to-[#976E44]' :
+                    'bg-gradient-to-r from-[#6F8A9D] to-[#546A7A]'
+                  }`}
+                  style={{ width: `${Math.min(100, totalPercentage)}%` }}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer" />
+                </div>
+                {/* Markers */}
+                {[25, 50, 75].map((m) => (
+                  <div key={m} className="absolute top-0 bottom-0 w-px bg-white/40" style={{ left: `${m}%` }} />
+                ))}
+              </div>
+            </div>
+
+            {/* Tax Allocation Progress Bar */}
+            <div className="bg-[#E17F70]/5 p-4 rounded-xl border border-[#E17F70]/20">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <BarChart3 className="w-4 h-4 text-[#E17F70]" />
+                  <span className="text-sm font-bold text-[#9E3B47]">Tax Allocation</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`text-sm font-black ${totalTaxPercentage > 100 ? 'text-red-500' : totalTaxPercentage === 100 ? 'text-[#82A094]' : 'text-[#E17F70]'}`}>
+                    {totalTaxPercentage}%
+                  </span>
+                  <span className="text-xs text-[#92A2A5]">/ 100%</span>
+                  {totalTaxPercentage > 100 && <span className="text-[10px] font-bold text-red-500 bg-red-50 px-2 py-0.5 rounded-full">Exceeds!</span>}
+                  {totalTaxPercentage === 100 && <CheckCircle2 className="w-4 h-4 text-[#82A094]" />}
+                </div>
+              </div>
+              <div className="relative h-2.5 bg-[#E17F70]/15 rounded-full overflow-hidden">
+                <div
+                  className={`absolute inset-y-0 left-0 rounded-full transition-all duration-700 ease-out ${
+                    totalTaxPercentage > 100 ? 'bg-gradient-to-r from-red-400 to-red-500' :
+                    totalTaxPercentage === 100 ? 'bg-gradient-to-r from-[#82A094] to-[#4F6A64]' :
+                    totalTaxPercentage >= 50 ? 'bg-gradient-to-r from-[#E17F70] to-[#E17F70]' :
+                    'bg-gradient-to-r from-[#AEBFC3] to-[#92A2A5]'
+                  }`}
+                  style={{ width: `${Math.min(100, totalTaxPercentage)}%` }}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer" />
+                </div>
+                {/* Markers */}
+                {[25, 50, 75].map((m) => (
+                  <div key={m} className="absolute top-0 bottom-0 w-px bg-white/40" style={{ left: `${m}%` }} />
+                ))}
+              </div>
             </div>
           </div>
 
@@ -654,8 +703,8 @@ export default function EditMilestonePage() {
             <button
               type="button"
               onClick={addTerm}
-              disabled={totalPercentage >= 100}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-white font-bold text-xs transition-all duration-300 ${totalPercentage >= 100 ? 'bg-gray-300 cursor-not-allowed' : 'bg-gradient-to-r from-[#CE9F6B] to-[#976E44] hover:shadow-lg hover:shadow-[#CE9F6B]/30 hover:-translate-y-0.5 active:scale-95'}`}
+              disabled={totalPercentage >= 100 && totalTaxPercentage >= 100}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-white font-bold text-xs transition-all duration-300 ${(totalPercentage >= 100 && totalTaxPercentage >= 100) ? 'bg-gray-300 cursor-not-allowed' : 'bg-gradient-to-r from-[#CE9F6B] to-[#976E44] hover:shadow-lg hover:shadow-[#CE9F6B]/30 hover:-translate-y-0.5 active:scale-95'}`}
             >
               <Plus className="w-4 h-4" /> Add Term
             </button>
@@ -850,35 +899,6 @@ export default function EditMilestonePage() {
               placeholder="e.g., 10% Advance against ABG, 60% on Dispatch, 30% after Installation..."
             />
             <p className="text-[10px] text-[#92A2A5] mt-2 italic">Copy-paste the exact terms from the PO or Contract for quick reference.</p>
-          </div>
-        </div>
-
-        {/* SAP Reference Data */}
-        <div className="relative bg-gradient-to-r from-[#F8FAFB] to-white rounded-[2rem] border-2 border-[#AEBFC3]/30 p-6 hover:shadow-lg transition-all duration-300 overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#546A7A] via-[#6F8A9D] to-[#96AEC2]" />
-          <h3 className="text-sm font-bold text-[#546A7A] mb-4 uppercase tracking-wider flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-gradient-to-br from-[#546A7A] to-[#6F8A9D] shadow-lg shadow-[#546A7A]/20">
-              <FileText className="w-4 h-4 text-white" />
-            </div>
-            SAP Reference Data
-          </h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="p-3 rounded-xl bg-gradient-to-r from-[#546A7A]/5 to-[#6F8A9D]/5 border-2 border-[#546A7A]/20 hover:border-[#546A7A]/40 transition-all">
-              <label className="text-[10px] font-bold text-[#92A2A5] uppercase mb-1 block">Total Amount</label>
-              <p className="text-sm font-bold text-[#546A7A]">{formatARCurrency(Number(formData.totalAmount))}</p>
-            </div>
-            <div className="p-3 rounded-xl bg-gradient-to-r from-[#6F8A9D]/5 to-[#96AEC2]/5 border-2 border-[#6F8A9D]/20 hover:border-[#6F8A9D]/40 transition-all">
-              <label className="text-[10px] font-bold text-[#92A2A5] uppercase mb-1 block">BP Code</label>
-              <p className="text-sm font-bold text-[#546A7A]">{formData.bpCode}</p>
-            </div>
-            <div className="p-3 rounded-xl bg-gradient-to-r from-[#96AEC2]/5 to-[#A2B9AF]/5 border-2 border-[#96AEC2]/20 hover:border-[#96AEC2]/40 transition-all">
-              <label className="text-[10px] font-bold text-[#92A2A5] uppercase mb-1 block">Invoice Date</label>
-              <p className="text-sm font-bold text-[#546A7A]">{formData.invoiceDate}</p>
-            </div>
-            <div className="p-3 rounded-xl bg-gradient-to-r from-[#A2B9AF]/5 to-[#82A094]/5 border-2 border-[#A2B9AF]/20 hover:border-[#A2B9AF]/40 transition-all">
-              <label className="text-[10px] font-bold text-[#92A2A5] uppercase mb-1 block">Customer</label>
-              <p className="text-sm font-bold text-[#546A7A] truncate">{formData.customerName}</p>
-            </div>
           </div>
         </div>
 

@@ -30,6 +30,8 @@ model User {
   password                       String
   role                           UserRole?                // Optional: only for FSM users
   financeRole                    FinanceRole?             // Finance module role (optional)
+  arRole                         FinanceRole?             // AR module specific role
+  vendorRole                     FinanceRole?             // Vendor module specific role
   name                           String?
   phone                          String?
   shortForm                      String?                  @db.VarChar(5) // User short form for offer IDs

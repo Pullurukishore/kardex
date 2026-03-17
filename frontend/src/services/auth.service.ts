@@ -21,6 +21,8 @@ export interface AuthResponseUser {
   name: string | null;
   role: UserRole;
   financeRole?: FinanceRole;
+  arRole?: FinanceRole | null;
+  vendorRole?: FinanceRole | null;
   phone?: string | null;
   zoneId?: string | null;
   customerId?: string | null;

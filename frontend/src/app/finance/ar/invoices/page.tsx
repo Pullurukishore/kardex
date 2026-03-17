@@ -150,8 +150,17 @@ export default function ARInvoicesPage() {
             placeholder="Search invoices..."
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-            className="w-full h-11 sm:h-10 pl-10 pr-4 rounded-xl bg-gradient-to-r from-[#AEBFC3]/5 to-[#92A2A5]/5 border-2 border-[#AEBFC3]/30 text-sm focus:border-[#6F8A9D] focus:outline-none focus:ring-2 focus:ring-[#6F8A9D]/10 transition-all font-medium"
+            className="w-full h-11 sm:h-10 pl-10 pr-10 rounded-xl bg-gradient-to-r from-[#AEBFC3]/5 to-[#92A2A5]/5 border-2 border-[#AEBFC3]/30 text-sm focus:border-[#6F8A9D] focus:outline-none focus:ring-2 focus:ring-[#6F8A9D]/10 transition-all font-medium"
           />
+          {search && (
+            <button
+              onClick={() => { setSearch(''); setPage(1); }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-md hover:bg-[#AEBFC3]/20 text-[#92A2A5] transition-colors"
+              title="Clear search"
+            >
+              ✕
+            </button>
+          )}
         </div>
         
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
@@ -171,6 +180,16 @@ export default function ARInvoicesPage() {
               </button>
             );
           })}
+          
+          {(search || status) && (
+            <button
+              onClick={() => { setSearch(''); setStatus(''); setPage(1); }}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold text-[#E17F70] hover:bg-[#E17F70]/10 border border-[#E17F70]/30 transition-all ml-2 whitespace-nowrap"
+              title="Clear all filters"
+            >
+              Clear All
+            </button>
+          )}
         </div>
       </div>
 

@@ -62,7 +62,7 @@ export default function LoginPage() {
     if (selectedModule === 'fsm') return '/fsm/select';
 
     // Fall back to role-based redirection which respects module access
-    return getRoleBasedRedirect(user?.role, user?.financeRole);
+    return getRoleBasedRedirect(user?.role, user?.financeRole, (user as any)?.arRole, (user as any)?.vendorRole);
   };
 
   useEffect(() => {
@@ -138,7 +138,7 @@ export default function LoginPage() {
             redirectPath = '/fsm/select';
           } else {
             // Use the returned user's role for redirect
-            redirectPath = getRoleBasedRedirect(loggedInUser.role, loggedInUser.financeRole);
+            redirectPath = getRoleBasedRedirect(loggedInUser.role, loggedInUser.financeRole, (loggedInUser as any).arRole, (loggedInUser as any).vendorRole);
           }
         }
 

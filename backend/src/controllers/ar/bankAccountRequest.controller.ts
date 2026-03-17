@@ -42,7 +42,7 @@ export const createChangeRequest = async (req: Request, res: Response) => {
             const currency = requestedData?.currency || 'INR';
             const category = requestedData?.accountCategory || 'DOMESTIC';
             if (currency === 'INR' && category !== 'INTERNATIONAL') {
-                if (!requestedData?.gstNumber) {
+                if (requestedData?.isGstRegistered !== false && !requestedData?.gstNumber) {
                     return res.status(400).json({ error: 'GST Number is required for INR transactions' });
                 }
                 if (!requestedData?.panNumber) {
@@ -369,11 +369,14 @@ export const approveRequest = async (req: Request, res: Response) => {
                 return res.status(400).json({ error: 'Bank account ID is missing from request' });
             }
 
+            const updatePayload = { ...requestedData };
+            delete updatePayload.isGstRegistered;
+
             // Update existing bank account
             bankAccount = await prisma.bankAccount.update({
                 where: { id: request.bankAccountId },
                 data: {
-                    ...requestedData,
+                    ...updatePayload,
                     updatedById: userId
                 }
             });

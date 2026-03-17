@@ -43,10 +43,28 @@ export default function FinanceSelectPage() {
       features: ['Vendors', 'Requests', 'New Vendor', 'Activities'],
     }
   ] as SubModuleCard[]).filter(m => {
-    // Finance Approver cannot see Accounts Receivable
-    if (user?.financeRole === FinanceRole.FINANCE_APPROVER && m.id === 'ar') {
-      return false;
+    if (!user) return true;
+    
+    // Finance Admin has access to both modules
+    if (user.financeRole === FinanceRole.FINANCE_ADMIN) return true;
+
+    // Check AR Module access
+    if (m.id === 'ar') {
+      // If arRole is explicitly null, don't show the AR module
+      if (user.arRole === null) return false;
+      
+      // Fallback check: Finance Approver cannot see Accounts Receivable unless explicitly granted
+      if (user.financeRole === FinanceRole.FINANCE_APPROVER && !user.arRole) {
+        return false;
+      }
     }
+
+    // Check Vendor Module access
+    if (m.id === 'bank-accounts') {
+      // If vendorRole is explicitly null, don't show the Vendor module
+      if (user.vendorRole === null) return false;
+    }
+
     return true;
   });
 

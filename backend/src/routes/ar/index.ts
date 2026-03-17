@@ -78,6 +78,8 @@ router.put('/invoices/:id/payments/:paymentId', requireFinanceWrite, invoiceCont
 router.delete('/invoices/:id/payments/:paymentId', requireFinanceWrite, invoiceController.deletePaymentRecord);
 router.get('/invoices/:id/remarks', requireARRead, invoiceController.getInvoiceRemarks);
 router.post('/invoices/:id/remarks', requireFinanceWrite, invoiceController.addInvoiceRemark);
+router.put('/invoices/:id/remarks/:remarkId', requireFinanceWrite, invoiceController.updateInvoiceRemark);
+router.delete('/invoices/:id/remarks/:remarkId', requireFinanceWrite, invoiceController.deleteInvoiceRemark);
 router.get('/invoices/:id/activity', requireARRead, invoiceController.getInvoiceActivityLog);
 
 // Milestone Invoice Linking Routes

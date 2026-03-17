@@ -612,6 +612,15 @@ export const arApi = {
         return res.data;
     },
 
+    async updateInvoiceRemark(invoiceId: string, remarkId: string, content: string): Promise<any> {
+        const res = await api.put(`/ar/invoices/${invoiceId}/remarks/${remarkId}`, { content });
+        return res.data;
+    },
+
+    async deleteInvoiceRemark(invoiceId: string, remarkId: string): Promise<void> {
+        await api.delete(`/ar/invoices/${invoiceId}/remarks/${remarkId}`);
+    },
+
     async getInvoiceActivityLog(invoiceId: string): Promise<any[]> {
         const res = await api.get(`/ar/invoices/${invoiceId}/activity`);
         return res.data;

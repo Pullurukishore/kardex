@@ -7,6 +7,7 @@ import { ActivityController } from './activityController';
 import { GeocodingService } from '../services/geocoding.service';
 import { LocalPhotoStorageService } from '../services/local-photo-storage.service';
 import { TicketStatus, Priority, CallType, OnsiteVisitEvent } from '@prisma/client';
+import { TicketImportService } from '../services/ticketImport.service';
 
 // Enum-like object for UserRole values
 const UserRoleEnum = {
@@ -3397,5 +3398,58 @@ export const respondToAssignment = async (req: TicketRequest, res: Response) => 
   } catch (error) {
 
     res.status(500).json({ error: 'Failed to respond to assignment' });
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TICKET IMPORT FROM EXCEL
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Preview ticket import from Excel
+export const previewTicketImport = async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (user?.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Access denied: Only admins can preview ticket imports' });
+    }
+
+    if (!(req as any).file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const results = await TicketImportService.previewFromExcel((req as any).file.buffer);
+
+    res.json({
+      success: true,
+      ...results
+    });
+  } catch (error: any) {
+    console.error('Preview ticket import error:', error);
+    res.status(500).json({ error: 'Failed to preview tickets', details: error.message });
+  }
+};
+
+// Import tickets from Excel
+export const importTickets = async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (user?.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Access denied: Only admins can import tickets' });
+    }
+
+    if (!(req as any).file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const results = await TicketImportService.importFromExcel((req as any).file.buffer, user.id);
+
+    res.json({
+      success: true,
+      message: 'Ticket import completed',
+      ...results
+    });
+  } catch (error: any) {
+    console.error('Import tickets error:', error);
+    res.status(500).json({ error: 'Failed to import tickets', details: error.message });
   }
 };

@@ -1,6 +1,11 @@
 import { UserRole, FinanceRole } from '@/types/user.types';
 
-export function getRoleBasedRedirect(role?: UserRole | string, financeRole?: FinanceRole | string): string {
+export function getRoleBasedRedirect(
+  role?: UserRole | string | null, 
+  financeRole?: FinanceRole | string | null,
+  arRole?: FinanceRole | string | null,
+  vendorRole?: FinanceRole | string | null
+): string {
   // If user has both FSM and Finance roles, let them choose via module-select
   if (role && financeRole && Object.values(UserRole).includes(role as UserRole)) {
     return '/module-select';
@@ -8,7 +13,23 @@ export function getRoleBasedRedirect(role?: UserRole | string, financeRole?: Fin
 
   // If user only has a finance role
   if (financeRole && (!role || !Object.values(UserRole).includes(role as UserRole))) {
-    // Finance Approver goes directly to payment approvals
+    if (financeRole === 'FINANCE_ADMIN') {
+      return '/finance/select';
+    }
+    
+    // Both accessible
+    if (arRole && vendorRole) {
+      return '/finance/select';
+    }
+    // Only AR accessible
+    if (arRole && !vendorRole) {
+      return '/finance/ar/dashboard';
+    }
+    // Only Vendor accessible
+    if (vendorRole && !arRole) {
+      return '/finance/bank-accounts';
+    }
+    // Finance Approver fallback logic (if roles not fully configured)
     if (financeRole === FinanceRole.FINANCE_APPROVER) {
       return '/finance/bank-accounts/payment-batches';
     }
@@ -32,7 +53,13 @@ export function getRoleBasedRedirect(role?: UserRole | string, financeRole?: Fin
   }
 }
 
-export function isRouteAccessible(route: string, userRole?: UserRole | string, financeRole?: FinanceRole | string): boolean {
+export function isRouteAccessible(
+  route: string, 
+  userRole?: UserRole | string | null, 
+  financeRole?: FinanceRole | string | null,
+  arRole?: FinanceRole | string | null,
+  vendorRole?: FinanceRole | string | null
+): boolean {
   // Public routes accessible to everyone
   // Including prefix checks using startsWith later
   const publicRoutes = ['/auth/login', '/auth/reset-password', '/auth/register', '/pin-access'];
@@ -41,6 +68,8 @@ export function isRouteAccessible(route: string, userRole?: UserRole | string, f
   // Normalize roles (handle string "undefined" from cookies)
   const normalizedUserRole = (userRole === 'undefined' || !userRole) ? null : userRole;
   const normalizedFinanceRole = (financeRole === 'undefined' || !financeRole) ? null : financeRole;
+  const normalizedArRole = (arRole === 'undefined' || !arRole) ? null : arRole;
+  const normalizedVendorRole = (vendorRole === 'undefined' || !vendorRole) ? null : vendorRole;
 
   // If no role at all is provided, only public routes are accessible
   if (!normalizedUserRole && !normalizedFinanceRole) return false;
@@ -52,6 +81,16 @@ export function isRouteAccessible(route: string, userRole?: UserRole | string, f
     if (normalizedFinanceRole === 'FINANCE_APPROVER' && route.startsWith('/finance/ar')) {
       return false;
     }
+    
+    // Explicit module access denial if role is explicitly null
+    if (route.startsWith('/finance/ar') && arRole === null) {
+      if (normalizedFinanceRole !== 'FINANCE_ADMIN') return false;
+    }
+    
+    if (route.startsWith('/finance/bank-accounts') && vendorRole === null) {
+      if (normalizedFinanceRole !== 'FINANCE_ADMIN') return false;
+    }
+    
     return true;
   }
 

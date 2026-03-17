@@ -43,6 +43,8 @@ const createFinanceUserSchema = z.object({
   password: z.string().min(6, 'Password must be at least 6 characters'),
   confirmPassword: z.string(),
   financeRole: z.enum(['FINANCE_ADMIN', 'FINANCE_USER', 'FINANCE_VIEWER', 'FINANCE_APPROVER']),
+  arRole: z.enum(['FINANCE_ADMIN', 'FINANCE_USER', 'FINANCE_VIEWER', 'FINANCE_APPROVER']).optional().nullable(),
+  vendorRole: z.enum(['FINANCE_ADMIN', 'FINANCE_USER', 'FINANCE_VIEWER', 'FINANCE_APPROVER']).optional().nullable(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ["confirmPassword"],
@@ -84,6 +86,8 @@ export default function NewFinanceUserPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [selectedRole, setSelectedRole] = useState<FinanceRoleType>('FINANCE_USER');
+  const [hasArAccess, setHasArAccess] = useState(false);
+  const [hasVendorAccess, setHasVendorAccess] = useState(false);
 
   const {
     register,
@@ -100,6 +104,8 @@ export default function NewFinanceUserPage() {
       password: '',
       confirmPassword: '',
       financeRole: 'FINANCE_USER',
+      arRole: null,
+      vendorRole: null,
     },
   });
 
@@ -118,6 +124,8 @@ export default function NewFinanceUserPage() {
         phone: data.phone || undefined,
         password: data.password,
         financeRole: data.financeRole,
+        arRole: data.financeRole === 'FINANCE_ADMIN' ? 'FINANCE_ADMIN' : hasArAccess ? data.financeRole : null,
+        vendorRole: data.financeRole === 'FINANCE_ADMIN' ? 'FINANCE_ADMIN' : hasVendorAccess ? data.financeRole : null,
       });
 
       toast.success('Finance user created successfully');
@@ -489,6 +497,59 @@ export default function NewFinanceUserPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* Module Access Selection */}
+        {selectedRole !== 'FINANCE_ADMIN' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* AR Module Access Checkbox Card */}
+            <Card 
+              className={`relative shadow-xl border-2 cursor-pointer transition-all overflow-hidden ${hasArAccess ? 'border-[#82A094] bg-[#82A094]/5' : 'border-[#AEBFC3]/30 hover:border-[#82A094]/50'}`}
+              onClick={() => setHasArAccess(!hasArAccess)}
+            >
+              {hasArAccess && <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#4F6A64] via-[#82A094] to-[#A2B9AF]" />}
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className={`relative h-12 w-12 rounded-xl flex items-center justify-center shadow-lg overflow-hidden ${hasArAccess ? 'bg-gradient-to-br from-[#4F6A64] to-[#82A094]' : 'bg-[#AEBFC3]/20'}`}>
+                      <Sparkles className={`h-6 w-6 ${hasArAccess ? 'text-white' : 'text-[#5D6E73]'}`} />
+                    </div>
+                    <div>
+                      <CardTitle className={`text-xl ${hasArAccess ? 'text-[#4F6A64]' : 'text-[#5D6E73]'}`}>AR Module</CardTitle>
+                      <CardDescription>Accounts Receivable access</CardDescription>
+                    </div>
+                  </div>
+                  <div className={`h-6 w-6 rounded-md border-2 flex items-center justify-center transition-all ${hasArAccess ? 'bg-[#82A094] border-[#82A094]' : 'border-[#AEBFC3]'}`}>
+                    {hasArAccess && <CheckCircle className="h-4 w-4 text-white" />}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Vendor Module Access Checkbox Card */}
+            <Card 
+              className={`relative shadow-xl border-2 cursor-pointer transition-all overflow-hidden ${hasVendorAccess ? 'border-[#976E44] bg-[#976E44]/5' : 'border-[#AEBFC3]/30 hover:border-[#976E44]/50'}`}
+              onClick={() => setHasVendorAccess(!hasVendorAccess)}
+            >
+              {hasVendorAccess && <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#976E44] via-[#CE9F6B] to-[#AEBFC3]" />}
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className={`relative h-12 w-12 rounded-xl flex items-center justify-center shadow-lg overflow-hidden ${hasVendorAccess ? 'bg-gradient-to-br from-[#976E44] to-[#CE9F6B]' : 'bg-[#AEBFC3]/20'}`}>
+                      <Users className={`h-6 w-6 ${hasVendorAccess ? 'text-white' : 'text-[#5D6E73]'}`} />
+                    </div>
+                    <div>
+                      <CardTitle className={`text-xl ${hasVendorAccess ? 'text-[#976E44]' : 'text-[#5D6E73]'}`}>Vendor Module</CardTitle>
+                      <CardDescription>Vendor Management access</CardDescription>
+                    </div>
+                  </div>
+                  <div className={`h-6 w-6 rounded-md border-2 flex items-center justify-center transition-all ${hasVendorAccess ? 'bg-[#976E44] border-[#976E44]' : 'border-[#AEBFC3]'}`}>
+                    {hasVendorAccess && <CheckCircle className="h-4 w-4 text-white" />}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-6 pt-8 border-t-2 border-[#AEBFC3]/20">

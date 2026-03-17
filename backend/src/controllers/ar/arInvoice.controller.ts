@@ -29,6 +29,7 @@ export const getAllInvoices = async (req: Request, res: Response) => {
                 { bpCode: { contains: String(search), mode: 'insensitive' } },
                 { customerName: { contains: String(search), mode: 'insensitive' } },
                 { poNo: { contains: String(search), mode: 'insensitive' } },
+                { soNo: { contains: String(search), mode: 'insensitive' } },
             ];
         }
 
@@ -62,7 +63,7 @@ export const getAllInvoices = async (req: Request, res: Response) => {
                 where,
                 skip,
                 take: Number(limit),
-                orderBy: { invoiceDate: 'desc' },
+                orderBy: { createdAt: 'desc' },
                 select: {
                     id: true,
                     invoiceNumber: true,
@@ -71,6 +72,7 @@ export const getAllInvoices = async (req: Request, res: Response) => {
                     poNo: true,
                     totalAmount: true,
                     netAmount: true,
+                    taxAmount: true,
                     invoiceDate: true,
                     dueDate: true,
                     balance: true,
@@ -89,6 +91,7 @@ export const getAllInvoices = async (req: Request, res: Response) => {
                     accountingStatus: true,
                     mailToTSP: true,
                     bookingMonth: true,
+                    createdAt: true,
                     remarks: {
                         take: 1,
                         orderBy: { createdAt: 'desc' },
@@ -110,7 +113,7 @@ export const getAllInvoices = async (req: Request, res: Response) => {
 
         const payments = await prisma.aRPaymentHistory.findMany({
             where: { invoiceId: { in: invoiceIds } },
-            select: { invoiceId: true, amount: true, paymentMode: true }
+            select: { invoiceId: true, amount: true, paymentMode: true, milestoneTerm: true }
         });
 
         // Group payments by invoiceId and compute accurate totals
@@ -123,7 +126,7 @@ export const getAllInvoices = async (req: Request, res: Response) => {
                 acc[curr.invoiceId].receipts += amt;
             }
             acc[curr.invoiceId].total += amt;
-            acc[curr.invoiceId].modes.push({ paymentMode: curr.paymentMode });
+            acc[curr.invoiceId].modes.push({ paymentMode: curr.paymentMode, amount: curr.amount, milestoneTerm: curr.milestoneTerm });
             return acc;
         }, {});
 
@@ -247,7 +250,10 @@ export const getInvoiceById = async (req: Request, res: Response) => {
         // Fetch payment history for the main invoice
         const paymentHistory = await prisma.aRPaymentHistory.findMany({
             where: { invoiceId: invoice.id },
-            orderBy: { paymentDate: 'desc' }
+            orderBy: [
+                { paymentDate: 'desc' },
+                { createdAt: 'desc' }
+            ]
         });
 
         // Compute accurate totalReceipts and balance from payment history
@@ -301,7 +307,10 @@ export const getInvoiceById = async (req: Request, res: Response) => {
             invoice.linkedFromMilestones = await Promise.all(invoice.linkedFromMilestones.map(async (milestone: any) => {
                 const payments = await prisma.aRPaymentHistory.findMany({
                     where: { invoiceId: milestone.id },
-                    orderBy: { paymentDate: 'desc' }
+                    orderBy: [
+                        { paymentDate: 'desc' },
+                        { createdAt: 'desc' }
+                    ]
                 });
                 return { ...milestone, paymentHistory: payments };
             }));
@@ -311,7 +320,10 @@ export const getInvoiceById = async (req: Request, res: Response) => {
         if (invoice.linkedInvoice) {
             const payments = await prisma.aRPaymentHistory.findMany({
                 where: { invoiceId: invoice.linkedInvoice.id },
-                orderBy: { paymentDate: 'desc' }
+                orderBy: [
+                    { paymentDate: 'desc' },
+                    { createdAt: 'desc' }
+                ]
             });
             invoice.linkedInvoice = { ...invoice.linkedInvoice, paymentHistory: payments };
         }
@@ -1163,6 +1175,82 @@ export const addInvoiceRemark = async (req: Request, res: Response) => {
     } catch (error: any) {
 
         res.status(500).json({ error: 'Failed to add remark', message: error.message });
+    }
+};
+
+// Update invoice remark
+export const updateInvoiceRemark = async (req: Request, res: Response) => {
+    try {
+        const { id, remarkId } = req.params;
+        const { content } = req.body;
+        const userId = (req as any).user?.id;
+
+        if (!content || !content.trim()) {
+            return res.status(400).json({ error: 'Content is required' });
+        }
+
+        const remark = await prisma.aRInvoiceRemark.update({
+            where: { id: remarkId },
+            data: { content: content.trim() },
+            include: {
+                createdBy: {
+                    select: { id: true, name: true, email: true }
+                }
+            }
+        });
+
+        // Log remark activity
+        await logInvoiceActivity({
+            invoiceId: id,
+            action: 'REMARK_UPDATED',
+            description: `Remark updated: "${content.trim().substring(0, 50)}${content.length > 50 ? '...' : ''}"`,
+            performedById: userId,
+            performedBy: remark.createdBy?.name || null,
+            ipAddress: getIpFromRequest(req),
+            userAgent: req.headers['user-agent'] || null
+        });
+
+        res.json(remark);
+    } catch (error: any) {
+        if (error.code === 'P2025') {
+            return res.status(404).json({ error: 'Remark not found' });
+        }
+        res.status(500).json({ error: 'Failed to update remark', message: error.message });
+    }
+};
+
+// Delete invoice remark
+export const deleteInvoiceRemark = async (req: Request, res: Response) => {
+    try {
+        const { id, remarkId } = req.params;
+        const userId = (req as any).user?.id;
+
+        const remark = await prisma.aRInvoiceRemark.delete({
+            where: { id: remarkId },
+            include: {
+                createdBy: {
+                    select: { id: true, name: true, email: true }
+                }
+            }
+        });
+
+        // Log remark activity
+        await logInvoiceActivity({
+            invoiceId: id,
+            action: 'REMARK_DELETED',
+            description: `Remark deleted`,
+            performedById: userId,
+            performedBy: remark.createdBy?.name || null,
+            ipAddress: getIpFromRequest(req),
+            userAgent: req.headers['user-agent'] || null
+        });
+
+        res.json({ message: 'Remark deleted successfully' });
+    } catch (error: any) {
+        if (error.code === 'P2025') {
+            return res.status(404).json({ error: 'Remark not found' });
+        }
+        res.status(500).json({ error: 'Failed to delete remark', message: error.message });
     }
 };
 

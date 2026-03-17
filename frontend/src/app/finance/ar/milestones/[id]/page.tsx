@@ -39,6 +39,8 @@ export default function MilestoneViewPage() {
   const [remarksLoading, setRemarksLoading] = useState(false);
   const [newRemark, setNewRemark] = useState('');
   const [addingRemark, setAddingRemark] = useState(false);
+  const [editingRemarkId, setEditingRemarkId] = useState<string | null>(null);
+  const [editingRemarkContent, setEditingRemarkContent] = useState('');
 
   // Activity
   const [activityLogs, setActivityLogs] = useState<any[]>([]);
@@ -86,6 +88,26 @@ export default function MilestoneViewPage() {
     if (!invoice || !newRemark.trim()) return;
     try { setAddingRemark(true); await arApi.addInvoiceRemark(invoice.id, newRemark.trim()); setNewRemark(''); await loadRemarks(invoice.id); }
     catch { alert('Failed to add remark'); } finally { setAddingRemark(false); }
+  };
+
+  const handleEditRemark = async (id: string) => {
+    if (!invoice || !editingRemarkContent.trim()) return;
+    try { 
+      await arApi.updateInvoiceRemark(invoice.id, id, editingRemarkContent.trim()); 
+      setEditingRemarkId(null);
+      await loadRemarks(invoice.id); 
+    }
+    catch { alert('Failed to edit remark'); }
+  };
+
+  const handleDeleteRemark = async (id: string) => {
+    if (!invoice || !confirm('Are you sure you want to delete this remark?')) return;
+    try { 
+      setRemarksLoading(true); 
+      await arApi.deleteInvoiceRemark(invoice.id, id); 
+      await loadRemarks(invoice.id); 
+    }
+    catch { alert('Failed to delete remark'); setRemarksLoading(false); }
   };
 
   const handleDelete = async () => {
@@ -204,7 +226,10 @@ export default function MilestoneViewPage() {
       // Fallback to termType for legacy payments that might just store 'ABG' instead of the full ID
       let collectedForTerm = (paymentsByTarget[termId] || 0) + (paymentsByTarget[term.termType] || 0);
       
-      // Clear the termType targeted payments so they aren't double-counted if multiple terms have same type
+      // Clear the targeted payments so they aren't double-counted
+      if (paymentsByTarget[termId]) {
+        delete paymentsByTarget[termId];
+      }
       if (paymentsByTarget[term.termType]) {
         delete paymentsByTarget[term.termType];
       }
@@ -225,6 +250,12 @@ export default function MilestoneViewPage() {
         collectedPercent: 0,
       };
     });
+
+  // Any target payments that didn't match an exact term configuration meaning the term was edited (e.g. date changed)
+  // Or orphaned fallback termType payments, funnel them into the generic pool for FIFO distribution 
+  Object.values(paymentsByTarget).forEach(orphanAmount => {
+    genericPool += orphanAmount;
+  });
 
   // 3. Second pass: distribute generic pool (FIFO) to fill remaining gaps
   termCollections.forEach(tc => {
@@ -263,18 +294,7 @@ export default function MilestoneViewPage() {
       }))
     : 0;
 
-  const getMilestoneStatusConfig = (ms?: string) => {
-    switch (ms) {
-      case 'AWAITING_DELIVERY': return { label: 'Awaiting Delivery', bg: 'bg-gradient-to-r from-[#CE9F6B] to-[#976E44]', icon: Package, glow: 'shadow-[#CE9F6B]/30' };
-      case 'PARTIALLY_DELIVERED': return { label: 'Partially Delivered', bg: 'bg-gradient-to-r from-[#6F8A9D] to-[#546A7A]', icon: Truck, glow: 'shadow-[#6F8A9D]/30' };
-      case 'FULLY_DELIVERED': return { label: 'Fully Delivered', bg: 'bg-gradient-to-r from-[#82A094] to-[#4F6A64]', icon: PackageCheck, glow: 'shadow-[#82A094]/30' };
-      case 'EXPIRED': return { label: 'Expired', bg: 'bg-gradient-to-r from-[#E17F70] to-[#9E3B47]', icon: PackageX, glow: 'shadow-[#E17F70]/30' };
-      case 'LINKED': return { label: 'Linked', bg: 'bg-gradient-to-r from-[#82A094] to-[#4F6A64]', icon: BadgeCheck, glow: 'shadow-[#82A094]/30' };
-      default: return { label: 'Pending', bg: 'bg-gradient-to-r from-[#AEBFC3] to-[#92A2A5]', icon: Package, glow: 'shadow-[#AEBFC3]/30' };
-    }
-  };
-  const milestoneStatusConf = getMilestoneStatusConfig(invoice.milestoneStatus);
-  const MilestoneStatusIcon = milestoneStatusConf.icon;
+
 
   const getRiskConfig = (risk: string) => {
     switch (risk) {
@@ -305,8 +325,8 @@ export default function MilestoneViewPage() {
 
   const tabs = [
     { key: 'details' as const, label: 'Details', icon: Flag },
-    { key: 'payments' as const, label: 'Payments', icon: Receipt },
-    { key: 'remarks' as const, label: 'Remarks', icon: MessageSquare },
+    { key: 'payments' as const, label: 'Payments', icon: Receipt, count: invoice?.paymentHistory?.length || 0 },
+    { key: 'remarks' as const, label: 'Remarks', icon: MessageSquare, count: remarks.length },
     { key: 'activity' as const, label: 'Activity', icon: Clock },
   ];
 
@@ -452,22 +472,10 @@ export default function MilestoneViewPage() {
                 </div>
               </div>
 
-              {/* Milestone Delivery Status Badge */}
-              {invoice.milestoneStatus && (
-                <div className={`group relative px-6 py-3 rounded-[1.5rem] bg-gradient-to-br ${milestoneStatusConf.bg} shadow-xl transition-all hover:scale-105 ${milestoneStatusConf.glow} overflow-hidden`}>
-                  <div className="absolute top-0 left-0 right-0 h-1 bg-white/30" />
-                  <div className="flex items-center gap-3">
-                    <MilestoneStatusIcon className="w-5 h-5 text-white" />
-                    <div className="text-left">
-                      <p className="text-[9px] font-black text-white/60 uppercase tracking-widest leading-none mb-1">Delivery</p>
-                      <p className="text-sm font-black text-white leading-none">{milestoneStatusConf.label}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
+
 
               {/* Aging Days Indicator */}
-              {worstTermAging > 0 && invoice.milestoneStatus !== 'FULLY_DELIVERED' && (
+              {worstTermAging > 0 && (
                 <div className="relative flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#E17F70]/10 to-[#9E3B47]/5 border-2 border-[#E17F70]/30 overflow-hidden">
                   <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#E17F70] via-[#9E3B47] to-[#75242D]" />
                   <AlertTriangle className="w-4 h-4 text-[#E17F70] animate-pulse" />
@@ -689,9 +697,10 @@ export default function MilestoneViewPage() {
               const collectedForTerm = allocation?.collectedForTerm || 0;
               const pendingForTerm = allocation?.pendingForTerm || 0;
               const collectedPercent = allocation?.collectedPercent || 0;
-              const isFullyPaid = collectedPercent >= 99;
-              // BUG FIX: Only flag as overdue if term is NOT fully paid and milestone isn't fully delivered
-              const isTermOverdue = termAging > 0 && !isFullyPaid && invoice.milestoneStatus !== 'FULLY_DELIVERED';
+              const allocatedAmount = allocation?.allocatedAmount || 0;
+              const isFullyPaid = pendingForTerm < 0.01 && allocatedAmount > 0;
+              // BULK FIX: Remove milestoneStatus condition
+              const isTermOverdue = termAging > 0 && !isFullyPaid;
 
               return (
                 <div key={index} className={`flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-0 px-5 py-4 transition-colors ${
@@ -752,7 +761,7 @@ export default function MilestoneViewPage() {
                       </div>
                       <span className={`text-[10px] font-bold min-w-[32px] text-right ${
                         isFullyPaid ? 'text-[#82A094]' : collectedPercent >= 50 ? 'text-[#CE9F6B]' : 'text-[#6F8A9D]'
-                      }`}>{Math.round(collectedPercent)}%</span>
+                      }`}>{isFullyPaid ? '100%' : `${Math.floor(collectedPercent)}%`}</span>
                     </div>
                   </div>
 
@@ -806,6 +815,13 @@ export default function MilestoneViewPage() {
             }`}>
             <tab.icon className="w-4 h-4" />
             <span className="text-sm sm:text-base">{tab.label}</span>
+            {tab.count !== undefined && tab.count > 0 && (
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                activeTab === tab.key ? 'bg-white/20 text-white' : 'bg-[#AEBFC3]/20 text-[#6F8A9D]'
+              }`}>
+                {tab.count}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -831,9 +847,8 @@ export default function MilestoneViewPage() {
                       { label: 'Created Date', value: formatARDate(invoice.invoiceDate), icon: Calendar },
                       { label: 'Due Date', value: formatARDate(invoice.dueDate), icon: Calendar, highlight: isOverdue },
                       { label: 'Booking Month', value: formatARMonth(invoice.bookingMonth), icon: BarChart3 },
-                      { label: 'Category', value: invoice.type || 'NB', icon: Tag },
+                      { label: 'Category', value: invoice.type || 'N/A', icon: Tag },
                       { label: 'Risk Class', value: invoice.riskClass || '-', icon: Shield },
-                      { label: 'Milestone Status', value: milestoneStatusConf.label, icon: Package },
                     ].map((item) => (
                       <div key={item.label} className="flex items-center gap-3 p-3 rounded-xl bg-[#AEBFC3]/5 hover:bg-[#AEBFC3]/10 transition-colors">
                         <item.icon className={`w-4 h-4 ${item.highlight ? 'text-[#E17F70]' : 'text-[#6F8A9D]'}`} />
@@ -1083,7 +1098,7 @@ export default function MilestoneViewPage() {
                   {remarks.map((remark: any) => (
                     <div key={remark.id} className="relative pl-8 pb-4 border-l-2 border-[#AEBFC3]/30 last:border-l-transparent">
                       <div className="absolute left-[-9px] top-0 w-4 h-4 rounded-full bg-gradient-to-br from-[#6F8A9D] to-[#546A7A] border-2 border-white shadow" />
-                      <div className="bg-white rounded-xl p-4 shadow-md border border-[#AEBFC3]/20 ml-4">
+                      <div className="bg-white rounded-xl p-4 shadow-md border border-[#AEBFC3]/20 ml-4 group">
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-2">
                             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#CE9F6B] to-[#976E44] flex items-center justify-center text-white text-sm font-bold">
@@ -1094,12 +1109,37 @@ export default function MilestoneViewPage() {
                               <p className="text-xs text-[#92A2A5]">{remark.createdBy?.email}</p>
                             </div>
                           </div>
-                          <div className="text-right">
-                            <p className="text-xs text-[#92A2A5]">{new Date(remark.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
-                            <p className="text-xs text-[#CE9F6B] font-medium">{new Date(remark.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</p>
+                          <div className="flex flex-col items-end">
+                            <div className="flex items-center justify-end gap-2 mb-1">
+                              <p className="text-xs text-[#92A2A5]">{new Date(remark.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                              <p className="text-xs text-[#CE9F6B] font-medium">{new Date(remark.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</p>
+                            </div>
+                            <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2">
+                              <button onClick={() => {setEditingRemarkId(remark.id); setEditingRemarkContent(remark.content);}} className="text-[#6F8A9D] hover:text-[#546A7A] transition-colors" title="Edit">
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button onClick={() => handleDeleteRemark(remark.id)} className="text-[#E17F70] hover:text-[#9E3B47] transition-colors" title="Delete">
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </div>
                         </div>
-                        <p className="text-[#5D6E73] whitespace-pre-wrap">{remark.content}</p>
+                        {editingRemarkId === remark.id ? (
+                          <div className="mt-2 flex flex-col gap-2">
+                            <textarea
+                              value={editingRemarkContent}
+                              onChange={(e) => setEditingRemarkContent(e.target.value)}
+                              className="w-full px-3 py-2 rounded-lg border border-[#AEBFC3]/40 focus:border-[#6F8A9D] focus:outline-none focus:ring-1 focus:ring-[#6F8A9D]/20 resize-none text-sm text-[#5D6E73]"
+                              rows={3}
+                            />
+                            <div className="flex items-center justify-end gap-2">
+                              <button onClick={() => setEditingRemarkId(null)} className="px-3 py-1 text-xs font-bold text-[#92A2A5] hover:text-[#5D6E73]">Cancel</button>
+                              <button onClick={() => handleEditRemark(remark.id)} className="px-3 py-1 text-xs font-bold text-white bg-gradient-to-r from-[#6F8A9D] to-[#546A7A] rounded-lg shadow-sm hover:opacity-90">Save</button>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-[#5D6E73] whitespace-pre-wrap">{remark.content}</p>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -1149,10 +1189,16 @@ export default function MilestoneViewPage() {
                         case 'INVOICE_CREATED': return { icon: Plus, color: 'from-[#82A094] to-[#4F6A64]' };
                         case 'INVOICE_UPDATED': return { icon: Pencil, color: 'from-[#6F8A9D] to-[#546A7A]' };
                         case 'PAYMENT_RECORDED': return { icon: IndianRupee, color: 'from-[#CE9F6B] to-[#976E44]' };
+                        case 'PAYMENT_UPDATED': return { icon: Pencil, color: 'from-[#CE9F6B] to-[#976E44]' };
+                        case 'PAYMENT_DELETED': return { icon: Trash2, color: 'from-[#E17F70] to-[#9E3B47]' };
                         case 'STATUS_CHANGED': return { icon: TrendingUp, color: 'from-[#E17F70] to-[#9E3B47]' };
                         case 'DELIVERY_UPDATED': return { icon: Truck, color: 'from-[#96AEC2] to-[#6F8A9D]' };
                         case 'REMARK_ADDED': return { icon: MessageSquare, color: 'from-[#CE9F6B] to-[#976E44]' };
+                        case 'REMARK_UPDATED': return { icon: Pencil, color: 'from-[#6F8A9D] to-[#546A7A]' };
+                        case 'REMARK_DELETED': return { icon: Trash2, color: 'from-[#E17F70] to-[#9E3B47]' };
                         case 'INVOICE_IMPORTED': return { icon: Package, color: 'from-[#82A094] to-[#4F6A64]' };
+                        case 'MILESTONE_LINKED': 
+                        case 'LINKED_TO_INVOICE': return { icon: Link2, color: 'from-[#82A094] to-[#546A7A]' };
                         default: return { icon: Clock, color: 'from-[#AEBFC3] to-[#92A2A5]' };
                       }
                     };
@@ -1268,15 +1314,28 @@ export default function MilestoneViewPage() {
                       const isSelected = paymentForm.milestoneTerm === currentTermId;
                       const allocation = termCollections.find((t) => t.termId === currentTermId);
                       const stageProgress = allocation?.collectedPercent || 0;
+                      const allocatedAmt = allocation?.allocatedAmount || 0;
+                      const pendingAmt = allocation?.pendingForTerm || 0;
+                      const isFullyPaid = pendingAmt < 0.01 && allocatedAmt > 0 && !isSelected;
+                      
                       return (
                         <button
                           key={idx}
                           type="button"
-                          onClick={() => setPaymentForm({...paymentForm, milestoneTerm: currentTermId})}
-                          className={`relative group p-2.5 rounded-xl border-2 text-left transition-all duration-200 ${
+                          disabled={isFullyPaid}
+                          onClick={() => {
+                            setPaymentForm({...paymentForm, milestoneTerm: currentTermId});
+                            if (pendingAmt > 0) {
+                              // Optionally pre-fill the pending amount
+                              // setPaymentForm(prev => ({...prev, amount: pendingAmt.toString(), milestoneTerm: currentTermId})) 
+                            }
+                          }}
+                          className={`relative group p-2.5 rounded-xl border-2 text-left transition-all duration-200 flex flex-col justify-between ${
                             isSelected
                               ? 'border-[#82A094] bg-[#82A094]/5 shadow-md shadow-[#82A094]/10 ring-1 ring-[#82A094]/20'
-                              : 'border-[#AEBFC3]/25 bg-white hover:border-[#AEBFC3]/50 hover:bg-[#AEBFC3]/5'
+                              : isFullyPaid
+                                ? 'border-[#AEBFC3]/20 bg-[#F8FAFB] opacity-60 cursor-not-allowed'
+                                : 'border-[#AEBFC3]/25 bg-white hover:border-[#AEBFC3]/50 hover:bg-[#AEBFC3]/5'
                           }`}
                         >
                           {isSelected && (
@@ -1284,18 +1343,33 @@ export default function MilestoneViewPage() {
                               <CheckCircle className="w-3 h-3 text-white" />
                             </div>
                           )}
-                          <p className={`text-xs font-bold truncate ${isSelected ? 'text-[#4F6A64]' : 'text-[#546A7A]'}`}>{label}</p>
-                          <div className="flex items-center justify-between mt-1">
-                            <span className="text-[10px] font-bold text-[#CE9F6B]">
-                              {term.percentage}% {term.taxPercentage ? `+ ${term.taxPercentage}% T` : ''}
-                            </span>
-                            <span className={`text-[9px] font-semibold ${stageProgress >= 99 ? 'text-[#82A094]' : 'text-[#92A2A5]'}`}>
-                              {stageProgress >= 99 ? '✓ Paid' : `${Math.round(stageProgress)}%`}
+                          <div className="flex items-center justify-between gap-1 w-full">
+                            <p className={`text-xs font-bold truncate ${isSelected ? 'text-[#4F6A64]' : 'text-[#546A7A]'}`}>{label}</p>
+                            <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-md whitespace-nowrap ${pendingAmt < 0.01 && allocatedAmt > 0 ? 'bg-[#82A094]/10 text-[#4F6A64]' : 'bg-[#AEBFC3]/20 text-[#546A7A]'}`}>
+                              {pendingAmt < 0.01 && allocatedAmt > 0 ? '✓ Paid' : `${Math.floor(stageProgress)}%`}
                             </span>
                           </div>
+                          <div className="flex flex-col mt-1 w-full gap-0.5">
+                            <span className="text-[10px] font-black bg-gradient-to-r from-[#CE9F6B]/10 to-[#976E44]/10 text-[#976E44] px-1.5 py-0.5 rounded-md w-fit border border-[#CE9F6B]/20">
+                              {term.percentage}% {term.taxPercentage ? `+ ${term.taxPercentage}% T` : ''}
+                            </span>
+                            
+                            <div className="mt-1.5 flex flex-col gap-0.5 border-t border-[#AEBFC3]/20 pt-1.5">
+                              <div className="flex justify-between items-center text-[10px]">
+                                <span className="text-[#92A2A5]">Total Value:</span>
+                                <span className="font-bold text-[#546A7A]">{formatARCurrency(allocatedAmt)}</span>
+                              </div>
+                              {pendingAmt > 0 && (
+                                <div className="flex justify-between items-center text-[11px] mt-0.5">
+                                  <span className="font-bold text-[#E17F70]">Pending:</span>
+                                  <span className="font-black text-[#E17F70]">{formatARCurrency(pendingAmt)}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
                           {/* Mini progress bar */}
-                          <div className="h-1 bg-[#AEBFC3]/15 rounded-full mt-1.5 overflow-hidden">
-                            <div className={`h-full rounded-full transition-all ${isSelected ? 'bg-[#82A094]' : 'bg-[#AEBFC3]/40'}`} style={{ width: `${Math.min(100, stageProgress)}%` }} />
+                          <div className="h-1.5 bg-[#AEBFC3]/30 rounded-full mt-2 overflow-hidden w-full shadow-inner">
+                            <div className={`h-full rounded-full transition-all duration-500 ease-out ${isSelected ? 'bg-gradient-to-r from-[#82A094] to-[#4F6A64]' : 'bg-gradient-to-r from-[#6F8A9D] to-[#546A7A]'}`} style={{ width: `${Math.min(100, stageProgress)}%` }} />
                           </div>
                         </button>
                       );

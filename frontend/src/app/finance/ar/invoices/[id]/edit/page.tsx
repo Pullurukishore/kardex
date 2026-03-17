@@ -32,10 +32,6 @@ export default function EditInvoicePage() {
     department: '',
     personInCharge: '',
     type: '',
-    modeOfDelivery: '',
-    sentHandoverDate: '',
-    deliveryStatus: 'PENDING',
-    impactDate: '',
     status: 'PENDING',
     invoiceType: 'REGULAR' as 'REGULAR' | 'MILESTONE',
   });
@@ -77,10 +73,6 @@ export default function EditInvoicePage() {
         department: data.department || '',
         personInCharge: data.personInCharge || '',
         type: (data.type as any) === 'SERVICE' ? 'LCS' : (data.type as any) === 'SALES' ? 'NB' : (data.type || ''),
-        modeOfDelivery: data.modeOfDelivery || '',
-        sentHandoverDate: data.sentHandoverDate ? data.sentHandoverDate.split('T')[0] : '',
-        deliveryStatus: data.deliveryStatus || 'PENDING',
-        impactDate: data.impactDate ? data.impactDate.split('T')[0] : '',
         status: data.status || 'PENDING',
         invoiceType: data.invoiceType || 'REGULAR',
       });
@@ -122,10 +114,6 @@ export default function EditInvoicePage() {
         department: formData.department || undefined,
         personInCharge: formData.personInCharge || undefined,
         type: formData.type || undefined,
-        modeOfDelivery: formData.modeOfDelivery || undefined,
-        sentHandoverDate: formData.sentHandoverDate || undefined,
-        deliveryStatus: formData.deliveryStatus as any,
-        impactDate: formData.impactDate || undefined,
         status: formData.status as any,
         invoiceType: 'REGULAR',
       } as any);
@@ -474,59 +462,7 @@ export default function EditInvoicePage() {
           </div>
         </div>
 
-        {/* Delivery Tracking */}
-        <div className="relative bg-white/90 backdrop-blur-xl rounded-[2rem] border-2 border-[#6F8A9D]/20 p-6 shadow-lg overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#6F8A9D] via-[#546A7A] to-[#96AEC2]" />
-          <h3 className="text-lg font-bold text-[#546A7A] mb-5 flex items-center gap-2">
-            <div className="relative p-2 rounded-xl bg-gradient-to-br from-[#6F8A9D] to-[#546A7A] shadow-lg shadow-[#6F8A9D]/20 overflow-hidden">
-              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#96AEC2] via-white/40 to-[#546A7A]" />
-              <Truck className="w-5 h-5 text-white" />
-            </div>
-            Delivery Tracking
-          </h3>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-5">
-            <div>
-              <label className={labelClass}>Delivery Status</label>
-              <select name="deliveryStatus" value={formData.deliveryStatus} onChange={handleChange} className={selectClass}>
-                <option value="PENDING">Pending</option>
-                <option value="SENT">Sent</option>
-                <option value="DELIVERED">Delivered</option>
-                <option value="ACKNOWLEDGED">Acknowledged</option>
-              </select>
-            </div>
-            <div>
-              <label className={labelClass}>Mode of Delivery</label>
-              <input
-                type="text"
-                name="modeOfDelivery"
-                value={formData.modeOfDelivery}
-                onChange={handleChange}
-                placeholder="Email/Courier/Hand delivery"
-                className={inputClass}
-              />
-            </div>
-            <div>
-              <label className={labelClass}>Sent/Handover Date</label>
-              <input
-                type="date"
-                name="sentHandoverDate"
-                value={formData.sentHandoverDate}
-                onChange={handleChange}
-                className={inputClass}
-              />
-            </div>
-            <div>
-              <label className={labelClass}>Impact Date (GRN/Acknowledgement)</label>
-              <input
-                type="date"
-                name="impactDate"
-                value={formData.impactDate}
-                onChange={handleChange}
-                className={inputClass}
-              />
-            </div>
-          </div>
-        </div>
+
 
         {/* Actions */}
         <div className="flex items-center justify-end gap-4 pt-2">

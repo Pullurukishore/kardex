@@ -155,7 +155,7 @@ export default function BankAccountReportsPage() {
                 'Bank Name': row.beneficiaryBankName, 'IFSC/SWIFT': row.ifscCode,
                 'Currency': row.currency, 'Account Type': row.accountType || 'Savings',
                 'Category': row.accountCategory, 'PAN Number': row.panNumber || '—',
-                'GST Number': row.gstNumber || '—', 'MSME Status': row.isMSME ? 'Registered' : 'Regular',
+                'GST Number': row.gstNumber || 'Unregistered', 'MSME Status': row.isMSME ? 'Registered' : 'Regular',
                 'Udyam Number': row.udyamRegNum || '—', 'Email ID': row.emailId || '—',
                 'KYC Status': row.kycStatus, 'Registration Date': new Date(row.createdAt).toLocaleDateString()
             }));
@@ -517,7 +517,7 @@ export default function BankAccountReportsPage() {
                                                 </div>
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-[9px] font-black text-gray-300 w-7">GST</span>
-                                                    <span className="font-mono text-[10px] font-bold text-gray-500 truncate max-w-[100px]">{row.gstNumber || '—'}</span>
+                                                    <span className="font-mono text-[10px] font-bold text-gray-500 truncate max-w-[100px]">{row.gstNumber || 'Unregistered'}</span>
                                                 </div>
                                             </div>
                                         </TableCell>

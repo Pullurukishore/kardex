@@ -8,7 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { 
   ArrowLeft, Building2, Sparkles, Save, AlertCircle, 
   CheckCircle2, Mail, CreditCard, Hash, User, Loader2,
-  Info, FileText, Upload, X
+  Info, FileText, Upload, X, Shield
 } from 'lucide-react';
 
 interface FormData {
@@ -23,6 +23,7 @@ interface FormData {
   nickName: string;
   isMSME: boolean;
   udyamRegNum: string;
+  isGstRegistered: boolean;
   gstNumber: string;
   panNumber: string;
   currency: string;
@@ -50,6 +51,7 @@ export default function EditRequestPage() {
     nickName: '',
     isMSME: false,
     udyamRegNum: '',
+    isGstRegistered: true,
     gstNumber: '',
     panNumber: '',
     currency: 'INR',
@@ -87,6 +89,7 @@ export default function EditRequestPage() {
         nickName: data.nickName || '',
         isMSME: data.isMSME || false,
         udyamRegNum: data.udyamRegNum || '',
+        isGstRegistered: !!data.gstNumber && data.gstNumber !== 'UNREGISTERED',
         gstNumber: data.gstNumber || '',
         panNumber: data.panNumber || '',
         currency: ['INR', 'EUR', 'USD'].includes(data.currency) ? data.currency : 'Other',
@@ -104,7 +107,14 @@ export default function EditRequestPage() {
     const { name, value, type } = e.target;
     const checked = (e.target as HTMLInputElement).checked;
     const val = type === 'checkbox' ? checked : value;
-    setFormData(prev => ({ ...prev, [name]: val }));
+    
+    setFormData(prev => {
+      const newData = { ...prev, [name]: val };
+      if (name === 'isGstRegistered' && !checked) {
+        newData.gstNumber = '';
+      }
+      return newData;
+    });
     setError('');
   };
 
@@ -134,7 +144,7 @@ export default function EditRequestPage() {
 
       // Smart Mandatory Validation for GST/PAN (only for INR)
       if (formData.currency === 'INR') {
-        if (!formData.gstNumber) {
+        if (formData.isGstRegistered && !formData.gstNumber) {
           setError('GST Number is required for INR transactions');
           setSubmitting(false);
           return;
@@ -151,7 +161,7 @@ export default function EditRequestPage() {
         setSubmitting(false);
         return;
       }
-      const { confirmAccountNumber, otherCurrency, ...apiData } = formData;
+      const { confirmAccountNumber, otherCurrency, isGstRegistered, ...apiData } = formData;
       // Override currency if 'Other' is selected
       if (formData.currency === 'Other') {
         apiData.currency = formData.otherCurrency || 'Other';
@@ -383,15 +393,46 @@ export default function EditRequestPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div className="space-y-2">
-                  <label className="text-sm font-semibold text-[#5D6E73]">GST Number {formData.currency === 'INR' && <span className="text-[#E17F70]">*</span>}</label>
-                  <input
-                    type="text"
-                    name="gstNumber"
-                    value={formData.gstNumber}
-                    onChange={handleChange}
-                    placeholder="22AAAAA0000A1Z5"
-                    className="w-full px-4 py-3.5 bg-[#F8FAFB] border border-[#AEBFC3]/30 rounded-xl text-[#546A7A] uppercase"
-                  />
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="flex items-center gap-2 text-sm font-semibold text-[#5D6E73]">
+                      <Shield className="w-4 h-4 text-[#CE9F6B]" />
+                      GST Registered?
+                    </label>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        name="isGstRegistered"
+                        checked={formData.isGstRegistered}
+                        onChange={handleChange}
+                        className="sr-only peer" 
+                      />
+                      <div 
+                        className="w-11 h-6 bg-[#AEBFC3]/30 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#CE9F6B]"
+                      ></div>
+                    </label>
+                  </div>
+
+                  {formData.isGstRegistered ? (
+                    <>
+                      <label className="text-sm font-semibold text-[#5D6E73]">GST Number {formData.currency === 'INR' && <span className="text-[#E17F70]">*</span>}</label>
+                      <input
+                        type="text"
+                        name="gstNumber"
+                        value={formData.gstNumber}
+                        onChange={handleChange}
+                        placeholder="22AAAAA0000A1Z5"
+                        className="w-full px-4 py-3.5 bg-[#F8FAFB] border border-[#AEBFC3]/30 rounded-xl text-[#546A7A] uppercase"
+                      />
+                    </>
+                  ) : (
+                    <div className="p-4 rounded-xl flex items-center gap-3 border border-[#CE9F6B]/20 bg-white shadow-sm mt-3">
+                      <Info className="w-5 h-5 text-[#CE9F6B]" />
+                      <div>
+                        <p className="text-sm font-bold text-[#546A7A]">Unregistered Vendor</p>
+                        <p className="text-xs text-[#92A2A5]">GST details will not be captured.</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -539,7 +580,7 @@ export default function EditRequestPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[#92A2A5]">GST:</span>
-                  <span className="text-[#546A7A] font-mono">{formData.gstNumber || '-'}</span>
+                  <span className="text-[#546A7A] font-mono">{formData.gstNumber || 'Unregistered'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[#92A2A5]">PAN:</span>

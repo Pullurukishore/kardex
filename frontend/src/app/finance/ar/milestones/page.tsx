@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useState, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { arApi, ARInvoice, MilestonePaymentTerm, formatARCurrency, formatARDate, formatARMonth } from '@/lib/ar-api';
 import { 
   Search, ChevronLeft, ChevronRight, ChevronDown, Plus, 
@@ -61,12 +62,23 @@ function MilestoneTimelineView({ invoice }: { invoice: ARInvoice }) {
     );
   }
 
-  // Calculate collections per term
-  let remainingReceipts = totalReceived;
+  // Calculate collections per term using specific targets -> FIFO generic pool fallback
+  const paymentsByTarget: Record<string, number> = {};
+  let genericPool = 0;
+
+  (invoice.paymentHistory || []).forEach(p => {
+    if (p.milestoneTerm) {
+      paymentsByTarget[p.milestoneTerm] = (paymentsByTarget[p.milestoneTerm] || 0) + (Number(p.amount) || 0);
+    } else {
+      genericPool += (Number(p.amount) || 0);
+    }
+  });
+
   const termCollections = milestoneTerms.map((term) => {
     const percentage = term.percentage || 0;
     const taxPercentage = term.taxPercentage || 0;
     const isNetBasis = term.calculationBasis !== 'TOTAL_AMOUNT';
+    const termId = `${term.termType}-${term.termDate}-${percentage}-${taxPercentage}`;
     
     let allocatedAmount = 0;
     if (isNetBasis) {
@@ -77,17 +89,38 @@ function MilestoneTimelineView({ invoice }: { invoice: ARInvoice }) {
       allocatedAmount = netPortion + taxPortion;
     }
 
-    const collectedForTerm = Math.min(allocatedAmount, Math.max(0, remainingReceipts));
-    remainingReceipts -= collectedForTerm;
-    const pendingForTerm = Math.max(0, allocatedAmount - collectedForTerm);
-    const collectedPercent = allocatedAmount > 0 ? (collectedForTerm / allocatedAmount) * 100 : 0;
+    let collectedForTerm = (paymentsByTarget[termId] || 0) + (paymentsByTarget[term.termType] || 0);
+    
+    if (paymentsByTarget[termId]) delete paymentsByTarget[termId];
+    if (paymentsByTarget[term.termType]) delete paymentsByTarget[term.termType];
+
+    if (collectedForTerm > allocatedAmount) {
+      genericPool += (collectedForTerm - allocatedAmount);
+      collectedForTerm = allocatedAmount;
+    }
+
     return {
+      termId,
       allocatedAmount,
       collectedForTerm,
-      pendingForTerm,
-      collectedPercent,
+      pendingForTerm: 0,
+      collectedPercent: 0,
       isNetBasis,
     };
+  });
+
+  Object.values(paymentsByTarget).forEach(orphanAmount => {
+    genericPool += orphanAmount;
+  });
+
+  termCollections.forEach(tc => {
+    const gap = Math.max(0, tc.allocatedAmount - tc.collectedForTerm);
+    const fromGeneric = Math.min(gap, genericPool);
+    tc.collectedForTerm += fromGeneric;
+    genericPool -= fromGeneric;
+    
+    tc.pendingForTerm = Math.max(0, tc.allocatedAmount - tc.collectedForTerm);
+    tc.collectedPercent = tc.allocatedAmount > 0 ? (tc.collectedForTerm / tc.allocatedAmount) * 100 : 0;
   });
 
   return (
@@ -128,7 +161,7 @@ function MilestoneTimelineView({ invoice }: { invoice: ARInvoice }) {
           const termAging = Math.floor((today.getTime() - termDate.getTime()) / (1000 * 60 * 60 * 24));
           const allocation = termCollections[index];
           const collectedPercent = allocation?.collectedPercent || 0;
-          const isFullyPaid = collectedPercent >= 99;
+          const isFullyPaid = allocation.pendingForTerm < 0.01 && allocation.allocatedAmount > 0;
           const isTermOverdue = termAging > 0 && !isFullyPaid;
 
           return (
@@ -189,7 +222,7 @@ function MilestoneTimelineView({ invoice }: { invoice: ARInvoice }) {
                   </div>
                   <span className={`text-[10px] font-bold min-w-[35px] text-right ${
                     isFullyPaid ? 'text-[#82A094]' : collectedPercent >= 50 ? 'text-[#CE9F6B]' : 'text-[#6F8A9D]'
-                   }`}>{Math.round(collectedPercent)}%</span>
+                   }`}>{isFullyPaid ? '100%' : `${Math.floor(collectedPercent)}%`}</span>
                 </div>
               </div>
 
@@ -355,8 +388,17 @@ export default function ARMilestonesPage() {
             placeholder="Search by SO, PO or Customer..."
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-            className="w-full h-10 pl-10 pr-4 rounded-xl bg-gradient-to-r from-[#96AEC2]/5 to-[#6F8A9D]/5 border-2 border-[#6F8A9D]/30 text-sm focus:border-[#6F8A9D] focus:ring-4 focus:ring-[#6F8A9D]/10 transition-all text-[#546A7A] placeholder:text-[#92A2A5]"
+            className="w-full h-10 pl-10 pr-10 rounded-xl bg-gradient-to-r from-[#96AEC2]/5 to-[#6F8A9D]/5 border-2 border-[#6F8A9D]/30 text-sm focus:border-[#6F8A9D] focus:ring-4 focus:ring-[#6F8A9D]/10 transition-all text-[#546A7A] placeholder:text-[#92A2A5]"
           />
+          {search && (
+            <button
+              onClick={() => { setSearch(''); setPage(1); }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-md hover:bg-[#AEBFC3]/20 text-[#92A2A5] transition-colors"
+              title="Clear search"
+            >
+              ✕
+            </button>
+          )}
         </div>
         
         <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
@@ -372,6 +414,16 @@ export default function ARMilestonesPage() {
               {filter.label}
             </button>
           ))}
+          
+          {(search || status) && (
+            <button
+              onClick={() => { setSearch(''); setStatus(''); setPage(1); }}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold text-[#E17F70] hover:bg-[#E17F70]/10 border border-[#E17F70]/30 transition-all ml-2"
+              title="Clear all filters"
+            >
+              Clear All
+            </button>
+          )}
         </div>
       </div>
 
@@ -426,14 +478,22 @@ export default function ARMilestonesPage() {
                 invoices.map((invoice, index) => {
                   const isExpanded = expandedRows.has(invoice.id);
                   const terms: MilestonePaymentTerm[] = invoice.milestoneTerms || [];
-                  // Calculate critical aging — only count UNPAID overdue terms
+                  // Calculate critical aging — accurately taking target payments into account
                   const nAmt = Number(invoice.netAmount || 0);
-                  const tRec = Number(invoice.totalReceipts || 0);
-                  let remRec = tRec;
-                  const criticalAging = terms.length > 0 && invoice.milestoneStatus !== 'FULLY_DELIVERED' ? (() => {
+                  const paymentsByTargetAgg: Record<string, number> = {};
+                  let genPool = 0;
+                  (invoice.paymentHistory || []).forEach((p: any) => {
+                    if (p.milestoneTerm) {
+                      paymentsByTargetAgg[p.milestoneTerm] = (paymentsByTargetAgg[p.milestoneTerm] || 0) + (Number(p.amount) || 0);
+                    } else {
+                      genPool += (Number(p.amount) || 0);
+                    }
+                  });
+
+                  const criticalAging = terms.length > 0 ? (() => {
                     const sorted = terms.slice().sort((a, b) => new Date(a.termDate).getTime() - new Date(b.termDate).getTime());
-                    const overdueUnpaid: number[] = [];
-                    sorted.forEach(t => {
+                    
+                    const tColls = sorted.map(t => {
                       const pct = t.percentage || 0;
                       const taxPct = t.taxPercentage || 0;
                       let alloc = 0;
@@ -444,11 +504,28 @@ export default function ARMilestonesPage() {
                         const taxPortion = (Number(invoice.taxAmount || 0) * taxPct) / 100;
                         alloc = netPortion + taxPortion;
                       }
-                      const coll = Math.min(alloc, Math.max(0, remRec));
-                      remRec -= coll;
-                      const isPaid = alloc > 0 ? (coll / alloc) * 100 >= 99 : true;
+                      const tId = `${t.termType}-${t.termDate}-${pct}-${taxPct}`;
+                      let coll = (paymentsByTargetAgg[tId] || 0) + (paymentsByTargetAgg[t.termType] || 0);
+                      if (paymentsByTargetAgg[tId]) delete paymentsByTargetAgg[tId];
+                      if (paymentsByTargetAgg[t.termType]) delete paymentsByTargetAgg[t.termType];
+                      if (coll > alloc) {
+                        genPool += (coll - alloc);
+                        coll = alloc;
+                      }
+                      return { alloc, coll, termDate: t.termDate };
+                    });
+
+                    Object.values(paymentsByTargetAgg).forEach(amt => { genPool += amt; });
+
+                    const overdueUnpaid: number[] = [];
+                    tColls.forEach(tc => {
+                      const gap = Math.max(0, tc.alloc - tc.coll);
+                      const fromGen = Math.min(gap, genPool);
+                      tc.coll += fromGen;
+                      genPool -= fromGen;
+                      const isPaid = tc.alloc > 0 ? (tc.alloc - tc.coll) < 0.01 : true;
                       if (!isPaid) {
-                        const aging = Math.floor((new Date().getTime() - new Date(t.termDate).getTime()) / (1000*60*60*24));
+                        const aging = Math.floor((new Date().getTime() - new Date(tc.termDate).getTime()) / (1000*60*60*24));
                         if (aging > 0) overdueUnpaid.push(aging);
                       }
                     });
@@ -529,13 +606,14 @@ export default function ARMilestonesPage() {
                         <td className="py-4 px-4">
                            <div className="flex flex-col gap-2.5">
                               {/* Category */}
-                              {(() => {
-                                const type = invoice.type || 'NB';
-                                const config = {
+                              {invoice.type && (() => {
+                                const type = invoice.type;
+                                const configObj: Record<string, any> = {
                                   'LCS': { bg: 'bg-gradient-to-br from-[#82A094]/20 to-[#4F6A64]/10', text: 'text-[#4F6A64]', icon: 'text-[#82A094]', border: 'border-[#82A094]/20' },
                                   'NB': { bg: 'bg-gradient-to-br from-[#6F8A9D]/20 to-[#546A7A]/10', text: 'text-[#546A7A]', icon: 'text-[#6F8A9D]', border: 'border-[#6F8A9D]/20' },
                                   'FINANCE': { bg: 'bg-gradient-to-br from-[#CE9F6B]/20 to-[#976E44]/10', text: 'text-[#976E44]', icon: 'text-[#CE9F6B]', border: 'border-[#CE9F6B]/20' }
-                                }[type] || { bg: 'bg-gradient-to-br from-[#6F8A9D]/20 to-[#546A7A]/10', text: 'text-[#546A7A]', icon: 'text-[#6F8A9D]', border: 'border-[#6F8A9D]/20' };
+                                };
+                                const config = configObj[type] || { bg: 'bg-gradient-to-br from-[#6F8A9D]/20 to-[#546A7A]/10', text: 'text-[#546A7A]', icon: 'text-[#6F8A9D]', border: 'border-[#6F8A9D]/20' };
 
                                 return (
                                   <div className="flex items-center gap-2 group/cat">
@@ -574,16 +652,7 @@ export default function ARMilestonesPage() {
                                 );
                               })()}
 
-                              {/* Milestone Status Overlay (if active) */}
-                              {invoice.milestoneStatus && invoice.milestoneStatus !== 'AWAITING_DELIVERY' && (() => {
-                                const mode = getMilestoneStageConfig(invoice.milestoneStatus);
-                                return (
-                                  <div className="mt-1 pt-1.5 border-t border-[#AEBFC3]/20 flex items-center gap-1.5 animate-in fade-in slide-in-from-top-1">
-                                    <div className={`w-2 h-2 rounded-full ${mode.bg.replace('/15', '')} animate-pulse`} />
-                                    <span className={`text-[8px] font-bold uppercase tracking-tighter ${mode.text}`}>{mode.label}</span>
-                                  </div>
-                                );
-                              })()}
+
                            </div>
                         </td>
 
@@ -595,7 +664,18 @@ export default function ARMilestonesPage() {
                                       <MessageSquare className="w-3.5 h-3.5 text-white" />
                                    </div>
                                    <div className="flex flex-col min-w-0">
-                                      <p className="text-xs font-bold text-[#546A7A] leading-snug line-clamp-2 italic">&ldquo;{invoice.remarks[0].content}&rdquo;</p>
+                                      <TooltipProvider>
+                                        <Tooltip delayDuration={300}>
+                                          <TooltipTrigger asChild>
+                                            <p className="text-xs font-bold text-[#546A7A] leading-snug line-clamp-2 italic cursor-help">
+                                              &ldquo;{invoice.remarks[0].content}&rdquo;
+                                            </p>
+                                          </TooltipTrigger>
+                                          <TooltipContent side="top" className="max-w-[300px] p-3 text-xs bg-white text-[#546A7A] border-2 border-[#CE9F6B]/20 shadow-xl whitespace-pre-wrap break-words z-50">
+                                            {invoice.remarks[0].content}
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
                                       <div className="flex items-center gap-1.5 mt-1.5">
                                          <span className="text-[9px] font-bold text-[#976E44] uppercase tracking-tight">{invoice.remarks[0].createdBy?.name?.split(' ')[0] || 'AI'}</span>
                                          <span className="w-1 h-1 rounded-full bg-[#CE9F6B]/40" />
@@ -726,9 +806,18 @@ export default function ARMilestonesPage() {
                            <div className="p-1.5 rounded-lg bg-gradient-to-br from-[#CE9F6B] to-[#976E44] flex-shrink-0">
                              <MessageSquare className="w-3 h-3 text-white" />
                            </div>
-                           <p className="text-[10px] text-[#5D6E73] font-medium leading-tight line-clamp-2 italic">
-                             &ldquo;{invoice.remarks[0].content}&rdquo;
-                           </p>
+                           <TooltipProvider>
+                             <Tooltip delayDuration={300}>
+                               <TooltipTrigger asChild>
+                                 <p className="text-[10px] text-[#5D6E73] font-medium leading-tight line-clamp-2 italic cursor-help">
+                                   &ldquo;{invoice.remarks[0].content}&rdquo;
+                                 </p>
+                               </TooltipTrigger>
+                               <TooltipContent side="top" className="max-w-[250px] p-3 text-xs bg-white text-[#546A7A] border-2 border-[#CE9F6B]/20 shadow-xl whitespace-pre-wrap break-words z-50">
+                                 {invoice.remarks[0].content}
+                               </TooltipContent>
+                             </Tooltip>
+                           </TooltipProvider>
                          </div>
                        )}
                     </div>

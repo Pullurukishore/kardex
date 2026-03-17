@@ -125,6 +125,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           maxAge: 60 * 60 * 24 * 30,
         });
       }
+      
+      if (safeUser.arRole) {
+        setCookie('arRole', safeUser.arRole, {
+          path: '/',
+          secure: process.env.NODE_ENV === 'production' && !window.location.hostname.includes('172.28.91.10') && !window.location.hostname.includes('10.91.1.12') && !window.location.hostname.includes('10.91.1.48') && !window.location.hostname.includes('10.91.1.49') && window.location.hostname !== 'localhost',
+          sameSite: 'lax',
+          maxAge: 60 * 60 * 24 * 30,
+        });
+      }
+
+      if (safeUser.vendorRole) {
+        setCookie('vendorRole', safeUser.vendorRole, {
+          path: '/',
+          secure: process.env.NODE_ENV === 'production' && !window.location.hostname.includes('172.28.91.10') && !window.location.hostname.includes('10.91.1.12') && !window.location.hostname.includes('10.91.1.48') && !window.location.hostname.includes('10.91.1.49') && window.location.hostname !== 'localhost',
+          sameSite: 'lax',
+          maxAge: 60 * 60 * 24 * 30,
+        });
+      }
 
       return safeUser;
     } catch (err) {
@@ -142,6 +160,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     deleteCookie('refreshToken');
     deleteCookie('userRole');
     deleteCookie('financeRole');
+    deleteCookie('arRole');
+    deleteCookie('vendorRole');
 
     safeLocalStorage.removeItem('auth_token');
     safeLocalStorage.removeItem('refresh_token');
@@ -154,6 +174,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     safeLocalStorage.removeItem('token');
     safeLocalStorage.removeItem('userRole');
     safeLocalStorage.removeItem('financeRole');
+    safeLocalStorage.removeItem('arRole');
+    safeLocalStorage.removeItem('vendorRole');
     safeLocalStorage.removeItem('pinAccessSession');
     safeLocalStorage.removeItem('tokenExpiry');
     safeLocalStorage.removeItem('selectedModule');
@@ -335,10 +357,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Set role cookies (non-sensitive, needed for client-side routing)
       setCookie('userRole', safeUser.role, roleOptions);
       if (safeUser.financeRole) setCookie('financeRole', safeUser.financeRole, roleOptions);
+      if (safeUser.arRole) setCookie('arRole', safeUser.arRole, roleOptions);
+      if (safeUser.vendorRole) setCookie('vendorRole', safeUser.vendorRole, roleOptions);
 
       // Fallback for development or when cookies are blocked
       manualSetCookie('userRole', safeUser.role, roleOptions);
       if (safeUser.financeRole) manualSetCookie('financeRole', safeUser.financeRole, roleOptions);
+      if (safeUser.arRole) manualSetCookie('arRole', safeUser.arRole, roleOptions);
+      if (safeUser.vendorRole) manualSetCookie('vendorRole', safeUser.vendorRole, roleOptions);
 
       // Store user in state and session storage (for fast access, not for auth)
       setUser(safeUser);
@@ -377,7 +403,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const regUser: User = { ...res.user, name: res.user.name || 'User' };
       setUser(regUser);
       toast.success('Account created!');
-      router.replace(getRoleBasedRedirect(res.user.role, res.user.financeRole));
+      router.replace(getRoleBasedRedirect(regUser.role, regUser.financeRole, regUser.arRole, regUser.vendorRole));
     } catch (err: any) {
       const msg = err?.response?.data?.message || 'Registration failed';
       setError(msg);

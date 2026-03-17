@@ -34,6 +34,7 @@ export default function NewInvoicePage() {
     dueDate: '',
     actualPaymentTerms: '',
     type: '' as any,
+    emailId: '',
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -88,6 +89,7 @@ export default function NewInvoicePage() {
         invoiceType: 'REGULAR',
         actualPaymentTerms: formData.actualPaymentTerms || undefined,
         type: formData.type || undefined,
+        emailId: formData.emailId || undefined,
       } as any);
       
       router.push('/finance/ar/invoices');
@@ -222,6 +224,18 @@ export default function NewInvoicePage() {
                 onChange={handleChange}
                 className={inputClass}
                 placeholder="Customer Name (Optional)"
+              />
+            </div>
+
+            <div>
+              <label className={labelClass}>Email ID</label>
+              <input
+                type="email"
+                name="emailId"
+                value={formData.emailId}
+                onChange={handleChange}
+                className={inputClass}
+                placeholder="customer@example.com"
               />
             </div>
 

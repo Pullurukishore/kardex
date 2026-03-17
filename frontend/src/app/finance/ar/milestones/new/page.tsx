@@ -38,6 +38,7 @@ export default function NewMilestonePage() {
     mailToTSP: '',
     invoiceNumber: '',
     bookingMonth: '',
+    emailId: '',
   });
 
   const termOptions = [
@@ -117,6 +118,7 @@ export default function NewMilestonePage() {
   const totalAllocatedAmount = formData.milestoneTerms.reduce((sum, term) => sum + getTermAmount(term), 0);
 
   const totalPercentage = formData.milestoneTerms.reduce((sum, term) => sum + (Number(term.percentage) || 0), 0);
+  const totalTaxPercentage = formData.milestoneTerms.reduce((sum, term) => sum + (Number(term.taxPercentage) || 0), 0);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -179,6 +181,10 @@ export default function NewMilestonePage() {
       setError('Total percentage allocation cannot exceed 100%');
       return;
     }
+    if (totalTaxPercentage > 100) {
+      setError('Total tax percentage allocation cannot exceed 100%');
+      return;
+    }
     
     // Check if any term is missing a date
     const missingDate = formData.milestoneTerms.some(t => !t.termDate);
@@ -208,6 +214,7 @@ export default function NewMilestonePage() {
         accountingStatus: formData.accountingStatus || undefined,
         mailToTSP: formData.mailToTSP,
         bookingMonth: formData.bookingMonth || undefined,
+        emailId: formData.emailId || undefined,
       } as any);
       router.push('/finance/ar/milestones');
     } catch (err: any) {
@@ -448,6 +455,19 @@ export default function NewMilestonePage() {
                 <option value="others">others</option>
               </select>
             </div>
+            <div>
+              <label className={labelClass}>
+                Email ID
+              </label>
+              <input
+                type="email"
+                name="emailId"
+                value={formData.emailId}
+                onChange={handleChange}
+                className={inputClass}
+                placeholder="customer@example.com"
+              />
+            </div>
           </div>
         </div>
 
@@ -521,45 +541,100 @@ export default function NewMilestonePage() {
             Milestone Payment Terms
           </h3>
 
-          {/* Allocation Progress Bar */}
-          <div className="mb-5">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-[#CE9F6B]" />
-                <span className="text-sm font-bold text-[#546A7A]">Total Allocation</span>
-                {totalAllocatedAmount > 0 && (
-                  <span className="text-xs font-semibold text-[#82A094] bg-[#82A094]/10 px-2 py-0.5 rounded-full">
-                    ₹{totalAllocatedAmount.toLocaleString('en-IN', { maximumFractionDigits: 0 })} / ₹{parseFloat(formData.totalAmount || '0').toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                  </span>
-                )}
+          {/* Allocation Overview Bar */}
+          <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between px-5 py-4 bg-gradient-to-r from-[#82A094]/15 to-[#82A094]/5 rounded-xl border border-[#82A094]/30 shadow-inner">
+            <div className="flex items-center gap-3 mb-3 sm:mb-0">
+              <div className="p-2 rounded-lg bg-white shadow-sm">
+                <BarChart3 className="w-5 h-5 text-[#4F6A64]" />
               </div>
-              <div className="flex items-center gap-2">
-                <span className={`text-sm font-black ${totalPercentage > 100 ? 'text-red-500' : totalPercentage === 100 ? 'text-[#82A094]' : 'text-[#CE9F6B]'}`}>
-                  {totalPercentage}%
-                </span>
-                <span className="text-xs text-[#92A2A5]">/ 100%</span>
-                {totalPercentage > 100 && <span className="text-[10px] font-bold text-red-500 bg-red-50 px-2 py-0.5 rounded-full">Exceeds!</span>}
-                {totalPercentage === 100 && <CheckCircle2 className="w-4 h-4 text-[#82A094]" />}
+              <div>
+                <span className="block text-sm font-bold text-[#4F6A64]">Total Value Allocation</span>
+                <span className="text-[10px] text-[#4F6A64]/70 uppercase font-bold tracking-wider">Net + Tax</span>
               </div>
             </div>
-            <div className="relative h-3 bg-[#AEBFC3]/15 rounded-full overflow-hidden">
-              <div
-                className={`absolute inset-y-0 left-0 rounded-full transition-all duration-700 ease-out ${
-                  totalPercentage > 100 ? 'bg-gradient-to-r from-red-400 to-red-500' :
-                  totalPercentage === 100 ? 'bg-gradient-to-r from-[#82A094] to-[#4F6A64]' :
-                  totalPercentage >= 50 ? 'bg-gradient-to-r from-[#CE9F6B] to-[#976E44]' :
-                  'bg-gradient-to-r from-[#6F8A9D] to-[#546A7A]'
-                }`}
-                style={{ width: `${Math.min(100, totalPercentage)}%` }}
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer" />
-              </div>
-              {/* Markers */}
-              {[25, 50, 75].map((m) => (
-                <div key={m} className="absolute top-0 bottom-0 w-px bg-white/40" style={{ left: `${m}%` }} />
-              ))}
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-black text-[#4F6A64] bg-white px-3 py-1.5 rounded-lg shadow-sm border border-[#82A094]/20">
+                ₹{totalAllocatedAmount.toLocaleString('en-IN', { maximumFractionDigits: 0 })} <span className="text-[#82A094] mx-1">/</span> ₹{parseFloat(formData.totalAmount || '0').toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+              </span>
+              {(totalPercentage > 100 || totalTaxPercentage > 100) && (
+                  <span className="text-xs font-bold text-white bg-gradient-to-r from-[#E17F70] to-[#9E3B47] px-3 py-1.5 rounded-lg shadow-md animate-pulse hidden sm:block">Exceeds limits!</span>
+              )}
             </div>
           </div>
+
+          {/* Allocation Progress Bars */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            {/* Net Allocation Progress Bar */}
+            <div className="bg-[#AEBFC3]/5 p-4 rounded-xl border border-[#AEBFC3]/20">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <BarChart3 className="w-4 h-4 text-[#CE9F6B]" />
+                  <span className="text-sm font-bold text-[#546A7A]">Net Allocation</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`text-sm font-black ${totalPercentage > 100 ? 'text-red-500' : totalPercentage === 100 ? 'text-[#82A094]' : 'text-[#CE9F6B]'}`}>
+                    {totalPercentage}%
+                  </span>
+                  <span className="text-xs text-[#92A2A5]">/ 100%</span>
+                  {totalPercentage > 100 && <span className="text-[10px] font-bold text-red-500 bg-red-50 px-2 py-0.5 rounded-full">Exceeds!</span>}
+                  {totalPercentage === 100 && <CheckCircle2 className="w-4 h-4 text-[#82A094]" />}
+                </div>
+              </div>
+              <div className="relative h-2.5 bg-[#AEBFC3]/15 rounded-full overflow-hidden">
+                <div
+                  className={`absolute inset-y-0 left-0 rounded-full transition-all duration-700 ease-out ${
+                    totalPercentage > 100 ? 'bg-gradient-to-r from-red-400 to-red-500' :
+                    totalPercentage === 100 ? 'bg-gradient-to-r from-[#82A094] to-[#4F6A64]' :
+                    totalPercentage >= 50 ? 'bg-gradient-to-r from-[#CE9F6B] to-[#976E44]' :
+                    'bg-gradient-to-r from-[#6F8A9D] to-[#546A7A]'
+                  }`}
+                  style={{ width: `${Math.min(100, totalPercentage)}%` }}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer" />
+                </div>
+                {/* Markers */}
+                {[25, 50, 75].map((m) => (
+                  <div key={m} className="absolute top-0 bottom-0 w-px bg-white/40" style={{ left: `${m}%` }} />
+                ))}
+              </div>
+            </div>
+
+            {/* Tax Allocation Progress Bar */}
+            <div className="bg-[#E17F70]/5 p-4 rounded-xl border border-[#E17F70]/20">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <BarChart3 className="w-4 h-4 text-[#E17F70]" />
+                  <span className="text-sm font-bold text-[#9E3B47]">Tax Allocation</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`text-sm font-black ${totalTaxPercentage > 100 ? 'text-red-500' : totalTaxPercentage === 100 ? 'text-[#82A094]' : 'text-[#E17F70]'}`}>
+                    {totalTaxPercentage}%
+                  </span>
+                  <span className="text-xs text-[#92A2A5]">/ 100%</span>
+                  {totalTaxPercentage > 100 && <span className="text-[10px] font-bold text-red-500 bg-red-50 px-2 py-0.5 rounded-full">Exceeds!</span>}
+                  {totalTaxPercentage === 100 && <CheckCircle2 className="w-4 h-4 text-[#82A094]" />}
+                </div>
+              </div>
+              <div className="relative h-2.5 bg-[#E17F70]/15 rounded-full overflow-hidden">
+                <div
+                  className={`absolute inset-y-0 left-0 rounded-full transition-all duration-700 ease-out ${
+                    totalTaxPercentage > 100 ? 'bg-gradient-to-r from-red-400 to-red-500' :
+                    totalTaxPercentage === 100 ? 'bg-gradient-to-r from-[#82A094] to-[#4F6A64]' :
+                    totalTaxPercentage >= 50 ? 'bg-gradient-to-r from-[#E17F70] to-[#E17F70]' :
+                    'bg-gradient-to-r from-[#AEBFC3] to-[#92A2A5]'
+                  }`}
+                  style={{ width: `${Math.min(100, totalTaxPercentage)}%` }}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer" />
+                </div>
+                {/* Markers */}
+                {[25, 50, 75].map((m) => (
+                  <div key={m} className="absolute top-0 bottom-0 w-px bg-white/40" style={{ left: `${m}%` }} />
+                ))}
+              </div>
+            </div>
+          </div>
+
 
           {/* Add Term Button */}
           <div className="flex items-center justify-between mb-4">
@@ -572,8 +647,8 @@ export default function NewMilestonePage() {
             <button
               type="button"
               onClick={addTerm}
-              disabled={totalPercentage >= 100}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-white text-xs font-bold transition-all duration-300 ${totalPercentage >= 100 ? 'bg-gray-300 cursor-not-allowed' : 'bg-gradient-to-r from-[#CE9F6B] to-[#976E44] hover:shadow-lg hover:shadow-[#CE9F6B]/30 hover:-translate-y-0.5 active:scale-95'}`}
+              disabled={totalPercentage >= 100 && totalTaxPercentage >= 100}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-white text-xs font-bold transition-all duration-300 ${(totalPercentage >= 100 && totalTaxPercentage >= 100) ? 'bg-gray-300 cursor-not-allowed' : 'bg-gradient-to-r from-[#CE9F6B] to-[#976E44] hover:shadow-lg hover:shadow-[#CE9F6B]/30 hover:-translate-y-0.5 active:scale-95'}`}
             >
               <Plus className="w-3.5 h-3.5" /> Add Term
             </button>

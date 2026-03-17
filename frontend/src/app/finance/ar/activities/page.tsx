@@ -19,10 +19,16 @@ const actionConfig: Record<string, { color: string; bgColor: string; borderColor
     INVOICE_UPDATED: { color: 'text-[#546A7A]', bgColor: 'bg-[#6F8A9D]/10', borderColor: 'border-[#6F8A9D]/30', icon: '✏️', label: 'Invoice Updated' },
     INVOICE_DELETED: { color: 'text-[#9E3B47]', bgColor: 'bg-[#E17F70]/10', borderColor: 'border-[#E17F70]/30', icon: '🗑️', label: 'Invoice Deleted' },
     PAYMENT_RECORDED: { color: 'text-[#4F6A64]', bgColor: 'bg-[#82A094]/15', borderColor: 'border-[#82A094]/30', icon: '💰', label: 'Payment Recorded' },
+    PAYMENT_UPDATED: { color: 'text-[#4F6A64]', bgColor: 'bg-[#82A094]/15', borderColor: 'border-[#82A094]/30', icon: '📝', label: 'Payment Updated' },
+    PAYMENT_DELETED: { color: 'text-[#9E3B47]', bgColor: 'bg-[#E17F70]/10', borderColor: 'border-[#E17F70]/30', icon: '🗑️', label: 'Payment Deleted' },
     STATUS_CHANGED: { color: 'text-[#CE9F6B]', bgColor: 'bg-[#CE9F6B]/10', borderColor: 'border-[#CE9F6B]/30', icon: '🔄', label: 'Status Changed' },
     DELIVERY_UPDATED: { color: 'text-[#E17F70]', bgColor: 'bg-[#E17F70]/10', borderColor: 'border-[#E17F70]/30', icon: '🚚', label: 'Delivery Updated' },
     REMARK_ADDED: { color: 'text-[#6F8A9D]', bgColor: 'bg-[#96AEC2]/10', borderColor: 'border-[#96AEC2]/30', icon: '💬', label: 'Remark Added' },
+    REMARK_UPDATED: { color: 'text-[#546A7A]', bgColor: 'bg-[#6F8A9D]/10', borderColor: 'border-[#6F8A9D]/30', icon: '📝', label: 'Remark Updated' },
+    REMARK_DELETED: { color: 'text-[#9E3B47]', bgColor: 'bg-[#E17F70]/10', borderColor: 'border-[#E17F70]/30', icon: '🗑️', label: 'Remark Deleted' },
     INVOICE_IMPORTED: { color: 'text-[#546A7A]', bgColor: 'bg-[#6F8A9D]/15', borderColor: 'border-[#6F8A9D]/30', icon: '📥', label: 'Invoice Imported' },
+    MILESTONE_LINKED: { color: 'text-[#4F6A64]', bgColor: 'bg-[#82A094]/10', borderColor: 'border-[#82A094]/30', icon: '🔗', label: 'Milestone Linked' },
+    LINKED_TO_INVOICE: { color: 'text-[#4F6A64]', bgColor: 'bg-[#82A094]/10', borderColor: 'border-[#82A094]/30', icon: '🔗', label: 'Linked to Invoice' },
 };
 
 const getActionConfig = (action: string) => {
@@ -317,8 +323,12 @@ export default function ActivitiesPage() {
                                     <option value="INVOICE_UPDATED">Invoice Updated</option>
                                     <option value="INVOICE_DELETED">Invoice Deleted</option>
                                     <option value="PAYMENT_RECORDED">Payment Recorded</option>
-                                    <option value="DELIVERY_UPDATED">Delivery Updated</option>
+                                    <option value="PAYMENT_UPDATED">Payment Updated</option>
+                                    <option value="PAYMENT_DELETED">Payment Deleted</option>
                                     <option value="REMARK_ADDED">Remark Added</option>
+                                    <option value="REMARK_UPDATED">Remark Updated</option>
+                                    <option value="REMARK_DELETED">Remark Deleted</option>
+                                    <option value="MILESTONE_LINKED">Milestone Linked</option>
                                 </optgroup>
                             </select>
                         </div>

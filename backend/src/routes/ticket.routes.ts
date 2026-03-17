@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { query, param, body } from 'express-validator';
 import { upload } from '../config/multer';
+import multer from 'multer';
 import {
   getTickets,
   getTicket,
@@ -32,7 +33,9 @@ import {
   getOnsiteVisitTracking,
   updateStatusWithLifecycle,
   getTicketPhotos,
-  respondToAssignment
+  respondToAssignment,
+  importTickets,
+  previewTicketImport
 } from '../controllers/ticket.controller';
 import { authenticate, requireRole } from '../middleware/auth.middleware';
 import { validateRequest } from '../middleware/validate-request';
@@ -50,6 +53,12 @@ type Priority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 
 const router = Router();
 
+// Configure multer for ticket imports (memory storage for buffer access)
+const importUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 50 * 1024 * 1024 } // 50MB limit
+});
+
 // Apply auth middleware to all routes
 router.use(authenticate);
 
@@ -64,6 +73,10 @@ const statusValues = [
   'ON_HOLD', 'ESCALATED', 'RESOLVED', 'PENDING'
 ];
 const priorityValues = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
+
+// ─── Ticket Import (must come before /:id routes) ───
+router.post('/import', importUpload.single('file'), requireRole(['ADMIN']), importTickets);
+router.post('/import/preview', importUpload.single('file'), requireRole(['ADMIN']), previewTicketImport);
 
 // Get tickets with filters
 router.get(

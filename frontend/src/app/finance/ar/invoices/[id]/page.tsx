@@ -21,7 +21,7 @@ export default function InvoiceViewPage() {
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [activeTab, setActiveTab] = useState<'details' | 'payments' | 'delivery' | 'remarks' | 'activity'>('details');
+  const [activeTab, setActiveTab] = useState<'details' | 'payments' | 'remarks' | 'activity'>('details');
   
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentLoading, setPaymentLoading] = useState(false);
@@ -51,6 +51,8 @@ export default function InvoiceViewPage() {
   const [remarksLoading, setRemarksLoading] = useState(false);
   const [newRemark, setNewRemark] = useState('');
   const [addingRemark, setAddingRemark] = useState(false);
+  const [editingRemarkId, setEditingRemarkId] = useState<string | null>(null);
+  const [editingRemarkContent, setEditingRemarkContent] = useState('');
 
   // Activity log state
   const [activityLogs, setActivityLogs] = useState<any[]>([]);
@@ -192,6 +194,31 @@ export default function InvoiceViewPage() {
       alert('Failed to add remark');
     } finally {
       setAddingRemark(false);
+    }
+  };
+
+  const handleEditRemark = async (id: string) => {
+    if (!invoice || !editingRemarkContent.trim()) return;
+    try {
+      await arApi.updateInvoiceRemark(invoice.id, id, editingRemarkContent.trim());
+      setEditingRemarkId(null);
+      await loadRemarks(invoice.id);
+    } catch (err) {
+      console.error('Failed to edit remark:', err);
+      alert('Failed to edit remark');
+    }
+  };
+
+  const handleDeleteRemark = async (id: string) => {
+    if (!invoice || !confirm('Are you sure you want to delete this remark?')) return;
+    try {
+      setRemarksLoading(true);
+      await arApi.deleteInvoiceRemark(invoice.id, id);
+      await loadRemarks(invoice.id);
+    } catch (err) {
+      console.error('Failed to delete remark:', err);
+      alert('Failed to delete remark');
+      setRemarksLoading(false);
     }
   };
 
@@ -362,23 +389,7 @@ export default function InvoiceViewPage() {
   // Overdue and Not Due calculations
   // On the Regular Invoice page, always use standard overdue logic based on balance and due date
   const overdueAmount = (isOverdue ? balanceAmount : 0);
-
-
-
-
   const notDueAmount = Math.max(0, balanceAmount - overdueAmount);
-  const getDeliveryDueDays = () => {
-    if (!invoice.deliveryDueDate) return null;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const dueDate = new Date(invoice.deliveryDueDate);
-    dueDate.setHours(0, 0, 0, 0);
-    const diffTime = dueDate.getTime() - today.getTime();
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  };
-  const deliveryDueDays = getDeliveryDueDays();
-  const isDeliveryOverdue = deliveryDueDays !== null && deliveryDueDays < 0 && invoice.milestoneStatus !== 'FULLY_DELIVERED';
-
   const getMilestoneStatusConfig = (status?: string) => {
     switch(status) {
       case 'AWAITING_DELIVERY': return { bg: 'bg-gradient-to-r from-[#CE9F6B] to-[#976E44]', text: 'text-white', label: 'Awaiting Delivery', icon: Package };
@@ -1020,10 +1031,9 @@ export default function InvoiceViewPage() {
         {[
           { id: 'details', label: 'Details', icon: FileText },
           { id: 'payments', label: 'Payments', icon: Receipt, count: invoice.paymentHistory?.length || 0 },
-          { id: 'delivery', label: 'Delivery', icon: Truck },
           { id: 'remarks', label: 'Remarks', icon: MessageSquare, count: remarks.length },
           { id: 'activity', label: 'Activity', icon: Clock, count: activityLogs.length },
-        ].filter(tab => !isMilestone || tab.id !== 'delivery').map((tab) => (
+        ].map((tab) => (
 
           <button
             key={tab.id}
@@ -1313,52 +1323,6 @@ export default function InvoiceViewPage() {
           </div>
         )}
 
-        {activeTab === 'delivery' && (
-          <div className="p-6">
-            <h4 className="flex items-center gap-2 text-lg font-bold text-[#546A7A] mb-6">
-              <div className="p-2 rounded-xl bg-gradient-to-br from-[#CE9F6B] to-[#976E44] shadow-lg shadow-[#CE9F6B]/20">
-                <Truck className="w-5 h-5 text-white" />
-              </div>
-              Delivery Information
-            </h4>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <div className="p-4 rounded-xl bg-[#AEBFC3]/5">
-                  <p className="text-xs text-[#92A2A5] mb-1">Delivery Status</p>
-                  <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-bold ${
-                    invoice.deliveryStatus === 'DELIVERED' ? 'bg-[#82A094]/20 text-[#4F6A64]' :
-                    invoice.deliveryStatus === 'SENT' ? 'bg-[#CE9F6B]/20 text-[#976E44]' :
-                    invoice.deliveryStatus === 'ACKNOWLEDGED' ? 'bg-[#6F8A9D]/20 text-[#546A7A]' :
-                    'bg-[#AEBFC3]/20 text-[#5D6E73]'
-                  }`}>
-                    {invoice.deliveryStatus === 'DELIVERED' && <CheckCircle className="w-4 h-4" />}
-                    {invoice.deliveryStatus === 'SENT' && <Truck className="w-4 h-4" />}
-                    {invoice.deliveryStatus}
-                  </span>
-                </div>
-                
-                <div className="p-4 rounded-xl bg-[#AEBFC3]/5">
-                  <p className="text-xs text-[#92A2A5] mb-1">Mode of Delivery</p>
-                  <p className="font-medium text-[#546A7A]">{invoice.modeOfDelivery || 'Not specified'}</p>
-                </div>
-              </div>
-              
-              <div className="space-y-4">
-                <div className="p-4 rounded-xl bg-[#AEBFC3]/5">
-                  <p className="text-xs text-[#92A2A5] mb-1">Sent/Handover Date</p>
-                  <p className="font-medium text-[#546A7A]">{invoice.sentHandoverDate ? formatARDate(invoice.sentHandoverDate) : '-'}</p>
-                </div>
-                
-                <div className="p-4 rounded-xl bg-[#AEBFC3]/5">
-                  <p className="text-xs text-[#92A2A5] mb-1">Impact/Acknowledgement Date</p>
-                  <p className="font-medium text-[#546A7A]">{invoice.impactDate ? formatARDate(invoice.impactDate) : '-'}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
         {activeTab === 'remarks' && (
           <div className="p-6">
             <h4 className="flex items-center gap-2 text-lg font-bold text-[#546A7A] mb-6">
@@ -1405,7 +1369,7 @@ export default function InvoiceViewPage() {
                     <div className="absolute left-[-9px] top-0 w-4 h-4 rounded-full bg-gradient-to-br from-[#6F8A9D] to-[#546A7A] border-2 border-white shadow" />
                     
                     {/* Remark card */}
-                    <div className="bg-white rounded-xl p-4 shadow-md border border-[#AEBFC3]/20 ml-4">
+                    <div className="bg-white rounded-xl p-4 shadow-md border border-[#AEBFC3]/20 ml-4 group">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
                           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#CE9F6B] to-[#976E44] flex items-center justify-center text-white text-sm font-bold">
@@ -1416,23 +1380,49 @@ export default function InvoiceViewPage() {
                             <p className="text-xs text-[#92A2A5]">{remark.createdBy?.email}</p>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <p className="text-xs text-[#92A2A5]">
-                            {new Date(remark.createdAt).toLocaleDateString('en-IN', { 
-                              day: '2-digit', 
-                              month: 'short', 
-                              year: 'numeric' 
-                            })}
-                          </p>
-                          <p className="text-xs text-[#CE9F6B] font-medium">
-                            {new Date(remark.createdAt).toLocaleTimeString('en-IN', { 
-                              hour: '2-digit', 
-                              minute: '2-digit' 
-                            })}
-                          </p>
+                        <div className="flex flex-col items-end">
+                          <div className="flex items-center justify-end gap-2 mb-1">
+                            <p className="text-xs text-[#92A2A5]">
+                              {new Date(remark.createdAt).toLocaleDateString('en-IN', { 
+                                day: '2-digit', 
+                                month: 'short', 
+                                year: 'numeric' 
+                              })}
+                            </p>
+                            <p className="text-xs text-[#CE9F6B] font-medium">
+                              {new Date(remark.createdAt).toLocaleTimeString('en-IN', { 
+                                hour: '2-digit', 
+                                minute: '2-digit' 
+                              })}
+                            </p>
+                          </div>
+                          <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2">
+                            <button onClick={() => {setEditingRemarkId(remark.id); setEditingRemarkContent(remark.content);}} className="text-[#6F8A9D] hover:text-[#546A7A] transition-colors" title="Edit">
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button onClick={() => handleDeleteRemark(remark.id)} className="text-[#E17F70] hover:text-[#9E3B47] transition-colors" title="Delete">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
                       </div>
-                      <p className="text-[#5D6E73] whitespace-pre-wrap">{remark.content}</p>
+                      
+                      {editingRemarkId === remark.id ? (
+                        <div className="mt-2 flex flex-col gap-2">
+                          <textarea
+                            value={editingRemarkContent}
+                            onChange={(e) => setEditingRemarkContent(e.target.value)}
+                            className="w-full px-3 py-2 rounded-lg border border-[#AEBFC3]/40 focus:border-[#6F8A9D] focus:outline-none focus:ring-1 focus:ring-[#6F8A9D]/20 resize-none text-sm text-[#5D6E73]"
+                            rows={3}
+                          />
+                          <div className="flex items-center justify-end gap-2">
+                            <button onClick={() => setEditingRemarkId(null)} className="px-3 py-1 text-xs font-bold text-[#92A2A5] hover:text-[#5D6E73]">Cancel</button>
+                            <button onClick={() => handleEditRemark(remark.id)} className="px-3 py-1 text-xs font-bold text-white bg-gradient-to-r from-[#6F8A9D] to-[#546A7A] rounded-lg shadow-sm hover:opacity-90">Save</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-[#5D6E73] whitespace-pre-wrap">{remark.content}</p>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -1483,10 +1473,16 @@ export default function InvoiceViewPage() {
                       case 'INVOICE_CREATED': return { icon: Plus, color: 'from-[#82A094] to-[#4F6A64]' };
                       case 'INVOICE_UPDATED': return { icon: Pencil, color: 'from-[#6F8A9D] to-[#546A7A]' };
                       case 'PAYMENT_RECORDED': return { icon: CreditCard, color: 'from-[#CE9F6B] to-[#976E44]' };
+                      case 'PAYMENT_UPDATED': return { icon: Pencil, color: 'from-[#CE9F6B] to-[#976E44]' };
+                      case 'PAYMENT_DELETED': return { icon: Trash2, color: 'from-[#E17F70] to-[#9E3B47]' };
                       case 'STATUS_CHANGED': return { icon: TrendingUp, color: 'from-[#E17F70] to-[#9E3B47]' };
                       case 'DELIVERY_UPDATED': return { icon: Truck, color: 'from-[#96AEC2] to-[#6F8A9D]' };
                       case 'REMARK_ADDED': return { icon: MessageSquare, color: 'from-[#CE9F6B] to-[#976E44]' };
+                      case 'REMARK_UPDATED': return { icon: Pencil, color: 'from-[#6F8A9D] to-[#546A7A]' };
+                      case 'REMARK_DELETED': return { icon: Trash2, color: 'from-[#E17F70] to-[#9E3B47]' };
                       case 'INVOICE_IMPORTED': return { icon: Package, color: 'from-[#82A094] to-[#4F6A64]' };
+                      case 'MILESTONE_LINKED': 
+                      case 'LINKED_TO_INVOICE': return { icon: Link2, color: 'from-[#82A094] to-[#546A7A]' };
                       default: return { icon: Clock, color: 'from-[#AEBFC3] to-[#92A2A5]' };
                     }
                   };

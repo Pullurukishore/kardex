@@ -8,6 +8,8 @@ export interface FinanceUser {
     name?: string | null;
     phone?: string | null;
     financeRole: FinanceRoleType;
+    arRole?: FinanceRoleType | null;
+    vendorRole?: FinanceRoleType | null;
     isActive: boolean;
     lastLoginAt?: string | null;
     createdAt?: string;
@@ -20,6 +22,8 @@ export interface CreateFinanceUserPayload {
     phone?: string;
     password: string;
     financeRole: FinanceRoleType;
+    arRole?: FinanceRoleType | null;
+    vendorRole?: FinanceRoleType | null;
 }
 
 export interface UpdateFinanceUserPayload {
@@ -28,6 +32,8 @@ export interface UpdateFinanceUserPayload {
     phone?: string;
     password?: string;
     financeRole?: FinanceRoleType;
+    arRole?: FinanceRoleType | null;
+    vendorRole?: FinanceRoleType | null;
     isActive?: boolean;
 }
 

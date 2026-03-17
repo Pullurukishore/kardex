@@ -521,6 +521,26 @@ class ApiService {
     return response.data;
   }
 
+  async previewTicketImport(file: File): Promise<any> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await api.post(`${this.baseURL}/tickets/import/preview`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 120000
+    });
+    return response.data;
+  }
+
+  async importTickets(file: File): Promise<any> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await api.post(`${this.baseURL}/tickets/import`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 300000
+    });
+    return response.data;
+  }
+
   // Dashboard methods
 
   async getDashboardStats(params?: any) {
