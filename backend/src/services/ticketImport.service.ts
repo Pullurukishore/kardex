@@ -1,4 +1,6 @@
 import XLSX from 'xlsx';
+import bcrypt from 'bcrypt';
+import { v4 as uuidv4 } from 'uuid';
 import { prisma } from '../config/db';
 import { logger } from '../utils/logger';
 
@@ -59,6 +61,20 @@ function combineDateAndTime(dateVal: any, timeVal: any): Date | null {
         }
     }
     return date;
+}
+
+/**
+ * Convert HH:mm to total minutes.
+ */
+function parseTimeToMinutes(timeStr: string | null): number | null {
+    if (!timeStr) return null;
+    const parts = timeStr.split(':');
+    if (parts.length >= 2) {
+        const hours = parseInt(parts[0]) || 0;
+        const minutes = parseInt(parts[1]) || 0;
+        return (hours * 60) + minutes;
+    }
+    return null;
 }
 
 /**
@@ -151,7 +167,7 @@ function buildColumnIndices(headers: any[]) {
         machineSerial: getIdx(['Machine serial Number', 'Machine Serial']),
         callType: getIdx(['Call Type']),
         error: getIdx(['Error']),
-        responsibleFSM: getIdx(['Responsible FSM', 'Responsible FSM / Engineer', 'Engineer']),
+        responsibleFSM: getIdx(['Responsible FSM', 'Responsible FSM / Engineer', 'Engineer', 'Responsib']),
         zone: getIdx(['Zone']),
         respDate: getIdx(['Resp Date', 'Rcsp Date']),
         respTime: getIdx(['Time']),
@@ -168,7 +184,7 @@ function buildColumnIndices(headers: any[]) {
         workEnd: getIdx(['Work End']),
         workHour: getIdx(['Work Hour']),
         kdxEngineer: getIdx(['Kdx Engineer']),
-        kontoTeam: getIdx(['Konto Team']),
+        kontoTeam: getIdx(['Konto Team', 'Konte Team']),
         serviceReportDetails: getIdx(['Service Report Details']),
         remarks: getIdx(['Remarks']),
         contactName: getIdx(['Name']),
@@ -177,10 +193,12 @@ function buildColumnIndices(headers: any[]) {
         closedOn2: getIdx(['Closed on2']),
         downtime: getIdx(['Downtime']),
         remarks2: getIdx(['Remarks2']),
+        rowIdx: getIdx(['Row']),
         mdt: getIdx(['MDT']),
         responseOffSite: getIdx(['Response Off-Site']),
         responseOnSite: getIdx(['Response On-site']),
         month: getIdx(['Month']),
+        ticketReg: getIdx(['Ticket Reg']),
     };
 }
 
@@ -264,7 +282,7 @@ export class TicketImportService {
         const sampleRows: any[] = [];
         let sampleCount = 0;
         emptyStreak = 0;
-        for (let i = headerRowIndex + 1; i < data.length && sampleCount < 10; i++) {
+        for (let i = headerRowIndex + 1; i < data.length; i++) {
             const row = data[i];
             if (isRowEmpty(row)) {
                 emptyStreak++;
@@ -283,6 +301,12 @@ export class TicketImportService {
                 fsm: getCellStr(row, indices.responsibleFSM),
                 callType: getCellStr(row, indices.callType),
                 error: getCellStr(row, indices.error),
+                owner: getCellStr(row, indices.kdxEngineer),
+                assigned: getCellStr(row, indices.kontoTeam),
+                workStart: excelTimeToString(indices.workStart >= 0 ? row[indices.workStart] : null),
+                workEnd: excelTimeToString(indices.workEnd >= 0 ? row[indices.workEnd] : null),
+                downtime: excelTimeToString(indices.downtime >= 0 ? row[indices.downtime] : null),
+                ticketReg: getCellStr(row, indices.ticketReg),
             });
         }
 
@@ -335,11 +359,16 @@ export class TicketImportService {
         const userByName = new Map<string, typeof users[0]>();
         users.forEach(u => {
             if (u.name) {
-                userByName.set(u.name.toLowerCase().trim(), u);
-                const firstName = u.name.trim().split(/\s+/)[0].toLowerCase();
-                if (firstName && !userByName.has(firstName)) {
-                    userByName.set(firstName, u);
-                }
+                const fullName = u.name.toLowerCase().trim().replace(/\s+/g, ' ').replace(/\./g, '');
+                userByName.set(fullName, u);
+
+                // Map individual name parts (firstName, lastName) if unique
+                const parts = fullName.split(' ');
+                parts.forEach(part => {
+                    if (part.length > 2 && !userByName.has(part)) {
+                        userByName.set(part, u);
+                    }
+                });
             }
         });
 
@@ -371,14 +400,23 @@ export class TicketImportService {
         });
         let nextTicketNumber = lastTicket?.ticketNumber ? lastTicket.ticketNumber + 1 : 1001;
 
+        // Shared map for newly created users during this import to prevent duplicate creation
+        // We store the Promise itself to prevent race conditions during concurrent batch processing
+        const userCreationPromises = new Map<string, Promise<number | null>>();
+
         // Build map of existing tickets by ticketNumber for upsert
         const existingTickets = await prisma.ticket.findMany({
             select: { id: true, ticketNumber: true }
         });
-        const ticketByNumber = new Map<number, number>();
+        const ticketByNumber = new Map<string, number>();
         existingTickets.forEach(t => {
-            if (t.ticketNumber) ticketByNumber.set(t.ticketNumber, t.id);
+            if (t.ticketNumber !== null && t.ticketNumber !== undefined) {
+                ticketByNumber.set(String(t.ticketNumber), t.id);
+            }
         });
+
+        // Concurrency guard for tickets within the same batch
+        const ongoingTicketCreations = new Map<string, Promise<number>>();
 
         const results = {
             totalRead: 0,
@@ -420,7 +458,7 @@ export class TicketImportService {
                         const companyName = getCellStr(row, indices.companyName) || 'Unknown Company';
                         const place = getCellStr(row, indices.place);
                         const ticketIdRaw = getCellStr(row, indices.ticketId);
-                        const ticketIdNum = ticketIdRaw ? parseInt(ticketIdRaw) : null;
+                        const ticketIdNum = ticketIdRaw || null;
                         const machineSerial = getCellStr(row, indices.machineSerial);
                         const callTypeRaw = getCellStr(row, indices.callType);
                         const errorDetails = getCellStr(row, indices.error);
@@ -438,6 +476,7 @@ export class TicketImportService {
                         const afterOfficeHours = getCellStr(row, indices.afterOfficeHours);
                         const mdtVal = getCellStr(row, indices.mdt);
                         const kontoTeam = getCellStr(row, indices.kontoTeam);
+                        const ticketReg = getCellStr(row, indices.ticketReg);
                         const responseOffSite = getCellStr(row, indices.responseOffSite);
                         const responseOnSite = getCellStr(row, indices.responseOnSite);
 
@@ -449,6 +488,22 @@ export class TicketImportService {
 
                         const closedDate = excelDateToJS(closedOnVal) || excelDateToJS(closedOn2Val);
                         const scheduledDate = excelDateToJS(scheduledOnVal);
+                        
+                        // Lifecycle dates
+                        const visitStartedAt = combineDateAndTime(
+                            indices.respDate >= 0 ? row[indices.respDate] : (indices.ticketDate >= 0 ? row[indices.ticketDate] : null),
+                            indices.respTime >= 0 ? row[indices.respTime] : null
+                        );
+
+                        const visitInProgressAt = combineDateAndTime(
+                            indices.ticketDate >= 0 ? row[indices.ticketDate] : null,
+                            indices.workStart >= 0 ? row[indices.workStart] : null
+                        );
+
+                        const visitResolvedAt = combineDateAndTime(
+                            indices.ticketDate >= 0 ? row[indices.ticketDate] : null,
+                            indices.workEnd >= 0 ? row[indices.workEnd] : null
+                        );
 
                         const workStartTime = excelTimeToString(indices.workStart >= 0 ? row[indices.workStart] : null);
                         const workEndTime = excelTimeToString(indices.workEnd >= 0 ? row[indices.workEnd] : null);
@@ -552,18 +607,111 @@ export class TicketImportService {
                             assetId = defaultAsset.id;
                         }
 
-                        // ── Assigned User ──
+                        // ── Assigned User (Konte Team = Service Persons) ──
                         let assignedToId: number | null = null;
-                        if (fsmName) {
-                            const found = userByName.get(fsmName.toLowerCase().trim());
-                            if (found) assignedToId = found.id;
+                        
+                        const tryFindUser = (name: string | null) => {
+                            if (!name) return null;
+                            const normalized = name.toLowerCase().trim().replace(/\s+/g, ' ').replace(/\./g, '');
+                            
+                            // Check initial users baseline
+                            let found = userByName.get(normalized);
+                            if (found) return found;
+
+                            return null;
+                        };
+
+                        const createMissingUser = async (name: string, role: string): Promise<number | null> => {
+                            const normalized = name.toLowerCase().trim().replace(/\s+/g, ' ').replace(/\./g, '');
+                            
+                            // Check initial map first
+                            const existingInMap = tryFindUser(name);
+                            if (existingInMap) return existingInMap.id;
+
+                            // ── Race Condition Guard ──
+                            // Check if a creation for this name is already in progress
+                            if (userCreationPromises.has(normalized)) {
+                                return userCreationPromises.get(normalized)!;
+                            }
+
+                            // Start the creation promise and store it
+                            const creationPromise = (async () => {
+                                try {
+                                    const email = `${normalized.replace(/[^a-z0-9]/g, '')}@kardex-auto.local`;
+                                    
+                                    // Check DB by Email or Name
+                                    const existing = await prisma.user.findFirst({ 
+                                        where: { 
+                                            OR: [
+                                                { email },
+                                                { name: { equals: name, mode: 'insensitive' } }
+                                            ]
+                                        } 
+                                    });
+
+                                    if (existing) return existing.id;
+
+                                    const hashedPassword = await bcrypt.hash('Kardex@123', 10);
+                                    const newUser = await prisma.user.create({
+                                        data: {
+                                            name,
+                                            email,
+                                            password: hashedPassword,
+                                            role: role as any,
+                                            isActive: true,
+                                            tokenVersion: uuidv4()
+                                        }
+                                    });
+                                    return newUser.id;
+                                } catch (err) {
+                                    // If we hit a race condition here despite the guard, try one last fetch
+                                    const fallback = await prisma.user.findFirst({
+                                        where: { name: { equals: name, mode: 'insensitive' } }
+                                    });
+                                    if (fallback) return fallback.id;
+                                    
+                                    logger.error(`Failed to auto-create user ${name}:`, err);
+                                    return null;
+                                }
+                            })();
+
+                            userCreationPromises.set(normalized, creationPromise);
+                            return creationPromise;
+                        };
+
+                        if (kontoTeam) {
+                            const found = tryFindUser(kontoTeam);
+                            if (found) {
+                                assignedToId = found.id;
+                            } else {
+                                // Auto-create service person
+                                const newId = await createMissingUser(kontoTeam, 'SERVICE_PERSON');
+                                if (newId) assignedToId = newId;
+                            }
+                        }
+                        
+                        // Fallback to FSM
+                        if (!assignedToId && fsmName) {
+                            const found = tryFindUser(fsmName);
+                            if (found) {
+                                assignedToId = found.id;
+                            } else {
+                                const newId = await createMissingUser(fsmName, 'SERVICE_PERSON');
+                                if (newId) assignedToId = newId;
+                            }
                         }
 
-                        // ── Kdx Engineer → owner ──
+                        // ── Kdx Engineer (Helpdesk / Zone Users) → owner ──
                         let ownerId = adminId;
                         if (kdxEngineerName) {
-                            const found = userByName.get(kdxEngineerName.toLowerCase().trim());
-                            if (found) ownerId = found.id;
+                            const found = tryFindUser(kdxEngineerName);
+                            if (found) {
+                                ownerId = found.id;
+                            } else {
+                                // Auto-create expert helpdesk
+                                const newId = await createMissingUser(kdxEngineerName, 'EXPERT_HELPDESK');
+                                if (newId) ownerId = newId;
+                            }
                         }
 
                         // ── Determine status ──
@@ -590,9 +738,11 @@ export class TicketImportService {
                         if (legBEndTime) metadata.legBEnd = legBEndTime;
                         if (workStartTime) metadata.workStart = workStartTime;
                         if (workEndTime) metadata.workEnd = workEndTime;
+                        if (fsmName) metadata.responsibleFSM = fsmName;
                         if (afterOfficeHours) metadata.afterOfficeHours = afterOfficeHours;
                         if (mdtVal) metadata.mdt = mdtVal;
                         if (kontoTeam) metadata.kontoTeam = kontoTeam;
+                        if (ticketReg) metadata.ticketReg = ticketReg;
                         if (responseOffSite) metadata.responseOffSite = responseOffSite;
                         if (responseOnSite) metadata.responseOnSite = responseOnSite;
                         if (remarks2Val) metadata.remarks2 = remarks2Val;
@@ -607,8 +757,14 @@ export class TicketImportService {
                         if (downtimeVal) metadata.downtime = downtimeVal;
 
                         // ── Upsert Ticket ──
-                        const isExisting = ticketIdNum && ticketByNumber.has(ticketIdNum);
-                        const existingDbId = ticketIdNum ? ticketByNumber.get(ticketIdNum) : undefined;
+                        const findExistingId = () => {
+                            if (!ticketIdNum) return undefined;
+                            return ticketByNumber.get(String(ticketIdNum));
+                        };
+
+                        const existingDbId = findExistingId();
+
+                        const lastStatusChange = closedDate || visitResolvedAt || visitInProgressAt || visitStartedAt || ticketDate;
 
                         const ticketData: any = {
                             title,
@@ -632,43 +788,117 @@ export class TicketImportService {
                             resolutionSummary: serviceReport || null,
                             visitPlannedDate: scheduledDate,
                             visitCompletedDate: closedDate,
-                            lastStatusChange: closedDate || ticketDate,
+                            visitStartedAt: visitStartedAt,
+                            visitInProgressAt: visitInProgressAt,
+                            visitResolvedAt: visitResolvedAt,
+                            actualResolutionTime: parseTimeToMinutes(downtimeVal),
+                            lastStatusChange: lastStatusChange,
                             relatedMachineIds: Object.keys(metadata).length > 0 ? JSON.stringify(metadata) : null,
                         };
 
-                        if (isExisting && existingDbId) {
+                        if (existingDbId) {
                             // Update existing ticket
                             await prisma.ticket.update({
                                 where: { id: existingDbId },
                                 data: {
                                     ...ticketData,
-                                    updatedAt: new Date(),
+                                    ticketNumber: ticketIdNum || undefined,
+                                    updatedAt: closedDate || lastStatusChange || new Date(),
                                 }
                             });
+                            
+                            // For updates, we don't recreate the entire history to avoid duplicates, 
+                            // but we ensure the basic resolution record exists if it's closed
+                            if (closedDate && (status === 'CLOSED' || status === 'RESOLVED')) {
+                                const historyExists = await prisma.ticketStatusHistory.findFirst({
+                                    where: { ticketId: existingDbId, status: status as any }
+                                });
+                                if (!historyExists) {
+                                    await prisma.ticketStatusHistory.create({
+                                        data: {
+                                            ticketId: existingDbId,
+                                            status: status as any,
+                                            changedAt: closedDate,
+                                            changedById: adminId,
+                                            notes: 'Updated to Fixed/Closed via Import'
+                                        }
+                                    });
+                                }
+                            }
                             return { isNew: false };
                         } else {
-                            // Create new ticket
-                            const ticketNumber = ticketIdNum || nextTicketNumber++;
-                            // Make sure ticketNumber doesn't collide
-                            if (!ticketIdNum) {
-                                while (ticketByNumber.has(ticketNumber)) {
-                                    nextTicketNumber++;
-                                }
+                            // Check concurrency guard
+                            if (ticketIdNum && ongoingTicketCreations.has(String(ticketIdNum))) {
+                                await ongoingTicketCreations.get(String(ticketIdNum));
+                                return { isNew: false }; // Treat as update or secondary handle
                             }
 
-                            const created = await prisma.ticket.create({
-                                data: {
-                                    ...ticketData,
-                                    ticketNumber,
-                                    createdAt: ticketDate,
+                            const creationPromise = (async () => {
+                                // Create new ticket
+                                const ticketNumber = ticketIdNum || String(nextTicketNumber++);
+                                // Make sure ticketNumber doesn't collide
+                                if (!ticketIdNum) {
+                                    while (ticketByNumber.has(ticketNumber)) {
+                                        nextTicketNumber++;
+                                    }
                                 }
-                            });
 
-                            // Track for future upsert within same import
-                            if (ticketIdNum) {
-                                ticketByNumber.set(ticketIdNum, created.id);
-                            }
+                                const created = await prisma.ticket.create({
+                                    data: {
+                                        ...ticketData,
+                                        ticketNumber,
+                                        createdAt: ticketDate,
+                                        updatedAt: closedDate || lastStatusChange || new Date(), // Try to set it for analytics
+                                    }
+                                });
 
+                                // ── Generate Status History for Analytics ──
+                                // 1. Initial OPEN status
+                                await prisma.ticketStatusHistory.create({
+                                    data: {
+                                        ticketId: created.id,
+                                        status: 'OPEN',
+                                        changedAt: ticketDate,
+                                        changedById: adminId,
+                                        notes: 'Imported from Excel'
+                                    }
+                                });
+
+                                // 2. ASSIGNED status (if we have a scheduled date/engineer)
+                                if (assignedToId && (scheduledDate || ticketDate)) {
+                                    await prisma.ticketStatusHistory.create({
+                                        data: {
+                                            ticketId: created.id,
+                                            status: 'ASSIGNED',
+                                            changedAt: scheduledDate || ticketDate,
+                                            changedById: adminId,
+                                            notes: 'Imported Assignment'
+                                        }
+                                    });
+                                }
+
+                                // 3. FINAL status (if CLOSED or RESOLVED)
+                                if (closedDate && (status === 'CLOSED' || status === 'RESOLVED')) {
+                                    await prisma.ticketStatusHistory.create({
+                                        data: {
+                                            ticketId: created.id,
+                                            status: status as any,
+                                            changedAt: closedDate,
+                                            changedById: adminId,
+                                            notes: 'Imported as Fixed/Closed'
+                                        }
+                                    });
+                                }
+
+                                // Track for future upsert within same import
+                                if (ticketIdNum) {
+                                    ticketByNumber.set(String(ticketIdNum), created.id);
+                                }
+                                return created.id;
+                            })();
+
+                            if (ticketIdNum) ongoingTicketCreations.set(String(ticketIdNum), creationPromise);
+                            await creationPromise;
                             return { isNew: true };
                         }
                     } catch (err: any) {

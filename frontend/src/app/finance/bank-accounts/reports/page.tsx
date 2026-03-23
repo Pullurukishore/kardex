@@ -8,7 +8,8 @@ import {
     ArrowUpRight, TrendingUp, ShieldCheck, ArrowDownToLine, Eye, Copy,
     Check, Landmark, Activity, Mail, RefreshCw, Hash, Zap,
     BarChart3, Banknote, CreditCard, PieChart, ChevronDown, Filter,
-    Calendar, Globe, Home, Users, ChevronRight, Clock, ArrowRightLeft
+    Calendar, Globe, Home, Users, ChevronRight, ChevronLeft, Clock, ArrowRightLeft,
+    IndianRupee, Award
 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
@@ -24,10 +25,10 @@ const FilePreview = dynamic(() => import('@/components/FilePreview'), {
 
 // ─── Avatar Colors ──────────────────────────────────────────────────────────
 const AVATAR_GRADIENTS = [
-    'from-indigo-500 to-violet-500', 'from-emerald-500 to-teal-500',
-    'from-amber-500 to-orange-500', 'from-rose-500 to-pink-500',
-    'from-cyan-500 to-blue-500', 'from-fuchsia-500 to-purple-500',
-    'from-lime-500 to-green-500', 'from-sky-500 to-indigo-400',
+    'from-[#546A7A] to-[#6F8A9D]', 'from-[#82A094] to-[#4F6A64]',
+    'from-[#CE9F6B] to-[#976E44]', 'from-[#E17F70] to-[#9E3B47]',
+    'from-[#6F8A9D] to-[#96AEC2]', 'from-[#5D6E73] to-[#3D4E53]',
+    'from-[#AEBFC3] to-[#8C9DA1]', 'from-[#96AEC2] to-[#546A7A]',
 ];
 const getAvatarGradient = (name: string) => {
     let h = 0;
@@ -44,12 +45,12 @@ const fmt = (val: number) => new Intl.NumberFormat('en-IN', {
 // ─── Filter Types ───────────────────────────────────────────────────────────
 type FilterType = 'ALL' | 'VERIFIED' | 'PENDING' | 'DOMESTIC' | 'INTERNATIONAL' | 'MSME';
 const FILTERS: { key: FilterType; label: string; icon: React.ElementType; color: string; bg: string; }[] = [
-    { key: 'ALL', label: 'All', icon: Building2, color: '#6366F1', bg: '#EEF2FF' },
-    { key: 'VERIFIED', label: 'KYC Done', icon: CheckCircle2, color: '#10B981', bg: '#ECFDF5' },
-    { key: 'PENDING', label: 'KYC Pending', icon: AlertCircle, color: '#EF4444', bg: '#FEF2F2' },
-    { key: 'DOMESTIC', label: 'Domestic', icon: Home, color: '#059669', bg: '#ECFDF5' },
-    { key: 'INTERNATIONAL', label: 'International', icon: Globe, color: '#3B82F6', bg: '#EFF6FF' },
-    { key: 'MSME', label: 'MSME', icon: Users, color: '#7C3AED', bg: '#F5F3FF' },
+    { key: 'ALL', label: 'All', icon: Building2, color: '#546A7A', bg: '#F8FAFB' },
+    { key: 'VERIFIED', label: 'KYC Done', icon: CheckCircle2, color: '#82A094', bg: '#F2F7F5' },
+    { key: 'PENDING', label: 'KYC Pending', icon: AlertCircle, color: '#E17F70', bg: '#FFF5F4' },
+    { key: 'DOMESTIC', label: 'Domestic', icon: Home, color: '#4F6A64', bg: '#F2F7F5' },
+    { key: 'INTERNATIONAL', label: 'International', icon: Globe, color: '#6F8A9D', bg: '#F4F7F9' },
+    { key: 'MSME', label: 'MSME', icon: Users, color: '#CE9F6B', bg: '#FCF8F2' },
 ];
 
 // ─── Stat Card ──────────────────────────────────────────────────────────────
@@ -57,15 +58,16 @@ const StatCard = ({ icon: Icon, label, value, sub, color, bg }: {
     icon: React.ElementType; label: string; value: string | number;
     sub?: string; color: string; bg: string;
 }) => (
-    <div className="group relative rounded-2xl bg-white border border-gray-100 p-4 hover:shadow-xl hover:scale-[1.02] hover:-translate-y-0.5 transition-all duration-300 overflow-hidden cursor-default">
-        <div className="absolute top-0 right-0 w-24 h-24 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-150 duration-700 opacity-60" style={{ background: bg }} />
+    <div className="group relative rounded-2xl border border-gray-100/80 p-4 hover:shadow-2xl hover:scale-[1.03] hover:-translate-y-1 transition-all duration-500 overflow-hidden cursor-default" style={{ background: `linear-gradient(135deg, white 0%, ${bg} 150%)` }}>
+        <div className="absolute -top-6 -right-6 w-20 h-20 rounded-full transition-all group-hover:scale-[2] duration-700 opacity-30 blur-sm" style={{ background: color }} />
+        <div className="absolute bottom-0 left-0 right-0 h-1 opacity-0 group-hover:opacity-100 transition-opacity duration-500" style={{ background: `linear-gradient(90deg, ${color}, transparent)` }} />
         <div className="relative flex items-start justify-between">
             <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.15em] text-gray-400 mb-1">{label}</p>
-                <p className="text-3xl font-black tracking-tight text-gray-900">{value}</p>
-                {sub && <p className="text-[10px] font-bold mt-2 px-2.5 py-0.5 rounded-full inline-block" style={{ background: bg, color }}>{sub}</p>}
+                <p className="text-[9px] font-black uppercase tracking-[0.18em] mb-1.5" style={{ color: color + 'AA' }}>{label}</p>
+                <p className="text-2xl font-black tracking-tight text-gray-900">{value}</p>
+                {sub && <p className="text-[9px] font-bold mt-2 px-2 py-0.5 rounded-full inline-block border" style={{ background: bg, color, borderColor: color + '20' }}>{sub}</p>}
             </div>
-            <div className="p-2.5 rounded-xl transition-transform group-hover:scale-110 duration-300" style={{ background: bg }}>
+            <div className="p-2.5 rounded-xl shadow-sm transition-all group-hover:scale-110 group-hover:shadow-md duration-300 border" style={{ background: `linear-gradient(135deg, ${bg}, white)`, borderColor: color + '15' }}>
                 <Icon className="h-5 w-5" style={{ color }} />
             </div>
         </div>
@@ -102,7 +104,11 @@ const Ring = ({ pct, color, label }: { pct: number; color: string; label: string
     );
 };
 
+// ─── Main Component ─────────────────────────────────────────────────────────
+type ReportTab = 'master' | 'payments';
+
 export default function BankAccountReportsPage() {
+    const [activeTab, setActiveTab] = useState<ReportTab>('master');
     const [auditData, setAuditData] = useState<any[]>([]);
     const [summary, setSummary] = useState<any>(null);
     const [metrics, setMetrics] = useState<any>(null);
@@ -119,6 +125,8 @@ export default function BankAccountReportsPage() {
     const [paymentDays, setPaymentDays] = useState<number | undefined>(30);
     const [paymentSearch, setPaymentSearch] = useState('');
     const [expandedVendor, setExpandedVendor] = useState<string | null>(null);
+    const [masterPage, setMasterPage] = useState(0);
+    const masterPageSize = 50;
 
     useEffect(() => { fetchData(); }, []);
 
@@ -250,24 +258,26 @@ export default function BankAccountReportsPage() {
     };
 
     return (
-        <div className="min-h-screen bg-[#F7F8FA]">
+        <div className="min-h-screen bg-gradient-to-br from-[#F0F2F5] via-[#F7F8FA] to-[#EDF0F4]">
             {/* ══════════ HEADER ══════════ */}
             <div className="px-4 md:px-6 pt-5 pb-3">
-                <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
-                    <div>
-                        <div className="flex items-center gap-2 mb-0.5">
-                            <div className="h-2 w-2 bg-indigo-500 rounded-full animate-pulse" />
-                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-500">Intelligence Hub</span>
+                <div className="relative flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 p-5 rounded-2xl border border-gray-100/80 shadow-lg overflow-hidden" style={{ background: 'linear-gradient(135deg, #475569 0%, #546A7A 40%, #6F8A9D 100%)' }}>
+                    <div className="absolute -top-20 -right-20 w-60 h-60 rounded-full bg-white/5 blur-3xl" />
+                    <div className="absolute -bottom-10 -left-10 w-40 h-40 rounded-full bg-white/5 blur-2xl" />
+                    <div className="relative">
+                        <div className="flex items-center gap-2 mb-1">
+                            <div className="h-2 w-2 bg-emerald-400 rounded-full animate-pulse shadow-sm shadow-emerald-400" />
+                            <span className="text-[10px] font-black uppercase tracking-[0.25em] text-gray-300">Intelligence Hub</span>
                         </div>
-                        <h1 className="text-2xl font-black tracking-tight text-gray-900">Bank Account Reports</h1>
-                        <p className="text-gray-400 text-xs font-medium mt-0.5">Audit vendor master, compliance status & payment operations.</p>
+                        <h1 className="text-2xl font-black tracking-tight text-white">Bank Account Reports</h1>
+                        <p className="text-gray-300 text-xs font-medium mt-0.5">Audit vendor master, compliance status & payment operations.</p>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="relative flex gap-2">
                         <Button variant="outline" onClick={handleExportMaster} disabled={exporting || auditData.length === 0}
-                            className="rounded-xl border-gray-200 text-gray-600 font-bold h-10 px-4 text-xs hover:bg-gray-50">
+                            className="rounded-xl border-gray-500/40 text-gray-300 font-bold h-10 px-4 text-xs hover:bg-white/10 hover:text-white bg-white/5 backdrop-blur-sm">
                             <Download className="h-3.5 w-3.5 mr-1.5" />{exporting ? 'Exporting...' : 'Export Excel'}
                         </Button>
-                        <Button onClick={fetchData} className="rounded-xl bg-gradient-to-r from-indigo-500 to-violet-600 text-white font-bold h-10 px-4 text-xs shadow-md shadow-indigo-200 hover:shadow-lg">
+                        <Button onClick={fetchData} className="rounded-xl bg-gradient-to-r from-[#546A7A] to-[#6F8A9D] text-white font-bold h-10 px-4 text-xs shadow-lg shadow-slate-900/30 hover:shadow-xl hover:shadow-slate-900/40 border border-white/10">
                             <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loading ? 'animate-spin' : ''}`} />Refresh
                         </Button>
                     </div>
@@ -275,17 +285,19 @@ export default function BankAccountReportsPage() {
             </div>
 
             {/* ══════════ STATS ROW ══════════ */}
-            <div className="px-4 md:px-6 pb-3 grid grid-cols-2 lg:grid-cols-4 gap-3">
-                <StatCard icon={Building2} label="Total Vendors" value={summary?.totalAccounts || 0} sub="Registered" color="#6366F1" bg="#EEF2FF" />
-                <StatCard icon={ShieldCheck} label="KYC Verified" value={summary?.verifiedAccounts || 0} sub={`${metrics?.compliance?.kycRate || 0}% Rate`} color="#10B981" bg="#ECFDF5" />
-                <StatCard icon={FileText} label="MSME Vendors" value={metrics?.distribution?.msme || 0} sub={`${metrics?.distribution?.nonMsme || 0} Standard`} color="#3B82F6" bg="#EFF6FF" />
-                <StatCard icon={AlertCircle} label="KYC Pending" value={summary?.pendingAccounts || 0} sub="Action Required" color="#EF4444" bg="#FEF2F2" />
+            <div className="px-4 md:px-6 pb-3 grid grid-cols-2 lg:grid-cols-6 gap-3">
+                <StatCard icon={Building2} label="Total Vendors" value={summary?.totalAccounts || 0} sub="Registered" color="#546A7A" bg="#F8FAFB" />
+                <StatCard icon={ShieldCheck} label="KYC Verified" value={summary?.verifiedAccounts || 0} sub={`${metrics?.compliance?.kycRate || 0}% Rate`} color="#82A094" bg="#F2F7F5" />
+                <StatCard icon={FileText} label="MSME Vendors" value={metrics?.distribution?.msme || 0} sub={`${metrics?.distribution?.nonMsme || 0} Standard`} color="#6F8A9D" bg="#F4F7F9" />
+                <StatCard icon={AlertCircle} label="KYC Pending" value={summary?.pendingAccounts || 0} sub="Action Required" color="#E17F70" bg="#FFF5F4" />
+                <StatCard icon={IndianRupee} label="Payment Volume" value={fmt(paymentInsights?.summary?.totalAmount || 0)} sub={`${paymentInsights?.summary?.totalItems || 0} Txns (30d)`} color="#4F6A64" bg="#F2F7F5" />
+                <StatCard icon={Award} label="Active Vendors" value={paymentInsights?.summary?.uniqueVendors || vendorPayments?.summary?.totalVendors || summary?.totalAccounts || 0} sub="Transacting" color="#CE9F6B" bg="#FCF8F2" />
             </div>
 
             {/* ══════════ COMPLIANCE + PAYMENTS DASHBOARD ROW ══════════ */}
-            <div className="px-4 md:px-6 pb-3 grid grid-cols-1 lg:grid-cols-3 gap-3">
+            <div className="px-4 md:px-6 pb-3 grid grid-cols-1 lg:grid-cols-4 gap-3">
                 {/* Compliance Snapshot */}
-                <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-shadow duration-300">
+                <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-gray-100/80 p-5 shadow-sm hover:shadow-xl transition-all duration-500 hover:-translate-y-0.5">
                     <div className="flex items-center gap-2 mb-4">
                         <div className="p-1.5 rounded-lg bg-indigo-50"><PieChart className="h-3.5 w-3.5 text-indigo-500" /></div>
                         <h3 className="text-xs font-black uppercase tracking-wider text-gray-700">Compliance Snapshot</h3>
@@ -295,24 +307,24 @@ export default function BankAccountReportsPage() {
                         <Ring pct={parseFloat(metrics?.compliance?.msmeRate || '0')} color="#3B82F6" label="MSME" />
                     </div>
                     <div className="space-y-2.5 pt-3 border-t border-gray-100">
-                        <MiniBar label="Domestic" value={metrics?.distribution?.domestic || 0} max={metrics?.compliance?.total || 1} color="#10B981" />
-                        <MiniBar label="International" value={metrics?.distribution?.international || 0} max={metrics?.compliance?.total || 1} color="#3B82F6" />
-                        <MiniBar label="INR Accts" value={metrics?.distribution?.inr || 0} max={metrics?.compliance?.total || 1} color="#F59E0B" />
-                        <MiniBar label="Other Curr" value={metrics?.distribution?.otherCurrency || 0} max={metrics?.compliance?.total || 1} color="#8B5CF6" />
+                        <MiniBar label="Domestic" value={metrics?.distribution?.domestic || 0} max={metrics?.compliance?.total || 1} color="#82A094" />
+                        <MiniBar label="International" value={metrics?.distribution?.international || 0} max={metrics?.compliance?.total || 1} color="#6F8A9D" />
+                        <MiniBar label="INR Accts" value={metrics?.distribution?.inr || 0} max={metrics?.compliance?.total || 1} color="#CE9F6B" />
+                        <MiniBar label="Other Curr" value={metrics?.distribution?.otherCurrency || 0} max={metrics?.compliance?.total || 1} color="#546A7A" />
                     </div>
                 </div>
 
                 {/* Data Health */}
-                <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-shadow duration-300">
+                <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-gray-100/80 p-5 shadow-sm hover:shadow-xl transition-all duration-500 hover:-translate-y-0.5">
                     <div className="flex items-center gap-2 mb-4">
                         <div className="p-1.5 rounded-lg bg-rose-50"><Activity className="h-3.5 w-3.5 text-rose-500" /></div>
                         <h3 className="text-xs font-black uppercase tracking-wider text-gray-700">Data Health</h3>
                     </div>
                     <div className="space-y-2.5">
                         {[
-                            { label: 'Missing BP Code', val: metrics?.health?.missingBpCode || 0, icon: Hash, color: '#F59E0B', bg: '#FFFBEB' },
-                            { label: 'Missing Tax ID', val: metrics?.health?.missingTaxId || 0, icon: FileText, color: '#EF4444', bg: '#FEF2F2' },
-                            { label: 'Total Issues', val: metrics?.health?.totalIssues || 0, icon: AlertCircle, color: '#EF4444', bg: '#FEF2F2' },
+                            { label: 'Missing BP Code', val: metrics?.health?.missingBpCode || 0, icon: Hash, color: '#CE9F6B', bg: '#FCF8F2' },
+                            { label: 'Missing Tax ID', val: metrics?.health?.missingTaxId || 0, icon: FileText, color: '#E17F70', bg: '#FFF5F4' },
+                            { label: 'Total Issues', val: metrics?.health?.totalIssues || 0, icon: AlertCircle, color: '#E17F70', bg: '#FFF5F4' },
                         ].map(h => (
                             <div key={h.label} className="flex items-center justify-between p-3 rounded-xl bg-gray-50/80 hover:bg-gray-50 transition-colors">
                                 <div className="flex items-center gap-2.5">
@@ -333,7 +345,7 @@ export default function BankAccountReportsPage() {
                 </div>
 
                 {/* Payment Insights */}
-                <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-shadow duration-300">
+                <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-gray-100/80 p-5 shadow-sm hover:shadow-xl transition-all duration-500 hover:-translate-y-0.5">
                     <div className="flex items-center gap-2 mb-4">
                         <div className="p-1.5 rounded-lg bg-emerald-50"><Banknote className="h-3.5 w-3.5 text-emerald-500" /></div>
                         <h3 className="text-xs font-black uppercase tracking-wider text-gray-700">Payment Insights (30d)</h3>
@@ -359,22 +371,81 @@ export default function BankAccountReportsPage() {
                         )}
                     </div>
                 </div>
+
+                {/* Top Vendors Paid */}
+                <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-gray-100/80 p-5 shadow-sm hover:shadow-xl transition-all duration-500 hover:-translate-y-0.5">
+                    <div className="flex items-center gap-2 mb-4">
+                        <div className="p-1.5 rounded-lg bg-violet-50"><Award className="h-3.5 w-3.5 text-violet-500" /></div>
+                        <h3 className="text-xs font-black uppercase tracking-wider text-gray-700">Top Vendors Paid</h3>
+                    </div>
+                    <div className="space-y-2">
+                        {(vendorPayments?.vendors || []).slice(0, 5).map((v: any, i: number) => {
+                            const maxAmt = vendorPayments?.vendors?.[0]?.totalAmount || 1;
+                            const pct = Math.round((v.totalAmount / maxAmt) * 100);
+                            return (
+                                <div key={v.bankAccountId} className="group flex items-center gap-3 p-2 rounded-xl hover:bg-gray-50 transition-colors">
+                                    <div className={`h-7 w-7 rounded-lg bg-gradient-to-br ${getAvatarGradient(v.vendorName)} flex items-center justify-center text-white font-black text-[10px] shrink-0 shadow-sm`}>
+                                        {v.vendorName.charAt(0)}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center justify-between mb-0.5">
+                                            <p className="text-[11px] font-bold text-gray-700 truncate max-w-[120px]">{v.vendorName}</p>
+                                            <span className="text-[10px] font-black text-gray-800 tabular-nums">{fmt(v.totalAmount)}</span>
+                                        </div>
+                                        <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                                            <div className="h-full rounded-full bg-gradient-to-r from-violet-400 to-indigo-500 transition-all duration-700" style={{ width: `${pct}%` }} />
+                                        </div>
+                                        <p className="text-[9px] font-bold text-gray-400 mt-0.5">{v.transactionCount} txns</p>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                        {(!vendorPayments?.vendors || vendorPayments.vendors.length === 0) && (
+                            <p className="text-[10px] text-gray-400 text-center py-6">No vendor payment data</p>
+                        )}
+                    </div>
+                </div>
             </div>
 
-            {/* ══════════ MASTER TABLE ══════════ */}
-            <div className="px-4 md:px-6 pb-6">
-                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            {/* ══════════ TAB SWITCHER ══════════ */}
+            <div className="px-4 md:px-6 pb-5">
+                <div className="flex gap-1.5 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-100 p-1.5 shadow-sm overflow-x-auto no-scrollbar">
+                    {[
+                        { key: 'master' as ReportTab, label: 'Vendor Master Audit', icon: Building2, color: 'from-[#546A7A] to-[#6F8A9D]' },
+                        { key: 'payments' as ReportTab, label: 'Vendor Payment History', icon: ArrowRightLeft, color: 'from-[#82A094] to-[#4F6A64]' },
+                    ].map(tab => (
+                        <button
+                            key={tab.key}
+                            onClick={() => setActiveTab(tab.key)}
+                            className={`flex items-center gap-2.5 px-6 py-3 rounded-xl transition-all duration-300 relative group min-w-fit ${activeTab === tab.key ? 'text-white' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
+                        >
+                            {activeTab === tab.key && (
+                                <div className={`absolute inset-0 rounded-xl bg-gradient-to-r ${tab.color} shadow-lg animate-in fade-in zoom-in duration-300`} />
+                            )}
+                            <div className="relative flex items-center gap-2.5">
+                                <tab.icon className={`h-4 w-4 transition-transform duration-300 ${activeTab === tab.key ? 'scale-110' : 'group-hover:scale-110'}`} />
+                                <span className="text-[11px] font-black uppercase tracking-[0.15em]">{tab.label}</span>
+                            </div>
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            {activeTab === 'master' ? (
+            /* ══════════ MASTER TABLE ══════════ */
+            <div className="px-4 md:px-6 pb-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="bg-white/95 backdrop-blur-sm rounded-2xl border border-gray-100/80 shadow-lg overflow-hidden">
                     {/* Table Header */}
-                    <div className="p-5 flex flex-col gap-4 border-b border-gray-100">
+                    <div className="p-5 flex flex-col gap-4 border-b border-gray-100 bg-gradient-to-r from-white via-slate-50/20 to-white">
                         <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-3">
                             <div className="flex items-center gap-3">
-                                <div className="p-2 rounded-xl bg-indigo-50">
-                                    <Building2 className="h-4 w-4 text-indigo-500" />
+                                <div className="p-2 rounded-xl bg-slate-50">
+                                    <Building2 className="h-4 w-4 text-[#546A7A]" />
                                 </div>
                                 <div>
                                     <div className="flex items-center gap-2">
                                         <h2 className="text-sm font-black text-gray-900">Vendor Master Audit</h2>
-                                        <span className="text-[10px] font-black bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full tabular-nums">
+                                        <span className="text-[10px] font-black bg-slate-50 text-[#546A7A] px-2 py-0.5 rounded-full tabular-nums">
                                             {filteredAudit.length}{filteredAudit.length !== auditData.length ? ` / ${auditData.length}` : ''}
                                         </span>
                                     </div>
@@ -384,7 +455,7 @@ export default function BankAccountReportsPage() {
                             <div className="relative w-full lg:w-72">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-300" />
                                 <Input placeholder="Search vendor, code, account..." value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    onChange={(e) => { setSearchTerm(e.target.value); setMasterPage(0); }}
                                     className="h-10 pl-10 rounded-xl bg-gray-50 border-gray-100 text-sm font-medium focus-visible:ring-1 focus-visible:ring-indigo-300" />
                             </div>
                         </div>
@@ -392,7 +463,7 @@ export default function BankAccountReportsPage() {
                         <div className="flex items-center gap-2 flex-wrap">
                             <Filter className="h-3.5 w-3.5 text-gray-300" />
                             {FILTERS.map(f => (
-                                <button key={f.key} onClick={() => setActiveFilter(f.key)}
+                                <button key={f.key} onClick={() => { setActiveFilter(f.key); setMasterPage(0); }}
                                     className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all duration-200 border ${
                                         activeFilter === f.key
                                             ? 'shadow-sm scale-[1.02]'
@@ -410,9 +481,9 @@ export default function BankAccountReportsPage() {
                     <ScrollArea className="w-full">
                         <Table className="min-w-[1900px]">
                             <TableHeader>
-                                <TableRow className="bg-gradient-to-r from-gray-50 via-gray-50/80 to-gray-50 hover:bg-gray-50 border-b border-gray-100">
+                                <TableRow className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 hover:bg-slate-700 border-b-0">
                                     {['Vendor', 'BP Code', 'Account / Beneficiary', 'Bank & IFSC', 'KYC', 'Category', 'PAN / GST', 'MSME', 'Registered', 'Documents'].map(h => (
-                                        <TableHead key={h} className="px-4 py-3.5 text-[10px] font-black uppercase tracking-[0.15em] text-gray-400 whitespace-nowrap">{h}</TableHead>
+                                        <TableHead key={h} className="px-4 py-3.5 text-[10px] font-black uppercase tracking-[0.15em] text-gray-300 whitespace-nowrap">{h}</TableHead>
                                     ))}
                                 </TableRow>
                             </TableHeader>
@@ -430,12 +501,12 @@ export default function BankAccountReportsPage() {
                                             <Search className="h-10 w-10 text-gray-200" />
                                             <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">No matching records</span>
                                             {activeFilter !== 'ALL' && (
-                                                <button onClick={() => setActiveFilter('ALL')} className="text-[10px] font-bold text-indigo-500 hover:underline">Clear filter</button>
+                                                <button onClick={() => setActiveFilter('ALL')} className="text-[10px] font-bold text-[#546A7A] hover:underline">Clear filter</button>
                                             )}
                                         </div>
                                     </TableCell></TableRow>
-                                ) : filteredAudit.map((row, idx) => (
-                                    <TableRow key={row.id} className={`group transition-colors border-b border-gray-50 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'} hover:bg-indigo-50/30`}>
+                                ) : filteredAudit.slice(masterPage * masterPageSize, (masterPage + 1) * masterPageSize).map((row, idx) => (
+                                    <TableRow key={row.id} className={`group transition-colors border-b border-gray-50 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'} hover:bg-[#F4F7F9]`}>
                                         {/* Vendor */}
                                         <TableCell className="px-4 py-3.5">
                                             <div className="flex items-center gap-3">
@@ -443,7 +514,7 @@ export default function BankAccountReportsPage() {
                                                     {row.vendorName.charAt(0)}
                                                 </div>
                                                 <div className="min-w-0">
-                                                    <p className="font-bold text-sm text-gray-900 truncate max-w-[170px] group-hover:text-indigo-600 transition-colors">{row.vendorName}</p>
+                                                    <p className="font-bold text-sm text-gray-900 truncate max-w-[170px] group-hover:text-[#546A7A] transition-colors">{row.vendorName}</p>
                                                     <div className="flex items-center gap-1 mt-0.5">
                                                         <Mail className="h-3 w-3 text-gray-300" />
                                                         <span className="text-[10px] text-gray-400 truncate max-w-[130px]">{row.emailId || 'N/A'}</span>
@@ -478,9 +549,9 @@ export default function BankAccountReportsPage() {
                                                 <div>
                                                     <p className="text-xs font-bold text-gray-700 truncate max-w-[120px]">{row.beneficiaryBankName}</p>
                                                     <div className="flex items-center gap-1 mt-0.5">
-                                                        <span className="font-mono text-[11px] font-bold text-indigo-500">{row.ifscCode}</span>
+                                                        <span className="font-mono text-[11px] font-bold text-[#6F8A9D]">{row.ifscCode}</span>
                                                         <button onClick={() => copyToClipboard(row.ifscCode, `ifsc-${row.id}`)} className="p-0.5 rounded hover:bg-gray-100 transition-colors">
-                                                            {copied === `ifsc-${row.id}` ? <Check className="h-2.5 w-2.5 text-emerald-500" /> : <Copy className="h-2.5 w-2.5 text-gray-300" />}
+                                                            {copied === `ifsc-${row.id}` ? <Check className="h-2.5 w-2.5 text-[#82A094]" /> : <Copy className="h-2.5 w-2.5 text-gray-300" />}
                                                         </button>
                                                     </div>
                                                 </div>
@@ -489,11 +560,11 @@ export default function BankAccountReportsPage() {
                                         {/* KYC */}
                                         <TableCell className="px-4">
                                             {row.kycStatus === 'VERIFIED' ? (
-                                                <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-100">
+                                                <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase px-2.5 py-1 rounded-lg bg-[#F2F7F5] text-[#82A094] border border-[#82A094]/10">
                                                     <CheckCircle2 className="h-3 w-3" /> Verified
                                                 </span>
                                             ) : (
-                                                <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase px-2.5 py-1 rounded-lg bg-red-50 text-red-500 border border-red-100">
+                                                <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase px-2.5 py-1 rounded-lg bg-[#FFF5F4] text-[#E17F70] border border-[#E17F70]/10">
                                                     <AlertCircle className="h-3 w-3" /> Pending
                                                 </span>
                                             )}
@@ -501,9 +572,9 @@ export default function BankAccountReportsPage() {
                                         {/* Category */}
                                         <TableCell className="px-4">
                                             <span className={`text-[9px] font-black uppercase px-2 py-1 rounded-md inline-block ${
-                                                row.accountCategory === 'DOMESTIC' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
-                                                row.accountCategory === 'INTERNATIONAL' ? 'bg-blue-50 text-blue-600 border border-blue-100' :
-                                                'bg-amber-50 text-amber-600 border border-amber-100'
+                                                row.accountCategory === 'DOMESTIC' ? 'bg-[#F2F7F5] text-[#82A094] border border-[#82A094]/10' :
+                                                row.accountCategory === 'INTERNATIONAL' ? 'bg-[#F4F7F9] text-[#6F8A9D] border border-[#6F8A9D]/10' :
+                                                'bg-[#FCF8F2] text-[#CE9F6B] border border-[#CE9F6B]/10'
                                             }`}>
                                                 {row.accountCategory === 'DOMESTIC' ? '🏠 Domestic' : row.accountCategory === 'INTERNATIONAL' ? '🌐 Intl' : '👤 Employee'}
                                             </span>
@@ -524,7 +595,7 @@ export default function BankAccountReportsPage() {
                                         {/* MSME */}
                                         <TableCell className="px-4">
                                             <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-lg inline-block ${
-                                                row.isMSME ? 'bg-violet-50 text-violet-600 border border-violet-100' : 'bg-gray-50 text-gray-400 border border-gray-100'
+                                                row.isMSME ? 'bg-[#FCF8F2] text-[#CE9F6B] border border-[#CE9F6B]/10' : 'bg-gray-50 text-gray-400 border border-gray-100'
                                             }`}>
                                                 {row.isMSME ? '⭐ MSME' : 'Regular'}
                                             </span>
@@ -548,7 +619,7 @@ export default function BankAccountReportsPage() {
                                                     {row.attachments.slice(0, 2).map((att: any) => (
                                                         <div key={att.id} className="inline-flex rounded-lg overflow-hidden border border-gray-100 shadow-sm">
                                                             <button onClick={() => { setPreviewFile(att); setShowPreview(true); }}
-                                                                className="px-2 py-1.5 flex items-center gap-1 text-indigo-500 hover:bg-indigo-50 transition-colors">
+                                                                className="px-2 py-1.5 flex items-center gap-1 text-[#546A7A] hover:bg-slate-50 transition-colors">
                                                                 <Eye className="h-3 w-3" /><span className="text-[9px] font-black uppercase">View</span>
                                                             </button>
                                                             <button onClick={() => arApi.downloadBankAccountAttachment(att.id)}
@@ -562,7 +633,7 @@ export default function BankAccountReportsPage() {
                                                     )}
                                                 </div>
                                             ) : (
-                                                <span className="inline-flex items-center gap-1 text-[9px] font-black text-red-400 bg-red-50 border border-red-100 px-2.5 py-1.5 rounded-lg">
+                                                <span className="inline-flex items-center gap-1 text-[9px] font-black text-[#E17F70] bg-[#FFF5F4] border border-[#E17F70]/10 px-2.5 py-1.5 rounded-lg">
                                                     <FileText className="h-3 w-3" /> Missing
                                                 </span>
                                             )}
@@ -574,15 +645,17 @@ export default function BankAccountReportsPage() {
                         <ScrollBar orientation="horizontal" />
                     </ScrollArea>
 
-                    {/* Footer */}
-                    {summary && (
-                        <div className="px-5 py-3.5 flex flex-wrap gap-6 items-center justify-between border-t border-gray-50 bg-gray-50/50">
+                    {/* Footer with Pagination */}
+                    {summary && (() => {
+                        const totalMasterPages = Math.ceil(filteredAudit.length / masterPageSize);
+                        return (
+                        <div className="px-5 py-3.5 flex flex-wrap gap-4 items-center justify-between border-t border-gray-50 bg-gray-50/50">
                             <div className="flex flex-wrap gap-5">
                                 {[
-                                    { dot: '#6366F1', lbl: 'Total', val: summary.totalAccounts },
-                                    { dot: '#10B981', lbl: 'Verified', val: summary.verifiedAccounts },
-                                    { dot: '#EF4444', lbl: 'Pending', val: summary.pendingAccounts },
-                                    { dot: '#3B82F6', lbl: 'MSME', val: summary.msmeAccounts || metrics?.distribution?.msme || 0 },
+                                    { dot: '#546A7A', lbl: 'Total', val: summary.totalAccounts },
+                                    { dot: '#82A094', lbl: 'Verified', val: summary.verifiedAccounts },
+                                    { dot: '#E17F70', lbl: 'Pending', val: summary.pendingAccounts },
+                                    { dot: '#6F8A9D', lbl: 'MSME', val: summary.msmeAccounts || metrics?.distribution?.msme || 0 },
                                 ].map(s => (
                                     <div key={s.lbl} className="flex items-center gap-2">
                                         <div className="w-2 h-2 rounded-full" style={{ background: s.dot, boxShadow: `0 0 6px ${s.dot}40` }} />
@@ -590,27 +663,40 @@ export default function BankAccountReportsPage() {
                                     </div>
                                 ))}
                             </div>
-                            <span className="text-[10px] font-bold uppercase tracking-widest text-gray-300">Real-time ERP Data Feed</span>
+                            {totalMasterPages > 1 && (
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[10px] font-bold text-gray-400">Page {masterPage + 1} of {totalMasterPages}</span>
+                                    <button disabled={masterPage === 0} onClick={() => setMasterPage(p => p - 1)}
+                                        className="p-1 rounded-lg bg-white border border-gray-200 text-gray-500 disabled:opacity-30 hover:bg-gray-50 transition-colors">
+                                        <ChevronLeft className="h-3.5 w-3.5" />
+                                    </button>
+                                    <button disabled={masterPage >= totalMasterPages - 1} onClick={() => setMasterPage(p => p + 1)}
+                                        className="p-1 rounded-lg bg-white border border-gray-200 text-gray-500 disabled:opacity-30 hover:bg-gray-50 transition-colors">
+                                        <ChevronRight className="h-3.5 w-3.5" />
+                                    </button>
+                                </div>
+                            )}
                         </div>
-                    )}
+                        );
+                    })()}
                 </div>
             </div>
-
-            {/* ══════════ VENDOR PAYMENT HISTORY ══════════ */}
-            <div className="px-4 md:px-6 pb-6">
-                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            ) : (
+            /* ══════════ VENDOR PAYMENT HISTORY ══════════ */
+            <div className="px-4 md:px-6 pb-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="bg-white/95 backdrop-blur-sm rounded-2xl border border-gray-100/80 shadow-lg overflow-hidden">
                     {/* Header */}
-                    <div className="p-5 flex flex-col gap-4 border-b border-gray-100">
+                    <div className="p-5 flex flex-col gap-4 border-b border-gray-100 bg-gradient-to-r from-white via-slate-50/20 to-white">
                         <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-3">
                             <div className="flex items-center gap-3">
-                                <div className="p-2 rounded-xl bg-emerald-50">
-                                    <ArrowRightLeft className="h-4 w-4 text-emerald-500" />
+                                <div className="p-2 rounded-xl bg-slate-50">
+                                    <ArrowRightLeft className="h-4 w-4 text-[#82A094]" />
                                 </div>
                                 <div>
                                     <div className="flex items-center gap-2">
                                         <h2 className="text-sm font-black text-gray-900">Vendor Payment History</h2>
                                         {vendorPayments && (
-                                            <span className="text-[10px] font-black bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full tabular-nums">
+                                            <span className="text-[10px] font-black bg-slate-50 text-[#82A094] px-2 py-0.5 rounded-full tabular-nums">
                                                 {vendorPayments.summary?.totalVendors || 0} vendors · {vendorPayments.summary?.totalTransactions || 0} txns
                                             </span>
                                         )}
@@ -624,7 +710,7 @@ export default function BankAccountReportsPage() {
                                     <button key={p.l} onClick={() => handlePaymentDaysChange(p.v)}
                                         className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border ${
                                             paymentDays === p.v
-                                                ? 'bg-emerald-50 text-emerald-600 border-emerald-200 shadow-sm'
+                                                ? 'bg-[#F2F7F5] text-[#82A094] border-[#82A094]/30 shadow-sm'
                                                 : 'bg-white text-gray-400 border-gray-100 hover:border-gray-200'
                                         }`}>{p.l}</button>
                                 ))}
@@ -639,7 +725,7 @@ export default function BankAccountReportsPage() {
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-300" />
                             <Input placeholder="Search vendor name..." value={paymentSearch}
                                 onChange={(e) => handlePaymentSearch(e.target.value)}
-                                className="h-9 pl-10 rounded-xl bg-gray-50 border-gray-100 text-sm font-medium focus-visible:ring-1 focus-visible:ring-emerald-300" />
+                                className="h-9 pl-10 rounded-xl bg-gray-50 border-gray-100 text-sm font-medium focus-visible:ring-1 focus-visible:ring-[#82A094]/50" />
                         </div>
                     </div>
 
@@ -656,7 +742,7 @@ export default function BankAccountReportsPage() {
                             {/* Rows */}
                             {vendorPaymentsLoading ? (
                                 <div className="flex flex-col items-center justify-center h-40 gap-3">
-                                    <div className="h-8 w-8 border-[3px] border-gray-200 border-t-emerald-500 rounded-full animate-spin" />
+                                    <div className="h-8 w-8 border-[3px] border-gray-200 border-t-[#82A094] rounded-full animate-spin" />
                                     <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Loading payment history...</span>
                                 </div>
                             ) : !vendorPayments?.vendors?.length ? (
@@ -664,21 +750,21 @@ export default function BankAccountReportsPage() {
                                     <Banknote className="h-10 w-10 text-gray-200" />
                                     <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">No payment history found</span>
                                 </div>
-                            ) : vendorPayments.vendors.map((vendor: any, idx: number) => (
+                            ) : (vendorPayments?.vendors || []).map((vendor: any, idx: number) => (
                                 <div key={vendor.bankAccountId}>
                                     {/* Vendor Row */}
                                     <div
                                         onClick={() => setExpandedVendor(expandedVendor === vendor.bankAccountId ? null : vendor.bankAccountId)}
                                         className={`grid grid-cols-[2fr_1fr_1fr_1fr_1fr_40px] gap-2 px-5 py-3.5 cursor-pointer transition-all border-b border-gray-50 ${
                                             idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'
-                                        } hover:bg-emerald-50/30 group`}>
+                                        } hover:bg-[#F2F7F5]`}>
                                         {/* Vendor Info */}
                                         <div className="flex items-center gap-3">
                                             <div className={`h-8 w-8 rounded-lg bg-gradient-to-br ${getAvatarGradient(vendor.vendorName)} flex items-center justify-center text-white font-black text-xs shrink-0 shadow-sm`}>
                                                 {vendor.vendorName.charAt(0)}
                                             </div>
                                             <div className="min-w-0">
-                                                <p className="font-bold text-sm text-gray-900 truncate max-w-[200px] group-hover:text-emerald-600 transition-colors">{vendor.vendorName}</p>
+                                                <p className="font-bold text-sm text-gray-900 truncate max-w-[200px] group-hover:text-[#82A094] transition-colors">{vendor.vendorName}</p>
                                                 <div className="flex items-center gap-2 mt-0.5">
                                                     <span className="font-mono text-[10px] text-gray-400">{vendor.accountNumber}</span>
                                                     {vendor.bpCode && <span className="text-[9px] font-bold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{vendor.bpCode}</span>}
@@ -707,7 +793,7 @@ export default function BankAccountReportsPage() {
                                         {/* Expand Icon */}
                                         <div className="flex items-center justify-center">
                                             <ChevronRight className={`h-4 w-4 text-gray-300 transition-transform duration-200 ${
-                                                expandedVendor === vendor.bankAccountId ? 'rotate-90 text-emerald-500' : ''
+                                                expandedVendor === vendor.bankAccountId ? 'rotate-90 text-[#82A094]' : ''
                                             }`} />
                                         </div>
                                     </div>
@@ -728,12 +814,12 @@ export default function BankAccountReportsPage() {
                                                         </span>
                                                         <span className="text-[11px] font-black text-gray-800 tabular-nums">{fmt(tx.amount)}</span>
                                                         <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md inline-flex items-center w-fit ${
-                                                            tx.transactionMode === 'NFT' ? 'bg-blue-50 text-blue-600 border border-blue-100' :
-                                                            tx.transactionMode === 'RTI' ? 'bg-violet-50 text-violet-600 border border-violet-100' :
-                                                            'bg-amber-50 text-amber-600 border border-amber-100'
+                                                            tx.transactionMode === 'NFT' ? 'bg-[#F4F7F9] text-[#6F8A9D] border border-[#6F8A9D]/10' :
+                                                            tx.transactionMode === 'RTI' ? 'bg-[#FCF8F2] text-[#CE9F6B] border border-[#CE9F6B]/10' :
+                                                            'bg-[#FFF5F4] text-[#E17F70] border border-[#E17F70]/10'
                                                         }`}>{tx.transactionMode === 'NFT' ? 'NEFT' : tx.transactionMode === 'RTI' ? 'RTGS' : tx.transactionMode}</span>
                                                         <span className="text-[11px] font-bold text-gray-500 truncate">{vendor.bankName}</span>
-                                                        <span className="text-[10px] font-mono font-bold text-indigo-500">{tx.batchNumber}</span>
+                                                        <span className="text-[10px] font-mono font-bold text-[#6F8A9D]">{tx.batchNumber}</span>
                                                         <span className="text-[10px] font-bold text-gray-400">{tx.requestedBy}</span>
                                                     </div>
                                                 ))}
@@ -742,7 +828,7 @@ export default function BankAccountReportsPage() {
                                                         <span className="text-[9px] font-black uppercase tracking-wider text-gray-300">
                                                             {vendor.transactions.length} transaction{vendor.transactions.length !== 1 ? 's' : ''}
                                                         </span>
-                                                        <span className="text-[10px] font-black text-emerald-600">
+                                                        <span className="text-[10px] font-black text-[#82A094]">
                                                             Total: {fmt(vendor.totalAmount)}
                                                         </span>
                                                     </div>
@@ -761,9 +847,9 @@ export default function BankAccountReportsPage() {
                         <div className="px-5 py-3 flex flex-wrap gap-6 items-center justify-between border-t border-gray-100 bg-gray-50/50">
                             <div className="flex flex-wrap gap-5">
                                 {[
-                                    { dot: '#10B981', lbl: 'Total Volume', val: fmt(vendorPayments.summary.totalAmount) },
-                                    { dot: '#6366F1', lbl: 'Vendors', val: vendorPayments.summary.totalVendors },
-                                    { dot: '#3B82F6', lbl: 'Transactions', val: vendorPayments.summary.totalTransactions },
+                                    { dot: '#82A094', lbl: 'Total Volume', val: fmt(vendorPayments.summary.totalAmount) },
+                                    { dot: '#546A7A', lbl: 'Vendors', val: vendorPayments.summary.totalVendors },
+                                    { dot: '#6F8A9D', lbl: 'Transactions', val: vendorPayments.summary.totalTransactions },
                                 ].map(s => (
                                     <div key={s.lbl} className="flex items-center gap-2">
                                         <div className="w-2 h-2 rounded-full" style={{ background: s.dot, boxShadow: `0 0 6px ${s.dot}40` }} />
@@ -778,6 +864,7 @@ export default function BankAccountReportsPage() {
                     )}
                 </div>
             </div>
+            )}
 
             {/* Document Preview */}
             <FilePreview isOpen={showPreview} onClose={() => setShowPreview(false)} file={previewFile} />

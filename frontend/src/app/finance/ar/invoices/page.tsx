@@ -1,21 +1,79 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { arApi, ARInvoice, formatARCurrency, formatARDate } from '@/lib/ar-api';
-import { Search, ChevronLeft, ChevronRight, FileText, Plus, TrendingUp, AlertTriangle, Clock, CheckCircle2, IndianRupee, Calendar, Building2, Upload, Shield, Layers, Zap, Tag } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, FileText, Plus, TrendingUp, AlertTriangle, Clock, CheckCircle2, IndianRupee, Calendar, Building2, Upload, Shield, Layers, Zap, Tag, XCircle, Filter, RotateCcw, User } from 'lucide-react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetDescription, SheetFooter } from "@/components/ui/sheet";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { DatePicker } from "@/components/ui/date-picker";
+import { Label } from "@/components/ui/label";
 
 export default function ARInvoicesPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+
   const [invoices, setInvoices] = useState<ARInvoice[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [status, setStatus] = useState('');
-  const [page, setPage] = useState(1);
+  
+  // Initialize state from URL
+  const [search, setSearch] = useState(searchParams.get('search') || '');
+  const [status, setStatus] = useState(searchParams.get('status') || '');
+  const [page, setPage] = useState(Number(searchParams.get('page')) || 1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
-  const searchParams = useSearchParams();
+  const [customers, setCustomers] = useState<{ id: string, label: string, searchText?: string }[]>([]);
+  
+  // Advanced Filter States initialized from URL
+  const [customerId, setCustomerId] = useState(searchParams.get('customerId') || '');
+  const [fromDate, setFromDate] = useState(searchParams.get('fromDate') || '');
+  const [toDate, setToDate] = useState(searchParams.get('toDate') || '');
+  const [region, setRegion] = useState(searchParams.get('region') || '');
+  const [category, setCategory] = useState(searchParams.get('category') || '');
+  const [accountingStatus, setAccountingStatus] = useState(searchParams.get('accountingStatus') || '');
+  const [minAmount, setMinAmount] = useState(searchParams.get('minAmount') || '');
+  const [maxAmount, setMaxAmount] = useState(searchParams.get('maxAmount') || '');
+  const [riskClass, setRiskClass] = useState(searchParams.get('riskClass') || '');
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+
   const agingBucket = searchParams.get('agingBucket') || '';
+
+  // Synchronize state changes to URL
+  useEffect(() => {
+    const params = new URLSearchParams(Array.from(searchParams.entries()));
+    let changed = false;
+
+    const updateParam = (key: string, value: string | number) => {
+      const strVal = String(value);
+      if (strVal) {
+        if (params.get(key) !== strVal) { params.set(key, strVal); changed = true; }
+      } else {
+        if (params.has(key)) { params.delete(key); changed = true; }
+      }
+    };
+
+    updateParam('search', search);
+    updateParam('status', status);
+    updateParam('page', page > 1 ? page : '');
+    updateParam('customerId', customerId);
+    updateParam('fromDate', fromDate);
+    updateParam('toDate', toDate);
+    updateParam('region', region);
+    updateParam('category', category);
+    updateParam('accountingStatus', accountingStatus);
+    updateParam('minAmount', minAmount);
+    updateParam('maxAmount', maxAmount);
+    updateParam('riskClass', riskClass);
+
+    if (changed) {
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    }
+  }, [search, status, page, customerId, fromDate, toDate, region, category, accountingStatus, minAmount, maxAmount, riskClass, pathname, router, searchParams]);
 
   const agingBucketLabels: Record<string, string> = {
     'current': 'Current (Not Yet Due)',
@@ -27,7 +85,24 @@ export default function ARInvoicesPage() {
 
   useEffect(() => {
     loadInvoices();
-  }, [search, status, page, agingBucket]);
+  }, [search, status, page, agingBucket, customerId, fromDate, toDate, region, category, accountingStatus, minAmount, maxAmount, riskClass]);
+
+  useEffect(() => {
+    loadCustomers();
+  }, []);
+
+  const loadCustomers = async () => {
+    try {
+      const result = await arApi.getCustomers({ limit: 1000 });
+      setCustomers(result.data.map((c: any) => ({
+        id: c.bpCode,
+        label: c.customerName,
+        searchText: `${c.bpCode} ${c.customerName}`
+      })));
+    } catch (error) {
+      console.error('Failed to load customers:', error);
+    }
+  };
 
   const loadInvoices = async () => {
     try {
@@ -37,6 +112,15 @@ export default function ARInvoicesPage() {
         status, 
         invoiceType: 'REGULAR', // Hardcoded to Regular
         agingBucket: agingBucket || undefined,
+        customerId: customerId || undefined,
+        fromDate: fromDate || undefined,
+        toDate: toDate || undefined,
+        region: region || undefined,
+        category: category || undefined,
+        accountingStatus: accountingStatus || undefined,
+        minAmount: minAmount ? parseFloat(minAmount) : undefined,
+        maxAmount: maxAmount ? parseFloat(maxAmount) : undefined,
+        riskClass: riskClass || undefined,
         page, 
         limit: agingBucket ? 500 : 25 
       });
@@ -51,11 +135,12 @@ export default function ARInvoicesPage() {
   };
 
   const statusFilters = [
-    { value: '', label: 'All', icon: Layers },
+    { value: '', label: 'Active', icon: Layers },
     { value: 'PENDING', label: 'Pending', icon: Clock },
     { value: 'OVERDUE', label: 'Overdue', icon: AlertTriangle },
     { value: 'PAID', label: 'Paid', icon: CheckCircle2 },
     { value: 'PARTIAL', label: 'Partial', icon: TrendingUp },
+    { value: 'CANCELLED', label: 'Cancelled', icon: XCircle },
   ];
 
   const getStatusStyle = (s: string) => {
@@ -64,6 +149,7 @@ export default function ARInvoicesPage() {
       case 'PARTIAL': return 'bg-gradient-to-r from-[#CE9F6B] to-[#976E44] text-white shadow-lg shadow-[#CE9F6B]/20';
       case 'OVERDUE': return 'bg-gradient-to-r from-[#E17F70] to-[#9E3B47] text-white shadow-lg shadow-[#E17F70]/20';
       case 'PENDING': return 'bg-gradient-to-r from-[#96AEC2] to-[#6F8A9D] text-white shadow-lg shadow-[#96AEC2]/20';
+      case 'CANCELLED': return 'bg-gradient-to-r from-[#92A2A5] to-[#5D6E73] text-white opacity-60';
       default: return 'bg-gradient-to-r from-[#92A2A5] to-[#5D6E73] text-white';
     }
   };
@@ -74,6 +160,7 @@ export default function ARInvoicesPage() {
       case 'PARTIAL': return <TrendingUp className="w-3.5 h-3.5" />;
       case 'OVERDUE': return <AlertTriangle className="w-3.5 h-3.5" />;
       case 'PENDING': return <Clock className="w-3.5 h-3.5" />;
+      case 'CANCELLED': return <XCircle className="w-3.5 h-3.5" />;
       default: return null;
     }
   };
@@ -86,6 +173,26 @@ export default function ARInvoicesPage() {
       case 'LOW': return 'bg-gradient-to-r from-[#82A094] to-[#4F6A64] text-white shadow-lg shadow-[#82A094]/20';
       default: return 'bg-gradient-to-r from-[#AEBFC3] to-[#92A2A5] text-white';
     }
+  };
+
+  const activeFilterCount = [
+    customerId, fromDate, toDate, region, category, 
+    accountingStatus, minAmount, maxAmount, riskClass
+  ].filter(Boolean).length;
+
+  const clearAllFilters = () => {
+    setSearch('');
+    setStatus('');
+    setCustomerId('');
+    setFromDate('');
+    setToDate('');
+    setRegion('');
+    setCategory('');
+    setAccountingStatus('');
+    setMinAmount('');
+    setMaxAmount('');
+    setRiskClass('');
+    setPage(1);
   };
 
   return (
@@ -163,7 +270,205 @@ export default function ARInvoicesPage() {
           )}
         </div>
         
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 scrollbar-hide">
+          <Sheet open={isFilterOpen} onOpenChange={setIsFilterOpen}>
+            <SheetTrigger asChild>
+              <button 
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold border-2 transition-all whitespace-nowrap ${
+                  activeFilterCount > 0 
+                  ? 'bg-gradient-to-r from-[#CE9F6B] to-[#976E44] text-white border-transparent shadow-lg shadow-[#CE9F6B]/20' 
+                  : 'bg-white text-[#546A7A] border-[#AEBFC3]/30 hover:border-[#6F8A9D] hover:bg-[#96AEC2]/5'
+                }`}
+              >
+                <Filter className="w-4 h-4" />
+                Filters
+                {activeFilterCount > 0 && (
+                  <span className="flex items-center justify-center w-5 h-5 rounded-full bg-white text-[#976E44] text-[10px] font-black">
+                    {activeFilterCount}
+                  </span>
+                )}
+              </button>
+            </SheetTrigger>
+            <SheetContent className="w-full sm:max-w-md bg-white border-l-4 border-[#546A7A]">
+              <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#546A7A] via-[#6F8A9D] to-[#96AEC2]" />
+              <SheetHeader className="pb-6 border-b border-[#AEBFC3]/20">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-xl bg-gradient-to-br from-[#546A7A] to-[#6F8A9D] shadow-lg shadow-[#546A7A]/20">
+                    <Filter className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <SheetTitle className="text-xl font-bold text-[#546A7A]">Advanced Filters</SheetTitle>
+                    <SheetDescription className="text-xs font-semibold text-[#92A2A5]">Refine your invoice search results</SheetDescription>
+                  </div>
+                </div>
+              </SheetHeader>
+              
+              <div className="py-6 space-y-6 overflow-y-auto max-h-[calc(100vh-200px)] pr-2 scrollbar-thin">
+                {/* Customer */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold text-[#546A7A] uppercase tracking-wider flex items-center gap-2">
+                    <User className="w-3.5 h-3.5" /> Customer
+                  </Label>
+                  <SearchableSelect 
+                    options={customers}
+                    value={customerId}
+                    onValueChange={(val) => { setCustomerId(val); setPage(1); }}
+                    placeholder="Search by customer name or code..."
+                    className="border-2 border-[#AEBFC3]/30 focus:border-[#6F8A9D] rounded-xl h-11"
+                  />
+                </div>
+
+                {/* Date Range */}
+                <div className="space-y-2 flex flex-col">
+                  <Label className="text-xs font-bold text-[#546A7A] uppercase tracking-wider flex items-center gap-2">
+                    <Calendar className="w-3.5 h-3.5" /> Invoice Date Range
+                  </Label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-bold text-[#92A2A5] ml-1">FROM</span>
+                      <Input 
+                        type="date"
+                        value={fromDate ? new Date(fromDate).toISOString().split('T')[0] : ''}
+                        onChange={(e) => { setFromDate(e.target.value ? new Date(e.target.value).toISOString() : ''); setPage(1); }}
+                        className="h-11 border-2 border-[#AEBFC3]/30 rounded-xl focus:ring-[#6F8A9D]/20 text-[#546A7A] font-bold"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-bold text-[#92A2A5] ml-1">TO</span>
+                      <Input 
+                        type="date"
+                        value={toDate ? new Date(toDate).toISOString().split('T')[0] : ''}
+                        onChange={(e) => { setToDate(e.target.value ? new Date(e.target.value).toISOString() : ''); setPage(1); }}
+                        className="h-11 border-2 border-[#AEBFC3]/30 rounded-xl focus:ring-[#6F8A9D]/20 text-[#546A7A] font-bold"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Category & Region */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-xs font-bold text-[#546A7A] uppercase tracking-wider flex items-center gap-2">
+                      <Tag className="w-3.5 h-3.5" /> Category
+                    </Label>
+                    <Select value={category} onValueChange={(val) => { setCategory(val); setPage(1); }}>
+                      <SelectTrigger className="border-2 border-[#AEBFC3]/30 rounded-xl h-11 focus:ring-[#6F8A9D]/20">
+                        <SelectValue placeholder="All Categories" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ALL_CATEGORIES">All Categories</SelectItem>
+                        <SelectItem value="LCS">LCS</SelectItem>
+                        <SelectItem value="NB">NB</SelectItem>
+                        <SelectItem value="FINANCE">Finance</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs font-bold text-[#546A7A] uppercase tracking-wider flex items-center gap-2">
+                      <Zap className="w-3.5 h-3.5" /> Region
+                    </Label>
+                    <Select value={region} onValueChange={(val) => { setRegion(val); setPage(1); }}>
+                      <SelectTrigger className="border-2 border-[#AEBFC3]/30 rounded-xl h-11 focus:ring-[#6F8A9D]/20">
+                        <SelectValue placeholder="All Regions" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ALL_REGIONS">All Regions</SelectItem>
+                        <SelectItem value="GLOBAL">Global</SelectItem>
+                        <SelectItem value="NORTH">North</SelectItem>
+                        <SelectItem value="SOUTH">South</SelectItem>
+                        <SelectItem value="EAST">East</SelectItem>
+                        <SelectItem value="WEST">West</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Amount Range */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold text-[#546A7A] uppercase tracking-wider flex items-center gap-2">
+                    <IndianRupee className="w-3.5 h-3.5" /> Total Amount Range
+                  </Label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-[#92A2A5]">MIN</span>
+                      <Input 
+                        type="number" 
+                        placeholder="0"
+                        value={minAmount}
+                        onChange={(e) => { setMinAmount(e.target.value); setPage(1); }}
+                        className="h-11 pl-10 border-2 border-[#AEBFC3]/30 rounded-xl focus:ring-[#6F8A9D]/20 text-sm font-bold"
+                      />
+                    </div>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-[#92A2A5]">MAX</span>
+                      <Input 
+                        type="number" 
+                        placeholder="∞"
+                        value={maxAmount}
+                        onChange={(e) => { setMaxAmount(e.target.value); setPage(1); }}
+                        className="h-11 pl-10 border-2 border-[#AEBFC3]/30 rounded-xl focus:ring-[#6F8A9D]/20 text-sm font-bold"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Risk and Accounting Status */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-xs font-bold text-[#546A7A] uppercase tracking-wider flex items-center gap-2">
+                      <AlertTriangle className="w-3.5 h-3.5" /> Risk Class
+                    </Label>
+                    <Select value={riskClass} onValueChange={(val) => { setRiskClass(val); setPage(1); }}>
+                      <SelectTrigger className="border-2 border-[#AEBFC3]/30 rounded-xl h-11 focus:ring-[#6F8A9D]/20">
+                        <SelectValue placeholder="All Risk" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ALL_RISK">All Risk</SelectItem>
+                        <SelectItem value="LOW">Low</SelectItem>
+                        <SelectItem value="MEDIUM">Medium</SelectItem>
+                        <SelectItem value="HIGH">High</SelectItem>
+                        <SelectItem value="CRITICAL">Critical</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs font-bold text-[#546A7A] uppercase tracking-wider flex items-center gap-2">
+                      <Shield className="w-3.5 h-3.5" /> Accounting
+                    </Label>
+                    <Select value={accountingStatus} onValueChange={(val) => { setAccountingStatus(val); setPage(1); }}>
+                      <SelectTrigger className="border-2 border-[#AEBFC3]/30 rounded-xl h-11 focus:ring-[#6F8A9D]/20">
+                        <SelectValue placeholder="All Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ALL_STATUS">All Status</SelectItem>
+                        <SelectItem value="REVENUE_RECOGNISED">Revenue Recognised</SelectItem>
+                        <SelectItem value="BACKLOG">Backlog</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+
+              <SheetFooter className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-[#F8FAFB] to-white border-t border-[#AEBFC3]/20 flex flex-col sm:flex-row gap-3">
+                <Button 
+                  variant="outline" 
+                  onClick={clearAllFilters}
+                  className="flex-1 rounded-xl border-2 border-[#AEBFC3]/40 h-12 font-bold text-[#546A7A] hover:bg-[#AEBFC3]/10"
+                >
+                  <RotateCcw className="w-4 h-4 mr-2" /> Reset All
+                </Button>
+                <Button 
+                  onClick={() => setIsFilterOpen(false)}
+                  className="flex-1 rounded-xl bg-gradient-to-r from-[#546A7A] to-[#6F8A9D] text-white shadow-lg shadow-[#546A7A]/30 h-12 font-bold hover:shadow-xl transition-all"
+                >
+                  Apply Filters
+                </Button>
+              </SheetFooter>
+            </SheetContent>
+          </Sheet>
+
+          <div className="w-[2px] h-6 bg-[#AEBFC3]/20 mx-1 hidden sm:block" />
+
           {statusFilters.map((filter) => {
             const Icon = filter.icon;
             const isActive = status === filter.value;
@@ -181,9 +486,9 @@ export default function ARInvoicesPage() {
             );
           })}
           
-          {(search || status) && (
+          {(search || status || activeFilterCount > 0) && (
             <button
-              onClick={() => { setSearch(''); setStatus(''); setPage(1); }}
+              onClick={clearAllFilters}
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold text-[#E17F70] hover:bg-[#E17F70]/10 border border-[#E17F70]/30 transition-all ml-2 whitespace-nowrap"
               title="Clear all filters"
             >

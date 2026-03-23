@@ -17,6 +17,13 @@ export const getAllInvoices = async (req: Request, res: Response) => {
             overdueOnly,
             invoiceType, // Filter by invoice type (REGULAR, MILESTONE)
             agingBucket, // Filter by aging bucket (current, 1-30, 31-60, 61-90, 90+)
+            region,
+            type: category,
+            accountingStatus,
+            bookingMonth,
+            riskClass,
+            minAmount,
+            maxAmount,
             page = 1,
             limit = 20
         } = req.query;
@@ -35,6 +42,9 @@ export const getAllInvoices = async (req: Request, res: Response) => {
 
         if (status) {
             where.status = status;
+        } else {
+            // Default: do not show cancelled invoices in the main list
+            where.status = { not: 'CANCELLED' };
         }
 
         if (customerId) {
@@ -54,6 +64,32 @@ export const getAllInvoices = async (req: Request, res: Response) => {
         // Filter by invoice type (REGULAR, MILESTONE)
         if (invoiceType) {
             where.invoiceType = String(invoiceType);
+        }
+
+        if (region) {
+            where.region = String(region);
+        }
+
+        if (category) {
+            where.type = String(category);
+        }
+
+        if (accountingStatus) {
+            where.accountingStatus = String(accountingStatus);
+        }
+
+        if (bookingMonth) {
+            where.bookingMonth = String(bookingMonth);
+        }
+
+        if (riskClass) {
+            where.riskClass = String(riskClass);
+        }
+
+        if (minAmount || maxAmount) {
+            where.totalAmount = {};
+            if (minAmount) where.totalAmount.gte = parseFloat(String(minAmount));
+            if (maxAmount) where.totalAmount.lte = parseFloat(String(maxAmount));
         }
 
         const skip = (Number(page) - 1) * Number(limit);
@@ -732,6 +768,7 @@ export const createInvoice = async (req: Request, res: Response) => {
                 totalAmount: parseFloat(totalAmount),
                 netAmount: netAmount ? parseFloat(netAmount) : parseFloat(totalAmount),
                 taxAmount: taxAmount ? parseFloat(taxAmount) : null,
+                balance: parseFloat(totalAmount),
                 actualPaymentTerms,
                 status,
                 // Milestone fields
@@ -1042,6 +1079,159 @@ export const deleteInvoice = async (req: Request, res: Response) => {
             return res.status(404).json({ error: 'Invoice not found' });
         }
         res.status(500).json({ error: 'Failed to delete invoice', message: error.message });
+    }
+};
+
+
+// Cancel invoice (Soft delete with status change)
+export const cancelInvoice = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const { reason } = req.body;
+
+        if (!reason || !reason.trim()) {
+            return res.status(400).json({ error: 'Cancellation reason is required' });
+        }
+
+        const user = getUserFromRequest(req);
+        const ipAddress = getIpFromRequest(req);
+        const userAgent = req.headers['user-agent'] || null;
+
+        const result = await prisma.$transaction(async (tx) => {
+            const invoice = await tx.aRInvoice.findUnique({ where: { id } });
+            if (!invoice) throw new Error('INVOICE_NOT_FOUND');
+
+            if (invoice.status === 'CANCELLED') {
+                throw new Error('ALREADY_CANCELLED');
+            }
+
+            // Update invoice status and zero out financial fields
+            const updatedInvoice = await tx.aRInvoice.update({
+                where: { id },
+                data: {
+                    status: 'CANCELLED',
+                    balance: 0,
+                    receipts: 0,
+                    adjustments: 0,
+                    totalReceipts: 0,
+                    comments: reason ? `${invoice.comments ? invoice.comments + '\n' : ''}CANCELLED: ${reason}` : invoice.comments
+                }
+            });
+
+            // Add cancellation remark officially
+            await tx.aRInvoiceRemark.create({
+                data: {
+                    invoiceId: id,
+                    content: `[CANCELLATION REASON]: ${reason}`,
+                    createdById: user.id as number
+                }
+            });
+
+            return updatedInvoice;
+        });
+
+        // Log activity
+        await logInvoiceActivity({
+            invoiceId: id,
+            action: 'INVOICE_CANCELLED',
+            description: `Invoice ${result.invoiceNumber} cancelled. Reason: ${reason}`,
+            performedById: user.id,
+            performedBy: user.name,
+            ipAddress,
+            userAgent,
+            metadata: { reason, previousStatus: result.status }
+        });
+
+        res.json({ message: 'Invoice cancelled successfully', invoice: result });
+    } catch (error: any) {
+
+        if (error.message === 'INVOICE_NOT_FOUND') return res.status(404).json({ error: 'Invoice not found' });
+        if (error.message === 'ALREADY_CANCELLED') return res.status(400).json({ error: 'Invoice is already cancelled' });
+        res.status(500).json({ error: 'Failed to cancel invoice', message: error.message });
+    }
+};
+
+// Restore cancelled invoice
+export const restoreInvoice = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const user = getUserFromRequest(req);
+        const ipAddress = getIpFromRequest(req);
+        const userAgent = req.headers['user-agent'] || null;
+
+        const result = await prisma.$transaction(async (tx) => {
+            const invoice = await tx.aRInvoice.findUnique({ 
+                where: { id }
+            });
+
+            if (!invoice) throw new Error('INVOICE_NOT_FOUND');
+            if (invoice.status !== 'CANCELLED') {
+                throw new Error('INVOICE_NOT_CANCELLED');
+            }
+
+            // Get payment history separately since it's a loose relation in schema
+            const paymentHistory = await tx.aRPaymentHistory.findMany({
+                where: { invoiceId: id }
+            });
+
+            // Recalculate totals from history
+            const totalReceipts = paymentHistory.reduce((sum: number, p: any) => sum + Number(p.amount), 0);
+            const balance = Math.max(0, Number(invoice.totalAmount) - totalReceipts);
+            
+            // Determine new status
+            let newStatus: any = 'PENDING';
+            if (balance <= 0) {
+                newStatus = 'PAID';
+            } else if (totalReceipts > 0) {
+                newStatus = 'PARTIAL';
+            }
+
+            // Also check for overdue status if pending/partial
+            if (newStatus !== 'PAID' && invoice.dueDate && new Date(invoice.dueDate) < new Date()) {
+                newStatus = 'OVERDUE';
+            }
+
+            const updatedInvoice = await tx.aRInvoice.update({
+                where: { id },
+                data: {
+                    status: newStatus,
+                    balance,
+                    totalReceipts,
+                    receipts: totalReceipts, // Assuming receipts and totalReceipts are synced
+                    comments: `${invoice.comments ? invoice.comments + '\n' : ''}RESTORED: Invoice restored on ${new Date().toLocaleDateString()}`
+                }
+            });
+
+            // Add restoration remark
+            await tx.aRInvoiceRemark.create({
+                data: {
+                    invoiceId: id,
+                    content: `[RESTORATION]: Invoice restored to ${newStatus} status.`,
+                    createdById: user.id as number
+                }
+            });
+
+            return updatedInvoice;
+        });
+
+        // Log activity
+        await logInvoiceActivity({
+            invoiceId: id,
+            action: 'INVOICE_RESTORED',
+            description: `Invoice ${result.invoiceNumber} restored to ${result.status} status.`,
+            performedById: user.id,
+            performedBy: user.name,
+            ipAddress,
+            userAgent,
+            metadata: { newStatus: result.status }
+        });
+
+        res.json({ message: 'Invoice restored successfully', invoice: result });
+    } catch (error: any) {
+        if (error.message === 'INVOICE_NOT_FOUND') return res.status(404).json({ error: 'Invoice not found' });
+        if (error.message === 'INVOICE_NOT_CANCELLED') return res.status(400).json({ error: 'Invoice is not cancelled' });
+        
+        res.status(500).json({ error: 'Failed to restore invoice', message: error.message });
     }
 };
 

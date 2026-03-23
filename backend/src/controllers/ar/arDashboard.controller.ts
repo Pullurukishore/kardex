@@ -52,7 +52,7 @@ export const getEssentialDashboard = async (req: Request, res: Response) => {
             safeAggregate(
                 prisma.aRInvoice.aggregate({
                     where: {
-                        status: { not: 'PAID' },
+                        status: { not: 'CANCELLED' },
                         invoiceType: 'REGULAR'
                     },
                     _sum: { balance: true },
@@ -78,7 +78,10 @@ export const getEssentialDashboard = async (req: Request, res: Response) => {
             // Total Amount (Standard only)
             safeAggregate(
                 prisma.aRInvoice.aggregate({
-                    where: { invoiceType: 'REGULAR' },
+                    where: { 
+                        invoiceType: 'REGULAR',
+                        status: { not: 'CANCELLED' }
+                    },
                     _sum: { totalAmount: true },
                     _count: true
                 }),
@@ -87,7 +90,10 @@ export const getEssentialDashboard = async (req: Request, res: Response) => {
             // Total Collected (Sum totalReceipts of REGULAR invoices)
             safeAggregate(
                 prisma.aRInvoice.aggregate({
-                    where: { invoiceType: 'REGULAR' },
+                    where: { 
+                        invoiceType: 'REGULAR',
+                        status: { not: 'CANCELLED' }
+                    },
                     _sum: { totalReceipts: true },
                     _count: true
                 }),
@@ -143,7 +149,7 @@ export const getEssentialDashboard = async (req: Request, res: Response) => {
             ),
             // All milestone invoices (for milestones section)
             safeFindMany(prisma.aRInvoice.findMany({
-                where: { invoiceType: 'MILESTONE', status: { not: 'PAID' } },
+                where: { invoiceType: 'MILESTONE', status: { notIn: ['PAID', 'CANCELLED'] } },
                 select: {
                     id: true,
                     soNo: true,
@@ -396,11 +402,11 @@ export const getEssentialDashboard = async (req: Request, res: Response) => {
 
         res.json({
             kpis: {
-                totalAmount: Number(allInvoicesTotal._sum?.totalAmount ?? 0),
+                totalAmount: totalInvoicedAmount,
                 totalAllInvoices: allInvoicesTotal._count ?? 0,
-                totalCollected: Number(standardPaid._sum?.totalReceipts ?? 0),
+                totalCollected: totalCollectedAmount,
                 totalPayments: standardPaid._count ?? 0,
-                totalBalance: Number(totalBalance._sum?.balance ?? 0),
+                totalBalance: totalInvoicedAmount - totalCollectedAmount,
                 totalInvoices: totalBalance._count ?? 0,
                 overdueAmount: Number(overdueBalance._sum?.balance ?? 0),
                 pendingCount,

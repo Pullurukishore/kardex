@@ -429,9 +429,10 @@ export const previewExcel = async (req: Request, res: Response) => {
         const validatedRows = rows.map((row, index) => {
             const cleanRow: any = {
                 invoiceNumber: getValue(row, 'Invoice Number', 'Invoice No', 'InvNo', 'Doc. No.', 'Bill No'),
+                bpCode: getValue(row, 'Customer Code', 'CustomerCode', 'BP Code', 'BPCode'),
                 soNo: getValue(row, 'SO no.', 'SO.no', 'SONo', 'SO Number', 'Sales Order'),
                 poNo: getValue(row, 'PO No.', 'PO.No', 'PONo', 'Customer Ref. No.', 'PO Number'),
-                customerName: getValue(row, 'Customer', 'Customer Name', 'BP Name', 'Sold-to party', 'Customer Code'),
+                customerName: getValue(row, 'Customer', 'Customer Name', 'BP Name', 'Sold-to party'),
                 bookingMonth: normalizeBookingMonth(getValue(row, 'Booking month', 'Month', 'Booking Month')),
                 accountingStatus: getValue(row, 'Accounting status', 'Status', 'Accounting Status'),
                 totalAmount: getValue(row, 'Total Amount', 'Amount', 'Total'),

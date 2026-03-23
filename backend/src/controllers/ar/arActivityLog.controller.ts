@@ -23,7 +23,9 @@ export type ARActivityAction =
     | 'PAYMENT_TERM_UPDATED' // When a payment term is modified
     | 'PAYMENT_TERM_DELETED' // When a payment term is removed
     | 'CUSTOMER_CREATED'     // When a new customer master is manually created
-    | 'CUSTOMER_DELETED';    // When a customer master record is deleted (if allowed)
+    | 'CUSTOMER_DELETED'     // When a customer master record is deleted (if allowed)
+    | 'INVOICE_CANCELLED'   // When an invoice is cancelled
+    | 'INVOICE_RESTORED';    // When an invoice is restored
 
 interface LogActivityParams {
     invoiceId?: string | null;

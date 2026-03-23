@@ -399,7 +399,9 @@ export const createTicket = async (req: TicketRequest, res: Response) => {
       orderBy: { ticketNumber: 'desc' },
       select: { ticketNumber: true }
     });
-    const nextTicketNumber = lastTicket?.ticketNumber ? lastTicket.ticketNumber + 1 : 1001;
+    // Attempt to increment the last numeric part of the ticket number
+    const lastNum = lastTicket?.ticketNumber ? parseInt(String(lastTicket.ticketNumber).replace(/[^0-9]/g, '')) : 1000;
+    const nextTicketNumber = String(lastNum + 1);
 
     // Use TicketUncheckedCreateInput to pass assetId directly
     const ticketData = {
@@ -425,7 +427,7 @@ export const createTicket = async (req: TicketRequest, res: Response) => {
     };
 
     const ticket = await prisma.ticket.create({
-      data: ticketData,
+      data: ticketData as any,
       include: {
         customer: { select: { id: true, companyName: true } },
         asset: { select: { id: true, model: true } },
@@ -472,7 +474,7 @@ export const createTicket = async (req: TicketRequest, res: Response) => {
       const ticketNotificationService = new TicketNotificationService();
 
       // Format phone number to ensure international format
-      let customerPhone = ticket.contact?.phone || '';
+      let customerPhone = (ticket as any).contact?.phone || '';
       if (customerPhone && !customerPhone.startsWith('+')) {
         // Add India country code as default
         customerPhone = '+91' + customerPhone.replace(/[^0-9]/g, '');
@@ -482,7 +484,7 @@ export const createTicket = async (req: TicketRequest, res: Response) => {
       ticketNotificationService.sendTicketOpenedNotification({
         id: ticket.id.toString(),
         title: ticket.title,
-        customerName: ticket.customer.companyName,
+        customerName: (ticket as any).customer?.companyName || 'Customer',
         customerPhone: customerPhone,
         customerId: ticket.customerId.toString(),
         priority: ticket.priority,
@@ -599,6 +601,11 @@ export const getTickets = async (req: TicketRequest, res: Response) => {
         ];
       }
     }
+    
+    // Base where for summary counts (ignores status/priority filters from query, but keeps role/view/search)
+    const baseWhereForStats = { ...where };
+    delete (baseWhereForStats as any).status;
+    delete (baseWhereForStats as any).priority;
 
     if (status) where.status = { in: (status as string).split(',') };
     if (priority) where.priority = priority;
@@ -613,7 +620,7 @@ export const getTickets = async (req: TicketRequest, res: Response) => {
       });
     }
 
-    const [tickets, total] = await Promise.all([
+    const [tickets, total, open, active, closed, critical] = await Promise.all([
       prisma.ticket.findMany({
         where,
         skip,
@@ -659,11 +666,28 @@ export const getTickets = async (req: TicketRequest, res: Response) => {
           }
         }
       }),
-      prisma.ticket.count({ where })
+      prisma.ticket.count({ where }),
+      // Global counts for the current scope/view
+      prisma.ticket.count({ where: { ...baseWhereForStats, status: 'OPEN' } }),
+      prisma.ticket.count({ 
+        where: { 
+          ...baseWhereForStats, 
+          status: { in: ['ASSIGNED', 'IN_PROGRESS', 'ONSITE_VISIT_PLANNED', 'ONSITE_VISIT', 'ONSITE_VISIT_STARTED', 'ONSITE_VISIT_REACHED', 'ONSITE_VISIT_IN_PROGRESS', 'ONSITE_VISIT_PENDING', 'ONSITE_VISIT_RESOLVED', 'ONSITE_VISIT_COMPLETED'] } 
+        } 
+      }),
+      prisma.ticket.count({ where: { ...baseWhereForStats, status: { in: ['CLOSED', 'CLOSED_PENDING'] } } }),
+      prisma.ticket.count({ where: { ...baseWhereForStats, priority: 'CRITICAL' } })
     ]);
 
     return res.json({
       data: tickets,
+      summary: {
+        total,
+        open,
+        active,
+        closed,
+        critical
+      },
       pagination: {
         total,
         page: Number(page),

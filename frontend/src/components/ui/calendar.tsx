@@ -115,7 +115,7 @@ export function Calendar({
             {displayDate}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="start">
+        <PopoverContent className="w-auto p-0 border-none bg-transparent shadow-none" align="start">
           {renderCalendar()}
         </PopoverContent>
       </Popover>

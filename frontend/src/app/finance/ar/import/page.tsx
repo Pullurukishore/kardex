@@ -51,6 +51,18 @@ export default function ARImportPage() {
 
     try {
       const previewData = await arApi.previewExcel(selectedFile);
+      
+      if (previewData.isMilestone) {
+        throw { 
+          response: { 
+            data: { 
+              message: 'Invalid File Format', 
+              details: 'This page only supports Regular Invoice imports. Milestone files cannot be imported here.' 
+            } 
+          } 
+        };
+      }
+
       setPreview(previewData);
       const allRows = new Set<number>();
       for (let i = 0; i < (previewData.preview?.length || 0); i++) {
@@ -445,6 +457,35 @@ export default function ARImportPage() {
                           </td>
                           {preview.headers?.filter((h: string) => !h.startsWith('_')).map((header: string, j: number) => {
                             const hasError = rowErrors.some((e: FieldError) => e.field === header);
+                            
+                            let cellValue: any = null;
+                            const map: Record<string, string> = {
+                              'Doc. No.': 'invoiceNumber',
+                              'Customer Code': 'bpCode',
+                              'Customer Name': 'customerName',
+                              'Customer Ref. No.': 'poNo',
+                              'Amount': 'totalAmount',
+                              'Net': 'netAmount',
+                              'Tax': 'taxAmount',
+                              'Document Date': 'invoiceDate'
+                            };
+                            cellValue = row[map[header]] ?? row[header];
+                            
+                            if (cellValue && (header === 'Invoice Date' || header === 'Document Date')) {
+                              try {
+                                const d = new Date(cellValue);
+                                if (!isNaN(d.getTime())) {
+                                  cellValue = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+                                }
+                              } catch(e) {}
+                            }
+                            
+                            if (cellValue !== null && cellValue !== undefined && cellValue !== '' && 
+                               (header === 'Amount' || header === 'Net' || header === 'Tax' || header === 'Total Amount' || header === 'Order Value' || header === 'GST') && 
+                               !isNaN(Number(cellValue))) {
+                                cellValue = Number(cellValue).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+                            }
+
                             return (
                               <td key={j} className={`py-3 px-4 whitespace-nowrap relative ${
                                 hasError 
@@ -458,7 +499,7 @@ export default function ARImportPage() {
                                 {hasError && (
                                   <span className="absolute -left-1 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-[#E17F70] animate-pulse" />
                                 )}
-                                {row[header] || <span className={hasError ? 'text-[#E17F70] italic' : 'text-[#AEBFC3]'}>
+                                {cellValue !== null && cellValue !== undefined && cellValue !== '' ? cellValue : <span className={hasError ? 'text-[#E17F70] italic' : 'text-[#AEBFC3]'}>
                                   {hasError ? 'Missing' : '-'}
                                 </span>}
                               </td>

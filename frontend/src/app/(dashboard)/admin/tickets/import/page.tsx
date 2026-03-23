@@ -324,8 +324,10 @@ export default function TicketImportPage() {
                     { icon: MapPin, label: 'Place', color: 'text-[#6F8A9D]' },
                     { icon: Ticket, label: 'Ticket ID', color: 'text-[#CE9F6B]' },
                     { icon: Wrench, label: 'Machine Serial Number', color: 'text-[#82A094]' },
-                    { icon: Users, label: 'Responsible FSM / Engineer', color: 'text-[#546A7A]' },
+                    { icon: Users, label: 'Responsible (Engineer)', color: 'text-[#546A7A]' },
                     { icon: MapPin, label: 'Zone', color: 'text-[#6F8A9D]' },
+                    { icon: FileText, label: 'Work Start / End', color: 'text-[#82A094]' },
+                    { icon: Eye, label: 'Service Report Details', color: 'text-[#6F8A9D]' },
                   ].map((col, i) => (
                     <div key={i} className="flex items-center gap-2 py-1 px-2 rounded-md hover:bg-gray-50">
                       <col.icon className={`h-3 w-3 ${col.color}`} />
@@ -333,7 +335,7 @@ export default function TicketImportPage() {
                     </div>
                   ))}
                   <p className="text-gray-400 pt-2 border-t mt-2">
-                    + Call Type, Error, Ticket Date/Time, Scheduled On, Closed On, Contact Name/Number, Remarks, etc.
+                    + Call Type, Error, Ticket Date/Time, Scheduled On, Closed On, Contact Name/Number, Kdx Engineer, Konte Team, MDT, etc.
                   </p>
                 </CardContent>
               </Card>
@@ -406,7 +408,7 @@ export default function TicketImportPage() {
                 <CardHeader className="border-b bg-gradient-to-r from-gray-50 to-white py-3">
                   <CardTitle className="text-sm flex items-center gap-2">
                     <Eye className="h-4 w-4 text-[#6F8A9D]" />
-                    Data Preview (first {previewData.sampleRows.length} rows)
+                    Data Preview ({previewData.sampleRows.length} rows)
                   </CardTitle>
                 </CardHeader>
                 <div className="overflow-x-auto">
@@ -415,11 +417,12 @@ export default function TicketImportPage() {
                       <tr className="bg-gradient-to-r from-[#75242D] via-[#9E3B47] to-[#546A7A] text-white">
                         <th className="px-3 py-2 text-left text-[10px] font-bold uppercase">Ticket ID</th>
                         <th className="px-3 py-2 text-left text-[10px] font-bold uppercase">Company</th>
-                        <th className="px-3 py-2 text-left text-[10px] font-bold uppercase">Place</th>
                         <th className="px-3 py-2 text-left text-[10px] font-bold uppercase">Machine</th>
                         <th className="px-3 py-2 text-left text-[10px] font-bold uppercase">Zone</th>
-                        <th className="px-3 py-2 text-left text-[10px] font-bold uppercase">FSM</th>
-                        <th className="px-3 py-2 text-left text-[10px] font-bold uppercase">Call Type</th>
+                        <th className="px-3 py-2 text-left text-[10px] font-bold uppercase">Kdx Eng</th>
+                        <th className="px-3 py-2 text-left text-[10px] font-bold uppercase">Konte Team</th>
+                        <th className="px-3 py-2 text-left text-[10px] font-bold uppercase">Start/End</th>
+                        <th className="px-3 py-2 text-left text-[10px] font-bold uppercase">Downtime</th>
                         <th className="px-3 py-2 text-left text-[10px] font-bold uppercase">Error</th>
                       </tr>
                     </thead>
@@ -427,20 +430,18 @@ export default function TicketImportPage() {
                       {previewData.sampleRows.map((row: any, i: number) => (
                         <tr key={i} className="hover:bg-red-50/30">
                           <td className="px-3 py-2 text-xs font-mono font-bold text-[#9E3B47]">{row.ticketId || '-'}</td>
-                          <td className="px-3 py-2 text-xs font-medium text-gray-700">{row.company || '-'}</td>
-                          <td className="px-3 py-2 text-xs text-gray-600">{row.place || '-'}</td>
+                          <td className="px-3 py-2 text-xs font-medium text-gray-700 max-w-[120px] truncate">{row.company || '-'}</td>
                           <td className="px-3 py-2 text-xs font-mono text-gray-600">{row.machineSerial || '-'}</td>
-                          <td className="px-3 py-2 text-xs">
-                            {row.zone ? <Badge variant="outline" className="text-[10px]">{row.zone}</Badge> : '-'}
+                          <td className="px-3 py-2 text-[10px]">
+                            {row.zone ? <Badge variant="outline" className="text-[10px] px-1 py-0">{row.zone}</Badge> : '-'}
                           </td>
-                          <td className="px-3 py-2 text-xs text-gray-600">{row.fsm || '-'}</td>
-                          <td className="px-3 py-2 text-xs">
-                            {row.callType === 'UMC' ?
-                              <Badge className="bg-emerald-100 text-emerald-700 text-[10px]">UMC</Badge> :
-                              row.callType ? <Badge className="bg-gray-100 text-gray-600 text-[10px]">{row.callType}</Badge> : '-'
-                            }
+                          <td className="px-3 py-2 text-[10px] text-gray-600">{row.owner || '-'}</td>
+                          <td className="px-3 py-2 text-[10px] text-gray-600">{row.assigned || '-'}</td>
+                          <td className="px-3 py-2 text-[10px] text-gray-500 whitespace-nowrap">
+                            {row.workStart} - {row.workEnd || ''}
                           </td>
-                          <td className="px-3 py-2 text-xs text-gray-600 max-w-[200px] truncate">{row.error || '-'}</td>
+                          <td className="px-3 py-2 text-xs font-bold text-[#82A094]">{row.downtime || '-'}</td>
+                          <td className="px-3 py-2 text-xs text-gray-600 max-w-[150px] truncate">{row.error || '-'}</td>
                         </tr>
                       ))}
                     </tbody>

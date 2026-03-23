@@ -70,7 +70,9 @@ router.get('/invoices', requireARRead, invoiceController.getAllInvoices);
 router.get('/invoices/:id', requireARRead, invoiceController.getInvoiceById);
 router.post('/invoices', requireFinanceWrite, invoiceController.createInvoice);
 router.put('/invoices/:id', requireFinanceWrite, invoiceController.updateInvoice);
-router.delete('/invoices/:id', requireFinanceDelete, invoiceController.deleteInvoice);
+// router.delete('/invoices/:id', requireFinanceDelete, invoiceController.deleteInvoice);
+router.post('/invoices/:id/cancel', requireFinanceWrite, invoiceController.cancelInvoice);
+router.post('/invoices/:id/restore', requireFinanceWrite, invoiceController.restoreInvoice);
 router.put('/invoices/:id/delivery', requireFinanceWrite, invoiceController.updateDeliveryTracking);
 router.post('/invoices/update-overdue', requireFinanceWrite, invoiceController.updateOverdueStatus);
 router.post('/invoices/:id/payments', requireFinanceWrite, invoiceController.addPaymentRecord);
@@ -208,10 +210,16 @@ router.get('/reports/invoices/status', requireARRead, reportsController.getInvoi
 router.get('/reports/invoices/milestone', requireARRead, reportsController.getMilestoneAnalysisReport);
 router.get('/reports/invoices/delivery', requireARRead, reportsController.getDeliveryStatusReport);
 
+// NEW: Detailed Reports (Invoice & Milestone)
+router.get('/reports/invoices/detail', requireARRead, reportsController.getInvoiceDetailReport);
+router.get('/reports/milestones/detail', requireARRead, reportsController.getMilestoneDetailReport);
+
 // Bank Account Reports
 router.get('/reports/bank-accounts/audit', requireFinanceRead, bankReportsController.getVendorMasterAudit);
 router.get('/reports/bank-accounts/compliance', requireFinanceRead, bankReportsController.getComplianceMetrics);
 router.get('/reports/bank-accounts/payments', requireFinanceRead, bankReportsController.getPaymentVolumeInsights);
+router.get('/reports/bank-accounts/vendor-payment-history', requireFinanceRead, bankReportsController.getVendorPaymentHistory);
+
 
 // Legacy report endpoints (backward compatibility)
 router.get('/reports/aging', requireARRead, reportsController.getAgingReport);

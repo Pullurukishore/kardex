@@ -197,7 +197,7 @@ model Asset {
 
 model Ticket {
   id                      Int                   @id @default(autoincrement())
-  ticketNumber            Int?                  @unique // User-facing ticket number starting from 1001
+  ticketNumber            String?               @unique // User-facing ticket number from Excel or auto-generated
   title                   String
   description             String
   status                  TicketStatus          @default(OPEN)

@@ -18,7 +18,7 @@ export default function InvoiceViewPage() {
   const router = useRouter();
   const [invoice, setInvoice] = useState<ARInvoice | null>(null);
   const [loading, setLoading] = useState(true);
-  const [deleting, setDeleting] = useState(false);
+  const [restoring, setRestoring] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<'details' | 'payments' | 'remarks' | 'activity'>('details');
@@ -33,6 +33,11 @@ export default function InvoiceViewPage() {
     notes: ''
   });
   const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
+  
+  // Cancellation state
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelling, setCancelling] = useState(false);
 
   const closePaymentModal = () => {
     setShowPaymentModal(false);
@@ -222,16 +227,35 @@ export default function InvoiceViewPage() {
     }
   };
 
-  const handleDelete = async () => {
-    if (!invoice || !confirm('Are you sure you want to delete this invoice?')) return;
+  const handleCancelInvoice = async () => {
+    if (!invoice || !cancelReason.trim()) return;
     
     try {
-      setDeleting(true);
-      await arApi.deleteInvoice(invoice.id);
-      router.push('/finance/ar/invoices');
+      setCancelling(true);
+      await arApi.cancelInvoice(invoice.id, cancelReason);
+      setShowCancelModal(false);
+      setCancelReason('');
+      await loadInvoice(invoice.id); // Reload to show CANCELLED status
     } catch (err) {
-      console.error('Failed to delete invoice:', err);
-      setDeleting(false);
+      console.error('Failed to cancel invoice:', err);
+      alert('Failed to cancel invoice');
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  const handleRestoreInvoice = async () => {
+    if (!invoice || !confirm('Are you sure you want to restore this invoice?')) return;
+    
+    try {
+      setRestoring(true);
+      await arApi.restoreInvoice(invoice.id);
+      await loadInvoice(invoice.id);
+    } catch (err) {
+      console.error('Failed to restore invoice:', err);
+      alert('Failed to restore invoice');
+    } finally {
+      setRestoring(false);
     }
   };
 
@@ -328,13 +352,13 @@ export default function InvoiceViewPage() {
           </div>
           <h2 className="text-2xl font-bold text-[#546A7A] mb-3">Invoice Not Found</h2>
           <p className="text-[#92A2A5] mb-8">{error || "The invoice you're looking for doesn't exist or has been removed."}</p>
-          <Link 
-            href="/finance/ar/invoices" 
+          <button 
+            onClick={() => window.history.length > 2 ? router.back() : router.push('/finance/ar/invoices')}
             className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#E17F70] to-[#CE9F6B] text-white font-semibold rounded-xl hover:shadow-lg transition-all"
           >
             <ArrowLeft className="w-4 h-4" />
             Back to Invoices
-          </Link>
+          </button>
         </div>
       </div>
     );
@@ -481,16 +505,15 @@ export default function InvoiceViewPage() {
         <div className="relative p-8">
           {/* Top Row - Back & Actions */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-            <Link 
-              href="/finance/ar/invoices"
+            <button 
+              onClick={() => window.history.length > 2 ? router.back() : router.push('/finance/ar/invoices')}
               className="flex items-center gap-2 text-[#5D6E73] hover:text-[#546A7A] transition-colors group"
             >
               <div className="p-2.5 rounded-xl bg-[#AEBFC3]/10 border-2 border-[#AEBFC3]/20 group-hover:bg-[#AEBFC3]/20 group-hover:border-[#AEBFC3]/40 transition-all group-hover:scale-105">
                 <ArrowLeft className="w-5 h-5" />
               </div>
               <span className="font-medium">Back to Invoices</span>
-
-            </Link>
+            </button>
             
             <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
               <button
@@ -507,23 +530,36 @@ export default function InvoiceViewPage() {
                 <IndianRupee className="w-4 h-4" />
                 <span>Record Payment</span>
               </button>
-              <Link
-                href={invoice.invoiceType === 'MILESTONE' 
-                  ? `/finance/ar/milestones/${encodeURIComponent(invoice.invoiceNumber)}/edit`
-                  : `/finance/ar/invoices/${encodeURIComponent(invoice.invoiceNumber)}/edit`
-                }
-                className="flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#546A7A] to-[#6F8A9D] text-white font-bold shadow-lg shadow-[#546A7A]/20 hover:shadow-xl hover:-translate-y-0.5 active:scale-95 transition-all text-sm sm:text-base"
-              >
-                <Pencil className="w-4 h-4" />
-                Edit
-              </Link>
-              <button
-                onClick={handleDelete}
-                disabled={deleting}
-                className="p-2.5 rounded-xl bg-[#E17F70]/10 border-2 border-[#E17F70]/20 text-[#9E3B47] hover:bg-[#E17F70]/20 hover:border-[#E17F70]/40 transition-all disabled:opacity-50"
-              >
-                {deleting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Trash2 className="w-5 h-5" />}
-              </button>
+              {invoice.status === 'CANCELLED' ? (
+                <button
+                  onClick={handleRestoreInvoice}
+                  disabled={restoring}
+                  className="flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#82A094] to-[#4F6A64] text-white font-bold shadow-lg shadow-[#82A094]/20 hover:shadow-xl hover:-translate-y-0.5 active:scale-95 transition-all text-sm sm:text-base disabled:opacity-50"
+                >
+                  {restoring ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                  Restore Invoice
+                </button>
+              ) : (
+                <>
+                  <Link 
+                    href={invoice.invoiceType === 'MILESTONE' 
+                      ? `/finance/ar/milestones/${encodeURIComponent(invoice.invoiceNumber)}/edit`
+                      : `/finance/ar/invoices/${encodeURIComponent(invoice.invoiceNumber)}/edit`
+                    }
+                    className="flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#546A7A] to-[#6F8A9D] text-white font-bold shadow-lg shadow-[#546A7A]/20 hover:shadow-xl hover:-translate-y-0.5 active:scale-95 transition-all text-sm sm:text-base"
+                  >
+                    <Pencil className="w-4 h-4" />
+                    Edit
+                  </Link>
+                  <button
+                    onClick={() => setShowCancelModal(true)}
+                    className="flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#92A2A5] to-[#5D6E73] text-white font-bold shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:scale-95 transition-all text-sm sm:text-base"
+                  >
+                    <XCircle className="w-4 h-4" />
+                    Cancel
+                  </button>
+                </>
+              )}
             </div>
           </div>
           
@@ -1686,6 +1722,73 @@ export default function InvoiceViewPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {showCancelModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={(e) => { if (e.target === e.currentTarget) setShowCancelModal(false); }}>
+          <div className="relative bg-white rounded-[2rem] w-full max-w-lg p-8 shadow-2xl animate-scale-in overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-[#92A2A5] via-[#5D6E73] to-[#A2B9AF]" />
+            <button 
+              onClick={() => setShowCancelModal(false)}
+              className="absolute top-4 right-4 p-2 rounded-xl border-2 border-[#AEBFC3]/20 hover:bg-[#AEBFC3]/10 hover:border-[#AEBFC3]/40 transition-all"
+            >
+              <X className="w-5 h-5 text-[#5D6E73]" />
+            </button>
+            
+            <div className="flex items-center gap-3 mb-6">
+              <div className="relative p-3 rounded-2xl bg-gradient-to-br from-[#92A2A5] to-[#5D6E73] shadow-lg shadow-[#92A2A5]/20 overflow-hidden">
+                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#AEBFC3] via-white/40 to-[#92A2A5]" />
+                <XCircle className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-[#546A7A]">Cancel Invoice</h3>
+                <p className="text-sm text-[#92A2A5]">Are you sure you want to cancel {invoice.invoiceNumber}?</p>
+              </div>
+            </div>
+            
+            <div className="space-y-5">
+              <div className="p-4 rounded-xl bg-[#E17F70]/5 border border-[#E17F70]/20">
+                <div className="flex gap-3">
+                  <AlertTriangle className="w-5 h-5 text-[#E17F70] flex-shrink-0" />
+                  <p className="text-sm text-[#9E3B47]">
+                    Cancelling will zero out the balance and mark it as non-receivable. This action is recorded in the audit log.
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <label className="flex items-center gap-1.5 text-sm font-bold text-[#5D6E73] mb-2 uppercase tracking-wider">
+                  Reason for Cancellation <span className="text-[#E17F70]">*</span>
+                </label>
+                <textarea 
+                  value={cancelReason}
+                  onChange={e => setCancelReason(e.target.value)}
+                  required
+                  className="w-full px-4 py-3 rounded-xl bg-gradient-to-r from-[#AEBFC3]/5 to-[#92A2A5]/5 border-2 border-[#AEBFC3]/30 text-[#546A7A] focus:border-[#92A2A5] focus:outline-none focus:ring-2 focus:ring-[#92A2A5]/10 transition-all resize-none h-32 font-medium"
+                  placeholder="e.g., Customer returned items, Mistake in pricing..."
+                />
+              </div>
+              
+              <div className="flex gap-3 pt-2">
+                <button 
+                  type="button"
+                  onClick={() => setShowCancelModal(false)}
+                  className="flex-1 py-3.5 rounded-xl border-2 border-[#AEBFC3]/40 text-[#5D6E73] font-bold hover:bg-[#AEBFC3]/10 hover:border-[#AEBFC3]/60 transition-all"
+                >
+                  Go Back
+                </button>
+                <button 
+                  onClick={handleCancelInvoice}
+                  disabled={cancelling || !cancelReason.trim()}
+                  className="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-[#E17F70] to-[#9E3B47] text-white font-bold shadow-lg shadow-[#E17F70]/20 hover:shadow-xl hover:shadow-[#E17F70]/40 hover:-translate-y-0.5 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {cancelling ? <Loader2 className="w-5 h-5 animate-spin" /> : <XCircle className="w-5 h-5" />}
+                  Confirm Cancel
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

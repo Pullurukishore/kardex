@@ -18,6 +18,8 @@ interface DatePickerProps {
   selected: DateRange | undefined;
   onSelect: (range: DateRange | undefined) => void;
   className?: string;
+  buttonClassName?: string;
+  placeholder?: string;
   mode?: 'single' | 'range';
   disabled?: Matcher | Matcher[];
 }
@@ -26,6 +28,8 @@ export function DatePicker({
   selected,
   onSelect,
   className,
+  buttonClassName,
+  placeholder = "Pick a date",
   mode = 'range',
   disabled,
 }: DatePickerProps) {
@@ -52,8 +56,9 @@ export function DatePicker({
             id="date"
             variant={'outline'}
             className={cn(
-              'w-[300px] justify-start text-left font-normal',
-              !selected?.from && 'text-muted-foreground'
+              'w-full justify-start text-left font-bold border-2 transition-all shadow-sm',
+              !selected?.from ? 'text-[#92A2A5] border-[#AEBFC3]/30 bg-white hover:bg-[#96AEC2]/5' : 'text-[#546A7A] border-[#6F8A9D]/50 bg-gradient-to-r from-[#6F8A9D]/5 to-transparent',
+              buttonClassName
             )}
           >
             <CalendarIcon className="mr-2 h-4 w-4" />
@@ -67,11 +72,11 @@ export function DatePicker({
                 format(selected.from, 'LLL dd, y')
               )
             ) : (
-              <span>Pick a date</span>
+              <span className="text-sm font-semibold">{placeholder}</span>
             )}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="start">
+        <PopoverContent className="w-auto p-0 border-none bg-transparent shadow-none" align="start">
           <Calendar
             initialFocus
             mode="range"

@@ -563,8 +563,28 @@ export const arApi = {
     },
 
     // Invoices
-    async getInvoices(params?: { search?: string; status?: string; customerId?: string; invoiceType?: string; agingBucket?: string; page?: number; limit?: number }) {
-        const res = await api.get('/ar/invoices', { params });
+    async getInvoices(params?: { 
+        search?: string; 
+        status?: string; 
+        customerId?: string; 
+        invoiceType?: string; 
+        agingBucket?: string; 
+        fromDate?: string;
+        toDate?: string;
+        region?: string;
+        category?: string;
+        accountingStatus?: string;
+        bookingMonth?: string;
+        riskClass?: string;
+        minAmount?: number;
+        maxAmount?: number;
+        page?: number; 
+        limit?: number 
+    }) {
+        const res = await api.get('/ar/invoices', { params: {
+            ...params,
+            type: params?.category // Map category to backend 'type' parameter
+        } });
         return res.data;
     },
 
@@ -600,6 +620,16 @@ export const arApi = {
 
     async deleteInvoice(id: string): Promise<void> {
         await api.delete(`/ar/invoices/${id}`);
+    },
+
+    async cancelInvoice(id: string, reason: string): Promise<any> {
+        const res = await api.post(`/ar/invoices/${id}/cancel`, { reason });
+        return res.data;
+    },
+
+    async restoreInvoice(id: string): Promise<any> {
+        const res = await api.post(`/ar/invoices/${id}/restore`);
+        return res.data;
     },
 
     async getInvoiceRemarks(invoiceId: string): Promise<any[]> {
@@ -978,6 +1008,36 @@ export const arApi = {
 
     async getDeliveryStatusReport(): Promise<DeliveryStatusData> {
         const res = await api.get('/ar/reports/invoices/delivery');
+        return res.data;
+    },
+
+    // NEW: Detailed Reports
+    async getInvoiceDetailReport(params?: {
+        status?: string;
+        riskClass?: string;
+        customer?: string;
+        fromDate?: string;
+        toDate?: string;
+        region?: string;
+        type?: string;
+        agingBucket?: string;
+        search?: string;
+    }): Promise<any> {
+        const res = await api.get('/ar/reports/invoices/detail', { params });
+        return res.data;
+    },
+
+    async getMilestoneDetailReport(params?: {
+        status?: string;
+        milestoneStatus?: string;
+        accountingStatus?: string;
+        customer?: string;
+        fromDate?: string;
+        toDate?: string;
+        type?: string;
+        search?: string;
+    }): Promise<any> {
+        const res = await api.get('/ar/reports/milestones/detail', { params });
         return res.data;
     }
 };

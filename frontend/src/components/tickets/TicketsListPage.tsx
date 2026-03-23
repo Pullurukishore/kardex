@@ -93,6 +93,7 @@ export default function TicketsListPage({
   const [selectedView, setSelectedView] = useState('All')
   const [sortField, setSortField] = useState<string>('')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
+  const [summary, setSummary] = useState<any>(null)
   
   const hasActiveFilters = useMemo(() => 
     !!(searchTerm || 
@@ -131,6 +132,7 @@ export default function TicketsListPage({
       const response = await apiService.getTickets(params)
       setTickets(response.data || [])
       setPagination(response.pagination || { page: 1, limit: 100, total: 0, totalPages: 0 })
+      if (response.summary) setSummary(response.summary)
     } catch (error: any) {
       console.error('Failed to fetch tickets:', error)
       toast.error(error.response?.data?.error || 'Failed to fetch tickets')
@@ -206,10 +208,10 @@ export default function TicketsListPage({
 
   const stats = {
     total: pagination.total,
-    open: tickets.filter(t => t.status === 'OPEN').length,
-    inProgress: tickets.filter(t => ['ASSIGNED', 'IN_PROGRESS', 'ONSITE_VISIT_PLANNED', 'ONSITE_VISIT'].includes(t.status)).length,
-    closed: tickets.filter(t => ['CLOSED', 'CLOSED_PENDING'].includes(t.status)).length,
-    critical: tickets.filter(t => t.priority === 'CRITICAL').length,
+    open: summary ? summary.open : tickets.filter(t => t.status === 'OPEN').length,
+    active: summary ? summary.active : tickets.filter(t => ['ASSIGNED', 'IN_PROGRESS', 'ONSITE_VISIT_PLANNED', 'ONSITE_VISIT'].includes(t.status)).length,
+    closed: summary ? summary.closed : tickets.filter(t => ['CLOSED', 'CLOSED_PENDING'].includes(t.status)).length,
+    critical: summary ? summary.critical : tickets.filter(t => t.priority === 'CRITICAL').length,
   }
 
   if (authLoading) {
@@ -247,7 +249,7 @@ export default function TicketsListPage({
                 </div>
                 <div className="bg-[#6F8A9D]/40 backdrop-blur-md rounded-lg p-2 border border-white/30">
                   <p className="text-white/90 text-[10px] sm:text-xs">Active</p>
-                  <p className="text-lg sm:text-2xl font-bold">{stats.inProgress}</p>
+                  <p className="text-lg sm:text-2xl font-bold">{stats.active}</p>
                 </div>
                 <div className="bg-[#82A094]/40 backdrop-blur-md rounded-lg p-2 border border-white/30 hidden sm:block">
                   <p className="text-white/90 text-[10px] sm:text-xs">Closed</p>
@@ -401,10 +403,10 @@ export default function TicketsListPage({
                       </td>
                       {(role === UserRole.ZONE_USER || role === UserRole.ZONE_MANAGER || role === UserRole.ADMIN || role === UserRole.EXPERT_HELPDESK) && (
                         <td className="px-4 py-3">
-                          {ticket.assignmentStatus === 'PENDING' ? (
-                            <Badge className="bg-[#CE9F6B]/20 text-[#976E44] border-amber-300 text-[10px] px-2 py-0.5 animate-pulse">Pending</Badge>
-                          ) : ticket.assignmentStatus === 'ACCEPTED' ? (
+                          {ticket.status === 'CLOSED' || ticket.status === 'RESOLVED' || ticket.assignmentStatus === 'ACCEPTED' ? (
                             <Badge className="bg-[#A2B9AF]/20 text-[#4F6A64] border-[#82A094] text-[10px] px-2 py-0.5">✓ Accepted</Badge>
+                          ) : ticket.assignmentStatus === 'PENDING' ? (
+                            <Badge className="bg-[#CE9F6B]/20 text-[#976E44] border-amber-300 text-[10px] px-2 py-0.5 animate-pulse">Pending</Badge>
                           ) : ticket.assignmentStatus === 'REJECTED' ? (
                             <Badge className="bg-[#E17F70]/20 text-[#75242D] border-[#E17F70] text-[10px] px-2 py-0.5">✗ Rejected</Badge>
                           ) : (
