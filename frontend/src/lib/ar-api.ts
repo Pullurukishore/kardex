@@ -149,6 +149,7 @@ export interface ARActivity {
     invoiceId?: string;
     invoiceNumber?: string;
     customerName?: string;
+    invoiceType?: 'REGULAR' | 'MILESTONE';
     fieldName?: string;
     oldValue?: string;
     newValue?: string;

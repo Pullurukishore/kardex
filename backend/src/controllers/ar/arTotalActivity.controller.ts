@@ -7,10 +7,10 @@ interface CombinedActivity {
     type: 'INVOICE' | 'SESSION';
     action: string;
     description?: string;
-    // Invoice-specific
     invoiceId?: string;
     invoiceNumber?: string;
     customerName?: string;
+    invoiceType?: 'REGULAR' | 'MILESTONE';
     fieldName?: string;
     oldValue?: string;
     newValue?: string;
@@ -119,7 +119,7 @@ export const getAllActivities = async (req: Request, res: Response) => {
             const invoiceIds = [...new Set(rawInvoiceActivities.map(a => a.invoiceId).filter((id): id is string => id !== null))];
             const invoices = await prisma.aRInvoice.findMany({
                 where: { id: { in: invoiceIds } },
-                select: { id: true, invoiceNumber: true, customerName: true }
+                select: { id: true, invoiceNumber: true, customerName: true, invoiceType: true }
             });
             const invoiceMap = new Map(invoices.map(i => [i.id, i]));
 
@@ -133,6 +133,7 @@ export const getAllActivities = async (req: Request, res: Response) => {
                     invoiceId: a.invoiceId || undefined,
                     invoiceNumber: inv?.invoiceNumber || 'Deleted Invoice',
                     customerName: inv?.customerName || '',
+                    invoiceType: inv?.invoiceType || undefined,
                     fieldName: a.fieldName || undefined,
                     oldValue: a.oldValue || undefined,
                     newValue: a.newValue || undefined,
@@ -359,7 +360,7 @@ export const getRecentActivities = async (req: Request, res: Response) => {
         const invoiceIds = [...new Set(invoiceActivities.map(a => a.invoiceId).filter((id): id is string => id !== null))];
         const invoices = await prisma.aRInvoice.findMany({
             where: { id: { in: invoiceIds } },
-            select: { id: true, invoiceNumber: true, customerName: true }
+            select: { id: true, invoiceNumber: true, customerName: true, invoiceType: true }
         });
         const invoiceMap = new Map(invoices.map(i => [i.id, i]));
 
@@ -373,6 +374,7 @@ export const getRecentActivities = async (req: Request, res: Response) => {
                     description: a.description,
                     invoiceNumber: inv?.invoiceNumber,
                     customerName: inv?.customerName,
+                    invoiceType: inv?.invoiceType,
                     performedBy: a.performedBy,
                     createdAt: a.createdAt
                 };
