@@ -481,7 +481,9 @@ export const addPaymentRecord = async (req: Request, res: Response) => {
         await logInvoiceActivity({
             invoiceId: id,
             action: 'PAYMENT_RECORDED',
-            description: `Payment of ₹${parsedAmount.toLocaleString()} recorded via ${paymentMode}${milestoneTerm ? ` for Stage: ${milestoneTerm}` : ''}${referenceNo ? ` (Ref: ${referenceNo})` : ''}`,
+            description: `Payment recorded${milestoneTerm ? ` for Stage: ${milestoneTerm}` : ''}${referenceNo ? ` (Ref: ${referenceNo})` : ''}`,
+            fieldName: 'Payment Amount',
+            newValue: `₹${parsedAmount.toLocaleString()} (${paymentMode})`,
             performedById: user.id,
             performedBy: user.name,
             ipAddress,
@@ -572,14 +574,39 @@ export const updatePaymentRecord = async (req: Request, res: Response) => {
                 }
             });
 
-            return { updatedPayment, balance, status };
+            return { updatedPayment, existingPayment, balance, status };
         });
+
+        const oldAmt = Number(result.existingPayment.amount);
+        const newAmt = Number(result.updatedPayment.amount);
+        
+        let desc = 'Payment updated';
+        let fName = undefined;
+        let oVal = undefined;
+        let nVal = undefined;
+        
+        if (oldAmt !== newAmt) {
+            fName = 'Payment Amount';
+            oVal = `₹${oldAmt.toLocaleString()}`;
+            nVal = `₹${newAmt.toLocaleString()}`;
+        } else if (result.existingPayment.paymentMode !== result.updatedPayment.paymentMode) {
+            fName = 'Payment Mode';
+            oVal = result.existingPayment.paymentMode;
+            nVal = result.updatedPayment.paymentMode;
+        } else if (result.existingPayment.milestoneTerm !== result.updatedPayment.milestoneTerm) {
+            fName = 'Milestone Stage';
+            oVal = result.existingPayment.milestoneTerm || 'None';
+            nVal = result.updatedPayment.milestoneTerm || 'None';
+        }
 
         // Log activity
         await logInvoiceActivity({
             invoiceId: id,
             action: 'PAYMENT_UPDATED',
-            description: `Payment updated: ₹${parsedAmount.toLocaleString()} via ${paymentMode}`,
+            description: desc,
+            fieldName: fName,
+            oldValue: oVal,
+            newValue: nVal,
             performedById: user.id,
             performedBy: user.name,
             ipAddress: getIpFromRequest(req),
@@ -668,7 +695,10 @@ export const deletePaymentRecord = async (req: Request, res: Response) => {
         await logInvoiceActivity({
             invoiceId: id,
             action: 'PAYMENT_DELETED',
-            description: `Payment of ₹${result.amountDeleted.toLocaleString()} via ${result.modeDeleted} deleted`,
+            description: `Payment deleted via ${result.modeDeleted}`,
+            fieldName: 'Payment Amount',
+            oldValue: `₹${result.amountDeleted.toLocaleString()}`,
+            newValue: 'Deleted',
             performedById: user.id,
             performedBy: user.name,
             ipAddress: getIpFromRequest(req),
@@ -953,36 +983,73 @@ export const updateInvoice = async (req: Request, res: Response) => {
         };
 
         // Build detailed change description
-        const changes: string[] = [];
+        let hasChanges = false;
+        const skipKeys = ['updatedAt', 'receipts', 'adjustments', 'totalReceipts', 'balance']; // Skip logging derived financial fields individually as they can be noisy
         for (const key of Object.keys(updateData)) {
-            if (key === 'updatedAt') continue;
+            if (skipKeys.includes(key)) continue;
             const oldVal = (result.existingInvoice as any)[key];
             const newVal = updateData[key];
+
+            // Handle milestoneTerms array serialization comparison
+            if (key === 'milestoneTerms') {
+                 const oldStr = JSON.stringify(oldVal || []);
+                 const newStr = JSON.stringify(newVal || []);
+                 if (oldStr !== newStr) {
+                     hasChanges = true;
+                     await logInvoiceActivity({
+                        invoiceId: id,
+                        action: 'INVOICE_UPDATED',
+                        description: `Updated Milestone Terms`,
+                        fieldName: 'Milestone Terms',
+                        oldValue: 'Previous Terms',
+                        newValue: 'New Terms',
+                        performedById: user.id,
+                        performedBy: user.name,
+                        ipAddress,
+                        userAgent
+                     });
+                 }
+                 continue;
+            }
 
             // Compare values (handle dates and numbers)
             const oldStr = oldVal instanceof Date ? oldVal.toISOString().split('T')[0] : String(oldVal ?? 'N/A');
             const newStr = newVal instanceof Date ? newVal.toISOString().split('T')[0] : String(newVal ?? 'N/A');
 
             if (oldStr !== newStr) {
-                const label = fieldLabels[key] || key;
-                changes.push(`${label}: ${oldStr} → ${newStr}`);
+                hasChanges = true;
+                const label = fieldLabels[key] || key.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
+                
+                // Format output
+                const outOld = (oldStr === 'N/A' || oldStr === 'null' || oldStr === '') ? 'None' : oldStr;
+                const outNew = (newStr === 'N/A' || newStr === 'null' || newStr === '') ? 'None' : newStr;
+
+                await logInvoiceActivity({
+                    invoiceId: id,
+                    action: 'INVOICE_UPDATED',
+                    description: `Updated ${label}`,
+                    fieldName: label,
+                    oldValue: outOld,
+                    newValue: outNew,
+                    performedById: user.id,
+                    performedBy: user.name,
+                    ipAddress,
+                    userAgent
+                });
             }
         }
 
-        const description = changes.length > 0
-            ? `Invoice updated:\n• ${changes.join('\n• ')}`
-            : 'Invoice updated (no changes detected)';
-
-        await logInvoiceActivity({
-            invoiceId: id,
-            action: 'INVOICE_UPDATED',
-            description,
-            performedById: user.id,
-            performedBy: user.name,
-            ipAddress,
-            userAgent,
-            metadata: { changes, updateData }
-        });
+        if (!hasChanges) {
+           await logInvoiceActivity({
+                invoiceId: id,
+                action: 'INVOICE_UPDATED',
+                description: 'Invoice updated (no changes detected)',
+                performedById: user.id,
+                performedBy: user.name,
+                ipAddress,
+                userAgent
+            });
+        }
 
         res.json(result.invoice);
     } catch (error: any) {
@@ -1002,31 +1069,81 @@ export const updateDeliveryTracking = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
         const { deliveryStatus, modeOfDelivery, sentHandoverDate, impactDate } = req.body;
-
-        const invoice = await prisma.aRInvoice.update({
-            where: { id },
-            data: {
-                deliveryStatus,
-                modeOfDelivery,
-                sentHandoverDate: sentHandoverDate ? new Date(sentHandoverDate) : null,
-                impactDate: impactDate ? new Date(impactDate) : null
-            }
-        });
-
-        // Log delivery update activity
+        
         const user = getUserFromRequest(req);
-        await logInvoiceActivity({
-            invoiceId: id,
-            action: 'DELIVERY_UPDATED',
-            description: `Delivery status updated to ${deliveryStatus}${modeOfDelivery ? ` via ${modeOfDelivery}` : ''}`,
-            performedById: user.id,
-            performedBy: user.name,
-            ipAddress: getIpFromRequest(req),
-            userAgent: req.headers['user-agent'] || null,
-            metadata: { deliveryStatus, modeOfDelivery, sentHandoverDate, impactDate }
+        const ipAddress = getIpFromRequest(req);
+        const userAgent = req.headers['user-agent'] || null;
+
+        const result = await prisma.$transaction(async (tx) => {
+            const existingInvoice = await tx.aRInvoice.findUnique({ where: { id } });
+            if (!existingInvoice) {
+                throw new Error('INVOICE_NOT_FOUND');
+            }
+
+            const invoice = await tx.aRInvoice.update({
+                where: { id },
+                data: {
+                    deliveryStatus,
+                    modeOfDelivery,
+                    sentHandoverDate: sentHandoverDate ? new Date(sentHandoverDate) : null,
+                    impactDate: impactDate ? new Date(impactDate) : null
+                }
+            });
+            return { existingInvoice, invoice };
         });
 
-        res.json(invoice);
+        const updateData: any = { deliveryStatus, modeOfDelivery, sentHandoverDate: result.invoice.sentHandoverDate, impactDate: result.invoice.impactDate };
+        let hasChanges = false;
+        
+        const fieldLabels: Record<string, string> = {
+            deliveryStatus: 'Delivery Status',
+            modeOfDelivery: 'Mode of Delivery',
+            sentHandoverDate: 'Sent/Handover Date',
+            impactDate: 'Impact Date'
+        };
+
+        for (const key of Object.keys(updateData)) {
+            const oldVal = (result.existingInvoice as any)[key];
+            const newVal = updateData[key];
+
+            const oldStr = oldVal instanceof Date ? oldVal.toISOString().split('T')[0] : String(oldVal ?? 'N/A');
+            const newStr = newVal instanceof Date ? newVal.toISOString().split('T')[0] : String(newVal ?? 'N/A');
+
+            if (oldStr !== newStr) {
+                hasChanges = true;
+                const label = fieldLabels[key] || key;
+                
+                const outOld = (oldStr === 'N/A' || oldStr === 'null' || oldStr === '') ? 'None' : oldStr;
+                const outNew = (newStr === 'N/A' || newStr === 'null' || newStr === '') ? 'None' : newStr;
+
+                await logInvoiceActivity({
+                    invoiceId: id,
+                    action: 'DELIVERY_UPDATED',
+                    description: `Updated ${label}`,
+                    fieldName: label,
+                    oldValue: outOld,
+                    newValue: outNew,
+                    performedById: user.id,
+                    performedBy: user.name,
+                    ipAddress,
+                    userAgent
+                });
+            }
+        }
+
+        if (!hasChanges) {
+           await logInvoiceActivity({
+                invoiceId: id,
+                action: 'DELIVERY_UPDATED',
+                description: 'Delivery tracking updated (no changes detected)',
+                performedById: user.id,
+                performedBy: user.name,
+                ipAddress,
+                userAgent
+            });
+        }
+
+        res.json(result.invoice);
     } catch (error: any) {
 
         if (error.code === 'P2025') {
@@ -1045,14 +1162,28 @@ export const deleteInvoice = async (req: Request, res: Response) => {
         // Get invoice details before deletion for logging
         const invoiceToDelete = await prisma.aRInvoice.findUnique({
             where: { id },
-            select: { invoiceNumber: true, customerName: true, totalAmount: true }
+            select: { invoiceNumber: true, customerName: true, totalAmount: true, status: true }
         });
 
-        // Delete associated payment history first (since there's no cascade constraint)
-        // This prevents orphaned payment records from appearing in dashboard
+        if (!invoiceToDelete) {
+            return res.status(404).json({ error: 'Invoice not found' });
+        }
+
+        if (invoiceToDelete.status !== 'CANCELLED') {
+            return res.status(400).json({ error: 'Only cancelled invoices can be deleted securely' });
+        }
+
+        // Delete associated records first (since there might be no cascade constraint)
         await prisma.aRPaymentHistory.deleteMany({
             where: { invoiceId: id }
         });
+
+        await prisma.aRInvoiceRemark.deleteMany({
+            where: { invoiceId: id }
+        });
+
+        // We do not delete aRActivityLog, as they are kept for audit history, or if we must:
+        // await prisma.aRActivityLog.deleteMany({ where: { invoiceId: id } });
 
         await prisma.aRInvoice.delete({
             where: { id }
@@ -1127,22 +1258,25 @@ export const cancelInvoice = async (req: Request, res: Response) => {
                 }
             });
 
-            return updatedInvoice;
+            return { updatedInvoice, oldStatus: invoice.status };
         });
 
         // Log activity
         await logInvoiceActivity({
             invoiceId: id,
             action: 'INVOICE_CANCELLED',
-            description: `Invoice ${result.invoiceNumber} cancelled. Reason: ${reason}`,
+            description: `Invoice ${result.updatedInvoice.invoiceNumber} cancelled. Reason: ${reason}`,
+            fieldName: 'Status',
+            oldValue: result.oldStatus,
+            newValue: 'CANCELLED',
             performedById: user.id,
             performedBy: user.name,
             ipAddress,
             userAgent,
-            metadata: { reason, previousStatus: result.status }
+            metadata: { reason, previousStatus: result.oldStatus }
         });
 
-        res.json({ message: 'Invoice cancelled successfully', invoice: result });
+        res.json({ message: 'Invoice cancelled successfully', invoice: result.updatedInvoice });
     } catch (error: any) {
 
         if (error.message === 'INVOICE_NOT_FOUND') return res.status(404).json({ error: 'Invoice not found' });
@@ -1219,6 +1353,9 @@ export const restoreInvoice = async (req: Request, res: Response) => {
             invoiceId: id,
             action: 'INVOICE_RESTORED',
             description: `Invoice ${result.invoiceNumber} restored to ${result.status} status.`,
+            fieldName: 'Status',
+            oldValue: 'CANCELLED',
+            newValue: result.status,
             performedById: user.id,
             performedBy: user.name,
             ipAddress,
@@ -1354,7 +1491,9 @@ export const addInvoiceRemark = async (req: Request, res: Response) => {
         await logInvoiceActivity({
             invoiceId: invoice.id,
             action: 'REMARK_ADDED',
-            description: `Remark added: "${content.trim().substring(0, 50)}${content.length > 50 ? '...' : ''}"`,
+            description: `Remark added`,
+            fieldName: 'Remark',
+            newValue: `"${content.trim().substring(0, 50)}${content.length > 50 ? '...' : ''}"`,
             performedById: userId,
             performedBy: remark.createdBy?.name || null,
             ipAddress: getIpFromRequest(req),
@@ -1379,6 +1518,11 @@ export const updateInvoiceRemark = async (req: Request, res: Response) => {
             return res.status(400).json({ error: 'Content is required' });
         }
 
+        const existingRemark = await prisma.aRInvoiceRemark.findUnique({ where: { id: remarkId } });
+        if (!existingRemark) {
+            return res.status(404).json({ error: 'Remark not found' });
+        }
+
         const remark = await prisma.aRInvoiceRemark.update({
             where: { id: remarkId },
             data: { content: content.trim() },
@@ -1393,7 +1537,10 @@ export const updateInvoiceRemark = async (req: Request, res: Response) => {
         await logInvoiceActivity({
             invoiceId: id,
             action: 'REMARK_UPDATED',
-            description: `Remark updated: "${content.trim().substring(0, 50)}${content.length > 50 ? '...' : ''}"`,
+            description: `Remark updated`,
+            fieldName: 'Remark',
+            oldValue: `"${existingRemark.content.substring(0, 50)}${existingRemark.content.length > 50 ? '...' : ''}"`,
+            newValue: `"${content.trim().substring(0, 50)}${content.length > 50 ? '...' : ''}"`,
             performedById: userId,
             performedBy: remark.createdBy?.name || null,
             ipAddress: getIpFromRequest(req),
@@ -1429,6 +1576,9 @@ export const deleteInvoiceRemark = async (req: Request, res: Response) => {
             invoiceId: id,
             action: 'REMARK_DELETED',
             description: `Remark deleted`,
+            fieldName: 'Remark',
+            oldValue: `"${remark.content.substring(0, 50)}${remark.content.length > 50 ? '...' : ''}"`,
+            newValue: 'Deleted',
             performedById: userId,
             performedBy: remark.createdBy?.name || null,
             ipAddress: getIpFromRequest(req),

@@ -70,7 +70,7 @@ router.get('/invoices', requireARRead, invoiceController.getAllInvoices);
 router.get('/invoices/:id', requireARRead, invoiceController.getInvoiceById);
 router.post('/invoices', requireFinanceWrite, invoiceController.createInvoice);
 router.put('/invoices/:id', requireFinanceWrite, invoiceController.updateInvoice);
-// router.delete('/invoices/:id', requireFinanceDelete, invoiceController.deleteInvoice);
+router.delete('/invoices/:id', requireFinanceDelete, invoiceController.deleteInvoice);
 router.post('/invoices/:id/cancel', requireFinanceWrite, invoiceController.cancelInvoice);
 router.post('/invoices/:id/restore', requireFinanceWrite, invoiceController.restoreInvoice);
 router.put('/invoices/:id/delivery', requireFinanceWrite, invoiceController.updateDeliveryTracking);

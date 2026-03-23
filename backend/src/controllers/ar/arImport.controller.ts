@@ -54,17 +54,28 @@ interface SAPImportRow {
     [key: string]: any;
 }
 
+// Helper function to create timezone-safe dates
+function createSafeUtcDate(year: number, month: number, day: number): Date {
+    // Setting to 12:00:00 UTC ensures that any local timezone from -11 to +12 will still resolve to the same day
+    return new Date(Date.UTC(year, month, day, 12, 0, 0));
+}
+
 // Helper function to parse Excel date
 function parseExcelDate(value: any): Date | null {
     if (!value) return null;
 
     // If it's already a Date object
-    if (value instanceof Date) return value;
+    if (value instanceof Date) {
+        return createSafeUtcDate(value.getFullYear(), value.getMonth(), value.getDate());
+    }
 
     // If it's a number (Excel serial date)
     if (typeof value === 'number') {
-        const excelEpoch = new Date(1899, 11, 30);
-        return new Date(excelEpoch.getTime() + value * 86400000);
+        // Excel epoch is Dec 30, 1899
+        // Add days and create safe UTC date
+        const date = new Date(Date.UTC(1899, 11, 30));
+        date.setUTCDate(date.getUTCDate() + Math.round(value));
+        return createSafeUtcDate(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
     }
 
     // If it's a string, try to parse it
@@ -74,67 +85,54 @@ function parseExcelDate(value: any): Date | null {
         // 1. Try DD/MM/YYYY format
         const ddmmyyyy = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
         if (ddmmyyyy) {
-            const day = parseInt(ddmmyyyy[1]);
-            const month = parseInt(ddmmyyyy[2]) - 1;
-            const year = parseInt(ddmmyyyy[3]);
-            return new Date(year, month, day);
+            return createSafeUtcDate(parseInt(ddmmyyyy[3]), parseInt(ddmmyyyy[2]) - 1, parseInt(ddmmyyyy[1]));
         }
 
         // 2. Try DD.MM.YYYY format (Common in SAP)
         const ddmmyyyyDot = trimmed.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
         if (ddmmyyyyDot) {
-            const day = parseInt(ddmmyyyyDot[1]);
-            const month = parseInt(ddmmyyyyDot[2]) - 1;
-            const year = parseInt(ddmmyyyyDot[3]);
-            return new Date(year, month, day);
+            return createSafeUtcDate(parseInt(ddmmyyyyDot[3]), parseInt(ddmmyyyyDot[2]) - 1, parseInt(ddmmyyyyDot[1]));
         }
 
         // 3. Try DD-MM-YYYY format (Dashes)
         const ddmmyyyyDash = trimmed.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
         if (ddmmyyyyDash) {
-            const day = parseInt(ddmmyyyyDash[1]);
-            const month = parseInt(ddmmyyyyDash[2]) - 1;
-            const year = parseInt(ddmmyyyyDash[3]);
-            return new Date(year, month, day);
+            return createSafeUtcDate(parseInt(ddmmyyyyDash[3]), parseInt(ddmmyyyyDash[2]) - 1, parseInt(ddmmyyyyDash[1]));
         }
 
         // 4. Try YYYY-MM-DD format
         const yyyymmdd = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
         if (yyyymmdd) {
-            return new Date(parseInt(yyyymmdd[1]), parseInt(yyyymmdd[2]) - 1, parseInt(yyyymmdd[3]));
+            return createSafeUtcDate(parseInt(yyyymmdd[1]), parseInt(yyyymmdd[2]) - 1, parseInt(yyyymmdd[3]));
         }
 
         // 5. Try DD-MMM-YYYY format (e.g., 25-Feb-2025)
         const ddmmmyyyy = trimmed.match(/^(\d{1,2})-(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-(\d{4})$/i);
         if (ddmmmyyyy) {
-            const day = parseInt(ddmmmyyyy[1]);
-            const monthStr = ddmmmyyyy[2].toLowerCase();
             const months: { [key: string]: number } = {
                 jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
                 jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11
             };
-            const month = months[monthStr];
-            const year = parseInt(ddmmmyyyy[3]);
-            return new Date(year, month, day);
+            return createSafeUtcDate(parseInt(ddmmmyyyy[3]), months[ddmmmyyyy[2].toLowerCase()], parseInt(ddmmmyyyy[1]));
         }
 
         // 6. Try MMM-YY format (e.g., Sep-24)
         const mmmyy = trimmed.match(/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-(\d{2,4})$/i);
         if (mmmyy) {
-            const monthStr = mmmyy[1].toLowerCase();
             const months: { [key: string]: number } = {
                 jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
                 jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11
             };
-            const month = months[monthStr];
             let year = parseInt(mmmyy[2]);
-            if (year < 100) year += 2000; // Assume 20xx for YY
-            return new Date(year, month, 1); // Default to 1st of month
+            if (year < 100) year += 2000;
+            return createSafeUtcDate(year, months[mmmyy[1].toLowerCase()], 1);
         }
 
         // 7. Fallback to generic parsing for other formats
         const parsed = new Date(trimmed);
-        if (!isNaN(parsed.getTime())) return parsed;
+        if (!isNaN(parsed.getTime())) {
+            return createSafeUtcDate(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+        }
     }
 
     return null;

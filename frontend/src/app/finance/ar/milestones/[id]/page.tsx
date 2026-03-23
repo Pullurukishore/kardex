@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { arApi, ARInvoice, ARPaymentHistory, formatARCurrency, formatARDate, formatARMonth, MilestonePaymentTerm, formatAmountForInput, parseFormattedAmount } from '@/lib/ar-api';
 import {
-  ArrowLeft, Pencil, Trash2, FileText, Calendar, User, Clock, CheckCircle2,
+  ArrowLeft, ArrowRight, Pencil, Trash2, FileText, Calendar, User, Clock, CheckCircle2,
   AlertTriangle, CheckCircle, Loader2, Mail, Phone, MapPin,
   IndianRupee, Package, TrendingUp, XCircle, Timer, Banknote,
   ArrowDownRight, ArrowUpRight, Sparkles, Wallet, BadgeCheck, Flag,
@@ -38,6 +38,7 @@ export default function MilestoneViewPage() {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
   const [cancelling, setCancelling] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // Remarks
   const [remarks, setRemarks] = useState<any[]>([]);
@@ -143,6 +144,20 @@ export default function MilestoneViewPage() {
       console.error('Failed to restore milestone:', err);
     } finally {
       setRestoring(false);
+    }
+  };
+
+  const handleDeleteMilestone = async () => {
+    if (!invoice || !confirm('Are you sure you want to completely delete this milestone? This action cannot be undone.')) return;
+    
+    try {
+      setDeleting(true);
+      await arApi.deleteInvoice(invoice.id);
+      router.push('/finance/ar/milestones');
+    } catch (err: any) {
+      console.error('Failed to delete milestone:', err);
+      alert(err.response?.data?.error || 'Failed to delete milestone');
+      setDeleting(false);
     }
   };
 
@@ -406,14 +421,24 @@ export default function MilestoneViewPage() {
                 <Plus className="w-5 h-5" /> Record Payment
               </button>
               {invoice.status === 'CANCELLED' ? (
-                <button 
-                  onClick={handleRestoreMilestone}
-                  disabled={restoring}
-                  className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-[#82A094] to-[#4F6A64] text-white font-bold shadow-lg shadow-[#82A094]/20 hover:shadow-xl hover:shadow-[#82A094]/30 transition-all hover:-translate-y-1 active:scale-95 disabled:opacity-50"
-                >
-                  {restoring ? <Loader2 className="w-5 h-5 animate-spin" /> : <RefreshCw className="w-5 h-5" />}
-                  Restore Milestone
-                </button>
+                <>
+                  <button 
+                    onClick={handleRestoreMilestone}
+                    disabled={restoring || deleting}
+                    className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-[#82A094] to-[#4F6A64] text-white font-bold shadow-lg shadow-[#82A094]/20 hover:shadow-xl hover:shadow-[#82A094]/30 transition-all hover:-translate-y-1 active:scale-95 disabled:opacity-50"
+                  >
+                    {restoring ? <Loader2 className="w-5 h-5 animate-spin" /> : <RefreshCw className="w-5 h-5" />}
+                    Restore Milestone
+                  </button>
+                  <button 
+                    onClick={handleDeleteMilestone}
+                    disabled={restoring || deleting}
+                    className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-[#E17F70] to-[#9E3B47] text-white font-bold shadow-lg shadow-[#E17F70]/20 hover:shadow-xl hover:-translate-y-1 active:scale-95 disabled:opacity-50"
+                  >
+                    {deleting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Trash2 className="w-5 h-5" />}
+                    Delete Milestone
+                  </button>
+                </>
               ) : (
                 <>
                   <Link 
@@ -604,7 +629,7 @@ export default function MilestoneViewPage() {
             <p className="text-lg sm:text-2xl font-bold text-white">{formatARCurrency(totalReceived)}</p>
             <div className="flex items-center gap-1 mt-2">
               <ArrowUpRight className="w-3 h-3 text-white/80" />
-              <span className="text-white/80 text-[10px] sm:text-xs">{Math.round(paymentProgress)}% collected</span>
+              <span className="text-white/80 text-[10px] sm:text-xs">{Math.floor(paymentProgress)}% collected</span>
             </div>
           </div>
         </div>
@@ -664,7 +689,7 @@ export default function MilestoneViewPage() {
             </div>
           </div>
           <div className="text-right">
-            <p className="text-2xl font-bold text-[#546A7A]">{Math.round(paymentProgress)}%</p>
+            <p className="text-2xl font-bold text-[#546A7A]">{Math.floor(paymentProgress)}%</p>
             <p className="text-xs text-[#92A2A5]">
               {formatARCurrency(totalReceived)} of {formatARCurrency(totalAmount)}
             </p>
@@ -892,8 +917,7 @@ export default function MilestoneViewPage() {
                     {[
                       { label: 'SO Number', value: invoice.soNo || '-', icon: Hash },
                       { label: 'Invoice Number', value: invoice.invoiceNumber || '-', icon: FileText },
-                      { label: 'Created Date', value: formatARDate(invoice.invoiceDate), icon: Calendar },
-                      { label: 'Due Date', value: formatARDate(invoice.dueDate), icon: Calendar, highlight: isOverdue },
+                      { label: 'Invoice Date', value: formatARDate(invoice.invoiceDate), icon: Calendar, highlight: isOverdue },
                       { label: 'Booking Month', value: formatARMonth(invoice.bookingMonth), icon: BarChart3 },
                       { label: 'Category', value: invoice.type || 'N/A', icon: Tag },
                       { label: 'Risk Class', value: invoice.riskClass || '-', icon: Shield },
@@ -1254,34 +1278,70 @@ export default function MilestoneViewPage() {
                     const ActionIcon = actionConfig.icon;
 
                     return (
-                      <div key={activity.id || index} className="relative flex gap-4">
+                      <div key={activity.id || index} className="relative flex gap-4 group/timeline">
+                        {/* Timeline line */}
                         {index < activityLogs.length - 1 && (
-                          <div className="absolute left-5 top-12 w-0.5 h-full bg-gradient-to-b from-[#AEBFC3]/50 to-transparent" />
+                          <div className="absolute left-5 top-12 w-0.5 h-full bg-gradient-to-b from-[#AEBFC3]/50 to-transparent group-hover/timeline:from-[#6F8A9D]/50 transition-colors" />
                         )}
-                        <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${actionConfig.color} flex items-center justify-center shadow-md flex-shrink-0`}>
+                        
+                        {/* Icon */}
+                        <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${actionConfig.color} flex items-center justify-center shadow-md flex-shrink-0 relative z-10 group-hover/timeline:scale-110 transition-transform duration-300`}>
                           <ActionIcon className="w-5 h-5 text-white" />
                         </div>
-                        <div className="flex-1 bg-white rounded-xl p-4 shadow-md border border-[#AEBFC3]/20">
-                          <div className="flex items-start justify-between mb-2">
+                        
+                        {/* Content */}
+                        <div className="flex-1 bg-white rounded-xl p-4 sm:p-5 shadow-sm hover:shadow-md border border-[#AEBFC3]/20 hover:border-[#AEBFC3]/50 transition-all duration-300">
+                          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-3">
                             <div>
-                              <p className="font-semibold text-[#546A7A]">{activity.description}</p>
+                              <p className="font-semibold text-[#546A7A] text-base">{activity.description}</p>
                               {activity.fieldName && (
-                                <div className="flex items-center gap-2 mt-1">
-                                  <span className="text-xs bg-[#6F8A9D]/10 text-[#6F8A9D] px-2 py-0.5 rounded">{activity.fieldName}</span>
-                                  {activity.oldValue && (
-                                    <span className="text-xs text-[#92A2A5]">{activity.oldValue} → {activity.newValue}</span>
-                                  )}
+                                <div className="flex flex-col sm:flex-row sm:items-center gap-3 mt-3 p-3 rounded-xl bg-gradient-to-r from-[#AEBFC3]/5 to-transparent border border-[#AEBFC3]/10">
+                                  <span className="text-[10px] font-bold bg-white text-[#6F8A9D] px-2.5 py-1 rounded-lg border border-[#6F8A9D]/20 shadow-sm uppercase tracking-widest whitespace-nowrap w-fit">
+                                    {activity.fieldName}
+                                  </span>
+                                  {(activity.oldValue || activity.newValue) ? (
+                                    <div className="flex items-center gap-2 sm:gap-3 flex-wrap text-sm flex-1">
+                                      {activity.oldValue && (
+                                        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#E17F70]/5 border border-[#E17F70]/10">
+                                          <span className="text-[10px] text-[#E17F70] font-bold uppercase tracking-wider">Old</span>
+                                          <span className="text-[#9E3B47] line-through decoration-[#E17F70]/50 font-medium break-all">{activity.oldValue}</span>
+                                        </div>
+                                      )}
+                                      {activity.oldValue && activity.newValue && (
+                                        <ArrowRight className="w-4 h-4 text-[#AEBFC3] flex-shrink-0" />
+                                      )}
+                                      {activity.newValue && (
+                                        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#82A094]/5 border border-[#82A094]/10">
+                                          <span className="text-[10px] text-[#82A094] font-bold uppercase tracking-wider">New</span>
+                                          <span className="text-[#4F6A64] font-bold break-all">{activity.newValue}</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  ) : null}
                                 </div>
                               )}
                             </div>
-                            <div className="text-right">
-                              <p className="text-xs text-[#92A2A5]">{new Date(activity.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
-                              <p className="text-xs text-[#CE9F6B] font-medium">{new Date(activity.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</p>
+                            <div className="text-left sm:text-right flex-shrink-0">
+                              <p className="text-xs text-[#92A2A5] font-medium">
+                                {new Date(activity.createdAt).toLocaleDateString('en-IN', { 
+                                  day: '2-digit', 
+                                  month: 'short', 
+                                  year: 'numeric' 
+                                })}
+                              </p>
+                              <p className="text-xs text-[#CE9F6B] font-bold mt-0.5">
+                                {new Date(activity.createdAt).toLocaleTimeString('en-IN', { 
+                                  hour: '2-digit', 
+                                  minute: '2-digit' 
+                                })}
+                              </p>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2 text-sm text-[#92A2A5]">
-                            <User className="w-3.5 h-3.5" />
-                            <span>{activity.performedBy || 'System'}</span>
+                          <div className="flex items-center gap-2 mt-4 pt-4 border-t border-[#AEBFC3]/10">
+                            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#AEBFC3]/20 to-[#AEBFC3]/40 flex items-center justify-center border border-white shadow-sm">
+                              <User className="w-3.5 h-3.5 text-[#546A7A]" />
+                            </div>
+                            <span className="text-sm font-semibold text-[#5D6E73]">{activity.performedBy || 'System'}</span>
                           </div>
                         </div>
                       </div>
@@ -1342,7 +1402,7 @@ export default function MilestoneViewPage() {
                 </div>
                 <div className="flex-1 text-right">
                   <p className="text-[9px] uppercase tracking-widest text-white/50 font-bold">Progress</p>
-                  <p className="text-sm font-bold text-white">{Math.round(paymentProgress)}%</p>
+                  <p className="text-sm font-bold text-white">{Math.floor(paymentProgress)}%</p>
                 </div>
               </div>
             </div>
