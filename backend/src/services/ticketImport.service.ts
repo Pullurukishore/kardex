@@ -265,17 +265,11 @@ export class TicketImportService {
         // Check which ticket IDs already exist (by ticketNumber)
         let existingCount = 0;
         if (ticketIds.length > 0) {
-            const numericIds = ticketIds
-                .map(id => parseInt(id))
-                .filter(n => !isNaN(n));
-
-            if (numericIds.length > 0) {
-                const existing = await prisma.ticket.findMany({
-                    where: { ticketNumber: { in: numericIds } },
-                    select: { ticketNumber: true }
-                });
-                existingCount = existing.length;
-            }
+            const existing = await prisma.ticket.findMany({
+                where: { ticketNumber: { in: ticketIds } },
+                select: { ticketNumber: true }
+            });
+            existingCount = existing.length;
         }
 
         // Build sample rows for preview
@@ -398,7 +392,13 @@ export class TicketImportService {
             orderBy: { ticketNumber: 'desc' },
             select: { ticketNumber: true }
         });
-        let nextTicketNumber = lastTicket?.ticketNumber ? lastTicket.ticketNumber + 1 : 1001;
+        let nextTicketNumber = 1001;
+        if (lastTicket?.ticketNumber) {
+            const parsed = parseInt(lastTicket.ticketNumber, 10);
+            if (!isNaN(parsed)) {
+                nextTicketNumber = parsed + 1;
+            }
+        }
 
         // Shared map for newly created users during this import to prevent duplicate creation
         // We store the Promise itself to prevent race conditions during concurrent batch processing
@@ -835,11 +835,11 @@ export class TicketImportService {
 
                             const creationPromise = (async () => {
                                 // Create new ticket
-                                const ticketNumber = ticketIdNum || String(nextTicketNumber++);
+                                let ticketNumber = ticketIdNum || String(nextTicketNumber++);
                                 // Make sure ticketNumber doesn't collide
                                 if (!ticketIdNum) {
                                     while (ticketByNumber.has(ticketNumber)) {
-                                        nextTicketNumber++;
+                                        ticketNumber = String(nextTicketNumber++);
                                     }
                                 }
 
