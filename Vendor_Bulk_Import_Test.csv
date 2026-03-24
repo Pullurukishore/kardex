@@ -1,6 +1,0 @@
-Vendor Name,Bank Name,Account Number,IFSC Code,Beneficiary Name,Email,Nick Name
-Kishore Enterprises,HDFC Bank,11223344556677,HDFC0001234,Kishore Enterprises,finance@kishore.com,Main Account
-Global Logistics,ICICI Bank,99887766554433,ICIC0005678,Global Logistics Services,,Secondary
-Antigravity Systems,SBI Bank,44556677889900,SBIN0000123,Antigravity Systems Ltd,admin@antigravity.ai,Tech Partner
-Error Vendor,,MissingBankAndNoAccount,IFSC999,,,
-Row with Existing Acc,Unknown Bank,11223344556677,IFSC555,Kishore Updated,updated@kishore.com,Updated Via Import

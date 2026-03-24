@@ -16,7 +16,7 @@ import {
   ArrowLeft, Loader2, CheckCircle2, XCircle, Clock, AlertCircle,
   Download, Shield, Send, User, Calendar, Hash, Banknote,
   FileSpreadsheet, FileText, FileCode, Package, Building2,
-  CreditCard, ChevronDown, TrendingUp,
+  CreditCard, ChevronDown, TrendingUp, Search,
   CheckCheck, BanIcon, Info, Eye, RefreshCcw, Trash2
 } from 'lucide-react';
 import Link from 'next/link';
@@ -59,6 +59,7 @@ export default function BatchDetailPage() {
   const [reviewNotes, setReviewNotes] = useState('');
   const [activeTab, setActiveTab] = useState<'items' | 'summary' | 'preview'>('items');
   const [previewFormat, setPreviewFormat] = useState<'HDFC' | 'DB'>('HDFC');
+  const [itemSearch, setItemSearch] = useState('');
 
 
   useEffect(() => {
@@ -293,12 +294,29 @@ export default function BatchDetailPage() {
     return acc;
   }, {});
 
+  // Filter items by search
+  const filteredItems = itemSearch.trim()
+    ? batch.items.filter(item =>
+        item.vendorName?.toLowerCase().includes(itemSearch.toLowerCase()) ||
+        item.accountNumber?.toLowerCase().includes(itemSearch.toLowerCase()) ||
+        item.bankName?.toLowerCase().includes(itemSearch.toLowerCase()) ||
+        item.ifscCode?.toLowerCase().includes(itemSearch.toLowerCase())
+      )
+    : batch.items;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#546A7A]/5 via-[#AEBFC3]/5 to-[#82A094]/5">
       {/* ── Top Accent Bar ─────────────────────────────────────── */}
       <div className="h-1 bg-gradient-to-r from-[#546A7A] via-[#6F8A9D] to-[#82A094]" />
 
-      <div className="max-w-7xl mx-auto px-6 py-8 space-y-6">
+      <div className="max-w-7xl mx-auto px-6 py-8 space-y-6 pb-28">
+
+        {/* ── Breadcrumb ────────────────────────────────────────────────────── */}
+        <div className="flex items-center gap-2 text-xs font-medium text-[#92A2A5]">
+          <Link href="/finance/bank-accounts/payment-batches" className="hover:text-[#546A7A] transition-colors">Payment Batches</Link>
+          <span>/</span>
+          <span className="text-[#546A7A] font-bold">{batch.batchNumber}</span>
+        </div>
 
         {/* ── Header ─────────────────────────────────────────────────────── */}
         <div className="bg-white/80 backdrop-blur-sm border border-[#AEBFC3]/25 rounded-2xl p-4 sm:p-5 shadow-sm relative z-20">
@@ -605,9 +623,22 @@ export default function BatchDetailPage() {
         {activeTab === 'items' && (
           <div className="bg-white/80 backdrop-blur-sm border border-[#AEBFC3]/25 rounded-2xl overflow-hidden shadow-sm">
             <div className="px-4 sm:px-5 py-4 border-b border-[#AEBFC3]/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-[#546A7A]/5 to-[#96AEC2]/8">
-              <div>
-                <h2 className="font-black text-[#546A7A] uppercase tracking-widest text-sm">Payment Items</h2>
-                <p className="text-[10px] sm:text-xs text-[#6F8A9D] mt-0.5 font-bold uppercase tracking-tight">{batch.items.length} entries • {batch.currency || 'INR'}</p>
+              <div className="flex items-center gap-4">
+                <div>
+                  <h2 className="font-black text-[#546A7A] uppercase tracking-widest text-sm">Payment Items</h2>
+                  <p className="text-[10px] sm:text-xs text-[#6F8A9D] mt-0.5 font-bold uppercase tracking-tight">{filteredItems.length}{itemSearch ? ` of ${batch.items.length}` : ''} entries • {batch.currency || 'INR'}</p>
+                </div>
+                {/* Item search */}
+                <div className="relative hidden sm:block">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#AEBFC3]" />
+                  <input
+                    type="text"
+                    placeholder="Search vendor, bank, IFSC..."
+                    value={itemSearch}
+                    onChange={e => setItemSearch(e.target.value)}
+                    className="pl-9 pr-3 py-2 text-xs font-medium bg-white border border-[#AEBFC3]/30 rounded-lg text-[#546A7A] placeholder-[#AEBFC3] focus:ring-2 focus:ring-[#546A7A]/20 outline-none transition-all w-56"
+                  />
+                </div>
               </div>
               {isPending && isApprover && (
                 <div className="grid grid-cols-2 sm:flex sm:items-center gap-2">
@@ -664,7 +695,7 @@ export default function BatchDetailPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#AEBFC3]/15">
-                  {batch.items.map((item, idx) => {
+                  {filteredItems.map((item, idx) => {
                     const itemDecision = item.status;
                     const itemCfg = ITEM_STATUS[itemDecision] || ITEM_STATUS.PENDING;
                     const isRejectedRow = isPending && isApprover && decisions[item.id] === 'REJECTED';
@@ -826,7 +857,7 @@ export default function BatchDetailPage() {
 
             {/* Mobile Card View */}
             <div className="lg:hidden divide-y divide-[#AEBFC3]/10">
-              {batch.items.map((item, idx) => {
+              {filteredItems.map((item, idx) => {
                 const itemDecision = item.status;
                 const itemCfg = ITEM_STATUS[itemDecision] || ITEM_STATUS.PENDING;
                 const isRejectedCurrent = isPending && isApprover && decisions[item.id] === 'REJECTED';
@@ -1291,6 +1322,47 @@ export default function BatchDetailPage() {
           </div>
         )}
       </div>
+
+      {/* ── Sticky Bottom Review Bar (Approver only, Pending batches) ──── */}
+      {isPending && isApprover && (
+        <div className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-[#AEBFC3]/30 shadow-2xl shadow-[#546A7A]/10">
+          <div className="max-w-7xl mx-auto px-6 py-3 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="flex items-center gap-4 flex-wrap">
+              <div className="flex items-center gap-2 text-xs">
+                <span className="flex items-center gap-1.5 bg-[#82A094]/10 text-[#4F6A64] font-bold px-2.5 py-1 rounded-lg">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  {Object.values(decisions).filter(s => s === 'APPROVED').length} Approved
+                </span>
+                <span className="flex items-center gap-1.5 bg-[#E17F70]/10 text-[#75242D] font-bold px-2.5 py-1 rounded-lg">
+                  <XCircle className="w-3.5 h-3.5" />
+                  {Object.values(decisions).filter(s => s === 'REJECTED').length} Rejected
+                </span>
+                <span className="flex items-center gap-1.5 bg-[#CE9F6B]/10 text-[#976E44] font-bold px-2.5 py-1 rounded-lg">
+                  <Clock className="w-3.5 h-3.5" />
+                  {Object.values(decisions).filter(s => s === 'PENDING').length} Pending
+                </span>
+              </div>
+              <input
+                type="text"
+                placeholder="Review notes (optional)..."
+                value={reviewNotes}
+                onChange={e => setReviewNotes(e.target.value)}
+                className="text-xs font-medium border border-[#AEBFC3]/30 rounded-lg px-3 py-2 w-64 focus:ring-2 focus:ring-[#546A7A]/20 outline-none bg-[#F8FAFA]"
+              />
+            </div>
+            <Button
+              onClick={handleSubmitReview}
+              disabled={submitting || Object.values(decisions).some(s => s === 'PENDING')}
+              className="bg-gradient-to-r from-[#546A7A] to-[#4F6A64] text-white shadow-lg shadow-[#546A7A]/25 rounded-xl px-6 h-10 font-black text-xs uppercase tracking-widest hover:brightness-110 transition-all disabled:opacity-50 w-full sm:w-auto"
+            >
+              {submitting
+                ? <><Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" /> Submitting…</>
+                : <><Shield className="w-3.5 h-3.5 mr-2" /> Submit Review Decision</>
+              }
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
