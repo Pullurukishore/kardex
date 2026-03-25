@@ -36,6 +36,8 @@ type TicketRequest = Request & {
     search?: string;
     customerId?: string;
     assignedToId?: string;
+    zoneId?: string;
+    view?: string;
   };
   body: any;
 };
@@ -509,7 +511,7 @@ export const createTicket = async (req: TicketRequest, res: Response) => {
 // Get tickets with role-based filtering
 export const getTickets = async (req: TicketRequest, res: Response) => {
   try {
-    const { status, priority, page = 1, limit = 20, view, search } = req.query;
+    const { status, priority, page = 1, limit = 100, view, search, zoneId, customerId, assignedToId } = req.query;
     const user = req.user as any;
     const skip = (Number(page) - 1) * Number(limit);
 
@@ -602,13 +604,18 @@ export const getTickets = async (req: TicketRequest, res: Response) => {
       }
     }
     
-    // Base where for summary counts (ignores status/priority filters from query, but keeps role/view/search)
+    if (zoneId) where.zoneId = Number(zoneId);
+    if (customerId) where.customerId = Number(customerId);
+    if (assignedToId) where.assignedToId = Number(assignedToId);
+
+    // Base where for summary counts (ignores status/priority filters from query, but keeps role/view/search/zone)
     const baseWhereForStats = { ...where };
     delete (baseWhereForStats as any).status;
     delete (baseWhereForStats as any).priority;
 
     if (status) where.status = { in: (status as string).split(',') };
     if (priority) where.priority = priority;
+    
     if (search) {
       if (!where.AND) where.AND = [];
       where.AND.push({
@@ -636,6 +643,7 @@ export const getTickets = async (req: TicketRequest, res: Response) => {
           assignmentStatus: true,
           createdAt: true,
           assetId: true,
+          relatedMachineIds: true,
           customer: {
             select: {
               id: true,
@@ -657,6 +665,14 @@ export const getTickets = async (req: TicketRequest, res: Response) => {
             }
           },
           assignedTo: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              role: true
+            }
+          },
+          subOwner: {
             select: {
               id: true,
               name: true,

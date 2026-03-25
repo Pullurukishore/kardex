@@ -15,7 +15,8 @@
     "validate:excel": "node scripts/validate-excel.js",
     "create:sample-excel": "node scripts/create-sample-excel.js",
     "reset:db": "node scripts/reset-database.js",
-    "create:admin": "node scripts/create-admin-user.js"
+    "create:admin": "node scripts/create-admin-user.js",
+    "delete:service-persons": "ts-node scripts/deleteServicePersons.ts"
   },
   "keywords": [],
   "author": "",

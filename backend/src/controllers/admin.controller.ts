@@ -252,10 +252,38 @@ export const deleteUser = async (req: AuthenticatedRequest, res: Response) => {
       return res.status(400).json({ message: 'You cannot delete your own account' });
     }
 
-    // Delete user
-    await prisma.user.delete({
-      where: { id: Number(id) }
-    });
+    // Check for associated records before deletion
+    const [ownedTickets, assignedTickets, createdTickets, subOwnedTickets, serviceZonesCount] = await Promise.all([
+      prisma.ticket.count({ where: { ownerId: Number(id) } }),
+      prisma.ticket.count({ where: { assignedToId: Number(id) } }),
+      prisma.ticket.count({ where: { createdById: Number(id) } }),
+      prisma.ticket.count({ where: { subOwnerId: Number(id) } }),
+      prisma.servicePersonZone.count({ where: { userId: Number(id) } })
+    ]);
+
+    const totalTickets = ownedTickets + assignedTickets + createdTickets + subOwnedTickets;
+
+    if (totalTickets > 0) {
+      return res.status(400).json({ 
+        message: 'Cannot delete user because they are associated with existing tickets. Please deactivate the user instead.',
+        details: {
+          ownedTickets,
+          assignedTickets,
+          createdTickets,
+          subOwnedTickets
+        }
+      });
+    }
+
+    // Use transaction to clean up junction tables and user
+    await prisma.$transaction([
+      prisma.servicePersonZone.deleteMany({
+        where: { userId: Number(id) }
+      }),
+      prisma.user.delete({
+        where: { id: Number(id) }
+      })
+    ]);
 
     res.json({ message: 'User deleted successfully' });
   } catch (error) {

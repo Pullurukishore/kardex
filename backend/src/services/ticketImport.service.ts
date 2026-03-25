@@ -213,6 +213,11 @@ function getCellNum(row: any[], idx: number): number | null {
     return isNaN(n) ? null : n;
 }
 
+const EXPERT_NAMES = ['amrender', 'sreenadh', 'rohit'];
+const TYPO_MAP: Record<string, string> = {
+    'asharf': 'ashraf',
+};
+
 export class TicketImportService {
 
     /**
@@ -486,9 +491,9 @@ export class TicketImportService {
                             indices.ticketTime >= 0 ? row[indices.ticketTime] : null
                         ) || new Date();
 
-                        const closedDate = excelDateToJS(closedOnVal) || excelDateToJS(closedOn2Val);
+                        let closedDate = excelDateToJS(closedOnVal) || excelDateToJS(closedOn2Val);
                         const scheduledDate = excelDateToJS(scheduledOnVal);
-                        
+
                         // Lifecycle dates
                         const visitStartedAt = combineDateAndTime(
                             indices.respDate >= 0 ? row[indices.respDate] : (indices.ticketDate >= 0 ? row[indices.ticketDate] : null),
@@ -512,6 +517,9 @@ export class TicketImportService {
                         const legAEndTime = excelTimeToString(indices.legAEnd >= 0 ? row[indices.legAEnd] : null);
                         const legBStartTime = excelTimeToString(indices.legBStart >= 0 ? row[indices.legBStart] : null);
                         const legBEndTime = excelTimeToString(indices.legBEnd >= 0 ? row[indices.legBEnd] : null);
+
+                        // ── Build metadata JSON for extra fields ──
+                        const metadata: any = {};
 
                         // ── Zone ──
                         let zoneId = defaultZoneId;
@@ -609,11 +617,17 @@ export class TicketImportService {
 
                         // ── Assigned User (Konte Team = Service Persons) ──
                         let assignedToId: number | null = null;
-                        
+                        let subOwnerId: number | null = null;
+
                         const tryFindUser = (name: string | null) => {
                             if (!name) return null;
-                            const normalized = name.toLowerCase().trim().replace(/\s+/g, ' ').replace(/\./g, '');
-                            
+                            let normalized = name.toLowerCase().trim().replace(/\s+/g, ' ').replace(/\./g, '');
+
+                            // Apply typo map
+                            if (TYPO_MAP[normalized]) {
+                                normalized = TYPO_MAP[normalized];
+                            }
+
                             // Check initial users baseline
                             let found = userByName.get(normalized);
                             if (found) return found;
@@ -621,9 +635,26 @@ export class TicketImportService {
                             return null;
                         };
 
-                        const createMissingUser = async (name: string, role: string): Promise<number | null> => {
+                        const createMissingUser = async (name: string, role: string, zoneId: number): Promise<number | null> => {
+                            if (!name || typeof name !== 'string') return null;
+
                             const normalized = name.toLowerCase().trim().replace(/\s+/g, ' ').replace(/\./g, '');
                             
+                            // Check if the name looks like a note from the Excel file
+                            const months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+                            const keywords = ['logged', 'resolved', 'before', 'after', 'hour', 'min', 'closed', 'call', 'ticket', 'work'];
+                            
+                            const isPotentialNote = 
+                                name.length > 35 || // Real names are rarely this long
+                                /\d/.test(name) || // Contains digits (dates/times/years)
+                                months.some(m => normalized.includes(m)) ||
+                                keywords.some(k => normalized.includes(k));
+
+                            if (isPotentialNote) {
+                                logger.info(`Skipping user creation for suspected note/junk: "${name}"`);
+                                return null;
+                            }
+
                             // Check initial map first
                             const existingInMap = tryFindUser(name);
                             if (existingInMap) return existingInMap.id;
@@ -637,19 +668,34 @@ export class TicketImportService {
                             // Start the creation promise and store it
                             const creationPromise = (async () => {
                                 try {
-                                    const email = `${normalized.replace(/[^a-z0-9]/g, '')}@kardex-auto.local`;
-                                    
+                                    const email = `${normalized.replace(/[^a-z0-9]/g, '')}@kardex.com`;
+
                                     // Check DB by Email or Name
-                                    const existing = await prisma.user.findFirst({ 
-                                        where: { 
+                                    const existing = await prisma.user.findFirst({
+                                        where: {
                                             OR: [
                                                 { email },
                                                 { name: { equals: name, mode: 'insensitive' } }
                                             ]
-                                        } 
+                                        }
                                     });
 
-                                    if (existing) return existing.id;
+                                    if (existing) {
+                                        // Update zone if not set
+                                        if (!existing.zoneId && role === 'SERVICE_PERSON') {
+                                            await prisma.user.update({
+                                                where: { id: existing.id },
+                                                data: { zoneId: String(zoneId) }
+                                            });
+                                            // Ensure service person zone entryexists
+                                            await prisma.servicePersonZone.upsert({
+                                                where: { userId_serviceZoneId: { userId: existing.id, serviceZoneId: zoneId } },
+                                                update: {},
+                                                create: { userId: existing.id, serviceZoneId: zoneId }
+                                            });
+                                        }
+                                        return existing.id;
+                                    }
 
                                     const hashedPassword = await bcrypt.hash('Kardex@123', 10);
                                     const newUser = await prisma.user.create({
@@ -659,9 +705,21 @@ export class TicketImportService {
                                             password: hashedPassword,
                                             role: role as any,
                                             isActive: true,
-                                            tokenVersion: uuidv4()
+                                            tokenVersion: uuidv4(),
+                                            zoneId: String(zoneId)
                                         }
                                     });
+
+                                    // If service person, also add to junction table
+                                    if (role === 'SERVICE_PERSON') {
+                                        await prisma.servicePersonZone.create({
+                                            data: {
+                                                userId: newUser.id,
+                                                serviceZoneId: zoneId
+                                            }
+                                        });
+                                    }
+
                                     return newUser.id;
                                 } catch (err) {
                                     // If we hit a race condition here despite the guard, try one last fetch
@@ -669,7 +727,7 @@ export class TicketImportService {
                                         where: { name: { equals: name, mode: 'insensitive' } }
                                     });
                                     if (fallback) return fallback.id;
-                                    
+
                                     logger.error(`Failed to auto-create user ${name}:`, err);
                                     return null;
                                 }
@@ -679,38 +737,78 @@ export class TicketImportService {
                             return creationPromise;
                         };
 
+                        let teamList: string[] = [];
                         if (kontoTeam) {
-                            const found = tryFindUser(kontoTeam);
-                            if (found) {
-                                assignedToId = found.id;
-                            } else {
-                                // Auto-create service person
-                                const newId = await createMissingUser(kontoTeam, 'SERVICE_PERSON');
-                                if (newId) assignedToId = newId;
+                            const names = kontoTeam.split('/').map(n => n.trim()).filter(Boolean);
+                            teamList = names;
+                            const userIds: number[] = [];
+
+                            for (const name of names) {
+                                const found = tryFindUser(name);
+                                if (found) {
+                                    userIds.push(found.id);
+                                } else {
+                                    const newId = await createMissingUser(name, 'SERVICE_PERSON', zoneId);
+                                    if (newId) userIds.push(newId);
+                                }
+                            }
+
+                            if (userIds.length > 0) {
+                                assignedToId = userIds[0];
+                                if (userIds.length > 1) {
+                                    subOwnerId = userIds[1];
+                                }
+                                metadata.allAssigneeIds = userIds;
+                                metadata.teamMembers = names;
                             }
                         }
-                        
-                        // Fallback to FSM
+
+                        // Fallback to FSM if no assignedToId yet
                         if (!assignedToId && fsmName) {
-                            const found = tryFindUser(fsmName);
-                            if (found) {
-                                assignedToId = found.id;
-                            } else {
-                                const newId = await createMissingUser(fsmName, 'SERVICE_PERSON');
-                                if (newId) assignedToId = newId;
+                            const names = fsmName.split('/').map(n => n.trim()).filter(Boolean);
+                            teamList = names;
+                            const userIds: number[] = [];
+
+                            for (const name of names) {
+                                const found = tryFindUser(name);
+                                if (found) {
+                                    userIds.push(found.id);
+                                } else {
+                                    const newId = await createMissingUser(name, 'SERVICE_PERSON', zoneId);
+                                    if (newId) userIds.push(newId);
+                                }
+                            }
+
+                            if (userIds.length > 0) {
+                                assignedToId = userIds[0];
+                                if (userIds.length > 1) {
+                                    subOwnerId = userIds[1];
+                                }
+                                metadata.allAssigneeIds = userIds;
+                                metadata.teamMembers = names;
                             }
                         }
 
                         // ── Kdx Engineer (Helpdesk / Zone Users) → owner ──
                         let ownerId = adminId;
                         if (kdxEngineerName) {
-                            const found = tryFindUser(kdxEngineerName);
-                            if (found) {
-                                ownerId = found.id;
-                            } else {
-                                // Auto-create expert helpdesk
-                                const newId = await createMissingUser(kdxEngineerName, 'EXPERT_HELPDESK');
-                                if (newId) ownerId = newId;
+                            const names = kdxEngineerName.split('/').map(n => n.trim()).filter(Boolean);
+                            const userIds: number[] = [];
+
+                            for (const name of names) {
+                                const found = tryFindUser(name);
+                                if (found) {
+                                    userIds.push(found.id);
+                                } else {
+                                    const normalized = name.toLowerCase().trim().replace(/\s+/g, ' ').replace(/\./g, '');
+                                    const roleToAssign = EXPERT_NAMES.includes(normalized) ? 'EXPERT_HELPDESK' : 'ZONE_USER';
+                                    const newId = await createMissingUser(name, roleToAssign, zoneId);
+                                    if (newId) userIds.push(newId);
+                                }
+                            }
+
+                            if (userIds.length > 0) {
+                                ownerId = userIds[0];
                             }
                         }
 
@@ -731,7 +829,6 @@ export class TicketImportService {
                             : `${companyName} - Ticket ${ticketIdRaw || 'Import'}`;
 
                         // ── Build metadata JSON for extra fields ──
-                        const metadata: any = {};
                         if (legAStartTime) metadata.legAStart = legAStartTime;
                         if (legAEndTime) metadata.legAEnd = legAEndTime;
                         if (legBStartTime) metadata.legBStart = legBStartTime;
@@ -751,10 +848,24 @@ export class TicketImportService {
                         const travelHour = excelTimeToString(indices.travelHour >= 0 ? row[indices.travelHour] : null);
                         const workHour = excelTimeToString(indices.workHour >= 0 ? row[indices.workHour] : null);
                         const downtimeVal = excelTimeToString(indices.downtime >= 0 ? row[indices.downtime] : null);
+                        const respondTimeVal = excelTimeToString(indices.respondTime >= 0 ? row[indices.respondTime] : null);
                         if (reportedHour) metadata.reportedHour = reportedHour;
                         if (travelHour) metadata.travelHour = travelHour;
                         if (workHour) metadata.workHour = workHour;
                         if (downtimeVal) metadata.downtime = downtimeVal;
+                        if (respondTimeVal) metadata.respondTime = respondTimeVal;
+
+                        // Store all time values as minutes for dashboard/reports calculations
+                        const respondTimeMinutes = parseTimeToMinutes(respondTimeVal);
+                        const reportedHourMinutes = parseTimeToMinutes(reportedHour);
+                        const travelHourMinutes = parseTimeToMinutes(travelHour);
+                        const workHourMinutes = parseTimeToMinutes(workHour);
+                        const downtimeMinutes = parseTimeToMinutes(downtimeVal);
+                        if (respondTimeMinutes !== null) metadata.respondTimeMinutes = respondTimeMinutes;
+                        if (reportedHourMinutes !== null) metadata.reportedHourMinutes = reportedHourMinutes;
+                        if (travelHourMinutes !== null) metadata.travelHourMinutes = travelHourMinutes;
+                        if (workHourMinutes !== null) metadata.workHourMinutes = workHourMinutes;
+                        if (downtimeMinutes !== null) metadata.downtimeMinutes = downtimeMinutes;
 
                         // ── Upsert Ticket ──
                         const findExistingId = () => {
@@ -770,6 +881,7 @@ export class TicketImportService {
                             title,
                             description: [
                                 errorDetails || 'Imported ticket',
+                                teamList.length > 1 ? `\n\nAssigned Team: ${teamList.join(', ')}` : '',
                                 serviceReport ? `\n\nService Report: ${serviceReport}` : '',
                                 remarksVal ? `\nRemarks: ${remarksVal}` : '',
                                 remarks2Val ? `\nAdditional: ${remarks2Val}` : '',
@@ -781,6 +893,7 @@ export class TicketImportService {
                             contactId,
                             assetId,
                             ownerId,
+                            subOwnerId,
                             createdById: adminId,
                             assignedToId,
                             zoneId,
@@ -806,7 +919,7 @@ export class TicketImportService {
                                     updatedAt: closedDate || lastStatusChange || new Date(),
                                 }
                             });
-                            
+
                             // For updates, we don't recreate the entire history to avoid duplicates, 
                             // but we ensure the basic resolution record exists if it's closed
                             if (closedDate && (status === 'CLOSED' || status === 'RESOLVED')) {

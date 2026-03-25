@@ -176,4 +176,4 @@ export const requireFinanceApprover = requireFinanceRole(['FINANCE_ADMIN', 'FINA
  * Helper to check if user can delete resources
  * Only FINANCE_ADMIN can delete
  */
-export const requireFinanceDelete = requireFinanceRole(['FINANCE_ADMIN']);
+export const requireFinanceDelete = requireFinanceRole(['FINANCE_ADMIN', 'FINANCE_USER']);

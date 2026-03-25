@@ -450,118 +450,157 @@ export default function TicketDetailPage() {
             <CardContent className="p-5 space-y-4">
               {/* Assignment Rows */}
               <div className="space-y-3">
-                {/* Expert Helpdesk */}
-                <div className="p-4 rounded-xl bg-gradient-to-r from-[#96AEC2]/10/80 to-[#EEC1BF]/10/50 border border-[#96AEC2]/20 hover:shadow-md transition-all duration-200">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-semibold text-[#546A7A] uppercase tracking-wider">Expert Helpdesk</span>
-                    {ticket.assignedTo && ticket.assignedTo.role === 'EXPERT_HELPDESK' && (
-                      <div className="flex items-center gap-2">
-                        {/* Assignment Status Badge */}
-                        {ticket.assignmentStatus === 'PENDING' && (
-                          <Badge className="bg-[#CE9F6B]/20 text-[#976E44] border-amber-300 text-[10px] px-2 py-0.5 animate-pulse">
-                            Awaiting Response
-                          </Badge>
-                        )}
-                        {ticket.assignmentStatus === 'ACCEPTED' && (
-                          <Badge className="bg-[#A2B9AF]/20 text-[#4F6A64] border-[#82A094] text-[10px] px-2 py-0.5">
-                            ✓ Accepted
-                          </Badge>
-                        )}
-                        {ticket.assignmentStatus === 'REJECTED' && (
-                          <Badge className="bg-[#E17F70]/20 text-[#75242D] border-[#E17F70] text-[10px] px-2 py-0.5">
-                            ✗ Rejected
-                          </Badge>
-                        )}
-                        <div className="h-2 w-2 rounded-full bg-[#6F8A9D]/100 animate-pulse" />
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-3">
-                    {ticket.assignedTo && ticket.assignedTo.role === 'EXPERT_HELPDESK' ? (
-                      <>
-                        <Avatar className="h-10 w-10 ring-2 ring-purple-200 shadow-md">
-                          <AvatarFallback className="bg-gradient-to-br from-[#6F8A9D] to-[#E17F70] text-white font-bold">
-                            {ticket.assignedTo.name?.charAt(0) || 'E'}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1">
-                          <span className="font-semibold text-[#546A7A] block">{ticket.assignedTo.name || 'No name'}</span>
-                          {ticket.assignedTo.phone && (
-                            <span className="text-xs text-[#757777] flex items-center gap-1 mt-0.5">
-                              <Phone className="h-3 w-3" /> {ticket.assignedTo.phone}
-                            </span>
-                          )}
-                        </div>
-                      </>
-                    ) : (
-                      <span className="text-[#979796] italic text-sm">Unassigned</span>
-                    )}
-                  </div>
-                  {/* Show rejection notes if rejected */}
-                  {ticket.assignmentStatus === 'REJECTED' && ticket.assignmentNotes && ticket.assignedTo?.role === 'EXPERT_HELPDESK' && (
-                    <div className="mt-2 p-2 rounded-lg bg-[#E17F70]/10 border border-[#E17F70]">
-                      <p className="text-xs text-[#9E3B47]"><strong>Rejection Reason:</strong> {ticket.assignmentNotes}</p>
-                    </div>
-                  )}
-                </div>
+                {/* Parse Metadata and Categorize Assignees */}
+                {(() => {
+                  let metadata: any = {};
+                  try {
+                    metadata = (ticket as any).relatedMachineIds ? JSON.parse((ticket as any).relatedMachineIds) : {};
+                  } catch (e) {}
 
-                {/* Zone Manager / Zone User */}
-                <div className="p-4 rounded-xl bg-gradient-to-r from-[#A2B9AF]/10/80 to-[#A2B9AF]/10/50 border border-[#A2B9AF]/20 hover:shadow-md transition-all duration-200">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-semibold text-[#4F6A64] uppercase tracking-wider">Zone Manager / Zone User</span>
-                    {ticket.assignedTo && (ticket.assignedTo.role === 'ZONE_USER' || ticket.assignedTo.role === 'ZONE_MANAGER') && (
-                      <div className="flex items-center gap-2">
-                        {/* Assignment Status Badge */}
-                        {ticket.assignmentStatus === 'PENDING' && (
-                          <Badge className="bg-[#CE9F6B]/20 text-[#976E44] border-amber-300 text-[10px] px-2 py-0.5 animate-pulse">
-                            Awaiting Response
-                          </Badge>
-                        )}
-                        {ticket.assignmentStatus === 'ACCEPTED' && (
-                          <Badge className="bg-[#A2B9AF]/20 text-[#4F6A64] border-[#82A094] text-[10px] px-2 py-0.5">
-                            ✓ Accepted
-                          </Badge>
-                        )}
-                        {ticket.assignmentStatus === 'REJECTED' && (
-                          <Badge className="bg-[#E17F70]/20 text-[#75242D] border-[#E17F70] text-[10px] px-2 py-0.5">
-                            ✗ Rejected
-                          </Badge>
-                        )}
-                        <div className="h-2 w-2 rounded-full bg-[#82A094]/100 animate-pulse" />
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-3">
-                    {ticket.assignedTo && (ticket.assignedTo.role === 'ZONE_USER' || ticket.assignedTo.role === 'ZONE_MANAGER') ? (
-                      <>
-                        <Avatar className="h-10 w-10 ring-2 ring-emerald-200 shadow-md">
-                          <AvatarFallback className={`${ticket.assignedTo.role === 'ZONE_MANAGER' ? 'bg-gradient-to-br from-[#CE9F6B] to-[#CE9F6B]' : 'bg-gradient-to-br from-[#82A094] to-[#82A094]'} text-white font-bold`}>
-                            {ticket.assignedTo.name?.charAt(0) || 'U'}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1">
-                          <span className="font-semibold text-[#546A7A] block">{ticket.assignedTo.name || 'No name'}</span>
-                          <Badge className={`text-[10px] px-2 py-0 ${ticket.assignedTo.role === 'ZONE_MANAGER' ? 'bg-[#CE9F6B]/20 text-[#976E44] border-[#CE9F6B]/40' : 'bg-[#82A094]/20 text-[#4F6A64] border-[#A2B9AF]/40'}`}>
-                            {ticket.assignedTo.role === 'ZONE_MANAGER' ? 'Zone Manager' : 'Zone User'}
-                          </Badge>
-                          {ticket.assignedTo.phone && (
-                            <span className="text-xs text-[#757777] flex items-center gap-1 mt-1">
-                              <Phone className="h-3 w-3" /> {ticket.assignedTo.phone}
-                            </span>
+                  const teamMembers = metadata.teamMembers || [];
+                  const allAssigned = [ticket.assignedTo, ticket.subOwner].filter((u): u is any => !!u);
+                  
+                  const expertAssignees = allAssigned.filter(u => u.role === 'EXPERT_HELPDESK');
+                  const zoneAssignees = allAssigned.filter(u => u.role === 'ZONE_USER' || u.role === 'ZONE_MANAGER');
+                  const serviceAssignees = allAssigned.filter(u => u.role === 'SERVICE_PERSON');
+                  
+                  // Filter out names from teamMembers that are already shown in other sections
+                  const displayedNames = new Set(allAssigned.map(u => (u.name || '').toLowerCase().trim()));
+                  const filteredTeamMembers = teamMembers.filter((name: string) => !displayedNames.has(name.toLowerCase().trim()));
+
+                  return (
+                    <>
+                      {/* Expert Helpdesk */}
+                      <div className="p-4 rounded-xl bg-gradient-to-r from-[#96AEC2]/10/80 to-[#EEC1BF]/10/50 border border-[#96AEC2]/20 hover:shadow-md transition-all duration-200">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-semibold text-[#546A7A] uppercase tracking-wider">Expert Helpdesk</span>
+                          {expertAssignees.length > 0 && (
+                            <div className="h-2 w-2 rounded-full bg-[#6F8A9D]/100 animate-pulse" />
                           )}
                         </div>
-                      </>
-                    ) : (
-                      <span className="text-[#979796] italic text-sm">Unassigned</span>
-                    )}
-                  </div>
-                  {/* Show rejection notes if rejected */}
-                  {ticket.assignmentStatus === 'REJECTED' && ticket.assignmentNotes && (ticket.assignedTo?.role === 'ZONE_USER' || ticket.assignedTo?.role === 'ZONE_MANAGER') && (
-                    <div className="mt-2 p-2 rounded-lg bg-[#E17F70]/10 border border-[#E17F70]">
-                      <p className="text-xs text-[#9E3B47]"><strong>Rejection Reason:</strong> {ticket.assignmentNotes}</p>
-                    </div>
-                  )}
-                </div>
+                        <div className="space-y-3">
+                          {expertAssignees.length > 0 ? (
+                            expertAssignees.map((assignee) => (
+                              <div key={assignee.id} className="flex items-center gap-3">
+                                <Avatar className="h-10 w-10 ring-2 ring-purple-200 shadow-md">
+                                  <AvatarFallback className="bg-gradient-to-br from-[#6F8A9D] to-[#E17F70] text-white font-bold">
+                                    {assignee.name?.charAt(0) || 'E'}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div className="flex-1">
+                                  <span className="font-semibold text-[#546A7A] block">{assignee.name || 'No name'}</span>
+                                  {assignee.phone && (
+                                    <span className="text-xs text-[#757777] flex items-center gap-1 mt-0.5">
+                                      <Phone className="h-3 w-3" /> {assignee.phone}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            ))
+                          ) : (
+                            <span className="text-[#979796] italic text-sm">Unassigned</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Zone Manager / Zone User */}
+                      <div className="p-4 rounded-xl bg-gradient-to-r from-[#A2B9AF]/10/80 to-[#A2B9AF]/10/50 border border-[#A2B9AF]/20 hover:shadow-md transition-all duration-200">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-semibold text-[#4F6A64] uppercase tracking-wider">Zone Manager / Zone User</span>
+                          {zoneAssignees.length > 0 && (
+                            <div className="h-2 w-2 rounded-full bg-[#82A094]/100 animate-pulse" />
+                          )}
+                        </div>
+                        <div className="space-y-3">
+                          {zoneAssignees.length > 0 ? (
+                            zoneAssignees.map((assignee) => (
+                              <div key={assignee.id} className="flex items-center gap-3">
+                                <Avatar className="h-10 w-10 ring-2 ring-emerald-200 shadow-md">
+                                  <AvatarFallback className={`${assignee.role === 'ZONE_MANAGER' ? 'bg-gradient-to-br from-[#CE9F6B] to-[#CE9F6B]' : 'bg-gradient-to-br from-[#82A094] to-[#82A094]'} text-white font-bold`}>
+                                    {assignee.name?.charAt(0) || 'U'}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div className="flex-1">
+                                  <span className="font-semibold text-[#546A7A] block">{assignee.name || 'No name'}</span>
+                                  <Badge className={`text-[10px] px-2 py-0 ${assignee.role === 'ZONE_MANAGER' ? 'bg-[#CE9F6B]/20 text-[#976E44] border-[#CE9F6B]/40' : 'bg-[#82A094]/20 text-[#4F6A64] border-[#A2B9AF]/40'}`}>
+                                    {assignee.role === 'ZONE_MANAGER' ? 'Zone Manager' : 'Zone User'}
+                                  </Badge>
+                                  {assignee.phone && (
+                                    <span className="text-xs text-[#757777] flex items-center gap-1 mt-1">
+                                      <Phone className="h-3 w-3" /> {assignee.phone}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            ))
+                          ) : (
+                            <span className="text-[#979796] italic text-sm">Unassigned</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Service Person Block */}
+                      <div className="p-4 rounded-xl bg-gradient-to-r from-[#82A094]/10/80 to-[#82A094]/10/50 border border-[#82A094]/20 hover:shadow-md transition-all duration-200">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-semibold text-[#4F6A64] uppercase tracking-wider">Service Person</span>
+                        </div>
+                        <div className="space-y-3">
+                          {/* Combine explicit service assignees and filtered team members */}
+                          {serviceAssignees.length === 0 && filteredTeamMembers.length === 0 ? (
+                            <div className="flex flex-1 items-center justify-between">
+                              <span className="text-[#979796] italic text-sm">Unassigned</span>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => {
+                                  setAssignmentStep('SERVICE_PERSON');
+                                  setIsAssignDialogOpen(true);
+                                }}
+                                className="text-[#82A094] hover:text-[#4F6A64] hover:bg-[#82A094]/10 h-8"
+                              >
+                                <UserPlus className="h-4 w-4 mr-1.5" />
+                                Assign
+                              </Button>
+                            </div>
+                          ) : (
+                            <>
+                              {serviceAssignees.map((assignee) => (
+                                <div key={assignee.id} className="flex items-center gap-3">
+                                  <Avatar className="h-10 w-10 ring-2 ring-[#82A094]/20 shadow-md">
+                                    <AvatarFallback className="bg-gradient-to-br from-[#82A094] to-[#AEBFC3] text-white font-bold text-sm">
+                                      {assignee.name?.charAt(0) || 'S'}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div className="flex-1">
+                                    <span className="font-semibold text-[#546A7A] block">{assignee.name || 'No name'}</span>
+                                    {assignee.phone && (
+                                      <span className="text-xs text-[#757777] flex items-center gap-1 mt-1">
+                                        <Phone className="h-3 w-3" /> {assignee.phone}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                              {filteredTeamMembers.map((name: string, idx: number) => (
+                                <div key={`team-${idx}`} className="flex items-center gap-3">
+                                  <Avatar className="h-9 w-9 ring-2 ring-[#82A094]/10 shadow-sm">
+                                    <AvatarFallback className="bg-gradient-to-br from-[#82A094] to-[#AEBFC3] text-white font-bold text-xs">
+                                      {name.charAt(0) || 'S'}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div className="flex-1">
+                                    <span className="font-semibold text-[#546A7A] text-sm block">{name}</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
 
                 {/* Zone & Created By Info */}
                 <div className="grid grid-cols-2 gap-3">
@@ -580,7 +619,6 @@ export default function TicketDetailPage() {
                     <p className="font-semibold text-[#546A7A] truncate">{ticket.owner?.name || 'System'}</p>
                   </div>
                 </div>
-              </div>
 
               {/* Quick Actions */}
               <div className="pt-4 border-t border-[#AEBFC3]/20">
@@ -621,6 +659,24 @@ export default function TicketDetailPage() {
                       </div>
                       <div className="text-left">
                         <div className="font-semibold text-sm">Assign to Zone User</div>
+                      </div>
+                    </div>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                  <Button 
+                    onClick={() => {
+                      setAssignmentStep('SERVICE_PERSON');
+                      setIsAssignDialogOpen(true);
+                    }}
+                    disabled={!ticket}
+                    className="w-full justify-between h-12 bg-gradient-to-r from-[#9E3B47] to-[#CE9F6B] hover:from-[#9E3B47] hover:to-[#9E3B47]/90 text-white shadow-lg shadow-[#9E3B47]/25 hover:shadow-xl transition-all duration-200"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="p-1.5 rounded-lg bg-white/20">
+                        <Wrench className="h-4 w-4" />
+                      </div>
+                      <div className="text-left">
+                        <div className="font-semibold text-sm">Assign to Service Person</div>
                       </div>
                     </div>
                     <ChevronRight className="h-4 w-4" />
@@ -762,9 +818,9 @@ export default function TicketDetailPage() {
                           </div>
                         </div>
                       ))}
+                      </div>
                     </div>
-                  </div>
-                ) : (
+                  ) : (
                   <div className="text-center py-8">
                     <div className="h-16 w-16 rounded-full bg-[#6F8A9D]/10 flex items-center justify-center mx-auto mb-4">
                       <History className="h-8 w-8 text-[#6F8A9D]" />
@@ -777,8 +833,8 @@ export default function TicketDetailPage() {
             </CardContent>
           </Card>
         </div>
-        </div>
       </div>
+    </div>
 
       <AssignTicketDialog
         open={isAssignDialogOpen}
@@ -787,6 +843,12 @@ export default function TicketDetailPage() {
         onSuccess={fetchTicketDetails}
         zoneId={ticket.zone?.id}
         initialStep={assignmentStep}
+        currentAssignedExpertHelpdesk={ticket.assignedTo && ticket.assignedTo.role === 'EXPERT_HELPDESK' ? {
+          id: ticket.assignedTo.id.toString(),
+          name: ticket.assignedTo.name || 'No name',
+          email: ticket.assignedTo.email,
+          phone: ticket.assignedTo.phone || undefined
+        } : null}
         currentAssignedZoneUser={ticket.assignedTo && (ticket.assignedTo.role === 'ZONE_USER' || ticket.assignedTo.role === 'ZONE_MANAGER') ? {
           id: ticket.assignedTo.id.toString(),
           name: ticket.assignedTo.name || 'No name',

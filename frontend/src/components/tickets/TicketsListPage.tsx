@@ -85,7 +85,7 @@ export default function TicketsListPage({
   const [tickets, setTickets] = useState<any[]>([])
   const [zones, setZones] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [pagination, setPagination] = useState({ page: 1, limit: 25, total: 0, totalPages: 0 })
+  const [pagination, setPagination] = useState({ page: 1, limit: 100, total: 0, totalPages: 0 })
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedZone, setSelectedZone] = useState('All Zones')
   const [selectedStatus, setSelectedStatus] = useState('All Status')
@@ -393,13 +393,43 @@ export default function TicketsListPage({
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          {ticket.assignedTo ? (
-                            <span className="text-[#5D6E73] text-sm">{ticket.assignedTo.name?.split(' ')[0]}</span>
-                          ) : (
-                            <span className="text-[#979796] text-xs italic">Unassigned</span>
-                          )}
-                        </div>
+                        {(() => {
+                          try {
+                            const metadata = ticket.relatedMachineIds ? JSON.parse(ticket.relatedMachineIds) : {};
+                            const teamMembers = metadata.teamMembers || [];
+                            
+                            if (teamMembers.length > 0) {
+                              return (
+                                <div className="flex flex-col gap-0.5">
+                                  {teamMembers.map((name: string, idx: number) => (
+                                    <span key={idx} className={`${idx === 0 ? 'text-[#5D6E73] font-medium text-sm' : 'text-[#979796] text-[10px]'} flex items-center`}>
+                                      {idx > 0 && <Plus className="h-2 w-2 mr-1 flex-shrink-0" />}
+                                      {name.split(' ')[0]}
+                                    </span>
+                                  ))}
+                                </div>
+                              );
+                            }
+                          } catch (e) {
+                            // Fallback to normal display if metadata is missing or invalid
+                          }
+
+                          return (
+                            <div className="flex flex-col gap-0.5">
+                              {ticket.assignedTo ? (
+                                <span className="text-[#5D6E73] text-sm font-medium">{ticket.assignedTo.name?.split(' ')[0]}</span>
+                              ) : (
+                                <span className="text-[#979796] text-xs italic">Unassigned</span>
+                              )}
+                              {ticket.subOwner && (
+                                <span className="text-[#979796] text-[10px] flex items-center">
+                                  <Plus className="h-2 w-2 mr-1" />
+                                  {ticket.subOwner.name?.split(' ')[0]}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </td>
                       {(role === UserRole.ZONE_USER || role === UserRole.ZONE_MANAGER || role === UserRole.ADMIN || role === UserRole.EXPERT_HELPDESK) && (
                         <td className="px-4 py-3">

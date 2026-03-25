@@ -139,7 +139,7 @@ export default function ServicePersonClient({
       
       const params = new URLSearchParams();
       params.append('page', currentPage.toString());
-      params.append('limit', '30');
+      params.append('limit', '100');
       if (search) params.append('search', search);
 
       const response = await api.get(`/service-persons?${params.toString()}`);

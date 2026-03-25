@@ -5,6 +5,17 @@ import { calculateBusinessHoursInMinutes } from '../utils/dateUtils';
 
 import prisma from '../config/db';
 
+// Helper to safely parse imported Excel metadata from relatedMachineIds JSON field
+function parseTicketMetadata(relatedMachineIds: string | null): Record<string, any> {
+  if (!relatedMachineIds) return {};
+  try {
+    const parsed = JSON.parse(relatedMachineIds);
+    return typeof parsed === 'object' && parsed !== null ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
 interface DashboardStats {
   openTickets: { count: number; change: number };
   unassignedTickets: { count: number; critical: boolean };
@@ -588,147 +599,112 @@ export const getDashboardData = async (req: Request, res: Response) => {
 }
 
 // Helper function to calculate average response time
+// Prefers imported Excel "Respond time" value, falls back to status history calculation
 async function calculateAverageResponseTime(startDate: Date, endDate: Date) {
   try {
-    // Get tickets that have moved from OPEN to ASSIGNED status within the time period
-    const ticketsWithStatusHistory = await prisma.ticket.findMany({
+    const tickets = await prisma.ticket.findMany({
       where: {
         createdAt: {
           gte: startDate,
           lte: endDate
         }
       },
-      take: 2000, // Safety limit
+      take: 2000,
       select: {
         id: true,
         createdAt: true,
+        relatedMachineIds: true,
         statusHistory: {
-          where: {
-            status: 'ASSIGNED'
-          },
-          orderBy: {
-            changedAt: 'asc'
-          },
-          select: {
-            status: true,
-            changedAt: true
-          }
+          where: { status: 'ASSIGNED' },
+          orderBy: { changedAt: 'asc' },
+          select: { status: true, changedAt: true }
         }
       }
     });
 
-    // Calculate response times (time from ticket creation to ASSIGNED - first response)
-    const responseTimes = ticketsWithStatusHistory
+    const responseTimes = tickets
       .map((ticket: any) => {
-        const statusHistory = ticket.statusHistory;
-
-        // Find the ASSIGNED status record (first response/assignment)
-        const assignedStatus = statusHistory.find((h: any) => h.status === 'ASSIGNED');
-
-        if (assignedStatus) {
-          // Calculate business hours from ticket creation to ASSIGNED
-          return calculateBusinessHoursInMinutes(ticket.createdAt, assignedStatus.changedAt);
+        // Priority 1: Use imported Excel respond time (in minutes)
+        const metadata = parseTicketMetadata(ticket.relatedMachineIds);
+        if (metadata.respondTimeMinutes && metadata.respondTimeMinutes > 0) {
+          return metadata.respondTimeMinutes;
         }
 
+        // Priority 2: Calculate from status history (for app-created tickets)
+        const assignedStatus = ticket.statusHistory?.find((h: any) => h.status === 'ASSIGNED');
+        if (assignedStatus) {
+          return calculateBusinessHoursInMinutes(ticket.createdAt, assignedStatus.changedAt);
+        }
         return null;
       })
       .filter((time: number | null): time is number => time !== null && time > 0);
 
     if (responseTimes.length === 0) {
-      // If no tickets with proper status transitions, return zeros
       return { hours: 0, minutes: 0, change: 0, isPositive: true };
     }
 
-    // Calculate average in minutes
     const averageMinutes = responseTimes.reduce((sum: number, time: number) => sum + time, 0) / responseTimes.length;
-
-    // Convert to hours and minutes
     const hours = Math.floor(averageMinutes / 60);
     const minutes = Math.round(averageMinutes % 60);
-
-    const isPositive = averageMinutes < 120; // Positive if less than 2 hours
+    const isPositive = averageMinutes < 120;
 
     return { hours, minutes, change: 0, isPositive };
   } catch (error) {
-    return { hours: 0, minutes: 0, change: 0, isPositive: true }; // Return zeros on error
+    return { hours: 0, minutes: 0, change: 0, isPositive: true };
   }
 }
 
 // Helper function to calculate average resolution time
+// Prefers imported Excel "Downtime" value, falls back to date-based calculation
 async function calculateAverageResolutionTime(startDate: Date, endDate: Date): Promise<{ days: number, hours: number, minutes: number, change: number, isPositive: boolean }> {
   try {
-    // Get tickets that are CLOSED (final resolution)
+    // Get tickets that are CLOSED or RESOLVED
     const closedTickets = await prisma.ticket.findMany({
       where: {
-        status: 'CLOSED',
-        updatedAt: {
+        status: { in: ['CLOSED', 'RESOLVED'] },
+        createdAt: {
           gte: startDate,
           lte: endDate
         }
       },
-      take: 2000, // Safety limit
+      take: 2000,
       select: {
         createdAt: true,
         updatedAt: true,
-        status: true
+        status: true,
+        actualResolutionTime: true,
+        relatedMachineIds: true
       }
     });
 
-    // Calculate resolution times (business hours from ticket open to CLOSED)
     const resolutionTimes = closedTickets
       .map((ticket: any) => {
+        // Priority 1: Use imported Excel downtime (actualResolutionTime is already in minutes)
+        if (ticket.actualResolutionTime && ticket.actualResolutionTime > 0) {
+          return ticket.actualResolutionTime;
+        }
+        // Priority 2: Check metadata for downtimeMinutes
+        const metadata = parseTicketMetadata(ticket.relatedMachineIds);
+        if (metadata.downtimeMinutes && metadata.downtimeMinutes > 0) {
+          return metadata.downtimeMinutes;
+        }
+        // Priority 3: Calculate from dates (for app-created tickets)
         return calculateBusinessHoursInMinutes(ticket.createdAt, ticket.updatedAt);
       })
-      .filter((time: any) => time > 0); // Filter out negative times
+      .filter((time: any) => time > 0);
 
     if (resolutionTimes.length === 0) {
-      // If no resolved tickets, check for any tickets that might be resolved
-      const allTickets = await prisma.ticket.findMany({
-        where: {
-          createdAt: {
-            gte: startDate,
-            lte: endDate
-          }
-        },
-        take: 2000, // Safety limit
-        select: {
-          createdAt: true,
-          updatedAt: true,
-          status: true
-        }
-      });
-
-      if (allTickets.length > 0) {
-        // Use average age of all tickets as a baseline (business hours)
-        const avgMinutes = allTickets.reduce((sum: any, ticket: any) => {
-          return sum + calculateBusinessHoursInMinutes(ticket.createdAt, ticket.updatedAt);
-        }, 0) / allTickets.length;
-
-        // Convert business minutes to business days (8 hours per business day)
-        const businessHoursPerDay = 8 * 60; // 480 minutes per business day
-        const days = Math.floor(avgMinutes / businessHoursPerDay);
-        const remainingMinutesAfterDays = avgMinutes % businessHoursPerDay;
-        const hours = Math.floor(remainingMinutesAfterDays / 60);
-        const minutes = Math.round(remainingMinutesAfterDays % 60);
-        const isPositive = avgMinutes < (2 * businessHoursPerDay); // Less than 2 business days
-
-        return { days, hours, minutes, change: 0, isPositive };
-      }
-
-      return { days: 0, hours: 0, minutes: 0, change: 0, isPositive: true }; // Return zeros when no data
+      return { days: 0, hours: 0, minutes: 0, change: 0, isPositive: true };
     }
 
-    // Calculate average in minutes
     const averageMinutes = resolutionTimes.reduce((sum: number, time: number) => sum + time, 0) / resolutionTimes.length;
 
-    // Convert business minutes to business days (8 hours per business day)
-    const businessHoursPerDay = 8 * 60; // 480 minutes per business day
+    const businessHoursPerDay = 8 * 60;
     const days = Math.floor(averageMinutes / businessHoursPerDay);
     const remainingMinutesAfterDays = averageMinutes % businessHoursPerDay;
     const hours = Math.floor(remainingMinutesAfterDays / 60);
     const minutes = Math.round(remainingMinutesAfterDays % 60);
-
-    const isPositive = averageMinutes < (2 * businessHoursPerDay); // Positive if less than 2 business days
+    const isPositive = averageMinutes < (2 * businessHoursPerDay);
 
     return { days, hours, minutes, change: 0, isPositive };
   } catch (error) {
@@ -736,97 +712,77 @@ async function calculateAverageResolutionTime(startDate: Date, endDate: Date): P
   }
 }
 
-// Helper function to calculate average downtime
+// Helper function to calculate average downtime (Machine Downtime)
+// Prefers imported Excel "Downtime" value, falls back to status history calculation
 async function calculateAverageDowntime(startDate: Date, endDate: Date): Promise<{ hours: number, minutes: number, change: number, isPositive: boolean }> {
   try {
-    // Calculate machine downtime using status history (ticket open to CLOSED_PENDING/RESOLVED/CLOSED)
-    // Find tickets that reached CLOSED_PENDING status in the period
-    const closedStatusHistory = await prisma.ticketStatusHistory.findMany({
+    // First: Get tickets with imported Excel downtime data (actualResolutionTime or metadata)
+    const ticketsInPeriod = await prisma.ticket.findMany({
       where: {
-        status: {
-          in: ['CLOSED_PENDING', 'RESOLVED', 'CLOSED']
-        },
-        changedAt: {
+        createdAt: {
           gte: startDate,
           lte: endDate
-        }
+        },
+        status: { in: ['CLOSED', 'RESOLVED', 'CLOSED_PENDING'] }
       },
-      take: 2000, // Safety limit
-      include: {
-        ticket: {
-          select: {
-            createdAt: true,
-            id: true
-          }
-        }
-      },
-      orderBy: {
-        changedAt: 'asc'
+      take: 2000,
+      select: {
+        id: true,
+        createdAt: true,
+        updatedAt: true,
+        actualResolutionTime: true,
+        relatedMachineIds: true
       }
     });
 
-    if (closedStatusHistory.length === 0) {
-      // If no closed tickets, calculate based on currently open tickets
+    const downtimes: number[] = [];
+
+    for (const ticket of ticketsInPeriod) {
+      // Priority 1: Use imported Excel downtime (actualResolutionTime)
+      if (ticket.actualResolutionTime && ticket.actualResolutionTime > 0) {
+        downtimes.push(ticket.actualResolutionTime);
+        continue;
+      }
+      // Priority 2: Check metadata for downtimeMinutes
+      const metadata = parseTicketMetadata(ticket.relatedMachineIds);
+      if (metadata.downtimeMinutes && metadata.downtimeMinutes > 0) {
+        downtimes.push(metadata.downtimeMinutes);
+        continue;
+      }
+      // Priority 3: Calculate from dates
+      const calcTime = calculateBusinessHoursInMinutes(ticket.createdAt, ticket.updatedAt);
+      if (calcTime > 0) {
+        downtimes.push(calcTime);
+      }
+    }
+
+    if (downtimes.length === 0) {
+      // If no closed tickets with downtime, check open tickets
       const openTickets = await prisma.ticket.findMany({
         where: {
-          status: {
-            in: ['OPEN', 'ASSIGNED', 'IN_PROGRESS', 'ONSITE_VISIT', 'WAITING_CUSTOMER']
-          },
-          createdAt: {
-            gte: startDate,
-            lte: endDate
-          }
+          status: { in: ['OPEN', 'ASSIGNED', 'IN_PROGRESS', 'ONSITE_VISIT', 'WAITING_CUSTOMER'] },
+          createdAt: { gte: startDate, lte: endDate }
         },
-        take: 2000, // Safety limit
-        select: {
-          createdAt: true,
-          updatedAt: true
-        }
+        take: 2000,
+        select: { createdAt: true }
       });
 
       if (openTickets.length > 0) {
-        // Use current age of open tickets as downtime (business hours)
         const now = new Date();
         const avgDowntime = openTickets.reduce((sum: any, ticket: any) => {
           return sum + calculateBusinessHoursInMinutes(ticket.createdAt, now);
         }, 0) / openTickets.length;
-
         const hours = Math.floor(avgDowntime / 60);
         const minutes = Math.round(avgDowntime % 60);
-        const isPositive = avgDowntime < 240; // Less than 4 hours is positive
-
-        return { hours, minutes, change: 0, isPositive };
+        return { hours, minutes, change: 0, isPositive: avgDowntime < 240 };
       }
-
       return { hours: 0, minutes: 0, change: 0, isPositive: true };
     }
 
-    // Group by ticket ID and find first closure time for each ticket
-    const ticketClosureTimes = new Map<number, Date>();
-    closedStatusHistory.forEach(history => {
-      if (!ticketClosureTimes.has(history.ticketId)) {
-        ticketClosureTimes.set(history.ticketId, history.changedAt);
-      }
-    });
-
-    // Calculate downtime for each ticket (creation to first closure)
-    const downtimes = Array.from(ticketClosureTimes.entries()).map(([ticketId, closedAt]) => {
-      const ticket = closedStatusHistory.find(h => h.ticketId === ticketId)?.ticket;
-      if (!ticket) return 0;
-      return calculateBusinessHoursInMinutes(ticket.createdAt, closedAt);
-    }).filter((time: number) => time > 0);
-
-    if (downtimes.length === 0) {
-      return { hours: 0, minutes: 0, change: 0, isPositive: true };
-    }
-
-    const averageMinutes = downtimes.reduce((sum: number, time: number) => sum + time, 0) / downtimes.length;
-
-    // Convert to hours and minutes
+    const averageMinutes = downtimes.reduce((sum, time) => sum + time, 0) / downtimes.length;
     const hours = Math.floor(averageMinutes / 60);
     const minutes = Math.round(averageMinutes % 60);
-
-    const isPositive = averageMinutes < 240; // Positive if less than 4 hours
+    const isPositive = averageMinutes < 240;
 
     return { hours, minutes, change: 0, isPositive };
   } catch (error) {
@@ -1057,11 +1013,10 @@ async function getTicketTrends(days: number = 30) {
   }
 }
 
-// Helper function to calculate average travel time (same as service person reports)
-// Travel time: ONSITE_VISIT_STARTED to ONSITE_VISIT_REACHED + ONSITE_VISIT_RESOLVED to ONSITE_VISIT_COMPLETED
+// Helper function to calculate average travel time
+// Prefers imported Excel "Travel Hour" (Leg A + Leg B), falls back to status history
 async function calculateAverageTravelTime(startDate: Date, endDate: Date) {
   try {
-    // Get tickets within the date range for consistent period-based metrics
     const tickets = await prisma.ticket.findMany({
       where: {
         createdAt: {
@@ -1069,39 +1024,41 @@ async function calculateAverageTravelTime(startDate: Date, endDate: Date) {
           lte: endDate
         }
       },
-      take: 2000, // Safety limit
-      include: {
+      take: 2000,
+      select: {
+        id: true,
+        relatedMachineIds: true,
         statusHistory: {
-          orderBy: {
-            changedAt: 'asc',
-          },
-        },
-      },
+          orderBy: { changedAt: 'asc' },
+          select: { status: true, changedAt: true }
+        }
+      }
     });
 
     const travelTimes: number[] = [];
 
     for (const ticket of tickets) {
-      const statusHistory = ticket.statusHistory;
+      // Priority 1: Use imported Excel travel hour (in minutes)
+      const metadata = parseTicketMetadata(ticket.relatedMachineIds);
+      if (metadata.travelHourMinutes && metadata.travelHourMinutes > 0) {
+        travelTimes.push(metadata.travelHourMinutes);
+        continue;
+      }
+
+      // Priority 2: Calculate from status history (for app-created tickets)
+      const statusHistory = ticket.statusHistory || [];
       if (statusHistory.length > 0) {
-        // Travel time: ONSITE_VISIT_STARTED to ONSITE_VISIT_REACHED + ONSITE_VISIT_RESOLVED to ONSITE_VISIT_COMPLETED
-        const goingStart = statusHistory.find(h => h.status === 'ONSITE_VISIT_STARTED');
-        const goingEnd = statusHistory.find(h => h.status === 'ONSITE_VISIT_REACHED');
-        const returnStart = statusHistory.find(h => h.status === 'ONSITE_VISIT_RESOLVED');
-        const returnEnd = statusHistory.find(h => h.status === 'ONSITE_VISIT_COMPLETED');
-
+        const goingStart = statusHistory.find((h: any) => h.status === 'ONSITE_VISIT_STARTED');
+        const goingEnd = statusHistory.find((h: any) => h.status === 'ONSITE_VISIT_REACHED');
+        const returnStart = statusHistory.find((h: any) => h.status === 'ONSITE_VISIT_RESOLVED');
+        const returnEnd = statusHistory.find((h: any) => h.status === 'ONSITE_VISIT_COMPLETED');
         let ticketTravelTime = 0;
-
-        // Going travel time
         if (goingStart && goingEnd && goingStart.changedAt < goingEnd.changedAt) {
           ticketTravelTime += differenceInMinutes(goingEnd.changedAt, goingStart.changedAt);
         }
-
-        // Return travel time
         if (returnStart && returnEnd && returnStart.changedAt < returnEnd.changedAt) {
           ticketTravelTime += differenceInMinutes(returnEnd.changedAt, returnStart.changedAt);
         }
-
         if (ticketTravelTime > 0) {
           travelTimes.push(ticketTravelTime);
         }
@@ -1109,39 +1066,22 @@ async function calculateAverageTravelTime(startDate: Date, endDate: Date) {
     }
 
     if (travelTimes.length === 0) {
-      return {
-        hours: 0,
-        minutes: 0,
-        change: 0,
-        isPositive: true
-      };
+      return { hours: 0, minutes: 0, change: 0, isPositive: true };
     }
 
-    // Calculate average in minutes
-    const avgMinutes = Math.round((travelTimes.reduce((sum, time) => sum + time, 0) / travelTimes.length));
+    const avgMinutes = Math.round(travelTimes.reduce((sum, time) => sum + time, 0) / travelTimes.length);
     const hours = Math.floor(avgMinutes / 60);
     const minutes = avgMinutes % 60;
-    return {
-      hours,
-      minutes,
-      change: 0,
-      isPositive: true
-    };
+    return { hours, minutes, change: 0, isPositive: true };
   } catch (error) {
-    return {
-      hours: 0,
-      minutes: 0,
-      change: 0,
-      isPositive: true
-    };
+    return { hours: 0, minutes: 0, change: 0, isPositive: true };
   }
 }
 
-// Helper function to calculate average onsite resolution time (same as service person reports)
-// Onsite work time: ONSITE_VISIT_IN_PROGRESS to ONSITE_VISIT_RESOLVED
+// Helper function to calculate average onsite resolution time
+// Prefers imported Excel "Work Hour" value, falls back to status history
 async function calculateAverageOnsiteResolutionTime(startDate: Date, endDate: Date) {
   try {
-    // Get tickets within the date range for consistent period-based metrics
     const tickets = await prisma.ticket.findMany({
       where: {
         createdAt: {
@@ -1149,25 +1089,32 @@ async function calculateAverageOnsiteResolutionTime(startDate: Date, endDate: Da
           lte: endDate
         }
       },
-      take: 2000, // Safety limit
-      include: {
+      take: 2000,
+      select: {
+        id: true,
+        relatedMachineIds: true,
         statusHistory: {
-          orderBy: {
-            changedAt: 'asc',
-          },
-        },
-      },
+          orderBy: { changedAt: 'asc' },
+          select: { status: true, changedAt: true }
+        }
+      }
     });
 
     const onsiteTimes: number[] = [];
 
     for (const ticket of tickets) {
-      const statusHistory = ticket.statusHistory;
-      if (statusHistory.length > 0) {
-        // Onsite work time: ONSITE_VISIT_IN_PROGRESS to ONSITE_VISIT_RESOLVED
-        const onsiteStart = statusHistory.find(h => h.status === 'ONSITE_VISIT_IN_PROGRESS');
-        const onsiteEnd = statusHistory.find(h => h.status === 'ONSITE_VISIT_RESOLVED');
+      // Priority 1: Use imported Excel work hour (in minutes)
+      const metadata = parseTicketMetadata(ticket.relatedMachineIds);
+      if (metadata.workHourMinutes && metadata.workHourMinutes > 0) {
+        onsiteTimes.push(metadata.workHourMinutes);
+        continue;
+      }
 
+      // Priority 2: Calculate from status history (for app-created tickets)
+      const statusHistory = ticket.statusHistory || [];
+      if (statusHistory.length > 0) {
+        const onsiteStart = statusHistory.find((h: any) => h.status === 'ONSITE_VISIT_IN_PROGRESS');
+        const onsiteEnd = statusHistory.find((h: any) => h.status === 'ONSITE_VISIT_RESOLVED');
         if (onsiteStart && onsiteEnd && onsiteStart.changedAt < onsiteEnd.changedAt) {
           const onsiteTime = differenceInMinutes(onsiteEnd.changedAt, onsiteStart.changedAt);
           if (onsiteTime > 0) {
@@ -1178,31 +1125,15 @@ async function calculateAverageOnsiteResolutionTime(startDate: Date, endDate: Da
     }
 
     if (onsiteTimes.length === 0) {
-      return {
-        hours: 0,
-        minutes: 0,
-        change: 0,
-        isPositive: true
-      };
+      return { hours: 0, minutes: 0, change: 0, isPositive: true };
     }
 
-    // Calculate average in minutes
-    const avgMinutes = Math.round((onsiteTimes.reduce((sum, time) => sum + time, 0) / onsiteTimes.length));
+    const avgMinutes = Math.round(onsiteTimes.reduce((sum, time) => sum + time, 0) / onsiteTimes.length);
     const hours = Math.floor(avgMinutes / 60);
     const minutes = avgMinutes % 60;
-    return {
-      hours,
-      minutes,
-      change: 0,
-      isPositive: true
-    };
+    return { hours, minutes, change: 0, isPositive: true };
   } catch (error) {
-    return {
-      hours: 0,
-      minutes: 0,
-      change: 0,
-      isPositive: true
-    };
+    return { hours: 0, minutes: 0, change: 0, isPositive: true };
   }
 }
 

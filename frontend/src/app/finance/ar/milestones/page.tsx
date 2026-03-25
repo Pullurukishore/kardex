@@ -1036,13 +1036,21 @@ export default function ARMilestonesPage() {
                                  <div className="absolute -left-3 top-0 bottom-0 w-1 bg-gradient-to-b from-transparent via-[#82A094] to-transparent rounded-full" />
                               </div>
                               <div className="flex flex-col items-end gap-1">
-                                 <div className="flex items-center gap-2 bg-gradient-to-r from-[#82A094]/10 to-[#4F6A64]/5 px-2.5 py-1 rounded-lg border border-[#82A094]/20">
-                                    <span className="text-[9px] font-bold text-[#82A094] uppercase tracking-wide">Received</span>
-                                    <span className="text-[10px] font-bold text-[#4F6A64]">{formatARCurrency(Number(invoice.totalReceipts))}</span>
-                                 </div>
-                                 <div className="flex items-center gap-2 bg-gradient-to-r from-[#E17F70]/10 to-[#9E3B47]/5 px-2.5 py-1 rounded-lg border border-[#E17F70]/20">
-                                    <span className="text-[9px] font-bold text-[#E17F70] uppercase tracking-wide">Balance</span>
-                                    <span className="text-[10px] font-bold text-[#9E3B47]">{formatARCurrency(Number(invoice.balance))}</span>
+                                 <div className="flex flex-col items-end gap-1.5">
+                                    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border-2 transition-all ${Number(invoice.totalReceipts) > 0 ? 'bg-gradient-to-r from-[#82A094]/20 to-[#4F6A64]/10 border-[#82A094]/40 shadow-sm' : 'bg-[#AEBFC3]/5 border-[#AEBFC3]/20'}`}>
+                                       <span className="text-[10px] font-black text-[#4F6A64] uppercase tracking-wider">Received</span>
+                                       <span className="text-xs font-black text-[#4F6A64]">{formatARCurrency(Number(invoice.totalReceipts))}</span>
+                                    </div>
+                                    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border-2 transition-all ${Number(invoice.balance) <= 0 ? 'bg-gradient-to-r from-[#82A094] to-[#4F6A64] border-transparent shadow-lg shadow-[#82A094]/20' : 'bg-gradient-to-r from-[#E17F70]/10 to-[#9E3B47]/5 border-[#E17F70]/30'}`}>
+                                       <span className={`text-[10px] font-black uppercase tracking-wider ${Number(invoice.balance) <= 0 ? 'text-white' : 'text-[#9E3B47]'}`}>Balance</span>
+                                       <span className={`text-xs font-black ${Number(invoice.balance) <= 0 ? 'text-white' : 'text-[#9E3B47]'}`}>
+                                          {Number(invoice.balance) <= 0 ? (
+                                            <span className="flex items-center gap-1.5">
+                                              <CheckCircle2 className="w-3.5 h-3.5" /> PAID
+                                            </span>
+                                          ) : formatARCurrency(Number(invoice.balance))}
+                                       </span>
+                                    </div>
                                  </div>
                               </div>
                            </div>

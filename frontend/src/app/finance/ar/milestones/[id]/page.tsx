@@ -397,7 +397,7 @@ export default function MilestoneViewPage() {
         <div className="relative z-10">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-10">
             <button 
-              onClick={() => window.history.length > 2 ? router.back() : router.push('/finance/ar/milestones')}
+              onClick={() => router.push('/finance/ar/milestones')}
               className="group flex items-center gap-3 text-[#5D6E73] hover:text-[#546A7A] transition-all"
             >
               <div className="p-2.5 rounded-xl bg-gradient-to-br from-[#CE9F6B]/10 to-[#976E44]/10 shadow-lg border-2 border-[#CE9F6B]/20 group-hover:from-[#CE9F6B]/20 group-hover:to-[#976E44]/20 transition-colors">

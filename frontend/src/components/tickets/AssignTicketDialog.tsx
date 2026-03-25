@@ -363,6 +363,8 @@ export function AssignTicketDialog({ open, onOpenChange, ticketId, onSuccess, zo
       await handleAssignToZoneUser(selectedUserId);
     } else if (currentStep === 'EXPERT_HELPDESK') {
       await handleAssignToExpertHelpdesk(selectedUserId);
+    } else if (currentStep === 'SERVICE_PERSON') {
+      await handleAssign();
     }
   };
 
@@ -638,7 +640,7 @@ export function AssignTicketDialog({ open, onOpenChange, ticketId, onSuccess, zo
               ) : (
                 <>
                   <UserCheck className="mr-2 h-4 w-4" />
-                  Assign to {currentStep === 'ZONE_USER' ? 'Zone User' : 'Expert'}
+                  Assign to {currentStep === 'ZONE_USER' ? 'Zone User' : currentStep === 'SERVICE_PERSON' ? 'Service Person' : 'Expert'}
                 </>
               )}
             </Button>

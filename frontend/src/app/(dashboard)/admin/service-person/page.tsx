@@ -26,7 +26,7 @@ export default async function ServicePersonsPage({ params, searchParams }: Servi
   // Server-side data fetching
   const response = await getServicePersons({
     page: currentPage,
-    limit: 30,
+    limit: 100,
     search: search || undefined,
   });
 

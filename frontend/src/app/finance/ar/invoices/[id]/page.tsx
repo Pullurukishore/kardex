@@ -521,7 +521,7 @@ export default function InvoiceViewPage() {
           {/* Top Row - Back & Actions */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
             <button 
-              onClick={() => window.history.length > 2 ? router.back() : router.push('/finance/ar/invoices')}
+              onClick={() => router.push('/finance/ar/invoices')}
               className="flex items-center gap-2 text-[#5D6E73] hover:text-[#546A7A] transition-colors group"
             >
               <div className="p-2.5 rounded-xl bg-[#AEBFC3]/10 border-2 border-[#AEBFC3]/20 group-hover:bg-[#AEBFC3]/20 group-hover:border-[#AEBFC3]/40 transition-all group-hover:scale-105">

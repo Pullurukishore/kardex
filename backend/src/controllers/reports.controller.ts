@@ -255,6 +255,8 @@ async function generateTicketSummaryReport(res: Response, whereClause: any, star
         visitStartedAt: true,
         visitReachedAt: true,
         visitInProgressAt: true,
+        actualResolutionTime: true,
+        relatedMachineIds: true,
         customerId: true,
         zoneId: true,
         assignedToId: true,
@@ -347,50 +349,57 @@ async function generateTicketSummaryReport(res: Response, whereClause: any, star
     t.status === 'RESOLVED' || t.status === 'CLOSED'
   );
 
+  // Calculate average resolution time
   let avgResolutionTime = 0;
   if (resolvedTickets.length > 0) {
-    // Get tickets with status history to find actual resolution time
-    const ticketsWithHistory = await prisma.ticket.findMany({
-      where: {
-        id: { in: resolvedTickets.map((t: any) => t.id) }
-      },
-      include: {
-        statusHistory: {
-          where: {
-            status: { in: ['RESOLVED', 'CLOSED'] }
-          },
-          orderBy: { changedAt: 'desc' },
-          take: 1
-        }
-      }
-    });
-
     let totalTime = 0;
     let validTickets = 0;
 
-    for (const ticket of ticketsWithHistory) {
-      let resolutionTime: Date | null = null;
+    for (const ticket of tickets) {
+      // Only include resolved/closed tickets for this specific metric
+      if (ticket.status !== 'RESOLVED' && ticket.status !== 'CLOSED') continue;
 
-      // First try to get resolution time from status history
-      if (ticket.statusHistory && ticket.statusHistory.length > 0) {
-        resolutionTime = ticket.statusHistory[0].changedAt;
+      let resolutionMinutes = 0;
+
+      // Priority 1: Use imported Excel downtime (actualResolutionTime is already in minutes)
+      if (ticket.actualResolutionTime && ticket.actualResolutionTime > 0) {
+        resolutionMinutes = ticket.actualResolutionTime;
       }
-      // Fallback to updatedAt if no status history
-      else if (ticket.updatedAt && ticket.createdAt) {
-        // Only use updatedAt if it's significantly different from createdAt (more than 1 minute)
-        const timeDiff = differenceInMinutes(ticket.updatedAt, ticket.createdAt);
-        if (timeDiff > 1) {
-          resolutionTime = ticket.updatedAt;
+      // Priority 2: Check metadata for downtimeMinutes
+      else if (ticket.relatedMachineIds) {
+        try {
+          const metadata = JSON.parse(ticket.relatedMachineIds);
+          if (metadata?.downtimeMinutes && metadata.downtimeMinutes > 0) {
+            resolutionMinutes = metadata.downtimeMinutes;
+          }
+        } catch { /* ignore parse errors */ }
+      }
+
+      // Priority 3: Calculate from status history or dates (for app-created tickets)
+      if (resolutionMinutes === 0) {
+        let resolutionTime: Date | null = null;
+        if (ticket.statusHistory && ticket.statusHistory.length > 0) {
+          // Find the last resolved/closed status change
+          const lastChange = ticket.statusHistory.find((h: any) => h.status === 'RESOLVED' || h.status === 'CLOSED');
+          if (lastChange) resolutionTime = lastChange.changedAt;
+        }
+
+        if (!resolutionTime && ticket.updatedAt && ticket.createdAt) {
+          const timeDiff = differenceInMinutes(ticket.updatedAt, ticket.createdAt);
+          if (timeDiff > 1) {
+            resolutionTime = ticket.updatedAt;
+          }
+        }
+
+        if (resolutionTime && ticket.createdAt) {
+          resolutionMinutes = calculateBusinessHoursInMinutes(ticket.createdAt, resolutionTime);
         }
       }
 
-      if (resolutionTime && ticket.createdAt) {
-        const resolutionMinutes = calculateBusinessHoursInMinutes(ticket.createdAt, resolutionTime);
-        // Only include reasonable resolution times (between 1 minute and 30 business days)
-        if (resolutionMinutes >= 1 && resolutionMinutes <= (30 * 8 * 60)) { // 30 business days = 14400 minutes
-          totalTime += resolutionMinutes;
-          validTickets++;
-        }
+      // Only include reasonable resolution times (between 1 minute and 30 business days)
+      if (resolutionMinutes >= 1 && resolutionMinutes <= (30 * 8 * 60)) {
+        totalTime += resolutionMinutes;
+        validTickets++;
       }
     }
 
@@ -398,6 +407,47 @@ async function generateTicketSummaryReport(res: Response, whereClause: any, star
       avgResolutionTime = Math.round(totalTime / validTickets);
     }
   }
+
+  // Calculate onsite resolution time (Work Hour)
+  let avgOnsiteResolutionTime = 0;
+  const closedOrResolvedTickets = tickets.filter((t: any) => t.status === 'CLOSED' || t.status === 'RESOLVED');
+  if (closedOrResolvedTickets.length > 0) {
+    let totalOnsiteTime = 0;
+    let validOnsiteTickets = 0;
+
+    for (const ticket of closedOrResolvedTickets) {
+      let onsiteMinutes = 0;
+
+      // Priority 1: Use imported Excel work hour (metadata)
+      if (ticket.relatedMachineIds) {
+        try {
+          const metadata = JSON.parse(ticket.relatedMachineIds);
+          if (metadata?.workHourMinutes && metadata.workHourMinutes > 0) {
+            onsiteMinutes = metadata.workHourMinutes;
+          }
+        } catch { /* ignore parse errors */ }
+      }
+
+      // Priority 2: Calculate from status history (ONSITE_VISIT_IN_PROGRESS to ONSITE_VISIT_RESOLVED)
+      if (onsiteMinutes === 0 && ticket.statusHistory && ticket.statusHistory.length > 0) {
+        const start = ticket.statusHistory.find((h: any) => h.status === 'ONSITE_VISIT_IN_PROGRESS');
+        const end = ticket.statusHistory.find((h: any) => h.status === 'ONSITE_VISIT_RESOLVED' || h.status === 'RESOLVED');
+        if (start && end && start.changedAt < end.changedAt) {
+          onsiteMinutes = differenceInMinutes(new Date(end.changedAt), new Date(start.changedAt));
+        }
+      }
+
+      if (onsiteMinutes > 0 && onsiteMinutes <= 1440) { // Max 24 hours
+        totalOnsiteTime += onsiteMinutes;
+        validOnsiteTickets++;
+      }
+    }
+
+    if (validOnsiteTickets > 0) {
+      avgOnsiteResolutionTime = Math.round(totalOnsiteTime / validOnsiteTickets);
+    }
+  }
+
 
   // Calculate advanced metrics
   const now = new Date();
@@ -414,21 +464,42 @@ async function generateTicketSummaryReport(res: Response, whereClause: any, star
     : 0;
 
   // Calculate first response time
-  const ticketsWithHistory = tickets.filter((t: any) => t.statusHistory?.length > 0);
   let avgFirstResponseTime = 0;
-  if (ticketsWithHistory.length > 0) {
-    const firstResponseTimes = ticketsWithHistory
-      .map((t: any) => {
-        const firstResponse = t.statusHistory.find((h: any) => h.status !== 'OPEN');
-        if (firstResponse) {
-          return calculateBusinessHoursInMinutes(new Date(t.createdAt), new Date(firstResponse.changedAt));
-        }
-        return null;
-      })
-      .filter((time: number | null): time is number => time !== null && time > 0 && time <= (3 * 8 * 60)); // Max 3 business days
+  if (tickets.length > 0) {
+    let totalResponseTime = 0;
+    let validResponseTickets = 0;
 
-    if (firstResponseTimes.length > 0) {
-      avgFirstResponseTime = Math.round(firstResponseTimes.reduce((sum: number, time: number) => sum + time, 0) / firstResponseTimes.length);
+    for (const ticket of tickets) {
+      let responseMinutes = 0;
+
+      // Priority 1: Use imported Excel respond time (from metadata)
+      if (ticket.relatedMachineIds) {
+        try {
+          const metadata = JSON.parse(ticket.relatedMachineIds);
+          if (metadata?.respondTimeMinutes && metadata.respondTimeMinutes > 0) {
+            responseMinutes = metadata.respondTimeMinutes;
+          }
+        } catch { /* ignore parse errors */ }
+      }
+
+      // Priority 2: Calculate from status history (for app-created tickets)
+      if (responseMinutes === 0 && ticket.statusHistory && ticket.statusHistory.length > 0) {
+        // Find the first record that transitions out of OPEN
+        const firstResponse = ticket.statusHistory.find((h: any) => h.status !== 'OPEN');
+        if (firstResponse) {
+          responseMinutes = calculateBusinessHoursInMinutes(new Date(ticket.createdAt), new Date(firstResponse.changedAt));
+        }
+      }
+
+      // Only include reasonable first response times (max 3 business days = 1440 minutes)
+      if (responseMinutes > 0 && responseMinutes <= (3 * 8 * 60)) {
+        totalResponseTime += responseMinutes;
+        validResponseTickets++;
+      }
+    }
+
+    if (validResponseTickets > 0) {
+      avgFirstResponseTime = Math.round(totalResponseTime / validResponseTickets);
     }
   }
 
@@ -539,31 +610,42 @@ async function generateTicketSummaryReport(res: Response, whereClause: any, star
   }).sort((a: any, b: any) => b.totalTickets - a.totalTickets); // Sort by ticket count (most issues first)
 
   // Calculate onsite visit traveling time
-  const onsiteTickets = tickets.filter((t: any) =>
-    t.visitStartedAt && (t.visitReachedAt || t.visitInProgressAt)
-  );
-
   let avgOnsiteTravelTime = 0;
   let avgOnsiteTravelTimeHours = 0;
-  if (onsiteTickets.length > 0) {
-    const travelTimes = onsiteTickets
-      .map((t: any) => {
-        const startTime = new Date(t.visitStartedAt);
-        const reachTime = new Date(t.visitReachedAt || t.visitInProgressAt);
-        const travelMinutes = differenceInMinutes(reachTime, startTime);
+  if (tickets.length > 0) {
+    let totalTravelTime = 0;
+    let validTravelTickets = 0;
 
-        // Validate travel time (should be between 1 minute and 8 hours)
-        if (travelMinutes > 0 && travelMinutes <= 480) {
-          return travelMinutes;
-        }
-        return null;
-      })
-      .filter((time: number | null) => time !== null);
+    for (const ticket of tickets) {
+      let travelMinutes = 0;
 
-    if (travelTimes.length > 0) {
-      avgOnsiteTravelTime = Math.round(
-        travelTimes.reduce((sum: number, time: number) => sum + time, 0) / travelTimes.length
-      );
+      // Priority 1: Use imported Excel travel hour (metadata)
+      if (ticket.relatedMachineIds) {
+        try {
+          const metadata = JSON.parse(ticket.relatedMachineIds);
+          if (metadata?.travelHourMinutes && metadata.travelHourMinutes > 0) {
+            travelMinutes = metadata.travelHourMinutes;
+          }
+        } catch { /* ignore parse errors */ }
+      }
+
+      // Priority 2: Calculate from status history (VISIT_STARTED to REACHED)
+      const reachDate = (ticket.visitReachedAt || ticket.visitInProgressAt);
+      if (travelMinutes === 0 && ticket.visitStartedAt && reachDate) {
+        const startTime = new Date(ticket.visitStartedAt);
+        const reachTime = new Date(reachDate);
+        travelMinutes = differenceInMinutes(reachTime, startTime);
+      }
+
+      // Validate travel time (should be between 1 minute and 8 hours)
+      if (travelMinutes > 0 && travelMinutes <= 480) {
+        totalTravelTime += travelMinutes;
+        validTravelTickets++;
+      }
+    }
+
+    if (validTravelTickets > 0) {
+      avgOnsiteTravelTime = Math.round(totalTravelTime / validTravelTickets);
       avgOnsiteTravelTimeHours = Math.round(avgOnsiteTravelTime / 60);
     }
   }
@@ -598,6 +680,8 @@ async function generateTicketSummaryReport(res: Response, whereClause: any, star
         averageResolutionTimeDays: avgResolutionTime > 0 ? Math.round(avgResolutionTime / (60 * 24)) : 0,
         averageFirstResponseTime: avgFirstResponseTime,
         averageFirstResponseTimeHours: avgFirstResponseTime > 0 ? Math.round(avgFirstResponseTime / 60) : 0,
+        averageOnsiteResolutionTime: avgOnsiteResolutionTime,
+        averageOnsiteResolutionTimeHours: avgOnsiteResolutionTime > 0 ? Math.round(avgOnsiteResolutionTime / 60) : 0,
 
         // Customer satisfaction metrics
         ticketsWithFeedback: ticketsWithFeedback.length,
@@ -612,7 +696,7 @@ async function generateTicketSummaryReport(res: Response, whereClause: any, star
         // Onsite visit metrics
         avgOnsiteTravelTime: avgOnsiteTravelTime,
         avgOnsiteTravelTimeHours: avgOnsiteTravelTimeHours,
-        totalOnsiteVisits: onsiteTickets.length,
+        totalOnsiteVisits: tickets.filter((t: any) => t.visitStartedAt && (t.visitReachedAt || t.visitInProgressAt)).length,
       },
 
       // Enhanced distributions with names

@@ -752,9 +752,19 @@ export const importFromExcel = async (req: Request, res: Response) => {
                             type: row.type || null
                         };
 
-                        // Check if invoice already exists (by number AND type to prevent accidental overwrites)
+                        // Check if invoice already exists (by number AND type AND soNo to prevent merging different milestones)
+                        const whereClause: any = { 
+                            invoiceNumber: row.invoiceNumber, 
+                            invoiceType: row.invoiceType 
+                        };
+                        
+                        // For milestones, include soNo in uniqueness check to allow multiple records with empty invoice numbers
+                        if (row.invoiceType === 'MILESTONE') {
+                            whereClause.soNo = row.soNo;
+                        }
+
                         const existingInvoice = await tx.aRInvoice.findFirst({
-                            where: { invoiceNumber: row.invoiceNumber, invoiceType: row.invoiceType },
+                            where: whereClause,
                             select: { id: true, receipts: true, adjustments: true, totalReceipts: true }
                         });
 

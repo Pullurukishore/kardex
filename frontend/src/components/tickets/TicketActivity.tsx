@@ -294,7 +294,7 @@ export function TicketActivity({ ticketId, ticket }: { ticketId: number; ticket?
                       )}
                     </div>
                     <div className="space-y-2">
-                      <p className="text-sm text-muted-foreground">
+                      <div className="text-sm text-muted-foreground">
                         {activity.type === 'STATUS_CHANGE' ? (
                           <>
                             {activity.description} <Badge variant="outline" className="ml-1">{formatStatusName(activity.data.status || '')}</Badge>
@@ -418,7 +418,7 @@ export function TicketActivity({ ticketId, ticket }: { ticketId: number; ticket?
                             )}
                           </>
                         )}
-                      </p>
+                      </div>
                       
                       {/* Location Display for Onsite Visit Status Changes Only - Backend Address Resolution */}
                       {activity.type === 'STATUS_CHANGE' && activity.data.status && isOnsiteVisitStatus(activity.data.status) && ((activity.data.location || (activity.data.latitude && activity.data.longitude)) || hasLocationData(activity.data.notes)) && (

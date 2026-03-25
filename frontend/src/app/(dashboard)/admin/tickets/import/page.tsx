@@ -350,6 +350,7 @@ export default function TicketImportPage() {
                         <li>Ticket ID is used as unique key for updates</li>
                         <li>Customers, contacts & assets auto-created</li>
                         <li>Closed tickets need &ldquo;Closed On&rdquo; date</li>
+                        <li><b>Engineer columns must have real names</b> (not notes)</li>
                       </ul>
                     </div>
                   </div>
