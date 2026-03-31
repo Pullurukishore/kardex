@@ -113,7 +113,7 @@ export const register = async (req: Request, res: Response) => {
 
     res.cookie('token', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isProduction && !isLocal,
       sameSite: 'lax',
       maxAge: 1 * 60 * 60 * 1000, // 1 hour
       path: '/'
@@ -121,7 +121,7 @@ export const register = async (req: Request, res: Response) => {
 
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isProduction && !isLocal,
       sameSite: 'lax',
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
       path: '/'
@@ -130,7 +130,7 @@ export const register = async (req: Request, res: Response) => {
     // Set userRole as non-httpOnly so client can see it
     res.cookie('userRole', user.role, {
       httpOnly: false,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isProduction && !isLocal,
       sameSite: 'lax',
       maxAge: 1 * 60 * 60 * 1000, // 1 hour
       path: '/'
@@ -519,11 +519,14 @@ export const logout = async (req: AuthenticatedRequest, res: Response) => {
       });
     }
 
+    const isProduction = process.env.NODE_ENV === 'production';
+    const isLocal = req.headers.host?.includes('172.28.91.10') || req.headers.host?.includes('10.91.1.12') || req.headers.host?.includes('10.91.1.48') || req.headers.host?.includes('10.91.1.49') || req.headers.host?.includes('10.91.1.21') || req.headers.host?.includes('localhost');
+
     // Clear cookies
     const clearCookieOptions = {
       path: '/',
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isProduction && !isLocal,
       sameSite: 'lax' as const
     };
 
@@ -537,7 +540,7 @@ export const logout = async (req: AuthenticatedRequest, res: Response) => {
     const clientCookieOptions = {
       path: '/',
       httpOnly: false,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isProduction && !isLocal,
       sameSite: 'lax' as const
     };
     res.clearCookie('userRole', clientCookieOptions);
