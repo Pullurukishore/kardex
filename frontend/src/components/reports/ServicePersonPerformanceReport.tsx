@@ -95,7 +95,8 @@ export function ServicePersonPerformanceReport({ reportData }: ServicePersonPerf
       name: String(reportData.summary.mostActiveUser.name || ''),
       email: String(reportData.summary.mostActiveUser.email || ''),
       activityCount: Number(reportData.summary.mostActiveUser.activityCount || 0)
-    } : null
+    } : null,
+    uniqueMetrics: reportData.summary?.uniqueMetrics || null
   };
   
   const summary = safeSummary;
@@ -111,13 +112,23 @@ export function ServicePersonPerformanceReport({ reportData }: ServicePersonPerf
 
   return (
     <div className="space-y-6">
-      {/* Business Hours Notice */}
-      <div className="mb-6 p-4 bg-[#96AEC2]/10 border border-[#96AEC2] rounded-lg">
-        <div className="flex items-center gap-2 text-[#546A7A]">
-          <Info className="h-4 w-4" />
-          <span className="text-sm font-medium">
-            Time calculations are based on business hours only (9 AM - 5:30 PM, Monday to Saturday). Travel times show actual elapsed time.
-          </span>
+      {/* Information Notice */}
+      <div className="mb-6 p-4 bg-[#96AEC2]/10 border border-[#96AEC2] rounded-lg space-y-3">
+        <div className="flex items-start gap-2 text-[#546A7A]">
+          <Info className="h-5 w-5 shrink-0 mt-0.5" />
+          <div className="space-y-2">
+            <p className="text-sm font-medium">
+              Time calculations are based on business hours only (9 AM - 5:30 PM, Monday to Saturday). Travel times show actual elapsed time.
+            </p>
+            <div>
+              <p className="text-sm font-semibold mb-1">Performance Score Calculation:</p>
+              <ul className="text-xs list-disc pl-5 space-y-1">
+                <li><span className="font-semibold">Resolution Rate (40%-60% weight):</span> Percentage of successfully resolved tickets vs assigned.</li>
+                <li><span className="font-semibold">Speed Score (30%-40% weight):</span> Scales against average ticket resolution time. Perfect score if resolved under 8 hours (1 day); drops linearly to 0 by 72 hours (3 days).</li>
+                <li><span className="font-semibold">Efficiency Score (30% weight):</span> Scales against actual physical labor (travel + onsite time) baseline. Perfect score if under 4 hours per ticket; slowly scales down. <span className="text-muted-foreground italic">Note: If Travel/Onsite data is blank, this weight is dynamically reallocated to Resolution and Speed to prevent unfair penalization.</span></li>
+              </ul>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -135,7 +146,7 @@ export function ServicePersonPerformanceReport({ reportData }: ServicePersonPerf
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {reports.reduce((sum, person) => sum + ((person.summary || {}).totalTickets || 0), 0)}
+                {summary?.uniqueMetrics?.totalTickets ?? reports.reduce((sum, person) => sum + ((person.summary || {}).totalTickets || 0), 0)}
               </div>
               <p className="text-xs text-muted-foreground">
                 Across all service persons
@@ -150,7 +161,7 @@ export function ServicePersonPerformanceReport({ reportData }: ServicePersonPerf
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-[#4F6A64]">
-                {reports.reduce((sum, person) => sum + ((person.summary || {}).ticketsResolved || 0), 0)}
+                {summary?.uniqueMetrics?.ticketsResolved ?? reports.reduce((sum, person) => sum + ((person.summary || {}).ticketsResolved || 0), 0)}
               </div>
               <p className="text-xs text-muted-foreground">
                 Successfully completed

@@ -1,7 +1,8 @@
 import { Request, Response } from 'express';
 import { format as formatDate, subDays, eachDayOfInterval, startOfDay, endOfDay, differenceInMinutes } from 'date-fns';
+import { calculateTicketResolutionMinutes, BUSINESS_MINUTES_PER_DAY, calculateBusinessHoursInMinutes } from '../utils/dateUtils';
 import { generatePdf, getPdfColumns } from '../utils/pdfGenerator';
-import { AuthUser } from '../types/express';
+import { AuthUser, AuthenticatedRequest } from '../types/express';
 import prisma from '../config/db';
 
 interface ServicePersonReport {
@@ -32,9 +33,10 @@ interface ServicePersonReport {
 export const servicePersonReportsController = {
   // Get comprehensive service person reports with date range filtering
   async getServicePersonReports(req: Request, res: Response) {
+    const authReq = req as unknown as AuthenticatedRequest;
     try {
-      const userId = req.user?.id;
-      const userRole = req.user?.role;
+      const userId = authReq.user?.id;
+      const userRole = authReq.user?.role;
 
       if (!userId) {
         return res.status(401).json({ success: false, error: 'User not authenticated' });
@@ -47,6 +49,8 @@ export const servicePersonReportsController = {
       const {
         fromDate,
         toDate,
+        from,
+        to,
         servicePersonIds,
         zoneId,
         status,
@@ -62,8 +66,8 @@ export const servicePersonReportsController = {
         where: { role: 'SERVICE_PERSON', isActive: true }
       });
       // Parse date range
-      const startDate = fromDate ? new Date(fromDate as string) : subDays(new Date(), 30);
-      const endDate = toDate ? new Date(toDate as string) : new Date();
+      const startDate = (fromDate || from) ? new Date((fromDate || from) as string) : subDays(new Date(), 30);
+      const endDate = (toDate || to) ? new Date((toDate || to) as string) : new Date();
 
       // Set to start/end of day for proper filtering
       const fromDateTime = startOfDay(startDate);
@@ -132,6 +136,9 @@ export const servicePersonReportsController = {
         take: Number(limit),
       });
       // Process each service person's report
+      const uniqueTicketIds = new Set<number>();
+      const uniqueResolvedTicketIds = new Set<number>();
+
       const servicePersonReports = await Promise.all(
         servicePersons.map(async (person) => {
           // Get attendance records for the date range
@@ -179,6 +186,10 @@ export const servicePersonReportsController = {
           });
           // Get ticket performance metrics for this service person
           const ticketMetrics = await calculateServicePersonTicketMetrics(person.id, fromDateTime, toDateTime);
+          
+          ticketMetrics.ticketIds.forEach(id => uniqueTicketIds.add(id));
+          ticketMetrics.resolvedTicketIds.forEach(id => uniqueResolvedTicketIds.add(id));
+
           // Process day-wise breakdown - only include Monday to Saturday (working days)
           const daysInRange = eachDayOfInterval({
             start: fromDateTime,
@@ -374,6 +385,10 @@ export const servicePersonReportsController = {
           total: totalCount,
           page: Number(page),
           limit: Number(limit),
+          uniqueMetrics: {
+            totalTickets: uniqueTicketIds.size,
+            ticketsResolved: uniqueResolvedTicketIds.size,
+          }
         },
       });
     } catch (error) {
@@ -387,9 +402,10 @@ export const servicePersonReportsController = {
 
   // Get summary statistics for reports dashboard
   async getReportsSummary(req: Request, res: Response) {
+    const authReq = req as unknown as AuthenticatedRequest;
     try {
-      const userId = req.user?.id;
-      const userRole = req.user?.role;
+      const userId = authReq.user?.id;
+      const userRole = authReq.user?.role;
 
       if (!userId) {
         return res.status(401).json({ error: 'User not authenticated' });
@@ -627,9 +643,10 @@ export const servicePersonReportsController = {
 
   // Get service persons list for filter dropdown
   async getServicePersons(req: Request, res: Response) {
+    const authReq = req as unknown as AuthenticatedRequest;
     try {
-      const userId = req.user?.id;
-      const userRole = req.user?.role;
+      const userId = authReq.user?.id;
+      const userRole = authReq.user?.role;
 
       if (!userId) {
         return res.status(401).json({ error: 'User not authenticated' });
@@ -703,9 +720,10 @@ export const servicePersonReportsController = {
 
   // Get service zones for filter dropdown
   async getServiceZones(req: Request, res: Response) {
+    const authReq = req as unknown as AuthenticatedRequest;
     try {
-      const userId = req.user?.id;
-      const userRole = req.user?.role;
+      const userId = authReq.user?.id;
+      const userRole = authReq.user?.role;
 
       if (!userId) {
         return res.status(401).json({ error: 'User not authenticated' });
@@ -779,9 +797,10 @@ export const servicePersonReportsController = {
 
   // Export service person performance reports to PDF
   async exportServicePersonPerformanceReports(req: Request, res: Response) {
+    const authReq = req as unknown as AuthenticatedRequest;
     try {
-      const userId = req.user?.id;
-      const userRole = req.user?.role;
+      const userId = authReq.user?.id;
+      const userRole = authReq.user?.role;
 
       if (!userId) {
         return res.status(401).json({ error: 'User not authenticated' });
@@ -987,9 +1006,10 @@ export const servicePersonReportsController = {
 
   // Export service person attendance reports to PDF/Excel
   async exportServicePersonAttendanceReports(req: Request, res: Response) {
+    const authReq = req as unknown as AuthenticatedRequest;
     try {
-      const userId = req.user?.id;
-      const userRole = req.user?.role;
+      const userId = authReq.user?.id;
+      const userRole = authReq.user?.role;
 
       if (!userId) {
         return res.status(401).json({ error: 'User not authenticated' });
@@ -1197,9 +1217,10 @@ export const servicePersonReportsController = {
 
   // Export detailed individual service person report with daily breakdown
   async exportDetailedPersonReport(req: Request, res: Response) {
+    const authReq = req as unknown as AuthenticatedRequest;
     try {
-      const userId = req.user?.id;
-      const userRole = req.user?.role;
+      const userId = authReq.user?.id;
+      const userRole = authReq.user?.role;
 
       if (!userId) {
         return res.status(401).json({ error: 'User not authenticated' });
@@ -1341,9 +1362,10 @@ export const servicePersonReportsController = {
 
   // Get detailed activity logs for a specific service person and date
   async getActivityDetails(req: Request, res: Response) {
+    const authReq = req as unknown as AuthenticatedRequest;
     try {
-      const userId = req.user?.id;
-      const userRole = req.user?.role;
+      const userId = authReq.user?.id;
+      const userRole = authReq.user?.role;
 
       if (!userId) {
         return res.status(401).json({ error: 'User not authenticated' });
@@ -1448,12 +1470,18 @@ async function calculateServicePersonTicketMetrics(
   averageTravelTimeHours: number;
   averageOnsiteTimeHours: number;
   performanceScore: number;
+  ticketIds: number[];
+  resolvedTicketIds: number[];
 }> {
   try {
     // Get all tickets assigned to this service person in the date range
-    const tickets = await prisma.ticket.findMany({
+    const ticketsDb = await prisma.ticket.findMany({
       where: {
-        assignedToId: servicePersonId,
+        OR: [
+          { assignedToId: servicePersonId },
+          { subOwnerId: servicePersonId },
+          { relatedMachineIds: { contains: servicePersonId.toString() } },
+        ],
         createdAt: {
           gte: fromDate,
           lte: toDate,
@@ -1468,8 +1496,23 @@ async function calculateServicePersonTicketMetrics(
       },
     });
 
+    // Exact match filter to avoid "12" matching "123" inside stringified JSON
+    const tickets = ticketsDb.filter(t => {
+      if (t.assignedToId === servicePersonId || t.subOwnerId === servicePersonId) return true;
+      if (t.relatedMachineIds) {
+        try {
+          const meta = JSON.parse(t.relatedMachineIds);
+          if (meta.allAssigneeIds && Array.isArray(meta.allAssigneeIds)) {
+            return meta.allAssigneeIds.includes(servicePersonId);
+          }
+        } catch { return false; }
+      }
+      return false;
+    });
+
     const totalTickets = tickets.length;
-    const ticketsResolved = tickets.filter(t => t.status === 'CLOSED' || t.status === 'RESOLVED').length;
+    const resolvedTicketsItems = tickets.filter(t => t.status === 'CLOSED' || t.status === 'RESOLVED');
+    const ticketsResolved = resolvedTicketsItems.length;
 
     if (totalTickets === 0) {
       return {
@@ -1479,6 +1522,8 @@ async function calculateServicePersonTicketMetrics(
         averageTravelTimeHours: 0,
         averageOnsiteTimeHours: 0,
         performanceScore: 0,
+        ticketIds: [],
+        resolvedTicketIds: [],
       };
     }
 
@@ -1488,50 +1533,57 @@ async function calculateServicePersonTicketMetrics(
     const onsiteTimes: number[] = [];
 
     for (const ticket of tickets) {
-      // Resolution time calculation
+      // Parse imported metadata
+      let importedMetadata: any = null;
+      if (ticket.relatedMachineIds) {
+        try {
+          importedMetadata = JSON.parse(ticket.relatedMachineIds);
+        } catch { /* ignore */ }
+      }
+
+      // Resolution time calculation using unified logic
       if (ticket.status === 'CLOSED' || ticket.status === 'RESOLVED') {
-        const resolutionTime = differenceInMinutes(ticket.updatedAt, ticket.createdAt);
-        if (resolutionTime > 0) {
-          resolutionTimes.push(resolutionTime);
-        }
+        const resMins = calculateTicketResolutionMinutes(
+          ticket.actualResolutionTime,
+          ticket.relatedMachineIds,
+          ticket.createdAt,
+          ticket.updatedAt,
+          ticket.visitCompletedDate
+        );
+        if (resMins > 0) resolutionTimes.push(resMins);
       }
 
       // Travel and onsite time calculations from status history
-      const statusHistory = ticket.statusHistory;
+      const statusHistory = ticket.statusHistory || [];
+      let travelTimeFromHistory = 0;
+      let onsiteTimeFromHistory = 0;
+
       if (statusHistory.length > 0) {
-        // Travel time: ONSITE_VISIT_STARTED to ONSITE_VISIT_REACHED + ONSITE_VISIT_RESOLVED to ONSITE_VISIT_COMPLETED
         const goingStart = statusHistory.find(h => h.status === 'ONSITE_VISIT_STARTED');
         const goingEnd = statusHistory.find(h => h.status === 'ONSITE_VISIT_REACHED');
         const returnStart = statusHistory.find(h => h.status === 'ONSITE_VISIT_RESOLVED');
         const returnEnd = statusHistory.find(h => h.status === 'ONSITE_VISIT_COMPLETED');
 
-        let ticketTravelTime = 0;
-
-        // Going travel time
         if (goingStart && goingEnd && goingStart.changedAt < goingEnd.changedAt) {
-          ticketTravelTime += differenceInMinutes(goingEnd.changedAt, goingStart.changedAt);
+          travelTimeFromHistory += differenceInMinutes(new Date(goingEnd.changedAt), new Date(goingStart.changedAt));
         }
-
-        // Return travel time
         if (returnStart && returnEnd && returnStart.changedAt < returnEnd.changedAt) {
-          ticketTravelTime += differenceInMinutes(returnEnd.changedAt, returnStart.changedAt);
+          travelTimeFromHistory += differenceInMinutes(new Date(returnEnd.changedAt), new Date(returnStart.changedAt));
         }
 
-        if (ticketTravelTime > 0) {
-          travelTimes.push(ticketTravelTime);
-        }
-
-        // Onsite work time: ONSITE_VISIT_IN_PROGRESS to ONSITE_VISIT_RESOLVED
         const onsiteStart = statusHistory.find(h => h.status === 'ONSITE_VISIT_IN_PROGRESS');
-        const onsiteEnd = statusHistory.find(h => h.status === 'ONSITE_VISIT_RESOLVED');
-
+        const onsiteEnd = statusHistory.find(h => h.status === 'ONSITE_VISIT_RESOLVED' || h.status === 'RESOLVED' || h.status === 'CLOSED');
         if (onsiteStart && onsiteEnd && onsiteStart.changedAt < onsiteEnd.changedAt) {
-          const onsiteTime = differenceInMinutes(onsiteEnd.changedAt, onsiteStart.changedAt);
-          if (onsiteTime > 0) {
-            onsiteTimes.push(onsiteTime);
-          }
+          onsiteTimeFromHistory = differenceInMinutes(new Date(onsiteEnd.changedAt), new Date(onsiteStart.changedAt));
         }
       }
+
+      // Prioritize imported metadata if history is missing or zero
+      const finalTravelTime = travelTimeFromHistory > 0 ? travelTimeFromHistory : (importedMetadata?.travelHourMinutes || 0);
+      const finalOnsiteTime = onsiteTimeFromHistory > 0 ? onsiteTimeFromHistory : (importedMetadata?.workHourMinutes || 0);
+
+      if (finalTravelTime > 0) travelTimes.push(finalTravelTime);
+      if (finalOnsiteTime > 0) onsiteTimes.push(finalOnsiteTime);
     }
 
     // Calculate averages in hours (rounded to 1 decimal place)
@@ -1548,25 +1600,31 @@ async function calculateServicePersonTicketMetrics(
       : 0;
 
     // Calculate performance score (0-100)
-    // Factors: resolution rate (40%), speed (30%), efficiency (30%)
     const resolutionRate = totalTickets > 0 ? (ticketsResolved / totalTickets) * 100 : 0;
 
-    // Speed score: inverse of resolution time (faster = better score)
-    // Assume 4 hours as baseline good resolution time
+    // Speed score: scaling 8h to 72h
+    // <= 8 hours: 100%
+    // > 72 hours: drops to 0%
     const speedScore = averageResolutionTimeHours > 0
-      ? Math.max(0, Math.min(100, 100 - (averageResolutionTimeHours - 4) * 6))
-      : 50;
+      ? Math.max(0, Math.min(100, 100 - (averageResolutionTimeHours - 8) * (100 / 64)))
+      : (totalTickets > 0 ? 100 : 0); // If no time data exists, assume good speed rather than penalizing
 
-    // Efficiency score: combination of travel and onsite time efficiency
-    // Assume 1 hour travel + 2 hours onsite as baseline (3 hours total)
     const totalWorkTimeHours = averageTravelTimeHours + averageOnsiteTimeHours;
-    const efficiencyScore = totalWorkTimeHours > 0
-      ? Math.max(0, Math.min(100, 100 - (totalWorkTimeHours - 3) * 10))
-      : 50;
+    let performanceScore = 0;
 
-    const performanceScore = Math.round(
-      (resolutionRate * 0.4) + (speedScore * 0.3) + (efficiencyScore * 0.3)
-    );
+    if (totalWorkTimeHours > 0) {
+      // Efficiency score: scaling 4h to 16h
+      // <= 4 hours: 100%
+      // > 16 hours: drops to 0%
+      const efficiencyScore = Math.max(0, Math.min(100, 100 - (totalWorkTimeHours - 4) * (100 / 12)));
+      
+      // Weights: Resolution (40%), Speed (30%), Efficiency/Time (30%)
+      performanceScore = Math.round((resolutionRate * 0.4) + (speedScore * 0.3) + (efficiencyScore * 0.3));
+    } else {
+      // If Travel/Onsite data is entirely missing, don't penalize. Reallocate weight.
+      // Weights: Resolution (60%), Speed (40%)
+      performanceScore = Math.round((resolutionRate * 0.6) + (speedScore * 0.4));
+    }
 
     return {
       totalTickets,
@@ -1575,6 +1633,8 @@ async function calculateServicePersonTicketMetrics(
       averageTravelTimeHours,
       averageOnsiteTimeHours,
       performanceScore: Math.max(0, Math.min(100, performanceScore)),
+      ticketIds: tickets.map((t: { id: number }) => t.id),
+      resolvedTicketIds: resolvedTicketsItems.map((t: { id: number }) => t.id),
     };
   } catch (error) {
     return {
@@ -1584,6 +1644,8 @@ async function calculateServicePersonTicketMetrics(
       averageTravelTimeHours: 0,
       averageOnsiteTimeHours: 0,
       performanceScore: 0,
+      ticketIds: [],
+      resolvedTicketIds: [],
     };
   }
 }

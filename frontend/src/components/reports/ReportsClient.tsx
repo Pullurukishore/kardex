@@ -684,7 +684,8 @@ const ReportsClient: React.FC<ReportsClientProps> = ({
                 totalAbsentees: agentData.servicePersonReports?.reduce((sum: number, person: any) => sum + (person.summary?.absentDays || 0), 0),
                 totalActivitiesLogged: agentData.servicePersonReports?.reduce((sum: number, person: any) => sum + (person.summary?.totalActivities || 0), 0),
                 mostActiveUser: agentData.servicePersonReports?.reduce((max: any, person: any) => 
-                  (person.summary?.totalActivities || 0) > (max?.summary?.totalActivities || 0) ? person : max, null)
+                  (person.summary?.totalActivities || 0) > (max?.summary?.totalActivities || 0) ? person : max, null),
+                uniqueMetrics: agentData.uniqueMetrics || null
               },
               dateRange: {
                 from: filters.dateRange?.from || '',

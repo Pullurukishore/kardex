@@ -8,7 +8,7 @@ import {
 } from 'recharts';
 import { 
   MapPin, TrendingUp, TrendingDown, AlertCircle, CheckCircle, Clock, 
-  Users, Target, Award, Activity, Zap, BarChart3
+  Users, Target, Award, Activity, Zap, BarChart3, Navigation, Wrench
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
@@ -43,6 +43,9 @@ export function AdvancedZonePerformanceReport({ reportData }: AdvancedZonePerfor
   const totalAssets = zones.reduce((sum, z) => sum + (z.assetCount || 0), 0);
   const avgResolutionRate = overallStats?.averageResolutionRate || 
     (zones.length > 0 ? zones.reduce((sum, z) => sum + (z.resolutionRate || 0), 0) / zones.length : 0);
+  const avgTravelTime = overallStats?.averageTravelTime || 0;
+  const avgOnsiteResolutionTime = overallStats?.averageOnsiteResolutionTime || 0;
+  const totalOnsiteVisitsCount = overallStats?.totalOnsiteVisits || zones.reduce((sum, z) => sum + (z.totalOnsiteVisits || 0), 0);
 
   // Sort zones by different metrics
   const zonesByTickets = [...zones].sort((a, b) => (b.totalTickets || 0) - (a.totalTickets || 0));
@@ -176,6 +179,54 @@ export function AdvancedZonePerformanceReport({ reportData }: AdvancedZonePerfor
         </Card>
       </div>
 
+      {/* Time Metrics Summary - Row 2 */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="bg-gradient-to-br from-[#96AEC2] to-[#6F8A9D] text-white">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-white/80 text-sm font-medium">Avg Travel Time</p>
+                <p className="text-3xl font-bold mt-2">
+                  {avgTravelTime > 0 ? `${Math.floor(avgTravelTime / 60)}h ${avgTravelTime % 60}m` : '0h 0m'}
+                </p>
+                <p className="text-white/70 text-xs mt-1">Across all zones</p>
+              </div>
+              <div className="bg-white/20 p-3 rounded-lg"><Navigation className="h-8 w-8" /></div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-[#A2B9AF] to-[#82A094] text-white">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-white/80 text-sm font-medium">Avg Onsite Resolution</p>
+                <p className="text-3xl font-bold mt-2">
+                  {avgOnsiteResolutionTime > 0 ? `${Math.floor(avgOnsiteResolutionTime / 60)}h ${avgOnsiteResolutionTime % 60}m` : '0h 0m'}
+                </p>
+                <p className="text-white/70 text-xs mt-1">Work time at customer site</p>
+              </div>
+              <div className="bg-white/20 p-3 rounded-lg"><Wrench className="h-8 w-8" /></div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-[#92A2A5] to-[#5D6E73] text-white">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-white/80 text-sm font-medium">Total Onsite Visits</p>
+                <p className="text-3xl font-bold mt-2">{totalOnsiteVisitsCount}</p>
+                <p className="text-white/70 text-xs mt-1">
+                  {totalTickets > 0 ? `${((totalOnsiteVisitsCount / totalTickets) * 100).toFixed(0)}% of total tickets` : 'No tickets'}
+                </p>
+              </div>
+              <div className="bg-white/20 p-3 rounded-lg"><MapPin className="h-8 w-8" /></div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Performance Distribution */}
       <Card>
         <CardHeader>
@@ -227,7 +278,7 @@ export function AdvancedZonePerformanceReport({ reportData }: AdvancedZonePerfor
                         <p className="text-xs text-[#5D6E73]">Resolution Rate</p>
                       </div>
                     </div>
-                    <div className="grid grid-cols-4 gap-4 pt-3 border-t border-[#92A2A5]">
+                    <div className="grid grid-cols-5 gap-4 pt-3 border-t border-[#92A2A5]">
                       <div className="text-center">
                         <p className="text-xl font-semibold text-[#546A7A]">{zone.totalTickets}</p>
                         <p className="text-xs text-[#5D6E73]">Total</p>
@@ -237,8 +288,20 @@ export function AdvancedZonePerformanceReport({ reportData }: AdvancedZonePerfor
                         <p className="text-xs text-[#5D6E73]">Resolved</p>
                       </div>
                       <div className="text-center">
-                        <p className="text-xl font-semibold text-[#9E3B47]">{zone.openTickets}</p>
-                        <p className="text-xs text-[#5D6E73]">Open</p>
+                        <p className="text-xl font-semibold text-[#546A7A]">
+                          {(zone.averageTravelTime || 0) > 0 
+                            ? `${Math.floor((zone.averageTravelTime || 0) / 60)}h ${(zone.averageTravelTime || 0) % 60}m` 
+                            : 'N/A'}
+                        </p>
+                        <p className="text-xs text-[#5D6E73]">Avg Travel</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-xl font-semibold text-[#4F6A64]">
+                          {(zone.averageOnsiteResolutionTime || 0) > 0 
+                            ? `${Math.floor((zone.averageOnsiteResolutionTime || 0) / 60)}h ${(zone.averageOnsiteResolutionTime || 0) % 60}m` 
+                            : 'N/A'}
+                        </p>
+                        <p className="text-xs text-[#5D6E73]">Avg Onsite</p>
                       </div>
                       <div className="text-center">
                         <p className="text-xl font-semibold text-[#546A7A]">{zone.servicePersons}</p>

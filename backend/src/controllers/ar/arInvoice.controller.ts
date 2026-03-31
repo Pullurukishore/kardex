@@ -328,7 +328,7 @@ export const getInvoiceById = async (req: Request, res: Response) => {
                     balance: computedBalance,
                     status: newStatus
                 }
-            }).catch(() => {}); // Fire-and-forget, don't block response
+            }).catch(() => { }); // Fire-and-forget, don't block response
 
             // Override invoice values for response
             invoice.receipts = computedReceipts;
@@ -579,12 +579,12 @@ export const updatePaymentRecord = async (req: Request, res: Response) => {
 
         const oldAmt = Number(result.existingPayment.amount);
         const newAmt = Number(result.updatedPayment.amount);
-        
+
         let desc = 'Payment updated';
         let fName = undefined;
         let oVal = undefined;
         let nVal = undefined;
-        
+
         if (oldAmt !== newAmt) {
             fName = 'Payment Amount';
             oVal = `₹${oldAmt.toLocaleString()}`;
@@ -992,11 +992,11 @@ export const updateInvoice = async (req: Request, res: Response) => {
 
             // Handle milestoneTerms array serialization comparison
             if (key === 'milestoneTerms') {
-                 const oldStr = JSON.stringify(oldVal || []);
-                 const newStr = JSON.stringify(newVal || []);
-                 if (oldStr !== newStr) {
-                     hasChanges = true;
-                     await logInvoiceActivity({
+                const oldStr = JSON.stringify(oldVal || []);
+                const newStr = JSON.stringify(newVal || []);
+                if (oldStr !== newStr) {
+                    hasChanges = true;
+                    await logInvoiceActivity({
                         invoiceId: id,
                         action: 'INVOICE_UPDATED',
                         description: `Updated Milestone Terms`,
@@ -1007,9 +1007,9 @@ export const updateInvoice = async (req: Request, res: Response) => {
                         performedBy: user.name,
                         ipAddress,
                         userAgent
-                     });
-                 }
-                 continue;
+                    });
+                }
+                continue;
             }
 
             // Compare values (handle dates and numbers)
@@ -1019,7 +1019,7 @@ export const updateInvoice = async (req: Request, res: Response) => {
             if (oldStr !== newStr) {
                 hasChanges = true;
                 const label = fieldLabels[key] || key.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
-                
+
                 // Format output
                 const outOld = (oldStr === 'N/A' || oldStr === 'null' || oldStr === '') ? 'None' : oldStr;
                 const outNew = (newStr === 'N/A' || newStr === 'null' || newStr === '') ? 'None' : newStr;
@@ -1040,7 +1040,7 @@ export const updateInvoice = async (req: Request, res: Response) => {
         }
 
         if (!hasChanges) {
-           await logInvoiceActivity({
+            await logInvoiceActivity({
                 invoiceId: id,
                 action: 'INVOICE_UPDATED',
                 description: 'Invoice updated (no changes detected)',
@@ -1069,7 +1069,7 @@ export const updateDeliveryTracking = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
         const { deliveryStatus, modeOfDelivery, sentHandoverDate, impactDate } = req.body;
-        
+
         const user = getUserFromRequest(req);
         const ipAddress = getIpFromRequest(req);
         const userAgent = req.headers['user-agent'] || null;
@@ -1094,7 +1094,7 @@ export const updateDeliveryTracking = async (req: Request, res: Response) => {
 
         const updateData: any = { deliveryStatus, modeOfDelivery, sentHandoverDate: result.invoice.sentHandoverDate, impactDate: result.invoice.impactDate };
         let hasChanges = false;
-        
+
         const fieldLabels: Record<string, string> = {
             deliveryStatus: 'Delivery Status',
             modeOfDelivery: 'Mode of Delivery',
@@ -1112,7 +1112,7 @@ export const updateDeliveryTracking = async (req: Request, res: Response) => {
             if (oldStr !== newStr) {
                 hasChanges = true;
                 const label = fieldLabels[key] || key;
-                
+
                 const outOld = (oldStr === 'N/A' || oldStr === 'null' || oldStr === '') ? 'None' : oldStr;
                 const outNew = (newStr === 'N/A' || newStr === 'null' || newStr === '') ? 'None' : newStr;
 
@@ -1132,7 +1132,7 @@ export const updateDeliveryTracking = async (req: Request, res: Response) => {
         }
 
         if (!hasChanges) {
-           await logInvoiceActivity({
+            await logInvoiceActivity({
                 invoiceId: id,
                 action: 'DELIVERY_UPDATED',
                 description: 'Delivery tracking updated (no changes detected)',
@@ -1294,7 +1294,7 @@ export const restoreInvoice = async (req: Request, res: Response) => {
         const userAgent = req.headers['user-agent'] || null;
 
         const result = await prisma.$transaction(async (tx) => {
-            const invoice = await tx.aRInvoice.findUnique({ 
+            const invoice = await tx.aRInvoice.findUnique({
                 where: { id }
             });
 
@@ -1311,7 +1311,7 @@ export const restoreInvoice = async (req: Request, res: Response) => {
             // Recalculate totals from history
             const totalReceipts = paymentHistory.reduce((sum: number, p: any) => sum + Number(p.amount), 0);
             const balance = Math.max(0, Number(invoice.totalAmount) - totalReceipts);
-            
+
             // Determine new status
             let newStatus: any = 'PENDING';
             if (balance <= 0) {
@@ -1367,7 +1367,7 @@ export const restoreInvoice = async (req: Request, res: Response) => {
     } catch (error: any) {
         if (error.message === 'INVOICE_NOT_FOUND') return res.status(404).json({ error: 'Invoice not found' });
         if (error.message === 'INVOICE_NOT_CANCELLED') return res.status(400).json({ error: 'Invoice is not cancelled' });
-        
+
         res.status(500).json({ error: 'Failed to restore invoice', message: error.message });
     }
 };

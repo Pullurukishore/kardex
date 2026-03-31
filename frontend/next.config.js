@@ -92,6 +92,10 @@ const nextConfig = {
         hostname: '10.91.1.49',
       },
       {
+        protocol: 'http',
+        hostname: '10.91.1.22',
+      },
+      {
         protocol: 'https',
         hostname: '*.run.app',
       },

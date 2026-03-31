@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { format, subDays, eachDayOfInterval, differenceInMinutes, getDay, setHours, setMinutes, setSeconds, setMilliseconds, addDays, startOfDay } from 'date-fns';
-import { calculateBusinessHoursInMinutes } from '../utils/dateUtils';
+import { calculateBusinessHoursInMinutes, calculateTicketResolutionMinutes, calculateTravelMinutes, calculateOnsiteResolutionMinutes, BUSINESS_MINUTES_PER_DAY, formatMinutesToBusinessDH } from '../utils/dateUtils';
 import { generatePdf, getPdfColumns } from '../utils/pdfGenerator';
 import { generateExcel, getExcelColumns } from '../utils/excelGenerator';
 import prisma from '../config/db';
@@ -145,10 +145,21 @@ export const generateReport = async (req: Request, res: Response) => {
         }
       }
       : {
-        createdAt: {
-          gte: startDate,
-          lte: endDate,
-        },
+        OR: [
+          {
+            createdAt: {
+              gte: startDate,
+              lte: endDate,
+            },
+          },
+          {
+            status: { in: ['RESOLVED', 'CLOSED'] },
+            updatedAt: {
+              gte: startDate,
+              lte: endDate,
+            },
+          },
+        ]
       };
 
     if (zoneId) {
@@ -255,6 +266,7 @@ async function generateTicketSummaryReport(res: Response, whereClause: any, star
         visitStartedAt: true,
         visitReachedAt: true,
         visitInProgressAt: true,
+        visitCompletedDate: true,
         actualResolutionTime: true,
         relatedMachineIds: true,
         customerId: true,
@@ -296,13 +308,12 @@ async function generateTicketSummaryReport(res: Response, whereClause: any, star
       where: whereClause,
       _count: true,
     }),
-    // Customer-wise distribution (top 10)
+    // Customer-wise distribution (all customers)
     prisma.ticket.groupBy({
       by: ['customerId'],
       where: whereClause,
       _count: true,
-      orderBy: { _count: { customerId: 'desc' } },
-      take: 10
+      orderBy: { _count: { customerId: 'desc' } }
     }),
     // Assignee distribution
     prisma.ticket.groupBy({
@@ -355,51 +366,20 @@ async function generateTicketSummaryReport(res: Response, whereClause: any, star
     let totalTime = 0;
     let validTickets = 0;
 
-    for (const ticket of tickets) {
-      // Only include resolved/closed tickets for this specific metric
-      if (ticket.status !== 'RESOLVED' && ticket.status !== 'CLOSED') continue;
+    for (const ticket of resolvedTickets) {
+      const resolutionMinutes = calculateTicketResolutionMinutes(
+        ticket.actualResolutionTime,
+        ticket.relatedMachineIds,
+        ticket.createdAt,
+        ticket.updatedAt,
+        ticket.visitCompletedDate
+      );
 
-      let resolutionMinutes = 0;
-
-      // Priority 1: Use imported Excel downtime (actualResolutionTime is already in minutes)
-      if (ticket.actualResolutionTime && ticket.actualResolutionTime > 0) {
-        resolutionMinutes = ticket.actualResolutionTime;
-      }
-      // Priority 2: Check metadata for downtimeMinutes
-      else if (ticket.relatedMachineIds) {
-        try {
-          const metadata = JSON.parse(ticket.relatedMachineIds);
-          if (metadata?.downtimeMinutes && metadata.downtimeMinutes > 0) {
-            resolutionMinutes = metadata.downtimeMinutes;
-          }
-        } catch { /* ignore parse errors */ }
-      }
-
-      // Priority 3: Calculate from status history or dates (for app-created tickets)
-      if (resolutionMinutes === 0) {
-        let resolutionTime: Date | null = null;
-        if (ticket.statusHistory && ticket.statusHistory.length > 0) {
-          // Find the last resolved/closed status change
-          const lastChange = ticket.statusHistory.find((h: any) => h.status === 'RESOLVED' || h.status === 'CLOSED');
-          if (lastChange) resolutionTime = lastChange.changedAt;
-        }
-
-        if (!resolutionTime && ticket.updatedAt && ticket.createdAt) {
-          const timeDiff = differenceInMinutes(ticket.updatedAt, ticket.createdAt);
-          if (timeDiff > 1) {
-            resolutionTime = ticket.updatedAt;
-          }
-        }
-
-        if (resolutionTime && ticket.createdAt) {
-          resolutionMinutes = calculateBusinessHoursInMinutes(ticket.createdAt, resolutionTime);
-        }
-      }
-
-      // Only include reasonable resolution times (between 1 minute and 30 business days)
-      if (resolutionMinutes >= 1 && resolutionMinutes <= (30 * 8 * 60)) {
+      // Only include tickets where resolutionMinutes > 0
+      if (resolutionMinutes > 0) {
         totalTime += resolutionMinutes;
         validTickets++;
+        (ticket as any).calculatedResolutionMinutes = resolutionMinutes;
       }
     }
 
@@ -416,26 +396,10 @@ async function generateTicketSummaryReport(res: Response, whereClause: any, star
     let validOnsiteTickets = 0;
 
     for (const ticket of closedOrResolvedTickets) {
-      let onsiteMinutes = 0;
-
-      // Priority 1: Use imported Excel work hour (metadata)
-      if (ticket.relatedMachineIds) {
-        try {
-          const metadata = JSON.parse(ticket.relatedMachineIds);
-          if (metadata?.workHourMinutes && metadata.workHourMinutes > 0) {
-            onsiteMinutes = metadata.workHourMinutes;
-          }
-        } catch { /* ignore parse errors */ }
-      }
-
-      // Priority 2: Calculate from status history (ONSITE_VISIT_IN_PROGRESS to ONSITE_VISIT_RESOLVED)
-      if (onsiteMinutes === 0 && ticket.statusHistory && ticket.statusHistory.length > 0) {
-        const start = ticket.statusHistory.find((h: any) => h.status === 'ONSITE_VISIT_IN_PROGRESS');
-        const end = ticket.statusHistory.find((h: any) => h.status === 'ONSITE_VISIT_RESOLVED' || h.status === 'RESOLVED');
-        if (start && end && start.changedAt < end.changedAt) {
-          onsiteMinutes = differenceInMinutes(new Date(end.changedAt), new Date(start.changedAt));
-        }
-      }
+      const onsiteMinutes = calculateOnsiteResolutionMinutes(
+        ticket.relatedMachineIds,
+        ticket.statusHistory
+      );
 
       if (onsiteMinutes > 0 && onsiteMinutes <= 1440) { // Max 24 hours
         totalOnsiteTime += onsiteMinutes;
@@ -491,8 +455,8 @@ async function generateTicketSummaryReport(res: Response, whereClause: any, star
         }
       }
 
-      // Only include reasonable first response times (max 3 business days = 1440 minutes)
-      if (responseMinutes > 0 && responseMinutes <= (3 * 8 * 60)) {
+      // Only include reasonable first response times (max 3 business days)
+      if (responseMinutes > 0 && responseMinutes <= (3 * BUSINESS_MINUTES_PER_DAY)) {
         totalResponseTime += responseMinutes;
         validResponseTickets++;
       }
@@ -572,16 +536,8 @@ async function generateTicketSummaryReport(res: Response, whereClause: any, star
     let avgCustomerResolutionTime = 0;
     if (customerResolvedTickets.length > 0) {
       const customerResolutionTimes = customerResolvedTickets
-        .map((t: any) => {
-          const resolutionHistory = t.statusHistory?.find((h: any) =>
-            h.status === 'RESOLVED' || h.status === 'CLOSED'
-          );
-          if (resolutionHistory) {
-            return calculateBusinessHoursInMinutes(new Date(t.createdAt), new Date(resolutionHistory.changedAt));
-          }
-          return null;
-        })
-        .filter((time: number | null): time is number => time !== null && time > 0 && time <= (30 * 8 * 60));
+        .map((t: any) => t.calculatedResolutionMinutes)
+        .filter((time: any): time is number => time !== null && typeof time === 'number' && time > 0 && time <= (30 * BUSINESS_MINUTES_PER_DAY));
 
       if (customerResolutionTimes.length > 0) {
         avgCustomerResolutionTime = Math.round(
@@ -617,27 +573,15 @@ async function generateTicketSummaryReport(res: Response, whereClause: any, star
     let validTravelTickets = 0;
 
     for (const ticket of tickets) {
-      let travelMinutes = 0;
+      const travelMinutes = calculateTravelMinutes(
+        ticket.relatedMachineIds,
+        ticket.statusHistory,
+        ticket.visitStartedAt,
+        ticket.visitReachedAt,
+        ticket.visitInProgressAt
+      );
 
-      // Priority 1: Use imported Excel travel hour (metadata)
-      if (ticket.relatedMachineIds) {
-        try {
-          const metadata = JSON.parse(ticket.relatedMachineIds);
-          if (metadata?.travelHourMinutes && metadata.travelHourMinutes > 0) {
-            travelMinutes = metadata.travelHourMinutes;
-          }
-        } catch { /* ignore parse errors */ }
-      }
-
-      // Priority 2: Calculate from status history (VISIT_STARTED to REACHED)
-      const reachDate = (ticket.visitReachedAt || ticket.visitInProgressAt);
-      if (travelMinutes === 0 && ticket.visitStartedAt && reachDate) {
-        const startTime = new Date(ticket.visitStartedAt);
-        const reachTime = new Date(reachDate);
-        travelMinutes = differenceInMinutes(reachTime, startTime);
-      }
-
-      // Validate travel time (should be between 1 minute and 8 hours)
+      // Validate travel time (same 8h cap as dashboard/utilities)
       if (travelMinutes > 0 && travelMinutes <= 480) {
         totalTravelTime += travelMinutes;
         validTravelTickets++;
@@ -676,8 +620,8 @@ async function generateTicketSummaryReport(res: Response, whereClause: any, star
 
         // Time-based metrics
         averageResolutionTime: avgResolutionTime,
-        averageResolutionTimeHours: avgResolutionTime > 0 ? Math.round(avgResolutionTime / 60) : 0,
-        averageResolutionTimeDays: avgResolutionTime > 0 ? Math.round(avgResolutionTime / (60 * 24)) : 0,
+        averageResolutionTimeHours: formatMinutesToBusinessDH(avgResolutionTime).hours + (formatMinutesToBusinessDH(avgResolutionTime).days * (BUSINESS_MINUTES_PER_DAY / 60)), // Total business hours
+        averageResolutionTimeDays: formatMinutesToBusinessDH(avgResolutionTime).days,
         averageFirstResponseTime: avgFirstResponseTime,
         averageFirstResponseTimeHours: avgFirstResponseTime > 0 ? Math.round(avgFirstResponseTime / 60) : 0,
         averageOnsiteResolutionTime: avgOnsiteResolutionTime,
@@ -1002,7 +946,11 @@ async function generateZonePerformanceReport(res: Response, whereClause: any, st
         include: {
           customer: true,
           assignedTo: true,
-          asset: true
+          asset: true,
+          statusHistory: {
+            select: { status: true, changedAt: true },
+            orderBy: { changedAt: 'desc' }
+          }
         }
       },
       servicePersons: {
@@ -1030,13 +978,80 @@ async function generateZonePerformanceReport(res: Response, whereClause: any, st
     // Calculate average resolution time for this zone (business hours)
     let avgResolutionTime = 0;
     if (resolvedTickets.length > 0) {
-      const totalTime = resolvedTickets.reduce((sum: number, ticket: { createdAt: Date; updatedAt: Date }) => {
-        if (ticket.createdAt && ticket.updatedAt) {
-          return sum + calculateBusinessHoursInMinutes(ticket.createdAt, ticket.updatedAt);
+      let totalTime = 0;
+      let validCount = 0;
+
+      for (const ticket of resolvedTickets) {
+        const resolutionMinutes = calculateTicketResolutionMinutes(
+          ticket.actualResolutionTime,
+          ticket.relatedMachineIds,
+          ticket.createdAt,
+          ticket.updatedAt,
+          ticket.visitCompletedDate
+        );
+
+        if (resolutionMinutes > 0) {
+          totalTime += resolutionMinutes;
+          validCount++;
         }
-        return sum;
-      }, 0);
-      avgResolutionTime = Math.round(totalTime / resolvedTickets.length);
+      }
+
+      avgResolutionTime = validCount > 0 ? Math.round(totalTime / validCount) : 0;
+    }
+
+    // Calculate average travel time for this zone
+    let avgTravelTime = 0;
+    let totalOnsiteVisits = 0;
+    {
+      let totalTravelTime = 0;
+      let validTravelTickets = 0;
+
+      for (const ticket of tickets) {
+        const travelMinutes = calculateTravelMinutes(
+          ticket.relatedMachineIds,
+          ticket.statusHistory,
+          ticket.visitStartedAt,
+          ticket.visitReachedAt,
+          ticket.visitInProgressAt
+        );
+
+        if (travelMinutes > 0 && travelMinutes <= 480) {
+          totalTravelTime += travelMinutes;
+          validTravelTickets++;
+        }
+
+        // Count onsite visits
+        if (ticket.visitStartedAt && (ticket.visitReachedAt || ticket.visitInProgressAt)) {
+          totalOnsiteVisits++;
+        }
+      }
+
+      if (validTravelTickets > 0) {
+        avgTravelTime = Math.round(totalTravelTime / validTravelTickets);
+      }
+    }
+
+    // Calculate average onsite resolution time for this zone
+    let avgOnsiteResolutionTime = 0;
+    {
+      let totalOnsiteTime = 0;
+      let validOnsiteTickets = 0;
+
+      for (const ticket of resolvedTickets) {
+        const onsiteMinutes = calculateOnsiteResolutionMinutes(
+          ticket.relatedMachineIds,
+          ticket.statusHistory
+        );
+
+        if (onsiteMinutes > 0 && onsiteMinutes <= 1440) {
+          totalOnsiteTime += onsiteMinutes;
+          validOnsiteTickets++;
+        }
+      }
+
+      if (validOnsiteTickets > 0) {
+        avgOnsiteResolutionTime = Math.round(totalOnsiteTime / validOnsiteTickets);
+      }
     }
 
     // Count customers and assets in this zone
@@ -1056,6 +1071,9 @@ async function generateZonePerformanceReport(res: Response, whereClause: any, st
         ? parseFloat(((resolvedTickets.length / tickets.length) * 100).toFixed(2))
         : 0,
       averageResolutionTime: avgResolutionTime,
+      averageTravelTime: avgTravelTime,
+      averageOnsiteResolutionTime: avgOnsiteResolutionTime,
+      totalOnsiteVisits,
       escalatedTickets: tickets.filter((t: { isEscalated: boolean }) => t.isEscalated).length
     };
   });
@@ -1070,7 +1088,14 @@ async function generateZonePerformanceReport(res: Response, whereClause: any, st
         totalResolved: zoneStats.reduce((sum: number, zone: { resolvedTickets: number }) => sum + (zone.resolvedTickets || 0), 0),
         averageResolutionRate: zoneStats.length > 0
           ? zoneStats.reduce((sum: number, zone: { resolutionRate: number }) => sum + zone.resolutionRate, 0) / zoneStats.length
-          : 0
+          : 0,
+        averageTravelTime: zoneStats.length > 0
+          ? Math.round(zoneStats.reduce((sum: number, zone: any) => sum + (zone.averageTravelTime || 0), 0) / Math.max(zoneStats.filter((z: any) => z.averageTravelTime > 0).length, 1))
+          : 0,
+        averageOnsiteResolutionTime: zoneStats.length > 0
+          ? Math.round(zoneStats.reduce((sum: number, zone: any) => sum + (zone.averageOnsiteResolutionTime || 0), 0) / Math.max(zoneStats.filter((z: any) => z.averageOnsiteResolutionTime > 0).length, 1))
+          : 0,
+        totalOnsiteVisits: zoneStats.reduce((sum: number, zone: any) => sum + (zone.totalOnsiteVisits || 0), 0)
       }
     }
   });
@@ -1110,14 +1135,25 @@ async function generateAgentProductivityReport(res: Response, whereClause: any, 
     );
 
     // Calculate average resolution time in minutes
-    const resolvedWithTime = resolvedTickets.filter((t: any) => t.createdAt && t.updatedAt);
-    const totalResolutionTime = resolvedWithTime.reduce((sum: number, t: any) => {
-      return sum + calculateBusinessHoursInMinutes(t.createdAt, t.updatedAt);
-    }, 0);
+    let totalResolutionTime = 0;
+    let validResCount = 0;
 
-    const avgResolutionTime = resolvedWithTime.length > 0
-      ? Math.round(totalResolutionTime / resolvedWithTime.length)
-      : 0;
+    for (const ticket of resolvedTickets) {
+      const resolutionMinutes = calculateTicketResolutionMinutes(
+        ticket.actualResolutionTime,
+        ticket.relatedMachineIds,
+        ticket.createdAt,
+        ticket.updatedAt,
+        ticket.visitCompletedDate
+      );
+
+      if (resolutionMinutes > 0) {
+        totalResolutionTime += resolutionMinutes;
+        validResCount++;
+      }
+    }
+
+    const avgResolutionTime = validResCount > 0 ? Math.round(totalResolutionTime / validResCount) : 0;
 
     // Calculate first response time (simplified)
     const ticketsWithResponse = tickets.filter((t: any) => t.updatedAt !== t.createdAt);
@@ -1521,10 +1557,21 @@ export const exportReport = async (req: Request, res: Response) => {
         }
       }
       : {
-        createdAt: {
-          gte: startDate,
-          lte: endDate,
-        },
+        OR: [
+          {
+            createdAt: {
+              gte: startDate,
+              lte: endDate,
+            },
+          },
+          {
+            status: { in: ['RESOLVED', 'CLOSED'] },
+            updatedAt: {
+              gte: startDate,
+              lte: endDate,
+            },
+          },
+        ]
       };
 
     if (zoneId) {
@@ -1560,7 +1607,7 @@ export const exportReport = async (req: Request, res: Response) => {
     // Custom title mapping for better report names
     const titleMap: { [key: string]: string } = {
       'industrial-data': 'Machine Report',
-      'ticket-summary': 'Ticket Summary Report',
+      'ticket-summary': 'Ticket Analytics Report',
 
       'zone-performance': 'Zone Performance Report',
       'agent-productivity': 'Performance Report of All Service Persons and Zone Users',
@@ -1899,6 +1946,9 @@ async function getTicketSummaryData(whereClause: any, startDate: Date, endDate: 
       priority: true,
       createdAt: true,
       updatedAt: true,
+      visitCompletedDate: true,
+      actualResolutionTime: true,
+      relatedMachineIds: true,
       customerId: true,
       zoneId: true,
       assignedToId: true,
@@ -1970,11 +2020,15 @@ async function getTicketSummaryData(whereClause: any, startDate: Date, endDate: 
 
   let avgResolutionTime = 0;
   if (resolvedTickets.length > 0) {
-    const totalTime = resolvedTickets.reduce((sum: number, ticket: { updatedAt: Date; createdAt: Date }) => {
-      if (ticket.createdAt && ticket.updatedAt) {
-        return sum + calculateBusinessHoursMinutes(new Date(ticket.createdAt), new Date(ticket.updatedAt));
-      }
-      return sum;
+    const totalTime = resolvedTickets.reduce((sum: number, ticket: any) => {
+      const resolutionMinutes = calculateTicketResolutionMinutes(
+        ticket.actualResolutionTime,
+        ticket.relatedMachineIds,
+        ticket.createdAt,
+        ticket.updatedAt,
+        ticket.visitCompletedDate
+      );
+      return sum + resolutionMinutes;
     }, 0);
     avgResolutionTime = Math.round(totalTime / resolvedTickets.length);
   }
@@ -1982,13 +2036,23 @@ async function getTicketSummaryData(whereClause: any, startDate: Date, endDate: 
   // Enhanced ticket data with all required fields
   const enhancedTickets = tickets.map((ticket: any) => {
     // Calculate response time (first response)
-    let responseTime = 0;
-    if (ticket.statusHistory && ticket.statusHistory.length > 0) {
+    let responseTimeMins = 0;
+    if (ticket.relatedMachineIds) {
+      try {
+        const metadata = JSON.parse(ticket.relatedMachineIds);
+        if (metadata.respondTimeMinutes && metadata.respondTimeMinutes > 0) {
+          responseTimeMins = metadata.respondTimeMinutes;
+        }
+      } catch { /* ignore */ }
+    }
+
+    if (responseTimeMins === 0 && ticket.statusHistory && ticket.statusHistory.length > 0) {
       const firstResponse = ticket.statusHistory.find((h: any) => h.status !== 'OPEN');
       if (firstResponse) {
-        responseTime = differenceInMinutes(new Date(firstResponse.changedAt), new Date(ticket.createdAt));
+        responseTimeMins = calculateBusinessHoursInMinutes(ticket.createdAt, firstResponse.changedAt);
       }
     }
+    const responseTime = responseTimeMins;
 
     // Calculate travel time using status history: (STARTED → REACHED) + (RESOLVED → COMPLETED)
     let travelTime = 0;
@@ -2047,19 +2111,15 @@ async function getTicketSummaryData(whereClause: any, startDate: Date, endDate: 
     }
 
     // Calculate total resolution time (BUSINESS HOURS ONLY)
-    let totalResolutionTime = 0;
-    if (ticket.status === 'RESOLVED' || ticket.status === 'CLOSED') {
-      if (ticket.statusHistory && ticket.statusHistory.length > 0) {
-        const resolutionHistory = ticket.statusHistory.find((h: any) =>
-          h.status === 'RESOLVED' || h.status === 'CLOSED'
-        );
-        if (resolutionHistory) {
-          totalResolutionTime = calculateBusinessHoursMinutes(new Date(ticket.createdAt), new Date(resolutionHistory.changedAt));
-        }
-      } else if (ticket.updatedAt && ticket.createdAt) {
-        totalResolutionTime = calculateBusinessHoursMinutes(new Date(ticket.createdAt), new Date(ticket.updatedAt));
-      }
-    }
+    const totalResolutionTime = (ticket.status === 'RESOLVED' || ticket.status === 'CLOSED')
+      ? calculateTicketResolutionMinutes(
+        ticket.actualResolutionTime,
+        ticket.relatedMachineIds,
+        ticket.createdAt,
+        ticket.updatedAt,
+        ticket.visitCompletedDate
+      )
+      : 0;
 
     // Calculate machine downtime (BUSINESS HOURS ONLY - same as total resolution time)
     const machineDowntime = totalResolutionTime;
@@ -2230,11 +2290,15 @@ async function getZonePerformanceData(whereClause: any, startDate: Date, endDate
     // Calculate average resolution time for this zone
     let avgResolutionTime = 0;
     if (resolvedTickets.length > 0) {
-      const totalTime = resolvedTickets.reduce((sum: number, ticket: { createdAt: Date; updatedAt: Date }) => {
-        if (ticket.createdAt && ticket.updatedAt) {
-          return sum + differenceInMinutes(ticket.updatedAt, ticket.createdAt);
-        }
-        return sum;
+      const totalTime = resolvedTickets.reduce((sum: number, ticket: any) => {
+        const resTime = calculateTicketResolutionMinutes(
+          ticket.actualResolutionTime,
+          ticket.relatedMachineIds,
+          ticket.createdAt,
+          ticket.updatedAt,
+          ticket.visitCompletedDate
+        );
+        return sum + resTime;
       }, 0);
       avgResolutionTime = Math.round(totalTime / resolvedTickets.length);
     }
@@ -2276,12 +2340,25 @@ async function getZonePerformanceData(whereClause: any, startDate: Date, endDate
 }
 
 async function getAgentProductivityData(whereClause: any, startDate: Date, endDate: Date): Promise<AgentProductivityData> {
+  // First, get the list of zones from whereClause if possible
+  let zoneIds: number[] = [];
+  if (whereClause.zoneId) {
+    if (typeof whereClause.zoneId === 'number') zoneIds = [whereClause.zoneId];
+    else if (whereClause.zoneId.in) zoneIds = whereClause.zoneId.in;
+  }
+
+  // Fetch all service persons who are active and in the relevant zones
   const agents = await prisma.user.findMany({
     where: {
       role: 'SERVICE_PERSON',
-      assignedTickets: {
-        some: whereClause
-      }
+      isActive: true,
+      ...(zoneIds.length > 0 ? {
+        serviceZones: {
+          some: {
+            serviceZoneId: { in: zoneIds }
+          }
+        }
+      } : {})
     },
     include: {
       assignedTickets: {
@@ -2307,9 +2384,16 @@ async function getAgentProductivityData(whereClause: any, startDate: Date, endDa
     );
 
     // Calculate average resolution time in minutes
-    const resolvedWithTime = resolvedTickets.filter((t: any) => t.createdAt && t.updatedAt);
-    const totalResolutionTime = resolvedWithTime.reduce((sum: number, t: any) => {
-      return sum + calculateBusinessHoursInMinutes(t.createdAt, t.updatedAt);
+    const resolvedWithTime = resolvedTickets;
+    const totalResolutionTime = resolvedTickets.reduce((sum: number, t: any) => {
+      const resTime = calculateTicketResolutionMinutes(
+        t.actualResolutionTime,
+        t.relatedMachineIds,
+        t.createdAt,
+        t.updatedAt,
+        t.visitCompletedDate
+      );
+      return sum + resTime;
     }, 0);
 
     const avgResolutionTime = resolvedWithTime.length > 0
@@ -2438,11 +2522,16 @@ async function getIndustrialDataData(whereClause: any, startDate: Date, endDate:
     let downtimeMinutes = 0;
 
     if (ticket.status === 'RESOLVED' || ticket.status === 'CLOSED') {
-      // For resolved tickets, calculate the time between creation and resolution (business hours)
-      downtimeMinutes = calculateBusinessHoursInMinutes(ticket.createdAt, ticket.updatedAt);
+      downtimeMinutes = calculateTicketResolutionMinutes(
+        ticket.actualResolutionTime,
+        ticket.relatedMachineIds,
+        ticket.createdAt,
+        ticket.updatedAt,
+        ticket.visitCompletedDate
+      );
     } else {
       // For open tickets, calculate time from creation to now (business hours)
-      downtimeMinutes = calculateBusinessHoursInMinutes(ticket.createdAt, new Date());
+      downtimeMinutes = calculateBusinessHoursInMinutes(new Date(ticket.createdAt), new Date());
     }
 
     // Format downtime in hours and minutes
@@ -2634,12 +2723,21 @@ async function generateExecutiveSummaryReport(res: Response, whereClause: any, s
     const openTickets = tickets.filter((t: { status: string }) => ['OPEN', 'IN_PROGRESS', 'ASSIGNED'].includes(t.status));
     const criticalTickets = tickets.filter((t: { priority: string }) => t.priority === 'CRITICAL');
 
-    // Calculate resolution metrics
-    const avgResolutionTime = resolvedTickets.length > 0
-      ? resolvedTickets.reduce((sum: number, ticket: { updatedAt: Date; createdAt: Date }) => {
-        return sum + differenceInMinutes(ticket.updatedAt, ticket.createdAt);
-      }, 0) / resolvedTickets.length
-      : 0;
+    // Calculate resolution metrics (BUSINESS HOURS ONLY)
+    let avgResolutionTime = 0;
+    if (resolvedTickets.length > 0) {
+      const totalTime = resolvedTickets.reduce((sum: number, ticket: any) => {
+        const resTime = calculateTicketResolutionMinutes(
+          ticket.actualResolutionTime,
+          ticket.relatedMachineIds,
+          ticket.createdAt,
+          ticket.updatedAt,
+          ticket.visitCompletedDate
+        );
+        return sum + resTime;
+      }, 0);
+      avgResolutionTime = Math.round(totalTime / resolvedTickets.length);
+    }
 
     // Customer satisfaction metrics
     const avgRating = feedbacks.length > 0

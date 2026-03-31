@@ -280,7 +280,7 @@ export const pinAuthMiddleware = (req: Request, res: Response, next: NextFunctio
     if (req.cookies?.pinSession && sessionData && (sessionData.validUntil.getTime() - now) < oneHour) {
       const cookieOptions = {
         httpOnly: false,
-        secure: process.env.NODE_ENV === 'production' && !req.headers.host?.includes('172.28.91.10') && !req.headers.host?.includes('10.91.1.12') && !req.headers.host?.includes('10.91.1.48') && !req.headers.host?.includes('10.91.1.49') && !req.headers.host?.includes('localhost'),
+        secure: process.env.NODE_ENV === 'production' && !req.headers.host?.includes('172.28.91.10') && !req.headers.host?.includes('10.91.1.12') && !req.headers.host?.includes('10.91.1.48') && !req.headers.host?.includes('10.91.1.49') && !req.headers.host?.includes('10.91.1.22') && !req.headers.host?.includes('localhost'),
         sameSite: 'lax' as const,
         maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
         path: '/',

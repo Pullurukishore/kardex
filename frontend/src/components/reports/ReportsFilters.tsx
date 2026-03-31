@@ -154,8 +154,8 @@ const ReportsFilters: React.FC<ReportsFiltersProps> = ({
         )}
       </div>
 
-      {/* Customer Filter - only show for offer-summary */}
-      {(filters.reportType === 'offer-summary' || filters.reportType === 'zone-user-offer-summary') && (
+      {/* Customer Filter - show for offer-summary and ticket-summary */}
+      {(filters.reportType === 'offer-summary' || filters.reportType === 'zone-user-offer-summary' || filters.reportType === 'ticket-summary' || filters.reportType === 'industrial-data') && (
         <div className="space-y-1">
           <Label className="text-sm font-medium text-foreground">Customer</Label>
           <SearchableSelect
@@ -170,6 +170,28 @@ const ReportsFilters: React.FC<ReportsFiltersProps> = ({
             emptyText={isLoadingCustomers ? "Loading customers..." : "No customers found"}
             loading={isLoadingCustomers}
             disabled={isLoadingCustomers}
+            maxHeight="250px"
+          />
+        </div>
+      )}
+
+      {/* Asset Filter - only show for industrial-data or ticket-summary */}
+      {(filters.reportType === 'industrial-data' || filters.reportType === 'ticket-summary') && (
+        <div className="space-y-1">
+          <Label className="text-sm font-medium text-foreground">Machine / Asset</Label>
+          <SearchableSelect
+            options={customers
+              .filter(c => !filters.customerId || c.id.toString() === filters.customerId)
+              .flatMap(c => (c as any).assets || [])
+              .map((asset: any) => ({
+                id: asset.id.toString(),
+                label: `${asset.machineId} - ${asset.model}`,
+                searchText: `${asset.machineId} ${asset.model}`
+              }))}
+            value={filters.assetId || ''}
+            onValueChange={(value) => onFilterChange({ assetId: value || undefined })}
+            placeholder="Select machine..."
+            emptyText="No machines found"
             maxHeight="250px"
           />
         </div>

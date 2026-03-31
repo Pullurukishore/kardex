@@ -9,7 +9,8 @@ import {
 } from 'recharts';
 import { 
   TrendingUp, TrendingDown, AlertCircle, CheckCircle, Clock, 
-  Users, Target, Award, Activity, Zap, Calendar, BarChart3
+  Users, Target, Award, Activity, Zap, Calendar, BarChart3,
+  MapPin, Wrench, Navigation
 } from 'lucide-react';
 
 interface AdvancedTicketSummaryReportProps {
@@ -141,6 +142,9 @@ export function AdvancedTicketSummaryReport({ reportData }: AdvancedTicketSummar
   const resolutionRate = totalTickets > 0 ? ((resolvedTickets / totalTickets) * 100).toFixed(1) : '0';
   const avgResolutionTime = formatMinutesToHoursAndMinutes(summary.averageResolutionTime || 0);
   const avgFirstResponse = formatMinutesToHoursAndMinutes(summary.averageFirstResponseTime || 0);
+  const avgTravelTime = formatMinutesToHoursAndMinutes(summary.avgOnsiteTravelTime || 0);
+  const avgOnsiteResolution = formatMinutesToHoursAndMinutes(summary.averageOnsiteResolutionTime || 0);
+  const totalOnsiteVisits = summary.totalOnsiteVisits || 0;
 
   // Prepare radar chart data for performance overview
   const performanceData = [
@@ -155,8 +159,13 @@ export function AdvancedTicketSummaryReport({ reportData }: AdvancedTicketSummar
       fullMark: 100
     },
     {
-      metric: 'Ticket Volume',
-      value: Math.min((totalTickets / 100) * 100, 100),
+      metric: 'Travel Efficiency',
+      value: summary.avgOnsiteTravelTime ? Math.min(Math.max(100 - (summary.avgOnsiteTravelTime / 480 * 100), 0), 100) : 50,
+      fullMark: 100
+    },
+    {
+      metric: 'Onsite Efficiency',
+      value: summary.averageOnsiteResolutionTime ? Math.min(Math.max(100 - (summary.averageOnsiteResolutionTime / 480 * 100), 0), 100) : 50,
       fullMark: 100
     },
     {
@@ -165,8 +174,8 @@ export function AdvancedTicketSummaryReport({ reportData }: AdvancedTicketSummar
       fullMark: 100
     },
     {
-      metric: 'SLA Compliance',
-      value: 85, // Placeholder - would need actual SLA data
+      metric: 'Onsite Visit Rate',
+      value: totalTickets > 0 ? Math.min((totalOnsiteVisits / totalTickets) * 100, 100) : 0,
       fullMark: 100
     }
   ];
@@ -187,9 +196,37 @@ export function AdvancedTicketSummaryReport({ reportData }: AdvancedTicketSummar
     return `${percent}%`;
   };
 
+  // Prepare time breakdown data for chart
+  const timeBreakdownData = [
+    {
+      name: 'Avg Resolution',
+      minutes: summary.averageResolutionTime || 0,
+      formatted: avgResolutionTime,
+      color: '#CE9F6B'
+    },
+    {
+      name: 'Avg Travel',
+      minutes: summary.avgOnsiteTravelTime || 0,
+      formatted: avgTravelTime,
+      color: '#6F8A9D'
+    },
+    {
+      name: 'Avg Onsite Work',
+      minutes: summary.averageOnsiteResolutionTime || 0,
+      formatted: avgOnsiteResolution,
+      color: '#82A094'
+    },
+    {
+      name: 'First Response',
+      minutes: summary.averageFirstResponseTime || 0,
+      formatted: avgFirstResponse,
+      color: '#546A7A'
+    }
+  ];
+
   return (
     <div className="space-y-6">
-      {/* Executive Summary Cards */}
+      {/* Executive Summary Cards - Row 1 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="bg-gradient-to-br from-[#6F8A9D] to-[#546A7A] text-white">
           <CardContent className="p-6">
@@ -197,7 +234,7 @@ export function AdvancedTicketSummaryReport({ reportData }: AdvancedTicketSummar
               <div>
                 <p className="text-[#96AEC2] text-sm font-medium">Total Tickets</p>
                 <p className="text-3xl font-bold mt-2">{totalTickets}</p>
-                <p className="text-[#96AEC2] text-xs mt-1">All time high</p>
+                <p className="text-[#96AEC2] text-xs mt-1">In selected period</p>
               </div>
               <div className="bg-white/20 p-3 rounded-lg">
                 <BarChart3 className="h-8 w-8" />
@@ -240,9 +277,9 @@ export function AdvancedTicketSummaryReport({ reportData }: AdvancedTicketSummar
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[#6F8A9D] text-sm font-medium">First Response</p>
+                <p className="text-[#96AEC2] text-sm font-medium">First Response</p>
                 <p className="text-3xl font-bold mt-2">{avgFirstResponse}</p>
-                <p className="text-[#6F8A9D] text-xs mt-1">Average time</p>
+                <p className="text-[#96AEC2] text-xs mt-1">Average time</p>
               </div>
               <div className="bg-white/20 p-3 rounded-lg">
                 <Zap className="h-8 w-8" />
@@ -251,6 +288,144 @@ export function AdvancedTicketSummaryReport({ reportData }: AdvancedTicketSummar
           </CardContent>
         </Card>
       </div>
+
+      {/* Executive Summary Cards - Row 2: Travel & Onsite Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="bg-gradient-to-br from-[#96AEC2] to-[#6F8A9D] text-white">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-white/80 text-sm font-medium">Avg Travel Time</p>
+                <p className="text-3xl font-bold mt-2">{avgTravelTime}</p>
+                <p className="text-white/70 text-xs mt-1">Per onsite visit (real-time)</p>
+              </div>
+              <div className="bg-white/20 p-3 rounded-lg">
+                <Navigation className="h-8 w-8" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-[#A2B9AF] to-[#82A094] text-white">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-white/80 text-sm font-medium">Avg Onsite Resolution</p>
+                <p className="text-3xl font-bold mt-2">{avgOnsiteResolution}</p>
+                <p className="text-white/70 text-xs mt-1">Work time at customer site</p>
+              </div>
+              <div className="bg-white/20 p-3 rounded-lg">
+                <Wrench className="h-8 w-8" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-[#92A2A5] to-[#5D6E73] text-white">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-white/80 text-sm font-medium">Total Onsite Visits</p>
+                <p className="text-3xl font-bold mt-2">{totalOnsiteVisits}</p>
+                <p className="text-white/70 text-xs mt-1">
+                  {totalTickets > 0 ? `${((totalOnsiteVisits / totalTickets) * 100).toFixed(0)}% of tickets` : 'No tickets'}
+                </p>
+              </div>
+              <div className="bg-white/20 p-3 rounded-lg">
+                <MapPin className="h-8 w-8" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Time Analytics Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Clock className="h-5 w-5 text-[#546A7A]" />
+            Time Analytics Breakdown
+          </CardTitle>
+          <CardDescription>Comparison of average time metrics across the service lifecycle</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Time Breakdown Bar Chart */}
+            <div>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={timeBreakdownData} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis type="number" label={{ value: 'Minutes', position: 'insideBottom', offset: -5 }} />
+                  <YAxis dataKey="name" type="category" width={120} />
+                  <Tooltip
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        const data = payload[0].payload;
+                        return (
+                          <div className="bg-white p-3 border rounded-lg shadow-lg">
+                            <p className="font-semibold text-[#546A7A]">{data.name}</p>
+                            <p className="text-sm text-[#5D6E73]">{data.formatted}</p>
+                            <p className="text-xs text-[#92A2A5]">{data.minutes} minutes</p>
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+                  <Bar dataKey="minutes" radius={[0, 8, 8, 0]}>
+                    {timeBreakdownData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Time Metrics Summary Cards */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-4 bg-[#CE9F6B]/10 rounded-lg border-l-4 border-[#CE9F6B]">
+                <p className="text-xs font-medium text-[#976E44] uppercase tracking-wide">Total Resolution</p>
+                <p className="text-2xl font-bold text-[#976E44] mt-2">{avgResolutionTime}</p>
+                <p className="text-xs text-[#976E44]/70 mt-1">End-to-end (business hours)</p>
+              </div>
+              <div className="p-4 bg-[#6F8A9D]/10 rounded-lg border-l-4 border-[#6F8A9D]">
+                <p className="text-xs font-medium text-[#546A7A] uppercase tracking-wide">Travel Time</p>
+                <p className="text-2xl font-bold text-[#546A7A] mt-2">{avgTravelTime}</p>
+                <p className="text-xs text-[#546A7A]/70 mt-1">Start → Reached (real-time)</p>
+              </div>
+              <div className="p-4 bg-[#A2B9AF]/10 rounded-lg border-l-4 border-[#82A094]">
+                <p className="text-xs font-medium text-[#4F6A64] uppercase tracking-wide">Onsite Work</p>
+                <p className="text-2xl font-bold text-[#4F6A64] mt-2">{avgOnsiteResolution}</p>
+                <p className="text-xs text-[#4F6A64]/70 mt-1">In-progress → Resolved</p>
+              </div>
+              <div className="p-4 bg-[#546A7A]/10 rounded-lg border-l-4 border-[#546A7A]">
+                <p className="text-xs font-medium text-[#546A7A] uppercase tracking-wide">First Response</p>
+                <p className="text-2xl font-bold text-[#546A7A] mt-2">{avgFirstResponse}</p>
+                <p className="text-xs text-[#546A7A]/70 mt-1">Open → First action</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Service Lifecycle Info */}
+          <div className="mt-6 p-4 bg-gradient-to-r from-[#96AEC2]/10 to-[#A2B9AF]/10 rounded-lg">
+            <h4 className="font-semibold text-[#546A7A] mb-3 flex items-center gap-2">
+              <Activity className="h-4 w-4" />
+              Service Lifecycle Breakdown
+            </h4>
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <span className="px-3 py-1.5 bg-[#546A7A]/10 text-[#546A7A] rounded-full font-medium">🎫 Ticket Created</span>
+              <span className="text-[#92A2A5]">→</span>
+              <span className="px-3 py-1.5 bg-[#546A7A]/10 text-[#546A7A] rounded-full font-medium">⚡ First Response ({avgFirstResponse})</span>
+              <span className="text-[#92A2A5]">→</span>
+              <span className="px-3 py-1.5 bg-[#6F8A9D]/10 text-[#546A7A] rounded-full font-medium">🚗 Travel ({avgTravelTime})</span>
+              <span className="text-[#92A2A5]">→</span>
+              <span className="px-3 py-1.5 bg-[#A2B9AF]/10 text-[#4F6A64] rounded-full font-medium">🔧 Onsite Work ({avgOnsiteResolution})</span>
+              <span className="text-[#92A2A5]">→</span>
+              <span className="px-3 py-1.5 bg-[#82A094]/10 text-[#4F6A64] rounded-full font-medium">✅ Resolved</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Charts Row 1: Status and Priority Distribution */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -735,22 +910,28 @@ export function AdvancedTicketSummaryReport({ reportData }: AdvancedTicketSummar
             <div className="p-4 bg-[#A2B9AF]/10 rounded-lg">
               <p className="text-sm text-[#4F6A64] font-medium">Strengths</p>
               <ul className="mt-2 space-y-1">
-                <li className="text-sm text-[#4F6A64]">✓ High resolution rate</li>
-                <li className="text-sm text-[#4F6A64]">✓ Quick response times</li>
+                {parseFloat(resolutionRate) >= 70 && <li className="text-sm text-[#4F6A64]">✓ High resolution rate ({resolutionRate}%)</li>}
+                {(summary.avgOnsiteTravelTime || 0) > 0 && (summary.avgOnsiteTravelTime || 0) <= 120 && <li className="text-sm text-[#4F6A64]">✓ Efficient travel time ({avgTravelTime})</li>}
+                {(summary.averageOnsiteResolutionTime || 0) > 0 && (summary.averageOnsiteResolutionTime || 0) <= 240 && <li className="text-sm text-[#4F6A64]">✓ Quick onsite resolution ({avgOnsiteResolution})</li>}
+                {(summary.averageFirstResponseTime || 0) > 0 && (summary.averageFirstResponseTime || 0) <= 60 && <li className="text-sm text-[#4F6A64]">✓ Fast first response ({avgFirstResponse})</li>}
               </ul>
             </div>
             <div className="p-4 bg-[#EEC1BF]/10 rounded-lg">
               <p className="text-sm text-[#976E44] font-medium">Areas to Improve</p>
               <ul className="mt-2 space-y-1">
-                <li className="text-sm text-[#976E44]">→ Reduce critical tickets</li>
-                <li className="text-sm text-[#976E44]">→ Better SLA compliance</li>
+                {(summary.avgOnsiteTravelTime || 0) > 120 && <li className="text-sm text-[#976E44]">→ Reduce travel time ({avgTravelTime})</li>}
+                {(summary.averageOnsiteResolutionTime || 0) > 240 && <li className="text-sm text-[#976E44]">→ Optimize onsite resolution ({avgOnsiteResolution})</li>}
+                {parseFloat(resolutionRate) < 70 && <li className="text-sm text-[#976E44]">→ Improve resolution rate ({resolutionRate}%)</li>}
+                {(summary.criticalTickets || 0) > totalTickets * 0.1 && <li className="text-sm text-[#976E44]">→ Reduce critical tickets ({summary.criticalTickets})</li>}
               </ul>
             </div>
             <div className="p-4 bg-[#96AEC2]/10 rounded-lg">
               <p className="text-sm text-[#546A7A] font-medium">Recommendations</p>
               <ul className="mt-2 space-y-1">
+                {(summary.avgOnsiteTravelTime || 0) > 120 && <li className="text-sm text-[#546A7A]">• Optimize route planning</li>}
+                {(summary.averageOnsiteResolutionTime || 0) > 240 && <li className="text-sm text-[#546A7A]">• Improve parts availability</li>}
                 <li className="text-sm text-[#546A7A]">• Proactive monitoring</li>
-                <li className="text-sm text-[#546A7A]">• Staff training</li>
+                {totalOnsiteVisits > 0 && totalOnsiteVisits < totalTickets * 0.3 && <li className="text-sm text-[#546A7A]">• Increase remote resolution</li>}
               </ul>
             </div>
           </div>
