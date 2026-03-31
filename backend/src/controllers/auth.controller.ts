@@ -98,7 +98,7 @@ export const register = async (req: Request, res: Response) => {
     });
 
     const isProduction = process.env.NODE_ENV === 'production';
-    const isLocal = req.headers.host?.includes('172.28.91.10') || req.headers.host?.includes('10.91.1.12') || req.headers.host?.includes('10.91.1.48') || req.headers.host?.includes('10.91.1.49') || req.headers.host?.includes('10.91.1.22') || req.headers.host?.includes('localhost');
+    const isLocal = req.headers.host?.includes('172.28.91.10') || req.headers.host?.includes('10.91.1.12') || req.headers.host?.includes('10.91.1.48') || req.headers.host?.includes('10.91.1.49') || req.headers.host?.includes('10.91.1.21') || req.headers.host?.includes('localhost');
 
     // Set HTTP-only cookies
     res.cookie('accessToken', token, {
@@ -304,7 +304,7 @@ export const login = async (req: Request, res: Response) => {
       path: string;
     } = {
       httpOnly: true,
-      secure: isProduction && !req.headers.host?.includes('172.28.91.10') && !req.headers.host?.includes('10.91.1.12') && !req.headers.host?.includes('10.91.1.48') && !req.headers.host?.includes('10.91.1.49') && !req.headers.host?.includes('10.91.1.22') && !req.headers.host?.includes('localhost'),
+      secure: isProduction && !req.headers.host?.includes('172.28.91.10') && !req.headers.host?.includes('10.91.1.12') && !req.headers.host?.includes('10.91.1.48') && !req.headers.host?.includes('10.91.1.49') && !req.headers.host?.includes('10.91.1.21') && !req.headers.host?.includes('localhost'),
       sameSite: 'lax',
       maxAge: 1 * 60 * 60 * 1000,
       path: '/'
@@ -731,7 +731,7 @@ export const refreshToken = async (req: Request, res: Response) => {
     const isProduction = process.env.NODE_ENV === 'production';
     const cookieOptions = {
       httpOnly: true,
-      secure: isProduction && !req.headers.host?.includes('172.28.91.10') && !req.headers.host?.includes('10.91.1.12') && !req.headers.host?.includes('10.91.1.48') && !req.headers.host?.includes('10.91.1.49') && !req.headers.host?.includes('10.91.1.22') && !req.headers.host?.includes('localhost'),
+      secure: isProduction && !req.headers.host?.includes('172.28.91.10') && !req.headers.host?.includes('10.91.1.12') && !req.headers.host?.includes('10.91.1.48') && !req.headers.host?.includes('10.91.1.49') && !req.headers.host?.includes('10.91.1.21') && !req.headers.host?.includes('localhost'),
       sameSite: 'lax' as const,
       maxAge: 1 * 60 * 60 * 1000, // 1 hour for access token (matches JWT expiry)
       path: '/'

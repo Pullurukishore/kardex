@@ -30,7 +30,7 @@ app.prepare()
     server.listen(port, hostname, () => {
       console.log(`\n✓ Server running at http://${hostname}:${port}`);
       console.log(`✓ Access locally at http://localhost:${port}`);
-      console.log(`✓ Access on network at http://172.28.91.10:${port}, http://10.91.1.48:${port}, http://10.91.1.49:${port} or http://10.91.1.22:${port}\n`);
+      console.log(`✓ Access on network at http://172.28.91.10:${port}, http://10.91.1.48:${port}, http://10.91.1.49:${port} or http://10.91.1.21:${port}\n`);
     });
   })
   .catch((err) => {
