@@ -242,6 +242,8 @@ export default function EditMilestonePage() {
       setSaving(true);
       
       await arApi.updateInvoice(invoice!.id, {
+        bpCode: formData.bpCode || undefined,
+        customerName: formData.customerName || undefined,
         poNo: formData.poNo || undefined,
         soNo: formData.soNo || undefined,
         totalAmount: parseFloat(unformatNumber(formData.totalAmount) || '0'),

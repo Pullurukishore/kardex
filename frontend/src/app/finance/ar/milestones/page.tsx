@@ -375,7 +375,7 @@ export default function ARMilestonesPage() {
         maxAmount: maxAmount ? parseFloat(maxAmount) : undefined,
         riskClass: riskClass || undefined,
         page, 
-        limit: agingBucket ? 500 : 25 
+        limit: (agingBucket || ['OVERDUE', 'PENDING', 'PARTIAL'].includes(status)) ? 500 : 25
       });
       setInvoices(result.data);
       setTotalPages(result.pagination.totalPages);
@@ -425,8 +425,22 @@ export default function ARMilestonesPage() {
     setPage(1);
   };
 
-
-
+  // Generate page numbers with ellipsis for pagination
+  const getPageNumbers = () => {
+    const pages: (number | '...')[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (page > 3) pages.push('...');
+      const start = Math.max(2, page - 1);
+      const end = Math.min(totalPages - 1, page + 1);
+      for (let i = start; i <= end; i++) pages.push(i);
+      if (page < totalPages - 2) pages.push('...');
+      pages.push(totalPages);
+    }
+    return pages;
+  };
 
 
   return (
@@ -1097,17 +1111,66 @@ export default function ARMilestonesPage() {
           </table>
         </div>
 
-        {/* Improved Pagination */}
+        {/* Pagination */}
         {!loading && totalPages > 1 && (
-          <div className="relative p-5 border-t-2 border-[#6F8A9D]/20 flex justify-between items-center bg-gradient-to-r from-[#96AEC2]/5 via-transparent to-white overflow-hidden">
+          <div className="relative p-5 border-t-2 border-[#6F8A9D]/20 flex flex-col sm:flex-row justify-between items-center gap-4 bg-gradient-to-r from-[#96AEC2]/5 via-transparent to-white overflow-hidden">
             <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#546A7A] via-[#6F8A9D] to-[#96AEC2]" />
-            <span className="text-xs font-bold text-[#92A2A5] tracking-wide uppercase">Page {page} of {totalPages}</span>
-            <div className="flex gap-3">
-              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="flex items-center gap-2 px-4 py-2.5 bg-white border-2 border-[#AEBFC3]/40 rounded-xl text-xs font-bold text-[#546A7A] hover:bg-[#96AEC2]/10 hover:border-[#96AEC2] disabled:opacity-30 shadow-sm transition-all">
-                <ChevronLeft className="w-4 h-4" /> Previous
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-[#92A2A5] tracking-wide">Showing</span>
+              <span className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-[#546A7A]/10 to-[#6F8A9D]/5 text-xs font-black text-[#546A7A] border border-[#6F8A9D]/20">{((page - 1) * 25) + 1}–{Math.min(page * 25, total)}</span>
+              <span className="text-xs font-bold text-[#92A2A5]">of</span>
+              <span className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-[#CE9F6B]/10 to-[#976E44]/5 text-xs font-black text-[#976E44] border border-[#CE9F6B]/20">{total}</span>
+              <span className="text-xs font-bold text-[#92A2A5] tracking-wide">records</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => setPage(1)}
+                disabled={page === 1}
+                className="p-2 rounded-lg bg-white border-2 border-[#AEBFC3]/30 text-[#546A7A] hover:bg-[#96AEC2]/10 hover:border-[#6F8A9D] disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-sm"
+                title="First page"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
               </button>
-              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-[#546A7A] to-[#6F8A9D] rounded-xl text-xs font-bold text-white hover:shadow-lg hover:shadow-[#546A7A]/20 disabled:opacity-30 shadow-lg transition-all">
-                Next <ChevronRight className="w-4 h-4" />
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="flex items-center gap-1.5 px-3 py-2 bg-white border-2 border-[#AEBFC3]/30 rounded-lg text-xs font-bold text-[#546A7A] hover:bg-[#96AEC2]/10 hover:border-[#6F8A9D] disabled:opacity-30 disabled:cursor-not-allowed shadow-sm transition-all"
+              >
+                Prev
+              </button>
+              <div className="flex items-center gap-1 mx-1">
+                {getPageNumbers().map((p, i) =>
+                  p === '...' ? (
+                    <span key={`ellipsis-${i}`} className="w-8 text-center text-xs font-bold text-[#92A2A5] select-none">…</span>
+                  ) : (
+                    <button
+                      key={p}
+                      onClick={() => setPage(p)}
+                      className={`w-9 h-9 rounded-xl text-xs font-bold transition-all duration-200 ${
+                        page === p
+                          ? 'bg-gradient-to-br from-[#546A7A] to-[#6F8A9D] text-white shadow-lg shadow-[#546A7A]/25 scale-110 ring-2 ring-[#6F8A9D]/30'
+                          : 'bg-white border-2 border-[#AEBFC3]/30 text-[#546A7A] hover:bg-[#96AEC2]/10 hover:border-[#6F8A9D] hover:scale-105 shadow-sm'
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  )
+                )}
+              </div>
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-[#546A7A] to-[#6F8A9D] rounded-lg text-xs font-bold text-white hover:shadow-lg hover:shadow-[#546A7A]/20 disabled:opacity-30 disabled:cursor-not-allowed shadow-lg transition-all"
+              >
+                Next
+              </button>
+              <button
+                onClick={() => setPage(totalPages)}
+                disabled={page === totalPages}
+                className="p-2 rounded-lg bg-white border-2 border-[#AEBFC3]/30 text-[#546A7A] hover:bg-[#96AEC2]/10 hover:border-[#6F8A9D] disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-sm"
+                title="Last page"
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
@@ -1186,6 +1249,50 @@ export default function ARMilestonesPage() {
               </div>
             );
           })}
+
+         {/* Mobile Pagination */}
+         {!loading && totalPages > 1 && (
+           <div className="relative bg-white rounded-2xl border-2 border-[#6F8A9D]/30 p-4 shadow-lg overflow-hidden">
+             <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#546A7A] via-[#6F8A9D] to-[#96AEC2]" />
+             <div className="flex items-center justify-between mb-3">
+               <span className="text-[10px] font-bold text-[#92A2A5] uppercase tracking-wide">Page {page} of {totalPages}</span>
+               <span className="text-[10px] font-bold text-[#976E44]">{total} records</span>
+             </div>
+             <div className="flex items-center justify-center gap-1.5 flex-wrap">
+               <button
+                 onClick={() => setPage(p => Math.max(1, p - 1))}
+                 disabled={page === 1}
+                 className="p-2 rounded-lg bg-white border-2 border-[#AEBFC3]/30 text-[#546A7A] disabled:opacity-30 transition-all shadow-sm"
+               >
+                 <ChevronLeft className="w-4 h-4" />
+               </button>
+               {getPageNumbers().map((p, i) =>
+                 p === '...' ? (
+                   <span key={`m-ellipsis-${i}`} className="w-7 text-center text-xs font-bold text-[#92A2A5]">…</span>
+                 ) : (
+                   <button
+                     key={`m-${p}`}
+                     onClick={() => setPage(p)}
+                     className={`w-9 h-9 rounded-xl text-xs font-bold transition-all ${
+                       page === p
+                         ? 'bg-gradient-to-br from-[#546A7A] to-[#6F8A9D] text-white shadow-lg shadow-[#546A7A]/25 scale-110'
+                         : 'bg-white border-2 border-[#AEBFC3]/30 text-[#546A7A] active:scale-95'
+                     }`}
+                   >
+                     {p}
+                   </button>
+                 )
+               )}
+               <button
+                 onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                 disabled={page === totalPages}
+                 className="p-2 rounded-lg bg-gradient-to-r from-[#546A7A] to-[#6F8A9D] text-white disabled:opacity-30 transition-all shadow-lg"
+               >
+                 <ChevronRight className="w-4 h-4" />
+               </button>
+             </div>
+           </div>
+         )}
       </div>
     </div>
   );

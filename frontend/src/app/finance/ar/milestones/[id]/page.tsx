@@ -219,7 +219,7 @@ export default function MilestoneViewPage() {
         <h2 className="text-2xl font-bold text-[#546A7A] mb-3">Milestone Payment Not Found</h2>
         <p className="text-[#92A2A5] mb-8">{error || "The milestone payment you're looking for doesn't exist."}</p>
         <button 
-          onClick={() => window.history.length > 2 ? router.back() : router.push('/finance/ar/milestones')}
+          onClick={() => window.history.length > 1 ? router.back() : router.push('/finance/ar/milestones')}
           className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#CE9F6B] to-[#976E44] text-white font-bold rounded-xl shadow-lg shadow-[#CE9F6B]/20 hover:shadow-xl hover:shadow-[#CE9F6B]/30 transition-all hover:-translate-y-0.5"
         >
           <ArrowLeft className="w-4 h-4" /> Back to Milestones
@@ -318,6 +318,7 @@ export default function MilestoneViewPage() {
   });
 
   // Overdue and Not Due calculations
+  // Uses same logic as per-term display (line 774-776): overdue if term date has passed AND pendingForTerm >= 0.01
   const overdueAmount = termCollections
     .filter(tc => {
       const term = milestoneTerms.find(t => `${t.termType}-${t.termDate}-${t.percentage || 0}-${t.taxPercentage || 0}` === tc.termId);
@@ -326,7 +327,7 @@ export default function MilestoneViewPage() {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const termAging = Math.floor((today.getTime() - termDate.getTime()) / (1000 * 60 * 60 * 24));
-      return termAging > 0 && tc.collectedPercent < 99 && invoice.milestoneStatus !== 'FULLY_DELIVERED';
+      return termAging > 0 && tc.pendingForTerm >= 0.01;
     })
     .reduce((sum, tc) => sum + tc.pendingForTerm, 0);
 
@@ -397,7 +398,7 @@ export default function MilestoneViewPage() {
         <div className="relative z-10">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-10">
             <button 
-              onClick={() => router.push('/finance/ar/milestones')}
+              onClick={() => window.history.length > 1 ? router.back() : router.push('/finance/ar/milestones')}
               className="group flex items-center gap-3 text-[#5D6E73] hover:text-[#546A7A] transition-all"
             >
               <div className="p-2.5 rounded-xl bg-gradient-to-br from-[#CE9F6B]/10 to-[#976E44]/10 shadow-lg border-2 border-[#CE9F6B]/20 group-hover:from-[#CE9F6B]/20 group-hover:to-[#976E44]/20 transition-colors">

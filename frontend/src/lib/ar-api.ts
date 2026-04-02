@@ -1129,7 +1129,7 @@ export const formatARCurrency = (amount: number, currency?: string): string => {
     const locale = cur === 'INR' ? 'en-IN' : 'en-US';
     return `${symbol}${Number(amount || 0).toLocaleString(locale, {
         minimumFractionDigits: 0,
-        maximumFractionDigits: 2
+        maximumFractionDigits: 0
     })}`;
 };
 

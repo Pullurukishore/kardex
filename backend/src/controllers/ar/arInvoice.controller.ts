@@ -40,8 +40,15 @@ export const getAllInvoices = async (req: Request, res: Response) => {
             ];
         }
 
+        let filterStatusInMemory: string | null = null;
+
         if (status) {
-            where.status = status;
+            if (invoiceType === 'MILESTONE' && ['OVERDUE', 'PENDING', 'PARTIAL'].includes(String(status))) {
+                where.status = { not: 'CANCELLED' };
+                filterStatusInMemory = String(status);
+            } else {
+                where.status = status;
+            }
         } else {
             // Default: do not show cancelled invoices in the main list
             where.status = { not: 'CANCELLED' };
@@ -58,7 +65,12 @@ export const getAllInvoices = async (req: Request, res: Response) => {
         }
 
         if (overdueOnly === 'true') {
-            where.status = 'OVERDUE';
+            if (invoiceType === 'MILESTONE') {
+                where.status = { not: 'CANCELLED' };
+                filterStatusInMemory = 'OVERDUE';
+            } else {
+                where.status = 'OVERDUE';
+            }
         }
 
         // Filter by invoice type (REGULAR, MILESTONE)
@@ -182,8 +194,30 @@ export const getAllInvoices = async (req: Request, res: Response) => {
                     }, null);
                     if (earliestTerm?.termDate) {
                         dueByDays = calculateDaysBetween(new Date(earliestTerm.termDate), today);
-                        isOverdue = false; // Milestone aging isn't necessarily "overdue" in the same sense
                     }
+
+                    // Calculate if this milestone is dynamically overdue
+                    let totalAllocatedUpToToday = 0;
+                    const netAmount = Number(invoice.netAmount || 0);
+                    const totalTax = Number(invoice.taxAmount || 0);
+                    
+                    terms.forEach((term: any) => {
+                        const termDate = new Date(term.termDate);
+                        termDate.setHours(0,0,0,0);
+                        if (today.getTime() > termDate.getTime()) {
+                            const isNetBasis = term.calculationBasis !== 'TOTAL_AMOUNT';
+                            const percentage = term.percentage || 0;
+                            const taxPercentage = term.taxPercentage || 0;
+                            if (isNetBasis) {
+                                totalAllocatedUpToToday += (netAmount * percentage) / 100;
+                            } else {
+                                totalAllocatedUpToToday += ((netAmount * percentage) / 100) + ((totalTax * taxPercentage) / 100);
+                            }
+                        }
+                    });
+
+                    const paymentDataForTotal = paymentsAggr[invoice.id] ? paymentsAggr[invoice.id].total : (Number(invoice.totalReceipts) || 0);
+                    isOverdue = (totalAllocatedUpToToday - paymentDataForTotal) > 0.01;
                 }
             } else if (invoice.dueDate) {
                 // calculateDaysBetween should handle Date objects
@@ -200,7 +234,9 @@ export const getAllInvoices = async (req: Request, res: Response) => {
             let computedStatus = invoice.status;
             if (invoice.status !== 'CANCELLED') {
                 if (computedBalance <= 0 && computedTotalReceipts > 0) computedStatus = 'PAID';
+                else if (isOverdue) computedStatus = 'OVERDUE';
                 else if (computedTotalReceipts > 0) computedStatus = 'PARTIAL';
+                else computedStatus = 'PENDING';
             }
 
             return {
@@ -231,13 +267,19 @@ export const getAllInvoices = async (req: Request, res: Response) => {
             });
         }
 
+        if (filterStatusInMemory) {
+            filteredInvoices = filteredInvoices.filter((inv: any) => inv.status === filterStatusInMemory);
+        }
+
+        const shouldOverridePagination = agingBucket || filterStatusInMemory;
+
         res.json({
-            data: agingBucket ? filteredInvoices : invoicesWithOverdue,
+            data: shouldOverridePagination ? filteredInvoices : invoicesWithOverdue,
             pagination: {
                 page: Number(page),
                 limit: Number(limit),
-                total: agingBucket ? filteredInvoices.length : total,
-                totalPages: agingBucket ? 1 : Math.ceil(total / Number(limit))
+                total: shouldOverridePagination ? filteredInvoices.length : total,
+                totalPages: shouldOverridePagination ? 1 : Math.ceil(total / Number(limit))
             }
         });
     } catch (error: any) {

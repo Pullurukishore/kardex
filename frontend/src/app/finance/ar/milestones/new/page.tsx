@@ -212,7 +212,7 @@ export default function NewMilestonePage() {
       
       await arApi.createInvoice({
         invoiceNumber: formData.invoiceNumber,
-        customerId: formData.bpCode,
+        bpCode: formData.bpCode,
         customerName: formData.customerName || '',
         poNo: formData.poNo,
         soNo: formData.soNo,
@@ -264,12 +264,12 @@ export default function NewMilestonePage() {
         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full animate-[shimmer-slide_4s_ease-in-out_infinite]" />
         <div className="relative flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Link 
-              href="/finance/ar/milestones"
+            <button 
+              onClick={() => window.history.length > 1 ? router.back() : router.push('/finance/ar/milestones')}
               className="p-2.5 rounded-xl bg-white/15 backdrop-blur-md border border-white/20 text-white hover:bg-white/25 transition-all duration-300 shadow-lg"
             >
               <ArrowLeft className="w-5 h-5" />
-            </Link>
+            </button>
             <div className="relative p-3 rounded-2xl bg-white/15 backdrop-blur-xl border border-white/20 shadow-2xl transition-transform hover:rotate-3">
               <Wallet className="w-6 h-6 text-white" />
               <div className="absolute -top-1 -right-1 w-3 h-3 bg-[#A2B9AF] rounded-full border-2 border-white animate-pulse" />
