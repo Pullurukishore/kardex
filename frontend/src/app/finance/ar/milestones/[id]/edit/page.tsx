@@ -94,11 +94,23 @@ export default function EditMilestonePage() {
   const updateTerm = (index: number, field: keyof MilestonePaymentTerm, value: string | boolean) => {
     let finalValue: any = value;
 
-    // Validation for percentage
-    if (field === 'percentage' || field === 'taxPercentage') {
+    // Validation for percentage - cap so total never exceeds 100%
+    if (field === 'percentage') {
       const numValue = parseFloat(value as string);
       if (!isNaN(numValue)) {
-        finalValue = Math.min(100, Math.max(0, numValue));
+        const othersTotal = formData.milestoneTerms.reduce((sum, t, i) => i === index ? sum : sum + (Number(t.percentage) || 0), 0);
+        const maxAllowed = Math.max(0, 100 - othersTotal);
+        finalValue = Math.min(maxAllowed, Math.max(0, numValue));
+      } else if (value === '') {
+        finalValue = 0;
+      }
+    }
+    if (field === 'taxPercentage') {
+      const numValue = parseFloat(value as string);
+      if (!isNaN(numValue)) {
+        const othersTotal = formData.milestoneTerms.reduce((sum, t, i) => i === index ? sum : sum + (Number(t.taxPercentage) || 0), 0);
+        const maxAllowed = Math.max(0, 100 - othersTotal);
+        finalValue = Math.min(maxAllowed, Math.max(0, numValue));
       } else if (value === '') {
         finalValue = 0;
       }
@@ -214,11 +226,13 @@ export default function EditMilestonePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (totalPercentage > 100) {
-      setError('Total percentage allocation cannot exceed 100%');
+    if (totalPercentage !== 100) {
+      setError('Net allocation must be exactly 100%. Currently at ' + totalPercentage + '%');
       return;
     }
-    if (totalTaxPercentage > 100) {
+    const hasAnyTaxTerm = formData.milestoneTerms.some(t => t.calculationBasis === 'TOTAL_AMOUNT');
+    const taxAmt = parseFloat(formData.taxAmount || '0');
+    if (hasAnyTaxTerm && taxAmt > 0 && totalTaxPercentage > 100) {
       setError('Total tax percentage allocation cannot exceed 100%');
       return;
     }
@@ -613,7 +627,7 @@ export default function EditMilestonePage() {
               <span className="text-sm font-black text-[#4F6A64] bg-white px-3 py-1.5 rounded-lg shadow-sm border border-[#82A094]/20">
                 ₹{totalAllocatedAmount.toLocaleString('en-IN', { maximumFractionDigits: 0 })} <span className="text-[#82A094] mx-1">/</span> ₹{parseFloat(formData.totalAmount || '0').toLocaleString('en-IN', { maximumFractionDigits: 0 })}
               </span>
-              {(totalPercentage > 100 || totalTaxPercentage > 100) && (
+              {totalPercentage > 100 && (
                   <span className="text-xs font-bold text-white bg-gradient-to-r from-[#E17F70] to-[#9E3B47] px-3 py-1.5 rounded-lg shadow-md animate-pulse hidden sm:block">Exceeds limits!</span>
               )}
             </div>
@@ -657,39 +671,68 @@ export default function EditMilestonePage() {
             </div>
 
             {/* Tax Allocation Progress Bar */}
-            <div className="bg-[#E17F70]/5 p-4 rounded-xl border border-[#E17F70]/20">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <BarChart3 className="w-4 h-4 text-[#E17F70]" />
-                  <span className="text-sm font-bold text-[#9E3B47]">Tax Allocation</span>
+            {(() => {
+              const taxAmt = parseFloat(formData.taxAmount || '0');
+              const hasAnyTaxTerm = formData.milestoneTerms.some(t => t.calculationBasis === 'TOTAL_AMOUNT');
+              const showTaxBar = taxAmt > 0 && hasAnyTaxTerm;
+              
+              if (!showTaxBar) {
+                return (
+                  <div className="bg-[#AEBFC3]/5 p-4 rounded-xl border border-[#AEBFC3]/15">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <BarChart3 className="w-4 h-4 text-[#AEBFC3]" />
+                        <span className="text-sm font-bold text-[#92A2A5]">Tax Allocation</span>
+                      </div>
+                      <span className="text-xs font-bold text-[#92A2A5] bg-[#AEBFC3]/10 px-3 py-1 rounded-full">
+                        {taxAmt === 0 ? 'No Tax Applied' : 'Select Net + Tax on a term'}
+                      </span>
+                    </div>
+                    <div className="relative h-2.5 bg-[#AEBFC3]/10 rounded-full overflow-hidden">
+                      <div className="absolute inset-y-0 left-0 w-0 rounded-full" />
+                    </div>
+                    {taxAmt === 0 && (
+                      <p className="text-[10px] text-[#92A2A5] mt-2 italic text-center">Enter a tax amount and set terms to &quot;Net + Tax&quot; to enable tax allocation</p>
+                    )}
+                  </div>
+                );
+              }
+              
+              return (
+                <div className="bg-[#E17F70]/5 p-4 rounded-xl border border-[#E17F70]/20">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <BarChart3 className="w-4 h-4 text-[#E17F70]" />
+                      <span className="text-sm font-bold text-[#9E3B47]">Tax Allocation</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-sm font-black ${totalTaxPercentage > 100 ? 'text-red-500' : totalTaxPercentage === 100 ? 'text-[#82A094]' : 'text-[#E17F70]'}`}>
+                        {totalTaxPercentage}%
+                      </span>
+                      <span className="text-xs text-[#92A2A5]">/ 100%</span>
+                      {totalTaxPercentage > 100 && <span className="text-[10px] font-bold text-red-500 bg-red-50 px-2 py-0.5 rounded-full">Exceeds!</span>}
+                      {totalTaxPercentage === 100 && <CheckCircle2 className="w-4 h-4 text-[#82A094]" />}
+                    </div>
+                  </div>
+                  <div className="relative h-2.5 bg-[#E17F70]/15 rounded-full overflow-hidden">
+                    <div
+                      className={`absolute inset-y-0 left-0 rounded-full transition-all duration-700 ease-out ${
+                        totalTaxPercentage > 100 ? 'bg-gradient-to-r from-red-400 to-red-500' :
+                        totalTaxPercentage === 100 ? 'bg-gradient-to-r from-[#82A094] to-[#4F6A64]' :
+                        totalTaxPercentage >= 50 ? 'bg-gradient-to-r from-[#E17F70] to-[#E17F70]' :
+                        'bg-gradient-to-r from-[#AEBFC3] to-[#92A2A5]'
+                      }`}
+                      style={{ width: `${Math.min(100, totalTaxPercentage)}%` }}
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer" />
+                    </div>
+                    {[25, 50, 75].map((m) => (
+                      <div key={m} className="absolute top-0 bottom-0 w-px bg-white/40" style={{ left: `${m}%` }} />
+                    ))}
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className={`text-sm font-black ${totalTaxPercentage > 100 ? 'text-red-500' : totalTaxPercentage === 100 ? 'text-[#82A094]' : 'text-[#E17F70]'}`}>
-                    {totalTaxPercentage}%
-                  </span>
-                  <span className="text-xs text-[#92A2A5]">/ 100%</span>
-                  {totalTaxPercentage > 100 && <span className="text-[10px] font-bold text-red-500 bg-red-50 px-2 py-0.5 rounded-full">Exceeds!</span>}
-                  {totalTaxPercentage === 100 && <CheckCircle2 className="w-4 h-4 text-[#82A094]" />}
-                </div>
-              </div>
-              <div className="relative h-2.5 bg-[#E17F70]/15 rounded-full overflow-hidden">
-                <div
-                  className={`absolute inset-y-0 left-0 rounded-full transition-all duration-700 ease-out ${
-                    totalTaxPercentage > 100 ? 'bg-gradient-to-r from-red-400 to-red-500' :
-                    totalTaxPercentage === 100 ? 'bg-gradient-to-r from-[#82A094] to-[#4F6A64]' :
-                    totalTaxPercentage >= 50 ? 'bg-gradient-to-r from-[#E17F70] to-[#E17F70]' :
-                    'bg-gradient-to-r from-[#AEBFC3] to-[#92A2A5]'
-                  }`}
-                  style={{ width: `${Math.min(100, totalTaxPercentage)}%` }}
-                >
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer" />
-                </div>
-                {/* Markers */}
-                {[25, 50, 75].map((m) => (
-                  <div key={m} className="absolute top-0 bottom-0 w-px bg-white/40" style={{ left: `${m}%` }} />
-                ))}
-              </div>
-            </div>
+              );
+            })()}
           </div>
 
           {/* Add Term Header */}
@@ -703,10 +746,10 @@ export default function EditMilestonePage() {
             <button
               type="button"
               onClick={addTerm}
-              disabled={totalPercentage >= 100 && totalTaxPercentage >= 100}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-white font-bold text-xs transition-all duration-300 ${(totalPercentage >= 100 && totalTaxPercentage >= 100) ? 'bg-gray-300 cursor-not-allowed' : 'bg-gradient-to-r from-[#CE9F6B] to-[#976E44] hover:shadow-lg hover:shadow-[#CE9F6B]/30 hover:-translate-y-0.5 active:scale-95'}`}
+              disabled={totalPercentage >= 100}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-white font-bold text-xs transition-all duration-300 ${totalPercentage >= 100 ? 'bg-gray-300 cursor-not-allowed opacity-60' : 'bg-gradient-to-r from-[#CE9F6B] to-[#976E44] hover:shadow-lg hover:shadow-[#CE9F6B]/30 hover:-translate-y-0.5 active:scale-95'}`}
             >
-              <Plus className="w-4 h-4" /> Add Term
+              <Plus className="w-4 h-4" /> {totalPercentage >= 100 ? 'All 100% Allocated' : 'Add Term'}
             </button>
           </div>
 

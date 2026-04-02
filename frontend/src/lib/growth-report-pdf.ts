@@ -520,26 +520,36 @@ export async function generateGrowthPillarPdf(data: GrowthPillarPdfData): Promis
             doc.setFont('helvetica', 'bold'); doc.setFontSize(5.5); doc.setTextColor(...COLORS.white)
             doc.text(badge, 28, y + 5, { align: 'center' })
 
-            // Clean the text of emojis (jsPDF can't render them)
-            const cleanText = item.text.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}]/gu, '').trim()
+            // Clean the text aggressively: default jsPDF Helvetica only supports ASCII.
+            // Remove any Unicode characters (long dashes, smart quotes, emojis, etc.)
+            const cleanText = item.text
+                .replace(/[\u2013\u2014]/g, '-') // replace long dashes
+                .replace(/[\u2018\u2019\u201A\u201B]/g, "'") // replace smart single quotes
+                .replace(/[\u201C\u201D\u201E\u201F]/g, '"') // replace smart double quotes
+                .replace(/[^\x20-\x7E]/g, '') // remove all other non-ASCII
+                .trim()
+
             doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(...COLORS.textDark)
 
             // Word wrap if text is very long
             const maxTextW = pageW - 80
             const lines = doc.splitTextToSize(cleanText, maxTextW)
-            if (lines.length > 1) {
-                doc.setFillColor(...COLORS.offWhite)
-                doc.roundedRect(20, y, pageW - 40, 8 + (lines.length - 1) * 4, 1, 1, 'F')
-                doc.setFillColor(...itemColor)
-                doc.roundedRect(20, y, 2, 8 + (lines.length - 1) * 4, 0.5, 0.5, 'F')
-            }
+            const lineHeight = 4
+            const rowHeight = 8 + (lines.length > 1 ? (lines.length - 1) * lineHeight : 0)
 
+            // Item row background (re-calculate for multi-line)
+            doc.setFillColor(...COLORS.offWhite)
+            doc.roundedRect(20, y, pageW - 40, rowHeight, 1, 1, 'F')
+
+            // Left color indicator
+            doc.setFillColor(...itemColor)
+            doc.roundedRect(20, y, 2, rowHeight, 0.5, 0.5, 'F')
+
+            // Render lines
             doc.setTextColor(...COLORS.textDark)
-            lines.forEach((line: string, li: number) => {
-                doc.text(line, 35, y + 5 + li * 4)
-            })
+            doc.text(lines, 35, y + 5)
 
-            y += 10 + Math.max(0, (lines.length - 1) * 4)
+            y += rowHeight + 2
         }
 
         y += 3
