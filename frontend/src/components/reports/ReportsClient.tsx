@@ -993,6 +993,24 @@ const ReportsClient: React.FC<ReportsClientProps> = ({
 
   const handleExport = useCallback(async (exportFormat: 'pdf' | 'excel') => {
     try {
+      // ── CLIENT-SIDE PDF GENERATION for supported report types ──
+      const pdfSupportedTypes = ['ticket-summary', 'agent-productivity'];
+      if (exportFormat === 'pdf' && pdfSupportedTypes.includes(filters.reportType)) {
+        toast.info('Generating premium PDF report...');
+        const { generateReportPdf } = await import('@/lib/reports-pdf');
+        await generateReportPdf(filters.reportType, {
+          ticketSummaryData,
+          servicePersonPerformanceData,
+        }, {
+          filters,
+          zones,
+          customers,
+        });
+        toast.success('PDF report downloaded successfully');
+        return;
+      }
+
+      // ── BACKEND EXPORT (Excel + unsupported PDF types) ──
       const params: any = {
         reportType: filters.reportType || 'offer-summary',
         format: exportFormat,
@@ -1027,8 +1045,6 @@ const ReportsClient: React.FC<ReportsClientProps> = ({
 
       // Create a temporary link to trigger download
       const link = document.createElement('a');
-      link.href = exportUrl;
-      link.download = `offer-report-${exportFormat === 'pdf' ? 'pdf' : 'xlsx'}`;
       
       // Get token - check localStorage first (matching axios.ts logic), then cookies
       let token = localStorage.getItem('accessToken') || 
@@ -1061,9 +1077,20 @@ const ReportsClient: React.FC<ReportsClientProps> = ({
         throw new Error('Export failed');
       }
 
+      // Automatically determine filename from response headers or fallback
+      let filename = `${filters.reportType || 'report'}.${exportFormat === 'pdf' ? 'pdf' : 'xlsx'}`;
+      const contentDisposition = response.headers.get('Content-Disposition');
+      if (contentDisposition && contentDisposition.includes('filename=')) {
+        const matches = /filename="([^"]+)"/.exec(contentDisposition);
+        if (matches != null && matches[1]) {
+          filename = matches[1];
+        }
+      }
+
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       link.href = url;
+      link.download = filename;
       link.click();
       window.URL.revokeObjectURL(url);
 
@@ -1072,7 +1099,7 @@ const ReportsClient: React.FC<ReportsClientProps> = ({
       console.error('Export error:', error);
       toast.error(error?.message || 'Failed to export report');
     }
-  }, [filters]);
+  }, [filters, ticketSummaryData, servicePersonPerformanceData, zones, customers]);
 
   const summary = useMemo(() => reportData?.summary || {}, [reportData]);
   const selectedReportType = reportTypes.find(type => type.value === filters.reportType) || REPORT_TYPES.find(type => type.value === filters.reportType);

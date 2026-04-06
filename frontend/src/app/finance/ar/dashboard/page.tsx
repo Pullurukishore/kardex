@@ -458,6 +458,7 @@ export default function ARDashboardPage() {
               { label: 'Partial', desc: 'Some terms paid', value: data?.milestoneKpis?.statusCounts?.partial || 0, color: 'from-[#6F8A9D] to-[#546A7A]', bgColor: 'bg-[#6F8A9D]', icon: '🛠' },
               { label: 'Paid', desc: 'All terms cleared', value: data?.milestoneKpis?.statusCounts?.paid || 0, color: 'from-[#82A094] to-[#4F6A64]', bgColor: 'bg-[#82A094]', icon: '✅' },
               { label: 'Overdue', desc: 'One or more stages late', value: data?.milestoneKpis?.statusCounts?.overdue || 0, color: 'from-[#9E3B47] to-[#75242D]', bgColor: 'bg-[#9E3B47]', icon: '🚨' },
+              { label: 'Cancelled', desc: 'Voided milestones', value: (data?.milestoneKpis?.statusCounts as any)?.cancelled || 0, color: 'from-[#AEBFC3] to-[#92A2A5]', bgColor: 'bg-[#AEBFC3]', icon: '✕' },
             ].map(item => {
               const total = data?.milestoneKpis?.statusCounts?.total || 1;
               const pct = total > 0 ? (item.value / total) * 100 : 0;

@@ -475,12 +475,31 @@ async function generateTicketSummaryReport(res: Response, whereClause: any, star
   // Create a map of zone ticket counts
   const zoneTicketMap = new Map((zoneDistribution || []).map((z: any) => [z.zoneId, z._count]));
 
-  // Build complete zone distribution including zones with 0 tickets
-  const completeZoneDistribution = allZones.map((zone: any) => ({
-    zoneId: zone.id,
-    zoneName: zone.name,
-    count: zoneTicketMap.get(zone.id) || 0
-  })).sort((a: any, b: any) => b.count - a.count); // Sort by count descending
+  // Build complete zone distribution including zones with 0 tickets and detailed stats
+  const completeZoneDistribution = allZones.map((zone: any) => {
+    const zoneTickets = tickets.filter((t: any) => t.zoneId === zone.id);
+    const resolved = zoneTickets.filter((t: any) => t.status === 'RESOLVED' || t.status === 'CLOSED');
+    const critical = zoneTickets.filter((t: any) => t.priority === 'CRITICAL');
+    const open = zoneTickets.filter((t: any) => ['OPEN', 'IN_PROGRESS', 'IN_PROCESS', 'ASSIGNED', 'ONSITE_VISIT', 'ONSITE_VISIT_IN_PROGRESS'].includes(t.status));
+    
+    // Average resolution for this zone
+    const validResTimes = resolved
+        .map((t: any) => t.calculatedResolutionMinutes)
+        .filter((time: any) => typeof time === 'number' && time > 0);
+    const avgResTime = validResTimes.length > 0 
+        ? Math.round(validResTimes.reduce((a: number, b: number) => a + b, 0) / validResTimes.length) 
+        : 0;
+
+    return {
+      zoneId: zone.id,
+      zoneName: zone.name,
+      count: zoneTicketMap.get(zone.id) || 0,
+      resolvedCount: resolved.length,
+      openCount: open.length,
+      criticalCount: critical.length,
+      avgResolutionMinutes: avgResTime,
+    };
+  }).sort((a: any, b: any) => b.count - a.count); // Sort by count descending
 
   // Get ALL customers (not just customers with tickets)
   const allCustomers = await prisma.customer.findMany({
@@ -1667,9 +1686,82 @@ export const exportReport = async (req: Request, res: Response) => {
     // Get data based on report type
     switch (reportType) {
       case 'ticket-summary':
-        const ticketData = await getTicketSummaryData(whereClause, startDate, endDate);
-        data = ticketData.tickets || [];
-        summaryData = ticketData.summary;
+        // For Excel export, fetch full ticket details with all relations
+        if (exportFormat.toLowerCase() === 'excel' || exportFormat.toLowerCase() === 'xlsx') {
+          const fullTickets = await prisma.ticket.findMany({
+            where: whereClause,
+            include: {
+              customer: { select: { id: true, companyName: true, address: true } },
+              zone: { select: { id: true, name: true } },
+              assignedTo: { select: { id: true, name: true } },
+              asset: { select: { id: true, serialNo: true, model: true, machineId: true } },
+              contact: { select: { id: true, name: true, phone: true, email: true } },
+              statusHistory: {
+                select: { status: true, changedAt: true },
+                orderBy: { changedAt: 'asc' }
+              },
+            },
+            orderBy: { createdAt: 'desc' },
+          });
+          // Compute visit timestamps and time metrics from statusHistory
+          data = fullTickets.map((ticket: any) => {
+            const sh = ticket.statusHistory || [];
+            const findStatus = (s: string) => sh.find((h: any) => h.status === s);
+            
+            const visitPlannedDate = ticket.visitPlannedDate || findStatus('ONSITE_VISIT_PLANNED')?.changedAt || null;
+            const visitStartedAt = ticket.visitStartedAt || findStatus('ONSITE_VISIT_STARTED')?.changedAt || null;
+            const visitReachedAt = ticket.visitReachedAt || findStatus('ONSITE_VISIT_REACHED')?.changedAt || null;
+            const visitResolvedAt = ticket.visitResolvedAt || findStatus('ONSITE_VISIT_RESOLVED')?.changedAt || null;
+            const visitCompletedDate = ticket.visitCompletedDate || findStatus('ONSITE_VISIT_COMPLETED')?.changedAt || null;
+            const onsiteStart = ticket.visitInProgressAt || findStatus('ONSITE_VISIT_IN_PROGRESS')?.changedAt || null;
+
+            // Travel time = (Started→Reached) 
+            // Fallback: If Started is missing but we have Reached, we assume a minimal travel or ignore
+            let travelTime = 0;
+            if (visitStartedAt && visitReachedAt) {
+              travelTime = Math.max(0, differenceInMinutes(new Date(visitReachedAt), new Date(visitStartedAt)));
+            } else if (visitReachedAt && ticket.createdAt) {
+              // If we have a reach time but no start time, calculate from creation as a loose fallback
+              travelTime = Math.max(0, differenceInMinutes(new Date(visitReachedAt), new Date(ticket.createdAt)));
+            }
+
+            // Onsite working time = (InProgress→Resolved)
+            let onsiteWorkingTime = 0;
+            if (onsiteStart && visitResolvedAt) {
+              onsiteWorkingTime = Math.max(0, differenceInMinutes(new Date(visitResolvedAt), new Date(onsiteStart)));
+            } else if (visitResolvedAt && visitReachedAt) {
+              // Fallback: If InProgress is missing, use Reached to Resolved
+              onsiteWorkingTime = Math.max(0, differenceInMinutes(new Date(visitResolvedAt), new Date(visitReachedAt)));
+            }
+
+            // Total resolution time (business hours)
+            let totalResolutionTime = 0;
+            if (ticket.status === 'RESOLVED' || ticket.status === 'CLOSED') {
+              const resolutionEnd = visitCompletedDate || visitResolvedAt || ticket.updatedAt;
+              totalResolutionTime = calculateBusinessHoursMinutes(ticket.createdAt, resolutionEnd);
+            }
+            return {
+              ...ticket,
+              visitPlannedDate,
+              visitStartedAt,
+              visitReachedAt,
+              visitResolvedAt,
+              visitCompletedDate,
+              travelTime,
+              onsiteWorkingTime,
+              totalResolutionTime,
+            };
+          });
+          summaryData = {
+            totalTickets: data.length,
+            resolvedTickets: data.filter((t: any) => t.status === 'RESOLVED' || t.status === 'CLOSED').length,
+            openTickets: data.filter((t: any) => t.status === 'OPEN').length,
+          };
+        } else {
+          const ticketData = await getTicketSummaryData(whereClause, startDate, endDate);
+          data = ticketData.tickets || [];
+          summaryData = ticketData.summary;
+        }
         columns = getPdfColumns('ticket-summary');
         break;
 
@@ -1854,7 +1946,12 @@ export const exportReport = async (req: Request, res: Response) => {
     } else if (exportFormat.toLowerCase() === 'excel' || exportFormat.toLowerCase() === 'xlsx') {
       // Generate Excel with enhanced formatting and summary data
       const excelColumns = getExcelColumns(reportType);
-      await generateExcel(res, data, excelColumns, reportTitle, filters, summaryData);
+      
+      // Ensure the generator knows this is a ticket report for data-only mode
+      // This is crucial for bypassing headers/summaries
+      const exportFilters = { ...filters, reportType: reportType };
+      
+      await generateExcel(res, data, excelColumns, reportTitle, exportFilters, summaryData);
     } else {
       // Default to PDF export
       const pdfColumns = getPdfColumns(reportType);

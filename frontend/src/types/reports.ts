@@ -195,6 +195,7 @@ export const REPORT_TYPES: ReportType[] = [
     icon: 'Settings',
     color: 'from-[#A2B9AF] to-[#82A094]' // Green 1 to Green 2
   },
+  /*
   {
     value: 'zone-performance',
     label: 'Zone Performance Report',
@@ -202,6 +203,7 @@ export const REPORT_TYPES: ReportType[] = [
     icon: 'Target',
     color: 'from-[#6F8A9D] to-[#546A7A]' // Blue 2 to Blue 3
   },
+  */
   {
     value: 'agent-productivity',
     label: 'Service Person Performance Report',
@@ -209,7 +211,7 @@ export const REPORT_TYPES: ReportType[] = [
     icon: 'Users',
     color: 'from-[#82A094] to-[#4F6A64]' // Green 2 to Green 3
   },
-
+  /*
   {
     value: 'sla-performance',
     label: 'Service Person Attendance Report',
@@ -217,6 +219,7 @@ export const REPORT_TYPES: ReportType[] = [
     icon: 'UserCheck',
     color: 'from-[#92A2A5] to-[#5D6E73]' // Silver 2 to Silver 3
   },
+  */
   {
     value: 'offer-summary',
     label: 'Offer Summary Report',

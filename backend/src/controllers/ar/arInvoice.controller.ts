@@ -200,10 +200,10 @@ export const getAllInvoices = async (req: Request, res: Response) => {
                     let totalAllocatedUpToToday = 0;
                     const netAmount = Number(invoice.netAmount || 0);
                     const totalTax = Number(invoice.taxAmount || 0);
-                    
+
                     terms.forEach((term: any) => {
                         const termDate = new Date(term.termDate);
-                        termDate.setHours(0,0,0,0);
+                        termDate.setHours(0, 0, 0, 0);
                         if (today.getTime() > termDate.getTime()) {
                             const isNetBasis = term.calculationBasis !== 'TOTAL_AMOUNT';
                             const percentage = term.percentage || 0;

@@ -199,13 +199,7 @@ export default function NewMilestonePage() {
       setError('Total tax percentage allocation cannot exceed 100%');
       return;
     }
-    
-    // Check if any term is missing a date
-    const missingDate = formData.milestoneTerms.some(t => !t.termDate);
-    if (missingDate) {
-      setError('Payment dates are required for all milestone terms');
-      return;
-    }
+    // Removed mandatory date check for consistency with edit page
 
     try {
       setSaving(true);
@@ -325,7 +319,7 @@ export default function NewMilestonePage() {
           <div>
             <p className="text-[#976E44] font-bold text-sm">Milestone Payment Requirements</p>
             <p className="text-[#92A2A5] text-xs mt-1">
-              Kardex SO number, Kardex PO number, Customer details, and Amount are mandatory. Add at least one payment term with a target date.
+              Kardex SO number, Kardex PO number, Customer details, and Amount are mandatory. Add at least one payment term.
             </p>
           </div>
         </div>

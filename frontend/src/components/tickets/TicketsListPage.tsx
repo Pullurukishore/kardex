@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { UserRole } from '@/types/user.types'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -34,6 +34,8 @@ import {
   MapPin,
   ChevronLeft,
   ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   Filter,
   X,
   AlertCircle,
@@ -64,11 +66,21 @@ const TicketTableActions = dynamic(() => import('./TicketTableActions'), {
 
 interface TicketsListPageProps {
   role: UserRole;
-  basePath: string; // e.g., "/admin/tickets" or "/expert/tickets"
+  basePath: string;
   showZoneFilter?: boolean;
   showViews?: boolean;
   customParams?: any;
-  detailPathSuffix?: string; // e.g., "/list"
+  detailPathSuffix?: string;
+}
+
+// Default filter values
+const FILTER_DEFAULTS = {
+  page: '1',
+  search: '',
+  zone: 'All Zones',
+  status: 'All Status',
+  priority: 'All Priority',
+  view: 'All',
 }
 
 export default function TicketsListPage({ 
@@ -80,36 +92,71 @@ export default function TicketsListPage({
   detailPathSuffix = '/list'
 }: TicketsListPageProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const pathname = usePathname()
   const { user, isAuthenticated, isLoading: authLoading } = useAuth()
   
   const [tickets, setTickets] = useState<any[]>([])
   const [zones, setZones] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [pagination, setPagination] = useState({ page: 1, limit: 100, total: 0, totalPages: 0 })
-  const [searchTerm, setSearchTerm] = useState('')
-  const [selectedZone, setSelectedZone] = useState('All Zones')
-  const [selectedStatus, setSelectedStatus] = useState('All Status')
-  const [selectedPriority, setSelectedPriority] = useState('All Priority')
-  const [selectedView, setSelectedView] = useState('All')
+  const [paginationMeta, setPaginationMeta] = useState({ total: 0, totalPages: 0 })
   const [sortField, setSortField] = useState<string>('')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
   const [summary, setSummary] = useState<any>(null)
-  
-  const hasActiveFilters = useMemo(() => 
-    !!(searchTerm || 
-    selectedZone !== 'All Zones' || 
-    selectedStatus !== 'All Status' || 
-    selectedPriority !== 'All Priority' || 
-    selectedView !== 'All'),
+  const LIMIT = 100
+
+  // --- Read state from URL (single source of truth) ---
+  const currentPage = parseInt(searchParams.get('page') || '1', 10)
+  const searchTerm = searchParams.get('search') || ''
+  const selectedZone = searchParams.get('zone') || 'All Zones'
+  const selectedStatus = searchParams.get('status') || 'All Status'
+  const selectedPriority = searchParams.get('priority') || 'All Priority'
+  const selectedView = searchParams.get('view') || 'All'
+
+  // --- URL update helper (replace so filter changes don't pollute history) ---
+  const updateUrl = useCallback((updates: Record<string, string>) => {
+    const current = new URLSearchParams(searchParams.toString())
+    for (const [key, value] of Object.entries(updates)) {
+      const defaultVal = (FILTER_DEFAULTS as any)[key]
+      if (value === defaultVal || !value) {
+        current.delete(key)
+      } else {
+        current.set(key, value)
+      }
+    }
+    const qs = current.toString()
+    router.replace(`${pathname}${qs ? '?' + qs : ''}`, { scroll: false })
+  }, [searchParams, router, pathname])
+
+  const hasActiveFilters = useMemo(() =>
+    !!(searchTerm ||
+      selectedZone !== 'All Zones' ||
+      selectedStatus !== 'All Status' ||
+      selectedPriority !== 'All Priority' ||
+      selectedView !== 'All'),
     [searchTerm, selectedZone, selectedStatus, selectedPriority, selectedView]
   )
+
+  // --- Debounced local search input (to avoid URL spam while typing) ---
+  const [localSearch, setLocalSearch] = useState(searchTerm)
+  // Sync localSearch when URL changes (e.g. back button)
+  useEffect(() => { setLocalSearch(searchTerm) }, [searchTerm])
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (localSearch !== searchTerm) {
+        updateUrl({ search: localSearch, page: '1' })
+      }
+    }, 400)
+    return () => clearTimeout(timeoutId)
+  }, [localSearch])
 
   const fetchTickets = async () => {
     setLoading(true)
     try {
       const params: any = {
-        page: pagination.page,
-        limit: pagination.limit,
+        page: currentPage,
+        limit: LIMIT,
         ...customParams
       }
       
@@ -131,7 +178,8 @@ export default function TicketsListPage({
 
       const response = await apiService.getTickets(params)
       setTickets(response.data || [])
-      setPagination(response.pagination || { page: 1, limit: 100, total: 0, totalPages: 0 })
+      const pg = response.pagination || { page: 1, limit: LIMIT, total: 0, totalPages: 0 }
+      setPaginationMeta({ total: pg.total, totalPages: pg.totalPages })
       if (response.summary) setSummary(response.summary)
     } catch (error: any) {
       console.error('Failed to fetch tickets:', error)
@@ -144,13 +192,8 @@ export default function TicketsListPage({
 
   useEffect(() => {
     if (authLoading || !isAuthenticated) return
-    
-    const timeoutId = setTimeout(() => {
-      fetchTickets()
-    }, searchTerm ? 500 : 0)
-
-    return () => clearTimeout(timeoutId)
-  }, [searchTerm, selectedZone, selectedStatus, selectedPriority, selectedView, pagination.page, authLoading, isAuthenticated])
+    fetchTickets()
+  }, [searchTerm, selectedZone, selectedStatus, selectedPriority, selectedView, currentPage, authLoading, isAuthenticated])
 
   useEffect(() => {
     if (showZoneFilter && isAuthenticated) {
@@ -168,12 +211,8 @@ export default function TicketsListPage({
   }, [showZoneFilter, isAuthenticated])
 
   const clearFilters = () => {
-    setSearchTerm('')
-    setSelectedZone('All Zones')
-    setSelectedStatus('All Status')
-    setSelectedPriority('All Priority')
-    setSelectedView('All')
-    setPagination(prev => ({ ...prev, page: 1 }))
+    setLocalSearch('')
+    router.replace(pathname, { scroll: false })
   }
 
   const sortedTickets = useMemo(() => {
@@ -206,8 +245,49 @@ export default function TicketsListPage({
     }
   }
 
+  // --- Filter change handlers (reset to page 1 on filter change) ---
+  const handleSearchChange = (value: string) => {
+    setLocalSearch(value)
+  }
+  const handleZoneChange = (value: string) => {
+    updateUrl({ zone: value, page: '1' })
+  }
+  const handleStatusChange = (value: string) => {
+    updateUrl({ status: value, page: '1' })
+  }
+  const handlePriorityChange = (value: string) => {
+    updateUrl({ priority: value, page: '1' })
+  }
+  const handleViewChange = (value: string) => {
+    updateUrl({ view: value, page: '1' })
+  }
+  const handlePageChange = (page: number) => {
+    updateUrl({ page: page.toString() })
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  // --- Pagination page numbers ---
+  const getPageNumbers = () => {
+    const total = paginationMeta.totalPages
+    if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+    
+    const pages: (number | 'ellipsis')[] = []
+    pages.push(1)
+    
+    if (currentPage > 3) pages.push('ellipsis')
+    
+    const start = Math.max(2, currentPage - 1)
+    const end = Math.min(total - 1, currentPage + 1)
+    for (let i = start; i <= end; i++) pages.push(i)
+    
+    if (currentPage < total - 2) pages.push('ellipsis')
+    
+    if (total > 1) pages.push(total)
+    return pages
+  }
+
   const stats = {
-    total: pagination.total,
+    total: paginationMeta.total,
     open: summary ? summary.open : tickets.filter(t => t.status === 'OPEN').length,
     active: summary ? summary.active : tickets.filter(t => ['ASSIGNED', 'IN_PROGRESS', 'ONSITE_VISIT_PLANNED', 'ONSITE_VISIT'].includes(t.status)).length,
     closed: summary ? summary.closed : tickets.filter(t => ['CLOSED', 'CLOSED_PENDING'].includes(t.status)).length,
@@ -290,7 +370,7 @@ export default function TicketsListPage({
               <Button
                 key={tab.id}
                 variant={selectedView === tab.id ? 'default' : 'outline'}
-                onClick={() => setSelectedView(tab.id)}
+                onClick={() => handleViewChange(tab.id)}
                 className={`flex-shrink-0 text-xs sm:text-sm ${selectedView === tab.id ? tab.color : 'hover:bg-[#96AEC2]/10'}`}
               >
                 <tab.icon className="mr-1.5 h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -301,14 +381,14 @@ export default function TicketsListPage({
         )}
 
         <TicketListFilters 
-          searchTerm={searchTerm}
-          setSearchTerm={setSearchTerm}
+          searchTerm={localSearch}
+          setSearchTerm={handleSearchChange}
           selectedZone={selectedZone}
-          setSelectedZone={setSelectedZone}
+          setSelectedZone={handleZoneChange}
           selectedStatus={selectedStatus}
-          setSelectedStatus={setSelectedStatus}
+          setSelectedStatus={handleStatusChange}
           selectedPriority={selectedPriority}
-          setSelectedPriority={setSelectedPriority}
+          setSelectedPriority={handlePriorityChange}
           zones={zones}
           showZoneFilter={showZoneFilter}
           hasActiveFilters={hasActiveFilters}
@@ -461,20 +541,79 @@ export default function TicketsListPage({
             </table>
           </div>
           
-          {/* Pagination */}
+          {/* Enhanced Pagination */}
           {!loading && tickets.length > 0 && (
-            <div className="px-6 py-4 border-t border-[#92A2A5]">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-[#5D6E73]">
-                  Showing <span className="font-bold">{((pagination.page - 1) * pagination.limit) + 1}</span> to <span className="font-bold">{Math.min(pagination.page * pagination.limit, pagination.total)}</span> of {pagination.total}
-                </span>
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" onClick={() => setPagination(p => ({ ...p, page: p.page - 1 }))} disabled={pagination.page === 1}>
+            <div className="bg-gradient-to-r from-[#AEBFC3]/10 via-white to-[#96AEC2]/10 px-4 sm:px-6 py-4 border-t border-[#92A2A5]">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div className="text-sm text-[#5D6E73] font-medium">
+                  Showing <span className="font-bold text-[#546A7A]">{((currentPage - 1) * LIMIT) + 1}</span> to <span className="font-bold text-[#546A7A]">{Math.min(currentPage * LIMIT, paginationMeta.total)}</span> of <span className="font-bold text-[#546A7A]">{paginationMeta.total}</span> results
+                </div>
+                <div className="flex items-center gap-1">
+                  {/* First Page */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(1)}
+                    disabled={currentPage === 1}
+                    className="h-9 w-9 p-0 hover:bg-[#96AEC2]/10 hover:border-[#96AEC2] disabled:opacity-40 rounded-lg transition-all"
+                    title="First page"
+                  >
+                    <ChevronsLeft className="h-4 w-4" />
+                  </Button>
+                  {/* Previous */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className="h-9 w-9 p-0 hover:bg-[#96AEC2]/10 hover:border-[#96AEC2] disabled:opacity-40 rounded-lg transition-all"
+                    title="Previous page"
+                  >
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
-                  <span className="text-sm">Page {pagination.page} of {pagination.totalPages}</span>
-                  <Button variant="outline" size="sm" onClick={() => setPagination(p => ({ ...p, page: p.page + 1 }))} disabled={pagination.page === pagination.totalPages}>
+
+                  {/* Page Numbers */}
+                  {getPageNumbers().map((pageNum, idx) =>
+                    pageNum === 'ellipsis' ? (
+                      <span key={`ellipsis-${idx}`} className="px-1.5 text-[#979796] text-sm select-none">…</span>
+                    ) : (
+                      <Button
+                        key={pageNum}
+                        variant={currentPage === pageNum ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => handlePageChange(pageNum)}
+                        className={`h-9 w-9 p-0 rounded-lg text-sm font-semibold transition-all ${
+                          currentPage === pageNum
+                            ? 'bg-gradient-to-br from-[#9E3B47] to-[#75242D] text-white shadow-md hover:from-[#75242D] hover:to-[#9E3B47] border-0'
+                            : 'hover:bg-[#96AEC2]/15 hover:border-[#96AEC2] text-[#546A7A]'
+                        }`}
+                      >
+                        {pageNum}
+                      </Button>
+                    )
+                  )}
+
+                  {/* Next */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === paginationMeta.totalPages}
+                    className="h-9 w-9 p-0 hover:bg-[#96AEC2]/10 hover:border-[#96AEC2] disabled:opacity-40 rounded-lg transition-all"
+                    title="Next page"
+                  >
                     <ChevronRight className="h-4 w-4" />
+                  </Button>
+                  {/* Last Page */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(paginationMeta.totalPages)}
+                    disabled={currentPage === paginationMeta.totalPages}
+                    className="h-9 w-9 p-0 hover:bg-[#96AEC2]/10 hover:border-[#96AEC2] disabled:opacity-40 rounded-lg transition-all"
+                    title="Last page"
+                  >
+                    <ChevronsRight className="h-4 w-4" />
                   </Button>
                 </div>
               </div>

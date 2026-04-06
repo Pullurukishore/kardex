@@ -564,12 +564,12 @@ export const arApi = {
     },
 
     // Invoices
-    async getInvoices(params?: { 
-        search?: string; 
-        status?: string; 
-        customerId?: string; 
-        invoiceType?: string; 
-        agingBucket?: string; 
+    async getInvoices(params?: {
+        search?: string;
+        status?: string;
+        customerId?: string;
+        invoiceType?: string;
+        agingBucket?: string;
         fromDate?: string;
         toDate?: string;
         region?: string;
@@ -579,13 +579,15 @@ export const arApi = {
         riskClass?: string;
         minAmount?: number;
         maxAmount?: number;
-        page?: number; 
-        limit?: number 
+        page?: number;
+        limit?: number
     }) {
-        const res = await api.get('/ar/invoices', { params: {
-            ...params,
-            type: params?.category // Map category to backend 'type' parameter
-        } });
+        const res = await api.get('/ar/invoices', {
+            params: {
+                ...params,
+                type: params?.category // Map category to backend 'type' parameter
+            }
+        });
         return res.data;
     },
 
@@ -741,7 +743,7 @@ export const arApi = {
         const res = await api.get('/ar/import/history');
         return res.data;
     },
-    
+
     // Customer Imports
     async previewCustomerExcel(file: File) {
         const formData = new FormData();
@@ -986,7 +988,7 @@ export const arApi = {
     },
 
     // Customer Reports
-    async getTopOutstandingCustomers(limit = 10): Promise<TopCustomersData> {
+    async getTopOutstandingCustomers(limit?: number): Promise<TopCustomersData> {
         const res = await api.get('/ar/reports/customers/outstanding', { params: { limit } });
         return res.data;
     },
@@ -1139,23 +1141,23 @@ export const formatARCurrency = (amount: number, currency?: string): string => {
  */
 export const formatAmountForInput = (value: string | number): string => {
     if (value === undefined || value === null || value === '') return '';
-    
+
     // Remove existing commas if string
     const cleanValue = value.toString().replace(/,/g, '');
-    
+
     // Split into integer and decimal parts
     const parts = cleanValue.split('.');
-    
+
     // Format the integer part
     const integerPart = parts[0];
     if (integerPart === '' || integerPart === '-') return cleanValue;
-    
+
     const num = parseFloat(integerPart);
     if (isNaN(num)) return cleanValue;
 
     // Use en-IN for Indian numbering system (10,00,000)
     const formattedInteger = num.toLocaleString('en-IN');
-    
+
     return parts.length > 1 ? `${formattedInteger}.${parts[1]}` : formattedInteger;
 };
 

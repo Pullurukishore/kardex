@@ -149,7 +149,7 @@ export const getEssentialDashboard = async (req: Request, res: Response) => {
             ),
             // All milestone invoices (for milestones section)
             safeFindMany(prisma.aRInvoice.findMany({
-                where: { invoiceType: 'MILESTONE', status: { notIn: ['PAID', 'CANCELLED'] } },
+                where: { invoiceType: 'MILESTONE' },
                 select: {
                     id: true,
                     soNo: true,
@@ -234,6 +234,7 @@ export const getEssentialDashboard = async (req: Request, res: Response) => {
             partial: 0,
             paid: 0,
             overdue: 0,
+            cancelled: 0,
             total: allMilestoneInvoices.length
         };
 
@@ -323,7 +324,8 @@ export const getEssentialDashboard = async (req: Request, res: Response) => {
             }
 
             // 4. Milestone Status Counts
-            if (inv.status === 'PAID') milestoneStatusCounts.paid++;
+            if (inv.status === 'CANCELLED') milestoneStatusCounts.cancelled++;
+            else if (inv.status === 'PAID') milestoneStatusCounts.paid++;
             else if (invOverdueTerms > 0) milestoneStatusCounts.overdue++;
             else if (inv.status === 'PARTIAL') milestoneStatusCounts.partial++;
             else milestoneStatusCounts.pending++;

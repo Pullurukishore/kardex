@@ -231,6 +231,7 @@ export const REPORT_TYPES: ReportType[] = [
     icon: 'Settings',
     color: 'from-[#82A094] to-[#4F6A64]'
   },
+  /*
   {
     value: 'zone-performance',
     label: 'Zone Performance Report',
@@ -238,6 +239,7 @@ export const REPORT_TYPES: ReportType[] = [
     icon: 'Target',
     color: 'from-[#6F8A9D] to-[#546A7A]'
   },
+  */
   {
     value: 'service-person-reports',
     label: 'Service Person Performance Report',
@@ -245,7 +247,7 @@ export const REPORT_TYPES: ReportType[] = [
     icon: 'Users',
     color: 'from-[#6F8A9D] to-[#546A7A]'
   },
-
+  /*
   {
     value: 'service-person-attendance',
     label: 'Service Person Attendance Report',
@@ -253,6 +255,7 @@ export const REPORT_TYPES: ReportType[] = [
     icon: 'UserCheck',
     color: 'from-[#82A094] to-[#4F6A64]'
   }
+  */
 ];
 
 export const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#FF6B6B', '#4ECDC4', '#45B7D1'];

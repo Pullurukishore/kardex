@@ -238,8 +238,8 @@ export const getInvoiceDetailReport = async (req: Request, res: Response) => {
             collectionRate: filteredInvoices.length > 0
                 ? Math.round(
                     (filteredInvoices.reduce((s: number, i: any) => s + i.totalReceipts, 0) /
-                     Math.max(1, filteredInvoices.reduce((s: number, i: any) => s + i.totalAmount, 0))) * 10000
-                  ) / 100
+                        Math.max(1, filteredInvoices.reduce((s: number, i: any) => s + i.totalAmount, 0))) * 10000
+                ) / 100
                 : 0,
             // Aging distribution
             agingDistribution: {
@@ -265,9 +265,9 @@ export const getInvoiceDetailReport = async (req: Request, res: Response) => {
             // Aging
             const bucket = inv.daysOverdue <= 0 ? 'current'
                 : inv.daysOverdue <= 30 ? '1-30'
-                : inv.daysOverdue <= 60 ? '31-60'
-                : inv.daysOverdue <= 90 ? '61-90'
-                : '90+';
+                    : inv.daysOverdue <= 60 ? '31-60'
+                        : inv.daysOverdue <= 90 ? '61-90'
+                            : '90+';
             (summary.agingDistribution as any)[bucket].count += 1;
             (summary.agingDistribution as any)[bucket].amount += Math.max(0, inv.balance);
 
@@ -571,8 +571,8 @@ export const getMilestoneDetailReport = async (req: Request, res: Response) => {
             collectionRate: enrichedMilestones.length > 0
                 ? Math.round(
                     (enrichedMilestones.reduce((s: number, i: any) => s + i.totalReceipts, 0) /
-                     Math.max(1, enrichedMilestones.reduce((s: number, i: any) => s + i.totalAmount, 0))) * 10000
-                  ) / 100
+                        Math.max(1, enrichedMilestones.reduce((s: number, i: any) => s + i.totalAmount, 0))) * 10000
+                ) / 100
                 : 0,
             // Status breakdown
             statusBreakdown: {
@@ -698,8 +698,8 @@ export const getAgingSummary = async (req: Request, res: Response) => {
 
             const bucket = daysOverdue <= 0 ? 'current'
                 : daysOverdue <= 30 ? '1-30'
-                : daysOverdue <= 60 ? '31-60'
-                : daysOverdue <= 90 ? '61-90' : '90+';
+                    : daysOverdue <= 60 ? '31-60'
+                        : daysOverdue <= 90 ? '61-90' : '90+';
 
             buckets[bucket].count++;
             buckets[bucket].amount += balance;
@@ -935,18 +935,49 @@ export const getPaymentModeAnalysis = async (req: Request, res: Response) => {
 export const getTopOutstandingCustomers = async (req: Request, res: Response) => {
     try {
         const { limit, type, region, search } = req.query;
-        const where: any = {};
-        if (type) where.type = String(type);
-        if (region) where.region = { contains: String(region), mode: 'insensitive' };
+        // 1. Get all customers from master list
+        const customerWhere: any = {};
+        if (region) customerWhere.region = { contains: String(region), mode: 'insensitive' };
         if (search) {
-            where.OR = [
+            customerWhere.OR = [
                 { customerName: { contains: String(search), mode: 'insensitive' } },
                 { bpCode: { contains: String(search), mode: 'insensitive' } },
             ];
         }
 
+        const masterCustomers = await prisma.aRCustomer.findMany({
+            where: customerWhere,
+            select: {
+                bpCode: true, customerName: true, region: true, riskClass: true, creditLimit: true
+            }
+        });
+
+        const totalMasterCount = masterCustomers.length;
+
+        // 2. Build map and where clause for invoices
+        const custMap: Record<string, any> = {};
+        masterCustomers.forEach(c => {
+            custMap[c.bpCode] = {
+                bpCode: c.bpCode, customerName: c.customerName, region: c.region,
+                riskClass: c.riskClass, creditLimit: Number(c.creditLimit || 0),
+                totalInvoiced: 0, totalCollected: 0, outstanding: 0,
+                invoiceCount: 0, regularCount: 0, milestoneCount: 0,
+                overdueCount: 0, paidCount: 0, maxDaysOverdue: 0,
+                lastPaymentDate: null,
+                aging: { current: 0, '1-30': 0, '31-60': 0, '61-90': 0, '90+': 0 },
+            };
+        });
+
+        // Use bpCodes from found customers to restrict invoice search
+        const foundBpCodes = masterCustomers.map(c => c.bpCode);
+        const invoiceWhere: any = {
+            bpCode: { in: foundBpCodes },
+            status: { not: 'CANCELLED' }
+        };
+        if (type) invoiceWhere.type = String(type);
+
         const invoices = await prisma.aRInvoice.findMany({
-            where,
+            where: invoiceWhere,
             select: {
                 id: true, bpCode: true, customerName: true, totalAmount: true,
                 invoiceDate: true, dueDate: true, status: true, riskClass: true,
@@ -970,11 +1001,10 @@ export const getTopOutstandingCustomers = async (req: Request, res: Response) =>
 
         const today = new Date(); today.setHours(0, 0, 0, 0);
 
-        // Aggregate by customer
-        const custMap: Record<string, any> = {};
+        // 3. Process invoices into customer map
 
         invoices.forEach((inv: any) => {
-            const key = inv.bpCode || inv.customerName;
+            const key = inv.bpCode;
             const total = Number(inv.totalAmount);
             const paid = payTotals[inv.id] || 0;
             const balance = Math.max(0, total - paid);
@@ -984,17 +1014,8 @@ export const getTopOutstandingCustomers = async (req: Request, res: Response) =>
                 daysOverdue = Math.max(0, Math.floor((today.getTime() - due.getTime()) / (1000 * 60 * 60 * 24)));
             }
 
-            if (!custMap[key]) {
-                custMap[key] = {
-                    bpCode: inv.bpCode, customerName: inv.customerName, region: inv.region,
-                    riskClass: inv.riskClass, creditLimit: Number(inv.creditLimit || 0),
-                    totalInvoiced: 0, totalCollected: 0, outstanding: 0,
-                    invoiceCount: 0, regularCount: 0, milestoneCount: 0,
-                    overdueCount: 0, paidCount: 0, maxDaysOverdue: 0,
-                    lastPaymentDate: null,
-                    aging: { current: 0, '1-30': 0, '31-60': 0, '61-90': 0, '90+': 0 },
-                };
-            }
+            // If customer not in master list (e.g. orphan invoice), skip or handle
+            if (!custMap[key]) return;
 
             const c = custMap[key];
             c.totalInvoiced += total;
@@ -1015,8 +1036,8 @@ export const getTopOutstandingCustomers = async (req: Request, res: Response) =>
             if (balance > 0) {
                 const bucket = daysOverdue <= 0 ? 'current'
                     : daysOverdue <= 30 ? '1-30'
-                    : daysOverdue <= 60 ? '31-60'
-                    : daysOverdue <= 90 ? '61-90' : '90+';
+                        : daysOverdue <= 60 ? '31-60'
+                            : daysOverdue <= 90 ? '61-90' : '90+';
                 c.aging[bucket] += balance;
             }
 
@@ -1032,24 +1053,28 @@ export const getTopOutstandingCustomers = async (req: Request, res: Response) =>
         }));
 
         customers.sort((a: any, b: any) => b.outstanding - a.outstanding);
-        if (limit) customers = customers.slice(0, Number(limit));
 
+        // Calculate summary from the FULL list before slicing by limit
         const totalOutstanding = customers.reduce((s: number, c: any) => s + c.outstanding, 0);
         const totalInvoiced = customers.reduce((s: number, c: any) => s + c.totalInvoiced, 0);
         const totalCollected = customers.reduce((s: number, c: any) => s + c.totalCollected, 0);
+        const top5Concentration = totalOutstanding > 0
+            ? Math.round((customers.slice(0, 5).reduce((s: number, c: any) => s + c.outstanding, 0) / totalOutstanding) * 10000) / 100
+            : 0;
+
+        // Now apply limit if provided
+        if (limit) customers = customers.slice(0, Number(limit));
 
         res.json({
             customers,
             summary: {
-                totalCustomers: customers.length,
+                totalCustomers: totalMasterCount,
                 totalOutstanding,
                 totalInvoiced,
                 totalCollected,
                 collectionRate: totalInvoiced > 0 ? Math.round((totalCollected / totalInvoiced) * 10000) / 100 : 0,
-                customersWithOverdue: customers.filter((c: any) => c.overdueCount > 0).length,
-                top5Concentration: totalOutstanding > 0
-                    ? Math.round((customers.slice(0, 5).reduce((s: number, c: any) => s + c.outstanding, 0) / totalOutstanding) * 10000) / 100
-                    : 0,
+                customersWithOverdue: Object.values(custMap).filter((c: any) => c.overdueCount > 0).length,
+                top5Concentration,
             }
         });
     } catch (error: any) {

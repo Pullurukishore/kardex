@@ -274,8 +274,6 @@ export function ServicePersonPerformanceReport({ reportData }: ServicePersonPerf
                 <thead>
                   <tr className="border-b bg-[#AEBFC3]/10">
                     <th className="text-left p-3 font-medium text-[#546A7A]">Service Person</th>
-                    <th className="text-left p-3 font-medium text-[#546A7A]">Working Days</th>
-                    <th className="text-left p-3 font-medium text-[#546A7A]">Total Hours</th>
                     <th className="text-left p-3 font-medium text-[#546A7A]">Tickets</th>
                     <th className="text-left p-3 font-medium text-[#546A7A]">Resolution Rate</th>
                     <th className="text-left p-3 font-medium text-[#546A7A]">Avg Resolution</th>
@@ -307,22 +305,6 @@ export function ServicePersonPerformanceReport({ reportData }: ServicePersonPerf
                               </div>
                             )}
                           </div>
-                        </div>
-                      </td>
-
-                      {/* Working Days */}
-                      <td className="p-3">
-                        <div className="flex items-center gap-1 text-sm font-medium">
-                          <Calendar className="h-3 w-3 text-[#4F6A64]" />
-                          {personSummary.presentDays || personSummary.totalWorkingDays || 0}
-                        </div>
-                      </td>
-
-                      {/* Total Hours */}
-                      <td className="p-3">
-                        <div className="flex items-center gap-1 text-sm font-medium">
-                          <Clock className="h-3 w-3 text-[#546A7A]" />
-                          {Number(personSummary.totalHours || 0).toFixed(1)}h
                         </div>
                       </td>
 

@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, useMemo, useCallback, Suspense } from 'react'
+import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { UserRole } from '@/types/user.types'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -45,6 +45,8 @@ import {
   IndianRupee,
   ChevronLeft,
   ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   Filter,
   X,
   Award,
@@ -70,8 +72,20 @@ import { PRODUCT_TYPE_LABELS } from '@/types/reports'
 const stages = ['All Stage', 'INITIAL', 'PROPOSAL_SENT', 'NEGOTIATION', 'PO_RECEIVED', 'WON', 'LOST']
 const productTypes = ['All Product Types', 'RELOCATION', 'CONTRACT', 'SPARE_PARTS', 'KARDEX_CONNECT', 'UPGRADE_KIT', 'SOFTWARE', 'OTHERS', 'BD_SPARE', 'RETROFIT_KIT']
 
-export default function OfferManagement() {
+// Default filter values — any URL param matching these is stripped from the URL
+const FILTER_DEFAULTS: Record<string, string> = {
+  page: '1',
+  search: '',
+  zone: 'All Zones',
+  stage: 'All Stage',
+  user: 'All Users',
+  type: 'All Product Types',
+}
+
+function OfferManagementContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const pathname = usePathname()
   const { user, isAuthenticated, isLoading: authLoading } = useAuth()
 
   // All hooks MUST be declared before any conditional returns
@@ -82,17 +96,49 @@ export default function OfferManagement() {
   const [editingOffer, setEditingOffer] = useState<any>(null)
   const [showEditDialog, setShowEditDialog] = useState(false)
 
-  const [pagination, setPagination] = useState({ page: 1, limit: 100, total: 0, pages: 0 })
+  const [paginationMeta, setPaginationMeta] = useState({ total: 0, pages: 0 })
   const [summary, setSummary] = useState<any>(null)
+  const LIMIT = 100
 
-  // Filter states
-  const [searchTerm, setSearchTerm] = useState('')
-  const [selectedZone, setSelectedZone] = useState('All Zones')
-  const [selectedStage, setSelectedStage] = useState('All Stage')
-  const [selectedUser, setSelectedUser] = useState('All Users')
-  const [selectedProductType, setSelectedProductType] = useState('All Product Types')
+  const [userSearchTerm, setUserSearchTerm] = useState('')
   const [sortField, setSortField] = useState<string>('')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
+
+  // --- Read state from URL (single source of truth) ---
+  const currentPage = parseInt(searchParams.get('page') || '1', 10)
+  const searchTerm = searchParams.get('search') || ''
+  const selectedZone = searchParams.get('zone') || 'All Zones'
+  const selectedStage = searchParams.get('stage') || 'All Stage'
+  const selectedUser = searchParams.get('user') || 'All Users'
+  const selectedProductType = searchParams.get('type') || 'All Product Types'
+
+  // --- URL update helper ---
+  const updateUrl = useCallback((updates: Record<string, string>) => {
+    const current = new URLSearchParams(searchParams.toString())
+    for (const [key, value] of Object.entries(updates)) {
+      const defaultVal = FILTER_DEFAULTS[key]
+      if (value === defaultVal || !value) {
+        current.delete(key)
+      } else {
+        current.set(key, value)
+      }
+    }
+    const qs = current.toString()
+    router.replace(`${pathname}${qs ? '?' + qs : ''}`, { scroll: false })
+  }, [searchParams, router, pathname])
+
+  // --- Debounced local search input ---
+  const [localSearch, setLocalSearch] = useState(searchTerm)
+  useEffect(() => { setLocalSearch(searchTerm) }, [searchTerm])
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (localSearch !== searchTerm) {
+        updateUrl({ search: localSearch, page: '1' })
+      }
+    }, 400)
+    return () => clearTimeout(timeoutId)
+  }, [localSearch])
 
   // Protect this page - only ADMIN can access
   useEffect(() => {
@@ -122,7 +168,8 @@ export default function OfferManagement() {
 
   const fetchUsers = async () => {
     try {
-      const response = await apiService.getUsers({ isActive: 'true' })
+      // Fetch more users to ensure we get all for the filter dropdown
+      const response = await apiService.getUsers({ isActive: 'true', limit: 9999 })
       // Handle both response formats: { data: { users: [...] } } and direct array
       const usersData = response.data?.users || response.users || response.data || response || []
       const filteredUsers = Array.isArray(usersData)
@@ -140,8 +187,8 @@ export default function OfferManagement() {
     setLoading(true)
     try {
       const params: any = {
-        page: pagination.page,
-        limit: pagination.limit,
+        page: currentPage,
+        limit: LIMIT,
       }
 
       if (searchTerm) params.search = searchTerm
@@ -157,7 +204,8 @@ export default function OfferManagement() {
 
       const response = await apiService.getOffers(params)
       setOffers(response.offers || [])
-      setPagination(response.pagination || { page: 1, limit: 100, total: 0, pages: 0 })
+      const pg = response.pagination || { page: 1, limit: LIMIT, total: 0, pages: 0 }
+      setPaginationMeta({ total: pg.total, pages: pg.pages })
       setSummary(response.summary || null)
     } catch (error: any) {
       console.error('Failed to fetch offers:', error)
@@ -168,22 +216,28 @@ export default function OfferManagement() {
     }
   }
 
-  // Debounce search to prevent excessive API calls
+  // Fetch offers whenever URL-driven state changes
   useEffect(() => {
     if (authLoading || !isAuthenticated || user?.role !== UserRole.ADMIN) return
-
-    const timeoutId = setTimeout(() => {
-      fetchOffers()
-    }, searchTerm ? 500 : 0) // 500ms delay for search, immediate for other filters
-
-    return () => clearTimeout(timeoutId)
-  }, [searchTerm, selectedZone, selectedStage, selectedUser, selectedProductType, pagination.page, authLoading, isAuthenticated, user?.role])
+    fetchOffers()
+  }, [searchTerm, selectedZone, selectedStage, selectedUser, selectedProductType, currentPage, authLoading, isAuthenticated, user?.role])
 
   useEffect(() => {
     if (authLoading || !isAuthenticated || user?.role !== UserRole.ADMIN) return
     fetchZones()
     fetchUsers()
   }, [authLoading, isAuthenticated, user?.role])
+
+  // Filter users based on local search term
+  const filteredUserOptions = useMemo(() => {
+    if (!userSearchTerm) return users
+    const term = userSearchTerm.toLowerCase()
+    return users.filter(u => 
+      (u.name?.toLowerCase().includes(term)) || 
+      (u.email?.toLowerCase().includes(term)) ||
+      (u.serviceZones?.some((sz: any) => sz.serviceZone?.name?.toLowerCase().includes(term)))
+    )
+  }, [users, userSearchTerm])
 
   // Sort offers
   const sortedOffers = useMemo(() => {
@@ -261,14 +315,10 @@ export default function OfferManagement() {
     }
   }
 
-
   const clearFilters = () => {
-    setSearchTerm('')
-    setSelectedZone('All Zones')
-    setSelectedStage('All Stage')
-    setSelectedUser('All Users')
-    setSelectedProductType('All Product Types')
-    setPagination(prev => ({ ...prev, page: 1 }))
+    setLocalSearch('')
+    setUserSearchTerm('')
+    router.replace(pathname, { scroll: false })
   }
 
   const hasActiveFilters = searchTerm || selectedZone !== 'All Zones' || selectedStage !== 'All Stage' || selectedUser !== 'All Users' || selectedProductType !== 'All Product Types'
@@ -282,15 +332,56 @@ export default function OfferManagement() {
     }
   }
 
+  // --- Filter change handlers (reset to page 1 on filter change) ---
+  const handleSearchChange = (value: string) => {
+    setLocalSearch(value)
+  }
+  const handleZoneChange = (val: string) => {
+    updateUrl({ zone: val, page: '1' })
+  }
+  const handleStageChange = (val: string) => {
+    updateUrl({ stage: val, page: '1' })
+  }
+  const handleUserChange = (val: string) => {
+    updateUrl({ user: val, page: '1' })
+  }
+  const handleProductTypeChange = (val: string) => {
+    updateUrl({ type: val, page: '1' })
+  }
+  const handlePageChange = (page: number) => {
+    updateUrl({ page: page.toString() })
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  // --- Pagination page numbers ---
+  const getPageNumbers = () => {
+    const total = paginationMeta.pages
+    if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+    
+    const pages: (number | 'ellipsis')[] = []
+    pages.push(1)
+    
+    if (currentPage > 3) pages.push('ellipsis')
+    
+    const start = Math.max(2, currentPage - 1)
+    const end = Math.min(total - 1, currentPage + 1)
+    for (let i = start; i <= end; i++) pages.push(i)
+    
+    if (currentPage < total - 2) pages.push('ellipsis')
+    
+    if (total > 1) pages.push(total)
+    return pages
+  }
+
   // Calculate statistics
   const stats = {
-    total: summary?.totalCount || pagination.total,
+    total: summary?.totalCount || paginationMeta.total,
     active: summary ? (summary.totalCount - summary.wonCount - summary.lostCount) : offers.filter(o => !['WON', 'LOST'].includes(o.stage)).length,
     won: summary ? summary.wonCount : offers.filter(o => o.stage === 'WON').length,
     lost: summary ? summary.lostCount : offers.filter(o => o.stage === 'LOST').length,
     totalValue: summary ? summary.totalValue : offers.reduce((sum, o) => sum + (Number(o.offerValue) || 0), 0),
     avgValue: summary ? (summary.totalCount > 0 ? summary.totalValue / summary.totalCount : 0) : (offers.length > 0 ? offers.reduce((sum, o) => sum + (Number(o.offerValue) || 0), 0) / offers.filter(o => o.offerValue).length : 0),
-    conversionRate: (summary?.totalCount || pagination.total) > 0 ? (((summary ? summary.wonCount : offers.filter(o => o.stage === 'WON').length) / (summary?.totalCount || pagination.total)) * 100) : 0
+    conversionRate: (summary?.totalCount || paginationMeta.total) > 0 ? (((summary ? summary.wonCount : offers.filter(o => o.stage === 'WON').length) / (summary?.totalCount || paginationMeta.total)) * 100) : 0
   }
 
   return (
@@ -331,8 +422,8 @@ export default function OfferManagement() {
                   <Input
                     id="search"
                     placeholder="Search by offer #, customer..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    value={localSearch}
+                    onChange={(e) => handleSearchChange(e.target.value)}
                     disabled={loading}
                     className="pl-10 h-11 border-[#92A2A5] focus:border-[#82A094] focus:ring-[#82A094] disabled:opacity-50 disabled:cursor-not-allowed"
                   />
@@ -345,7 +436,11 @@ export default function OfferManagement() {
                   <MapPin className="h-4 w-4 text-[#976E44]" />
                   Zone
                 </Label>
-                <Select value={selectedZone} onValueChange={setSelectedZone} disabled={loading}>
+                <Select 
+                  value={selectedZone} 
+                  onValueChange={handleZoneChange} 
+                  disabled={loading}
+                >
                   <SelectTrigger className="h-11 border-[#92A2A5] focus:border-orange-500 focus:ring-orange-500 disabled:opacity-50 disabled:cursor-not-allowed">
                     <SelectValue />
                   </SelectTrigger>
@@ -364,7 +459,11 @@ export default function OfferManagement() {
                   <TrendingUp className="h-4 w-4 text-[#546A7A]" />
                   Stage
                 </Label>
-                <Select value={selectedStage} onValueChange={setSelectedStage} disabled={loading}>
+                <Select 
+                  value={selectedStage} 
+                  onValueChange={handleStageChange} 
+                  disabled={loading}
+                >
                   <SelectTrigger className="h-11 border-[#92A2A5] focus:border-[#6F8A9D] focus:ring-[#6F8A9D] disabled:opacity-50 disabled:cursor-not-allowed">
                     <SelectValue />
                   </SelectTrigger>
@@ -382,20 +481,57 @@ export default function OfferManagement() {
                   <Users className="h-4 w-4 text-[#4F6A64]" />
                   Created By
                 </Label>
-                <Select value={selectedUser} onValueChange={setSelectedUser} disabled={loading}>
+                <Select 
+                  value={selectedUser} 
+                  onValueChange={handleUserChange} 
+                  disabled={loading}
+                >
                   <SelectTrigger className="h-11 border-[#92A2A5] focus:border-teal-500 focus:ring-teal-500 disabled:opacity-50 disabled:cursor-not-allowed">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="max-h-[300px] overflow-y-auto">
+                  <SelectContent className="max-h-[400px] overflow-y-auto">
+                    <div className="p-2 sticky top-0 bg-white z-10 border-b">
+                      <div className="relative">
+                        <Search className="absolute left-2 top-2.5 h-3.5 w-3.5 text-[#979796]" />
+                        <Input
+                          placeholder="Search users..."
+                          value={userSearchTerm}
+                          onChange={(e) => setUserSearchTerm(e.target.value)}
+                          className="pl-8 h-9 text-xs border-[#92A2A5]"
+                          onClick={(e) => e.stopPropagation()}
+                          onKeyDown={(e) => e.stopPropagation()}
+                        />
+                        {userSearchTerm && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="absolute right-1 top-1 h-7 w-7 p-0"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setUserSearchTerm('');
+                            }}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
                     <SelectItem value="All Users">All Users</SelectItem>
-                    {users.map(user => {
-                      const zoneNames = user.serviceZones?.map((sz: any) => sz.serviceZone?.name).filter(Boolean).join(', ');
-                      return (
-                        <SelectItem key={user.id} value={user.id.toString()}>
-                          {user.name || user.email} {zoneNames ? `(${zoneNames})` : ''}
-                        </SelectItem>
-                      );
-                    })}
+                    {filteredUserOptions.length === 0 ? (
+                      <div className="p-4 text-center text-xs text-[#979796]">No users found</div>
+                    ) : (
+                      filteredUserOptions.map(user => {
+                        const zoneNames = user.serviceZones?.map((sz: any) => sz.serviceZone?.name).filter(Boolean).join(', ');
+                        return (
+                          <SelectItem key={user.id} value={user.id.toString()}>
+                            <div className="flex flex-col">
+                              <span className="font-medium">{user.name || user.email}</span>
+                              {zoneNames && <span className="text-[10px] text-[#979796]">{zoneNames}</span>}
+                            </div>
+                          </SelectItem>
+                        );
+                      })
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -406,7 +542,11 @@ export default function OfferManagement() {
                   <Package className="h-4 w-4 text-[#9E3B47]" />
                   Product Type
                 </Label>
-                <Select value={selectedProductType} onValueChange={setSelectedProductType} disabled={loading}>
+                <Select 
+                  value={selectedProductType} 
+                  onValueChange={handleProductTypeChange} 
+                  disabled={loading}
+                >
                   <SelectTrigger className="h-11 border-[#92A2A5] focus:border-pink-500 focus:ring-pink-500 disabled:opacity-50 disabled:cursor-not-allowed">
                     <SelectValue />
                   </SelectTrigger>
@@ -689,34 +829,79 @@ export default function OfferManagement() {
             </table>
           </div>
 
-          {/* Pagination */}
+          {/* Enhanced Pagination */}
           {!loading && offers.length > 0 && (
-            <div className="bg-gradient-to-r from-[#AEBFC3]/10 via-blue-50 to-[#96AEC2]/10/30 px-6 py-4 border-t border-[#92A2A5]">
-              <div className="flex items-center justify-between">
+            <div className="bg-gradient-to-r from-[#AEBFC3]/10 via-white to-[#96AEC2]/10 px-4 sm:px-6 py-4 border-t border-[#92A2A5]">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
                 <div className="text-sm text-[#5D6E73] font-medium">
-                  Showing <span className="font-bold text-[#546A7A]">{((pagination.page - 1) * pagination.limit) + 1}</span> to <span className="font-semibold">{Math.min(pagination.page * pagination.limit, pagination.total)}</span> of <span className="font-semibold">{pagination.total}</span> results
+                  Showing <span className="font-bold text-[#546A7A]">{((currentPage - 1) * LIMIT) + 1}</span> to <span className="font-bold text-[#546A7A]">{Math.min(currentPage * LIMIT, paginationMeta.total)}</span> of <span className="font-bold text-[#546A7A]">{paginationMeta.total}</span> results
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
+                  {/* First Page */}
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setPagination(prev => ({ ...prev, page: Math.max(1, prev.page - 1) }))}
-                    disabled={pagination.page === 1}
-                    className="hover:bg-[#96AEC2]/10 hover:border-[#96AEC2] disabled:opacity-50 rounded-xl transition-all"
+                    onClick={() => handlePageChange(1)}
+                    disabled={currentPage === 1}
+                    className="h-9 w-9 p-0 hover:bg-[#96AEC2]/10 hover:border-[#96AEC2] disabled:opacity-40 rounded-lg transition-all"
+                    title="First page"
+                  >
+                    <ChevronsLeft className="h-4 w-4" />
+                  </Button>
+                  {/* Previous */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className="h-9 w-9 p-0 hover:bg-[#96AEC2]/10 hover:border-[#96AEC2] disabled:opacity-40 rounded-lg transition-all"
+                    title="Previous page"
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
-                  <span className="text-sm text-[#5D6E73] font-medium px-3">
-                    Page <span className="font-bold text-[#546A7A]">{pagination.page}</span> of <span className="font-semibold">{pagination.pages}</span>
-                  </span>
+
+                  {/* Page Numbers */}
+                  {getPageNumbers().map((pageNum, idx) =>
+                    pageNum === 'ellipsis' ? (
+                      <span key={`ellipsis-${idx}`} className="px-1.5 text-[#979796] text-sm select-none">…</span>
+                    ) : (
+                      <Button
+                        key={pageNum}
+                        variant={currentPage === pageNum ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => handlePageChange(pageNum)}
+                        className={`h-9 w-9 p-0 rounded-lg text-sm font-semibold transition-all ${
+                          currentPage === pageNum
+                            ? 'bg-gradient-to-br from-[#9E3B47] to-[#75242D] text-white shadow-md hover:from-[#75242D] hover:to-[#9E3B47] border-0'
+                            : 'hover:bg-[#96AEC2]/15 hover:border-[#96AEC2] text-[#546A7A]'
+                        }`}
+                      >
+                        {pageNum}
+                      </Button>
+                    )
+                  )}
+
+                  {/* Next */}
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setPagination(prev => ({ ...prev, page: Math.min(pagination.pages, prev.page + 1) }))}
-                    disabled={pagination.page === pagination.pages}
-                    className="hover:bg-[#96AEC2]/10 hover:border-[#96AEC2] disabled:opacity-50 rounded-xl transition-all"
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === paginationMeta.pages}
+                    className="h-9 w-9 p-0 hover:bg-[#96AEC2]/10 hover:border-[#96AEC2] disabled:opacity-40 rounded-lg transition-all"
+                    title="Next page"
                   >
                     <ChevronRight className="h-4 w-4" />
+                  </Button>
+                  {/* Last Page */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(paginationMeta.pages)}
+                    disabled={currentPage === paginationMeta.pages}
+                    className="h-9 w-9 p-0 hover:bg-[#96AEC2]/10 hover:border-[#96AEC2] disabled:opacity-40 rounded-lg transition-all"
+                    title="Last page"
+                  >
+                    <ChevronsRight className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
@@ -733,5 +918,20 @@ export default function OfferManagement() {
 
       </div>
     </div>
+  )
+}
+
+export default function OfferManagement() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-[#96AEC2] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-[#5D6E73] font-medium">Loading...</p>
+        </div>
+      </div>
+    }>
+      <OfferManagementContent />
+    </Suspense>
   )
 }
