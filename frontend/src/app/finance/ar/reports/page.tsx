@@ -43,7 +43,7 @@ const getMilestoneStageConfig = (status?: string) => {
 // ═══════════════════════════════════════════════════════════════════════════
 // REPORT TAB TYPE
 // ═══════════════════════════════════════════════════════════════════════════
-type ReportTab = 'invoice' | 'milestone' | 'customer' | 'payments' | 'forecast';
+type ReportTab = 'invoice' | 'milestone' | 'customer' | 'forecast';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // HELPERS  
@@ -564,7 +564,6 @@ export default function ARReportsPage() {
   const [invoiceData, setInvoiceData] = useState<any>(null);
   const [milestoneData, setMilestoneData] = useState<any>(null);
   const [customerData, setCustomerData] = useState<any>(null);
-  const [paymentsData, setPaymentsData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -609,10 +608,6 @@ export default function ARReportsPage() {
         setSortField('outstanding'); setSortDir('desc');
         const res = await arApi.getTopOutstandingCustomers();
         setCustomerData(res);
-      } else if (activeTab === 'payments') {
-        setSortField('');
-        const res = await arApi.getPaymentModeAnalysis();
-        setPaymentsData(res);
       } else if (activeTab === 'forecast') {
         const [inv, ms] = await Promise.all([
           arApi.getInvoiceDetailReport(),
@@ -930,15 +925,6 @@ export default function ARReportsPage() {
         { key: 'maxDaysOverdue', label: 'Max Overdue Days' },
         { key: 'overdueCount', label: 'Overdue Invoices' },
       ]);
-    } else if (activeTab === 'payments') {
-      const modes = paymentsData?.modes || [];
-      exportExcel(modes, 'Payment_Mode_Analysis', [
-        { key: 'mode', label: 'Payment Mode' },
-        { key: 'count', label: 'Count' },
-        { key: 'totalAmount', label: 'Total Amount', fmt: 'amount' },
-        { key: 'avgAmount', label: 'Average Amount', fmt: 'amount' },
-        { key: 'percentage', label: 'Share %', fmt: 'pct' },
-      ]);
     }
   };
 
@@ -985,7 +971,6 @@ export default function ARReportsPage() {
           { key: 'invoice' as ReportTab, label: 'Invoice Detail', icon: FileText, color: 'from-[#546A7A] to-[#6F8A9D]' },
           { key: 'milestone' as ReportTab, label: 'Milestone Detail', icon: Wallet, color: 'from-[#CE9F6B] to-[#976E44]' },
           { key: 'customer' as ReportTab, label: 'Customer Outstanding', icon: Users, color: 'from-[#4F6A64] to-[#82A094]' },
-          { key: 'payments' as ReportTab, label: 'Payment Analysis', icon: CreditCard, color: 'from-[#5D6E73] to-[#3D4E53]' },
           { key: 'forecast' as ReportTab, label: 'Collection Forecast', icon: Sparkles, color: 'from-[#E17F70] to-[#9E3B47]' },
         ].map(tab => (
           <button key={tab.key} onClick={() => { setActiveTab(tab.key); clearFilters(); setSortField(''); }}
@@ -2281,121 +2266,6 @@ export default function ARReportsPage() {
                   </div>
                 </div>
               )}
-            </div>
-          </>
-        );
-      })()}
-
-
-
-
-
-      {/* ═══════════════════════════════════════════════════════════════════ */}
-      {/* PAYMENT MODE ANALYSIS */}
-      {/* ═══════════════════════════════════════════════════════════════════ */}
-      {!loading && activeTab === 'payments' && paymentsData?.summary && (() => {
-        const ps = paymentsData.summary;
-        const modes = paymentsData.modes || [];
-        const banks = paymentsData.banks || [];
-        return (
-          <>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              <KpiCard icon={CreditCard} label="Total Payments" value={String(ps.totalPayments)} sub={`${ps.uniqueModes} payment modes`} gradient="bg-gradient-to-br from-[#5D6E73] to-[#3D4E53]" />
-              <KpiCard icon={IndianRupee} label="Total Amount" value={formatARCurrency(ps.totalAmount)} sub={`Avg ${formatARCurrency(ps.avgPaymentSize)}`} gradient="bg-gradient-to-br from-[#546A7A] to-[#6F8A9D]" />
-              <KpiCard icon={TrendingUp} label="Dominant Mode" value={ps.dominantMode} sub="highest volume mode" gradient="bg-gradient-to-br from-[#CE9F6B] to-[#976E44]" />
-              <KpiCard icon={Shield} label="Primary Bank" value={ps.dominantBank} sub={`${ps.uniqueBanks} banks used`} gradient="bg-gradient-to-br from-[#82A094] to-[#4F6A64]" />
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {/* Payment Mode Distribution */}
-              <div className="bg-white rounded-2xl border-2 border-[#AEBFC3]/30 p-5 shadow-sm">
-                <h3 className="font-bold text-[#546A7A] text-sm mb-4 flex items-center gap-2"><CreditCard className="w-4 h-4 text-[#6F8A9D]" /> Payment Modes</h3>
-                <div className="space-y-3">
-                  {modes.map((m: any, idx: number) => {
-                    const colors = ['bg-[#546A7A]', 'bg-[#82A094]', 'bg-[#CE9F6B]', 'bg-[#E17F70]', 'bg-[#6F8A9D]', 'bg-[#9E3B47]', 'bg-[#96AEC2]'];
-                    return (
-                      <div key={m.mode} className="space-y-1">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <div className={`w-2.5 h-2.5 rounded-full ${colors[idx % colors.length]}`} />
-                            <span className="text-xs font-bold text-[#546A7A]">{m.mode}</span>
-                            <span className="text-[9px] text-[#92A2A5]">({m.count})</span>
-                          </div>
-                          <div className="text-right">
-                            <span className="text-xs font-bold text-[#546A7A]">{formatARCurrency(m.totalAmount)}</span>
-                            <span className="text-[9px] text-[#92A2A5] ml-1.5">{m.percentage}%</span>
-                          </div>
-                        </div>
-                        <div className="h-4 bg-[#F0F4F5] rounded-lg overflow-hidden">
-                          <div className={`h-full ${colors[idx % colors.length]} rounded-lg transition-all duration-700`}
-                            style={{ width: `${Math.max(m.percentage, 0)}%`, minWidth: m.percentage > 0 ? '24px' : '0' }} />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Bank Distribution */}
-              <div className="bg-white rounded-2xl border-2 border-[#AEBFC3]/30 p-5 shadow-sm">
-                <h3 className="font-bold text-[#546A7A] text-sm mb-4 flex items-center gap-2"><Shield className="w-4 h-4 text-[#82A094]" /> Bank Distribution</h3>
-                <div className="space-y-2">
-                  {banks.map((b: any) => {
-                    const pct = ps.totalAmount > 0 ? Math.round((b.totalAmount / ps.totalAmount) * 100) : 0;
-                    return (
-                      <div key={b.bank} className="flex items-center justify-between p-2.5 rounded-xl bg-[#F8FAFB] border border-[#AEBFC3]/20 hover:border-[#82A094]/30 transition-colors">
-                        <div>
-                          <div className="text-xs font-bold text-[#546A7A]">{b.bank}</div>
-                          <div className="text-[9px] text-[#92A2A5]">{b.count} transactions</div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-xs font-bold text-[#4F6A64]">{formatARCurrency(b.totalAmount)}</div>
-                          <span className="text-[9px] font-bold bg-[#82A094]/15 text-[#4F6A64] px-1.5 py-0.5 rounded">{pct}%</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {banks.length === 0 && <p className="text-xs text-[#92A2A5] text-center py-4">No bank data</p>}
-                </div>
-              </div>
-            </div>
-
-            {/* Mode Detail Table */}
-            <div className="relative bg-white rounded-2xl border-2 border-[#AEBFC3]/30 overflow-hidden shadow-xl">
-              <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#5D6E73] via-[#546A7A] to-[#6F8A9D]" />
-              <div className="px-5 py-3.5 border-b-2 border-[#5D6E73]/20 bg-gradient-to-r from-[#5D6E73] to-[#3D4E53]">
-                <div className="flex items-center justify-between text-white">
-                  <div className="flex items-center gap-3"><CreditCard className="w-4 h-4" /><span className="text-sm font-bold">Payment Mode Details</span></div>
-                </div>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse text-sm">
-                  <thead><tr className="bg-[#F8FAFB]">
-                    {['Mode', 'Count', 'Total Amount', 'Average', 'Share %', 'Last Payment'].map(h => (
-                      <th key={h} className="text-left py-3 px-3 border-b-2 border-[#AEBFC3]/30 text-[10px] font-bold uppercase text-[#546A7A]">{h}</th>
-                    ))}
-                  </tr></thead>
-                  <tbody>
-                    {modes.map((m: any, idx: number) => (
-                      <tr key={m.mode} className={`border-b border-[#AEBFC3]/15 hover:bg-[#546A7A]/5 ${idx % 2 === 0 ? 'bg-white' : 'bg-[#F8FAFB]/40'}`}>
-                        <td className="py-2.5 px-3 text-xs font-bold text-[#546A7A]">{m.mode}</td>
-                        <td className="py-2.5 px-3 text-xs text-center font-bold">{m.count}</td>
-                        <td className="py-2.5 px-3 text-xs font-bold text-[#4F6A64] text-right">{formatARCurrency(m.totalAmount)}</td>
-                        <td className="py-2.5 px-3 text-xs text-right text-[#546A7A]">{formatARCurrency(m.avgAmount)}</td>
-                        <td className="py-2.5 px-3">
-                          <div className="flex items-center gap-1.5">
-                            <div className="flex-1 h-1.5 bg-[#F0F4F5] rounded-full overflow-hidden">
-                              <div className="h-full bg-[#546A7A] rounded-full" style={{ width: `${m.percentage}%` }} />
-                            </div>
-                            <span className="text-[9px] font-bold text-[#546A7A] w-8">{m.percentage}%</span>
-                          </div>
-                        </td>
-                        <td className="py-2.5 px-3 text-xs text-[#92A2A5]">{m.lastPayment ? formatARDate(m.lastPayment) : '-'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
             </div>
           </>
         );

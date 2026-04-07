@@ -2234,9 +2234,16 @@ export class ForecastController {
                 d.hitRatePercent = d.offerValue > 0 ? Math.round((d.wonValue / d.offerValue) * 1000) / 10 : 0;
                 if (i > 0) {
                     const prev = totalMonthlyData[i - 1];
-                    d.growthPercent = prev.wonValue > 0
-                        ? Math.round(((d.wonValue - prev.wonValue) / prev.wonValue) * 1000) / 10
-                        : null;
+                    if (prev.wonValue > 0) {
+                        d.growthPercent = Math.round(((d.wonValue - prev.wonValue) / prev.wonValue) * 1000) / 10;
+                    } else if (d.target > 0) {
+                        // If previous month was zero, use current target as benchmark for "growth"
+                        d.growthPercent = Math.round((d.wonValue / d.target) * 1000) / 10;
+                    } else if (d.wonValue > 0) {
+                        d.growthPercent = 100;
+                    } else {
+                        d.growthPercent = null;
+                    }
                 }
             }
 
@@ -2253,9 +2260,15 @@ export class ForecastController {
                     d.hitRatePercent = d.offerValue > 0 ? Math.round((d.wonValue / d.offerValue) * 1000) / 10 : 0;
                     if (i > 0) {
                         const prev = monthlyArr[i - 1];
-                        d.growthPercent = prev.wonValue > 0
-                            ? Math.round(((d.wonValue - prev.wonValue) / prev.wonValue) * 1000) / 10
-                            : null;
+                        if (prev.wonValue > 0) {
+                            d.growthPercent = Math.round(((d.wonValue - prev.wonValue) / prev.wonValue) * 1000) / 10;
+                        } else if (d.target > 0) {
+                            d.growthPercent = Math.round((d.wonValue / d.target) * 1000) / 10;
+                        } else if (d.wonValue > 0) {
+                            d.growthPercent = 100;
+                        } else {
+                            d.growthPercent = null;
+                        }
                     }
                 }
 

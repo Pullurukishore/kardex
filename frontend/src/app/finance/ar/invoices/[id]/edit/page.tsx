@@ -49,7 +49,7 @@ export default function EditInvoicePage() {
       
       // Redirect to milestone edit if it's a milestone invoice
       if (data.invoiceType === 'MILESTONE') {
-        router.push(`/finance/ar/milestones/${encodeURIComponent(data.invoiceNumber)}/edit`);
+        router.replace(`/finance/ar/milestones/${encodeURIComponent(data.invoiceNumber)}/edit`);
         return;
       }
 
@@ -118,7 +118,7 @@ export default function EditInvoicePage() {
         invoiceType: 'REGULAR',
       } as any);
       
-      router.push(`/finance/ar/invoices/${encodeURIComponent(formData.invoiceNumber)}`);
+      router.replace(`/finance/ar/invoices/${encodeURIComponent(formData.invoiceNumber)}`);
     } catch (err: any) {
       setError(err.message || 'Failed to update invoice');
     } finally {

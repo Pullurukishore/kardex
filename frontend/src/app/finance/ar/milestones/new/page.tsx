@@ -259,7 +259,7 @@ export default function NewMilestonePage() {
         <div className="relative flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button 
-              onClick={() => window.history.length > 1 ? router.back() : router.push('/finance/ar/milestones')}
+              onClick={() => router.push('/finance/ar/milestones')}
               className="p-2.5 rounded-xl bg-white/15 backdrop-blur-md border border-white/20 text-white hover:bg-white/25 transition-all duration-300 shadow-lg"
             >
               <ArrowLeft className="w-5 h-5" />

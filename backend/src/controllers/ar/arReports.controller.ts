@@ -557,6 +557,7 @@ export const getMilestoneDetailReport = async (req: Request, res: Response) => {
                 paymentCount: invPayments.length,
                 paymentHistory: invPayments.sort((a: any, b: any) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime()),
                 remarks: invRemarks,
+                milestoneTerms: invoice.milestoneTerms,
                 terms: termAnalysis,
                 createdAt: invoice.createdAt,
             };

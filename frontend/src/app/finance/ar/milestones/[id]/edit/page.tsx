@@ -157,7 +157,7 @@ export default function EditMilestonePage() {
       
       // Ensure it's a milestone invoice, otherwise redirect
       if (data.invoiceType !== 'MILESTONE') {
-        router.push(`/finance/ar/invoices/${id}/edit`);
+        router.replace(`/finance/ar/invoices/${id}/edit`);
         return;
       }
 
@@ -269,7 +269,7 @@ export default function EditMilestonePage() {
         invoiceDate: formData.invoiceDate,
       } as any);
       
-      router.push(`/finance/ar/milestones/${invoice!.id}`);
+      router.replace(`/finance/ar/milestones/${invoice!.id}`);
     } catch (err: any) {
       setError(err.message || 'Failed to update milestone payment');
     } finally {
