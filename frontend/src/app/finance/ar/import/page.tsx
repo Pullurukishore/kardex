@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { arApi } from '@/lib/ar-api';
 import { Upload, FileSpreadsheet, CheckCircle, AlertCircle, X, Download, Sparkles, UploadCloud, FileCheck, Eye, ArrowRight, ArrowLeft, ChevronLeft, ChevronRight, List, Grid3X3, AlertTriangle, Info, XCircle } from 'lucide-react';
 
@@ -26,6 +27,7 @@ interface ErrorDetails {
 type Step = 'upload' | 'preview' | 'importing';
 
 export default function ARImportPage() {
+  const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<any>(null);
   const [importing, setImporting] = useState(false);
@@ -250,9 +252,17 @@ export default function ARImportPage() {
           <div className="absolute -bottom-8 right-32 w-48 h-48 border-4 border-white rounded-full" />
         </div>
 
-        <div className="relative flex items-center gap-3 sm:gap-4">
-          <div className="p-2.5 sm:p-3 rounded-xl sm:rounded-2xl bg-white/20 backdrop-blur-sm border-2 border-white/30 shadow-lg">
-            <Upload className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+        <div className="relative flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <button 
+              onClick={() => router.back()}
+              className="p-2.5 rounded-xl bg-white/20 backdrop-blur-sm border-2 border-white/30 text-white hover:bg-white/30 transition-all duration-300 hover:scale-105"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <div className="p-2.5 sm:p-3 rounded-xl sm:rounded-2xl bg-white/20 backdrop-blur-sm border-2 border-white/30 shadow-lg">
+              <Upload className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+            </div>
           </div>
           <div>
             <h1 className="text-xl sm:text-3xl font-bold text-white flex items-center gap-2 sm:gap-3">

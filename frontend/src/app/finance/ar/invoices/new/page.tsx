@@ -123,12 +123,12 @@ export default function NewInvoicePage() {
         </div>
         <div className="relative flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Link 
-              href="/finance/ar/invoices"
+            <button 
+              onClick={() => router.back()}
               className="p-2.5 rounded-xl bg-white/20 backdrop-blur-sm border-2 border-white/30 text-white hover:bg-white/30 transition-all duration-300 hover:scale-105"
             >
               <ArrowLeft className="w-5 h-5" />
-            </Link>
+            </button>
             <div>
               <h1 className="text-2xl font-bold text-white flex items-center gap-2">
                 New AR Invoice
@@ -399,12 +399,13 @@ export default function NewInvoicePage() {
 
         {/* Actions */}
         <div className="flex items-center justify-end gap-4 pt-2">
-          <Link
-            href="/finance/ar/invoices"
+          <button
+            type="button"
+            onClick={() => router.back()}
             className="px-8 py-3.5 rounded-xl bg-white border-2 border-[#AEBFC3]/40 text-[#5D6E73] font-bold hover:bg-[#AEBFC3]/10 hover:border-[#AEBFC3]/60 transition-all duration-300"
           >
             Cancel
-          </Link>
+          </button>
           <button
             type="submit"
             disabled={saving}

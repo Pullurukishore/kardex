@@ -292,7 +292,7 @@ export default function MilestoneImportPage() {
           </div>
           
           <button 
-            onClick={() => router.push('/finance/ar/milestones')}
+            onClick={() => router.back()}
             className="flex items-center gap-2 px-5 py-3 rounded-xl bg-white/15 backdrop-blur-md border border-white/20 text-white text-sm font-bold hover:bg-white/25 transition-all shadow-lg"
           >
             <ArrowLeft className="w-4 h-4" />
