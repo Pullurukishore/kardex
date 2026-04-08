@@ -30,6 +30,7 @@ interface DashboardData {
     partial: number;
     paid: number;
     overdue: number;
+    cancelled: number;
     total: number;
   };
   performance: {
@@ -57,6 +58,7 @@ interface DashboardData {
       partial: number;
       paid: number;
       overdue: number;
+      cancelled: number;
       total: number;
     };
     aging: {
@@ -334,15 +336,16 @@ export default function ARDashboardPage() {
           
           <div className="space-y-3">
             {[
-              { label: 'Pending', desc: 'Awaiting payment', value: data?.statusCounts?.pending || 0, color: 'from-[#CE9F6B] to-[#976E44]', bgColor: 'bg-[#CE9F6B]', icon: '⏳' },
-              { label: 'Partial', desc: 'Partially received', value: data?.statusCounts?.partial || 0, color: 'from-[#6F8A9D] to-[#546A7A]', bgColor: 'bg-[#6F8A9D]', icon: '◐' },
-              { label: 'Paid', desc: 'Fully cleared', value: data?.statusCounts?.paid || 0, color: 'from-[#82A094] to-[#4F6A64]', bgColor: 'bg-[#82A094]', icon: '✓' },
-              { label: 'Overdue', desc: 'Past due date', value: data?.statusCounts?.overdue || 0, color: 'from-[#E17F70] to-[#9E3B47]', bgColor: 'bg-[#E17F70]', icon: '⚠' },
+              { label: 'Pending', desc: 'Awaiting payment', value: data?.statusCounts?.pending || 0, color: 'from-[#CE9F6B] to-[#976E44]', bgColor: 'bg-[#CE9F6B]', icon: '⏳', statusParam: 'PENDING' },
+              { label: 'Partial', desc: 'Partially received', value: data?.statusCounts?.partial || 0, color: 'from-[#6F8A9D] to-[#546A7A]', bgColor: 'bg-[#6F8A9D]', icon: '◐', statusParam: 'PARTIAL' },
+              { label: 'Paid', desc: 'Fully cleared', value: data?.statusCounts?.paid || 0, color: 'from-[#82A094] to-[#4F6A64]', bgColor: 'bg-[#82A094]', icon: '✓', statusParam: 'PAID' },
+              { label: 'Overdue', desc: 'Past due date', value: data?.statusCounts?.overdue || 0, color: 'from-[#E17F70] to-[#9E3B47]', bgColor: 'bg-[#E17F70]', icon: '⚠', statusParam: 'OVERDUE' },
+              { label: 'Cancelled', desc: 'Voided invoices', value: data?.statusCounts?.cancelled || 0, color: 'from-[#AEBFC3] to-[#92A2A5]', bgColor: 'bg-[#AEBFC3]', icon: '✕', statusParam: 'CANCELLED' },
             ].map(item => {
               const total = data?.statusCounts?.total || 1;
               const pct = total > 0 ? (item.value / total) * 100 : 0;
               return (
-                <div key={item.label} className="group hover:bg-[#F8FAFB] rounded-xl p-2 -mx-2 transition-colors cursor-pointer">
+                <Link key={item.label} href={`/finance/ar/invoices?status=${item.statusParam}`} className="block group hover:bg-[#F8FAFB] rounded-xl p-2 -mx-2 transition-colors cursor-pointer">
                   <div className="flex items-center gap-3">
                     <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${item.color} flex items-center justify-center text-white text-lg shadow-md group-hover:scale-110 transition-transform`}>
                       {item.icon}
@@ -365,8 +368,9 @@ export default function ARDashboardPage() {
                       <div className="text-xl font-bold text-[#546A7A]">{item.value}</div>
                       <div className="text-xs text-[#5D6E73]">{pct.toFixed(1)}%</div>
                     </div>
+                    <ArrowUpRight className="w-3.5 h-3.5 text-[#AEBFC3] group-hover:text-[#546A7A] transition-colors flex-shrink-0" />
                   </div>
-                </div>
+                </Link>
               );
             })}
           </div>
@@ -454,16 +458,16 @@ export default function ARDashboardPage() {
           
           <div className="space-y-3">
             {[
-              { label: 'Pending', desc: 'No terms overdue', value: data?.milestoneKpis?.statusCounts?.pending || 0, color: 'from-[#CE9F6B] to-[#976E44]', bgColor: 'bg-[#CE9F6B]', icon: '📋' },
-              { label: 'Partial', desc: 'Some terms paid', value: data?.milestoneKpis?.statusCounts?.partial || 0, color: 'from-[#6F8A9D] to-[#546A7A]', bgColor: 'bg-[#6F8A9D]', icon: '🛠' },
-              { label: 'Paid', desc: 'All terms cleared', value: data?.milestoneKpis?.statusCounts?.paid || 0, color: 'from-[#82A094] to-[#4F6A64]', bgColor: 'bg-[#82A094]', icon: '✅' },
-              { label: 'Overdue', desc: 'One or more stages late', value: data?.milestoneKpis?.statusCounts?.overdue || 0, color: 'from-[#9E3B47] to-[#75242D]', bgColor: 'bg-[#9E3B47]', icon: '🚨' },
-              { label: 'Cancelled', desc: 'Voided milestones', value: (data?.milestoneKpis?.statusCounts as any)?.cancelled || 0, color: 'from-[#AEBFC3] to-[#92A2A5]', bgColor: 'bg-[#AEBFC3]', icon: '✕' },
+              { label: 'Pending', desc: 'No terms overdue', value: data?.milestoneKpis?.statusCounts?.pending || 0, color: 'from-[#CE9F6B] to-[#976E44]', bgColor: 'bg-[#CE9F6B]', icon: '📋', statusParam: 'PENDING' },
+              { label: 'Partial', desc: 'Some terms paid', value: data?.milestoneKpis?.statusCounts?.partial || 0, color: 'from-[#6F8A9D] to-[#546A7A]', bgColor: 'bg-[#6F8A9D]', icon: '🛠', statusParam: 'PARTIAL' },
+              { label: 'Paid', desc: 'All terms cleared', value: data?.milestoneKpis?.statusCounts?.paid || 0, color: 'from-[#82A094] to-[#4F6A64]', bgColor: 'bg-[#82A094]', icon: '✅', statusParam: 'PAID' },
+              { label: 'Overdue', desc: 'One or more stages late', value: data?.milestoneKpis?.statusCounts?.overdue || 0, color: 'from-[#9E3B47] to-[#75242D]', bgColor: 'bg-[#9E3B47]', icon: '🚨', statusParam: 'OVERDUE' },
+              { label: 'Cancelled', desc: 'Voided milestones', value: data?.milestoneKpis?.statusCounts?.cancelled || 0, color: 'from-[#AEBFC3] to-[#92A2A5]', bgColor: 'bg-[#AEBFC3]', icon: '✕', statusParam: 'CANCELLED' },
             ].map(item => {
               const total = data?.milestoneKpis?.statusCounts?.total || 1;
               const pct = total > 0 ? (item.value / total) * 100 : 0;
               return (
-                <div key={item.label} className="group hover:bg-[#F8FAFB] rounded-xl p-2 -mx-2 transition-colors cursor-pointer">
+                <Link key={item.label} href={`/finance/ar/milestones?status=${item.statusParam}`} className="block group hover:bg-[#F8FAFB] rounded-xl p-2 -mx-2 transition-colors cursor-pointer">
                   <div className="flex items-center gap-3">
                     <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${item.color} flex items-center justify-center text-white text-lg shadow-md group-hover:scale-110 transition-transform`}>
                       {item.icon}
@@ -486,8 +490,9 @@ export default function ARDashboardPage() {
                       <div className="text-xl font-bold text-[#546A7A]">{item.value}</div>
                       <div className="text-xs text-[#5D6E73]">{pct.toFixed(1)}%</div>
                     </div>
+                    <ArrowUpRight className="w-3.5 h-3.5 text-[#AEBFC3] group-hover:text-[#546A7A] transition-colors flex-shrink-0" />
                   </div>
-                </div>
+                </Link>
               );
             })}
           </div>

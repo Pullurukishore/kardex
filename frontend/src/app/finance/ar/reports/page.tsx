@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
-import { arApi, formatARCurrency, formatARDate, formatARMonth } from '@/lib/ar-api';
+import { arApi, formatARCurrency, formatARDate, formatARMonth, TSP_OPTIONS } from '@/lib/ar-api';
 import * as XLSX from 'xlsx';
 import {
   FileText, Wallet, Search, RefreshCw, Download, AlertTriangle, Clock,
@@ -568,6 +568,7 @@ export default function ARReportsPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [riskFilter, setRiskFilter] = useState('');
+  const [tspFilter, setTspFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [acctFilter, setAcctFilter] = useState('');
   const [sortField, setSortField] = useState('invoiceDate');
@@ -598,11 +599,11 @@ export default function ARReportsPage() {
       setPage(0);
       if (activeTab === 'invoice') {
         setSortField('invoiceDate'); setSortDir('desc');
-        const res = await arApi.getInvoiceDetailReport();
+        const res = await arApi.getInvoiceDetailReport({ tsp: tspFilter });
         setInvoiceData(res);
       } else if (activeTab === 'milestone') {
         setSortField('invoiceDate'); setSortDir('desc');
-        const res = await arApi.getMilestoneDetailReport();
+        const res = await arApi.getMilestoneDetailReport({ tsp: tspFilter });
         setMilestoneData(res);
       } else if (activeTab === 'customer') {
         setSortField('outstanding'); setSortDir('desc');
@@ -610,8 +611,8 @@ export default function ARReportsPage() {
         setCustomerData(res);
       } else if (activeTab === 'forecast') {
         const [inv, ms] = await Promise.all([
-          arApi.getInvoiceDetailReport(),
-          arApi.getMilestoneDetailReport()
+          arApi.getInvoiceDetailReport({ tsp: tspFilter }),
+          arApi.getMilestoneDetailReport({ tsp: tspFilter })
         ]);
         setInvoiceData(inv);
         setMilestoneData(ms);
@@ -624,10 +625,10 @@ export default function ARReportsPage() {
   };
 
   const clearFilters = () => {
-    setSearch(''); setStatusFilter(''); setRiskFilter(''); setTypeFilter('');
+    setSearch(''); setStatusFilter(''); setRiskFilter(''); setTspFilter(''); setTypeFilter('');
     setAcctFilter(''); setFromDate(''); setToDate('');
   };
-  const hasFilters = search || statusFilter || riskFilter || typeFilter || acctFilter || fromDate || toDate;
+  const hasFilters = search || statusFilter || riskFilter || tspFilter || typeFilter || acctFilter || fromDate || toDate;
 
   // Filter & sort invoice data
   const filteredInvoices = useMemo(() => {
@@ -640,6 +641,7 @@ export default function ARReportsPage() {
     if (statusFilter) d = d.filter((i: any) => i.status === statusFilter);
     if (riskFilter) d = d.filter((i: any) => i.riskClass === riskFilter);
     if (typeFilter) d = d.filter((i: any) => i.type === typeFilter);
+    if (tspFilter) d = d.filter((i: any) => i.mailToTSP === tspFilter);
     if (fromDate) d = d.filter((i: any) => i.invoiceDate && new Date(i.invoiceDate) >= new Date(fromDate));
     if (toDate) d = d.filter((i: any) => i.invoiceDate && new Date(i.invoiceDate) <= new Date(toDate));
 
@@ -653,7 +655,7 @@ export default function ARReportsPage() {
       });
     }
     return d;
-  }, [invoiceData, search, statusFilter, riskFilter, typeFilter, fromDate, toDate, sortField, sortDir]);
+  }, [invoiceData, search, statusFilter, riskFilter, typeFilter, tspFilter, fromDate, toDate, sortField, sortDir]);
 
   // Filter & sort milestone data
   const filteredMilestones = useMemo(() => {
@@ -666,6 +668,7 @@ export default function ARReportsPage() {
     if (statusFilter) d = d.filter((i: any) => i.status === statusFilter);
     if (typeFilter) d = d.filter((i: any) => i.type === typeFilter);
     if (acctFilter) d = d.filter((i: any) => i.accountingStatus === acctFilter);
+    if (tspFilter) d = d.filter((i: any) => i.mailToTSP === tspFilter);
     if (fromDate) d = d.filter((i: any) => i.invoiceDate && new Date(i.invoiceDate) >= new Date(fromDate));
     if (toDate) d = d.filter((i: any) => i.invoiceDate && new Date(i.invoiceDate) <= new Date(toDate));
 
@@ -679,7 +682,7 @@ export default function ARReportsPage() {
       });
     }
     return d;
-  }, [milestoneData, search, statusFilter, typeFilter, acctFilter, fromDate, toDate, sortField, sortDir]);
+  }, [milestoneData, search, statusFilter, typeFilter, acctFilter, tspFilter, fromDate, toDate, sortField, sortDir]);
 
   const filteredCustomers = useMemo(() => {
     let d = [...(customerData?.customers || [])];
@@ -726,6 +729,84 @@ export default function ARReportsPage() {
     const collected = filteredInvoices.reduce((s: number, i: any) => s + (i.totalReceipts || 0), 0);
     return { total, bal, collected, count: filteredInvoices.length };
   }, [filteredInvoices]);
+
+  const computedInvSummary = useMemo(() => {
+    if (!filteredInvoices.length) return null;
+    const s: any = {
+      totalAmount: 0, totalReceipts: 0, totalOutstanding: 0, totalInvoices: filteredInvoices.length,
+      paidCount: 0, partialCount: 0, pendingCount: 0, overdueCount: 0,
+      agingDistribution: { 'current': { count: 0, amount: 0 }, '1-30': { count: 0, amount: 0 }, '31-60': { count: 0, amount: 0 }, '61-90': { count: 0, amount: 0 }, '90+': { count: 0, amount: 0 } },
+      riskDistribution: { 'LOW': { count: 0, amount: 0 }, 'MEDIUM': { count: 0, amount: 0 }, 'HIGH': { count: 0, amount: 0 }, 'CRITICAL': { count: 0, amount: 0 } }
+    };
+    filteredInvoices.forEach((i: any) => {
+      s.totalAmount += (i.totalAmount || 0);
+      s.totalReceipts += (i.totalReceipts || 0);
+      const b = Math.max(0, i.balance || 0);
+      s.totalOutstanding += b;
+      if (i.status === 'PAID') s.paidCount++;
+      else if (i.status === 'PARTIAL') s.partialCount++;
+      else if (i.status === 'PENDING') s.pendingCount++;
+      if (i.status === 'OVERDUE') s.overdueCount++;
+
+      const bucket = i.agingBucket || 'current';
+      if (s.agingDistribution[bucket]) { s.agingDistribution[bucket].count++; s.agingDistribution[bucket].amount += b; }
+      const risk = i.riskClass || 'LOW';
+      if (s.riskDistribution[risk]) { s.riskDistribution[risk].count++; s.riskDistribution[risk].amount += b; }
+    });
+    s.collectionRate = s.totalAmount > 0 ? Math.round((s.totalReceipts / s.totalAmount) * 100) : 0;
+    s.totalCollected = s.totalReceipts;
+    return s;
+  }, [filteredInvoices]);
+
+  const computedMsSummary = useMemo(() => {
+    if (!filteredMilestones.length) return null;
+    const s: any = {
+      totalAmount: 0, totalReceipts: 0, totalOutstanding: 0, totalMilestones: filteredMilestones.length,
+      paidCount: 0, partialCount: 0, pendingCount: 0, overdueCount: 0,
+      statusBreakdown: { paid: 0, partial: 0, pending: 0, overdue: 0 },
+      milestoneStatusBreakdown: { awaitingDelivery: 0, partiallyDelivered: 0, fullyDelivered: 0, linked: 0, expired: 0 },
+      accountingBreakdown: { revenueRecognised: 0, backlog: 0 },
+      totalTerms: 0, completedTerms: 0, overdueTerms: 0,
+      typeBreakdown: {} as any
+    };
+    filteredMilestones.forEach((i: any) => {
+      s.totalAmount += (i.totalAmount || 0);
+      s.totalReceipts += (i.totalReceipts || 0);
+      const b = Math.max(0, i.balance || 0);
+      s.totalOutstanding += b;
+      
+      if (i.status === 'PAID') s.statusBreakdown.paid++;
+      else if (i.status === 'PARTIAL') s.statusBreakdown.partial++;
+      else if (i.status === 'PENDING') s.statusBreakdown.pending++;
+      if (i.status === 'OVERDUE') s.statusBreakdown.overdue++;
+
+      const mStat = i.milestoneStatus;
+      if (mStat === 'AWAITING_DELIVERY') s.milestoneStatusBreakdown.awaitingDelivery++;
+      else if (mStat === 'PARTIALLY_DELIVERED') s.milestoneStatusBreakdown.partiallyDelivered++;
+      else if (mStat === 'FULLY_DELIVERED') s.milestoneStatusBreakdown.fullyDelivered++;
+      else if (mStat === 'LINKED') s.milestoneStatusBreakdown.linked++;
+      else if (mStat === 'EXPIRED') s.milestoneStatusBreakdown.expired++;
+
+      const aStat = i.accountingStatus;
+      if (aStat === 'REVENUE_RECOGNISED') s.accountingBreakdown.revenueRecognised++;
+      else if (aStat === 'BACKLOG') s.accountingBreakdown.backlog++;
+
+      s.totalTerms += (i.termCount || 0);
+      s.completedTerms += (i.completedTerms || 0);
+      s.overdueTerms += (i.overdueTerms || 0);
+
+      const type = i.type || 'Other';
+      if (!s.typeBreakdown[type]) s.typeBreakdown[type] = { count: 0, amount: 0, outstanding: 0 };
+      s.typeBreakdown[type].count++;
+      s.typeBreakdown[type].amount += (i.totalAmount || 0);
+      s.typeBreakdown[type].outstanding += b;
+    });
+    s.collectionRate = s.totalAmount > 0 ? Math.round((s.totalReceipts / s.totalAmount) * 100) : 0;
+    s.totalCollected = s.totalReceipts;
+    s.paidCount = s.statusBreakdown.paid;
+    s.overdueCount = s.statusBreakdown.overdue;
+    return s;
+  }, [filteredMilestones]);
   const msFilteredTotals = useMemo(() => {
     const total = filteredMilestones.reduce((s: number, i: any) => s + (i.totalAmount || 0), 0);
     const bal = filteredMilestones.reduce((s: number, i: any) => s + Math.max(0, i.balance || 0), 0);
@@ -746,6 +827,7 @@ export default function ARReportsPage() {
     if (search) chips.push({ key: 'search', label: 'Search', value: search, onRemove: () => setSearch('') });
     if (statusFilter) chips.push({ key: 'status', label: 'Status', value: statusFilter, onRemove: () => setStatusFilter('') });
     if (riskFilter) chips.push({ key: 'risk', label: 'Risk', value: riskFilter, onRemove: () => setRiskFilter('') });
+    if (tspFilter) chips.push({ key: 'tsp', label: 'TSP', value: tspFilter, onRemove: () => setTspFilter('') });
     if (typeFilter) chips.push({ key: 'type', label: 'Type', value: typeFilter, onRemove: () => setTypeFilter('') });
     if (acctFilter) chips.push({ key: 'acct', label: 'Accounting', value: acctFilter.replace(/_/g, ' '), onRemove: () => setAcctFilter('') });
     if (fromDate) chips.push({ key: 'from', label: 'From', value: fromDate, onRemove: () => setFromDate('') });
@@ -1062,6 +1144,17 @@ export default function ARReportsPage() {
               <Filter className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#92A2A5] pointer-events-none group-hover:text-[#6F8A9D] transition-colors" />
             </div>
 
+            <div className="relative group min-w-[140px] flex-1">
+              <select value={tspFilter} onChange={e => { setTspFilter(e.target.value); loadData(); }}
+                className="w-full h-10 pl-3 pr-8 rounded-xl bg-white border-2 border-[#AEBFC3]/40 text-sm text-[#546A7A] font-bold focus:border-[#6F8A9D] focus:ring-4 focus:ring-[#6F8A9D]/10 outline-none appearance-none transition-all shadow-sm cursor-pointer">
+                <option value="">TSP: All</option>
+                {TSP_OPTIONS.map(tsp => (
+                  <option key={tsp} value={tsp}>{tsp}</option>
+                ))}
+              </select>
+              <Filter className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#92A2A5] pointer-events-none group-hover:text-[#6F8A9D] transition-colors" />
+            </div>
+
             {activeTab === 'milestone' && (
               <div className="relative group min-w-[150px] flex-1">
                 <select value={acctFilter} onChange={e => setAcctFilter(e.target.value)}
@@ -1103,18 +1196,16 @@ export default function ARReportsPage() {
         </div>
       )}
 
-      {/* ═══════════════════════════════════════════════════════════════════ */}
-      {/* INVOICE DETAIL REPORT */}
-      {/* ═══════════════════════════════════════════════════════════════════ */}
-      {!loading && activeTab === 'invoice' && invSummary && (
+      {/* ═══ INVOICE DETAIL REPORT ═══ */}
+      {!loading && activeTab === 'invoice' && computedInvSummary && (
         <>
           {/* KPIs */}
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-            <KpiCard icon={IndianRupee} label="Total Invoiced" value={formatARCurrency(invSummary.totalAmount)} sub={`${invSummary.totalInvoices} invoices`} gradient="bg-gradient-to-br from-[#5D6E73] to-[#3D4E53]" />
-            <KpiCard icon={CheckCircle2} label="Collected" value={formatARCurrency(invSummary.totalCollected)} sub={`${invSummary.collectionRate}% rate`} gradient="bg-gradient-to-br from-[#82A094] to-[#4F6A64]" />
-            <KpiCard icon={Clock} label="Outstanding" value={formatARCurrency(invSummary.totalOutstanding)} sub={`${invSummary.pendingCount + invSummary.partialCount} pending`} gradient="bg-gradient-to-br from-[#546A7A] to-[#6F8A9D]" />
-            <KpiCard icon={AlertTriangle} label="Overdue" value={formatARCurrency(invSummary.agingDistribution?.['90+']?.amount || 0)} sub={`${invSummary.overdueCount} past due`} gradient="bg-gradient-to-br from-[#E17F70] to-[#9E3B47]" />
-            <KpiCard icon={TrendingUp} label="Collection Rate" value={`${invSummary.collectionRate}%`} sub={`${invSummary.paidCount} fully paid`} gradient="bg-gradient-to-br from-[#CE9F6B] to-[#976E44]" />
+            <KpiCard icon={IndianRupee} label="Total Invoiced" value={formatARCurrency(computedInvSummary.totalAmount)} sub={`${computedInvSummary.totalInvoices} invoices`} gradient="bg-gradient-to-br from-[#5D6E73] to-[#3D4E53]" />
+            <KpiCard icon={CheckCircle2} label="Collected" value={formatARCurrency(computedInvSummary.totalCollected)} sub={`${computedInvSummary.collectionRate}% rate`} gradient="bg-gradient-to-br from-[#82A094] to-[#4F6A64]" />
+            <KpiCard icon={Clock} label="Outstanding" value={formatARCurrency(computedInvSummary.totalOutstanding)} sub={`${computedInvSummary.pendingCount + computedInvSummary.partialCount} pending`} gradient="bg-gradient-to-br from-[#546A7A] to-[#6F8A9D]" />
+            <KpiCard icon={AlertTriangle} label="Overdue" value={formatARCurrency(computedInvSummary.agingDistribution?.['90+']?.amount || 0)} sub={`${computedInvSummary.overdueCount} past due`} gradient="bg-gradient-to-br from-[#E17F70] to-[#9E3B47]" />
+            <KpiCard icon={TrendingUp} label="Collection Rate" value={`${computedInvSummary.collectionRate}%`} sub={`${computedInvSummary.paidCount} fully paid`} gradient="bg-gradient-to-br from-[#CE9F6B] to-[#976E44]" />
           </div>
 
           {/* Distribution Cards */}
@@ -1128,8 +1219,8 @@ export default function ARReportsPage() {
                   { k: '31-60', l: '31-60 Days', c: 'bg-[#CE9F6B]' }, { k: '61-90', l: '61-90 Days', c: 'bg-[#E17F70]' },
                   { k: '90+', l: '90+ Days', c: 'bg-[#9E3B47]' },
                 ].map(b => (
-                  <DistBar key={b.k} label={b.l} count={invSummary.agingDistribution[b.k]?.count || 0}
-                    amount={invSummary.agingDistribution[b.k]?.amount || 0} total={invSummary.totalOutstanding} color={b.c} />
+                  <DistBar key={b.k} label={b.l} count={computedInvSummary.agingDistribution[b.k]?.count || 0}
+                    amount={computedInvSummary.agingDistribution[b.k]?.amount || 0} total={computedInvSummary.totalOutstanding} color={b.c} />
                 ))}
               </div>
             </div>
@@ -1139,8 +1230,8 @@ export default function ARReportsPage() {
               <div className="space-y-2">
                 {['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].map(r => {
                   const colors: Record<string,string> = { LOW: 'bg-[#82A094]', MEDIUM: 'bg-[#CE9F6B]', HIGH: 'bg-[#E17F70]', CRITICAL: 'bg-[#9E3B47]' };
-                  return <DistBar key={r} label={r} count={invSummary.riskDistribution[r]?.count || 0}
-                    amount={invSummary.riskDistribution[r]?.amount || 0} total={invSummary.totalOutstanding} color={colors[r]} />;
+                  return <DistBar key={r} label={r} count={computedInvSummary.riskDistribution[r]?.count || 0}
+                    amount={computedInvSummary.riskDistribution[r]?.amount || 0} total={computedInvSummary.totalOutstanding} color={colors[r]} />;
                 })}
               </div>
             </div>
@@ -1573,18 +1664,16 @@ export default function ARReportsPage() {
         );
       })()}
 
-      {/* ═══════════════════════════════════════════════════════════════════ */}
-      {/* MILESTONE DETAIL REPORT */}
-      {/* ═══════════════════════════════════════════════════════════════════ */}
-      {!loading && activeTab === 'milestone' && msSummary && (
+      {/* ═══ MILESTONE DETAIL REPORT ═══ */}
+      {!loading && activeTab === 'milestone' && computedMsSummary && (
         <>
           {/* KPIs */}
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-            <KpiCard icon={IndianRupee} label="Total Value" value={formatARCurrency(msSummary.totalAmount)} sub={`${msSummary.totalMilestones} milestones`} gradient="bg-gradient-to-br from-[#CE9F6B] to-[#976E44]" />
-            <KpiCard icon={CheckCircle2} label="Collected" value={formatARCurrency(msSummary.totalCollected)} sub={`${msSummary.collectionRate}% rate`} gradient="bg-gradient-to-br from-[#A2B9AF] to-[#82A094]" />
-            <KpiCard icon={Clock} label="Outstanding" value={formatARCurrency(msSummary.totalOutstanding)} sub="Balance receivable" gradient="bg-gradient-to-br from-[#AEBFC3] to-[#92A2A5]" />
-            <KpiCard icon={AlertTriangle} label="Overdue Stages" value={String(msSummary.overdueTerms)} sub={`of ${msSummary.totalTerms} total stages`} gradient="bg-gradient-to-br from-[#9E3B47] to-[#75242D]" />
-            <KpiCard icon={PackageCheck} label="Completed Stages" value={String(msSummary.completedTerms)} sub={`${msSummary.totalTerms > 0 ? Math.round((msSummary.completedTerms / msSummary.totalTerms) * 100) : 0}% done`} gradient="bg-gradient-to-br from-[#4F6A64] to-[#82A094]" />
+            <KpiCard icon={IndianRupee} label="Total Value" value={formatARCurrency(computedMsSummary.totalAmount)} sub={`${computedMsSummary.totalMilestones} milestones`} gradient="bg-gradient-to-br from-[#CE9F6B] to-[#976E44]" />
+            <KpiCard icon={CheckCircle2} label="Collected" value={formatARCurrency(computedMsSummary.totalCollected)} sub={`${computedMsSummary.collectionRate}% rate`} gradient="bg-gradient-to-br from-[#A2B9AF] to-[#82A094]" />
+            <KpiCard icon={Clock} label="Outstanding" value={formatARCurrency(computedMsSummary.totalOutstanding)} sub="Balance receivable" gradient="bg-gradient-to-br from-[#AEBFC3] to-[#92A2A5]" />
+            <KpiCard icon={AlertTriangle} label="Overdue Stages" value={String(computedMsSummary.overdueTerms)} sub={`of ${computedMsSummary.totalTerms} total stages`} gradient="bg-gradient-to-br from-[#9E3B47] to-[#75242D]" />
+            <KpiCard icon={PackageCheck} label="Completed Stages" value={String(computedMsSummary.completedTerms)} sub={`${computedMsSummary.totalTerms > 0 ? Math.round((computedMsSummary.completedTerms / computedMsSummary.totalTerms) * 100) : 0}% done`} gradient="bg-gradient-to-br from-[#4F6A64] to-[#82A094]" />
           </div>
 
           {/* Distribution Cards */}
@@ -1601,9 +1690,9 @@ export default function ARReportsPage() {
                     <div className={`w-2.5 h-2.5 rounded-full ${s.c}`} />
                     <span className="text-xs font-semibold text-[#546A7A] w-16">{s.l}</span>
                     <div className="flex-1 h-4 bg-[#F0F4F5] rounded-lg overflow-hidden">
-                      <div className={`h-full ${s.c} rounded-lg`} style={{ width: `${msSummary.totalMilestones > 0 ? ((msSummary.statusBreakdown[s.k] || 0) / msSummary.totalMilestones) * 100 : 0}%` }} />
+                      <div className={`h-full ${s.c} rounded-lg`} style={{ width: `${computedMsSummary.totalMilestones > 0 ? ((computedMsSummary.statusBreakdown[s.k] || 0) / computedMsSummary.totalMilestones) * 100 : 0}%` }} />
                     </div>
-                    <span className="text-xs font-bold text-[#546A7A] w-8 text-right">{msSummary.statusBreakdown[s.k] || 0}</span>
+                    <span className="text-xs font-bold text-[#546A7A] w-8 text-right">{computedMsSummary.statusBreakdown[s.k] || 0}</span>
                   </div>
                 ))}
               </div>
@@ -1614,11 +1703,11 @@ export default function ARReportsPage() {
               <div className="space-y-3 mt-4">
                 <div className="flex items-center justify-between p-3 rounded-xl bg-[#82A094]/10 border border-[#82A094]/20">
                   <span className="text-xs font-bold text-[#4F6A64]">Revenue Recognised</span>
-                  <span className="text-lg font-bold text-[#4F6A64]">{msSummary.accountingBreakdown.revenueRecognised}</span>
+                  <span className="text-lg font-bold text-[#4F6A64]">{computedMsSummary.accountingBreakdown.revenueRecognised}</span>
                 </div>
                 <div className="flex items-center justify-between p-3 rounded-xl bg-[#E17F70]/10 border border-[#E17F70]/20">
                   <span className="text-xs font-bold text-[#9E3B47]">Backlog</span>
-                  <span className="text-lg font-bold text-[#9E3B47]">{msSummary.accountingBreakdown.backlog}</span>
+                  <span className="text-lg font-bold text-[#9E3B47]">{computedMsSummary.accountingBreakdown.backlog}</span>
                 </div>
               </div>
             </div>
@@ -1626,7 +1715,7 @@ export default function ARReportsPage() {
             <div className="bg-white rounded-2xl border-2 border-[#AEBFC3]/30 p-5 shadow-sm">
               <h3 className="font-bold text-[#546A7A] text-sm mb-3 flex items-center gap-2"><Tag className="w-4 h-4 text-[#CE9F6B]" /> By Type</h3>
               <div className="space-y-2">
-                {Object.entries(msSummary.typeBreakdown || {}).map(([type, data]: [string, any]) => (
+                {Object.entries(computedMsSummary.typeBreakdown || {}).map(([type, data]: [string, any]) => (
                   <div key={type} className="flex items-center justify-between p-2.5 rounded-xl bg-[#F8FAFB] border border-[#AEBFC3]/20 hover:border-[#6F8A9D]/30 transition-colors">
                     <div>
                       <span className="text-xs font-bold text-[#546A7A]">{type}</span>
@@ -1638,7 +1727,7 @@ export default function ARReportsPage() {
                     </div>
                   </div>
                 ))}
-                {Object.keys(msSummary.typeBreakdown || {}).length === 0 && <p className="text-xs text-[#92A2A5] text-center py-4">No type data</p>}
+                {Object.keys(computedMsSummary.typeBreakdown || {}).length === 0 && <p className="text-xs text-[#92A2A5] text-center py-4">No type data</p>}
               </div>
             </div>
           </div>

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { arApi, MilestonePaymentTerm } from '@/lib/ar-api';
+import { arApi, MilestonePaymentTerm, TSP_OPTIONS } from '@/lib/ar-api';
 import { ArrowLeft, Save, Loader2, FileText, Sparkles, AlertCircle, IndianRupee, Calendar, Info, Wallet, Plus, Trash2, Tag, X, CheckCircle2, BarChart3 } from 'lucide-react';
 
 export default function NewMilestonePage() {
@@ -206,6 +206,7 @@ export default function NewMilestonePage() {
       
       await arApi.createInvoice({
         invoiceNumber: formData.invoiceNumber,
+        customerId: formData.bpCode, // Explicitly send as customerId for backend compatibility
         bpCode: formData.bpCode,
         customerName: formData.customerName || '',
         poNo: formData.poNo,
@@ -454,13 +455,9 @@ export default function NewMilestonePage() {
                 className={inputClass}
               >
                 <option value="">Select TSP</option>
-                <option value="PEND">PEND</option>
-                <option value="Aijaz">Aijaz</option>
-                <option value="Tanmay">Tanmay</option>
-                <option value="Anand">Anand</option>
-                <option value="Rishi">Rishi</option>
-                <option value="Vinay">Vinay</option>
-                <option value="others">others</option>
+                {TSP_OPTIONS.map(tsp => (
+                  <option key={tsp} value={tsp}>{tsp}</option>
+                ))}
               </select>
             </div>
             <div>
@@ -821,10 +818,14 @@ export default function NewMilestonePage() {
                           </button>
                           <button
                             type="button"
+                            disabled={!(parseFloat(formData.taxAmount || '0') > 0)}
                             onClick={() => updateTerm(index, 'calculationBasis', 'TOTAL_AMOUNT')}
+                            title={!(parseFloat(formData.taxAmount || '0') > 0) ? "Enter a tax amount first" : ""}
                             className={`flex-1 text-[10px] font-bold transition-all duration-200 border-l-2 border-[#AEBFC3]/30 ${
                               term.calculationBasis === 'TOTAL_AMOUNT'
                                 ? 'bg-gradient-to-r from-[#E17F70] to-[#9E3B47] text-white shadow-lg'
+                                : !(parseFloat(formData.taxAmount || '0') > 0)
+                                ? 'text-[#AEBFC3]/50 bg-gray-50 cursor-not-allowed'
                                 : 'text-[#92A2A5] hover:text-[#E17F70] hover:bg-[#E17F70]/10'
                             }`}
                           >

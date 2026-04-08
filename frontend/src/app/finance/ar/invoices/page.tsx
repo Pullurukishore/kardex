@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { arApi, ARInvoice, formatARCurrency, formatARDate } from '@/lib/ar-api';
-import { Search, ChevronLeft, ChevronRight, FileText, Plus, TrendingUp, AlertTriangle, Clock, CheckCircle2, IndianRupee, Calendar, Building2, Upload, Shield, Layers, Zap, Tag, XCircle, Filter, RotateCcw, User } from 'lucide-react';
+import { arApi, ARInvoice, formatARCurrency, formatARDate, TSP_OPTIONS } from '@/lib/ar-api';
+import { Search, ChevronLeft, ChevronRight, FileText, Plus, TrendingUp, AlertTriangle, Clock, CheckCircle2, IndianRupee, Calendar, Building2, Upload, Shield, Layers, Zap, Tag, XCircle, Filter, RotateCcw, User, Truck } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetDescription, SheetFooter } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -39,6 +39,7 @@ export default function ARInvoicesPage() {
   const [minAmount, setMinAmount] = useState(searchParams.get('minAmount') || '');
   const [maxAmount, setMaxAmount] = useState(searchParams.get('maxAmount') || '');
   const [riskClass, setRiskClass] = useState(searchParams.get('riskClass') || '');
+  const [tsp, setTsp] = useState(searchParams.get('tsp') || '');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   const agingBucket = searchParams.get('agingBucket') || '';
@@ -69,11 +70,12 @@ export default function ARInvoicesPage() {
     updateParam('minAmount', minAmount);
     updateParam('maxAmount', maxAmount);
     updateParam('riskClass', riskClass);
+    updateParam('tsp', tsp);
 
     if (changed) {
       router.replace(`${pathname}?${params.toString()}`, { scroll: false });
     }
-  }, [search, status, page, customerId, fromDate, toDate, region, category, accountingStatus, minAmount, maxAmount, riskClass, pathname, router, searchParams]);
+  }, [search, status, page, customerId, fromDate, toDate, region, category, accountingStatus, minAmount, maxAmount, riskClass, tsp, pathname, router, searchParams]);
 
   const agingBucketLabels: Record<string, string> = {
     'current': 'Current (Not Yet Due)',
@@ -85,7 +87,7 @@ export default function ARInvoicesPage() {
 
   useEffect(() => {
     loadInvoices();
-  }, [search, status, page, agingBucket, customerId, fromDate, toDate, region, category, accountingStatus, minAmount, maxAmount, riskClass]);
+  }, [search, status, page, agingBucket, customerId, fromDate, toDate, region, category, accountingStatus, minAmount, maxAmount, riskClass, tsp]);
 
   useEffect(() => {
     loadCustomers();
@@ -121,6 +123,7 @@ export default function ARInvoicesPage() {
         minAmount: minAmount ? parseFloat(minAmount) : undefined,
         maxAmount: maxAmount ? parseFloat(maxAmount) : undefined,
         riskClass: riskClass || undefined,
+        tsp: tsp || undefined,
         page, 
         limit: agingBucket ? 500 : 25 
       });
@@ -183,7 +186,7 @@ export default function ARInvoicesPage() {
 
   const activeFilterCount = [
     customerId, fromDate, toDate, region, category, 
-    accountingStatus, minAmount, maxAmount, riskClass
+    accountingStatus, minAmount, maxAmount, riskClass, tsp
   ].filter(Boolean).length;
 
   const clearAllFilters = () => {
@@ -198,6 +201,7 @@ export default function ARInvoicesPage() {
     setMinAmount('');
     setMaxAmount('');
     setRiskClass('');
+    setTsp('');
     setPage(1);
   };
 
@@ -452,6 +456,24 @@ export default function ARInvoicesPage() {
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+
+                {/* TSP Filter */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold text-[#546A7A] uppercase tracking-wider flex items-center gap-2">
+                    <Truck className="w-3.5 h-3.5" /> TSP (Service Provider)
+                  </Label>
+                  <Select value={tsp} onValueChange={(val) => { setTsp(val === 'ALL_TSPS' ? '' : val); setPage(1); }}>
+                    <SelectTrigger className="border-2 border-[#AEBFC3]/30 rounded-xl h-11 focus:ring-[#CE9F6B]/20 font-bold text-[#546A7A]">
+                      <SelectValue placeholder="All TSPs" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL_TSPS">All TSPs</SelectItem>
+                      {TSP_OPTIONS.map(t => (
+                        <SelectItem key={t} value={t}>{t}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 

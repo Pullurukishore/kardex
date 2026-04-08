@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { arApi, ARInvoice, formatARCurrency, MilestonePaymentTerm } from '@/lib/ar-api';
+import { arApi, ARInvoice, formatARCurrency, MilestonePaymentTerm, TSP_OPTIONS } from '@/lib/ar-api';
 import { ArrowLeft, Save, Loader2, FileText, User, Calendar, IndianRupee, Sparkles, Wallet, Plus, Trash2, Tag, X, AlertCircle, CheckCircle2, BarChart3 } from 'lucide-react';
 
 export default function EditMilestonePage() {
@@ -490,13 +490,9 @@ export default function EditMilestonePage() {
                 className={selectClass}
               >
                 <option value="">Select TSP</option>
-                <option value="PEND">PEND</option>
-                <option value="Aijaz">Aijaz</option>
-                <option value="Tanmay">Tanmay</option>
-                <option value="Anand">Anand</option>
-                <option value="Rishi">Rishi</option>
-                <option value="Vinay">Vinay</option>
-                <option value="others">others</option>
+                {TSP_OPTIONS.map(tsp => (
+                  <option key={tsp} value={tsp}>{tsp}</option>
+                ))}
               </select>
             </div>
           </div>
@@ -871,10 +867,14 @@ export default function EditMilestonePage() {
                         </button>
                         <button
                           type="button"
+                          disabled={!(parseFloat(formData.taxAmount || '0') > 0)}
                           onClick={() => updateTerm(index, 'calculationBasis', 'TOTAL_AMOUNT')}
+                          title={!(parseFloat(formData.taxAmount || '0') > 0) ? "Enter a tax amount first" : ""}
                           className={`flex-1 text-[10px] font-bold transition-all duration-200 border-l border-[#CE9F6B]/20 ${
                             term.calculationBasis === 'TOTAL_AMOUNT'
                               ? 'bg-gradient-to-r from-[#E17F70] to-[#9E3B47] text-white shadow-inner'
+                              : !(parseFloat(formData.taxAmount || '0') > 0)
+                              ? 'text-[#AEBFC3]/50 bg-gray-100 cursor-not-allowed'
                               : 'text-[#92A2A5] hover:text-[#546A7A] hover:bg-white'
                           }`}
                         >

@@ -3,6 +3,9 @@ import api from '@/lib/api/axios';
 // The centralized axios instance already has the correct baseURL set to includes /api
 // So we can use relative paths like '/ar/...'
 
+// Centralized TSP options used across filters and forms
+export const TSP_OPTIONS = ['PEND', 'Aijaz', 'Tanmay', 'Anand', 'Rishi', 'Vinay', 'others'];
+
 // Types
 export interface MilestonePaymentTerm {
     termType: 'ABG' | 'PO' | 'DELIVERY' | 'FAR' | 'PBG' | 'FAR_PBG' | 'INVOICE_SUBMISSION' | 'PI' | 'OTHER';
@@ -577,6 +580,7 @@ export const arApi = {
         accountingStatus?: string;
         bookingMonth?: string;
         riskClass?: string;
+        tsp?: string;
         minAmount?: number;
         maxAmount?: number;
         page?: number;
@@ -1025,6 +1029,7 @@ export const arApi = {
         type?: string;
         agingBucket?: string;
         search?: string;
+        tsp?: string;
     }): Promise<any> {
         const res = await api.get('/ar/reports/invoices/detail', { params });
         return res.data;
@@ -1039,8 +1044,14 @@ export const arApi = {
         toDate?: string;
         type?: string;
         search?: string;
+        tsp?: string;
     }): Promise<any> {
         const res = await api.get('/ar/reports/milestones/detail', { params });
+        return res.data;
+    },
+    
+    async getUniqueTSPs(): Promise<string[]> {
+        const res = await api.get('/ar/reports/unique-tsps');
         return res.data;
     }
 };

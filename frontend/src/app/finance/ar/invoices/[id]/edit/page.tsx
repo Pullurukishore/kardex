@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { arApi, ARInvoice, formatARCurrency } from '@/lib/ar-api';
+import { arApi, ARInvoice, formatARCurrency, TSP_OPTIONS } from '@/lib/ar-api';
 import { ArrowLeft, Save, Loader2, FileText, User, IndianRupee, Truck, Sparkles } from 'lucide-react';
 
 export default function EditInvoicePage() {
@@ -34,6 +34,7 @@ export default function EditInvoicePage() {
     type: '',
     status: 'PENDING',
     invoiceType: 'REGULAR' as 'REGULAR' | 'MILESTONE',
+    mailToTSP: '',
   });
 
   useEffect(() => {
@@ -75,6 +76,7 @@ export default function EditInvoicePage() {
         type: (data.type as any) === 'SERVICE' ? 'LCS' : (data.type as any) === 'SALES' ? 'NB' : (data.type || ''),
         status: data.status || 'PENDING',
         invoiceType: data.invoiceType || 'REGULAR',
+        mailToTSP: data.mailToTSP || '',
       });
     } catch (err) {
       console.error('Failed to load invoice:', err);
@@ -116,6 +118,7 @@ export default function EditInvoicePage() {
         type: formData.type || undefined,
         status: formData.status as any,
         invoiceType: 'REGULAR',
+        mailToTSP: formData.mailToTSP || undefined,
       } as any);
       
       router.replace(`/finance/ar/invoices/${encodeURIComponent(formData.invoiceNumber)}`);
@@ -308,6 +311,20 @@ export default function EditInvoicePage() {
                 className={inputClass}
                 required
               />
+            </div>
+            <div>
+              <label className={labelClass}><Truck className="w-3.5 h-3.5 text-[#E17F70]" /> TSP (Service Provider)</label>
+              <select
+                name="mailToTSP"
+                value={formData.mailToTSP}
+                onChange={handleChange}
+                className={selectClass}
+              >
+                <option value="">Select TSP</option>
+                {TSP_OPTIONS.map(tsp => (
+                  <option key={tsp} value={tsp}>{tsp}</option>
+                ))}
+              </select>
             </div>
           </div>
         </div>

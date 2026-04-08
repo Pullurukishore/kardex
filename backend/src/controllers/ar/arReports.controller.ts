@@ -18,9 +18,10 @@ export const getInvoiceDetailReport = async (req: Request, res: Response) => {
             fromDate,
             toDate,
             region,
-            type, // LCS | NB | FINANCE
+            type,
             agingBucket,
             search,
+            tsp,
         } = req.query;
 
         const where: any = { invoiceType: 'REGULAR' };
@@ -29,6 +30,7 @@ export const getInvoiceDetailReport = async (req: Request, res: Response) => {
         if (riskClass) where.riskClass = String(riskClass);
         if (region) where.region = { contains: String(region), mode: 'insensitive' };
         if (type) where.type = String(type);
+        if (tsp) where.mailToTSP = String(tsp);
 
         if (customer) {
             where.OR = [
@@ -86,6 +88,7 @@ export const getInvoiceDetailReport = async (req: Request, res: Response) => {
                 sentHandoverDate: true,
                 impactDate: true,
                 comments: true,
+                mailToTSP: true,
                 createdAt: true,
             }
         });
@@ -204,6 +207,7 @@ export const getInvoiceDetailReport = async (req: Request, res: Response) => {
                 lastPaymentMode: lastPayment?.paymentMode || null,
                 paymentHistory: invPayments.sort((a: any, b: any) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime()),
                 remarks: invRemarks,
+                mailToTSP: invoice.mailToTSP,
                 createdAt: invoice.createdAt,
             };
         });
@@ -312,6 +316,7 @@ export const getMilestoneDetailReport = async (req: Request, res: Response) => {
             toDate,
             type,
             search,
+            tsp,
         } = req.query;
 
         const where: any = { invoiceType: 'MILESTONE' };
@@ -320,6 +325,7 @@ export const getMilestoneDetailReport = async (req: Request, res: Response) => {
         if (milestoneStatus) where.milestoneStatus = String(milestoneStatus);
         if (accountingStatus) where.accountingStatus = String(accountingStatus);
         if (type) where.type = String(type);
+        if (tsp) where.mailToTSP = String(tsp);
 
         if (customer) {
             where.OR = [
@@ -543,6 +549,7 @@ export const getMilestoneDetailReport = async (req: Request, res: Response) => {
                 riskClass: invoice.riskClass,
                 region: invoice.region,
                 type: invoice.type,
+                mailToTSP: invoice.mailToTSP,
                 milestoneStatus: invoice.milestoneStatus,
                 accountingStatus: invoice.accountingStatus,
                 actualPaymentTerms: invoice.actualPaymentTerms,
@@ -1129,4 +1136,25 @@ export const getAgingReport = async (req: Request, res: Response) => {
 
 export const getCollectionEfficiency = async (req: Request, res: Response) => {
     res.json({});
+};
+
+export const getUniqueTSPs = async (req: Request, res: Response) => {
+    try {
+        const tsps = await prisma.aRInvoice.findMany({
+            where: {
+                AND: [
+                    { mailToTSP: { not: null } },
+                    { mailToTSP: { not: '' } }
+                ]
+            },
+            distinct: ['mailToTSP'],
+            select: {
+                mailToTSP: true
+            }
+        });
+        res.json(tsps.map(t => t.mailToTSP).filter(Boolean).sort());
+    } catch (error) {
+        console.error('Error fetching unique TSPs:', error);
+        res.status(500).json({ error: 'Failed to fetch TSPs' });
+    }
 };

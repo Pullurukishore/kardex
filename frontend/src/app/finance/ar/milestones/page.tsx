@@ -4,15 +4,17 @@ import { Fragment, useEffect, useState, useMemo } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { arApi, ARInvoice, MilestonePaymentTerm, formatARCurrency, formatARDate, formatARMonth } from '@/lib/ar-api';
+import { arApi, ARInvoice, MilestonePaymentTerm, formatARCurrency, formatARDate, formatARMonth, TSP_OPTIONS } from '@/lib/ar-api';
 import { 
   Search, ChevronLeft, ChevronRight, ChevronDown, Plus, 
   TrendingUp, AlertTriangle, Clock, CheckCircle2, Calendar, 
   Wallet, Package, Timer, Truck, PackageCheck, PackageX, 
   BadgeCheck, Tag, Sparkles, ExternalLink,
   ArrowRight, CheckCircle, Layers, ShieldAlert, ShieldCheck, Shield, MessageSquare,
-  Eye, Pencil, Trash2, FileSpreadsheet, XCircle, Filter, RotateCcw, User, Zap, IndianRupee
+  Eye, Pencil, Trash2, FileSpreadsheet, XCircle, Filter, RotateCcw, User, Zap, IndianRupee,
+  Copy
 } from 'lucide-react';
+import { useToast } from "@/components/ui/use-toast";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetDescription, SheetFooter } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -263,10 +265,29 @@ function MilestoneTimelineView({ invoice }: { invoice: ARInvoice }) {
   );
 }
 
-export default function ARMilestonesPage() {
+export default function ARPaymentMilestonesPage() {
+  const { toast } = useToast();
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
+
+  const copyToClipboard = (text: string, label: string = 'Value') => {
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => {
+      toast({
+        title: "Copied!",
+        description: `${label} "${text}" copied to clipboard`,
+        duration: 2000,
+      });
+    }).catch(err => {
+      console.error('Failed to copy:', err);
+      toast({
+        title: "Copy Failed",
+        description: "Please copy manually",
+        variant: "destructive",
+      });
+    });
+  };
 
   const [invoices, setInvoices] = useState<ARInvoice[]>([]);
   const [loading, setLoading] = useState(true);
@@ -291,6 +312,7 @@ export default function ARMilestonesPage() {
   const [maxAmount, setMaxAmount] = useState(searchParams.get('maxAmount') || '');
   const [riskClass, setRiskClass] = useState(searchParams.get('riskClass') || '');
   const [milestoneStatus, setMilestoneStatus] = useState(searchParams.get('milestoneStatus') || '');
+  const [tsp, setTsp] = useState(searchParams.get('tsp') || '');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   const agingBucket = searchParams.get('agingBucket') || '';
@@ -322,11 +344,12 @@ export default function ARMilestonesPage() {
     updateParam('maxAmount', maxAmount);
     updateParam('riskClass', riskClass);
     updateParam('milestoneStatus', milestoneStatus);
+    updateParam('tsp', tsp);
 
     if (changed) {
       router.replace(`${pathname}?${params.toString()}`, { scroll: false });
     }
-  }, [search, status, page, customerId, fromDate, toDate, region, category, accountingStatus, minAmount, maxAmount, riskClass, milestoneStatus, pathname, router, searchParams]);
+  }, [search, status, page, customerId, fromDate, toDate, region, category, accountingStatus, minAmount, maxAmount, riskClass, milestoneStatus, tsp, pathname, router, searchParams]);
 
   const agingBucketLabels: Record<string, string> = {
     'current': 'Current (Not Yet Due)',
@@ -338,7 +361,7 @@ export default function ARMilestonesPage() {
 
   useEffect(() => {
     loadInvoices();
-  }, [search, status, page, agingBucket, customerId, fromDate, toDate, region, category, accountingStatus, minAmount, maxAmount, riskClass, milestoneStatus]);
+  }, [search, status, page, agingBucket, customerId, fromDate, toDate, region, category, accountingStatus, minAmount, maxAmount, riskClass, milestoneStatus, tsp]);
 
   useEffect(() => {
     loadCustomers();
@@ -374,6 +397,7 @@ export default function ARMilestonesPage() {
         minAmount: minAmount ? parseFloat(minAmount) : undefined,
         maxAmount: maxAmount ? parseFloat(maxAmount) : undefined,
         riskClass: riskClass || undefined,
+        tsp: tsp || undefined,
         page, 
         limit: (agingBucket || ['OVERDUE', 'PENDING', 'PARTIAL'].includes(status)) ? 500 : 25
       });
@@ -415,7 +439,7 @@ export default function ARMilestonesPage() {
 
   const activeFilterCount = [
     customerId, fromDate, toDate, region, category, 
-    accountingStatus, minAmount, maxAmount, riskClass, milestoneStatus
+    accountingStatus, minAmount, maxAmount, riskClass, milestoneStatus, tsp
   ].filter(Boolean).length;
 
   const clearAllFilters = () => {
@@ -431,6 +455,7 @@ export default function ARMilestonesPage() {
     setMaxAmount('');
     setRiskClass('');
     setMilestoneStatus('');
+    setTsp('');
     setPage(1);
   };
 
@@ -784,6 +809,24 @@ export default function ARMilestonesPage() {
                   </div>
                 </div>
 
+                {/* TSP Filter */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold text-[#546A7A] uppercase tracking-wider flex items-center gap-2">
+                    <Truck className="w-3.5 h-3.5" /> TSP (Service Provider)
+                  </Label>
+                  <Select value={tsp} onValueChange={(val) => { setTsp(val === 'ALL_TSPS' ? '' : val); setPage(1); }}>
+                    <SelectTrigger className="border-2 border-[#AEBFC3]/30 rounded-xl h-11 focus:ring-[#CE9F6B]/20 font-bold text-[#546A7A]">
+                      <SelectValue placeholder="All TSPs" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL_TSPS">All TSPs</SelectItem>
+                      {TSP_OPTIONS.map(t => (
+                        <SelectItem key={t} value={t}>{t}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 {/* Milestone Status */}
                 <div className="space-y-2">
                   <Label className="text-xs font-bold text-[#546A7A] uppercase tracking-wider flex items-center gap-2">
@@ -975,26 +1018,50 @@ export default function ARMilestonesPage() {
                         </td>
                         
                         <td className="py-4 px-4" onClick={(e) => e.stopPropagation()}>
-                           <Link href={`/finance/ar/milestones/${invoice.id}`} className="flex flex-col group/so">
-                              <div className="flex items-center gap-2 mb-1.5">
-                                 <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-[#6F8A9D]/20 to-[#546A7A]/10 flex items-center justify-center group-hover/so:from-[#6F8A9D] group-hover/so:to-[#546A7A] transition-all shadow-sm">
-                                    <Layers className="w-3 h-3 text-[#6F8A9D] group-hover/so:text-white" />
+                           <div className="flex flex-col group/so-row">
+                              <Link href={`/finance/ar/milestones/${invoice.id}`} className="flex items-center gap-2 mb-1.5 group/so-link relative">
+                                 <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-[#6F8A9D]/20 to-[#546A7A]/10 flex items-center justify-center group-hover/so-link:from-[#6F8A9D] group-hover/so-link:to-[#546A7A] transition-all shadow-sm">
+                                    <Layers className="w-3 h-3 text-[#6F8A9D] group-hover/so-link:text-white" />
                                  </div>
                                  <div className="flex flex-col">
                                     <span className="text-[8px] font-bold text-[#92A2A5] uppercase tracking-wide leading-none mb-0.5">SO Number</span>
-                                    <span className="text-xs font-bold text-[#546A7A] tracking-tight group-hover/so:text-[#6F8A9D]">{invoice.soNo || 'SO-N/A'}</span>
+                                    <div className="flex items-center gap-2">
+                                       <span className="text-xs font-bold text-[#546A7A] tracking-tight group-hover/so-link:text-[#6F8A9D]">{invoice.soNo || 'SO-N/A'}</span>
+                                       {invoice.soNo && (
+                                         <button 
+                                           onClick={(e) => { e.preventDefault(); e.stopPropagation(); copyToClipboard(invoice.soNo!, 'SO Number'); }}
+                                           className="p-1 rounded-md bg-[#AEBFC3]/10 hover:bg-[#6F8A9D] hover:text-white transition-all opacity-0 group-hover/so-row:opacity-100"
+                                           title="Copy SO Number"
+                                         >
+                                           <Copy className="w-2.5 h-2.5" />
+                                         </button>
+                                       )}
+                                    </div>
                                  </div>
-                              </div>
-                           </Link>
-                           <Link href={`/finance/ar/milestones/${invoice.id}`} className="flex items-center gap-2 group/inv" onClick={(e) => e.stopPropagation()}>
-                              <div className="w-6 h-6 rounded-lg bg-[#AEBFC3]/15 flex items-center justify-center group-hover/inv:bg-gradient-to-br group-hover/inv:from-[#546A7A] group-hover/inv:to-[#6F8A9D] transition-all">
-                                 <ExternalLink className="w-3 h-3 text-[#546A7A] group-hover/inv:text-white" />
-                              </div>
-                              <div className="flex flex-col">
-                                 <span className="text-[8px] font-bold text-[#92A2A5] uppercase tracking-wide leading-none mb-0.5">Invoice No</span>
-                                 <span className="text-xs font-bold text-[#92A2A5] truncate max-w-[100px] group-hover/inv:text-[#546A7A]">{invoice.invoiceNumber || 'PENDING'}</span>
-                              </div>
-                           </Link>
+                              </Link>
+                           </div>
+                           <div className="flex flex-col group/inv-row">
+                              <Link href={`/finance/ar/milestones/${invoice.id}`} className="flex items-center gap-2 group/inv-link relative" onClick={(e) => e.stopPropagation()}>
+                                 <div className="w-6 h-6 rounded-lg bg-[#AEBFC3]/15 flex items-center justify-center group-hover/inv-link:bg-gradient-to-br group-hover/inv-link:from-[#546A7A] group-hover/inv-link:to-[#6F8A9D] transition-all">
+                                    <ExternalLink className="w-3 h-3 text-[#546A7A] group-hover/inv-link:text-white" />
+                                 </div>
+                                 <div className="flex flex-col">
+                                    <span className="text-[8px] font-bold text-[#92A2A5] uppercase tracking-wide leading-none mb-0.5">Invoice No</span>
+                                    <div className="flex items-center gap-2">
+                                       <span className="text-xs font-bold text-[#92A2A5] truncate max-w-[80px] group-hover/inv-link:text-[#546A7A]">{invoice.invoiceNumber || 'PENDING'}</span>
+                                       {invoice.invoiceNumber && (
+                                         <button 
+                                           onClick={(e) => { e.preventDefault(); e.stopPropagation(); copyToClipboard(invoice.invoiceNumber!, 'Invoice No'); }}
+                                           className="p-1 rounded-md bg-[#AEBFC3]/10 hover:bg-[#546A7A] hover:text-white transition-all opacity-0 group-hover/inv-row:opacity-100"
+                                           title="Copy Invoice Number"
+                                         >
+                                           <Copy className="w-2.5 h-2.5" />
+                                         </button>
+                                       )}
+                                    </div>
+                                 </div>
+                              </Link>
+                           </div>
                         </td>
 
                         <td className="py-4 px-4" onClick={(e) => e.stopPropagation()}>

@@ -3,8 +3,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { arApi } from '@/lib/ar-api';
-import { ArrowLeft, Save, Loader2, FileText, Sparkles, Upload, AlertCircle, IndianRupee, Calendar, Info } from 'lucide-react';
+import { arApi, TSP_OPTIONS } from '@/lib/ar-api';
+import { ArrowLeft, Save, Loader2, FileText, Sparkles, Upload, AlertCircle, IndianRupee, Calendar, Info, Truck } from 'lucide-react';
 
 export default function NewInvoicePage() {
   const router = useRouter();
@@ -35,6 +35,7 @@ export default function NewInvoicePage() {
     actualPaymentTerms: '',
     type: '' as any,
     emailId: '',
+    mailToTSP: '',
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -90,6 +91,7 @@ export default function NewInvoicePage() {
         actualPaymentTerms: formData.actualPaymentTerms || undefined,
         type: formData.type || undefined,
         emailId: formData.emailId || undefined,
+        mailToTSP: formData.mailToTSP || undefined,
       } as any);
       
       router.push('/finance/ar/invoices');
@@ -237,6 +239,24 @@ export default function NewInvoicePage() {
                 className={inputClass}
                 placeholder="customer@example.com"
               />
+            </div>
+
+            <div>
+              <label className={labelClass}>
+                <Truck className="w-3 h-3 text-[#E17F70]" />
+                TSP (Service Provider)
+              </label>
+              <select
+                name="mailToTSP"
+                value={formData.mailToTSP}
+                onChange={handleChange}
+                className={inputClass}
+              >
+                <option value="">Select TSP</option>
+                {TSP_OPTIONS.map(tsp => (
+                  <option key={tsp} value={tsp}>{tsp}</option>
+                ))}
+              </select>
             </div>
 
             <div className="col-span-2">

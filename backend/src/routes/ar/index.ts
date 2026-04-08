@@ -213,6 +213,7 @@ router.get('/reports/invoices/delivery', requireARRead, reportsController.getDel
 // NEW: Detailed Reports (Invoice & Milestone)
 router.get('/reports/invoices/detail', requireARRead, reportsController.getInvoiceDetailReport);
 router.get('/reports/milestones/detail', requireARRead, reportsController.getMilestoneDetailReport);
+router.get('/reports/unique-tsps', requireARRead, reportsController.getUniqueTSPs);
 
 // Bank Account Reports
 router.get('/reports/bank-accounts/audit', requireFinanceRead, bankReportsController.getVendorMasterAudit);

@@ -22,6 +22,7 @@ export const getAllInvoices = async (req: Request, res: Response) => {
             accountingStatus,
             bookingMonth,
             riskClass,
+            tsp,
             minAmount,
             maxAmount,
             page = 1,
@@ -96,6 +97,9 @@ export const getAllInvoices = async (req: Request, res: Response) => {
 
         if (riskClass) {
             where.riskClass = String(riskClass);
+        }
+        if (tsp) {
+            where.mailToTSP = String(tsp);
         }
 
         if (minAmount || maxAmount) {
@@ -758,6 +762,12 @@ export const deletePaymentRecord = async (req: Request, res: Response) => {
 
 // Create invoice
 export const createInvoice = async (req: Request, res: Response) => {
+    const parseDate = (val: any) => {
+        if (!val || val === '' || val === 'null') return null;
+        const d = new Date(val);
+        return isNaN(d.getTime()) ? null : d;
+    };
+
     try {
         const {
             invoiceNumber,
@@ -778,6 +788,7 @@ export const createInvoice = async (req: Request, res: Response) => {
             taxAmount,
             originalAmount,
             amountReceived,
+            bpCode,
             actualPaymentTerms,
             // Milestone fields
             invoiceType,
@@ -797,9 +808,11 @@ export const createInvoice = async (req: Request, res: Response) => {
             pocName
         } = req.body;
 
-        if (!customerId || !totalAmount) {
+        const effectiveCustomerId = customerId || bpCode;
+
+        if (!effectiveCustomerId || !totalAmount) {
             return res.status(400).json({
-                error: 'Customer, and Total Amount are required'
+                error: 'Customer (customerId or bpCode) and Total Amount are required'
             });
         }
 
@@ -831,22 +844,22 @@ export const createInvoice = async (req: Request, res: Response) => {
         const invoice = await prisma.aRInvoice.create({
             data: {
                 invoiceNumber: invoiceNumber || '',
-                bpCode: customerId,
+                bpCode: effectiveCustomerId,
                 customerName: req.body.customerName || '',
                 poNo,
                 soNo: soNo || null,  // Sales Order Number for milestone invoices
-                invoiceDate: invoiceDate ? new Date(invoiceDate) : null,
+                invoiceDate: parseDate(invoiceDate),
                 dueDate: calculatedDueDate,
-                totalAmount: parseFloat(totalAmount),
-                netAmount: netAmount ? parseFloat(netAmount) : parseFloat(totalAmount),
-                taxAmount: taxAmount ? parseFloat(taxAmount) : null,
-                balance: parseFloat(totalAmount),
+                totalAmount: parseFloat(totalAmount) || 0,
+                netAmount: parseFloat(netAmount) || parseFloat(totalAmount) || 0,
+                taxAmount: taxAmount ? (parseFloat(taxAmount) || 0) : null,
+                balance: parseFloat(totalAmount) || 0,
                 actualPaymentTerms,
                 status,
                 // Milestone fields
                 invoiceType: invoiceType || 'REGULAR',
-                advanceReceivedDate: advanceReceivedDate ? new Date(advanceReceivedDate) : null,
-                deliveryDueDate: deliveryDueDate ? new Date(deliveryDueDate) : null,
+                advanceReceivedDate: parseDate(advanceReceivedDate),
+                deliveryDueDate: parseDate(deliveryDueDate),
                 milestoneStatus: invoiceType === 'MILESTONE' ? 'AWAITING_DELIVERY' : null,
                 type: type || null,
                 milestoneTerms: milestoneTerms || null,
@@ -868,9 +881,9 @@ export const createInvoice = async (req: Request, res: Response) => {
         // ═══════════════════════════════════════════════════════════════════════════
         // If this BP Code doesn't exist in Master, create it automatically
         await prisma.aRCustomer.upsert({
-            where: { bpCode: customerId },
+            where: { bpCode: effectiveCustomerId },
             create: {
-                bpCode: customerId,
+                bpCode: effectiveCustomerId,
                 customerName: req.body.customerName || '',
                 emailId: emailId || masterData?.emailId || null,
                 contactNo: contactNo || masterData?.contactNo || null,
@@ -897,7 +910,7 @@ export const createInvoice = async (req: Request, res: Response) => {
         await logInvoiceActivity({
             invoiceId: invoice.id,
             action: 'INVOICE_CREATED',
-            description: `${invoiceType === 'MILESTONE' ? 'Milestone Payment' : 'Invoice'} ${invoiceNumber} created for ${req.body.customerName || customerId} - Amount: ₹${parseFloat(totalAmount).toLocaleString()}`,
+            description: `${invoiceType === 'MILESTONE' ? 'Milestone Payment' : 'Invoice'} ${invoiceNumber} created for ${req.body.customerName || effectiveCustomerId} - Amount: ₹${parseFloat(totalAmount).toLocaleString()}`,
             performedById: user.id,
             performedBy: user.name,
             ipAddress: getIpFromRequest(req),

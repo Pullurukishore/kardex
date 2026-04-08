@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { arApi, ARInvoice, ARPaymentHistory, formatARCurrency, formatARDate, formatARMonth, MilestonePaymentTerm, formatAmountForInput, parseFormattedAmount } from '@/lib/ar-api';
+import { useToast } from "@/components/ui/use-toast";
 import {
   ArrowLeft, ArrowRight, Pencil, Trash2, FileText, Calendar, User, Clock, CheckCircle2,
   AlertTriangle, CheckCircle, Loader2, Mail, Phone, MapPin,
@@ -16,6 +17,7 @@ import {
 } from 'lucide-react';
 
 export default function MilestoneViewPage() {
+  const { toast } = useToast();
   const params = useParams();
   const router = useRouter();
   const [invoice, setInvoice] = useState<ARInvoice | null>(null);
@@ -212,7 +214,25 @@ export default function MilestoneViewPage() {
     catch { alert('Failed to delete payment'); } finally { setPaymentLoading(false); }
   };
 
-  const copyToClipboard = (text: string) => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000); };
+  const copyToClipboard = (text: string, label: string = 'Value') => { 
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true); 
+      toast({
+        title: "Copied!",
+        description: `${label} "${text}" copied to clipboard`,
+        duration: 2000,
+      });
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(err => {
+      console.error('Failed to copy:', err);
+      toast({
+        title: "Copy Failed",
+        description: "Please try copying manually",
+        variant: "destructive",
+      });
+    });
+  };
 
   if (loading) return (
     <div className="flex items-center justify-center h-full min-h-[500px]">
@@ -523,10 +543,15 @@ export default function MilestoneViewPage() {
                     </button>
                   </div>
                   <div className="flex items-center gap-2 mt-2">
-                    <span className="px-3 py-1 bg-[#CE9F6B]/10 text-[#976E44] rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5">
+                    <button 
+                      onClick={() => invoice.soNo && copyToClipboard(invoice.soNo, 'SO Number')}
+                      className="px-3 py-1 bg-[#CE9F6B]/10 text-[#976E44] rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 hover:bg-[#CE9F6B]/20 transition-all group/so"
+                      title="Copy SO Number"
+                    >
                       <Hash className="w-3 h-3" />
                       SO NO: {invoice.soNo || 'N/A'}
-                    </span>
+                      {invoice.soNo && <Copy className="w-2.5 h-2.5 opacity-0 group-hover/so:opacity-100 transition-opacity" />}
+                    </button>
                     <span className="text-[#92A2A5] text-sm font-medium">Created {formatARDate(invoice.invoiceDate)}</span>
                   </div>
                 </div>
@@ -960,17 +985,28 @@ export default function MilestoneViewPage() {
                   </h4>
                   <div className="space-y-3">
                     {[
-                      { label: 'SO Number', value: invoice.soNo || '-', icon: Hash },
-                      { label: 'Invoice Number', value: invoice.invoiceNumber || '-', icon: FileText },
+                      { label: 'SO Number', value: invoice.soNo || '-', icon: Hash, copyable: true },
+                      { label: 'Invoice Number', value: invoice.invoiceNumber || '-', icon: FileText, copyable: true },
                       { label: 'Invoice Date', value: formatARDate(invoice.invoiceDate), icon: Calendar, highlight: isOverdue },
                       { label: 'Booking Month', value: formatARMonth(invoice.bookingMonth), icon: BarChart3 },
                       { label: 'Category', value: invoice.type || 'N/A', icon: Tag },
-                      { label: 'Risk Class', value: invoice.riskClass || '-', icon: Shield },
-                    ].map((item) => (
-                      <div key={item.label} className="flex items-center gap-3 p-3 rounded-xl bg-[#AEBFC3]/5 hover:bg-[#AEBFC3]/10 transition-colors">
+                      { label: 'Brand/Status', value: invoice.riskClass || '-', icon: Shield },
+                    ].map((item: any) => (
+                      <div key={item.label} className="group/item flex items-center gap-3 p-3 rounded-xl bg-[#AEBFC3]/5 hover:bg-[#AEBFC3]/10 transition-colors">
                         <item.icon className={`w-4 h-4 ${item.highlight ? 'text-[#E17F70]' : 'text-[#6F8A9D]'}`} />
                         <span className="text-[#92A2A5] text-sm w-32">{item.label}</span>
-                        <span className={`font-medium ${item.highlight ? 'text-[#9E3B47]' : 'text-[#546A7A]'}`}>{item.value}</span>
+                        <div className="flex-1 flex items-center justify-between">
+                          <span className={`font-medium ${item.highlight ? 'text-[#9E3B47]' : 'text-[#546A7A]'}`}>{item.value}</span>
+                          {item.copyable && item.value !== '-' && (
+                            <button 
+                              onClick={() => copyToClipboard(item.value, item.label)}
+                              className="p-1 rounded-lg hover:bg-white transition-all opacity-0 group-hover/item:opacity-100"
+                              title={`Copy ${item.label}`}
+                            >
+                              <Copy className="w-3 h-3 text-[#92A2A5]" />
+                            </button>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
