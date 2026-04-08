@@ -177,7 +177,7 @@ export default function MilestoneViewPage() {
     try {
       setDeleting(true);
       await arApi.deleteInvoice(invoice.id);
-      router.push('/finance/ar/milestones');
+      router.back();
     } catch (err: any) {
       console.error('Failed to delete milestone:', err);
       alert(err.response?.data?.error || 'Failed to delete milestone');
@@ -441,7 +441,7 @@ export default function MilestoneViewPage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-10">
             <div className="flex items-center gap-4">
               <button 
-                onClick={() => router.push('/finance/ar/milestones')}
+                onClick={() => router.back()}
                 className="group flex items-center gap-3 text-[#5D6E73] hover:text-[#546A7A] transition-all"
               >
                 <div className="p-2.5 rounded-xl bg-gradient-to-br from-[#CE9F6B]/10 to-[#976E44]/10 shadow-lg border-2 border-[#CE9F6B]/20 group-hover:from-[#CE9F6B]/20 group-hover:to-[#976E44]/20 transition-colors">
@@ -508,6 +508,7 @@ export default function MilestoneViewPage() {
                 <>
                   <Link 
                     href={`/finance/ar/milestones/${invoice.id}/edit`}
+                    replace
                     className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-[#546A7A] to-[#6F8A9D] text-white font-bold shadow-lg shadow-[#546A7A]/20 hover:shadow-xl transition-all hover:-translate-y-1"
                   >
                     <Pencil className="w-5 h-5" /> Edit

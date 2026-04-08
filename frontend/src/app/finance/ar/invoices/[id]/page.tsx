@@ -288,7 +288,7 @@ export default function InvoiceViewPage() {
     try {
       setDeleting(true);
       await arApi.deleteInvoice(invoice.id);
-      router.push('/finance/ar/invoices');
+      router.back();
     } catch (err: any) {
       console.error('Failed to delete invoice:', err);
       alert(err.response?.data?.error || 'Failed to delete invoice');
@@ -544,7 +544,7 @@ export default function InvoiceViewPage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
             <div className="flex items-center gap-4">
               <button 
-                onClick={() => router.push('/finance/ar/invoices')}
+                onClick={() => router.back()}
                 className="flex items-center gap-2 text-[#5D6E73] hover:text-[#546A7A] transition-colors group"
               >
                 <div className="p-2.5 rounded-xl bg-[#AEBFC3]/10 border-2 border-[#AEBFC3]/20 group-hover:bg-[#AEBFC3]/20 group-hover:border-[#AEBFC3]/40 transition-all group-hover:scale-105">
@@ -615,6 +615,7 @@ export default function InvoiceViewPage() {
                       ? `/finance/ar/milestones/${encodeURIComponent(invoice.invoiceNumber)}/edit`
                       : `/finance/ar/invoices/${encodeURIComponent(invoice.invoiceNumber)}/edit`
                     }
+                    replace
                     className="flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#546A7A] to-[#6F8A9D] text-white font-bold shadow-lg shadow-[#546A7A]/20 hover:shadow-xl hover:-translate-y-0.5 active:scale-95 transition-all text-sm sm:text-base"
                   >
                     <Pencil className="w-4 h-4" />
