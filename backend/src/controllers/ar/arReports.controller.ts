@@ -22,6 +22,7 @@ export const getInvoiceDetailReport = async (req: Request, res: Response) => {
             agingBucket,
             search,
             tsp,
+            forecastDate,
         } = req.query;
 
         const where: any = { invoiceType: 'REGULAR' };
@@ -212,8 +213,21 @@ export const getInvoiceDetailReport = async (req: Request, res: Response) => {
             };
         });
 
-        // Apply aging bucket filter if specified
+        // Apply forecastDate filter
         let filteredInvoices = enrichedInvoices;
+        if (forecastDate) {
+            const target = new Date(String(forecastDate));
+            target.setHours(23, 59, 59, 999);
+            filteredInvoices = filteredInvoices.filter((inv: any) => {
+                if (inv.balance > 0 && inv.dueDate && new Date(inv.dueDate) <= target) {
+                    inv.forecastAmount = Math.max(0, inv.balance);
+                    return true;
+                }
+                return false;
+            });
+        }
+
+        // Apply aging bucket filter if specified
         if (agingBucket) {
             const bucket = String(agingBucket);
             filteredInvoices = enrichedInvoices.filter((inv: any) => {
@@ -234,7 +248,7 @@ export const getInvoiceDetailReport = async (req: Request, res: Response) => {
             totalInvoices: filteredInvoices.length,
             totalAmount: filteredInvoices.reduce((s: number, i: any) => s + i.totalAmount, 0),
             totalCollected: filteredInvoices.reduce((s: number, i: any) => s + i.totalReceipts, 0),
-            totalOutstanding: filteredInvoices.reduce((s: number, i: any) => s + Math.max(0, i.balance), 0),
+            totalOutstanding: filteredInvoices.reduce((s: number, i: any) => s + (i.forecastAmount !== undefined ? i.forecastAmount : Math.max(0, i.balance)), 0),
             paidCount: filteredInvoices.filter((i: any) => i.status === 'PAID').length,
             partialCount: filteredInvoices.filter((i: any) => i.status === 'PARTIAL').length,
             overdueCount: filteredInvoices.filter((i: any) => i.status === 'OVERDUE').length,
@@ -317,6 +331,7 @@ export const getMilestoneDetailReport = async (req: Request, res: Response) => {
             type,
             search,
             tsp,
+            forecastDate,
         } = req.query;
 
         const where: any = { invoiceType: 'MILESTONE' };
@@ -570,42 +585,66 @@ export const getMilestoneDetailReport = async (req: Request, res: Response) => {
             };
         });
 
+        let filteredMilestones = enrichedMilestones;
+        if (forecastDate) {
+            const target = new Date(String(forecastDate));
+            target.setHours(23, 59, 59, 999);
+            filteredMilestones = filteredMilestones.filter((ms: any) => {
+                if (!ms.balance || ms.balance <= 0) return false;
+                
+                let forecastAmount = 0;
+                let isMatch = false;
+                ms.terms.forEach((t: any) => {
+                    if (t.pending > 0.01 && new Date(t.termDate) <= target) {
+                        isMatch = true;
+                        forecastAmount += t.pending;
+                    }
+                });
+                
+                if (isMatch) {
+                    ms.forecastAmount = forecastAmount;
+                    return true;
+                }
+                return false;
+            });
+        }
+
         // Summary KPIs
         const summary = {
-            totalMilestones: enrichedMilestones.length,
-            totalAmount: enrichedMilestones.reduce((s: number, i: any) => s + i.totalAmount, 0),
-            totalCollected: enrichedMilestones.reduce((s: number, i: any) => s + i.totalReceipts, 0),
-            totalOutstanding: enrichedMilestones.reduce((s: number, i: any) => s + Math.max(0, i.balance), 0),
-            collectionRate: enrichedMilestones.length > 0
+            totalMilestones: filteredMilestones.length,
+            totalAmount: filteredMilestones.reduce((s: number, i: any) => s + i.totalAmount, 0),
+            totalCollected: filteredMilestones.reduce((s: number, i: any) => s + i.totalReceipts, 0),
+            totalOutstanding: filteredMilestones.reduce((s: number, i: any) => s + (i.forecastAmount !== undefined ? i.forecastAmount : Math.max(0, i.balance)), 0),
+            collectionRate: filteredMilestones.length > 0
                 ? Math.round(
-                    (enrichedMilestones.reduce((s: number, i: any) => s + i.totalReceipts, 0) /
-                        Math.max(1, enrichedMilestones.reduce((s: number, i: any) => s + i.totalAmount, 0))) * 10000
+                    (filteredMilestones.reduce((s: number, i: any) => s + i.totalReceipts, 0) /
+                        Math.max(1, filteredMilestones.reduce((s: number, i: any) => s + i.totalAmount, 0))) * 10000
                 ) / 100
                 : 0,
             // Status breakdown
             statusBreakdown: {
-                paid: enrichedMilestones.filter((i: any) => i.status === 'PAID').length,
-                partial: enrichedMilestones.filter((i: any) => i.status === 'PARTIAL').length,
-                pending: enrichedMilestones.filter((i: any) => i.status === 'PENDING').length,
-                overdue: enrichedMilestones.filter((i: any) => i.status === 'OVERDUE').length,
+                paid: filteredMilestones.filter((i: any) => i.status === 'PAID').length,
+                partial: filteredMilestones.filter((i: any) => i.status === 'PARTIAL').length,
+                pending: filteredMilestones.filter((i: any) => i.status === 'PENDING').length,
+                overdue: filteredMilestones.filter((i: any) => i.status === 'OVERDUE').length,
             },
             // Milestone status breakdown
             milestoneStatusBreakdown: {
-                awaitingDelivery: enrichedMilestones.filter((i: any) => i.milestoneStatus === 'AWAITING_DELIVERY').length,
-                partiallyDelivered: enrichedMilestones.filter((i: any) => i.milestoneStatus === 'PARTIALLY_DELIVERED').length,
-                fullyDelivered: enrichedMilestones.filter((i: any) => i.milestoneStatus === 'FULLY_DELIVERED').length,
-                linked: enrichedMilestones.filter((i: any) => i.milestoneStatus === 'LINKED').length,
-                expired: enrichedMilestones.filter((i: any) => i.milestoneStatus === 'EXPIRED').length,
+                awaitingDelivery: filteredMilestones.filter((i: any) => i.milestoneStatus === 'AWAITING_DELIVERY').length,
+                partiallyDelivered: filteredMilestones.filter((i: any) => i.milestoneStatus === 'PARTIALLY_DELIVERED').length,
+                fullyDelivered: filteredMilestones.filter((i: any) => i.milestoneStatus === 'FULLY_DELIVERED').length,
+                linked: filteredMilestones.filter((i: any) => i.milestoneStatus === 'LINKED').length,
+                expired: filteredMilestones.filter((i: any) => i.milestoneStatus === 'EXPIRED').length,
             },
             // Accounting status
             accountingBreakdown: {
-                revenueRecognised: enrichedMilestones.filter((i: any) => i.accountingStatus === 'REVENUE_RECOGNISED').length,
-                backlog: enrichedMilestones.filter((i: any) => i.accountingStatus === 'BACKLOG').length,
+                revenueRecognised: filteredMilestones.filter((i: any) => i.accountingStatus === 'REVENUE_RECOGNISED').length,
+                backlog: filteredMilestones.filter((i: any) => i.accountingStatus === 'BACKLOG').length,
             },
             // Term-level stats
-            totalTerms: enrichedMilestones.reduce((s: number, i: any) => s + i.termCount, 0),
-            completedTerms: enrichedMilestones.reduce((s: number, i: any) => s + i.completedTerms, 0),
-            overdueTerms: enrichedMilestones.reduce((s: number, i: any) => s + i.overdueTerms, 0),
+            totalTerms: filteredMilestones.reduce((s: number, i: any) => s + i.termCount, 0),
+            completedTerms: filteredMilestones.reduce((s: number, i: any) => s + i.completedTerms, 0),
+            overdueTerms: filteredMilestones.reduce((s: number, i: any) => s + i.overdueTerms, 0),
             // By type
             typeBreakdown: {} as Record<string, { count: number; amount: number; outstanding: number }>,
             // Top customers
@@ -613,7 +652,7 @@ export const getMilestoneDetailReport = async (req: Request, res: Response) => {
         };
 
         // Type breakdown
-        enrichedMilestones.forEach((inv: any) => {
+        filteredMilestones.forEach((inv: any) => {
             const t = inv.type || 'Other';
             if (!summary.typeBreakdown[t]) summary.typeBreakdown[t] = { count: 0, amount: 0, outstanding: 0 };
             summary.typeBreakdown[t].count += 1;
@@ -623,7 +662,7 @@ export const getMilestoneDetailReport = async (req: Request, res: Response) => {
 
         // Top customers
         const custAgg: Record<string, { customerName: string; bpCode: string; outstanding: number; count: number }> = {};
-        enrichedMilestones.forEach((inv: any) => {
+        filteredMilestones.forEach((inv: any) => {
             const key = inv.bpCode || inv.customerName;
             if (!custAgg[key]) custAgg[key] = { customerName: inv.customerName, bpCode: inv.bpCode, outstanding: 0, count: 0 };
             custAgg[key].outstanding += Math.max(0, inv.balance);
@@ -633,7 +672,7 @@ export const getMilestoneDetailReport = async (req: Request, res: Response) => {
             .sort((a, b) => b.outstanding - a.outstanding)
             .slice(0, 10);
 
-        res.json({ data: enrichedMilestones, summary });
+        res.json({ data: filteredMilestones, summary });
     } catch (error: any) {
         res.status(500).json({ error: 'Failed to generate milestone detail report', message: error.message });
     }
@@ -973,6 +1012,7 @@ export const getTopOutstandingCustomers = async (req: Request, res: Response) =>
                 overdueCount: 0, paidCount: 0, maxDaysOverdue: 0,
                 lastPaymentDate: null,
                 aging: { current: 0, '1-30': 0, '31-60': 0, '61-90': 0, '90+': 0 },
+                invoices: [], // NEW: Collect detailed invoices for drill-down
             };
         });
 
@@ -980,7 +1020,8 @@ export const getTopOutstandingCustomers = async (req: Request, res: Response) =>
         const foundBpCodes = masterCustomers.map(c => c.bpCode);
         const invoiceWhere: any = {
             bpCode: { in: foundBpCodes },
-            status: { not: 'CANCELLED' }
+            status: { not: 'CANCELLED' },
+            invoiceType: 'REGULAR', // EXCLUSIVE: Only regular invoices, no milestones
         };
         if (type) invoiceWhere.type = String(type);
 
@@ -990,6 +1031,7 @@ export const getTopOutstandingCustomers = async (req: Request, res: Response) =>
                 id: true, bpCode: true, customerName: true, totalAmount: true,
                 invoiceDate: true, dueDate: true, status: true, riskClass: true,
                 region: true, type: true, invoiceType: true, creditLimit: true,
+                invoiceNumber: true, poNo: true, soNo: true,
             }
         });
 
@@ -1036,6 +1078,23 @@ export const getTopOutstandingCustomers = async (req: Request, res: Response) =>
             if (daysOverdue > 0 && balance > 0) c.overdueCount++;
             c.maxDaysOverdue = Math.max(c.maxDaysOverdue, daysOverdue);
 
+            // Add to detailed invoices list if there is a balance
+            if (balance > 0.01) {
+                c.invoices.push({
+                    id: inv.id,
+                    invoiceNumber: inv.invoiceNumber,
+                    invoiceDate: inv.invoiceDate,
+                    dueDate: inv.dueDate,
+                    totalAmount: total,
+                    balance: balance,
+                    status: balance > 0 && daysOverdue > 0 ? 'OVERDUE' : (balance > 0 && paid > 0 ? 'PARTIAL' : 'PENDING'),
+                    daysOverdue,
+                    poNo: inv.poNo,
+                    soNo: inv.soNo,
+                    type: inv.type
+                });
+            }
+
             // Last payment
             const lpd = lastPayDates[inv.id];
             if (lpd && (!c.lastPaymentDate || lpd > c.lastPaymentDate)) c.lastPaymentDate = lpd;
@@ -1052,6 +1111,11 @@ export const getTopOutstandingCustomers = async (req: Request, res: Response) =>
             // Upgrade risk class to highest
             const riskOrder: Record<string, number> = { LOW: 0, MEDIUM: 1, HIGH: 2, CRITICAL: 3 };
             if ((riskOrder[inv.riskClass] || 0) > (riskOrder[c.riskClass] || 0)) c.riskClass = inv.riskClass;
+        });
+
+        // Sort each customer's invoice list by date
+        Object.values(custMap).forEach((c: any) => {
+            c.invoices.sort((a: any, b: any) => new Date(b.invoiceDate).getTime() - new Date(a.invoiceDate).getTime());
         });
 
         let customers = Object.values(custMap).map((c: any) => ({

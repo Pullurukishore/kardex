@@ -1030,6 +1030,7 @@ export const arApi = {
         agingBucket?: string;
         search?: string;
         tsp?: string;
+        forecastDate?: string;
     }): Promise<any> {
         const res = await api.get('/ar/reports/invoices/detail', { params });
         return res.data;
@@ -1045,6 +1046,7 @@ export const arApi = {
         type?: string;
         search?: string;
         tsp?: string;
+        forecastDate?: string;
     }): Promise<any> {
         const res = await api.get('/ar/reports/milestones/detail', { params });
         return res.data;

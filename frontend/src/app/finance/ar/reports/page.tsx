@@ -43,7 +43,7 @@ const getMilestoneStageConfig = (status?: string) => {
 // ═══════════════════════════════════════════════════════════════════════════
 // REPORT TAB TYPE
 // ═══════════════════════════════════════════════════════════════════════════
-type ReportTab = 'invoice' | 'milestone' | 'customer' | 'forecast';
+type ReportTab = 'invoice' | 'milestone' | 'customer';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // HELPERS  
@@ -377,17 +377,21 @@ const getAgingStyle = (days: number) => {
 };
 
 const getPageNumbers = (current: number, total: number) => {
-  const pages: (number | string)[] = [];
-  if (total <= 5) {
+  const pages: (number | '...')[] = [];
+  if (total <= 7) {
     for (let i = 1; i <= total; i++) pages.push(i);
   } else {
-    if (current <= 2) {
-      pages.push(1, 2, 3, '...', total);
-    } else if (current >= total - 3) {
-      pages.push(1, '...', total - 2, total - 1, total);
-    } else {
-      pages.push(1, '...', current + 1, '...', total);
-    }
+    pages.push(1);
+    const currentPage = current + 1; // current is 0-indexed in reports
+    if (currentPage > 4) pages.push('...');
+    
+    const start = Math.max(2, currentPage - 1);
+    const end = Math.min(total - 1, currentPage + 1);
+    
+    for (let i = start; i <= end; i++) pages.push(i);
+    
+    if (currentPage < total - 3) pages.push('...');
+    pages.push(total);
   }
   return pages;
 };
@@ -589,33 +593,45 @@ export default function ARReportsPage() {
   const [pageSize, setPageSize] = useState(50);
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
-  const [forecastDate, setForecastDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [forecastDate, setForecastDate] = useState<string>('');
 
-  useEffect(() => { loadData(); }, [activeTab]);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      loadData();
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [activeTab, search, statusFilter, riskFilter, typeFilter, acctFilter, tspFilter, fromDate, toDate, forecastDate]);
 
   const loadData = async () => {
     try {
       setLoading(true);
       setPage(0);
+      const params = {
+        search: search || undefined,
+        status: statusFilter || undefined,
+        riskClass: riskFilter || undefined,
+        type: typeFilter || undefined,
+        tsp: tspFilter || undefined,
+        accountingStatus: acctFilter || undefined,
+        fromDate: fromDate || undefined,
+        toDate: toDate || undefined,
+        forecastDate: forecastDate || undefined,
+      };
+
       if (activeTab === 'invoice') {
         setSortField('invoiceDate'); setSortDir('desc');
-        const res = await arApi.getInvoiceDetailReport({ tsp: tspFilter });
+        const res = await arApi.getInvoiceDetailReport(params);
         setInvoiceData(res);
       } else if (activeTab === 'milestone') {
         setSortField('invoiceDate'); setSortDir('desc');
-        const res = await arApi.getMilestoneDetailReport({ tsp: tspFilter });
+        const res = await arApi.getMilestoneDetailReport(params);
         setMilestoneData(res);
       } else if (activeTab === 'customer') {
         setSortField('outstanding'); setSortDir('desc');
+        // If the customer endpoint supports searching, we can pass params
+        // For now, it might just return all and we filter locally
         const res = await arApi.getTopOutstandingCustomers();
         setCustomerData(res);
-      } else if (activeTab === 'forecast') {
-        const [inv, ms] = await Promise.all([
-          arApi.getInvoiceDetailReport({ tsp: tspFilter }),
-          arApi.getMilestoneDetailReport({ tsp: tspFilter })
-        ]);
-        setInvoiceData(inv);
-        setMilestoneData(ms);
       }
     } catch (err) {
       console.error('Report error:', err);
@@ -626,24 +642,14 @@ export default function ARReportsPage() {
 
   const clearFilters = () => {
     setSearch(''); setStatusFilter(''); setRiskFilter(''); setTspFilter(''); setTypeFilter('');
-    setAcctFilter(''); setFromDate(''); setToDate('');
+    setAcctFilter(''); setFromDate(''); setToDate(''); setForecastDate('');
   };
-  const hasFilters = search || statusFilter || riskFilter || tspFilter || typeFilter || acctFilter || fromDate || toDate;
+  const hasFilters = search || statusFilter || riskFilter || tspFilter || typeFilter || acctFilter || fromDate || toDate || forecastDate;
 
   // Filter & sort invoice data
   const filteredInvoices = useMemo(() => {
     if (!invoiceData?.data) return [];
     let d = [...invoiceData.data];
-    if (search) {
-      const s = search.toLowerCase();
-      d = d.filter((i: any) => i.invoiceNumber?.toLowerCase().includes(s) || i.customerName?.toLowerCase().includes(s) || i.bpCode?.toLowerCase().includes(s) || i.poNo?.toLowerCase().includes(s));
-    }
-    if (statusFilter) d = d.filter((i: any) => i.status === statusFilter);
-    if (riskFilter) d = d.filter((i: any) => i.riskClass === riskFilter);
-    if (typeFilter) d = d.filter((i: any) => i.type === typeFilter);
-    if (tspFilter) d = d.filter((i: any) => i.mailToTSP === tspFilter);
-    if (fromDate) d = d.filter((i: any) => i.invoiceDate && new Date(i.invoiceDate) >= new Date(fromDate));
-    if (toDate) d = d.filter((i: any) => i.invoiceDate && new Date(i.invoiceDate) <= new Date(toDate));
 
     if (sortField) {
       d.sort((a: any, b: any) => {
@@ -655,22 +661,12 @@ export default function ARReportsPage() {
       });
     }
     return d;
-  }, [invoiceData, search, statusFilter, riskFilter, typeFilter, tspFilter, fromDate, toDate, sortField, sortDir]);
+  }, [invoiceData, sortField, sortDir]);
 
   // Filter & sort milestone data
   const filteredMilestones = useMemo(() => {
     if (!milestoneData?.data) return [];
     let d = [...milestoneData.data];
-    if (search) {
-      const s = search.toLowerCase();
-      d = d.filter((i: any) => i.invoiceNumber?.toLowerCase().includes(s) || i.customerName?.toLowerCase().includes(s) || i.soNo?.toLowerCase().includes(s) || i.poNo?.toLowerCase().includes(s));
-    }
-    if (statusFilter) d = d.filter((i: any) => i.status === statusFilter);
-    if (typeFilter) d = d.filter((i: any) => i.type === typeFilter);
-    if (acctFilter) d = d.filter((i: any) => i.accountingStatus === acctFilter);
-    if (tspFilter) d = d.filter((i: any) => i.mailToTSP === tspFilter);
-    if (fromDate) d = d.filter((i: any) => i.invoiceDate && new Date(i.invoiceDate) >= new Date(fromDate));
-    if (toDate) d = d.filter((i: any) => i.invoiceDate && new Date(i.invoiceDate) <= new Date(toDate));
 
     if (sortField) {
       d.sort((a: any, b: any) => {
@@ -682,7 +678,7 @@ export default function ARReportsPage() {
       });
     }
     return d;
-  }, [milestoneData, search, statusFilter, typeFilter, acctFilter, tspFilter, fromDate, toDate, sortField, sortDir]);
+  }, [milestoneData, sortField, sortDir]);
 
   const filteredCustomers = useMemo(() => {
     let d = [...(customerData?.customers || [])];
@@ -722,104 +718,21 @@ export default function ARReportsPage() {
   const msTotalPages = Math.ceil(filteredMilestones.length / pageSize) || 1;
   const pagedMilestones = filteredMilestones.slice(page * pageSize, (page + 1) * pageSize);
 
-  // Filtered totals for summary footer
-  const invFilteredTotals = useMemo(() => {
-    const total = filteredInvoices.reduce((s: number, i: any) => s + (i.totalAmount || 0), 0);
-    const bal = filteredInvoices.reduce((s: number, i: any) => s + Math.max(0, i.balance || 0), 0);
-    const collected = filteredInvoices.reduce((s: number, i: any) => s + (i.totalReceipts || 0), 0);
-    return { total, bal, collected, count: filteredInvoices.length };
-  }, [filteredInvoices]);
-
   const computedInvSummary = useMemo(() => {
-    if (!filteredInvoices.length) return null;
-    const s: any = {
-      totalAmount: 0, totalReceipts: 0, totalOutstanding: 0, totalInvoices: filteredInvoices.length,
-      paidCount: 0, partialCount: 0, pendingCount: 0, overdueCount: 0,
-      agingDistribution: { 'current': { count: 0, amount: 0 }, '1-30': { count: 0, amount: 0 }, '31-60': { count: 0, amount: 0 }, '61-90': { count: 0, amount: 0 }, '90+': { count: 0, amount: 0 } },
-      riskDistribution: { 'LOW': { count: 0, amount: 0 }, 'MEDIUM': { count: 0, amount: 0 }, 'HIGH': { count: 0, amount: 0 }, 'CRITICAL': { count: 0, amount: 0 } }
-    };
-    filteredInvoices.forEach((i: any) => {
-      s.totalAmount += (i.totalAmount || 0);
-      s.totalReceipts += (i.totalReceipts || 0);
-      const b = Math.max(0, i.balance || 0);
-      s.totalOutstanding += b;
-      if (i.status === 'PAID') s.paidCount++;
-      else if (i.status === 'PARTIAL') s.partialCount++;
-      else if (i.status === 'PENDING') s.pendingCount++;
-      if (i.status === 'OVERDUE') s.overdueCount++;
-
-      const bucket = i.agingBucket || 'current';
-      if (s.agingDistribution[bucket]) { s.agingDistribution[bucket].count++; s.agingDistribution[bucket].amount += b; }
-      const risk = i.riskClass || 'LOW';
-      if (s.riskDistribution[risk]) { s.riskDistribution[risk].count++; s.riskDistribution[risk].amount += b; }
-    });
-    s.collectionRate = s.totalAmount > 0 ? Math.round((s.totalReceipts / s.totalAmount) * 100) : 0;
-    s.totalCollected = s.totalReceipts;
-    return s;
-  }, [filteredInvoices]);
+    if (!invoiceData?.summary) return null;
+    return { ...invoiceData.summary };
+  }, [invoiceData]);
 
   const computedMsSummary = useMemo(() => {
-    if (!filteredMilestones.length) return null;
-    const s: any = {
-      totalAmount: 0, totalReceipts: 0, totalOutstanding: 0, totalMilestones: filteredMilestones.length,
-      paidCount: 0, partialCount: 0, pendingCount: 0, overdueCount: 0,
-      statusBreakdown: { paid: 0, partial: 0, pending: 0, overdue: 0 },
-      milestoneStatusBreakdown: { awaitingDelivery: 0, partiallyDelivered: 0, fullyDelivered: 0, linked: 0, expired: 0 },
-      accountingBreakdown: { revenueRecognised: 0, backlog: 0 },
-      totalTerms: 0, completedTerms: 0, overdueTerms: 0,
-      typeBreakdown: {} as any
-    };
-    filteredMilestones.forEach((i: any) => {
-      s.totalAmount += (i.totalAmount || 0);
-      s.totalReceipts += (i.totalReceipts || 0);
-      const b = Math.max(0, i.balance || 0);
-      s.totalOutstanding += b;
-      
-      if (i.status === 'PAID') s.statusBreakdown.paid++;
-      else if (i.status === 'PARTIAL') s.statusBreakdown.partial++;
-      else if (i.status === 'PENDING') s.statusBreakdown.pending++;
-      if (i.status === 'OVERDUE') s.statusBreakdown.overdue++;
-
-      const mStat = i.milestoneStatus;
-      if (mStat === 'AWAITING_DELIVERY') s.milestoneStatusBreakdown.awaitingDelivery++;
-      else if (mStat === 'PARTIALLY_DELIVERED') s.milestoneStatusBreakdown.partiallyDelivered++;
-      else if (mStat === 'FULLY_DELIVERED') s.milestoneStatusBreakdown.fullyDelivered++;
-      else if (mStat === 'LINKED') s.milestoneStatusBreakdown.linked++;
-      else if (mStat === 'EXPIRED') s.milestoneStatusBreakdown.expired++;
-
-      const aStat = i.accountingStatus;
-      if (aStat === 'REVENUE_RECOGNISED') s.accountingBreakdown.revenueRecognised++;
-      else if (aStat === 'BACKLOG') s.accountingBreakdown.backlog++;
-
-      s.totalTerms += (i.termCount || 0);
-      s.completedTerms += (i.completedTerms || 0);
-      s.overdueTerms += (i.overdueTerms || 0);
-
-      const type = i.type || 'Other';
-      if (!s.typeBreakdown[type]) s.typeBreakdown[type] = { count: 0, amount: 0, outstanding: 0 };
-      s.typeBreakdown[type].count++;
-      s.typeBreakdown[type].amount += (i.totalAmount || 0);
-      s.typeBreakdown[type].outstanding += b;
-    });
-    s.collectionRate = s.totalAmount > 0 ? Math.round((s.totalReceipts / s.totalAmount) * 100) : 0;
-    s.totalCollected = s.totalReceipts;
-    s.paidCount = s.statusBreakdown.paid;
-    s.overdueCount = s.statusBreakdown.overdue;
+    if (!milestoneData?.summary) return null;
+    const s = { ...milestoneData.summary };
+    s.paidCount = s.statusBreakdown?.paid || 0;
+    s.overdueCount = s.statusBreakdown?.overdue || 0;
+    s.pendingCount = s.statusBreakdown?.pending || 0;
+    s.partialCount = s.statusBreakdown?.partial || 0;
     return s;
-  }, [filteredMilestones]);
-  const msFilteredTotals = useMemo(() => {
-    const total = filteredMilestones.reduce((s: number, i: any) => s + (i.totalAmount || 0), 0);
-    const bal = filteredMilestones.reduce((s: number, i: any) => s + Math.max(0, i.balance || 0), 0);
-    const collected = filteredMilestones.reduce((s: number, i: any) => s + (i.totalReceipts || 0), 0);
-    return { total, bal, collected, count: filteredMilestones.length };
-  }, [filteredMilestones]);
+  }, [milestoneData]);
 
-  const custFilteredTotals = useMemo(() => {
-    const total = filteredCustomers.reduce((s: number, i: any) => s + (i.totalInvoiced || 0), 0);
-    const bal = filteredCustomers.reduce((s: number, i: any) => s + (i.outstanding || 0), 0);
-    const collected = filteredCustomers.reduce((s: number, i: any) => s + (i.totalCollected || 0), 0);
-    return { total, bal, collected, count: filteredCustomers.length };
-  }, [filteredCustomers]);
 
   // Active filter chips
   const activeFilterChips = useMemo(() => {
@@ -832,98 +745,11 @@ export default function ARReportsPage() {
     if (acctFilter) chips.push({ key: 'acct', label: 'Accounting', value: acctFilter.replace(/_/g, ' '), onRemove: () => setAcctFilter('') });
     if (fromDate) chips.push({ key: 'from', label: 'From', value: fromDate, onRemove: () => setFromDate('') });
     if (toDate) chips.push({ key: 'to', label: 'To', value: toDate, onRemove: () => setToDate('') });
+    if (forecastDate) chips.push({ key: 'forecast', label: 'Due By', value: forecastDate, onRemove: () => setForecastDate('') });
     return chips;
   }, [search, statusFilter, riskFilter, typeFilter, acctFilter, fromDate, toDate]);
 
-  const forecastCollections = useMemo(() => {
-    if (activeTab !== 'forecast' || !invoiceData?.data || !milestoneData?.data) return [];
-    
-    // Target Date from Picker
-    const target = new Date(forecastDate);
-    target.setHours(23, 59, 59, 999);
-    const results: any[] = [];
 
-    // 1. Regular Invoices (dueDate based)
-    invoiceData.data.forEach((inv: any) => {
-      if (inv.balance > 0) {
-        const dDate = inv.dueDate ? new Date(inv.dueDate) : null;
-        if (dDate && dDate <= target) {
-          results.push({
-            id: inv.id,
-            mainId: inv.id,
-            type: 'REGULAR',
-            customer: inv.customerName,
-            reference: inv.invoiceNumber,
-            date: inv.dueDate,
-            amount: Number(inv.balance)
-          });
-        }
-      }
-    });
-
-    // 2. Milestone Invoices (termDate based)
-    milestoneData.data.forEach((ms: any) => {
-      if (ms.balance > 0) {
-        const netAmt = Number(ms.netAmount || 0);
-        const terms = ms.terms || [];
-        
-        // Calculate collections for milestones
-        const paymentsByTargetAgg: Record<string, number> = {};
-        let genPool = 0;
-        (ms.paymentHistory || []).forEach((p: any) => {
-          if (p.milestoneTerm) {
-            paymentsByTargetAgg[p.milestoneTerm] = (paymentsByTargetAgg[p.milestoneTerm] || 0) + (Number(p.amount) || 0);
-          } else {
-            genPool += (Number(p.amount) || 0);
-          }
-        });
-
-        // Sorted Terms Logic
-        const sortedTerms = terms.slice().sort((a: any, b: any) => new Date(a.termDate).getTime() - new Date(b.termDate).getTime());
-        
-        sortedTerms.forEach((t: any) => {
-          const pct = t.percentage || 0;
-          const taxPct = t.taxPercentage || 0;
-          let alloc = 0;
-          if (t.calculationBasis !== 'TOTAL_AMOUNT') {
-            alloc = (netAmt * pct) / 100;
-          } else {
-            alloc = (netAmt * pct) / 100 + (Number(ms.taxAmount || 0) * taxPct) / 100;
-          }
-          
-          const tId = `${t.termType}-${t.termDate}-${pct}-${taxPct}`;
-          let coll = (paymentsByTargetAgg[tId] || 0) + (paymentsByTargetAgg[t.termType] || 0);
-          if (paymentsByTargetAgg[tId]) delete paymentsByTargetAgg[tId];
-          if (paymentsByTargetAgg[t.termType]) delete paymentsByTargetAgg[t.termType];
-          
-          if (coll > alloc) { genPool += (coll - alloc); coll = alloc; }
-          
-          const gap = Math.max(0, alloc - coll);
-          const fromGen = Math.min(gap, genPool);
-          const finalColl = coll + fromGen;
-          genPool -= fromGen;
-          
-          const remaining = alloc - finalColl;
-          if (remaining > 0.01) {
-            const tDate = new Date(t.termDate);
-            if (tDate <= target) {
-              results.push({
-                id: `${ms.id}-${tId}`,
-                mainId: ms.id,
-                type: 'MILESTONE_TERM',
-                customer: ms.customerName,
-                reference: `${ms.soNo || ms.invoiceNumber} - ${termOptions[t.termType] || t.termType}`,
-                date: t.termDate,
-                amount: remaining
-              });
-            }
-          }
-        });
-      }
-    });
-
-    return results.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  }, [activeTab, invoiceData, milestoneData, forecastDate]);
 
   const handleExport = () => {
     if (activeTab === 'invoice') {
@@ -1053,7 +879,6 @@ export default function ARReportsPage() {
           { key: 'invoice' as ReportTab, label: 'Invoice Detail', icon: FileText, color: 'from-[#546A7A] to-[#6F8A9D]' },
           { key: 'milestone' as ReportTab, label: 'Milestone Detail', icon: Wallet, color: 'from-[#CE9F6B] to-[#976E44]' },
           { key: 'customer' as ReportTab, label: 'Customer Outstanding', icon: Users, color: 'from-[#4F6A64] to-[#82A094]' },
-          { key: 'forecast' as ReportTab, label: 'Collection Forecast', icon: Sparkles, color: 'from-[#E17F70] to-[#9E3B47]' },
         ].map(tab => (
           <button key={tab.key} onClick={() => { setActiveTab(tab.key); clearFilters(); setSortField(''); }}
             className={`flex-shrink-0 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
@@ -1145,7 +970,7 @@ export default function ARReportsPage() {
             </div>
 
             <div className="relative group min-w-[140px] flex-1">
-              <select value={tspFilter} onChange={e => { setTspFilter(e.target.value); loadData(); }}
+              <select value={tspFilter} onChange={e => setTspFilter(e.target.value)}
                 className="w-full h-10 pl-3 pr-8 rounded-xl bg-white border-2 border-[#AEBFC3]/40 text-sm text-[#546A7A] font-bold focus:border-[#6F8A9D] focus:ring-4 focus:ring-[#6F8A9D]/10 outline-none appearance-none transition-all shadow-sm cursor-pointer">
                 <option value="">TSP: All</option>
                 {TSP_OPTIONS.map(tsp => (
@@ -1164,6 +989,17 @@ export default function ARReportsPage() {
                   <option value="BACKLOG">Backlog</option>
                 </select>
                 <Filter className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#92A2A5] pointer-events-none group-hover:text-[#6F8A9D] transition-colors" />
+              </div>
+            )}
+
+            {(activeTab === 'invoice' || activeTab === 'milestone') && (
+              <div className="relative group min-w-[180px] flex-2">
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 pointer-events-none">
+                  <Sparkles className="w-3.5 h-3.5 text-[#E17F70]" />
+                  <span className="text-[10px] font-black text-[#92A2A5] uppercase">Due By:</span>
+                </div>
+                <input type="date" value={forecastDate} onChange={e => setForecastDate(e.target.value)}
+                  className="w-full h-10 pl-20 pr-3 rounded-xl bg-white border-2 border-[#AEBFC3]/40 text-sm text-[#546A7A] font-bold focus:border-[#6F8A9D] focus:ring-4 focus:ring-[#6F8A9D]/10 outline-none transition-all shadow-sm cursor-pointer [color-scheme:light]" />
               </div>
             )}
           </div>
@@ -1338,14 +1174,16 @@ export default function ARReportsPage() {
                                 </div>
                               )}
                             </td>
-                            <td className="py-3 px-4 text-right font-black text-[#4F6A64] text-sm">{formatARCurrency(Number(inv.totalAmount) || 0)}</td>
-                            <td className="py-3 px-4 text-right text-[#6F8A9D] font-bold text-sm">{formatARCurrency(Number(inv.totalReceipts) || 0)}</td>
-                            <td className="py-3 px-4 text-right font-black text-[#E17F70] text-sm">{formatARCurrency(Number(inv.balance) || 0)}</td>
-                            <td className="py-3 px-4 text-center">
-                              <span className={`inline-block px-2 py-1 rounded text-[10px] font-bold shadow-sm ${getRiskStyle(inv.riskClass || 'LOW')}`}>
-                                {inv.riskClass || 'LOW'}
-                              </span>
-                            </td>
+                             <td className="py-3 px-4 text-right font-black text-[#4F6A64] text-sm">{formatARCurrency(Number(inv.totalAmount) || 0) || '-'}</td>
+                             <td className="py-3 px-4 text-right text-[#6F8A9D] font-bold text-sm">{formatARCurrency(Number(inv.totalReceipts) || 0) || '-'}</td>
+                             <td className="py-3 px-4 text-right font-black text-[#E17F70] text-sm">
+                               {inv.forecastAmount !== undefined ? formatARCurrency(inv.forecastAmount) : formatARCurrency(Number(inv.balance) || 0)}
+                             </td>
+                             <td className="py-3 px-4 text-center">
+                               <span className={`inline-block px-2 py-1 rounded text-[10px] font-bold shadow-sm ${getRiskStyle(inv.riskClass || 'LOW')}`}>
+                                 {inv.riskClass || 'LOW'}
+                               </span>
+                             </td>
                             <td className="py-3 px-4 text-center">
                               <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold shadow-sm ${getStatusStyle(inv.status)}`}>
                                 {inv.status}
@@ -1374,23 +1212,52 @@ export default function ARReportsPage() {
                       );
                     })
                   )}
+                  {/* Summary Footer */}
+                  {filteredInvoices.length > 0 && invoiceData?.summary && (
+                    <tr className="bg-gradient-to-r from-[#F8FAFB] to-white border-t-2 border-[#AEBFC3]/30">
+                      <td colSpan={5} className="py-3 px-4 text-[10px] font-black text-[#546A7A] uppercase">Total</td>
+                      <td className="py-3 px-4 text-right font-black text-[#4F6A64] text-sm">{formatARCurrency(invoiceData.summary.totalAmount)}</td>
+                      <td className="py-3 px-4 text-right text-[#6F8A9D] font-bold text-sm">{formatARCurrency(invoiceData.summary.totalCollected)}</td>
+                      <td className="py-3 px-4 text-right font-black text-[#E17F70] text-sm">{formatARCurrency(invoiceData.summary.totalOutstanding)}</td>
+                      <td colSpan={3}></td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
 
             {/* Pagination Controls */}
             {invTotalPages > 1 && (
-              <div className="p-4 border-t-2 border-[#AEBFC3]/20 flex justify-between items-center bg-gradient-to-r from-[#F8FAFB] to-white">
-                <span className="text-[10px] font-black text-[#546A7A] uppercase tracking-widest leading-none">Page {page + 1} of {invTotalPages} • {filteredInvoices.length} Records</span>
+              <div className="relative p-5 flex flex-col sm:flex-row justify-between items-center gap-4 bg-gradient-to-r from-[#AEBFC3]/5 via-transparent to-white border-t-2 border-[#AEBFC3]/30">
                 <div className="flex items-center gap-2">
-                  <button onClick={() => setPage((p: number) => Math.max(0, p - 1))} disabled={page === 0} className="p-2 px-4 rounded-xl border-2 border-[#AEBFC3]/30 bg-white disabled:opacity-50 transition-all shadow-sm"><ChevronLeft className="w-4 h-4 text-[#546A7A]" /></button>
-                  <div className="flex items-center gap-1 mx-2">
-                    {getPageNumbers(page, invTotalPages).map((p: any, i: number) => (
-                      p === '...' ? <span key={`im-ell-${i}`} className="w-7 text-center text-[#92A2A5] font-black">···</span> :
-                      <button key={p} onClick={() => setPage(p as number - 1)} className={`w-9 h-9 rounded-xl text-xs font-black transition-all ${page === (p as number - 1) ? 'bg-gradient-to-br from-[#546A7A] to-[#6F8A9D] text-white shadow-lg' : 'bg-white border-2 border-[#AEBFC3]/20 text-[#546A7A]'}`}>{p}</button>
+                  <span className="text-xs font-bold text-[#92A2A5] tracking-wide">Showing</span>
+                  <span className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-[#546A7A]/10 to-[#6F8A9D]/5 text-xs font-black text-[#546A7A] border border-[#6F8A9D]/20">{page * pageSize + 1}–{Math.min((page + 1) * pageSize, filteredInvoices.length)}</span>
+                  <span className="text-xs font-bold text-[#92A2A5]">of</span>
+                  <span className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-[#CE9F6B]/10 to-[#976E44]/5 text-xs font-black text-[#976E44] border border-[#CE9F6B]/20">{filteredInvoices.length}</span>
+                  <span className="text-xs font-bold text-[#92A2A5] tracking-wide">records</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <button onClick={() => setPage(0)} disabled={page === 0} className="p-2 rounded-lg bg-white border-2 border-[#AEBFC3]/30 text-[#546A7A] hover:bg-[#AEBFC3]/10 hover:border-[#6F8A9D] disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-sm" title="First page"><ChevronLeft className="w-3.5 h-3.5" /></button>
+                  <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0} className="flex items-center gap-1.5 px-3 py-2 bg-white border-2 border-[#AEBFC3]/30 rounded-lg text-xs font-bold text-[#546A7A] hover:bg-[#AEBFC3]/10 hover:border-[#6F8A9D] disabled:opacity-30 disabled:cursor-not-allowed shadow-sm transition-all">Prev</button>
+                  <div className="flex items-center gap-1 mx-1">
+                    {getPageNumbers(page, invTotalPages).map((p, i) => (
+                      p === '...' ? (
+                        <span key={`ellipsis-${i}`} className="w-8 text-center text-xs font-bold text-[#92A2A5] select-none">…</span>
+                      ) : (
+                        <button key={p} onClick={() => setPage(Number(p) - 1)}
+                          className={`w-9 h-9 rounded-xl text-xs font-bold transition-all duration-200 ${
+                            page === (Number(p) - 1)
+                              ? 'bg-gradient-to-br from-[#546A7A] to-[#6F8A9D] text-white shadow-lg shadow-[#546A7A]/25 scale-110 ring-2 ring-[#6F8A9D]/30'
+                              : 'bg-white border-2 border-[#AEBFC3]/30 text-[#546A7A] hover:bg-[#AEBFC3]/10 hover:border-[#6F8A9D] hover:scale-105 shadow-sm'
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      )
                     ))}
                   </div>
-                  <button onClick={() => setPage((p: number) => Math.min(invTotalPages - 1, p + 1))} disabled={page === invTotalPages - 1} className="p-2 px-4 rounded-xl border-2 border-[#AEBFC3]/30 bg-white disabled:opacity-50 transition-all shadow-sm"><ChevronRight className="w-4 h-4 text-[#546A7A]" /></button>
+                  <button onClick={() => setPage(p => Math.min(invTotalPages - 1, p + 1))} disabled={page === invTotalPages - 1} className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-[#546A7A] to-[#6F8A9D] rounded-lg text-xs font-bold text-white hover:shadow-lg hover:shadow-[#546A7A]/20 disabled:opacity-30 disabled:cursor-not-allowed shadow-lg transition-all">Next</button>
+                  <button onClick={() => setPage(invTotalPages - 1)} disabled={page === invTotalPages - 1} className="p-2 rounded-lg bg-white border-2 border-[#AEBFC3]/30 text-[#546A7A] hover:bg-[#AEBFC3]/10 hover:border-[#6F8A9D] disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-sm" title="Last page"><ChevronRight className="w-3.5 h-3.5" /></button>
                 </div>
               </div>
             )}
@@ -1449,17 +1316,17 @@ export default function ARReportsPage() {
                         </div>
                       </div>
                       
-                      <div className="mt-5 flex items-center justify-between">
-                         <div className="flex flex-col">
-                            <p className="text-[10px] font-black text-[#92A2A5] uppercase tracking-widest">Outstanding</p>
-                            <p className="text-xl font-black text-[#E17F70]">{formatARCurrency(Number(inv.balance))}</p>
-                         </div>
-                         <div className="text-right">
-                             <div className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest ${Number(inv.balance) <= 0 ? 'bg-[#82A094]/10 text-[#4F6A64]' : 'bg-[#E17F70]/10 text-[#9E3B47]'}`}>
-                                {Number(inv.balance) <= 0 ? 'Fully Paid' : `${inv.daysOverdue}D Overdue`}
-                             </div>
-                         </div>
-                      </div>
+                       <div className="mt-5 flex items-center justify-between">
+                          <div className="flex flex-col">
+                             <p className="text-[10px] font-black text-[#92A2A5] uppercase tracking-widest">{inv.forecastAmount !== undefined ? 'Forecast Due' : 'Outstanding'}</p>
+                             <p className="text-xl font-black text-[#E17F70]">{inv.forecastAmount !== undefined ? formatARCurrency(inv.forecastAmount) : formatARCurrency(Number(inv.balance))}</p>
+                          </div>
+                          <div className="text-right">
+                              <div className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest ${Number(inv.balance) <= 0 ? 'bg-[#82A094]/10 text-[#4F6A64]' : 'bg-[#E17F70]/10 text-[#9E3B47]'}`}>
+                                 {Number(inv.balance) <= 0 ? 'Fully Paid' : (inv.daysOverdue > 0 ? `${inv.daysOverdue}D Overdue` : 'Current')}
+                              </div>
+                          </div>
+                       </div>
                     </div>
                     {isExpanded && (
                       <div className="border-t-2 border-[#AEBFC3]/10">
@@ -1539,7 +1406,7 @@ export default function ARReportsPage() {
                     <DetailRow label="Net Amount" value={formatARCurrency(r.netAmount)} />
                     <DetailRow label="Tax Amount" value={formatARCurrency(r.taxAmount)} color="text-[#976E44]" />
                     <DetailRow label="Total Received" value={formatARCurrency(r.totalReceipts)} color="text-[#82A094]" bold />
-                    <DetailRow label="Balance" value={formatARCurrency(r.balance)} color="text-[#E17F70]" bold />
+                    <DetailRow label={r.forecastAmount !== undefined ? 'Forecast Due' : 'Balance'} value={formatARCurrency(r.forecastAmount !== undefined ? r.forecastAmount : r.balance)} color="text-[#E17F70]" bold />
                     <div className="flex items-center justify-between py-2.5 border-b border-[#AEBFC3]/10">
                       <span className="text-[11px] text-[#92A2A5] font-bold uppercase tracking-wider">Collection %</span>
                       <div className="flex items-center gap-2">
@@ -1787,59 +1654,8 @@ export default function ARReportsPage() {
                   ) : (
                     pagedMilestones.map((ms: any, index: number) => {
                       const isExpanded = expandedRows.has(ms.id);
-                      const terms = ms.milestoneTerms || [];
-                      
-                      const nAmt = Number(ms.netAmount || 0);
-                      const paymentsByTargetAgg: Record<string, number> = {};
-                      let genPool = 0;
-                      (ms.paymentHistory || []).forEach((p: any) => {
-                        if (p.milestoneTerm) {
-                          paymentsByTargetAgg[p.milestoneTerm] = (paymentsByTargetAgg[p.milestoneTerm] || 0) + (Number(p.amount) || 0);
-                        } else {
-                          genPool += (Number(p.amount) || 0);
-                        }
-                      });
-
-                      const criticalAging = terms.length > 0 ? (() => {
-                        const sorted = terms.slice().sort((a: any, b: any) => new Date(a.termDate).getTime() - new Date(b.termDate).getTime());
-                        const tColls = sorted.map((t: any) => {
-                          const pct = t.percentage || 0;
-                          const taxPct = t.taxPercentage || 0;
-                          let alloc = 0;
-                          if (t.calculationBasis !== 'TOTAL_AMOUNT') {
-                            alloc = (nAmt * pct) / 100;
-                          } else {
-                            const netPortion = (nAmt * pct) / 100;
-                            const taxPortion = (Number(ms.taxAmount || 0) * taxPct) / 100;
-                            alloc = netPortion + taxPortion;
-                          }
-                          const tId = `${t.termType}-${t.termDate}-${pct}-${taxPct}`;
-                          let coll = (paymentsByTargetAgg[tId] || 0) + (paymentsByTargetAgg[t.termType] || 0);
-                          if (paymentsByTargetAgg[tId]) delete paymentsByTargetAgg[tId];
-                          if (paymentsByTargetAgg[t.termType]) delete paymentsByTargetAgg[t.termType];
-                          if (coll > alloc) {
-                            genPool += (coll - alloc);
-                            coll = alloc;
-                          }
-                          return { alloc, coll, termDate: t.termDate };
-                        });
-
-                        Object.values(paymentsByTargetAgg).forEach(amt => { genPool += amt; });
-
-                        const overdueUnpaid: number[] = [];
-                        tColls.forEach((tc: any) => {
-                          const gap = Math.max(0, tc.alloc - tc.coll);
-                          const fromGen = Math.min(gap, genPool);
-                          tc.coll += fromGen;
-                          genPool -= fromGen;
-                          const isPaid = tc.alloc > 0 ? (tc.alloc - tc.coll) < 0.01 : true;
-                          if (!isPaid) {
-                            const aging = Math.floor((new Date().getTime() - new Date(tc.termDate).getTime()) / (1000*60*60*24));
-                            if (aging > 0) overdueUnpaid.push(aging);
-                          }
-                        });
-                        return overdueUnpaid.sort((a, b) => b - a)[0] || null;
-                      })() : null;
+                      const terms = ms.terms || ms.milestoneTerms || [];
+                      const criticalAging = ms.maxOverdueDays || 0;
 
                       return (
                         <Fragment key={ms.id}>
@@ -2014,13 +1830,15 @@ export default function ARReportsPage() {
                                            <span className="text-xs font-black text-[#4F6A64]">{formatARCurrency(Number(ms.totalReceipts))}</span>
                                         </div>
                                         <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border-2 transition-all ${Number(ms.balance) <= 0 ? 'bg-gradient-to-r from-[#82A094] to-[#4F6A64] border-transparent shadow-lg shadow-[#82A094]/20' : 'bg-gradient-to-r from-[#E17F70]/10 to-[#9E3B47]/5 border-[#E17F70]/30'}`}>
-                                           <span className={`text-[10px] font-black uppercase tracking-wider ${Number(ms.balance) <= 0 ? 'text-white' : 'text-[#9E3B47]'}`}>Balance</span>
+                                           <span className={`text-[10px] font-black uppercase tracking-wider ${Number(ms.balance) <= 0 ? 'text-white' : 'text-[#9E3B47]'}`}>
+                                              {forecastDate && ms.forecastAmount !== undefined && Number(ms.balance) > 0 ? 'Due By' : 'Balance'}
+                                           </span>
                                            <span className={`text-xs font-black ${Number(ms.balance) <= 0 ? 'text-white' : 'text-[#9E3B47]'}`}>
                                               {Number(ms.balance) <= 0 ? (
                                                 <span className="flex items-center gap-1.5">
                                                   <CheckCircle2 className="w-3.5 h-3.5" /> PAID
                                                 </span>
-                                              ) : formatARCurrency(Number(ms.balance))}
+                                              ) : (forecastDate && ms.forecastAmount !== undefined ? formatARCurrency(ms.forecastAmount) : formatARCurrency(Number(ms.balance)))}
                                            </span>
                                         </div>
                                      </div>
@@ -2074,26 +1892,53 @@ export default function ARReportsPage() {
                       );
                     })
                   )}
+                  {/* Summary Footer */}
+                  {filteredMilestones.length > 0 && milestoneData?.summary && (
+                    <tr className="bg-gradient-to-r from-[#F8FAFB] to-white border-t-2 border-[#AEBFC3]/30">
+                      <td colSpan={6} className="py-4 px-4 text-[10px] font-black text-[#546A7A] uppercase">Total</td>
+                      <td className="py-4 px-4 text-right flex flex-col items-end gap-1">
+                         <div className="font-bold text-[#4F6A64] text-sm">{formatARCurrency(milestoneData.summary.totalAmount)}</div>
+                         <div className="text-xs text-[#9E3B47] font-bold">OS: {formatARCurrency(milestoneData.summary.totalOutstanding)}</div>
+                      </td>
+                      <td colSpan={2}></td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
 
             {/* Pagination Controls */}
             {msTotalPages > 1 && (
-              <div className="px-5 py-3 border-t-2 border-[#AEBFC3]/15 flex items-center justify-between bg-[#F8FAFB]/50">
-                <div className="flex items-center gap-3">
-                  <span className="text-xs text-[#92A2A5] font-medium">Showing {page * pageSize + 1}–{Math.min((page + 1) * pageSize, filteredMilestones.length)} of {filteredMilestones.length}</span>
-                  <select value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(0); }}
-                    className="text-xs border border-[#AEBFC3]/40 rounded-lg px-2 py-1 bg-white text-[#546A7A] font-bold focus:outline-none focus:border-[#6F8A9D]">
-                    {[25, 50, 100, 200].map(s => <option key={s} value={s}>{s}/page</option>)}
-                  </select>
+              <div className="relative p-5 flex flex-col sm:flex-row justify-between items-center gap-4 bg-gradient-to-r from-[#AEBFC3]/5 via-transparent to-white border-t-2 border-[#AEBFC3]/30 mt-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-[#92A2A5] tracking-wide">Showing</span>
+                  <span className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-[#546A7A]/10 to-[#6F8A9D]/5 text-xs font-black text-[#546A7A] border border-[#6F8A9D]/20">{page * pageSize + 1}–{Math.min((page + 1) * pageSize, filteredMilestones.length)}</span>
+                  <span className="text-xs font-bold text-[#92A2A5]">of</span>
+                  <span className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-[#CE9F6B]/10 to-[#976E44]/5 text-xs font-black text-[#976E44] border border-[#CE9F6B]/20">{filteredMilestones.length}</span>
+                  <span className="text-xs font-bold text-[#92A2A5] tracking-wide">records</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <button disabled={page === 0} onClick={() => setPage(0)} className="p-1.5 rounded-lg bg-white border border-[#AEBFC3]/30 text-[#546A7A] disabled:opacity-30 hover:bg-[#F0F4F5] transition-colors text-xs font-bold">«</button>
-                  <button disabled={page === 0} onClick={() => setPage(p => p - 1)} className="p-1.5 rounded-lg bg-white border border-[#AEBFC3]/30 text-[#546A7A] disabled:opacity-30 hover:bg-[#F0F4F5] transition-colors"><ChevronLeft className="w-4 h-4" /></button>
-                  <span className="text-xs font-bold text-[#546A7A] px-2">{page + 1} / {msTotalPages}</span>
-                  <button disabled={page >= msTotalPages - 1} onClick={() => setPage(p => p + 1)} className="p-1.5 rounded-lg bg-white border border-[#AEBFC3]/30 text-[#546A7A] disabled:opacity-30 hover:bg-[#F0F4F5] transition-colors"><ChevronRight className="w-4 h-4" /></button>
-                  <button disabled={page >= msTotalPages - 1} onClick={() => setPage(msTotalPages - 1)} className="p-1.5 rounded-lg bg-white border border-[#AEBFC3]/30 text-[#546A7A] disabled:opacity-30 hover:bg-[#F0F4F5] transition-colors text-xs font-bold">»</button>
+                  <button onClick={() => setPage(0)} disabled={page === 0} className="p-2 rounded-lg bg-white border-2 border-[#AEBFC3]/30 text-[#546A7A] hover:bg-[#AEBFC3]/10 hover:border-[#6F8A9D] disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-sm" title="First page"><ChevronLeft className="w-3.5 h-3.5" /></button>
+                  <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0} className="flex items-center gap-1.5 px-3 py-2 bg-white border-2 border-[#AEBFC3]/30 rounded-lg text-xs font-bold text-[#546A7A] hover:bg-[#AEBFC3]/10 hover:border-[#6F8A9D] disabled:opacity-30 disabled:cursor-not-allowed shadow-sm transition-all">Prev</button>
+                  <div className="flex items-center gap-1 mx-1">
+                    {getPageNumbers(page, msTotalPages).map((p, i) => (
+                      p === '...' ? (
+                        <span key={`ms-ell-${i}`} className="w-8 text-center text-xs font-bold text-[#92A2A5] select-none">…</span>
+                      ) : (
+                        <button key={p} onClick={() => setPage(Number(p) - 1)}
+                          className={`w-9 h-9 rounded-xl text-xs font-bold transition-all duration-200 ${
+                            page === (Number(p) - 1)
+                              ? 'bg-gradient-to-br from-[#546A7A] to-[#6F8A9D] text-white shadow-lg shadow-[#546A7A]/25 scale-110 ring-2 ring-[#6F8A9D]/30'
+                              : 'bg-white border-2 border-[#AEBFC3]/30 text-[#546A7A] hover:bg-[#AEBFC3]/10 hover:border-[#6F8A9D] hover:scale-105 shadow-sm'
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      )
+                    ))}
+                  </div>
+                  <button onClick={() => setPage(p => Math.min(msTotalPages - 1, p + 1))} disabled={page === msTotalPages - 1} className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-[#546A7A] to-[#6F8A9D] rounded-lg text-xs font-bold text-white hover:shadow-lg hover:shadow-[#546A7A]/20 disabled:opacity-30 disabled:cursor-not-allowed shadow-lg transition-all">Next</button>
+                  <button onClick={() => setPage(msTotalPages - 1)} disabled={page === msTotalPages - 1} className="p-2 rounded-lg bg-white border-2 border-[#AEBFC3]/30 text-[#546A7A] hover:bg-[#AEBFC3]/10 hover:border-[#6F8A9D] disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-sm" title="Last page"><ChevronRight className="w-3.5 h-3.5" /></button>
                 </div>
               </div>
             )}
@@ -2111,54 +1956,9 @@ export default function ARReportsPage() {
                  </div>
               </div>
             ) : (
-              pagedMilestones.map((ms: any, index: number) => {
+              pagedMilestones.map((ms: any) => {
                 const isExpanded = expandedRows.has(ms.id);
-                const terms = ms.milestoneTerms || [];
-                
-                const nAmt = Number(ms.netAmount || 0);
-                const paymentsByTargetAgg: Record<string, number> = {};
-                let genPool = 0;
-                (ms.paymentHistory || []).forEach((p: any) => {
-                  if (p.milestoneTerm) {
-                    paymentsByTargetAgg[p.milestoneTerm] = (paymentsByTargetAgg[p.milestoneTerm] || 0) + (Number(p.amount) || 0);
-                  } else {
-                    genPool += (Number(p.amount) || 0);
-                  }
-                });
-
-                const criticalAging = terms.length > 0 ? (() => {
-                  const sorted = terms.slice().sort((a: any, b: any) => new Date(a.termDate).getTime() - new Date(b.termDate).getTime());
-                  const tColls = sorted.map((t: any) => {
-                    const pct = t.percentage || 0;
-                    const taxPct = t.taxPercentage || 0;
-                    let alloc = 0;
-                    if (t.calculationBasis !== 'TOTAL_AMOUNT') {
-                      alloc = (nAmt * pct) / 100;
-                    } else {
-                      alloc = (nAmt * pct) / 100 + (Number(ms.taxAmount || 0) * taxPct) / 100;
-                    }
-                    const tId = `${t.termType}-${t.termDate}-${pct}-${taxPct}`;
-                    let coll = (paymentsByTargetAgg[tId] || 0) + (paymentsByTargetAgg[t.termType] || 0);
-                    if (paymentsByTargetAgg[tId]) delete paymentsByTargetAgg[tId];
-                    if (paymentsByTargetAgg[t.termType]) delete paymentsByTargetAgg[t.termType];
-                    if (coll > alloc) { genPool += (coll - alloc); coll = alloc; }
-                    return { alloc, coll, termDate: t.termDate };
-                  });
-                  Object.values(paymentsByTargetAgg).forEach(amt => { genPool += amt; });
-                  const overdueUnpaid: number[] = [];
-                  tColls.forEach((tc: any) => {
-                    const gap = Math.max(0, tc.alloc - tc.coll);
-                    const fromGen = Math.min(gap, genPool);
-                    tc.coll += fromGen;
-                    genPool -= fromGen;
-                    const isPaid = tc.alloc > 0 ? (tc.alloc - tc.coll) < 0.01 : true;
-                    if (!isPaid) {
-                      const aging = Math.floor((new Date().getTime() - new Date(tc.termDate).getTime()) / (1000*60*60*24));
-                      if (aging > 0) overdueUnpaid.push(aging);
-                    }
-                  });
-                  return overdueUnpaid.sort((a, b) => b - a)[0] || null;
-                })() : null;
+                const criticalAging = ms.maxOverdueDays || 0;
 
                 return (
                   <div key={ms.id} className={`group relative bg-white rounded-2xl border-2 transition-all duration-300 shadow-lg overflow-hidden ${isExpanded ? 'border-[#CE9F6B]/50 ring-4 ring-[#CE9F6B]/10' : 'border-[#6F8A9D]/30'}`}>
@@ -2206,8 +2006,12 @@ export default function ARReportsPage() {
 
                       <div className="grid grid-cols-2 gap-4 pt-5 border-t-2 border-[#AEBFC3]/15">
                         <div className="space-y-1">
-                          <p className="text-[9px] font-black text-[#92A2A5] uppercase tracking-widest">Outstanding Balance</p>
-                          <p className="text-xl font-black text-[#E17F70] tracking-tighter">{formatARCurrency(Number(ms.balance))}</p>
+                          <p className="text-[9px] font-black text-[#92A2A5] uppercase tracking-widest">
+                            {forecastDate && ms.forecastAmount !== undefined ? 'FORECAST DUE' : 'Outstanding Balance'}
+                          </p>
+                          <p className="text-xl font-black text-[#E17F70] tracking-tighter">
+                            {forecastDate && ms.forecastAmount !== undefined ? formatARCurrency(ms.forecastAmount) : formatARCurrency(Number(ms.balance))}
+                          </p>
                         </div>
                         <div className="flex flex-col items-end justify-center">
                            <div className={`px-4 py-1.5 rounded-xl border-2 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${criticalAging && criticalAging > 0 ? 'bg-gradient-to-r from-[#E17F70]/20 to-[#E17F70]/10 border-[#E17F70]/40 text-[#9E3B47]' : 'bg-gradient-to-r from-[#82A094]/20 to-[#82A094]/10 border-[#82A094]/40 text-[#4F6A64]'}`}>
@@ -2285,51 +2089,136 @@ export default function ARReportsPage() {
                   </thead>
                   <tbody>
                     {paged.length === 0 ? (
-                      <tr><td colSpan={11} className="py-16 text-center">
+                      <tr><td colSpan={12} className="py-16 text-center">
                         <div className="flex flex-col items-center gap-2">
                           <Users className="w-8 h-8 text-[#AEBFC3]" />
                           <span className="text-[#92A2A5] font-bold">No customers found</span>
                           {hasFilters && <button onClick={clearFilters} className="text-xs text-[#6F8A9D] hover:text-[#546A7A] font-bold">Clear filters →</button>}
                         </div>
                       </td></tr>
-                    ) : paged.map((c: any, idx: number) => (
-                      <tr key={c.bpCode || idx} onClick={() => setViewRecord({ ...c, _type: 'customer' })}
-                        className={`border-b border-[#AEBFC3]/15 hover:bg-[#4F6A64]/5 hover:shadow-md cursor-pointer transition-all ${idx % 2 === 0 ? 'bg-white' : 'bg-[#F8FAFB]/40'} ${c.overdueCount > 0 ? 'border-l-4 border-l-[#E17F70]' : 'border-l-4 border-l-transparent'}`}>
-                        <td className="py-2.5 px-3 text-[10px] font-bold text-[#92A2A5]">{page * pageSize + idx + 1}</td>
-                        <td className="py-2.5 px-3 text-xs font-semibold truncate max-w-[160px]">{c.customerName}</td>
-                        <td className="py-2.5 px-3 text-xs text-[#546A7A] font-bold">{c.bpCode}</td>
-                        <td className="py-2.5 px-3 text-xs text-[#92A2A5]">{c.region || '-'}</td>
-                        <td className="py-2.5 px-3 text-xs text-center font-bold">{c.invoiceCount}</td>
-                        <td className="py-2.5 px-3 text-xs font-bold text-[#4F6A64] text-right whitespace-nowrap">{formatARCurrency(c.totalInvoiced)}</td>
-                        <td className="py-2.5 px-3 text-xs font-bold text-[#82A094] text-right whitespace-nowrap">{formatARCurrency(c.totalCollected)}</td>
-                        <td className="py-2.5 px-3 text-xs font-bold text-[#E17F70] text-right whitespace-nowrap">{formatARCurrency(c.outstanding)}</td>
-                        <td className="py-2.5 px-3">
-                          <div className="flex items-center gap-1.5">
-                            <div className="flex-1 h-1.5 bg-[#F0F4F5] rounded-full overflow-hidden">
-                              <div className={`h-full rounded-full ${c.collectionRate >= 100 ? 'bg-[#82A094]' : c.collectionRate >= 50 ? 'bg-[#CE9F6B]' : 'bg-[#6F8A9D]'}`}
-                                style={{ width: `${Math.min(100, c.collectionRate)}%` }} />
-                            </div>
-                            <span className="text-[9px] font-bold text-[#546A7A] w-8">{Math.round(c.collectionRate)}%</span>
-                          </div>
-                        </td>
-                        <td className="py-2.5 px-3 text-center">
-                          {c.maxDaysOverdue > 0 ? (
-                            <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded border ${getAgingBadge(c.maxDaysOverdue).cls}`}>{c.maxDaysOverdue}d</span>
-                          ) : <span className="text-[10px] text-[#82A094]">✓</span>}
-                        </td>
-                        <td className="py-2.5 px-3 text-center"><span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${getRiskStyle(c.riskClass)}`}>{c.riskClass}</span></td>
-                      </tr>
-                    ))}
+                    ) : paged.map((c: any, idx: number) => {
+                      const isExpanded = expandedRows.has(`cust-${c.bpCode}`);
+                      return (
+                        <Fragment key={c.bpCode || idx}>
+                          <tr onClick={() => toggleRow(`cust-${c.bpCode}`)}
+                            className={`border-b border-[#AEBFC3]/15 hover:bg-[#4F6A64]/5 hover:shadow-md cursor-pointer transition-all ${idx % 2 === 0 ? 'bg-white' : 'bg-[#F8FAFB]/40'} ${c.overdueCount > 0 ? 'border-l-4 border-l-[#E17F70]' : 'border-l-4 border-l-transparent'}`}>
+                            <td className="py-2.5 px-3 text-[10px] font-bold text-[#92A2A5]">
+                              <div className="flex items-center gap-2">
+                                <div className={`w-4 h-4 rounded-md flex items-center justify-center transition-all ${isExpanded ? 'bg-[#4F6A64] text-white rotate-180' : 'bg-[#AEBFC3]/20 text-[#546A7A]'}`}>
+                                  <ChevronDown className="w-3 h-3" />
+                                </div>
+                                {page * pageSize + idx + 1}
+                              </div>
+                            </td>
+                            <td className="py-2.5 px-3 text-xs font-semibold truncate max-w-[160px]">
+                              <div className="flex flex-col">
+                                <span className="truncate">{c.customerName}</span>
+                                {c.invoices?.length > 0 && (
+                                  <span className="text-[9px] text-[#92A2A5] font-bold uppercase tracking-tighter">{c.invoices.length} Outstanding Invoices</span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-2.5 px-3 text-xs text-[#546A7A] font-bold">{c.bpCode}</td>
+                            <td className="py-2.5 px-3 text-xs text-[#92A2A5]">{c.region || '-'}</td>
+                            <td className="py-2.5 px-3 text-xs text-center font-bold">{c.invoiceCount}</td>
+                            <td className="py-2.5 px-3 text-xs font-bold text-[#4F6A64] text-right whitespace-nowrap">{formatARCurrency(c.totalInvoiced)}</td>
+                            <td className="py-2.5 px-3 text-xs font-bold text-[#82A094] text-right whitespace-nowrap">{formatARCurrency(c.totalCollected)}</td>
+                            <td className="py-2.5 px-3 text-xs font-bold text-[#E17F70] text-right whitespace-nowrap">{formatARCurrency(c.outstanding)}</td>
+                            <td className="py-2.5 px-3">
+                              <div className="flex items-center gap-1.5">
+                                <div className="flex-1 h-1.5 bg-[#F0F4F5] rounded-full overflow-hidden">
+                                  <div className={`h-full rounded-full ${c.collectionRate >= 100 ? 'bg-[#82A094]' : c.collectionRate >= 50 ? 'bg-[#CE9F6B]' : 'bg-[#6F8A9D]'}`}
+                                    style={{ width: `${Math.min(100, c.collectionRate)}%` }} />
+                                </div>
+                                <span className="text-[9px] font-bold text-[#546A7A] w-8">{Math.round(c.collectionRate)}%</span>
+                              </div>
+                            </td>
+                            <td className="py-2.5 px-3 text-center">
+                              {c.maxDaysOverdue > 0 ? (
+                                <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded border ${getAgingBadge(c.maxDaysOverdue).cls}`}>{c.maxDaysOverdue}d</span>
+                              ) : <span className="text-[10px] text-[#82A094]">✓</span>}
+                            </td>
+                            <td className="py-2.5 px-3 text-center"><span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${getRiskStyle(c.riskClass)}`}>{c.riskClass}</span></td>
+                            <td className="py-2.5 px-3 text-center">
+                              <button onClick={(e) => { e.stopPropagation(); setViewRecord({ ...c, _type: 'customer' }); }}
+                                className="p-1.5 rounded-lg bg-white border border-[#4F6A64]/20 text-[#4F6A64] hover:bg-[#4F6A64]/10 shadow-sm transition-all"
+                                title="View Trends">
+                                <TrendingUp className="w-3.5 h-3.5" />
+                              </button>
+                            </td>
+                          </tr>
+                          {isExpanded && (
+                            <tr key={`${c.bpCode}-details`}>
+                              <td colSpan={12} className="p-0 border-x-2 border-b-2 border-[#4F6A64]/20 bg-[#4F6A64]/[0.02] shadow-inner">
+                                <div className="p-4 sm:p-6 space-y-4">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                      <div className="w-8 h-8 rounded-lg bg-[#4F6A64] flex items-center justify-center shadow-lg">
+                                        <FileText className="w-4 h-4 text-white" />
+                                      </div>
+                                      <h4 className="text-sm font-black text-[#546A7A] uppercase tracking-wider">Outstanding Invoices for {c.customerName}</h4>
+                                    </div>
+                                    <div className="text-[10px] font-black text-[#92A2A5] uppercase tracking-widest bg-white px-3 py-1 rounded-full border border-[#AEBFC3]/30 shadow-sm">
+                                      {c.invoices?.length || 0} Records
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="rounded-xl border border-[#4F6A64]/20 bg-white shadow-sm overflow-hidden">
+                                    <table className="w-full text-xs">
+                                      <thead>
+                                        <tr className="bg-[#F8FAFB] border-b border-[#4F6A64]/10">
+                                          <th className="py-2 px-3 text-left font-bold text-[#92A2A5] uppercase tracking-tighter">Invoice No</th>
+                                          <th className="py-2 px-3 text-left font-bold text-[#92A2A5] uppercase tracking-tighter">Date</th>
+                                          <th className="py-2 px-3 text-left font-bold text-[#92A2A5] uppercase tracking-tighter">PO No</th>
+                                          <th className="py-2 px-3 text-right font-bold text-[#92A2A5] uppercase tracking-tighter">Amount</th>
+                                          <th className="py-2 px-3 text-right font-bold text-[#92A2A5] uppercase tracking-tighter">Balance</th>
+                                          <th className="py-2 px-3 text-center font-bold text-[#92A2A5] uppercase tracking-tighter">Status</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody className="divide-y divide-[#AEBFC3]/10">
+                                        {(c.invoices || []).map((inv: any) => (
+                                          <tr key={inv.id} className="hover:bg-[#4F6A64]/5 transition-colors group/inv">
+                                            <td className="py-2.5 px-3 font-bold text-[#546A7A]">{inv.invoiceNumber}</td>
+                                            <td className="py-2.5 px-3 text-[#92A2A5]">{new Date(inv.invoiceDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+                                            <td className="py-2.5 px-3 text-[#92A2A5] font-medium">{inv.poNo || '-'}</td>
+                                            <td className="py-2.5 px-3 text-right text-[#546A7A] font-medium">{formatARCurrency(inv.totalAmount)}</td>
+                                            <td className="py-2.5 px-3 text-right text-[#E17F70] font-black">{formatARCurrency(inv.balance)}</td>
+                                            <td className="py-2.5 px-3 text-center">
+                                              <div className="flex items-center justify-center gap-1.5">
+                                                <span className={`text-[8px] font-black px-1.5 py-0.5 rounded leading-none ${
+                                                  inv.status === 'OVERDUE' ? 'bg-[#E17F70]/15 text-[#9E3B47] border border-[#E17F70]/30' : 
+                                                  inv.status === 'PARTIAL' ? 'bg-[#CE9F6B]/15 text-[#976E44] border border-[#CE9F6B]/30' : 
+                                                  'bg-[#AEBFC3]/15 text-[#546A7A] border border-[#AEBFC3]/30'
+                                                }`}>
+                                                  {inv.status}
+                                                </span>
+                                                {inv.daysOverdue > 0 && (
+                                                  <span className="text-[10px] text-[#9E3B47] font-bold">({inv.daysOverdue}d)</span>
+                                                )}
+                                              </div>
+                                            </td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
+                      );
+                    })}
                   </tbody>
                   {/* Summary Footer */}
-                  {filteredCustomers.length > 0 && (
+                  {filteredCustomers.length > 0 && customerData?.summary && (
                     <tfoot>
                       <tr className="bg-gradient-to-r from-[#F8FAFB] to-[#EDF2F4] border-t-2 border-[#AEBFC3]/30">
-                        <td colSpan={5} className="py-2.5 px-3 text-[10px] font-bold text-[#546A7A] uppercase">Filtered Total ({custFilteredTotals.count})</td>
-                        <td className="py-2.5 px-3 text-xs font-bold text-[#4F6A64] text-right whitespace-nowrap">{formatARCurrency(custFilteredTotals.total)}</td>
-                        <td className="py-2.5 px-3 text-xs font-bold text-[#82A094] text-right whitespace-nowrap">{formatARCurrency(custFilteredTotals.collected)}</td>
-                        <td className="py-2.5 px-3 text-xs font-bold text-[#E17F70] text-right whitespace-nowrap">{formatARCurrency(custFilteredTotals.bal)}</td>
-                        <td className="py-2.5 px-3 text-xs font-bold text-[#546A7A] text-center">{custFilteredTotals.total > 0 ? Math.round((custFilteredTotals.collected / custFilteredTotals.total) * 100) : 0}%</td>
+                        <td colSpan={5} className="py-2.5 px-3 text-[10px] font-bold text-[#546A7A] uppercase">Filtered Total ({filteredCustomers.length})</td>
+                        <td className="py-2.5 px-3 text-xs font-bold text-[#4F6A64] text-right whitespace-nowrap">{formatARCurrency(customerData.summary.totalInvoiced)}</td>
+                        <td className="py-2.5 px-3 text-xs font-bold text-[#82A094] text-right whitespace-nowrap">{formatARCurrency(customerData.summary.totalCollected)}</td>
+                        <td className="py-2.5 px-3 text-xs font-bold text-[#E17F70] text-right whitespace-nowrap">{formatARCurrency(customerData.summary.totalOutstanding)}</td>
+                        <td className="py-2.5 px-3 text-xs font-bold text-[#546A7A] text-center">{customerData.summary.collectionRate}%</td>
                         <td colSpan={2}></td>
                       </tr>
                     </tfoot>
@@ -2359,115 +2248,6 @@ export default function ARReportsPage() {
           </>
         );
       })()}
-
-      {/* ═══════════════════════════════════════════════════════════════════ */}
-      {/* COLLECTION FORECAST VIEW */}
-      {/* ═══════════════════════════════════════════════════════════════════ */}
-      {!loading && activeTab === 'forecast' && (
-        <div className="space-y-6">
-          <div className="bg-white rounded-2xl border-2 border-[#AEBFC3]/30 p-5 shadow-sm">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#E17F70] to-[#9E3B47] flex items-center justify-center shadow-lg">
-                  <Sparkles className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-black text-[#546A7A] uppercase tracking-tight">Collection Forecast</h2>
-                  <p className="text-xs text-[#92A2A5] font-bold">Projected cash intake by due dates</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 bg-[#F8FAFB] p-2 rounded-xl border border-[#AEBFC3]/30 shadow-inner">
-                <span className="text-[10px] font-black text-[#546A7A] uppercase ml-2">Show Collections Due By:</span>
-                <input 
-                  type="date" 
-                  value={forecastDate} 
-                  onChange={e => setForecastDate(e.target.value)}
-                  className="h-9 px-3 rounded-lg border-2 border-[#AEBFC3]/40 text-sm font-bold text-[#546A7A] focus:border-[#6F8A9D] outline-none transition-all [color-scheme:light]"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <KpiCard 
-              icon={IndianRupee} 
-              label="Total Predicted Intake" 
-              value={formatARCurrency(forecastCollections.reduce((s, c) => s + c.amount, 0))} 
-              sub={`Due by ${formatARDate(forecastDate)}`} 
-              gradient="bg-gradient-to-br from-[#E17F70] to-[#9E3B47]" 
-            />
-            <KpiCard 
-              icon={FileText} 
-              label="Invoice Portion" 
-              value={String(forecastCollections.filter(c => c.type === 'REGULAR').length)} 
-              sub={formatARCurrency(forecastCollections.filter(c => c.type === 'REGULAR').reduce((s, c) => s + c.amount, 0))} 
-              gradient="bg-gradient-to-br from-[#546A7A] to-[#6F8A9D]" 
-            />
-            <KpiCard 
-              icon={Layers} 
-              label="Milestone Portion" 
-              value={String(forecastCollections.filter(c => c.type === 'MILESTONE_TERM').length)} 
-              sub={formatARCurrency(forecastCollections.filter(c => c.type === 'MILESTONE_TERM').reduce((s, c) => s + c.amount, 0))} 
-              gradient="bg-gradient-to-br from-[#CE9F6B] to-[#976E44]" 
-            />
-          </div>
-
-          <div className="bg-white rounded-[2rem] border-2 border-[#AEBFC3]/30 overflow-hidden shadow-xl">
-             <div className="px-5 py-3.5 border-b-2 border-[#6F8A9D]/20 bg-[#F8FAFB] flex items-center justify-between">
-                <h4 className="text-[10px] font-black text-[#546A7A] uppercase tracking-widest flex items-center gap-2">
-                   <Clock className="w-3.5 h-3.5 text-[#6F8A9D]" /> PENDING COLLECTIONS LIST
-                </h4>
-                <div className="text-[10px] font-black text-[#92A2A5] uppercase tracking-wider">
-                  Aggregated by Due Date
-                </div>
-             </div>
-             <div className="overflow-x-auto">
-                <table className="w-full text-xs font-medium">
-                   <thead>
-                      <tr className="bg-[#AEBFC3]/5 text-[#92A2A5] uppercase text-[9px] font-black tracking-tighter">
-                         <th className="py-3 px-4 text-left">Ref Number</th>
-                         <th className="py-3 px-4 text-left">Customer</th>
-                         <th className="py-3 px-4 text-center">Type</th>
-                         <th className="py-3 px-4 text-left">Due Date</th>
-                         <th className="py-3 px-4 text-right">Pending Amount</th>
-                      </tr>
-                   </thead>
-                   <tbody className="divide-y divide-[#AEBFC3]/10">
-                      {forecastCollections.length === 0 ? (
-                        <tr><td colSpan={5} className="py-20 text-center text-[#92A2A5] italic">No collections predicted for the selected date range.</td></tr>
-                      ) : (
-                        forecastCollections.map((c, idx) => (
-                          <tr key={idx} className="hover:bg-[#F8FAFB] transition-colors group">
-                         <td className="py-4 px-4 font-bold text-[#546A7A]">
-                            <Link 
-                              href={c.type === 'REGULAR' ? `/finance/ar/invoices/${c.mainId}` : `/finance/ar/milestones/${c.mainId}`}
-                              className="hover:text-[#6F8A9D] hover:underline underline-offset-4 flex items-center gap-1.5 transition-all"
-                            >
-                              {c.reference}
-                              <ExternalLink className="w-3 h-3 text-[#92A2A5] opacity-0 group-hover:opacity-100 transition-opacity" />
-                            </Link>
-                         </td>
-                             <td className="py-4 px-4 font-bold text-[#546A7A]">{c.customer}</td>
-                             <td className="py-4 px-4 text-center">
-                                <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black ${c.type === 'REGULAR' ? 'bg-[#546A7A]/10 text-[#546A7A]' : 'bg-[#CE9F6B]/10 text-[#976E44]'}`}>
-                                  {c.type === 'REGULAR' ? 'INVOICE' : 'MILESTONE'}
-                                </span>
-                             </td>
-                             <td className="py-4 px-4 font-black text-[#546A7A]">
-                                {formatARDate(c.date)}
-                             </td>
-                             <td className="py-4 px-4 text-right font-black text-[#82A094] text-sm">
-                                {formatARCurrency(c.amount)}
-                             </td>
-                          </tr>
-                        ))
-                      )}
-                   </tbody>
-                </table>
-             </div>
-          </div>
-        </div>
-      )}
 
     </div>
   );
