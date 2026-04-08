@@ -191,6 +191,7 @@ export default function EditInvoicePage() {
         <div className="relative flex items-center gap-4">
           <Link 
             href={`/finance/ar/invoices/${encodeURIComponent(formData.invoiceNumber)}`}
+            replace
             className="p-2.5 rounded-xl bg-white/20 backdrop-blur-sm border-2 border-white/30 text-white hover:bg-white/30 hover:scale-105 transition-all"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -485,6 +486,7 @@ export default function EditInvoicePage() {
         <div className="flex items-center justify-end gap-4 pt-2">
           <Link
             href={`/finance/ar/invoices/${encodeURIComponent(formData.invoiceNumber)}`}
+            replace
             className="px-8 py-3.5 rounded-xl bg-white border-2 border-[#AEBFC3]/40 text-[#5D6E73] font-bold hover:bg-[#AEBFC3]/10 hover:border-[#AEBFC3]/60 transition-all"
           >
             Cancel

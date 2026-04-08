@@ -288,7 +288,7 @@ export default function InvoiceViewPage() {
     try {
       setDeleting(true);
       await arApi.deleteInvoice(invoice.id);
-      router.back();
+      router.push('/finance/ar/invoices');
     } catch (err: any) {
       console.error('Failed to delete invoice:', err);
       alert(err.response?.data?.error || 'Failed to delete invoice');
@@ -544,7 +544,7 @@ export default function InvoiceViewPage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
             <div className="flex items-center gap-4">
               <button 
-                onClick={() => router.back()}
+                onClick={() => router.push('/finance/ar/invoices')}
                 className="flex items-center gap-2 text-[#5D6E73] hover:text-[#546A7A] transition-colors group"
               >
                 <div className="p-2.5 rounded-xl bg-[#AEBFC3]/10 border-2 border-[#AEBFC3]/20 group-hover:bg-[#AEBFC3]/20 group-hover:border-[#AEBFC3]/40 transition-all group-hover:scale-105">
