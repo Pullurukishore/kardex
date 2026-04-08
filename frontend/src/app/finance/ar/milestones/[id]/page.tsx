@@ -433,7 +433,7 @@ export default function MilestoneViewPage() {
               {/* Prev/Next Navigation */}
               <div className="flex items-center gap-2 ml-4 pl-4 border-l-2 border-[#CE9F6B]/20">
                 <button
-                  onClick={() => prevId && router.push(`/finance/ar/milestones/${encodeURIComponent(prevId)}`)}
+                  onClick={() => prevId && router.replace(`/finance/ar/milestones/${encodeURIComponent(prevId)}`)}
                   disabled={!prevId}
                   className={`p-2.5 rounded-xl border-2 transition-all group ${prevId ? 'bg-white border-[#CE9F6B]/30 text-[#976E44] hover:border-[#976E44] hover:shadow-md' : 'bg-[#AEBFC3]/5 border-transparent text-[#AEBFC3] cursor-not-allowed'}`}
                   title="Previous Milestone"
@@ -441,7 +441,7 @@ export default function MilestoneViewPage() {
                   <ChevronLeft className={`w-5 h-5 ${prevId ? 'group-hover:-translate-x-0.5 transition-transform' : ''}`} />
                 </button>
                 <button
-                  onClick={() => nextId && router.push(`/finance/ar/milestones/${encodeURIComponent(nextId)}`)}
+                  onClick={() => nextId && router.replace(`/finance/ar/milestones/${encodeURIComponent(nextId)}`)}
                   disabled={!nextId}
                   className={`p-2.5 rounded-xl border-2 transition-all group ${nextId ? 'bg-white border-[#CE9F6B]/30 text-[#976E44] hover:border-[#976E44] hover:shadow-md' : 'bg-[#AEBFC3]/5 border-transparent text-[#AEBFC3] cursor-not-allowed'}`}
                   title="Next Milestone"

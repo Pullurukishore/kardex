@@ -556,7 +556,7 @@ export default function InvoiceViewPage() {
               {/* Prev/Next Navigation */}
               <div className="flex items-center gap-2 ml-4 pl-4 border-l-2 border-[#AEBFC3]/20">
                 <button
-                  onClick={() => prevId && router.push(`/finance/ar/invoices/${encodeURIComponent(prevId)}`)}
+                  onClick={() => prevId && router.replace(`/finance/ar/invoices/${encodeURIComponent(prevId)}`)}
                   disabled={!prevId}
                   className={`p-2.5 rounded-xl border-2 transition-all group ${prevId ? 'bg-white border-[#AEBFC3]/30 text-[#546A7A] hover:border-[#6F8A9D] hover:shadow-md' : 'bg-[#AEBFC3]/5 border-transparent text-[#AEBFC3] cursor-not-allowed'}`}
                   title="Previous Invoice"
@@ -564,7 +564,7 @@ export default function InvoiceViewPage() {
                   <ChevronLeft className={`w-5 h-5 ${prevId ? 'group-hover:-translate-x-0.5 transition-transform' : ''}`} />
                 </button>
                 <button
-                  onClick={() => nextId && router.push(`/finance/ar/invoices/${encodeURIComponent(nextId)}`)}
+                  onClick={() => nextId && router.replace(`/finance/ar/invoices/${encodeURIComponent(nextId)}`)}
                   disabled={!nextId}
                   className={`p-2.5 rounded-xl border-2 transition-all group ${nextId ? 'bg-white border-[#AEBFC3]/30 text-[#546A7A] hover:border-[#6F8A9D] hover:shadow-md' : 'bg-[#AEBFC3]/5 border-transparent text-[#AEBFC3] cursor-not-allowed'}`}
                   title="Next Invoice"
