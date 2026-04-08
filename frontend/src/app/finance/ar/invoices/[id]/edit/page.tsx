@@ -152,13 +152,13 @@ export default function EditInvoicePage() {
           </div>
           <h2 className="text-2xl font-bold text-[#546A7A] mb-3">Invoice Not Found</h2>
           <p className="text-[#92A2A5] mb-8">The invoice you're looking for doesn't exist or has been removed.</p>
-          <Link 
-            href="/finance/ar/invoices" 
+          <button 
+            onClick={() => router.back()} 
             className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#E17F70] to-[#CE9F6B] text-white font-bold rounded-xl shadow-lg shadow-[#E17F70]/20 hover:shadow-xl hover:-translate-y-0.5 transition-all"
           >
             <ArrowLeft className="w-4 h-4" />
-            Back to Invoices
-          </Link>
+            Back to previous page
+          </button>
         </div>
       </div>
     );

@@ -380,6 +380,15 @@ export default function ARMilestonesPage() {
       setInvoices(result.data);
       setTotalPages(result.pagination.totalPages);
       setTotal(result.pagination.total);
+      
+      // Cache current list for Prev/Next navigation in detail view
+      if (typeof window !== 'undefined' && result.data) {
+        // Milestone page seems to use invoice.id for detail page URLs but we'll store both string forms just in case we need invoiceNumber later or id. Wait, the detail page routes via `invoice.id`. Let's store `id`s for milestones since `milestones/[id]/page.tsx` uses the ID.
+        // Wait, looking at lines 969 and 980 in milestones/page.tsx: href={`/finance/ar/milestones/${invoice.id}`}
+        // Let's store `id`s here.
+        const idList = result.data.map((inv: any) => inv.id);
+        sessionStorage.setItem('ar_milestone_list', JSON.stringify(idList));
+      }
     } catch (error) {
       console.error('Failed to load milestone payments:', error);
     } finally {

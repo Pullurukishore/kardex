@@ -305,9 +305,9 @@ export default function EditMilestonePage() {
             <Wallet className="w-12 h-12 text-white" />
           </div>
           <h2 className="text-xl font-bold text-[#546A7A] mb-2">Milestone Record Not Found</h2>
-          <Link href="/finance/ar/milestones" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#CE9F6B] to-[#976E44] text-white font-bold shadow-lg shadow-[#CE9F6B]/20 hover:shadow-xl hover:shadow-[#CE9F6B]/30 transition-all hover:-translate-y-0.5">
-            <ArrowLeft className="w-4 h-4" /> Back to Milestones
-          </Link>
+          <button onClick={() => router.back()} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#CE9F6B] to-[#976E44] text-white font-bold shadow-lg shadow-[#CE9F6B]/20 hover:shadow-xl hover:shadow-[#CE9F6B]/30 transition-all hover:-translate-y-0.5">
+            <ArrowLeft className="w-4 h-4" /> Back to previous page
+          </button>
         </div>
       </div>
     );

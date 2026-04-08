@@ -10,7 +10,7 @@ import {
   IndianRupee, Package, TrendingUp, XCircle, Timer, Banknote,
   ArrowDownRight, ArrowUpRight, Sparkles, Wallet, BadgeCheck, Flag,
   Scale, Link2, Tag, Truck, RefreshCw, Plus, X, Copy, Shield,
-  PackageCheck, PackageX, Receipt, MessageSquare, ChevronLeft,
+  PackageCheck, PackageX, Receipt, MessageSquare, ChevronLeft, ChevronRight,
   Hash, CreditCard, Building, ShieldAlert, ShieldCheck,
   BarChart3
 } from 'lucide-react';
@@ -57,6 +57,28 @@ export default function MilestoneViewPage() {
   useEffect(() => {
     if (invoice?.id && activeTab === 'activity' && activityLogs.length === 0) loadActivityLog(invoice.id);
   }, [activeTab, invoice?.id]);
+
+  // Prev/Next Navigation
+  const [prevId, setPrevId] = useState<string | null>(null);
+  const [nextId, setNextId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (invoice?.id && typeof window !== 'undefined') {
+      const cached = sessionStorage.getItem('ar_milestone_list');
+      if (cached) {
+        try {
+          const list: string[] = JSON.parse(cached);
+          const currentIndex = list.findIndex((id: string) => id === invoice.id);
+          if (currentIndex !== -1) {
+            setPrevId(currentIndex > 0 ? list[currentIndex - 1] : null);
+            setNextId(currentIndex < list.length - 1 ? list[currentIndex + 1] : null);
+          }
+        } catch (e) {
+          console.error("Failed to parse milestone list for navigation", e);
+        }
+      }
+    }
+  }, [invoice?.id]);
 
   // Handle Escape key to close modal
   useEffect(() => {
@@ -153,7 +175,7 @@ export default function MilestoneViewPage() {
     try {
       setDeleting(true);
       await arApi.deleteInvoice(invoice.id);
-      router.push('/finance/ar/milestones');
+      router.back();
     } catch (err: any) {
       console.error('Failed to delete milestone:', err);
       alert(err.response?.data?.error || 'Failed to delete milestone');
@@ -219,7 +241,7 @@ export default function MilestoneViewPage() {
         <h2 className="text-2xl font-bold text-[#546A7A] mb-3">Milestone Payment Not Found</h2>
         <p className="text-[#92A2A5] mb-8">{error || "The milestone payment you're looking for doesn't exist."}</p>
         <button 
-          onClick={() => router.push('/finance/ar/milestones')}
+          onClick={() => router.back()}
           className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#CE9F6B] to-[#976E44] text-white font-bold rounded-xl shadow-lg shadow-[#CE9F6B]/20 hover:shadow-xl hover:shadow-[#CE9F6B]/30 transition-all hover:-translate-y-0.5"
         >
           <ArrowLeft className="w-4 h-4" /> Back to Milestones
@@ -397,15 +419,37 @@ export default function MilestoneViewPage() {
         
         <div className="relative z-10">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-10">
-            <button 
-              onClick={() => router.push('/finance/ar/milestones')}
-              className="group flex items-center gap-3 text-[#5D6E73] hover:text-[#546A7A] transition-all"
-            >
-              <div className="p-2.5 rounded-xl bg-gradient-to-br from-[#CE9F6B]/10 to-[#976E44]/10 shadow-lg border-2 border-[#CE9F6B]/20 group-hover:from-[#CE9F6B]/20 group-hover:to-[#976E44]/20 transition-colors">
-                <ChevronLeft className="w-5 h-5 text-[#976E44]" />
+            <div className="flex items-center gap-4">
+              <button 
+                onClick={() => router.back()}
+                className="group flex items-center gap-3 text-[#5D6E73] hover:text-[#546A7A] transition-all"
+              >
+                <div className="p-2.5 rounded-xl bg-gradient-to-br from-[#CE9F6B]/10 to-[#976E44]/10 shadow-lg border-2 border-[#CE9F6B]/20 group-hover:from-[#CE9F6B]/20 group-hover:to-[#976E44]/20 transition-colors">
+                  <ChevronLeft className="w-5 h-5 text-[#976E44]" />
+                </div>
+                <span className="font-bold text-lg">Back to Milestones</span>
+              </button>
+              
+              {/* Prev/Next Navigation */}
+              <div className="flex items-center gap-2 ml-4 pl-4 border-l-2 border-[#CE9F6B]/20">
+                <button
+                  onClick={() => prevId && router.push(`/finance/ar/milestones/${encodeURIComponent(prevId)}`)}
+                  disabled={!prevId}
+                  className={`p-2.5 rounded-xl border-2 transition-all group ${prevId ? 'bg-white border-[#CE9F6B]/30 text-[#976E44] hover:border-[#976E44] hover:shadow-md' : 'bg-[#AEBFC3]/5 border-transparent text-[#AEBFC3] cursor-not-allowed'}`}
+                  title="Previous Milestone"
+                >
+                  <ChevronLeft className={`w-5 h-5 ${prevId ? 'group-hover:-translate-x-0.5 transition-transform' : ''}`} />
+                </button>
+                <button
+                  onClick={() => nextId && router.push(`/finance/ar/milestones/${encodeURIComponent(nextId)}`)}
+                  disabled={!nextId}
+                  className={`p-2.5 rounded-xl border-2 transition-all group ${nextId ? 'bg-white border-[#CE9F6B]/30 text-[#976E44] hover:border-[#976E44] hover:shadow-md' : 'bg-[#AEBFC3]/5 border-transparent text-[#AEBFC3] cursor-not-allowed'}`}
+                  title="Next Milestone"
+                >
+                  <ChevronRight className={`w-5 h-5 ${nextId ? 'group-hover:translate-x-0.5 transition-transform' : ''}`} />
+                </button>
               </div>
-              <span className="font-bold text-lg">Back to Milestones</span>
-            </button>
+            </div>
             
             <div className="flex items-center gap-3 flex-wrap">
               <button 

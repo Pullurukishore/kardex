@@ -9,7 +9,7 @@ import {
   AlertTriangle, CheckCircle, CheckCircle2, Loader2, Mail, Phone, MapPin, Building, 
   CreditCard, Hash, Receipt, Truck, MessageSquare, Shield, Copy, 
   RefreshCw, Plus, X, IndianRupee, Package, TrendingUp, XCircle, ArrowRight, PlusCircle,
-  ChevronRight, Timer, Banknote, ArrowDownRight, ArrowUpRight, Sparkles,
+  ChevronRight, ChevronLeft, Timer, Banknote, ArrowDownRight, ArrowUpRight, Sparkles,
   Wallet, CreditCard as CardIcon, BadgeCheck, Scale, Link2, Tag, PackageX
 } from 'lucide-react';
 
@@ -70,6 +70,28 @@ export default function InvoiceViewPage() {
   const [selectedMilestone, setSelectedMilestone] = useState<MatchingMilestone | null>(null);
   const [showLinkModal, setShowLinkModal] = useState(false);
   const [linkingMilestone, setLinkingMilestone] = useState(false);
+
+  // Prev/Next Navigation
+  const [prevId, setPrevId] = useState<string | null>(null);
+  const [nextId, setNextId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (invoice?.invoiceNumber && typeof window !== 'undefined') {
+      const cached = sessionStorage.getItem('ar_invoice_list');
+      if (cached) {
+        try {
+          const list: string[] = JSON.parse(cached);
+          const currentIndex = list.findIndex((id: string) => id === invoice.invoiceNumber);
+          if (currentIndex !== -1) {
+            setPrevId(currentIndex > 0 ? list[currentIndex - 1] : null);
+            setNextId(currentIndex < list.length - 1 ? list[currentIndex + 1] : null);
+          }
+        } catch (e) {
+          console.error("Failed to parse invoice list for navigation", e);
+        }
+      }
+    }
+  }, [invoice?.invoiceNumber]);
 
   useEffect(() => {
     if (params.id) {
@@ -266,7 +288,7 @@ export default function InvoiceViewPage() {
     try {
       setDeleting(true);
       await arApi.deleteInvoice(invoice.id);
-      router.push('/finance/ar/invoices');
+      router.back();
     } catch (err: any) {
       console.error('Failed to delete invoice:', err);
       alert(err.response?.data?.error || 'Failed to delete invoice');
@@ -368,7 +390,7 @@ export default function InvoiceViewPage() {
           <h2 className="text-2xl font-bold text-[#546A7A] mb-3">Invoice Not Found</h2>
           <p className="text-[#92A2A5] mb-8">{error || "The invoice you're looking for doesn't exist or has been removed."}</p>
           <button 
-            onClick={() => router.push('/finance/ar/invoices')}
+            onClick={() => router.back()}
             className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#E17F70] to-[#CE9F6B] text-white font-semibold rounded-xl hover:shadow-lg transition-all"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -520,15 +542,37 @@ export default function InvoiceViewPage() {
         <div className="relative p-8">
           {/* Top Row - Back & Actions */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-            <button 
-              onClick={() => router.push('/finance/ar/invoices')}
-              className="flex items-center gap-2 text-[#5D6E73] hover:text-[#546A7A] transition-colors group"
-            >
-              <div className="p-2.5 rounded-xl bg-[#AEBFC3]/10 border-2 border-[#AEBFC3]/20 group-hover:bg-[#AEBFC3]/20 group-hover:border-[#AEBFC3]/40 transition-all group-hover:scale-105">
-                <ArrowLeft className="w-5 h-5" />
+            <div className="flex items-center gap-4">
+              <button 
+                onClick={() => router.back()}
+                className="flex items-center gap-2 text-[#5D6E73] hover:text-[#546A7A] transition-colors group"
+              >
+                <div className="p-2.5 rounded-xl bg-[#AEBFC3]/10 border-2 border-[#AEBFC3]/20 group-hover:bg-[#AEBFC3]/20 group-hover:border-[#AEBFC3]/40 transition-all group-hover:scale-105">
+                  <ArrowLeft className="w-5 h-5" />
+                </div>
+                <span className="font-medium">Back to Invoices</span>
+              </button>
+              
+              {/* Prev/Next Navigation */}
+              <div className="flex items-center gap-2 ml-4 pl-4 border-l-2 border-[#AEBFC3]/20">
+                <button
+                  onClick={() => prevId && router.push(`/finance/ar/invoices/${encodeURIComponent(prevId)}`)}
+                  disabled={!prevId}
+                  className={`p-2.5 rounded-xl border-2 transition-all group ${prevId ? 'bg-white border-[#AEBFC3]/30 text-[#546A7A] hover:border-[#6F8A9D] hover:shadow-md' : 'bg-[#AEBFC3]/5 border-transparent text-[#AEBFC3] cursor-not-allowed'}`}
+                  title="Previous Invoice"
+                >
+                  <ChevronLeft className={`w-5 h-5 ${prevId ? 'group-hover:-translate-x-0.5 transition-transform' : ''}`} />
+                </button>
+                <button
+                  onClick={() => nextId && router.push(`/finance/ar/invoices/${encodeURIComponent(nextId)}`)}
+                  disabled={!nextId}
+                  className={`p-2.5 rounded-xl border-2 transition-all group ${nextId ? 'bg-white border-[#AEBFC3]/30 text-[#546A7A] hover:border-[#6F8A9D] hover:shadow-md' : 'bg-[#AEBFC3]/5 border-transparent text-[#AEBFC3] cursor-not-allowed'}`}
+                  title="Next Invoice"
+                >
+                  <ChevronRight className={`w-5 h-5 ${nextId ? 'group-hover:translate-x-0.5 transition-transform' : ''}`} />
+                </button>
               </div>
-              <span className="font-medium">Back to Invoices</span>
-            </button>
+            </div>
             
             <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
               <button

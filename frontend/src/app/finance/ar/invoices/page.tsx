@@ -127,6 +127,12 @@ export default function ARInvoicesPage() {
       setInvoices(result.data);
       setTotalPages(result.pagination.totalPages);
       setTotal(result.pagination.total);
+      
+      // Cache current list for Prev/Next navigation in detail view
+      if (typeof window !== 'undefined' && result.data) {
+        const idList = result.data.map((inv: any) => inv.invoiceNumber);
+        sessionStorage.setItem('ar_invoice_list', JSON.stringify(idList));
+      }
     } catch (error) {
       console.error('Failed to load invoices:', error);
     } finally {
@@ -557,7 +563,7 @@ export default function ARInvoicesPage() {
                 invoices.map((invoice, index) => (
                   <tr 
                     key={invoice.id}
-                    onClick={() => window.location.href = `/finance/ar/invoices/${encodeURIComponent(invoice.invoiceNumber)}`}
+                    onClick={() => router.push(`/finance/ar/invoices/${encodeURIComponent(invoice.invoiceNumber)}`)}
                     className={`cursor-pointer border-b border-[#AEBFC3]/15 transition-all hover:bg-[#546A7A]/5 hover:shadow-md ${
                       index % 2 === 0 ? 'bg-white' : 'bg-[#F8FAFB]/40'
                     } ${invoice.status === 'OVERDUE' ? 'border-l-4 border-l-[#E17F70]' : 'border-l-4 border-l-transparent'}`}
