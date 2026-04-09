@@ -191,7 +191,7 @@ export default function ARImportPage() {
   const currentRows = preview?.preview?.slice(startIndex, endIndex) || [];
 
   return (
-    <div className="space-y-6 max-w-6xl relative">
+    <div className="space-y-6 w-full relative">
       {/* Decorative Background */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-20 -right-20 w-[40rem] h-[40rem] bg-gradient-to-br from-[#82A094]/10 to-[#4F6A64]/10 rounded-full blur-[8rem] opacity-50" />
@@ -477,11 +477,22 @@ export default function ARImportPage() {
                               'Amount': 'totalAmount',
                               'Net': 'netAmount',
                               'Tax': 'taxAmount',
-                              'Document Date': 'invoiceDate'
+                              'Document Date': 'invoiceDate',
+                              'Due Date': 'dueDate',
+                              'Email ID': 'emailId',
+                              'Contact No': 'contactNo',
+                              'Region': 'region',
+                              'Department': 'department',
+                              'Person In-charge': 'personInCharge',
+                              'Category': 'type',
+                              'Delivery Details': 'modeOfDelivery',
+                              'Handover Date': 'sentHandoverDate',
+                              'Delivery Status': 'deliveryStatus',
+                              'GRN/Delivered Date': 'impactDate'
                             };
                             cellValue = row[map[header]] ?? row[header];
                             
-                            if (cellValue && (header === 'Invoice Date' || header === 'Document Date')) {
+                            if (cellValue && (header === 'Invoice Date' || header === 'Document Date' || header === 'Handover Date' || header === 'GRN/Delivered Date')) {
                               try {
                                 const d = new Date(cellValue);
                                 if (!isNaN(d.getTime())) {
@@ -755,9 +766,11 @@ export default function ARImportPage() {
             Required SAP Format Columns
           </h3>
           <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 text-xs sm:text-sm font-medium">
-            {['Doc. No.', 'Customer Code', 'Customer Name', 'Customer Ref. No.', 'Amount', 'Net', 'Tax', 'Document Date'].map((col, i) => (
-              <div key={i} className="flex items-center gap-2 p-2.5 rounded-xl bg-gradient-to-r from-[#CE9F6B]/5 to-[#976E44]/5 text-[#5D6E73] hover:from-[#CE9F6B]/10 hover:to-[#976E44]/10 border border-[#CE9F6B]/20 transition-colors">
-                <div className="p-0.5 rounded bg-gradient-to-br from-[#CE9F6B] to-[#976E44]"><span className="w-1.5 h-1.5 rounded-full bg-white flex-shrink-0 block" /></div>
+            {['Doc. No.', 'Customer Code', 'Customer Name', 'Customer Ref. No.', 'Amount', 'Net', 'Tax', 'Document Date', 'Due Date (Optional)', 'Email ID (Optional)', 'Contact No (Optional)', 'Region (Optional)', 'Department (Optional)', 'Person In-charge (Optional)', 'Category (Optional)', 'Delivery Details (Optional)', 'Handover Date (Optional)', 'Delivery Status (Optional)', 'GRN/Delivered Date (Optional)'].map((col, i) => (
+              <div key={i} className={`flex items-center gap-2 p-2.5 rounded-xl bg-gradient-to-r from-[#CE9F6B]/5 to-[#976E44]/5 text-[#5D6E73] hover:from-[#CE9F6B]/10 hover:to-[#976E44]/10 border border-[#CE9F6B]/20 transition-colors ${col.includes('Optional') ? 'opacity-80' : ''}`}>
+                <div className={`p-0.5 rounded ${col.includes('Optional') ? 'bg-[#AEBFC3]' : 'bg-gradient-to-br from-[#CE9F6B] to-[#976E44]'}`}>
+                  <span className="w-1.5 h-1.5 rounded-full bg-white flex-shrink-0 block" />
+                </div>
                 <span className="font-bold">{col}</span>
               </div>
             ))}

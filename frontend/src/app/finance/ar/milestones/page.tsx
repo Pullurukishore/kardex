@@ -399,7 +399,7 @@ export default function ARPaymentMilestonesPage() {
         riskClass: riskClass || undefined,
         tsp: tsp || undefined,
         page, 
-        limit: (agingBucket || ['OVERDUE', 'PENDING', 'PARTIAL'].includes(status)) ? 500 : 25
+        limit: 100
       });
       setInvoices(result.data);
       setTotalPages(result.pagination.totalPages);
@@ -484,7 +484,7 @@ export default function ARPaymentMilestonesPage() {
         <div className={`absolute left-0 right-0 h-1 bg-gradient-to-r from-[#546A7A] via-[#6F8A9D] to-[#96AEC2] ${isTop ? 'bottom-0' : 'top-0'}`} />
         <div className="flex items-center gap-2">
           <span className="text-xs font-bold text-[#92A2A5] tracking-wide">Showing</span>
-          <span className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-[#546A7A]/10 to-[#6F8A9D]/5 text-xs font-black text-[#546A7A] border border-[#6F8A9D]/20">{((page - 1) * 25) + 1}–{Math.min(page * 25, total)}</span>
+          <span className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-[#546A7A]/10 to-[#6F8A9D]/5 text-xs font-black text-[#546A7A] border border-[#6F8A9D]/20">{((page - 1) * 100) + 1}–{Math.min(page * 100, total)}</span>
           <span className="text-xs font-bold text-[#92A2A5]">of</span>
           <span className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-[#CE9F6B]/10 to-[#976E44]/5 text-xs font-black text-[#976E44] border border-[#CE9F6B]/20">{total}</span>
           <span className="text-xs font-bold text-[#92A2A5] tracking-wide">records</span>

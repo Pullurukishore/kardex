@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { arApi, ARInvoice, formatARCurrency, MilestonePaymentTerm, TSP_OPTIONS } from '@/lib/ar-api';
-import { ArrowLeft, Save, Loader2, FileText, User, Calendar, IndianRupee, Sparkles, Wallet, Plus, Trash2, Tag, X, AlertCircle, CheckCircle2, BarChart3 } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, FileText, User, Calendar, IndianRupee, Sparkles, Wallet, Plus, Trash2, Tag, X, AlertCircle, CheckCircle2, BarChart3, Truck, Package } from 'lucide-react';
 
 export default function EditMilestonePage() {
   const params = useParams();
@@ -68,6 +68,11 @@ export default function EditMilestonePage() {
     pbgSignedDate: '',
     pbgSignedNote: '',
     pbgSignedSteps: [] as { id: string, date: string, note: string }[],
+    // Delivery Tracking
+    deliveryStatus: 'PENDING' as 'PENDING' | 'SENT' | 'DELIVERED' | 'ACKNOWLEDGED',
+    modeOfDelivery: '',
+    sentHandoverDate: '',
+    impactDate: '',
   });
 
   const termOptions = [
@@ -221,6 +226,11 @@ export default function EditMilestonePage() {
         pbgSignedDate: data.pbgSignedDate ? data.pbgSignedDate.split('T')[0] : '',
         pbgSignedNote: data.pbgSignedNote || '',
         pbgSignedSteps: Array.isArray(data.pbgSignedSteps) ? data.pbgSignedSteps : [],
+        // Delivery Tracking
+        deliveryStatus: data.deliveryStatus || 'PENDING',
+        modeOfDelivery: data.modeOfDelivery || '',
+        sentHandoverDate: data.sentHandoverDate ? data.sentHandoverDate.split('T')[0] : '',
+        impactDate: data.impactDate ? data.impactDate.split('T')[0] : '',
       });
     } catch (err) {
       console.error('Failed to load milestone payment:', err);
@@ -342,6 +352,11 @@ export default function EditMilestonePage() {
         pbgSignedDate: formData.pbgSignedDate || null,
         pbgSignedNote: formData.pbgSignedNote || null,
         pbgSignedSteps: formData.pbgSignedSteps,
+        // Delivery Tracking
+        deliveryStatus: formData.deliveryStatus,
+        modeOfDelivery: formData.modeOfDelivery || undefined,
+        sentHandoverDate: formData.sentHandoverDate || undefined,
+        impactDate: formData.impactDate || undefined,
       } as any);
       
       router.replace(`/finance/ar/milestones/${invoice!.id}`);
@@ -672,6 +687,62 @@ export default function EditMilestonePage() {
                   className={inputClass}
                 />
               </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Delivery Tracking */}
+        <div className="relative bg-white/90 backdrop-blur-xl rounded-[2rem] border-2 border-[#6F8A9D]/30 p-6 shadow-lg overflow-hidden group mb-6">
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#6F8A9D] via-[#546A7A] to-[#AEBFC3]" />
+          <h3 className="text-lg font-bold text-[#546A7A] mb-5 flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-gradient-to-br from-[#6F8A9D] to-[#546A7A] shadow-lg shadow-[#6F8A9D]/20 group-hover:shadow-[#6F8A9D]/40 transition-all duration-300">
+              <Truck className="w-5 h-5 text-white" />
+            </div>
+            Delivery Tracking
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            <div>
+              <label className={labelClass}>Delivery Status ( yes / no )</label>
+              <select 
+                name="deliveryStatus" 
+                value={formData.deliveryStatus === 'DELIVERED' ? 'DELIVERED' : 'PENDING'} 
+                onChange={(e) => setFormData(prev => ({ ...prev, deliveryStatus: e.target.value as any }))}
+                className={selectClass}
+              >
+                <option value="PENDING">No (Pending)</option>
+                <option value="DELIVERED">Yes (Delivered)</option>
+              </select>
+            </div>
+            <div>
+              <label className={labelClass}>Delivery details ( all types suport )</label>
+              <input
+                type="text"
+                name="modeOfDelivery"
+                value={formData.modeOfDelivery}
+                onChange={handleChange}
+                placeholder="Courier, Hand Delivery, etc."
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Handover date</label>
+              <input
+                type="date"
+                name="sentHandoverDate"
+                value={formData.sentHandoverDate}
+                onChange={handleChange}
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>GRN / Delivered date</label>
+              <input
+                type="date"
+                name="impactDate"
+                value={formData.impactDate}
+                onChange={handleChange}
+                className={inputClass}
+              />
             </div>
           </div>
         </div>

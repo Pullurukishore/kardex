@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { arApi, TSP_OPTIONS } from '@/lib/ar-api';
-import { ArrowLeft, Save, Loader2, FileText, Sparkles, Upload, AlertCircle, IndianRupee, Calendar, Info, Truck, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, FileText, Sparkles, Upload, AlertCircle, IndianRupee, Calendar, Info, Truck, Plus, Trash2, User } from 'lucide-react';
 
 export default function NewInvoicePage() {
   const router = useRouter();
@@ -36,6 +36,7 @@ export default function NewInvoicePage() {
     type: '' as any,
     emailId: '',
     mailToTSP: '',
+    personInCharge: '',
     hasAPG: false,
     apgDraftDate: '',
     apgDraftNote: '',
@@ -52,6 +53,11 @@ export default function NewInvoicePage() {
     pbgSignedDate: '',
     pbgSignedNote: '',
     pbgSignedSteps: [] as { id: string, date: string, note: string }[],
+    // Delivery Tracking
+    deliveryStatus: 'PENDING' as 'PENDING' | 'SENT' | 'DELIVERED' | 'ACKNOWLEDGED',
+    modeOfDelivery: '',
+    sentHandoverDate: '',
+    impactDate: '',
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -134,7 +140,8 @@ export default function NewInvoicePage() {
         actualPaymentTerms: formData.actualPaymentTerms || undefined,
         type: formData.type || undefined,
         emailId: formData.emailId || undefined,
-        mailToTSP: formData.mailToTSP || undefined,
+        mailToTSP: undefined,
+        personInCharge: formData.personInCharge || undefined,
         hasAPG: formData.hasAPG,
         apgDraftDate: formData.apgDraftDate || undefined,
         apgDraftNote: formData.apgDraftNote || undefined,
@@ -151,6 +158,11 @@ export default function NewInvoicePage() {
         pbgSignedDate: formData.pbgSignedDate || undefined,
         pbgSignedNote: formData.pbgSignedNote || undefined,
         pbgSignedSteps: formData.pbgSignedSteps,
+        // Delivery Tracking
+        deliveryStatus: formData.deliveryStatus,
+        modeOfDelivery: formData.modeOfDelivery || undefined,
+        sentHandoverDate: formData.sentHandoverDate || undefined,
+        impactDate: formData.impactDate || undefined,
       } as any);
       
       router.push('/finance/ar/invoices');
@@ -302,19 +314,28 @@ export default function NewInvoicePage() {
 
             <div>
               <label className={labelClass}>
-                <Truck className="w-3 h-3 text-[#E17F70]" />
-                TSP (Service Provider)
+                <User className="w-3 h-3 text-[#E17F70]" />
+                Kardex Person In-Charge
               </label>
               <select
-                name="mailToTSP"
-                value={formData.mailToTSP}
+                name="personInCharge"
+                value={formData.personInCharge}
                 onChange={handleChange}
                 className={inputClass}
               >
-                <option value="">Select TSP</option>
-                {TSP_OPTIONS.map(tsp => (
-                  <option key={tsp} value={tsp}>{tsp}</option>
-                ))}
+                <option value="">Select Person</option>
+                <option value="Ashraf">Ashraf</option>
+                <option value="Gajendra">Gajendra</option>
+                <option value="Minesh">Minesh</option>
+                <option value="Nithin">Nithin</option>
+                <option value="Pankaj">Pankaj</option>
+                <option value="Pradeep">Pradeep</option>
+                <option value="Rahul">Rahul</option>
+                <option value="Sasi kumar">Sasi kumar</option>
+                <option value="Sreenadh">Sreenadh</option>
+                <option value="Vinay">Vinay</option>
+                <option value="Yogesh">Yogesh</option>
+                <option value="Others">Others</option>
               </select>
             </div>
 
@@ -435,6 +456,62 @@ export default function NewInvoicePage() {
                 onChange={handleChange}
                 className={inputClass}
                 placeholder="Enter tax amount"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Delivery Tracking */}
+        <div className="relative bg-white/90 backdrop-blur-xl rounded-[2rem] border-2 border-[#6F8A9D]/30 p-6 shadow-lg hover:shadow-xl transition-all duration-300 group overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#6F8A9D] via-[#546A7A] to-[#AEBFC3]" />
+          <h3 className="text-lg font-bold text-[#546A7A] mb-5 flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-gradient-to-br from-[#6F8A9D] to-[#546A7A] shadow-lg shadow-[#6F8A9D]/20 group-hover:shadow-[#6F8A9D]/40 transition-all duration-300">
+              <Truck className="w-5 h-5 text-white" />
+            </div>
+            Delivery Tracking
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            <div>
+              <label className={labelClass}>Delivery Status ( yes / no )</label>
+              <select 
+                name="deliveryStatus" 
+                value={formData.deliveryStatus === 'DELIVERED' ? 'DELIVERED' : 'PENDING'} 
+                onChange={(e) => setFormData(prev => ({ ...prev, deliveryStatus: e.target.value as any }))}
+                className={inputClass}
+              >
+                <option value="PENDING">No (Pending)</option>
+                <option value="DELIVERED">Yes (Delivered)</option>
+              </select>
+            </div>
+            <div>
+              <label className={labelClass}>Delivery details ( all types suport )</label>
+              <input
+                type="text"
+                name="modeOfDelivery"
+                value={formData.modeOfDelivery}
+                onChange={handleChange}
+                placeholder="Courier, Hand Delivery, etc."
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Handover date</label>
+              <input
+                type="date"
+                name="sentHandoverDate"
+                value={formData.sentHandoverDate}
+                onChange={handleChange}
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>GRN / Delivered date</label>
+              <input
+                type="date"
+                name="impactDate"
+                value={formData.impactDate}
+                onChange={handleChange}
+                className={inputClass}
               />
             </div>
           </div>

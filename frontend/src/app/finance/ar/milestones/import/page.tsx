@@ -8,7 +8,7 @@ import {
   Sparkles, UploadCloud, FileCheck, Eye, ArrowRight, ArrowLeft, 
   ChevronLeft, ChevronRight, AlertTriangle, XCircle, Loader2,
   Trash2, Grid3X3, Info, Calendar, User, DollarSign, Receipt,
-  ClipboardList, MessageSquare, Briefcase, Hash
+  ClipboardList, MessageSquare, Briefcase, Hash, Plus
 } from 'lucide-react';
 
 interface ImportResult {
@@ -300,6 +300,71 @@ export default function MilestoneImportPage() {
           </button>
         </div>
       </div>
+
+      {/* Field Requirements - Added as per USER request */}
+      {step === 'upload' && (
+        <div className="relative bg-white/80 backdrop-blur-xl rounded-2xl border-2 border-[#AEBFC3]/30 p-6 shadow-xl overflow-hidden animate-in slide-in-from-top-4 duration-500">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#CE9F6B] via-[#976E44] to-[#E17F70]" />
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-gradient-to-br from-[#CE9F6B] to-[#976E44] shadow-lg shadow-[#CE9F6B]/20">
+                <ClipboardList className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-[#546A7A]">Data Format Requirements</h3>
+                <p className="text-xs text-[#92A2A5]">Ensure your Excel contains these columns for successful mapping</p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#E17F70]/10 text-[#9E3B47] text-[10px] font-black uppercase border border-[#E17F70]/20">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#E17F70]" /> Mandatory
+              </div>
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#82A094]/10 text-[#4F6A64] text-[10px] font-black uppercase border border-[#82A094]/20">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#82A094]" /> Optional
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Mandatory Fields */}
+            <div className="space-y-3">
+              <p className="text-[10px] font-black text-[#546A7A] uppercase tracking-widest flex items-center gap-2">
+                <CheckCircle className="w-3 h-3 text-[#E17F70]" /> Required Columns
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { label: 'Customer', alias: 'BP Name, Sold-To' },
+                  { label: 'Total Amount', alias: 'Incl. Taxes' },
+                  { label: 'Order Value', alias: 'Net Amount' },
+                  { label: 'Invoice Date', alias: 'Doc Date' },
+                ].map((f) => (
+                  <div key={f.label} className="p-3 rounded-xl bg-gradient-to-br from-[#E17F70]/5 to-[#9E3B47]/5 border border-[#E17F70]/20 group hover:border-[#E17F70]/40 transition-all">
+                    <p className="text-sm font-bold text-[#9E3B47]">{f.label}</p>
+                    <p className="text-[10px] text-[#9E3B47]/60 mt-0.5 truncate italic">Alias: {f.alias}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Optional Fields */}
+            <div className="space-y-3">
+              <p className="text-[10px] font-black text-[#546A7A] uppercase tracking-widest flex items-center gap-2">
+                <Info className="w-3 h-3 text-[#82A094]" /> Enrichment Columns
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {[
+                  'SO no.', 'PO No.', 'Booking Month', 'Status', 'TSP', 'Due Date', 'Comments', 'Payment Terms'
+                ].map((f) => (
+                  <div key={f} className="p-3 rounded-xl bg-gradient-to-br from-[#82A094]/5 to-[#4F6A64]/5 border border-[#82A094]/20 group hover:border-[#82A094]/40 transition-all flex items-center justify-between">
+                    <span className="text-xs font-bold text-[#4F6A64]">{f}</span>
+                    <Plus className="w-2.5 h-2.5 text-[#82A094] opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Step 1: Upload Area */}
       {step === 'upload' && (
@@ -851,6 +916,7 @@ export default function MilestoneImportPage() {
               { label: 'Accounting status', desc: 'Current Stage Status', req: false },
               { label: 'Order Value', desc: 'Total Amount', req: true },
               { label: 'Invoice Date', desc: 'Billing Date', req: false },
+              { label: 'Due Date', desc: 'Final Payment Deadline', req: false },
               { label: 'Finance Comments', desc: 'Internal Remarks', req: false }
             ].map((col, i) => (
               <div key={i} className="group p-4 rounded-xl bg-gradient-to-br from-[#96AEC2]/5 to-[#6F8A9D]/5 hover:from-white hover:to-white border-2 border-[#AEBFC3]/20 hover:border-[#CE9F6B]/30 hover:shadow-lg hover:shadow-[#CE9F6B]/10 transition-all duration-300">

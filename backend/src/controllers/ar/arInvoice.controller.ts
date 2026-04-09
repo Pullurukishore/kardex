@@ -822,7 +822,12 @@ export const createInvoice = async (req: Request, res: Response) => {
             pbgIntermediateSteps,
             pbgSignedDate,
             pbgSignedNote,
-            pbgSignedSteps
+            pbgSignedSteps,
+            // Delivery Tracking
+            deliveryStatus,
+            modeOfDelivery,
+            sentHandoverDate,
+            impactDate
         } = req.body;
 
         const effectiveCustomerId = customerId || bpCode;
@@ -905,7 +910,12 @@ export const createInvoice = async (req: Request, res: Response) => {
                 pbgIntermediateSteps: pbgIntermediateSteps || null,
                 pbgSignedDate: parseDate(pbgSignedDate),
                 pbgSignedNote: pbgSignedNote || null,
-                pbgSignedSteps: pbgSignedSteps || null
+                pbgSignedSteps: pbgSignedSteps || null,
+                // Delivery Tracking
+                deliveryStatus: deliveryStatus || 'PENDING',
+                modeOfDelivery: modeOfDelivery || null,
+                sentHandoverDate: parseDate(sentHandoverDate),
+                impactDate: parseDate(impactDate)
             }
         });
 
@@ -1102,11 +1112,11 @@ export const updateInvoice = async (req: Request, res: Response) => {
             if (['milestoneTerms', 'apgIntermediateSteps', 'pbgIntermediateSteps', 'apgDraftSteps', 'apgSignedSteps', 'pbgDraftSteps', 'pbgSignedSteps'].includes(key)) {
                 const oldArray = (Array.isArray(oldVal) ? oldVal : []) as any[];
                 const newArray = (Array.isArray(newVal) ? newVal : []) as any[];
-                
+
                 if (JSON.stringify(oldArray) !== JSON.stringify(newArray)) {
                     hasChanges = true;
                     const label = fieldLabels[key] || key.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
-                    
+
                     let actionDesc = `Updated ${label}`;
                     let oldDisplay = `${oldArray.length} items`;
                     let newDisplay = `${newArray.length} items`;

@@ -125,7 +125,7 @@ export default function ARInvoicesPage() {
         riskClass: riskClass || undefined,
         tsp: tsp || undefined,
         page, 
-        limit: agingBucket ? 500 : 25 
+        limit: 100
       });
       setInvoices(result.data);
       setTotalPages(result.pagination.totalPages);
@@ -203,6 +203,91 @@ export default function ARInvoicesPage() {
     setRiskClass('');
     setTsp('');
     setPage(1);
+  };
+
+  // Generate page numbers with ellipsis for pagination
+  const getPageNumbers = () => {
+    const pages: (number | '...')[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (page > 3) pages.push('...');
+      const start = Math.max(2, page - 1);
+      const end = Math.min(totalPages - 1, page + 1);
+      for (let i = start; i <= end; i++) pages.push(i);
+      if (page < totalPages - 2) pages.push('...');
+      pages.push(totalPages);
+    }
+    return pages;
+  };
+
+  const renderPagination = (isTop = false) => {
+    if (loading || totalPages <= 1) return null;
+    
+    return (
+      <div className={`relative p-5 flex flex-col sm:flex-row justify-between items-center gap-4 bg-gradient-to-r from-[#96AEC2]/5 via-transparent to-white overflow-hidden ${isTop ? 'border-b-2 border-[#6F8A9D]/20' : 'border-t-2 border-[#6F8A9D]/20'}`}>
+        <div className={`absolute left-0 right-0 h-1 bg-gradient-to-r from-[#546A7A] via-[#6F8A9D] to-[#96AEC2] ${isTop ? 'bottom-0' : 'top-0'}`} />
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-[#92A2A5] tracking-wide">Showing</span>
+          <span className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-[#546A7A]/10 to-[#6F8A9D]/5 text-xs font-black text-[#546A7A] border border-[#6F8A9D]/20">{((page - 1) * 100) + 1}–{Math.min(page * 100, total)}</span>
+          <span className="text-xs font-bold text-[#92A2A5]">of</span>
+          <span className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-[#CE9F6B]/10 to-[#976E44]/5 text-xs font-black text-[#976E44] border border-[#CE9F6B]/20">{total}</span>
+          <span className="text-xs font-bold text-[#92A2A5] tracking-wide">records</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => setPage(1)}
+            disabled={page === 1}
+            className="p-2 rounded-lg bg-white border-2 border-[#AEBFC3]/30 text-[#546A7A] hover:bg-[#96AEC2]/10 hover:border-[#6F8A9D] disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-sm"
+            title="First page"
+          >
+            <ChevronLeft className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={page === 1}
+            className="flex items-center gap-1.5 px-3 py-2 bg-white border-2 border-[#AEBFC3]/30 rounded-lg text-xs font-bold text-[#546A7A] hover:bg-[#96AEC2]/10 hover:border-[#6F8A9D] disabled:opacity-30 disabled:cursor-not-allowed shadow-sm transition-all"
+          >
+            Prev
+          </button>
+          <div className="flex items-center gap-1 mx-1">
+            {getPageNumbers().map((p, i) =>
+              p === '...' ? (
+                <span key={`ellipsis-${i}`} className="w-8 text-center text-xs font-bold text-[#92A2A5] select-none">…</span>
+              ) : (
+                <button
+                  key={p}
+                  onClick={() => setPage(p as number)}
+                  className={`w-9 h-9 rounded-xl text-xs font-bold transition-all duration-200 ${
+                    page === p
+                      ? 'bg-gradient-to-br from-[#546A7A] to-[#6F8A9D] text-white shadow-lg shadow-[#546A7A]/25 scale-110 ring-2 ring-[#6F8A9D]/30'
+                      : 'bg-white border-2 border-[#AEBFC3]/30 text-[#546A7A] hover:bg-[#96AEC2]/10 hover:border-[#6F8A9D] hover:scale-105 shadow-sm'
+                  }`}
+                >
+                  {p}
+                </button>
+              )
+            )}
+          </div>
+          <button
+            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+            disabled={page === totalPages}
+            className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-[#546A7A] to-[#6F8A9D] rounded-lg text-xs font-bold text-white hover:shadow-lg hover:shadow-[#546A7A]/20 disabled:opacity-30 disabled:cursor-not-allowed shadow-lg transition-all"
+          >
+            Next
+          </button>
+          <button
+            onClick={() => setPage(totalPages)}
+            disabled={page === totalPages}
+            className="p-2 rounded-lg bg-white border-2 border-[#AEBFC3]/30 text-[#546A7A] hover:bg-[#96AEC2]/10 hover:border-[#6F8A9D] disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-sm"
+            title="Last page"
+          >
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -527,23 +612,24 @@ export default function ARInvoicesPage() {
       </div>
 
       {/* Desktop Table - Clean Kardex Design */}
-      <div className="relative hidden md:block bg-white rounded-[2rem] border-2 border-[#AEBFC3]/30 overflow-hidden shadow-xl">
+      <div className="relative hidden md:block bg-white rounded-2xl border-2 border-[#6F8A9D]/30 overflow-hidden shadow-xl">
         <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#546A7A] via-[#6F8A9D] to-[#96AEC2]" />
-        <div className="px-5 py-3.5 border-b-2 border-[#546A7A]/20 bg-gradient-to-r from-[#546A7A] to-[#6F8A9D]">
-          <div className="flex items-center justify-between font-bold text-white text-sm">
+        <div className="px-5 py-4 border-b-2 border-[#6F8A9D]/20 bg-gradient-to-r from-[#546A7A] via-[#6F8A9D] to-[#546A7A]">
+          <div className="flex items-center justify-between font-bold text-white text-xs uppercase tracking-wide">
             <div className="flex items-center gap-3">
-              <div className="p-1.5 rounded-lg bg-white/20">
-                <FileText className="w-5 h-5 text-white" />
+              <div className="p-2 rounded-xl bg-white/15 border border-white/20">
+                <FileText className="w-4 h-4" />
               </div>
-              <span>Invoice Records</span>
+              <span>Invoice Records Table</span>
             </div>
-            <div className="flex items-center gap-2 px-3 py-1 rounded-lg bg-white/15">
-              <span className="opacity-80 font-medium">
-                Showing {invoices.length} of {total} records
-              </span>
+            <div className="px-3 py-1 rounded-lg bg-white/15 text-[10px] font-bold">
+              {invoices.length} entries shown
             </div>
           </div>
         </div>
+
+        {/* Top Pagination */}
+        {renderPagination(true)}
 
         <div className="overflow-x-auto">
           <table className="w-full border-collapse">
@@ -631,15 +717,8 @@ export default function ARInvoicesPage() {
           </table>
         </div>
 
-        {!loading && totalPages > 1 && (
-          <div className="p-4 border-t-2 border-[#AEBFC3]/20 flex justify-between items-center bg-gradient-to-r from-[#F8FAFB] to-white">
-            <span className="text-sm font-bold text-[#5D6E73]">Page {page} of {totalPages}</span>
-            <div className="flex gap-2">
-              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="p-2 px-4 rounded-xl border-2 border-[#AEBFC3]/30 bg-white disabled:opacity-50 hover:bg-[#546A7A]/5 hover:border-[#546A7A]/30 transition-all font-bold"><ChevronLeft className="w-4 h-4 text-[#546A7A]" /></button>
-              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="p-2 px-4 rounded-xl border-2 border-[#AEBFC3]/30 bg-white disabled:opacity-50 hover:bg-[#546A7A]/5 hover:border-[#546A7A]/30 transition-all font-bold"><ChevronRight className="w-4 h-4 text-[#546A7A]" /></button>
-            </div>
-          </div>
-        )}
+        {/* Bottom Pagination */}
+        {renderPagination()}
       </div>
 
       {/* Mobile view focused on REGULAR */}
@@ -661,6 +740,50 @@ export default function ARInvoicesPage() {
                </div>
             </Link>
           ))}
+
+          {/* Mobile Pagination */}
+          {!loading && totalPages > 1 && (
+            <div className="relative bg-white rounded-2xl border-2 border-[#6F8A9D]/30 p-4 shadow-lg overflow-hidden mt-4">
+              <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#546A7A] via-[#6F8A9D] to-[#96AEC2]" />
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[10px] font-bold text-[#92A2A5] uppercase tracking-wide">Page {page} of {totalPages}</span>
+                <span className="text-[10px] font-bold text-[#976E44]">{total} records</span>
+              </div>
+              <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                <button
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="p-2 rounded-lg bg-white border-2 border-[#AEBFC3]/30 text-[#546A7A] disabled:opacity-30 transition-all shadow-sm"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                {getPageNumbers().map((p, i) =>
+                  p === '...' ? (
+                    <span key={`m-ellipsis-${i}`} className="w-7 text-center text-xs font-bold text-[#92A2A5]">…</span>
+                  ) : (
+                    <button
+                      key={`m-${p}`}
+                      onClick={() => setPage(p as number)}
+                      className={`w-9 h-9 rounded-xl text-xs font-bold transition-all ${
+                        page === p
+                          ? 'bg-gradient-to-br from-[#546A7A] to-[#6F8A9D] text-white shadow-lg shadow-[#546A7A]/25 scale-110'
+                          : 'bg-white border-2 border-[#AEBFC3]/30 text-[#546A7A] active:scale-95'
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  )
+                )}
+                <button
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                  className="p-2 rounded-lg bg-gradient-to-r from-[#546A7A] to-[#6F8A9D] text-white disabled:opacity-30 transition-all shadow-lg"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
       </div>
     </div>
   );

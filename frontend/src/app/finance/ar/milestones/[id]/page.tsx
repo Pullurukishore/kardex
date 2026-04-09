@@ -1248,6 +1248,44 @@ export default function MilestoneViewPage() {
                   </div>
                 )}
 
+                {/* Delivery Tracking */}
+                <div className="lg:col-span-2">
+                  <h4 className="flex items-center gap-3 text-lg font-bold text-[#546A7A] mb-4">
+                    <div className="p-2.5 rounded-xl bg-gradient-to-br from-[#6F8A9D] to-[#546A7A] shadow-lg shadow-[#6F8A9D]/20">
+                      <Truck className="w-5 h-5 text-white" />
+                    </div>
+                    Delivery Tracking
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="p-4 rounded-xl bg-white border-2 border-[#AEBFC3]/20 shadow-sm">
+                      <p className="text-[10px] font-black text-[#92A2A5] uppercase tracking-widest mb-1">Status</p>
+                      <div className="flex items-center gap-2">
+                        {invoice.deliveryStatus === 'DELIVERED' ? (
+                          <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-[#82A094]/10 text-[#4F6A64] text-xs font-bold">
+                            <CheckCircle2 className="w-3.5 h-3.5" /> Delivered
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-[#CE9F6B]/10 text-[#976E44] text-xs font-bold">
+                            <Timer className="w-3.5 h-3.5" /> Pending
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="p-4 rounded-xl bg-white border-2 border-[#AEBFC3]/20 shadow-sm">
+                      <p className="text-[10px] font-black text-[#92A2A5] uppercase tracking-widest mb-1">Details</p>
+                      <p className="text-sm font-bold text-[#546A7A]">{invoice.modeOfDelivery || 'Not specified'}</p>
+                    </div>
+                    <div className="p-4 rounded-xl bg-white border-2 border-[#AEBFC3]/20 shadow-sm">
+                      <p className="text-[10px] font-black text-[#92A2A5] uppercase tracking-widest mb-1">Handover Date</p>
+                      <p className="text-sm font-bold text-[#546A7A]">{invoice.sentHandoverDate ? formatARDate(invoice.sentHandoverDate) : 'Not specified'}</p>
+                    </div>
+                    <div className="p-4 rounded-xl bg-white border-2 border-[#AEBFC3]/20 shadow-sm">
+                      <p className="text-[10px] font-black text-[#92A2A5] uppercase tracking-widest mb-1">GRN / Delivered Date</p>
+                      <p className="text-sm font-bold text-[#546A7A]">{invoice.impactDate ? formatARDate(invoice.impactDate) : 'Not specified'}</p>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Contractual Payment Terms Summary */}
                 <div className="lg:col-span-2">
                   <h4 className="flex items-center gap-3 text-lg font-bold text-[#546A7A] mb-4">

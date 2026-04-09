@@ -1292,17 +1292,17 @@ export default function InvoiceViewPage() {
                     <div className="p-2 rounded-xl bg-gradient-to-br from-[#CE9F6B] to-[#976E44] shadow-lg shadow-[#CE9F6B]/20">
                       <User className="w-5 h-5 text-white" />
                     </div>
-                    Contact Person
+                    Contact & Handling
                   </h4>
                   <div className="space-y-3">
                     {[
-                      { label: 'Name', value: invoice.personInCharge || '-', icon: User },
-                      { label: 'Email', value: invoice.emailId || '-', icon: Mail, copyable: true },
-                      { label: 'Phone', value: invoice.contactNo || '-', icon: Phone, copyable: true },
+                      { label: 'Kardex In-Charge', value: invoice.personInCharge || '-', icon: User },
+                      { label: 'Customer Email', value: invoice.emailId || '-', icon: Mail, copyable: true },
+                      { label: 'Customer Phone', value: invoice.contactNo || '-', icon: Phone, copyable: true },
                     ].map((item) => (
                       <div key={item.label} className="flex items-center gap-3 p-3 rounded-xl bg-[#AEBFC3]/5 hover:bg-[#AEBFC3]/10 transition-colors group">
                         <item.icon className="w-4 h-4 text-[#CE9F6B]" />
-                        <span className="text-[#92A2A5] text-sm w-20">{item.label}</span>
+                        <span className="text-[#92A2A5] text-xs w-28">{item.label}</span>
                         <span className="font-medium text-[#546A7A] flex-1">{item.value}</span>
                         {item.copyable && item.value !== '-' && (
                           <button
@@ -1323,6 +1323,71 @@ export default function InvoiceViewPage() {
 
 
 
+
+            {/* Delivery Tracking */}
+            <div className="relative mt-8 p-6 rounded-2xl bg-gradient-to-r from-[#6F8A9D]/5 to-[#AEBFC3]/5 border-2 border-[#6F8A9D]/20 shadow-inner overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#6F8A9D] via-[#546A7A] to-[#AEBFC3]" />
+              <div className="flex items-center gap-2 mb-6">
+                <div className="p-1.5 rounded-lg bg-gradient-to-br from-[#6F8A9D] to-[#546A7A]">
+                  <Truck className="w-4 h-4 text-white" />
+                </div>
+                <span className="font-bold text-[#546A7A] text-lg">Delivery Tracking</span>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="flex flex-col gap-1.5 p-3 rounded-xl bg-white border border-[#AEBFC3]/20">
+                  <span className="text-[#92A2A5] text-[10px] font-black uppercase tracking-widest">Delivery Status</span>
+                  <div className="flex items-center gap-2">
+                    {invoice.deliveryStatus === 'DELIVERED' ? (
+                      <>
+                        <div className="p-1 rounded-full bg-[#82A094]/20">
+                          <CheckCircle2 className="w-4 h-4 text-[#82A094]" />
+                        </div>
+                        <span className="font-bold text-[#82A094]">Yes (Delivered)</span>
+                      </>
+                    ) : (
+                      <>
+                        <div className="p-1 rounded-full bg-[#E17F70]/20">
+                          <Timer className="w-4 h-4 text-[#E17F70]" />
+                        </div>
+                        <span className="font-bold text-[#E17F70]">No (Pending)</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1.5 p-3 rounded-xl bg-white border border-[#AEBFC3]/20">
+                  <span className="text-[#92A2A5] text-[10px] font-black uppercase tracking-widest">Delivery details</span>
+                  <div className="flex items-center gap-2">
+                    <div className="p-1 rounded-full bg-[#6F8A9D]/20">
+                      <Package className="w-4 h-4 text-[#6F8A9D]" />
+                    </div>
+                    <span className="font-bold text-[#546A7A]">{invoice.modeOfDelivery || '-'}</span>
+                  </div>
+                  <span className="text-[10px] text-[#92A2A5] italic">all types support</span>
+                </div>
+
+                <div className="flex flex-col gap-1.5 p-3 rounded-xl bg-white border border-[#AEBFC3]/20">
+                  <span className="text-[#92A2A5] text-[10px] font-black uppercase tracking-widest">Handover date</span>
+                  <div className="flex items-center gap-2">
+                    <div className="p-1 rounded-full bg-[#CE9F6B]/20">
+                      <Calendar className="w-4 h-4 text-[#CE9F6B]" />
+                    </div>
+                    <span className="font-bold text-[#546A7A]">{invoice.sentHandoverDate ? formatARDate(invoice.sentHandoverDate) : '-'}</span>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1.5 p-3 rounded-xl bg-white border border-[#AEBFC3]/20">
+                  <span className="text-[#92A2A5] text-[10px] font-black uppercase tracking-widest">GRN / Delivered date</span>
+                  <div className="flex items-center gap-2">
+                    <div className="p-1 rounded-full bg-[#82A094]/20">
+                      <BadgeCheck className="w-4 h-4 text-[#82A094]" />
+                    </div>
+                    <span className="font-bold text-[#546A7A]">{invoice.impactDate ? formatARDate(invoice.impactDate) : '-'}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
 
             {/* Guarantees Tracking */}
             {(invoice.hasAPG || invoice.hasPBG) && (

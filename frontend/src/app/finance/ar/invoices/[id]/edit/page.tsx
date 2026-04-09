@@ -51,6 +51,11 @@ export default function EditInvoicePage() {
     pbgSignedDate: '',
     pbgSignedNote: '',
     pbgSignedSteps: [] as { id: string, date: string, note: string }[],
+    // Delivery Tracking
+    deliveryStatus: 'PENDING' as 'PENDING' | 'SENT' | 'DELIVERED' | 'ACKNOWLEDGED',
+    modeOfDelivery: '',
+    sentHandoverDate: '',
+    impactDate: '',
   });
 
   useEffect(() => {
@@ -109,6 +114,11 @@ export default function EditInvoicePage() {
         pbgSignedDate: data.pbgSignedDate ? data.pbgSignedDate.split('T')[0] : '',
         pbgSignedNote: data.pbgSignedNote || '',
         pbgSignedSteps: Array.isArray(data.pbgSignedSteps) ? data.pbgSignedSteps : [],
+        // Delivery Tracking
+        deliveryStatus: data.deliveryStatus || 'PENDING',
+        modeOfDelivery: data.modeOfDelivery || '',
+        sentHandoverDate: data.sentHandoverDate ? data.sentHandoverDate.split('T')[0] : '',
+        impactDate: data.impactDate ? data.impactDate.split('T')[0] : '',
       });
     } catch (err) {
       console.error('Failed to load invoice:', err);
@@ -173,11 +183,11 @@ export default function EditInvoicePage() {
         contactNo: formData.contactNo || undefined,
         region: formData.region || undefined,
         department: formData.department || undefined,
-        personInCharge: formData.personInCharge || undefined,
         type: formData.type || undefined,
         status: formData.status as any,
         invoiceType: 'REGULAR',
-        mailToTSP: formData.mailToTSP || undefined,
+        mailToTSP: undefined,
+        personInCharge: formData.personInCharge || undefined,
         hasAPG: formData.hasAPG,
         apgDraftDate: formData.apgDraftDate || null,
         apgDraftNote: formData.apgDraftNote || null,
@@ -194,6 +204,11 @@ export default function EditInvoicePage() {
         pbgSignedDate: formData.pbgSignedDate || null,
         pbgSignedNote: formData.pbgSignedNote || null,
         pbgSignedSteps: formData.pbgSignedSteps,
+        // Delivery Tracking
+        deliveryStatus: formData.deliveryStatus,
+        modeOfDelivery: formData.modeOfDelivery || undefined,
+        sentHandoverDate: formData.sentHandoverDate || undefined,
+        impactDate: formData.impactDate || undefined,
       } as any);
       
       router.replace(`/finance/ar/invoices/${encodeURIComponent(formData.invoiceNumber)}`);
@@ -389,17 +404,26 @@ export default function EditInvoicePage() {
               />
             </div>
             <div>
-              <label className={labelClass}><Truck className="w-3.5 h-3.5 text-[#E17F70]" /> TSP (Service Provider)</label>
+              <label className={labelClass}><User className="w-3.5 h-3.5 text-[#E17F70]" /> Kardex Person In-Charge</label>
               <select
-                name="mailToTSP"
-                value={formData.mailToTSP}
+                name="personInCharge"
+                value={formData.personInCharge}
                 onChange={handleChange}
                 className={selectClass}
               >
-                <option value="">Select TSP</option>
-                {TSP_OPTIONS.map(tsp => (
-                  <option key={tsp} value={tsp}>{tsp}</option>
-                ))}
+                <option value="">Select Person</option>
+                <option value="Ashraf">Ashraf</option>
+                <option value="Gajendra">Gajendra</option>
+                <option value="Minesh">Minesh</option>
+                <option value="Nithin">Nithin</option>
+                <option value="Pankaj">Pankaj</option>
+                <option value="Pradeep">Pradeep</option>
+                <option value="Rahul">Rahul</option>
+                <option value="Sasi kumar">Sasi kumar</option>
+                <option value="Sreenadh">Sreenadh</option>
+                <option value="Vinay">Vinay</option>
+                <option value="Yogesh">Yogesh</option>
+                <option value="Others">Others</option>
               </select>
             </div>
           </div>
@@ -482,6 +506,63 @@ export default function EditInvoicePage() {
                 <option value="NB">NB</option>
                 <option value="FINANCE">Finance</option>
               </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Delivery Tracking */}
+        <div className="relative bg-white/90 backdrop-blur-xl rounded-[2rem] border-2 border-[#6F8A9D]/20 p-6 shadow-lg overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#6F8A9D] via-[#546A7A] to-[#AEBFC3]" />
+          <h3 className="text-lg font-bold text-[#546A7A] mb-5 flex items-center gap-2">
+            <div className="relative p-2 rounded-xl bg-gradient-to-br from-[#6F8A9D] to-[#546A7A] shadow-lg shadow-[#6F8A9D]/20 overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#AEBFC3] via-white/40 to-[#546A7A]" />
+              <Truck className="w-5 h-5 text-white" />
+            </div>
+            Delivery Tracking
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            <div>
+              <label className={labelClass}>Delivery Status ( yes / no )</label>
+              <select 
+                name="deliveryStatus" 
+                value={formData.deliveryStatus === 'DELIVERED' ? 'DELIVERED' : 'PENDING'} 
+                onChange={(e) => setFormData(prev => ({ ...prev, deliveryStatus: e.target.value as any }))}
+                className={selectClass}
+              >
+                <option value="PENDING">No (Pending)</option>
+                <option value="DELIVERED">Yes (Delivered)</option>
+              </select>
+            </div>
+            <div>
+              <label className={labelClass}>Delivery details ( all types suport )</label>
+              <input
+                type="text"
+                name="modeOfDelivery"
+                value={formData.modeOfDelivery}
+                onChange={handleChange}
+                placeholder="Courier, Hand Delivery, etc."
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Handover date</label>
+              <input
+                type="date"
+                name="sentHandoverDate"
+                value={formData.sentHandoverDate}
+                onChange={handleChange}
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>GRN / Delivered date</label>
+              <input
+                type="date"
+                name="impactDate"
+                value={formData.impactDate}
+                onChange={handleChange}
+                className={inputClass}
+              />
             </div>
           </div>
         </div>
@@ -778,17 +859,7 @@ export default function EditInvoicePage() {
                 className={inputClass}
               />
             </div>
-            <div>
-              <label className={labelClass}>Person In Charge</label>
-              <input
-                type="text"
-                name="personInCharge"
-                value={formData.personInCharge}
-                onChange={handleChange}
-                placeholder="Contact person name"
-                className={inputClass}
-              />
-            </div>
+            {/* Person In-Charge removed from here as it is moved above or redundant */}
           </div>
         </div>
 
