@@ -22,16 +22,60 @@ export const getInvoiceDetailReport = async (req: Request, res: Response) => {
             agingBucket,
             search,
             tsp,
+            personInCharge,
             forecastDate,
         } = req.query;
 
+        const today = new Date();
         const where: any = { invoiceType: 'REGULAR' };
 
-        if (status) where.status = String(status);
+        if (status) {
+            if (status === 'OVERDUE') {
+                where.AND = [
+                    ...(where.AND || []),
+                    {
+                        OR: [
+                            { status: 'OVERDUE' },
+                            {
+                                status: { in: ['PENDING', 'PARTIAL'] },
+                                dueDate: { lt: today }
+                            }
+                        ]
+                    }
+                ];
+            } else if (status === 'PENDING' || status === 'PARTIAL') {
+                where.status = String(status);
+                where.AND = [
+                    ...(where.AND || []),
+                    {
+                        OR: [
+                            { dueDate: { gte: today } },
+                            { dueDate: null }
+                        ]
+                    }
+                ];
+            } else {
+                where.status = String(status);
+            }
+        }
         if (riskClass) where.riskClass = String(riskClass);
         if (region) where.region = { contains: String(region), mode: 'insensitive' };
         if (type) where.type = String(type);
-        if (tsp) where.mailToTSP = String(tsp);
+
+        // Combined Personnel Filter
+        const personnel = personInCharge || tsp;
+        if (personnel) {
+            const personnelClauses = [
+                { personInCharge: String(personnel) },
+                { mailToTSP: String(personnel) }
+            ];
+            if (where.OR) {
+                where.AND = [{ OR: where.OR }, { OR: personnelClauses }];
+                delete where.OR;
+            } else {
+                where.OR = personnelClauses;
+            }
+        }
 
         if (customer) {
             where.OR = [
@@ -142,8 +186,8 @@ export const getInvoiceDetailReport = async (req: Request, res: Response) => {
             remarkMap[r.invoiceId].push(r);
         });
 
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
 
         // Build enriched invoice list
         const enrichedInvoices = invoices.map((invoice: any) => {
@@ -170,7 +214,7 @@ export const getInvoiceDetailReport = async (req: Request, res: Response) => {
             if (invoice.dueDate) {
                 const dueDate = new Date(invoice.dueDate);
                 dueDate.setHours(0, 0, 0, 0);
-                daysOverdue = Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+                daysOverdue = Math.floor((todayStart.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
                 if (daysOverdue <= 0) agingBucketLabel = 'Current';
                 else if (daysOverdue <= 30) agingBucketLabel = '1-30 Days';
                 else if (daysOverdue <= 60) agingBucketLabel = '31-60 Days';
@@ -359,16 +403,39 @@ export const getMilestoneDetailReport = async (req: Request, res: Response) => {
             type,
             search,
             tsp,
+            personInCharge,
             forecastDate,
         } = req.query;
 
         const where: any = { invoiceType: 'MILESTONE' };
+        let filterStatusInMemory: string | null = null;
 
-        if (status) where.status = String(status);
+        if (status) {
+            if (['OVERDUE', 'PENDING', 'PARTIAL'].includes(String(status))) {
+                where.status = { not: 'CANCELLED' };
+                filterStatusInMemory = String(status);
+            } else {
+                where.status = String(status);
+            }
+        }
         if (milestoneStatus) where.milestoneStatus = String(milestoneStatus);
         if (accountingStatus) where.accountingStatus = String(accountingStatus);
         if (type) where.type = String(type);
-        if (tsp) where.mailToTSP = String(tsp);
+
+        // Combined Personnel Filter
+        const personnel = personInCharge || tsp;
+        if (personnel) {
+            const personnelClauses = [
+                { personInCharge: String(personnel) },
+                { mailToTSP: String(personnel) }
+            ];
+            if (where.OR) {
+                where.AND = [{ OR: where.OR }, { OR: personnelClauses }];
+                delete where.OR;
+            } else {
+                where.OR = personnelClauses;
+            }
+        }
 
         if (customer) {
             where.OR = [
@@ -647,7 +714,7 @@ export const getMilestoneDetailReport = async (req: Request, res: Response) => {
             target.setHours(23, 59, 59, 999);
             filteredMilestones = filteredMilestones.filter((ms: any) => {
                 if (!ms.balance || ms.balance <= 0) return false;
-                
+
                 let forecastAmount = 0;
                 let isMatch = false;
                 ms.terms.forEach((t: any) => {
@@ -656,7 +723,7 @@ export const getMilestoneDetailReport = async (req: Request, res: Response) => {
                         forecastAmount += t.pending;
                     }
                 });
-                
+
                 if (isMatch) {
                     ms.forecastAmount = forecastAmount;
                     return true;

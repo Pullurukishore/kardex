@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
-import { arApi, formatARCurrency, formatARDate, formatARMonth, TSP_OPTIONS } from '@/lib/ar-api';
+import { arApi, formatARCurrency, formatARDate, formatARMonth, PIC_OPTIONS } from '@/lib/ar-api';
 import * as XLSX from 'xlsx';
 import {
   FileText, Wallet, Search, RefreshCw, Download, AlertTriangle, Clock,
@@ -890,7 +890,7 @@ export default function ARReportsPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [riskFilter, setRiskFilter] = useState('');
-  const [tspFilter, setTspFilter] = useState('');
+  const [personInChargeFilter, setPersonInChargeFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [acctFilter, setAcctFilter] = useState('');
   const [sortField, setSortField] = useState('invoiceDate');
@@ -918,7 +918,7 @@ export default function ARReportsPage() {
       loadData();
     }, 500);
     return () => clearTimeout(timer);
-  }, [activeTab, search, statusFilter, riskFilter, typeFilter, acctFilter, tspFilter, fromDate, toDate, forecastDate]);
+  }, [activeTab, search, statusFilter, riskFilter, typeFilter, acctFilter, personInChargeFilter, fromDate, toDate, forecastDate]);
 
   const loadData = async () => {
     try {
@@ -929,7 +929,7 @@ export default function ARReportsPage() {
         status: statusFilter || undefined,
         riskClass: riskFilter || undefined,
         type: typeFilter || undefined,
-        tsp: tspFilter || undefined,
+        personInCharge: personInChargeFilter || undefined,
         accountingStatus: acctFilter || undefined,
         fromDate: fromDate || undefined,
         toDate: toDate || undefined,
@@ -959,10 +959,10 @@ export default function ARReportsPage() {
   };
 
   const clearFilters = () => {
-    setSearch(''); setStatusFilter(''); setRiskFilter(''); setTspFilter(''); setTypeFilter('');
+    setSearch(''); setStatusFilter(''); setRiskFilter(''); setPersonInChargeFilter(''); setTypeFilter('');
     setAcctFilter(''); setFromDate(''); setToDate(''); setForecastDate('');
   };
-  const hasFilters = search || statusFilter || riskFilter || tspFilter || typeFilter || acctFilter || fromDate || toDate || forecastDate;
+  const hasFilters = search || statusFilter || riskFilter || personInChargeFilter || typeFilter || acctFilter || fromDate || toDate || forecastDate;
 
   // Filter & sort invoice data
   const filteredInvoices = useMemo(() => {
@@ -1058,7 +1058,7 @@ export default function ARReportsPage() {
     if (search) chips.push({ key: 'search', label: 'Search', value: search, onRemove: () => setSearch('') });
     if (statusFilter) chips.push({ key: 'status', label: 'Status', value: statusFilter, onRemove: () => setStatusFilter('') });
     if (riskFilter) chips.push({ key: 'risk', label: 'Risk', value: riskFilter, onRemove: () => setRiskFilter('') });
-    if (tspFilter) chips.push({ key: 'tsp', label: 'TSP', value: tspFilter, onRemove: () => setTspFilter('') });
+    if (personInChargeFilter) chips.push({ key: 'personInCharge', label: 'Person In-charge', value: personInChargeFilter, onRemove: () => setPersonInChargeFilter('') });
     if (typeFilter) chips.push({ key: 'type', label: 'Type', value: typeFilter, onRemove: () => setTypeFilter('') });
     if (acctFilter) chips.push({ key: 'acct', label: 'Accounting', value: acctFilter.replace(/_/g, ' '), onRemove: () => setAcctFilter('') });
     if (fromDate) chips.push({ key: 'from', label: 'From', value: fromDate, onRemove: () => setFromDate('') });
@@ -1288,11 +1288,11 @@ export default function ARReportsPage() {
             </div>
 
             <div className="relative group min-w-[140px] flex-1">
-              <select value={tspFilter} onChange={e => setTspFilter(e.target.value)}
+              <select value={personInChargeFilter} onChange={e => setPersonInChargeFilter(e.target.value)}
                 className="w-full h-10 pl-3 pr-8 rounded-xl bg-white border-2 border-[#AEBFC3]/40 text-sm text-[#546A7A] font-bold focus:border-[#6F8A9D] focus:ring-4 focus:ring-[#6F8A9D]/10 outline-none appearance-none transition-all shadow-sm cursor-pointer">
-                <option value="">TSP: All</option>
-                {TSP_OPTIONS.map(tsp => (
-                  <option key={tsp} value={tsp}>{tsp}</option>
+                <option value="">Person In-charge: All</option>
+                {PIC_OPTIONS.map(p => (
+                  <option key={p} value={p}>{p}</option>
                 ))}
               </select>
               <Filter className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#92A2A5] pointer-events-none group-hover:text-[#6F8A9D] transition-colors" />

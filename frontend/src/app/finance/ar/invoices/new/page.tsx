@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { arApi, TSP_OPTIONS } from '@/lib/ar-api';
+import { arApi, PIC_OPTIONS } from '@/lib/ar-api';
 import { ArrowLeft, Save, Loader2, FileText, Sparkles, Upload, AlertCircle, IndianRupee, Calendar, Info, Truck, Plus, Trash2, User } from 'lucide-react';
 
 export default function NewInvoicePage() {
@@ -117,9 +117,9 @@ export default function NewInvoicePage() {
     e.preventDefault();
     setError(null);
 
-    // Required fields: invoiceNumber, bpCode, invoiceDate, totalAmount
-    if (!formData.invoiceNumber || !formData.bpCode || !formData.invoiceDate || !formData.totalAmount) {
-      setError('Please fill in all required fields: Doc. No., Customer Code, Document Date, and Amount');
+    // Required fields: invoiceNumber, bpCode, invoiceDate, dueDate, totalAmount
+    if (!formData.invoiceNumber || !formData.bpCode || !formData.invoiceDate || !formData.dueDate || !formData.totalAmount) {
+      setError('Please fill in all required fields: Doc. No., Customer Code, Document Date, Due Date, and Amount');
       return;
     }
 
@@ -324,18 +324,9 @@ export default function NewInvoicePage() {
                 className={inputClass}
               >
                 <option value="">Select Person</option>
-                <option value="Ashraf">Ashraf</option>
-                <option value="Gajendra">Gajendra</option>
-                <option value="Minesh">Minesh</option>
-                <option value="Nithin">Nithin</option>
-                <option value="Pankaj">Pankaj</option>
-                <option value="Pradeep">Pradeep</option>
-                <option value="Rahul">Rahul</option>
-                <option value="Sasi kumar">Sasi kumar</option>
-                <option value="Sreenadh">Sreenadh</option>
-                <option value="Vinay">Vinay</option>
-                <option value="Yogesh">Yogesh</option>
-                <option value="Others">Others</option>
+                {PIC_OPTIONS.map(person => (
+                  <option key={person} value={person}>{person}</option>
+                ))}
               </select>
             </div>
 
@@ -375,7 +366,7 @@ export default function NewInvoicePage() {
             <div>
               <label className="flex items-center gap-1.5 text-[#5D6E73] text-xs font-bold mb-2 uppercase tracking-wider">
                 <div className="p-1 rounded-lg bg-gradient-to-br from-[#E17F70] to-[#9E3B47]"><Calendar className="w-3 h-3 text-white" /></div>
-                Due Date
+                Due Date <span className="text-[#E17F70]">*</span>
               </label>
               <div className="relative">
                 <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#E17F70]" />
@@ -385,6 +376,7 @@ export default function NewInvoicePage() {
                   value={formData.dueDate}
                   onChange={handleChange}
                   className="w-full h-12 pl-11 pr-4 rounded-xl bg-gradient-to-r from-[#E17F70]/5 to-[#9E3B47]/5 border-2 border-[#AEBFC3]/30 text-[#546A7A] focus:border-[#E17F70] focus:outline-none focus:ring-2 focus:ring-[#E17F70]/10 transition-all font-medium"
+                  required
                 />
               </div>
             </div>

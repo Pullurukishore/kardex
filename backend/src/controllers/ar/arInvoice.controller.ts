@@ -23,12 +23,15 @@ export const getAllInvoices = async (req: Request, res: Response) => {
             bookingMonth,
             riskClass,
             tsp,
+            personInCharge,
             minAmount,
             maxAmount,
             page = 1,
             limit = 20
         } = req.query;
 
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
         const where: any = {};
 
         if (search) {
@@ -47,6 +50,30 @@ export const getAllInvoices = async (req: Request, res: Response) => {
             if (invoiceType === 'MILESTONE' && ['OVERDUE', 'PENDING', 'PARTIAL'].includes(String(status))) {
                 where.status = { not: 'CANCELLED' };
                 filterStatusInMemory = String(status);
+            } else if (invoiceType === 'REGULAR' && status === 'OVERDUE') {
+                where.AND = [
+                    ...(where.AND || []),
+                    {
+                        OR: [
+                            { status: 'OVERDUE' },
+                            {
+                                status: { in: ['PENDING', 'PARTIAL'] },
+                                dueDate: { lt: today }
+                            }
+                        ]
+                    }
+                ];
+            } else if (invoiceType === 'REGULAR' && (status === 'PENDING' || status === 'PARTIAL')) {
+                where.status = status;
+                where.AND = [
+                    ...(where.AND || []),
+                    {
+                        OR: [
+                            { dueDate: { gte: today } },
+                            { dueDate: null }
+                        ]
+                    }
+                ];
             } else {
                 where.status = status;
             }
@@ -70,7 +97,18 @@ export const getAllInvoices = async (req: Request, res: Response) => {
                 where.status = { not: 'CANCELLED' };
                 filterStatusInMemory = 'OVERDUE';
             } else {
-                where.status = 'OVERDUE';
+                where.AND = [
+                    ...(where.AND || []),
+                    {
+                        OR: [
+                            { status: 'OVERDUE' },
+                            {
+                                status: { in: ['PENDING', 'PARTIAL'] },
+                                dueDate: { lt: today }
+                            }
+                        ]
+                    }
+                ];
             }
         }
 
@@ -98,8 +136,25 @@ export const getAllInvoices = async (req: Request, res: Response) => {
         if (riskClass) {
             where.riskClass = String(riskClass);
         }
-        if (tsp) {
-            where.mailToTSP = String(tsp);
+        // Combined Personnel Filter (Checks both legacy mailToTSP and new personInCharge columns)
+        const personnel = personInCharge || tsp;
+        if (personnel) {
+            const personnelClauses = [
+                { personInCharge: String(personnel) },
+                { mailToTSP: String(personnel) }
+            ];
+
+            if (where.OR) {
+                // If search already populated OR, combine them with AND
+                where.AND = [
+                    ...(where.AND || []),
+                    { OR: where.OR },
+                    { OR: personnelClauses }
+                ];
+                delete where.OR;
+            } else {
+                where.OR = personnelClauses;
+            }
         }
 
         if (minAmount || maxAmount) {
@@ -849,11 +904,8 @@ export const createInvoice = async (req: Request, res: Response) => {
             status = 'OVERDUE';
         }
 
-        // Calculate due date: use provided or default to 30 days from invoice date (if available)
+        // Calculate due date: use provided or null
         let calculatedDueDate = dueDate ? new Date(dueDate) : null;
-        if (!calculatedDueDate && invoiceDate) {
-            calculatedDueDate = new Date(new Date(invoiceDate).getTime() + 30 * 24 * 60 * 60 * 1000);
-        }
 
         // Try to fetch remaining details from master if not provided
         let masterData = null;

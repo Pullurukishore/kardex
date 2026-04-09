@@ -151,12 +151,46 @@ function parseDecimal(value: any): number {
     return 0;
 }
 
+/**
+ * Normalizes delivery status strings to ARDeliveryStatus enum values
+ */
+function normalizeDeliveryStatus(value: any): string {
+    if (!value) return 'PENDING';
+    
+    const str = value.toString().trim().toUpperCase();
+    if (!str) return 'PENDING';
+
+    // Handle boolean-like strings common in Excel
+    if (['YES', 'Y', 'TRUE', '1', 'DELIVERED'].includes(str)) {
+        return 'DELIVERED';
+    }
+    
+    if (['NO', 'N', 'FALSE', '0', 'PENDING'].includes(str)) {
+        return 'PENDING';
+    }
+
+    if (['SENT', 'DISPATCHED'].includes(str)) {
+        return 'SENT';
+    }
+
+    if (['ACKNOWLEDGED', 'ACK'].includes(str)) {
+        return 'ACKNOWLEDGED';
+    }
+
+    // Direct match check for enum values (in case they are already correct)
+    if (['PENDING', 'SENT', 'DELIVERED', 'ACKNOWLEDGED'].includes(str)) {
+        return str;
+    }
+
+    return 'PENDING';
+}
+
 // Helper function to get value from multiple possible column names
 function getValue(row: SAPImportRow, ...keys: string[]): any {
     const rowKeys = Object.keys(row);
     for (const key of keys) {
         const searchKey = key.trim().toLowerCase();
-        
+
         // Try direct match first (fastest)
         if (row[key] !== undefined && row[key] !== null && row[key] !== '') {
             let value = row[key];
@@ -164,10 +198,11 @@ function getValue(row: SAPImportRow, ...keys: string[]): any {
             return value;
         }
 
-        // Try case-insensitive and trimmed match
+        // Try case-insensitive, trimmed, and character-agnostic match
         const actualKey = rowKeys.find(rk => {
-            const normalized = rk.replace(/\s+/g, ' ').trim().toLowerCase();
-            const normalizedSearch = searchKey.replace(/\s+/g, ' ').trim().toLowerCase();
+            // Remove all non-alphanumeric characters for comparison (e.g., "Doc. No." -> "docno")
+            const normalized = rk.replace(/[^a-zA-Z0-9]/g, '').trim().toLowerCase();
+            const normalizedSearch = searchKey.replace(/[^a-zA-Z0-9]/g, '').trim().toLowerCase();
             return normalized === normalizedSearch || normalized.includes(normalizedSearch);
         });
 
@@ -247,7 +282,7 @@ function validateRow(row: SAPImportRow, rowNumber: number): { isValid: boolean; 
  */
 function normalizeBookingMonth(value: any): string | null {
     if (!value) return null;
-    
+
     const str = value.toString().trim();
     if (!str) return null;
 
@@ -267,19 +302,19 @@ function normalizeBookingMonth(value: any): string | null {
         jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06',
         jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12'
     };
-    
+
     const parts = str.split(/[\s/-]/);
     if (parts.length >= 2) {
         let month = '';
         let year = '';
-        
+
         for (const p of parts) {
             const lp = p.toLowerCase().substring(0, 3);
             if (monthsMap[lp]) month = monthsMap[lp];
             else if (/^\d{4}$/.test(p)) year = p;
             else if (/^\d{2}$/.test(p) && !year) year = p;
         }
-        
+
         if (month && year) {
             if (year.length === 2) year = '20' + year;
             return `${year}-${month}`;
@@ -370,17 +405,17 @@ export const previewExcel = async (req: Request, res: Response) => {
 
         // --- Milestone Specific Detection ---
         const milestoneRequiredColumns = [
-            'Invoice Number', 'SO no.', 'PO No.', 'Booking month', 'Customer', 
-            'Accounting status', 'Total Amount', 'Order Value', 'GST', 
+            'Invoice Number', 'SO no.', 'PO No.', 'Booking month', 'Customer',
+            'Accounting status', 'Total Amount', 'Order Value', 'GST',
             'Invoice Date', 'Finance Comments', 'Mail to TSP'
         ];
-        const isMilestoneFormat = headers.some(h => h.trim().toLowerCase().includes('so no.')) || 
-                                 headers.some(h => h.trim().toLowerCase().includes('booking month'));
+        const isMilestoneFormat = headers.some(h => h.trim().toLowerCase().includes('so no.')) ||
+            headers.some(h => h.trim().toLowerCase().includes('booking month'));
 
         // Required columns for standard SAP import
         const sapRequiredColumns = ['Doc. No.', 'Customer Code', 'Customer Name', 'Customer Ref. No.', 'Amount', 'Net', 'Tax', 'Document Date'];
         const sapOptionalColumns = ['Due Date', 'Email ID', 'Contact No', 'Region', 'Department', 'Person In-charge', 'Category', 'Delivery Details', 'Handover Date', 'Delivery Status', 'GRN/Delivered Date'];
-        
+
         const possibleHeaders: { [key: string]: string[] } = isMilestoneFormat ? {
             'Invoice Number': ['Invoice Number', 'Invoice No', 'InvNo', 'Doc. No.', 'Bill No'],
             'SO no.': ['SO no.', 'SO.no', 'SONo', 'SO Number', 'Sales Order'],
@@ -411,7 +446,7 @@ export const previewExcel = async (req: Request, res: Response) => {
             'Contact No': ['Contact No', 'Phone', 'Mobile'],
             'Region': ['Region', 'Location', 'Zone'],
             'Department': ['Department'],
-            'Person In-charge': ['Person In-charge', 'POC'],
+            'Person In-charge': ['Person In-charge', 'Person In Charge', 'Person Incharge', 'POC', 'Kardex POC', 'Kardex Person Incharge', 'In charge', 'In-charge'],
             'Category': ['Category', 'Type', 'Service Type'],
             // Delivery Fields
             'Delivery Details': ['Delivery Details', 'DeliveryDetails', 'Mode of Delivery', 'ModeOfDelivery'],
@@ -459,7 +494,7 @@ export const previewExcel = async (req: Request, res: Response) => {
                 // Delivery Fields
                 modeOfDelivery: getValue(row, 'Delivery Details', 'DeliveryDetails', 'Mode of Delivery', 'ModeOfDelivery'),
                 sentHandoverDate: getValue(row, 'Handover Date', 'HandoverDate', 'Sent Date', 'SentDate'),
-                deliveryStatus: getValue(row, 'Delivery Status', 'DeliveryStatus'),
+                deliveryStatus: normalizeDeliveryStatus(getValue(row, 'Delivery Status', 'DeliveryStatus')),
                 impactDate: getValue(row, 'GRN/Delivered Date', 'Delivered Date', 'GRN Date', 'Acceptance Date', 'Impact Date')
             };
 
@@ -468,7 +503,7 @@ export const previewExcel = async (req: Request, res: Response) => {
                 const errors: { field: string; message: string }[] = [];
                 if (!cleanRow.customerName) errors.push({ field: 'Customer', message: 'Missing Customer' });
                 if (!cleanRow.totalAmount) errors.push({ field: 'Total Amount', message: 'Missing Total Amount' });
-                
+
                 if (cleanRow.invoiceDate && !parseExcelDate(cleanRow.invoiceDate)) {
                     errors.push({ field: 'Invoice Date', message: 'Invalid date format' });
                 }
@@ -546,8 +581,8 @@ export const importFromExcel = async (req: Request, res: Response) => {
 
         // Get headers for format detection
         const headers = Object.keys(rows[0]);
-        const isMilestoneFormat = headers.some(h => h.trim().toLowerCase().includes('so no.')) || 
-                                 headers.some(h => h.trim().toLowerCase().includes('booking month'));
+        const isMilestoneFormat = headers.some(h => h.trim().toLowerCase().includes('so no.')) ||
+            headers.some(h => h.trim().toLowerCase().includes('booking month'));
 
         // Mapping config
         const possibleHeaders: { [key: string]: string[] } = isMilestoneFormat ? {
@@ -564,7 +599,10 @@ export const importFromExcel = async (req: Request, res: Response) => {
             'taxAmount': ['GST', 'Tax'],
             'totalAmount': ['Total Amount', 'Amount', 'Total'],
             'actualPaymentTerms': ['Actual Payment terms', 'Payment Terms', 'Terms'],
-            'financeComments': ['Finance Comments', 'Remarks', 'Comments']
+            'financeComments': ['Finance Comments', 'Remarks', 'Comments'],
+            'deliveryStatus': ['Delivery Status', 'DeliveryStatus'],
+            'sentHandoverDate': ['Handover Date', 'HandoverDate', 'Sent Date', 'SentDate'],
+            'impactDate': ['GRN/Delivered Date', 'Delivered Date', 'GRN Date', 'Acceptance Date', 'Impact Date']
         } : {
             'invoiceNumber': ['Doc. No.', 'Doc No', 'DocNo', 'Invoice No', 'InvoiceNo'],
             'bpCode': ['Customer Code', 'CustomerCode', 'BP Code', 'BPCode'],
@@ -576,6 +614,12 @@ export const importFromExcel = async (req: Request, res: Response) => {
             'invoiceDate': ['Document Date', 'DocumentDate', 'Invoice Date', 'InvoiceDate'],
             'dueDate': ['Due Date', 'DueDate'],
             'type': ['Category', 'Type', 'Service Type'],
+            // Master Fields
+            'emailId': ['Email ID', 'Email', 'Contact Email'],
+            'contactNo': ['Contact No', 'Phone', 'Mobile'],
+            'region': ['Region', 'Location', 'Zone'],
+            'department': ['Department'],
+            'personInCharge': ['Person In-charge', 'Person In Charge', 'Person Incharge', 'POC', 'Kardex POC', 'Kardex Person Incharge', 'In charge', 'In-charge'],
             // Delivery Fields
             'modeOfDelivery': ['Delivery Details', 'DeliveryDetails', 'Mode of Delivery', 'ModeOfDelivery'],
             'sentHandoverDate': ['Handover Date', 'HandoverDate', 'Sent Date', 'SentDate'],
@@ -675,7 +719,7 @@ export const importFromExcel = async (req: Request, res: Response) => {
             } else if (typeStr === 'NEW BUSINESS') {
                 finalType = 'NB';
             }
-            
+
             // Validation
             if (!invoiceNumber && !isMilestoneFormat) {
                 errors.push(`Row ${rowNumber}: Missing Invoice Number`);
@@ -725,16 +769,16 @@ export const importFromExcel = async (req: Request, res: Response) => {
                 financeComments: financeComments || null,
                 invoiceType: isMilestoneFormat ? 'MILESTONE' : 'REGULAR',
                 // Master Fields
-                emailId: getValue(row, 'Email ID', 'Email', 'Contact Email'),
-                contactNo: getValue(row, 'Contact No', 'Phone', 'Mobile'),
-                region: getValue(row, 'Region', 'Location', 'Zone'),
-                department: getValue(row, 'Department'),
-                personInCharge: getValue(row, 'Person In-charge', 'POC'),
+                emailId: getValue(row, ...possibleHeaders['emailId'] || ['Email ID', 'Email']),
+                contactNo: getValue(row, ...possibleHeaders['contactNo'] || ['Contact No', 'Phone', 'Mobile']),
+                region: getValue(row, ...possibleHeaders['region'] || ['Region', 'Location', 'Zone']),
+                department: getValue(row, ...possibleHeaders['department'] || ['Department']),
+                personInCharge: getValue(row, ...possibleHeaders['personInCharge'] || ['Person In-charge', 'POC']),
                 type: finalType,
                 // Delivery Fields
                 modeOfDelivery: getValue(row, ...possibleHeaders['modeOfDelivery'])?.toString()?.trim(),
                 sentHandoverDate: parseExcelDate(getValue(row, ...possibleHeaders['sentHandoverDate'])),
-                deliveryStatus: getValue(row, ...possibleHeaders['deliveryStatus'])?.toString()?.trim()?.toUpperCase(),
+                deliveryStatus: normalizeDeliveryStatus(getValue(row, ...possibleHeaders['deliveryStatus'])),
                 impactDate: parseExcelDate(getValue(row, ...possibleHeaders['impactDate']))
             });
         }
@@ -783,16 +827,16 @@ export const importFromExcel = async (req: Request, res: Response) => {
                             // Delivery Fields
                             modeOfDelivery: row.modeOfDelivery || null,
                             sentHandoverDate: row.sentHandoverDate || null,
-                            deliveryStatus: ['PENDING', 'SENT', 'DELIVERED', 'ACKNOWLEDGED'].includes(row.deliveryStatus) ? row.deliveryStatus : 'PENDING',
+                            deliveryStatus: row.deliveryStatus,
                             impactDate: row.impactDate || null
                         };
 
                         // Check if invoice already exists (by number AND type AND soNo to prevent merging different milestones)
-                        const whereClause: any = { 
-                            invoiceNumber: row.invoiceNumber, 
-                            invoiceType: row.invoiceType 
+                        const whereClause: any = {
+                            invoiceNumber: row.invoiceNumber,
+                            invoiceType: row.invoiceType
                         };
-                        
+
                         // For milestones, include soNo in uniqueness check to allow multiple records with empty invoice numbers
                         if (row.invoiceType === 'MILESTONE') {
                             whereClause.soNo = row.soNo;
@@ -812,7 +856,7 @@ export const importFromExcel = async (req: Request, res: Response) => {
                             const currentAdjustments = Number(existingInvoice.adjustments || 0);
                             const totalReceipts = currentReceipts + currentAdjustments;
                             const newBalance = Number(row.totalAmount) - totalReceipts;
-                            
+
                             let newStatus: ARInvoiceStatus = 'PENDING';
                             if (newBalance <= 0) newStatus = 'PAID';
                             else if (totalReceipts > 0) newStatus = 'PARTIAL';

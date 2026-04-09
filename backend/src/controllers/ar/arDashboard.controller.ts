@@ -60,20 +60,58 @@ export const getEssentialDashboard = async (req: Request, res: Response) => {
                 }),
                 { _sum: { balance: null }, _count: 0 }
             ),
-            // Overdue Balance - Strictly REGULAR
+            // Overdue Balance - Strictly REGULAR (Dynamic)
             safeAggregate(
                 prisma.aRInvoice.aggregate({
-                    where: { status: 'OVERDUE', invoiceType: 'REGULAR' },
+                    where: { 
+                        invoiceType: 'REGULAR',
+                        OR: [
+                            { status: 'OVERDUE' },
+                            {
+                                status: { in: ['PENDING', 'PARTIAL'] },
+                                dueDate: { lt: today }
+                            }
+                        ]
+                    },
                     _sum: { balance: true }
                 }),
                 { _sum: { balance: null } }
             ),
-            // Pending Count - Strictly REGULAR
-            safeCount(prisma.aRInvoice.count({ where: { status: 'PENDING', invoiceType: 'REGULAR' } })),
+            // Pending Count - Strictly REGULAR (Dynamic: not yet due)
+            safeCount(prisma.aRInvoice.count({ 
+                where: { 
+                    status: 'PENDING', 
+                    invoiceType: 'REGULAR',
+                    OR: [
+                        { dueDate: { gte: today } },
+                        { dueDate: null }
+                    ]
+                } 
+            })),
             // Status Counts - Strictly REGULAR
             safeCount(prisma.aRInvoice.count({ where: { status: 'PAID', invoiceType: 'REGULAR' } })),
-            safeCount(prisma.aRInvoice.count({ where: { status: 'PARTIAL', invoiceType: 'REGULAR' } })),
-            safeCount(prisma.aRInvoice.count({ where: { status: 'OVERDUE', invoiceType: 'REGULAR' } })),
+            safeCount(prisma.aRInvoice.count({ 
+                where: { 
+                    status: 'PARTIAL', 
+                    invoiceType: 'REGULAR',
+                    OR: [
+                        { dueDate: { gte: today } },
+                        { dueDate: null }
+                    ]
+                } 
+            })),
+            safeCount(prisma.aRInvoice.count({ 
+                where: { 
+                    invoiceType: 'REGULAR',
+                    OR: [
+                        { status: 'OVERDUE' },
+                        {
+                            status: { in: ['PENDING', 'PARTIAL'] },
+                            dueDate: { lt: today }
+                        }
+                    ]
+                } 
+            })),
 
             // Total Amount (Standard only)
             safeAggregate(
@@ -115,9 +153,18 @@ export const getEssentialDashboard = async (req: Request, res: Response) => {
                     invoiceDate: true
                 }
             })),
-            // Critical overdue (top 5) - Strictly REGULAR
+            // Critical overdue (top 5) - Strictly REGULAR (Dynamic)
             safeFindMany(prisma.aRInvoice.findMany({
-                where: { status: 'OVERDUE', invoiceType: 'REGULAR' },
+                where: { 
+                    invoiceType: 'REGULAR',
+                    OR: [
+                        { status: 'OVERDUE' },
+                        {
+                            status: { in: ['PENDING', 'PARTIAL'] },
+                            dueDate: { lt: today }
+                        }
+                    ]
+                },
                 orderBy: { balance: 'desc' },
                 take: 5,
                 select: {

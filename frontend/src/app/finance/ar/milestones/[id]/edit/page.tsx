@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { arApi, ARInvoice, formatARCurrency, MilestonePaymentTerm, TSP_OPTIONS } from '@/lib/ar-api';
+import { arApi, ARInvoice, formatARCurrency, MilestonePaymentTerm, PIC_OPTIONS } from '@/lib/ar-api';
 import { ArrowLeft, Save, Loader2, FileText, User, Calendar, IndianRupee, Sparkles, Wallet, Plus, Trash2, Tag, X, AlertCircle, CheckCircle2, BarChart3, Truck, Package } from 'lucide-react';
 
 export default function EditMilestonePage() {
@@ -208,7 +208,7 @@ export default function EditMilestonePage() {
         milestoneTerms: (data.milestoneTerms as MilestonePaymentTerm[]) || [],
         milestoneStatus: data.milestoneStatus || 'AWAITING_DELIVERY',
         accountingStatus: data.accountingStatus || '',
-        mailToTSP: (data.mailToTSP === 'false' as any) ? '' : (data.mailToTSP || ''),
+        mailToTSP: data.personInCharge || '',
         bookingMonth: data.bookingMonth || '',
         hasAPG: data.hasAPG || false,
         apgDraftDate: data.apgDraftDate ? data.apgDraftDate.split('T')[0] : '',
@@ -325,14 +325,13 @@ export default function EditMilestonePage() {
         contactNo: formData.contactNo || undefined,
         region: formData.region || undefined,
         department: formData.department || undefined,
-        personInCharge: formData.personInCharge || undefined,
         type: formData.type || undefined,
         status: formData.status as any,
         invoiceType: 'MILESTONE',
         milestoneTerms: formData.milestoneTerms,
         milestoneStatus: formData.milestoneStatus || undefined,
         accountingStatus: formData.accountingStatus || undefined,
-        mailToTSP: formData.mailToTSP,
+        personInCharge: formData.mailToTSP,
         bookingMonth: formData.bookingMonth || undefined,
         invoiceNumber: formData.invoiceNumber,
         invoiceDate: formData.invoiceDate,
@@ -573,16 +572,16 @@ export default function EditMilestonePage() {
               </select>
             </div>
             <div>
-              <label className={labelClass}>TSP</label>
+              <label className={labelClass}>Person In-charge</label>
               <select
                 name="mailToTSP"
                 value={formData.mailToTSP}
                 onChange={handleChange}
                 className={selectClass}
               >
-                <option value="">Select TSP</option>
-                {TSP_OPTIONS.map(tsp => (
-                  <option key={tsp} value={tsp}>{tsp}</option>
+                <option value="">Select Person</option>
+                {PIC_OPTIONS.map(p => (
+                  <option key={p} value={p}>{p}</option>
                 ))}
               </select>
             </div>
@@ -653,17 +652,6 @@ export default function EditMilestonePage() {
                   <option value="HIGH">High Risk</option>
                   <option value="CRITICAL">Critical</option>
                 </select>
-              </div>
-              <div>
-                <label className={labelClass}>Person In-Charge</label>
-                <input
-                  type="text"
-                  name="personInCharge"
-                  value={formData.personInCharge}
-                  onChange={handleChange}
-                  placeholder="Employee handling this"
-                  className={inputClass}
-                />
               </div>
               <div>
                 <label className={labelClass}>Contact Number</label>

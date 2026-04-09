@@ -559,15 +559,15 @@ export default function MilestoneViewPage() {
               </div>
 
               {/* Entity Info */}
-              <div className="relative flex items-center gap-6 p-4 rounded-3xl bg-gradient-to-r from-[#AEBFC3]/5 to-[#96AEC2]/5 border-2 border-[#AEBFC3]/20 w-fit overflow-hidden">
+              <div className="relative flex flex-col sm:flex-row sm:items-center gap-6 p-4 rounded-3xl bg-gradient-to-r from-[#AEBFC3]/5 to-[#96AEC2]/5 border-2 border-[#AEBFC3]/20 w-full sm:w-fit overflow-hidden">
                 <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#6F8A9D] via-[#546A7A] to-[#96AEC2]" />
-                <div className="flex items-center gap-3 border-r border-[#AEBFC3]/30 pr-6">
-                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#6F8A9D] to-[#546A7A] flex items-center justify-center text-white shadow-lg shadow-[#6F8A9D]/20">
+                <div className="flex items-center gap-3 sm:border-r border-[#AEBFC3]/30 sm:pr-6">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#6F8A9D] to-[#546A7A] flex items-center justify-center text-white shadow-lg shadow-[#6F8A9D]/20 flex-shrink-0">
                     <Building className="w-6 h-6" />
                   </div>
-                  <div>
-                    <h2 className="font-bold text-[#546A7A] leading-tight">{invoice.customerName}</h2>
-                    <p className="font-mono text-xs text-[#92A2A5] tracking-wider uppercase">{invoice.bpCode}</p>
+                  <div className="min-w-0">
+                    <h2 className="font-bold text-[#546A7A] leading-tight break-words">{invoice.customerName}</h2>
+                    <p className="font-mono text-xs text-[#92A2A5] tracking-wider uppercase mt-0.5">{invoice.bpCode}</p>
                   </div>
                 </div>
                 

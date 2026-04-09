@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { arApi, ARInvoice, formatARCurrency, TSP_OPTIONS } from '@/lib/ar-api';
+import { arApi, ARInvoice, formatARCurrency, PIC_OPTIONS } from '@/lib/ar-api';
 import { ArrowLeft, Save, Loader2, FileText, User, IndianRupee, Truck, Sparkles, Plus, Trash2 } from 'lucide-react';
 
 export default function EditInvoicePage() {
@@ -165,6 +165,12 @@ export default function EditInvoicePage() {
     setError(null);
 
     try {
+      // Validation
+      if (!formData.invoiceNumber || !formData.bpCode || !formData.invoiceDate || !formData.dueDate || !formData.totalAmount) {
+        setError('Please fill in all required fields: Invoice Number, BP Code, Invoice Date, Due Date, and Total Amount');
+        return;
+      }
+
       setSaving(true);
       
       await arApi.updateInvoice(invoice!.id, {
@@ -412,18 +418,9 @@ export default function EditInvoicePage() {
                 className={selectClass}
               >
                 <option value="">Select Person</option>
-                <option value="Ashraf">Ashraf</option>
-                <option value="Gajendra">Gajendra</option>
-                <option value="Minesh">Minesh</option>
-                <option value="Nithin">Nithin</option>
-                <option value="Pankaj">Pankaj</option>
-                <option value="Pradeep">Pradeep</option>
-                <option value="Rahul">Rahul</option>
-                <option value="Sasi kumar">Sasi kumar</option>
-                <option value="Sreenadh">Sreenadh</option>
-                <option value="Vinay">Vinay</option>
-                <option value="Yogesh">Yogesh</option>
-                <option value="Others">Others</option>
+                {PIC_OPTIONS.map(person => (
+                  <option key={person} value={person}>{person}</option>
+                ))}
               </select>
             </div>
           </div>

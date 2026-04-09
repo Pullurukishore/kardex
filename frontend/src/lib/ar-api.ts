@@ -6,6 +6,26 @@ import api from '@/lib/api/axios';
 // Centralized TSP options used across filters and forms
 export const TSP_OPTIONS = ['PEND', 'Aijaz', 'Tanmay', 'Anand', 'Rishi', 'Vinay', 'others'];
 
+// Standardized Person In-charge options
+export const PIC_OPTIONS = [
+    'Aijaz',
+    'Anand',
+    'Ashraf', 
+    'Gajendra', 
+    'Minesh', 
+    'Nitin', 
+    'Pankaj', 
+    'Pradeep', 
+    'Rahul', 
+    'Rishi',
+    'Sai Kumar', 
+    'Sreenadh', 
+    'Tanmay',
+    'Vinay', 
+    'Yogesh', 
+    'Others'
+];
+
 // Types
 export interface MilestonePaymentTerm {
     termType: 'ABG' | 'PO' | 'DELIVERY' | 'FAR' | 'PBG' | 'FAR_PBG' | 'INVOICE_SUBMISSION' | 'PI' | 'OTHER';
@@ -600,6 +620,7 @@ export const arApi = {
         bookingMonth?: string;
         riskClass?: string;
         tsp?: string;
+        personInCharge?: string;
         minAmount?: number;
         maxAmount?: number;
         page?: number;

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { arApi, MilestonePaymentTerm, TSP_OPTIONS } from '@/lib/ar-api';
+import { arApi, MilestonePaymentTerm, PIC_OPTIONS } from '@/lib/ar-api';
 import { ArrowLeft, Save, Loader2, FileText, Sparkles, AlertCircle, IndianRupee, Calendar, Info, Wallet, Plus, Trash2, Tag, X, CheckCircle2, BarChart3, Truck, Package } from 'lucide-react';
 
 export default function NewMilestonePage() {
@@ -269,7 +269,7 @@ export default function NewMilestonePage() {
         actualPaymentTerms: formData.actualPaymentTerms || undefined,
         type: formData.type || undefined,
         accountingStatus: formData.accountingStatus || undefined,
-        mailToTSP: formData.mailToTSP,
+        personInCharge: formData.mailToTSP,
         bookingMonth: formData.bookingMonth || undefined,
         emailId: formData.emailId || undefined,
         hasAPG: formData.hasAPG,
@@ -515,7 +515,7 @@ export default function NewMilestonePage() {
             </div>
             <div>
               <label className={labelClass}>
-                TSP
+                Person In-charge
               </label>
               <select
                 name="mailToTSP"
@@ -523,9 +523,9 @@ export default function NewMilestonePage() {
                 onChange={handleChange}
                 className={inputClass}
               >
-                <option value="">Select TSP</option>
-                {TSP_OPTIONS.map(tsp => (
-                  <option key={tsp} value={tsp}>{tsp}</option>
+                <option value="">Select Person</option>
+                {PIC_OPTIONS.map(p => (
+                  <option key={p} value={p}>{p}</option>
                 ))}
               </select>
             </div>

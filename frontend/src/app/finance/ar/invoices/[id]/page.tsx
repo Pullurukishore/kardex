@@ -665,9 +665,9 @@ export default function InvoiceViewPage() {
                   <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-[#6F8A9D] to-[#546A7A] flex items-center justify-center text-white text-base sm:text-lg font-bold shadow-lg flex-shrink-0">
                     {invoice.customerName.charAt(0)}
                   </div>
-                  <div>
-                    <p className="font-bold text-[#546A7A] text-sm sm:text-base">{invoice.customerName}</p>
-                    <p className="text-xs sm:text-sm text-[#92A2A5] font-mono">{invoice.bpCode}</p>
+                  <div className="min-w-0">
+                    <p className="font-bold text-[#546A7A] text-sm sm:text-base break-words leading-tight">{invoice.customerName}</p>
+                    <p className="text-xs sm:text-sm text-[#92A2A5] font-mono mt-0.5">{invoice.bpCode}</p>
                   </div>
                 </div>
 

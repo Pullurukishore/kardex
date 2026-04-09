@@ -4,7 +4,7 @@ import { Fragment, useEffect, useState, useMemo } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { arApi, ARInvoice, MilestonePaymentTerm, formatARCurrency, formatARDate, formatARMonth, TSP_OPTIONS } from '@/lib/ar-api';
+import { arApi, ARInvoice, MilestonePaymentTerm, formatARCurrency, formatARDate, formatARMonth, PIC_OPTIONS } from '@/lib/ar-api';
 import { 
   Search, ChevronLeft, ChevronRight, ChevronDown, Plus, 
   TrendingUp, AlertTriangle, Clock, CheckCircle2, Calendar, 
@@ -312,7 +312,7 @@ export default function ARPaymentMilestonesPage() {
   const [maxAmount, setMaxAmount] = useState(searchParams.get('maxAmount') || '');
   const [riskClass, setRiskClass] = useState(searchParams.get('riskClass') || '');
   const [milestoneStatus, setMilestoneStatus] = useState(searchParams.get('milestoneStatus') || '');
-  const [tsp, setTsp] = useState(searchParams.get('tsp') || '');
+  const [personInCharge, setPersonInCharge] = useState(searchParams.get('personInCharge') || '');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   const agingBucket = searchParams.get('agingBucket') || '';
@@ -344,12 +344,12 @@ export default function ARPaymentMilestonesPage() {
     updateParam('maxAmount', maxAmount);
     updateParam('riskClass', riskClass);
     updateParam('milestoneStatus', milestoneStatus);
-    updateParam('tsp', tsp);
+    updateParam('personInCharge', personInCharge);
 
     if (changed) {
       router.replace(`${pathname}?${params.toString()}`, { scroll: false });
     }
-  }, [search, status, page, customerId, fromDate, toDate, region, category, accountingStatus, minAmount, maxAmount, riskClass, milestoneStatus, tsp, pathname, router, searchParams]);
+  }, [search, status, page, customerId, fromDate, toDate, region, category, accountingStatus, minAmount, maxAmount, riskClass, milestoneStatus, personInCharge, pathname, router, searchParams]);
 
   const agingBucketLabels: Record<string, string> = {
     'current': 'Current (Not Yet Due)',
@@ -361,7 +361,7 @@ export default function ARPaymentMilestonesPage() {
 
   useEffect(() => {
     loadInvoices();
-  }, [search, status, page, agingBucket, customerId, fromDate, toDate, region, category, accountingStatus, minAmount, maxAmount, riskClass, milestoneStatus, tsp]);
+  }, [search, status, page, agingBucket, customerId, fromDate, toDate, region, category, accountingStatus, minAmount, maxAmount, riskClass, milestoneStatus, personInCharge]);
 
   useEffect(() => {
     loadCustomers();
@@ -397,7 +397,7 @@ export default function ARPaymentMilestonesPage() {
         minAmount: minAmount ? parseFloat(minAmount) : undefined,
         maxAmount: maxAmount ? parseFloat(maxAmount) : undefined,
         riskClass: riskClass || undefined,
-        tsp: tsp || undefined,
+        personInCharge: personInCharge || undefined,
         page, 
         limit: 100
       });
@@ -439,7 +439,7 @@ export default function ARPaymentMilestonesPage() {
 
   const activeFilterCount = [
     customerId, fromDate, toDate, region, category, 
-    accountingStatus, minAmount, maxAmount, riskClass, milestoneStatus, tsp
+    accountingStatus, minAmount, maxAmount, riskClass, milestoneStatus, personInCharge
   ].filter(Boolean).length;
 
   const clearAllFilters = () => {
@@ -455,7 +455,7 @@ export default function ARPaymentMilestonesPage() {
     setMaxAmount('');
     setRiskClass('');
     setMilestoneStatus('');
-    setTsp('');
+    setPersonInCharge('');
     setPage(1);
   };
 
@@ -809,19 +809,19 @@ export default function ARPaymentMilestonesPage() {
                   </div>
                 </div>
 
-                {/* TSP Filter */}
+                {/* Person In-charge Filter */}
                 <div className="space-y-2">
                   <Label className="text-xs font-bold text-[#546A7A] uppercase tracking-wider flex items-center gap-2">
-                    <Truck className="w-3.5 h-3.5" /> TSP (Service Provider)
+                    <User className="w-3.5 h-3.5" /> Person In-charge
                   </Label>
-                  <Select value={tsp} onValueChange={(val) => { setTsp(val === 'ALL_TSPS' ? '' : val); setPage(1); }}>
+                  <Select value={personInCharge} onValueChange={(val) => { setPersonInCharge(val === 'ALL_PIC' ? '' : val); setPage(1); }}>
                     <SelectTrigger className="border-2 border-[#AEBFC3]/30 rounded-xl h-11 focus:ring-[#CE9F6B]/20 font-bold text-[#546A7A]">
-                      <SelectValue placeholder="All TSPs" />
+                      <SelectValue placeholder="All Persons" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="ALL_TSPS">All TSPs</SelectItem>
-                      {TSP_OPTIONS.map(t => (
-                        <SelectItem key={t} value={t}>{t}</SelectItem>
+                      <SelectItem value="ALL_PIC">All Persons</SelectItem>
+                      {PIC_OPTIONS.map(p => (
+                        <SelectItem key={p} value={p}>{p}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -1048,7 +1048,7 @@ export default function ARPaymentMilestonesPage() {
                                  <div className="flex flex-col">
                                     <span className="text-[8px] font-bold text-[#92A2A5] uppercase tracking-wide leading-none mb-0.5">Invoice No</span>
                                     <div className="flex items-center gap-2">
-                                       <span className="text-xs font-bold text-[#92A2A5] truncate max-w-[80px] group-hover/inv-link:text-[#546A7A]">{invoice.invoiceNumber || 'PENDING'}</span>
+                                       <span className="text-xs font-bold text-[#92A2A5] group-hover/inv-link:text-[#546A7A] whitespace-nowrap">{invoice.invoiceNumber || 'PENDING'}</span>
                                        {invoice.invoiceNumber && (
                                          <button 
                                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); copyToClipboard(invoice.invoiceNumber!, 'Invoice No'); }}
@@ -1082,7 +1082,7 @@ export default function ARPaymentMilestonesPage() {
                         <td className="py-4 px-4" onClick={(e) => e.stopPropagation()}>
                           <Link href={`/finance/ar/milestones/${invoice.id}`} className="flex flex-col group/cust">
                             {invoice.customerName && (
-                              <span className="text-sm font-bold text-[#546A7A] mb-1 line-clamp-1 group-hover/cust:text-[#CE9F6B] transition-colors">{invoice.customerName}</span>
+                              <span className="text-sm font-bold text-[#546A7A] mb-1 whitespace-normal leading-tight group-hover/cust:text-[#CE9F6B] transition-colors break-words min-w-[200px] inline-block">{invoice.customerName}</span>
                             )}
                             <div className="flex items-center gap-2">
                               {invoice.bpCode ? (

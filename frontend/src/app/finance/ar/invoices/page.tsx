@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { arApi, ARInvoice, formatARCurrency, formatARDate, TSP_OPTIONS } from '@/lib/ar-api';
+import { arApi, ARInvoice, formatARCurrency, formatARDate, PIC_OPTIONS } from '@/lib/ar-api';
 import { Search, ChevronLeft, ChevronRight, FileText, Plus, TrendingUp, AlertTriangle, Clock, CheckCircle2, IndianRupee, Calendar, Building2, Upload, Shield, Layers, Zap, Tag, XCircle, Filter, RotateCcw, User, Truck } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetDescription, SheetFooter } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -39,7 +39,7 @@ export default function ARInvoicesPage() {
   const [minAmount, setMinAmount] = useState(searchParams.get('minAmount') || '');
   const [maxAmount, setMaxAmount] = useState(searchParams.get('maxAmount') || '');
   const [riskClass, setRiskClass] = useState(searchParams.get('riskClass') || '');
-  const [tsp, setTsp] = useState(searchParams.get('tsp') || '');
+  const [personInCharge, setPersonInCharge] = useState(searchParams.get('personInCharge') || '');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   const agingBucket = searchParams.get('agingBucket') || '';
@@ -70,12 +70,12 @@ export default function ARInvoicesPage() {
     updateParam('minAmount', minAmount);
     updateParam('maxAmount', maxAmount);
     updateParam('riskClass', riskClass);
-    updateParam('tsp', tsp);
+    updateParam('personInCharge', personInCharge);
 
     if (changed) {
       router.replace(`${pathname}?${params.toString()}`, { scroll: false });
     }
-  }, [search, status, page, customerId, fromDate, toDate, region, category, accountingStatus, minAmount, maxAmount, riskClass, tsp, pathname, router, searchParams]);
+  }, [search, status, page, customerId, fromDate, toDate, region, category, accountingStatus, minAmount, maxAmount, riskClass, personInCharge, pathname, router, searchParams]);
 
   const agingBucketLabels: Record<string, string> = {
     'current': 'Current (Not Yet Due)',
@@ -87,7 +87,7 @@ export default function ARInvoicesPage() {
 
   useEffect(() => {
     loadInvoices();
-  }, [search, status, page, agingBucket, customerId, fromDate, toDate, region, category, accountingStatus, minAmount, maxAmount, riskClass, tsp]);
+  }, [search, status, page, agingBucket, customerId, fromDate, toDate, region, category, accountingStatus, minAmount, maxAmount, riskClass, personInCharge]);
 
   useEffect(() => {
     loadCustomers();
@@ -123,7 +123,7 @@ export default function ARInvoicesPage() {
         minAmount: minAmount ? parseFloat(minAmount) : undefined,
         maxAmount: maxAmount ? parseFloat(maxAmount) : undefined,
         riskClass: riskClass || undefined,
-        tsp: tsp || undefined,
+        personInCharge: personInCharge || undefined,
         page, 
         limit: 100
       });
@@ -186,7 +186,7 @@ export default function ARInvoicesPage() {
 
   const activeFilterCount = [
     customerId, fromDate, toDate, region, category, 
-    accountingStatus, minAmount, maxAmount, riskClass, tsp
+    accountingStatus, minAmount, maxAmount, riskClass, personInCharge
   ].filter(Boolean).length;
 
   const clearAllFilters = () => {
@@ -201,7 +201,7 @@ export default function ARInvoicesPage() {
     setMinAmount('');
     setMaxAmount('');
     setRiskClass('');
-    setTsp('');
+    setPersonInCharge('');
     setPage(1);
   };
 
@@ -543,19 +543,19 @@ export default function ARInvoicesPage() {
                   </div>
                 </div>
 
-                {/* TSP Filter */}
+                {/* Person In-charge Filter */}
                 <div className="space-y-2">
                   <Label className="text-xs font-bold text-[#546A7A] uppercase tracking-wider flex items-center gap-2">
-                    <Truck className="w-3.5 h-3.5" /> TSP (Service Provider)
+                    <User className="w-3.5 h-3.5" /> Person In-charge
                   </Label>
-                  <Select value={tsp} onValueChange={(val) => { setTsp(val === 'ALL_TSPS' ? '' : val); setPage(1); }}>
+                  <Select value={personInCharge} onValueChange={(val) => { setPersonInCharge(val === 'ALL_PIC' ? '' : val); setPage(1); }}>
                     <SelectTrigger className="border-2 border-[#AEBFC3]/30 rounded-xl h-11 focus:ring-[#CE9F6B]/20 font-bold text-[#546A7A]">
-                      <SelectValue placeholder="All TSPs" />
+                      <SelectValue placeholder="All Persons" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="ALL_TSPS">All TSPs</SelectItem>
-                      {TSP_OPTIONS.map(t => (
-                        <SelectItem key={t} value={t}>{t}</SelectItem>
+                      <SelectItem value="ALL_PIC">All Persons</SelectItem>
+                      {PIC_OPTIONS.map(p => (
+                        <SelectItem key={p} value={p}>{p}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -681,8 +681,8 @@ export default function ARInvoicesPage() {
                       {invoice.poNo && <div className="text-[10px] text-white bg-gradient-to-r from-[#976E44] to-[#CE9F6B] px-1.5 py-0.5 rounded inline-block mt-0.5 font-bold">PO: {invoice.poNo}</div>}
                     </td>
                     <td className="py-3 px-4">
-                      <div className="text-sm font-semibold truncate max-w-[150px]">{invoice.customerName}</div>
-                      <div className="text-[10px] text-[#92A2A5]">{invoice.bpCode}</div>
+                      <div className="text-sm font-semibold whitespace-normal min-w-[200px] max-w-[300px] leading-snug break-words">{invoice.customerName}</div>
+                      <div className="text-[10px] text-[#92A2A5] font-mono">{invoice.bpCode}</div>
                     </td>
                     <td className="py-3 px-4"><span className="text-[10px] font-bold px-2 py-1 bg-gradient-to-r from-[#82A094]/20 to-[#4F6A64]/20 text-[#4F6A64] rounded-lg border border-[#82A094]/30">{invoice.type || '-'}</span></td>
                     <td className="py-3 px-4 text-sm text-[#546A7A]">{formatARDate(invoice.invoiceDate)}</td>
@@ -733,7 +733,7 @@ export default function ARInvoicesPage() {
                   </div>
                   <span className={`px-2 py-1 rounded-lg text-[10px] font-bold ${getStatusStyle(invoice.status)}`}>{invoice.status}</span>
                </div>
-               <div className="text-sm text-[#546A7A] mb-1 font-bold truncate">{invoice.customerName}</div>
+               <div className="text-sm text-[#546A7A] mb-1 font-bold line-clamp-2 leading-tight">{invoice.customerName}</div>
                <div className="flex justify-between items-end mt-4 pt-3 border-t-2 border-[#AEBFC3]/20">
                   <div className="text-[10px] text-[#92A2A5] font-bold uppercase">Balance</div>
                   <div className="text-lg font-bold text-[#E17F70]">{formatARCurrency(Number(invoice.balance))}</div>
