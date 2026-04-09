@@ -52,6 +52,22 @@ export default function EditMilestonePage() {
     accountingStatus: '' as '' | 'REVENUE_RECOGNISED' | 'BACKLOG',
     mailToTSP: '',
     bookingMonth: '',
+    hasAPG: false,
+    apgDraftDate: '',
+    apgDraftNote: '',
+    apgDraftSteps: [] as { id: string, date: string, note: string }[],
+    apgIntermediateSteps: [] as { id: string, date: string, note: string }[],
+    apgSignedDate: '',
+    apgSignedNote: '',
+    apgSignedSteps: [] as { id: string, date: string, note: string }[],
+    hasPBG: false,
+    pbgDraftDate: '',
+    pbgDraftNote: '',
+    pbgDraftSteps: [] as { id: string, date: string, note: string }[],
+    pbgIntermediateSteps: [] as { id: string, date: string, note: string }[],
+    pbgSignedDate: '',
+    pbgSignedNote: '',
+    pbgSignedSteps: [] as { id: string, date: string, note: string }[],
   });
 
   const termOptions = [
@@ -189,6 +205,22 @@ export default function EditMilestonePage() {
         accountingStatus: data.accountingStatus || '',
         mailToTSP: (data.mailToTSP === 'false' as any) ? '' : (data.mailToTSP || ''),
         bookingMonth: data.bookingMonth || '',
+        hasAPG: data.hasAPG || false,
+        apgDraftDate: data.apgDraftDate ? data.apgDraftDate.split('T')[0] : '',
+        apgDraftNote: data.apgDraftNote || '',
+        apgDraftSteps: Array.isArray(data.apgDraftSteps) ? data.apgDraftSteps : [],
+        apgIntermediateSteps: Array.isArray(data.apgIntermediateSteps) ? data.apgIntermediateSteps : [],
+        apgSignedDate: data.apgSignedDate ? data.apgSignedDate.split('T')[0] : '',
+        apgSignedNote: data.apgSignedNote || '',
+        apgSignedSteps: Array.isArray(data.apgSignedSteps) ? data.apgSignedSteps : [],
+        hasPBG: data.hasPBG || false,
+        pbgDraftDate: data.pbgDraftDate ? data.pbgDraftDate.split('T')[0] : '',
+        pbgDraftNote: data.pbgDraftNote || '',
+        pbgDraftSteps: Array.isArray(data.pbgDraftSteps) ? data.pbgDraftSteps : [],
+        pbgIntermediateSteps: Array.isArray(data.pbgIntermediateSteps) ? data.pbgIntermediateSteps : [],
+        pbgSignedDate: data.pbgSignedDate ? data.pbgSignedDate.split('T')[0] : '',
+        pbgSignedNote: data.pbgSignedNote || '',
+        pbgSignedSteps: Array.isArray(data.pbgSignedSteps) ? data.pbgSignedSteps : [],
       });
     } catch (err) {
       console.error('Failed to load milestone payment:', err);
@@ -222,6 +254,33 @@ export default function EditMilestonePage() {
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
+  };
+
+  const handleIntermediateStepChange = (type: 'apg' | 'pbg', stage: 'draft' | 'signed' | 'intermediate', index: number, field: 'date' | 'note', value: string) => {
+    setFormData(prev => {
+      const fieldName = `${type}${stage.charAt(0).toUpperCase() + stage.slice(1)}Steps` as keyof typeof formData;
+      const steps = [...(prev[fieldName] as any[])];
+      steps[index] = { ...steps[index], [field]: value };
+      return { ...prev, [fieldName]: steps };
+    });
+  };
+
+  const addIntermediateStep = (type: 'apg' | 'pbg', stage: 'draft' | 'signed' | 'intermediate') => {
+    setFormData(prev => {
+      const fieldName = `${type}${stage.charAt(0).toUpperCase() + stage.slice(1)}Steps` as keyof typeof formData;
+      const steps = [...(prev[fieldName] as any[])];
+      steps.push({ id: Date.now().toString() + Math.random().toString(), date: '', note: '' });
+      return { ...prev, [fieldName]: steps };
+    });
+  };
+
+  const removeIntermediateStep = (type: 'apg' | 'pbg', stage: 'draft' | 'signed' | 'intermediate', index: number) => {
+    setFormData(prev => {
+      const fieldName = `${type}${stage.charAt(0).toUpperCase() + stage.slice(1)}Steps` as keyof typeof formData;
+      const steps = [...(prev[fieldName] as any[])];
+      steps.splice(index, 1);
+      return { ...prev, [fieldName]: steps };
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -267,6 +326,22 @@ export default function EditMilestonePage() {
         bookingMonth: formData.bookingMonth || undefined,
         invoiceNumber: formData.invoiceNumber,
         invoiceDate: formData.invoiceDate,
+        hasAPG: formData.hasAPG,
+        apgDraftDate: formData.apgDraftDate || null,
+        apgDraftNote: formData.apgDraftNote || null,
+        apgDraftSteps: formData.apgDraftSteps,
+        apgIntermediateSteps: formData.apgIntermediateSteps,
+        apgSignedDate: formData.apgSignedDate || null,
+        apgSignedNote: formData.apgSignedNote || null,
+        apgSignedSteps: formData.apgSignedSteps,
+        hasPBG: formData.hasPBG,
+        pbgDraftDate: formData.pbgDraftDate || null,
+        pbgDraftNote: formData.pbgDraftNote || null,
+        pbgDraftSteps: formData.pbgDraftSteps,
+        pbgIntermediateSteps: formData.pbgIntermediateSteps,
+        pbgSignedDate: formData.pbgSignedDate || null,
+        pbgSignedNote: formData.pbgSignedNote || null,
+        pbgSignedSteps: formData.pbgSignedSteps,
       } as any);
       
       router.replace(`/finance/ar/milestones/${invoice!.id}`);
@@ -597,6 +672,243 @@ export default function EditMilestonePage() {
                   className={inputClass}
                 />
               </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Guarantees Tracking */}
+        <div className="relative bg-white/90 backdrop-blur-xl rounded-[2rem] border-2 border-[#546A7A]/30 p-6 shadow-lg overflow-hidden mb-6">
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#546A7A] via-[#6F8A9D] to-[#96AEC2]" />
+          <h3 className="text-lg font-bold text-[#546A7A] mb-5 flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-gradient-to-br from-[#546A7A] to-[#6F8A9D] shadow-lg shadow-[#546A7A]/20 hover:shadow-[#546A7A]/40 transition-all duration-300">
+              <FileText className="w-5 h-5 text-white" />
+            </div>
+            Guarantees Tracking
+          </h3>
+          
+          <div className="space-y-6">
+            {/* APG Section */}
+            <div className="p-5 rounded-2xl border-2 border-[#AEBFC3]/30 bg-gradient-to-r from-[#546A7A]/5 to-[#6F8A9D]/5 hover:border-[#E17F70]/40 transition-all duration-300">
+              <label className="flex items-center gap-3 cursor-pointer mb-2">
+                <input 
+                  type="checkbox" 
+                  name="hasAPG"
+                  checked={formData.hasAPG}
+                  onChange={(e) => setFormData(prev => ({ ...prev, hasAPG: e.target.checked }))}
+                  className="w-5 h-5 rounded-md border-2 border-[#AEBFC3] text-[#E17F70] focus:ring-[#E17F70]/20 transition-all"
+                />
+                <span className="font-bold text-[#546A7A] text-lg">Advance Payment Guarantee (APG)</span>
+              </label>
+              
+              {formData.hasAPG && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pl-8 border-l-2 border-[#E17F70]/30 ml-2 mt-5 py-2">
+                  <div className="space-y-4">
+                    <h4 className="text-sm font-bold text-[#CE9F6B] uppercase tracking-wider flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-[#CE9F6B]" /> Draft Stage
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-white/40 p-4 rounded-xl border border-[#CE9F6B]/20">
+                      <div>
+                        <label className={labelClass}>Draft Date</label>
+                        <input type="date" name="apgDraftDate" value={formData.apgDraftDate} onChange={handleChange} className={inputClass} />
+                      </div>
+                      <div>
+                        <label className={labelClass}>Draft Note</label>
+                        <input type="text" name="apgDraftNote" value={formData.apgDraftNote} onChange={handleChange} className={inputClass} placeholder="Initial draft details..." />
+                      </div>
+                    </div>
+
+                    {formData.apgDraftSteps.map((step, idx) => (
+                      <div key={step.id} className="space-y-4 relative bg-white/50 p-4 rounded-xl border border-[#CE9F6B]/20">
+                        <button 
+                          type="button"
+                          onClick={() => removeIntermediateStep('apg', 'draft', idx)}
+                          className="absolute top-3 right-3 p-1.5 rounded-lg text-[#E17F70] hover:bg-[#E17F70]/10 transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                        <h4 className="text-xs font-bold text-[#CE9F6B]/70 uppercase tracking-widest leading-none mb-1">Draft Tracking Step {idx + 1}</h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className={labelClass}>Step Date</label>
+                            <input type="date" value={step.date} onChange={e => handleIntermediateStepChange('apg', 'draft', idx, 'date', e.target.value)} className={inputClass} />
+                          </div>
+                          <div>
+                            <label className={labelClass}>Step Note</label>
+                            <input type="text" value={step.note} onChange={e => handleIntermediateStepChange('apg', 'draft', idx, 'note', e.target.value)} className={inputClass} placeholder="Step detail..." />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+
+                    <button 
+                      type="button"
+                      onClick={() => addIntermediateStep('apg', 'draft')}
+                      className="flex items-center justify-center gap-2 w-full p-3 rounded-xl border-2 border-dashed border-[#CE9F6B]/30 text-[#CE9F6B] hover:bg-[#CE9F6B]/5 transition-all font-bold text-sm"
+                    >
+                      <Plus className="w-4 h-4" /> Add Draft Tracking Step
+                    </button>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h4 className="text-sm font-bold text-[#82A094] uppercase tracking-wider flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-[#82A094]" /> Signed Stage
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-white/40 p-4 rounded-xl border border-[#82A094]/20">
+                      <div>
+                        <label className={labelClass}>Signed Date</label>
+                        <input type="date" name="apgSignedDate" value={formData.apgSignedDate} onChange={handleChange} className={inputClass} />
+                      </div>
+                      <div>
+                        <label className={labelClass}>Signed Note</label>
+                        <input type="text" name="apgSignedNote" value={formData.apgSignedNote} onChange={handleChange} className={inputClass} placeholder="Final signed details..." />
+                      </div>
+                    </div>
+
+                    {formData.apgSignedSteps.map((step, idx) => (
+                      <div key={step.id} className="space-y-4 relative bg-white/50 p-4 rounded-xl border border-[#82A094]/20">
+                        <button 
+                          type="button"
+                          onClick={() => removeIntermediateStep('apg', 'signed', idx)}
+                          className="absolute top-3 right-3 p-1.5 rounded-lg text-[#E17F70] hover:bg-[#E17F70]/10 transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                        <h4 className="text-xs font-bold text-[#82A094]/70 uppercase tracking-widest leading-none mb-1">Signed Tracking Step {idx + 1}</h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className={labelClass}>Step Date</label>
+                            <input type="date" value={step.date} onChange={e => handleIntermediateStepChange('apg', 'signed', idx, 'date', e.target.value)} className={inputClass} />
+                          </div>
+                          <div>
+                            <label className={labelClass}>Step Note</label>
+                            <input type="text" value={step.note} onChange={e => handleIntermediateStepChange('apg', 'signed', idx, 'note', e.target.value)} className={inputClass} placeholder="Step detail..." />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+
+                    <button 
+                      type="button"
+                      onClick={() => addIntermediateStep('apg', 'signed')}
+                      className="flex items-center justify-center gap-2 w-full p-3 rounded-xl border-2 border-dashed border-[#82A094]/30 text-[#82A094] hover:bg-[#82A094]/5 transition-all font-bold text-sm"
+                    >
+                      <Plus className="w-4 h-4" /> Add Signed Tracking Step
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* PBG Section */}
+            <div className="p-5 rounded-2xl border-2 border-[#AEBFC3]/30 bg-gradient-to-r from-[#546A7A]/5 to-[#6F8A9D]/5 hover:border-[#CE9F6B]/40 transition-all duration-300">
+              <label className="flex items-center gap-3 cursor-pointer mb-2">
+                <input 
+                  type="checkbox" 
+                  name="hasPBG"
+                  checked={formData.hasPBG}
+                  onChange={(e) => setFormData(prev => ({ ...prev, hasPBG: e.target.checked }))}
+                  className="w-5 h-5 rounded-md border-2 border-[#AEBFC3] text-[#CE9F6B] focus:ring-[#CE9F6B]/20 transition-all"
+                />
+                <span className="font-bold text-[#546A7A] text-lg">Performance Bank Guarantee (PBG)</span>
+              </label>
+              
+              {formData.hasPBG && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pl-8 border-l-2 border-[#CE9F6B]/30 ml-2 mt-5 py-2">
+                  <div className="space-y-4">
+                    <h4 className="text-sm font-bold text-[#CE9F6B] uppercase tracking-wider flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-[#CE9F6B]" /> Draft Stage
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-white/40 p-4 rounded-xl border border-[#CE9F6B]/20">
+                      <div>
+                        <label className={labelClass}>Draft Date</label>
+                        <input type="date" name="pbgDraftDate" value={formData.pbgDraftDate} onChange={handleChange} className={inputClass} />
+                      </div>
+                      <div>
+                        <label className={labelClass}>Draft Note</label>
+                        <input type="text" name="pbgDraftNote" value={formData.pbgDraftNote} onChange={handleChange} className={inputClass} placeholder="Initial draft details..." />
+                      </div>
+                    </div>
+
+                    {formData.pbgDraftSteps.map((step, idx) => (
+                      <div key={step.id} className="space-y-4 relative bg-white/50 p-4 rounded-xl border border-[#CE9F6B]/20">
+                        <button 
+                          type="button"
+                          onClick={() => removeIntermediateStep('pbg', 'draft', idx)}
+                          className="absolute top-3 right-3 p-1.5 rounded-lg text-[#E17F70] hover:bg-[#E17F70]/10 transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                        <h4 className="text-xs font-bold text-[#CE9F6B]/70 uppercase tracking-widest leading-none mb-1">Draft Tracking Step {idx + 1}</h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className={labelClass}>Step Date</label>
+                            <input type="date" value={step.date} onChange={e => handleIntermediateStepChange('pbg', 'draft', idx, 'date', e.target.value)} className={inputClass} />
+                          </div>
+                          <div>
+                            <label className={labelClass}>Step Note</label>
+                            <input type="text" value={step.note} onChange={e => handleIntermediateStepChange('pbg', 'draft', idx, 'note', e.target.value)} className={inputClass} placeholder="Step detail..." />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+
+                    <button 
+                      type="button"
+                      onClick={() => addIntermediateStep('pbg', 'draft')}
+                      className="flex items-center justify-center gap-2 w-full p-3 rounded-xl border-2 border-dashed border-[#CE9F6B]/30 text-[#CE9F6B] hover:bg-[#CE9F6B]/5 transition-all font-bold text-sm"
+                    >
+                      <Plus className="w-4 h-4" /> Add Draft Tracking Step
+                    </button>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h4 className="text-sm font-bold text-[#82A094] uppercase tracking-wider flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-[#82A094]" /> Signed Stage
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-white/40 p-4 rounded-xl border border-[#82A094]/20">
+                      <div>
+                        <label className={labelClass}>Signed Date</label>
+                        <input type="date" name="pbgSignedDate" value={formData.pbgSignedDate} onChange={handleChange} className={inputClass} />
+                      </div>
+                      <div>
+                        <label className={labelClass}>Signed Note</label>
+                        <input type="text" name="pbgSignedNote" value={formData.pbgSignedNote} onChange={handleChange} className={inputClass} placeholder="Final signed details..." />
+                      </div>
+                    </div>
+
+                    {formData.pbgSignedSteps.map((step, idx) => (
+                      <div key={step.id} className="space-y-4 relative bg-white/50 p-4 rounded-xl border border-[#82A094]/20">
+                        <button 
+                          type="button"
+                          onClick={() => removeIntermediateStep('pbg', 'signed', idx)}
+                          className="absolute top-3 right-3 p-1.5 rounded-lg text-[#E17F70] hover:bg-[#E17F70]/10 transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                        <h4 className="text-xs font-bold text-[#82A094]/70 uppercase tracking-widest leading-none mb-1">Signed Tracking Step {idx + 1}</h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className={labelClass}>Step Date</label>
+                            <input type="date" value={step.date} onChange={e => handleIntermediateStepChange('pbg', 'signed', idx, 'date', e.target.value)} className={inputClass} />
+                          </div>
+                          <div>
+                            <label className={labelClass}>Step Note</label>
+                            <input type="text" value={step.note} onChange={e => handleIntermediateStepChange('pbg', 'signed', idx, 'note', e.target.value)} className={inputClass} placeholder="Step detail..." />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+
+                    <button 
+                      type="button"
+                      onClick={() => addIntermediateStep('pbg', 'signed')}
+                      className="flex items-center justify-center gap-2 w-full p-3 rounded-xl border-2 border-dashed border-[#82A094]/30 text-[#82A094] hover:bg-[#82A094]/5 transition-all font-bold text-sm"
+                    >
+                      <Plus className="w-4 h-4" /> Add Signed Tracking Step
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

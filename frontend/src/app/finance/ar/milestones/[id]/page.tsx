@@ -904,7 +904,7 @@ export default function MilestoneViewPage() {
                         />
                       </div>
                       <span className={`text-[10px] font-bold min-w-[32px] text-right ${
-                        isFullyPaid ? 'text-[#82A094]' : collectedPercent >= 50 ? 'text-[#CE9F6B]' : 'text-[#6F8A9D]'
+                        isFullyPaid ? 'text-[#82A094]' : collectedPercent > 0 ? (collectedPercent >= 50 ? 'text-[#CE9F6B]' : 'text-[#6F8A9D]') : 'text-[#546A7A]'
                       }`}>{isFullyPaid ? '100%' : `${Math.floor(collectedPercent)}%`}</span>
                     </div>
                   </div>
@@ -1088,6 +1088,165 @@ export default function MilestoneViewPage() {
                   </div>
                 </div>
               </div>
+
+                {/* Guarantees Tracking */}
+                {(invoice.hasAPG || invoice.hasPBG) && (
+                  <div className="lg:col-span-2 relative mt-4 mb-4 p-6 rounded-2xl bg-gradient-to-r from-[#546A7A]/5 to-[#6F8A9D]/5 border-2 border-[#546A7A]/20 shadow-inner overflow-hidden">
+                    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#546A7A] to-[#6F8A9D]" />
+                    <div className="flex items-center gap-2 mb-6">
+                      <div className="p-1.5 rounded-lg bg-gradient-to-br from-[#546A7A] to-[#6F8A9D]">
+                        <FileText className="w-4 h-4 text-white" />
+                      </div>
+                      <span className="font-bold text-[#546A7A] text-lg">Guarantees Tracking</span>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                      {invoice.hasAPG && (
+                        <div className="space-y-4 bg-white p-5 rounded-2xl border border-[#AEBFC3]/30 shadow-sm transition-all hover:shadow-md">
+                          <h4 className="font-bold text-[#E17F70] flex items-center gap-2 text-base pb-3 border-b border-[#AEBFC3]/20">
+                            <Tag className="w-4 h-4" /> Advance Payment Guarantee (APG)
+                          </h4>
+                          <div className="space-y-6 pt-2">
+                            {/* Draft */}
+                            <div className="flex gap-4">
+                              <div className="flex flex-col items-center">
+                                <div className="w-3 h-3 rounded-full bg-[#CE9F6B] mt-1.5" />
+                                <div className="w-0.5 h-full bg-[#CE9F6B]/20 min-h-[40px]" />
+                              </div>
+                              <div className="flex-1 pb-4">
+                                <span className="block text-[#92A2A5] text-[10px] font-black uppercase tracking-widest mb-1">Draft APG</span>
+                                <div className="flex items-center gap-4">
+                                  <span className="font-bold text-[#5D6E73] text-sm">{invoice.apgDraftDate ? formatARDate(invoice.apgDraftDate) : '-'}</span>
+                                  <span className="text-xs text-[#92A2A5] italic">{invoice.apgDraftNote || ''}</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* APG Draft Steps */}
+                            {Array.isArray(invoice.apgDraftSteps) && invoice.apgDraftSteps.map((step: any, idx: number) => (
+                              <div key={`apg-draft-${idx}`} className="flex gap-4">
+                                <div className="flex flex-col items-center">
+                                  <div className="w-3 h-3 rounded-full bg-[#CE9F6B]/60 mt-1.5 shadow-sm" />
+                                  <div className="w-0.5 h-full bg-[#CE9F6B]/20 min-h-[40px]" />
+                                </div>
+                                <div className="flex-1 pb-4">
+                                  <span className="block text-[#92A2A5] text-[10px] font-black uppercase tracking-widest mb-1">Draft Step {idx + 1}</span>
+                                  <div className="flex items-center gap-4">
+                                    <span className="font-bold text-[#5D6E73] text-sm">{step.date ? formatARDate(step.date) : '-'}</span>
+                                    <span className="text-xs text-[#92A2A5] italic">{step.note || ''}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+
+                            {/* APG Signed Steps */}
+                            {Array.isArray(invoice.apgSignedSteps) && invoice.apgSignedSteps.map((step: any, idx: number) => (
+                              <div key={`apg-signed-${idx}`} className="flex gap-4">
+                                <div className="flex flex-col items-center">
+                                  <div className="w-3 h-3 rounded-full bg-[#82A094]/60 mt-1.5 shadow-sm" />
+                                  <div className="w-0.5 h-full bg-[#82A094]/20 min-h-[40px]" />
+                                </div>
+                                <div className="flex-1 pb-4">
+                                  <span className="block text-[#92A2A5] text-[10px] font-black uppercase tracking-widest mb-1">Signed Step {idx + 1}</span>
+                                  <div className="flex items-center gap-4">
+                                    <span className="font-bold text-[#5D6E73] text-sm">{step.date ? formatARDate(step.date) : '-'}</span>
+                                    <span className="text-xs text-[#92A2A5] italic">{step.note || ''}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+
+                            {/* Signed */}
+                            <div className="flex gap-4">
+                              <div className="flex flex-col items-center">
+                                <div className="w-3 h-3 rounded-full bg-[#82A094] mt-1.5 border-2 border-white ring-2 ring-[#82A094]/20 shadow-sm" />
+                              </div>
+                              <div className="flex-1">
+                                <span className="block text-[#92A2A5] text-[10px] font-black uppercase tracking-widest mb-1 font-bold">Signed APG</span>
+                                <div className="flex items-center gap-4">
+                                  <span className="font-bold text-[#5D6E73] text-sm">{invoice.apgSignedDate ? formatARDate(invoice.apgSignedDate) : '-'}</span>
+                                  <span className="text-xs text-[#92A2A5] italic">{invoice.apgSignedNote || ''}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {invoice.hasPBG && (
+                        <div className="space-y-4 bg-white p-5 rounded-2xl border border-[#AEBFC3]/30 shadow-sm transition-all hover:shadow-md">
+                          <h4 className="font-bold text-[#CE9F6B] flex items-center gap-2 text-base pb-3 border-b border-[#AEBFC3]/20">
+                            <Tag className="w-4 h-4" /> Performance Bank Guarantee (PBG)
+                          </h4>
+                          <div className="space-y-6 pt-2">
+                            {/* Draft */}
+                            <div className="flex gap-4">
+                              <div className="flex flex-col items-center">
+                                <div className="w-3 h-3 rounded-full bg-[#CE9F6B] mt-1.5" />
+                                <div className="w-0.5 h-full bg-[#CE9F6B]/20 min-h-[40px]" />
+                              </div>
+                              <div className="flex-1 pb-4">
+                                <span className="block text-[#92A2A5] text-[10px] font-black uppercase tracking-widest mb-1">Draft PBG</span>
+                                <div className="flex items-center gap-4">
+                                  <span className="font-bold text-[#5D6E73] text-sm">{invoice.pbgDraftDate ? formatARDate(invoice.pbgDraftDate) : '-'}</span>
+                                  <span className="text-xs text-[#92A2A5] italic">{invoice.pbgDraftNote || ''}</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* PBG Draft Steps */}
+                            {Array.isArray(invoice.pbgDraftSteps) && invoice.pbgDraftSteps.map((step: any, idx: number) => (
+                              <div key={`pbg-draft-${idx}`} className="flex gap-4">
+                                <div className="flex flex-col items-center">
+                                  <div className="w-3 h-3 rounded-full bg-[#CE9F6B]/60 mt-1.5 shadow-sm" />
+                                  <div className="w-0.5 h-full bg-[#CE9F6B]/20 min-h-[40px]" />
+                                </div>
+                                <div className="flex-1 pb-4">
+                                  <span className="block text-[#92A2A5] text-[10px] font-black uppercase tracking-widest mb-1">Draft Step {idx + 1}</span>
+                                  <div className="flex items-center gap-4">
+                                    <span className="font-bold text-[#5D6E73] text-sm">{step.date ? formatARDate(step.date) : '-'}</span>
+                                    <span className="text-xs text-[#92A2A5] italic">{step.note || ''}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+
+                            {/* PBG Signed Steps */}
+                            {Array.isArray(invoice.pbgSignedSteps) && invoice.pbgSignedSteps.map((step: any, idx: number) => (
+                              <div key={`pbg-signed-${idx}`} className="flex gap-4">
+                                <div className="flex flex-col items-center">
+                                  <div className="w-3 h-3 rounded-full bg-[#82A094]/60 mt-1.5 shadow-sm" />
+                                  <div className="w-0.5 h-full bg-[#82A094]/20 min-h-[40px]" />
+                                </div>
+                                <div className="flex-1 pb-4">
+                                  <span className="block text-[#92A2A5] text-[10px] font-black uppercase tracking-widest mb-1">Signed Step {idx + 1}</span>
+                                  <div className="flex items-center gap-4">
+                                    <span className="font-bold text-[#5D6E73] text-sm">{step.date ? formatARDate(step.date) : '-'}</span>
+                                    <span className="text-xs text-[#92A2A5] italic">{step.note || ''}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+
+                            {/* Signed */}
+                            <div className="flex gap-4">
+                              <div className="flex flex-col items-center">
+                                <div className="w-3 h-3 rounded-full bg-[#82A094] mt-1.5 border-2 border-white ring-2 ring-[#82A094]/20 shadow-sm" />
+                              </div>
+                              <div className="flex-1">
+                                <span className="block text-[#92A2A5] text-[10px] font-black uppercase tracking-widest mb-1 font-bold">Signed PBG</span>
+                                <div className="flex items-center gap-4">
+                                  <span className="font-bold text-[#5D6E73] text-sm">{invoice.pbgSignedDate ? formatARDate(invoice.pbgSignedDate) : '-'}</span>
+                                  <span className="text-xs text-[#92A2A5] italic">{invoice.pbgSignedNote || ''}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* Contractual Payment Terms Summary */}
                 <div className="lg:col-span-2">

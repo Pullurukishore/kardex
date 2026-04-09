@@ -1192,6 +1192,27 @@ model ARInvoice {
   // ═══════════════════════════════════════════════════════════════════════════
   milestoneTerms      Json?             // Array of { termType: string, termDate: string, customLabel?: string }
   
+  // ═══════════════════════════════════════════════════════════════════════════
+  // GUARANTEES TRACKING
+  // ═══════════════════════════════════════════════════════════════════════════
+  hasAPG              Boolean   @default(false)
+  apgDraftDate        DateTime?
+  apgDraftNote        String?   @db.Text
+  apgDraftSteps       Json?     // Array of { id: string, date: string, note: string }
+  apgIntermediateSteps Json?    // Legacy: Array of { id: string, date: string, note: string }
+  apgSignedDate       DateTime?
+  apgSignedNote       String?   @db.Text
+  apgSignedSteps      Json?     // Array of { id: string, date: string, note: string }
+
+  hasPBG              Boolean   @default(false)
+  pbgDraftDate        DateTime?
+  pbgDraftNote        String?   @db.Text
+  pbgDraftSteps       Json?     // Array of { id: string, date: string, note: string }
+  pbgIntermediateSteps Json?    // Legacy: Array of { id: string, date: string, note: string }
+  pbgSignedDate       DateTime?
+  pbgSignedNote       String?   @db.Text
+  pbgSignedSteps      Json?     // Array of { id: string, date: string, note: string }
+  
   // Self-referential relations for milestone linking
   linkedInvoice       ARInvoice?        @relation("MilestoneToInvoice", fields: [linkedInvoiceId], references: [id])
   linkedFromMilestones ARInvoice[]      @relation("MilestoneToInvoice")

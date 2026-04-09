@@ -97,6 +97,25 @@ export interface ARInvoice {
     accountingStatus?: 'REVENUE_RECOGNISED' | 'BACKLOG';
     mailToTSP?: string;
     bookingMonth?: string;
+    // Guarantees Tracking
+    hasAPG?: boolean;
+    apgDraftDate?: string;
+    apgDraftNote?: string;
+    apgDraftSteps?: { id: string; date: string; note: string }[];
+    apgIntermediateSteps?: { id: string; date: string; note: string }[];
+    apgSignedDate?: string;
+    apgSignedNote?: string;
+    apgSignedSteps?: { id: string; date: string; note: string }[];
+    
+    hasPBG?: boolean;
+    pbgDraftDate?: string;
+    pbgDraftNote?: string;
+    pbgDraftSteps?: { id: string; date: string; note: string }[];
+    pbgIntermediateSteps?: { id: string; date: string; note: string }[];
+    pbgSignedDate?: string;
+    pbgSignedNote?: string;
+    pbgSignedSteps?: { id: string; date: string; note: string }[];
+
     remarks?: ARRemark[];
 }
 

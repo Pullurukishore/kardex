@@ -805,7 +805,24 @@ export const createInvoice = async (req: Request, res: Response) => {
             region,
             department,
             personInCharge,
-            pocName
+            pocName,
+            // Guarantees Tracking
+            hasAPG,
+            apgDraftDate,
+            apgDraftNote,
+            apgDraftSteps,
+            apgIntermediateSteps,
+            apgSignedDate,
+            apgSignedNote,
+            apgSignedSteps,
+            hasPBG,
+            pbgDraftDate,
+            pbgDraftNote,
+            pbgDraftSteps,
+            pbgIntermediateSteps,
+            pbgSignedDate,
+            pbgSignedNote,
+            pbgSignedSteps
         } = req.body;
 
         const effectiveCustomerId = customerId || bpCode;
@@ -872,7 +889,23 @@ export const createInvoice = async (req: Request, res: Response) => {
                 region: region || masterData?.region || null,
                 department: department || masterData?.department || null,
                 personInCharge: personInCharge || masterData?.personInCharge || null,
-                pocName: pocName || masterData?.pocName || null
+                pocName: pocName || masterData?.pocName || null,
+                hasAPG: hasAPG || false,
+                apgDraftDate: parseDate(apgDraftDate),
+                apgDraftNote: apgDraftNote || null,
+                apgDraftSteps: apgDraftSteps || null,
+                apgIntermediateSteps: apgIntermediateSteps || null,
+                apgSignedDate: parseDate(apgSignedDate),
+                apgSignedNote: apgSignedNote || null,
+                apgSignedSteps: apgSignedSteps || null,
+                hasPBG: hasPBG || false,
+                pbgDraftDate: parseDate(pbgDraftDate),
+                pbgDraftNote: pbgDraftNote || null,
+                pbgDraftSteps: pbgDraftSteps || null,
+                pbgIntermediateSteps: pbgIntermediateSteps || null,
+                pbgSignedDate: parseDate(pbgSignedDate),
+                pbgSignedNote: pbgSignedNote || null,
+                pbgSignedSteps: pbgSignedSteps || null
             }
         });
 
@@ -948,7 +981,11 @@ export const updateInvoice = async (req: Request, res: Response) => {
             'impactDate',
             'advanceReceivedDate',
             'deliveryDueDate',
-            'milestoneAcceptedAt'
+            'milestoneAcceptedAt',
+            'apgDraftDate',
+            'apgSignedDate',
+            'pbgDraftDate',
+            'pbgSignedDate'
         ];
 
         dateFields.forEach(field => {
@@ -1034,7 +1071,23 @@ export const updateInvoice = async (req: Request, res: Response) => {
             milestoneTerms: 'Milestone Terms',
             accountingStatus: 'Accounting Status',
             mailToTSP: 'Mail to TSP',
-            bookingMonth: 'Booking Month'
+            bookingMonth: 'Booking Month',
+            hasAPG: 'Has APG Guarantee',
+            apgDraftDate: 'APG Draft Date',
+            apgDraftNote: 'APG Draft Note',
+            apgDraftSteps: 'APG Draft Steps',
+            apgIntermediateSteps: 'APG Intermediate Steps',
+            apgSignedDate: 'APG Signed Date',
+            apgSignedNote: 'APG Signed Note',
+            apgSignedSteps: 'APG Signed Steps',
+            hasPBG: 'Has PBG Guarantee',
+            pbgDraftDate: 'PBG Draft Date',
+            pbgDraftNote: 'PBG Draft Note',
+            pbgDraftSteps: 'PBG Draft Steps',
+            pbgIntermediateSteps: 'PBG Intermediate Steps',
+            pbgSignedDate: 'PBG Signed Date',
+            pbgSignedNote: 'PBG Signed Note',
+            pbgSignedSteps: 'PBG Signed Steps'
         };
 
         // Build detailed change description
@@ -1045,19 +1098,65 @@ export const updateInvoice = async (req: Request, res: Response) => {
             const oldVal = (result.existingInvoice as any)[key];
             const newVal = updateData[key];
 
-            // Handle milestoneTerms array serialization comparison
-            if (key === 'milestoneTerms') {
-                const oldStr = JSON.stringify(oldVal || []);
-                const newStr = JSON.stringify(newVal || []);
-                if (oldStr !== newStr) {
+            // Handle JSON array serialization comparison (DETAILED)
+            if (['milestoneTerms', 'apgIntermediateSteps', 'pbgIntermediateSteps', 'apgDraftSteps', 'apgSignedSteps', 'pbgDraftSteps', 'pbgSignedSteps'].includes(key)) {
+                const oldArray = (Array.isArray(oldVal) ? oldVal : []) as any[];
+                const newArray = (Array.isArray(newVal) ? newVal : []) as any[];
+                
+                if (JSON.stringify(oldArray) !== JSON.stringify(newArray)) {
                     hasChanges = true;
+                    const label = fieldLabels[key] || key.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
+                    
+                    let actionDesc = `Updated ${label}`;
+                    let oldDisplay = `${oldArray.length} items`;
+                    let newDisplay = `${newArray.length} items`;
+
+                    // For tracking steps, try to identify added/removed/modified
+                    if (key.toLowerCase().includes('steps')) {
+                        // Use ID if available, otherwise composite key for legacy
+                        const getStepKey = (s: any) => s.id || `${s.date}-${s.note}`;
+                        const oldStepMap = new Map(oldArray.map(s => [getStepKey(s), s]));
+                        const newStepMap = new Map(newArray.map(s => [getStepKey(s), s]));
+
+                        const added = newArray.filter(s => !oldStepMap.has(getStepKey(s)));
+                        const removed = oldArray.filter(s => !newStepMap.has(getStepKey(s)));
+                        const modified = newArray.filter(s => {
+                            const old = oldStepMap.get(getStepKey(s));
+                            return old && JSON.stringify(old) !== JSON.stringify(s);
+                        });
+
+                        if (added.length === 1 && removed.length === 0 && modified.length === 0) {
+                            actionDesc = `Added step to ${label}`;
+                            newDisplay = `${added[0].date || 'No Date'}${added[0].note ? `: ${added[0].note}` : ''}`;
+                            oldDisplay = `${oldArray.length} steps`;
+                        } else if (removed.length === 1 && added.length === 0 && modified.length === 0) {
+                            actionDesc = `Removed step from ${label}`;
+                            oldDisplay = `${removed[0].date || 'No Date'}${removed[0].note ? `: ${removed[0].note}` : ''}`;
+                            newDisplay = `${newArray.length} steps`;
+                        } else if (modified.length === 1 && added.length === 0 && removed.length === 0) {
+                            const step = modified[0];
+                            const old = oldStepMap.get(getStepKey(step));
+                            actionDesc = `Modified step in ${label}`;
+                            oldDisplay = `${old.date || 'No Date'}${old.note ? `: ${old.note}` : ''}`;
+                            newDisplay = `${step.date || 'No Date'}${step.note ? `: ${step.note}` : ''}`;
+                        } else {
+                            actionDesc = `Updated ${label}`;
+                            oldDisplay = `${oldArray.length} steps`;
+                            newDisplay = `${newArray.length} steps (${added.length} added, ${removed.length} removed, ${modified.length} modified)`;
+                        }
+                    } else if (key === 'milestoneTerms') {
+                        actionDesc = `Updated Milestone Payment Terms`;
+                        oldDisplay = `${oldArray.length} terms defined`;
+                        newDisplay = `${newArray.length} terms defined`;
+                    }
+
                     await logInvoiceActivity({
                         invoiceId: id,
                         action: 'INVOICE_UPDATED',
-                        description: `Updated Milestone Terms`,
-                        fieldName: 'Milestone Terms',
-                        oldValue: 'Previous Terms',
-                        newValue: 'New Terms',
+                        description: actionDesc,
+                        fieldName: label,
+                        oldValue: oldDisplay,
+                        newValue: newDisplay,
                         performedById: user.id,
                         performedBy: user.name,
                         ipAddress,
