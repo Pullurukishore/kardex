@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { arApi, MilestonePaymentTerm, PIC_OPTIONS } from '@/lib/ar-api';
-import { ArrowLeft, Save, Loader2, FileText, Sparkles, AlertCircle, IndianRupee, Calendar, Info, Wallet, Plus, Trash2, Tag, X, CheckCircle2, BarChart3, Truck, Package } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, FileText, Sparkles, AlertCircle, IndianRupee, Calendar, Info, Wallet, Plus, Trash2, Tag, X, CheckCircle2, BarChart3, Truck, Package, Clock, Timer } from 'lucide-react';
 
 export default function NewMilestonePage() {
   const router = useRouter();
@@ -87,7 +87,7 @@ export default function NewMilestonePage() {
       ...prev,
       milestoneTerms: [
         ...prev.milestoneTerms,
-        { termType: termType as any, termDate: '', percentage: 0, calculationBasis: 'NET_AMOUNT' }
+        { termType: termType as any, termDate: '', percentage: 0, calculationBasis: 'NET_AMOUNT', status: 'PENDING' }
       ]
     }));
   };
@@ -126,7 +126,27 @@ export default function NewMilestonePage() {
 
     setFormData(prev => {
       const newTerms = [...prev.milestoneTerms];
-      newTerms[index] = { ...newTerms[index], [field]: finalValue };
+      const updatedTerm = { ...newTerms[index], [field]: finalValue };
+
+      // Requirement: Achievement Date + Status calculation
+      // If completed then target date (due date) defaults to achievement date + 21 days
+      if ((field === 'status' && finalValue === 'COMPLETED') || (field === 'achievementDate' && updatedTerm.status === 'COMPLETED')) {
+        if (updatedTerm.achievementDate) {
+          const achDate = new Date(updatedTerm.achievementDate);
+          if (!isNaN(achDate.getTime())) {
+            const targetDate = new Date(achDate);
+            targetDate.setDate(targetDate.getDate() + 21);
+            // Default termDate to Achievement + 21, but allow manual edit thereafter
+            updatedTerm.termDate = targetDate.toISOString().split('T')[0];
+          }
+        }
+      } else if (field === 'status' && finalValue === 'PENDING') {
+        // Clear achievement if reverted to pending
+        updatedTerm.achievementDate = '';
+        // Note: termDate stays as is or is hidden in UI
+      }
+
+      newTerms[index] = updatedTerm;
       return { ...prev, milestoneTerms: newTerms };
     });
   };
@@ -247,7 +267,14 @@ export default function NewMilestonePage() {
       setError('Total tax percentage allocation cannot exceed 100%');
       return;
     }
-    // Removed mandatory date check for consistency with edit page
+    // Validate milestone terms
+    for (let i = 0; i < formData.milestoneTerms.length; i++) {
+      const term = formData.milestoneTerms[i];
+      if (term.status === 'COMPLETED' && !term.termDate) {
+        setError(`Target Date is mandatory for completed term: ${term.termType === 'OTHER' ? term.customLabel : term.termType}`);
+        return;
+      }
+    }
 
     try {
       setSaving(true);
@@ -1085,8 +1112,9 @@ export default function NewMilestonePage() {
                   </div>
 
                   <div className="flex items-center gap-3 pl-5">
-                    <div className="flex-1 grid grid-cols-12 gap-3 items-end">
-                      <div className={isOther ? "col-span-2" : (hasTax ? "col-span-2" : "col-span-3")}>
+                    <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+                      {/* Row 1: Term Type, Percentage, Target Date, Status */}
+                      <div className={isOther ? "md:col-span-2" : "md:col-span-3"}>
                         <label className="block text-[10px] font-bold text-[#976E44] uppercase mb-1.5 ml-1">
                           Term Type
                         </label>
@@ -1107,23 +1135,23 @@ export default function NewMilestonePage() {
                       </div>
                       
                       {isOther && (
-                        <div className={hasTax ? "col-span-2" : "col-span-3"}>
+                        <div className="md:col-span-3">
                           <label className="block text-[10px] font-bold text-[#976E44] uppercase mb-1.5 ml-1">
-                            Manual Description
+                            Description
                           </label>
                           <input
                             type="text"
                             value={term.customLabel || ''}
                             onChange={(e) => updateTerm(index, 'customLabel', e.target.value)}
                             className="w-full h-10 px-3 rounded-lg border-2 border-[#CE9F6B]/30 bg-gradient-to-r from-[#CE9F6B]/5 to-[#976E44]/5 text-sm font-bold text-[#546A7A] placeholder:text-[#92A2A5] focus:border-[#CE9F6B] focus:outline-none focus:ring-2 focus:ring-[#CE9F6B]/10 transition-all"
-                            placeholder="e.g., after installation..."
+                            placeholder="Manual description..."
                           />
                         </div>
                       )}
 
-                      <div className={isOther ? "col-span-2" : (hasTax ? "col-span-2" : "col-span-3")}>
+                      <div className="md:col-span-2">
                         <label className="block text-[10px] font-bold text-[#976E44] uppercase mb-1.5 ml-1 text-center">
-                          {hasTax ? 'Net %' : '%'}
+                          Percentage
                         </label>
                         <div className="relative">
                           <input
@@ -1137,32 +1165,71 @@ export default function NewMilestonePage() {
                           />
                           <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#CE9F6B]">%</span>
                         </div>
-                        {(Number(term.percentage) > 0 && (parseFloat(formData.totalAmount) > 0 || parseFloat(formData.netAmount) > 0)) && (
-                          <p className={`text-[9px] font-bold mt-1 text-center ${hasTax ? 'text-[#4F6A64] bg-gradient-to-r from-[#82A094]/15 to-[#4F6A64]/10 rounded-lg px-2 py-0.5 border border-[#82A094]/20' : 'text-[#4F6A64]'}`}>
-                            {hasTax ? `Net: ₹${((parseFloat(formData.netAmount || '0') * (Number(term.percentage) || 0)) / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}` : `= ₹${getTermAmount(term).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`}
-                          </p>
-                        )}
                       </div>
 
-                      <div className={hasTax ? "col-span-2" : "col-span-3"}>
-                        <label className="block text-[10px] font-bold text-[#976E44] uppercase mb-1.5 ml-1 text-center">
-                          Target Date
+                      <div className="md:col-span-2">
+                        <label className="block text-[10px] font-bold text-[#546A7A] uppercase mb-1.5 ml-1 text-center">
+                          Status
                         </label>
                         <div className="relative">
-                          <div className="absolute left-2.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-md bg-gradient-to-br from-[#CE9F6B]/20 to-[#976E44]/10 flex items-center justify-center">
-                            <Calendar className="w-3 h-3 text-[#976E44]" />
+                          <div className={`absolute left-2.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-md flex items-center justify-center ${term.status === 'COMPLETED' ? 'bg-green-100' : 'bg-gray-100'}`}>
+                            {term.status === 'COMPLETED' ? <CheckCircle2 className="w-3 h-3 text-green-600" /> : <Clock className="w-3 h-3 text-gray-400" />}
                           </div>
+                          <select
+                            value={term.status}
+                            onChange={(e) => updateTerm(index, 'status', e.target.value as any)}
+                            className={`w-full h-10 pl-10 pr-3 rounded-lg border-2 text-sm font-bold transition-all focus:ring-2 focus:ring-opacity-20 ${
+                              term.status === 'COMPLETED' 
+                                ? 'border-green-200 text-green-700 bg-green-50 focus:border-green-500 focus:ring-green-500' 
+                                : 'border-[#AEBFC3]/30 text-[#546A7A] bg-white focus:border-[#CE9F6B] focus:ring-[#CE9F6B]'
+                            }`}
+                          >
+                            <option value="PENDING">Pending</option>
+                            <option value="COMPLETED">Completed</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Achievement Date: Editable even when PENDING */}
+                      <div className="md:col-span-2">
+                        <label className={`block text-[10px] font-bold uppercase mb-1.5 ml-1 text-center ${term.status === 'COMPLETED' ? 'text-green-600' : 'text-[#CE9F6B]'}`}>
+                          Achievement Date
+                        </label>
+                        <div className="relative">
                           <input
                             type="date"
-                            value={term.termDate}
-                            onChange={(e) => updateTerm(index, 'termDate', e.target.value)}
-                            className="w-full h-10 pl-10 pr-3 rounded-lg border-2 border-[#AEBFC3]/30 text-sm font-bold text-[#546A7A] focus:border-[#CE9F6B] focus:ring-2 focus:ring-[#CE9F6B]/10 transition-all bg-white"
+                            value={term.achievementDate || ''}
+                            onChange={(e) => updateTerm(index, 'achievementDate', e.target.value)}
+                            className={`w-full h-10 px-3 rounded-lg border-2 text-sm font-bold transition-all ${
+                              term.status === 'COMPLETED' 
+                                ? 'border-green-200 text-green-700 bg-green-50/30 focus:border-green-500' 
+                                : 'border-[#AEBFC3]/30 text-[#546A7A] bg-white focus:border-[#CE9F6B]'
+                            }`}
                           />
                         </div>
                       </div>
 
-                      {/* Calculation Basis - Pill Toggle */}
-                      <div className="col-span-2">
+                      {/* Target Date: Only shown when COMPLETED, defaults to Achievement + 21 */}
+                      {term.status === 'COMPLETED' && (
+                        <div className="md:col-span-2">
+                          <label className="block text-[10px] font-bold text-[#E17F70] uppercase mb-1.5 ml-1 text-center">
+                            Target Date <span className="text-red-500">*</span>
+                          </label>
+                          <div className="relative">
+                            <div className="absolute left-2.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-md bg-[#E17F70]/10 flex items-center justify-center">
+                              <Calendar className="w-3 h-3 text-[#E17F70]" />
+                            </div>
+                            <input
+                              type="date"
+                              value={term.termDate ? term.termDate.split('T')[0] : ''}
+                              onChange={(e) => updateTerm(index, 'termDate', e.target.value)}
+                              className="w-full h-10 pl-10 pr-3 rounded-lg border-2 border-[#E17F70]/30 text-sm font-bold text-[#9E3B47] transition-all focus:border-[#E17F70] focus:ring-2 focus:ring-[#E17F70]/10"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="md:col-span-2">
                         <label className="block text-[10px] font-bold text-[#976E44] uppercase mb-1.5 ml-1 text-center">
                           Calc. On
                         </label>
@@ -1191,14 +1258,13 @@ export default function NewMilestonePage() {
                                 : 'text-[#92A2A5] hover:text-[#E17F70] hover:bg-[#E17F70]/10'
                             }`}
                           >
-                            Net + Tax
+                            Net+Tax
                           </button>
                         </div>
                       </div>
 
-                      {/* Tax % field - only visible when Net + Tax is selected */}
                       {hasTax && (
-                        <div className="col-span-2">
+                        <div className="md:col-span-2">
                           <label className="block text-[10px] font-bold text-[#9E3B47] uppercase mb-1.5 ml-1 text-center">
                             Tax %
                           </label>
@@ -1214,29 +1280,22 @@ export default function NewMilestonePage() {
                             />
                             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#E17F70]">%</span>
                           </div>
-                          {(Number(term.taxPercentage) > 0 && parseFloat(formData.taxAmount || '0') > 0) && (
-                            <p className="text-[9px] font-bold text-[#9E3B47] mt-1 text-center bg-gradient-to-r from-[#E17F70]/10 to-[#9E3B47]/5 rounded-lg px-2 py-0.5 border border-[#E17F70]/20">
-                              Tax: ₹{((parseFloat(formData.taxAmount || '0') * (Number(term.taxPercentage) || 0)) / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                            </p>
-                          )}
-                          {(Number(term.percentage) > 0 || Number(term.taxPercentage) > 0) && getTermAmount(term) > 0 && (
-                            <p className="text-[9px] font-bold text-white mt-1 text-center bg-gradient-to-r from-[#546A7A] to-[#6F8A9D] rounded-lg px-2 py-0.5 shadow-lg">
-                              Total: ₹{getTermAmount(term).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                            </p>
-                          )}
                         </div>
                       )}
                     </div>
                     
-                    <button 
-                      type="button" 
-                      onClick={() => removeTerm(index)} 
-                      className="p-2.5 rounded-xl bg-gradient-to-br from-[#E17F70]/10 to-[#9E3B47]/5 text-[#9E3B47] hover:from-[#E17F70] hover:to-[#9E3B47] hover:text-white transition-all duration-300 mt-auto mb-0.5 opacity-60 group-hover/term:opacity-100 border-2 border-[#E17F70]/20 hover:border-[#E17F70]/40 shadow-sm hover:shadow-lg hover:shadow-[#E17F70]/20"
-                      title="Remove term"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <div className="flex flex-col gap-2 mt-auto">
+                      <button 
+                        type="button" 
+                        onClick={() => removeTerm(index)} 
+                        className="p-2.5 rounded-xl bg-gradient-to-br from-[#E17F70]/10 to-[#9E3B47]/5 text-[#9E3B47] hover:from-[#E17F70] hover:to-[#9E3B47] hover:text-white transition-all duration-300 opacity-60 group-hover/term:opacity-100 border-2 border-[#E17F70]/20 hover:border-[#E17F70]/40 shadow-sm hover:shadow-lg hover:shadow-[#E17F70]/20"
+                        title="Remove term"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
+
                 </div>
               );
             })}

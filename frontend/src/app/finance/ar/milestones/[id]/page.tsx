@@ -847,86 +847,119 @@ export default function MilestoneViewPage() {
               const isTermOverdue = termAging > 0 && !isFullyPaid;
 
               return (
-                <div key={index} className={`flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-0 px-5 py-4 transition-colors ${
+                <div key={index} className={`flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-0 px-5 py-5 transition-colors ${
                   isTermOverdue ? 'bg-[#E17F70]/[0.03]' : index % 2 === 0 ? 'bg-white' : 'bg-[#F8FAFB]/50'
-                } hover:bg-[#546A7A]/[0.03]`}>
+                } hover:bg-[#546A7A]/[0.05] border-b border-[#AEBFC3]/10`}>
                   {/* Term Identity */}
-                  <div className="sm:w-[22%] flex items-center gap-3">
-                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 text-[10px] font-bold ${
-                      isFullyPaid ? 'bg-[#82A094] text-white' : 
-                      isTermOverdue ? 'bg-[#E17F70]/10 text-[#E17F70]' : 
-                      'bg-[#546A7A]/10 text-[#546A7A]'
+                  <div className="lg:w-[18%] flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 text-[10px] font-black shadow-sm ${
+                      isFullyPaid ? 'bg-gradient-to-br from-[#82A094] to-[#4F6A64] text-white' : 
+                      isTermOverdue ? 'bg-[#E17F70]/10 text-[#E17F70] border border-[#E17F70]/20' : 
+                      'bg-[#546A7A]/10 text-[#546A7A] border border-[#546A7A]/20'
                     }`}>
-                      {isFullyPaid ? <CheckCircle className="w-3.5 h-3.5" /> : index + 1}
+                      {isFullyPaid ? <CheckCircle className="w-4 h-4" /> : index + 1}
                     </div>
                     <div className="min-w-0">
-                      <p className="font-bold text-[#546A7A] text-sm truncate">
+                      <p className="font-black text-[#546A7A] text-sm truncate uppercase tracking-tight">
                         {term.termType === 'OTHER' ? term.customLabel : termOptions[term.termType] || term.termType}
                       </p>
-                      <div className="flex items-center gap-1.5 text-[10px] text-[#92A2A5]">
-                        <span className="font-semibold text-[#CE9F6B]">{percentage}% {term.taxPercentage ? `+ ${term.taxPercentage}% Tax` : ''}</span>
-                        <span className={`px-1 py-0.5 rounded text-[8px] font-bold ${
+                      <div className="flex items-center gap-1.5 text-[10px] mt-0.5">
+                        <span className="font-bold text-[#CE9F6B] bg-[#CE9F6B]/10 px-1.5 py-0.5 rounded-md">{percentage}%</span>
+                        <span className={`px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase tracking-wider ${
                           allocation?.isNetBasis ? 'bg-[#6F8A9D]/10 text-[#6F8A9D]' : 'bg-[#CE9F6B]/15 text-[#976E44]'
                         }`}>
                           {allocation?.isNetBasis ? 'Net' : 'Net+Tax'}
                         </span>
-                        <span>•</span>
-                        <span>{formatARDate(term.termDate)}</span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Allocated / Received / Pending values */}
-                  <div className="sm:w-[44%] sm:px-4">
-                    <div className="grid grid-cols-3 gap-3 mb-1.5">
+                  {/* Values */}
+                  <div className="lg:w-[28%] lg:px-4">
+                    <div className="grid grid-cols-3 gap-4">
                       <div>
-                        <p className="text-[9px] font-bold text-[#92A2A5] uppercase">Allocated</p>
-                        <p className="text-xs font-bold text-[#546A7A]">{formatARCurrency(allocation?.allocatedAmount || 0)}</p>
+                        <p className="text-[9px] font-black text-[#92A2A5] uppercase tracking-widest mb-1">Allocated</p>
+                        <p className="text-sm font-bold text-[#546A7A]">{formatARCurrency(allocatedAmount)}</p>
                       </div>
                       <div>
-                        <p className="text-[9px] font-bold text-[#82A094] uppercase">Received</p>
-                        <p className="text-xs font-bold text-[#4F6A64]">{formatARCurrency(collectedForTerm)}</p>
+                        <p className="text-[9px] font-black text-[#82A094] uppercase tracking-widest mb-1">Received</p>
+                        <p className="text-sm font-bold text-[#4F6A64]">{formatARCurrency(collectedForTerm)}</p>
                       </div>
                       <div>
-                        <p className={`text-[9px] font-bold uppercase ${pendingForTerm > 0 ? (termAging > 0 ? 'text-[#9E3B47]' : 'text-[#CE9F6B]') : 'text-[#92A2A5]'}`}>
-                          {isFullyPaid ? 'Pending' : termAging > 0 ? 'Due' : 'Not Due'}
+                        <p className={`text-[9px] font-black uppercase tracking-widest mb-1 ${pendingForTerm > 0 ? (termAging > 0 ? 'text-[#9E3B47]' : 'text-[#CE9F6B]') : 'text-[#82A094]'}`}>
+                          {isFullyPaid ? 'Status' : 'Pending'}
                         </p>
-                        <p className={`text-xs font-bold ${pendingForTerm > 0 ? (termAging > 0 ? 'text-[#9E3B47]' : 'text-[#CE9F6B]') : 'text-[#82A094]'}`}>{formatARCurrency(pendingForTerm)}</p>
+                        <p className={`text-sm font-bold ${pendingForTerm > 0 ? (termAging > 0 ? 'text-[#9E3B47]' : 'text-[#CE9F6B]') : 'text-[#82A094]'}`}>
+                          {isFullyPaid ? 'Fully Paid' : formatARCurrency(pendingForTerm)}
+                        </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 h-1.5 bg-[#AEBFC3]/15 rounded-full overflow-hidden">
+                    {/* Progress bar */}
+                    <div className="mt-3 flex items-center gap-2">
+                      <div className="flex-1 h-1.5 bg-[#AEBFC3]/20 rounded-full overflow-hidden shadow-inner">
                         <div 
-                          className={`h-full rounded-full transition-all duration-700 ${
-                            isFullyPaid ? 'bg-[#82A094]' : collectedPercent >= 50 ? 'bg-[#CE9F6B]' : 'bg-[#6F8A9D]'
+                          className={`h-full rounded-full transition-all duration-1000 ${
+                            isFullyPaid ? 'bg-gradient-to-r from-[#82A094] to-[#4F6A64]' : collectedPercent >= 50 ? 'bg-gradient-to-r from-[#CE9F6B] to-[#976E44]' : 'bg-gradient-to-r from-[#6F8A9D] to-[#546A7A]'
                           }`}
                           style={{ width: `${Math.min(100, collectedPercent)}%` }}
                         />
                       </div>
-                      <span className={`text-[10px] font-bold min-w-[32px] text-right ${
-                        isFullyPaid ? 'text-[#82A094]' : collectedPercent > 0 ? (collectedPercent >= 50 ? 'text-[#CE9F6B]' : 'text-[#6F8A9D]') : 'text-[#546A7A]'
-                      }`}>{isFullyPaid ? '100%' : `${Math.floor(collectedPercent)}%`}</span>
+                      <span className="text-[10px] font-black text-[#546A7A]">{Math.floor(collectedPercent)}%</span>
+                    </div>
+                  </div>
+
+                  {/* Tracking Tracker (New Granular Display) */}
+                  <div className="lg:w-[34%] lg:px-6 py-2 bg-white/40 rounded-xl border border-[#AEBFC3]/10 lg:border-none lg:bg-transparent">
+                    <div className="flex flex-col gap-2">
+                       <div className="flex flex-wrap items-center justify-between lg:justify-start gap-4">
+                          <div className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider shadow-sm border ${
+                            term.status === 'COMPLETED' 
+                              ? 'bg-green-50 text-green-700 border-green-200' 
+                              : 'bg-gray-50 text-gray-500 border-gray-200'
+                          }`}>
+                            {term.status === 'COMPLETED' ? <CheckCircle2 className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
+                            {term.status || 'PENDING'}
+                          </div>
+                          
+                          {term.achievementDate && (
+                            <div className="flex items-center gap-1.5 p-1.5 px-2 rounded-lg bg-[#82A094]/5 border border-[#82A094]/20">
+                              <span className="text-[8px] font-black text-[#82A094] uppercase leading-none">Achievement date</span>
+                              <span className="text-[11px] font-bold text-[#4F6A64] text-gray-700 leading-none">{formatARDate(term.achievementDate)}</span>
+                            </div>
+                          )}
+
+                          {term.status === 'COMPLETED' && (
+                             <div className="flex items-center gap-1 text-[10px] font-bold text-[#9E3B47] bg-[#9E3B47]/5 px-2 py-1 rounded-lg border border-[#9E3B47]/10">
+                               <Calendar className="w-3 h-3" /> <span className="uppercase text-[8px] font-black opacity-60 mr-1">Target:</span> {formatARDate(term.termDate)}
+                             </div>
+                          )}
+                       </div>
+
                     </div>
                   </div>
 
                   {/* Aging */}
-                  <div className="sm:w-[34%] flex items-center justify-end gap-3">
+                  <div className="lg:w-[20%] flex items-center lg:justify-end gap-4">
                     <div className="text-right">
-                      <p className={`text-base font-bold leading-tight ${
+                      <p className={`text-lg font-black leading-tight ${
                         isFullyPaid ? 'text-[#82A094]' : isTermOverdue ? 'text-[#9E3B47]' : 'text-[#546A7A]'
                       }`}>
                         {isFullyPaid ? 'Cleared' : termAging > 0 ? `${termAging}d` : `${Math.abs(termAging)}d`}
                       </p>
-                      <p className="text-[9px] font-semibold text-[#92A2A5] uppercase">
-                        {isFullyPaid ? 'Paid' : termAging > 0 ? 'Overdue' : 'Not Due'}
+                      <p className={`text-[9px] font-black uppercase tracking-widest ${
+                         isFullyPaid ? 'text-[#82A094]' : isTermOverdue ? 'text-[#9E3B47]' : 'text-[#CE9F6B]'
+                      }`}>
+                        {isFullyPaid ? 'Paid' : termAging > 0 ? 'Overdue' : 'Remaining'}
                       </p>
                     </div>
-                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                      isFullyPaid ? 'bg-[#82A094]/10' : isTermOverdue ? 'bg-[#E17F70]/10' : 'bg-[#546A7A]/10'
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm border ${
+                      isFullyPaid ? 'bg-[#82A094]/10 border-[#82A094]/20' : 
+                      isTermOverdue ? 'bg-[#E17F70]/10 border-[#E17F70]/20' : 
+                      'bg-[#546A7A]/10 border-[#546A7A]/20'
                     }`}>
-                      {isFullyPaid ? <CheckCircle2 className="w-3.5 h-3.5 text-[#82A094]" /> : 
-                       isTermOverdue ? <AlertTriangle className="w-3.5 h-3.5 text-[#E17F70]" /> : 
-                       <Timer className="w-3.5 h-3.5 text-[#546A7A]" />}
+                      {isFullyPaid ? <BadgeCheck className="w-5 h-5 text-[#82A094]" /> : 
+                       isTermOverdue ? <AlertTriangle className="w-5 h-5 text-[#E17F70] animate-pulse" /> : 
+                       <Timer className="w-5 h-5 text-[#546A7A]" />}
                     </div>
                   </div>
                 </div>

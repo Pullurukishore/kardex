@@ -630,10 +630,10 @@ export const getMilestoneDetailReport = async (req: Request, res: Response) => {
                 const pending = Math.max(0, allocatedAmount - collected);
                 const isPaid = allocatedAmount > 0 ? (collected / allocatedAmount) >= 0.99 : true;
 
-                const termDate = new Date(term.termDate);
-                termDate.setHours(0, 0, 0, 0);
-                const aging = Math.floor((today.getTime() - termDate.getTime()) / (1000 * 60 * 60 * 24));
-                const isOverdue = aging > 0 && !isPaid && invoice.milestoneStatus !== 'FULLY_DELIVERED';
+                const deadlineDate = new Date(term.termDate);
+                deadlineDate.setHours(0, 0, 0, 0);
+                const aging = Math.floor((today.getTime() - deadlineDate.getTime()) / (1000 * 60 * 60 * 24));
+                const isOverdue = aging > 0 && !isPaid && term.status === 'COMPLETED' && invoice.milestoneStatus !== 'FULLY_DELIVERED' && term.status !== 'CANCELLED';
 
                 if (isOverdue) {
                     overdueTermCount++;

@@ -261,16 +261,20 @@ export const getAllInvoices = async (req: Request, res: Response) => {
                     const totalTax = Number(invoice.taxAmount || 0);
 
                     terms.forEach((term: any) => {
-                        const termDate = new Date(term.termDate);
-                        termDate.setHours(0, 0, 0, 0);
-                        if (today.getTime() > termDate.getTime()) {
-                            const isNetBasis = term.calculationBasis !== 'TOTAL_AMOUNT';
-                            const percentage = term.percentage || 0;
-                            const taxPercentage = term.taxPercentage || 0;
-                            if (isNetBasis) {
-                                totalAllocatedUpToToday += (netAmount * percentage) / 100;
-                            } else {
-                                totalAllocatedUpToToday += ((netAmount * percentage) / 100) + ((totalTax * taxPercentage) / 100);
+                        // Only consider completed milestones for aging, using the target (due) date
+                        if (term.status === 'COMPLETED' && term.termDate) {
+                            const deadlineDate = new Date(term.termDate);
+                            deadlineDate.setHours(0, 0, 0, 0);
+                            
+                            if (today.getTime() > deadlineDate.getTime()) {
+                                const isNetBasis = term.calculationBasis !== 'TOTAL_AMOUNT';
+                                const percentage = term.percentage || 0;
+                                const taxPercentage = term.taxPercentage || 0;
+                                if (isNetBasis) {
+                                    totalAllocatedUpToToday += (netAmount * percentage) / 100;
+                                } else {
+                                    totalAllocatedUpToToday += ((netAmount * percentage) / 100) + ((totalTax * taxPercentage) / 100);
+                                }
                             }
                         }
                     });

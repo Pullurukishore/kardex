@@ -34,6 +34,9 @@ export interface MilestonePaymentTerm {
     customLabel?: string;
     calculationBasis?: 'NET_AMOUNT' | 'TOTAL_AMOUNT'; // Whether % is on net amount or net + tax
     taxPercentage?: number; // When TOTAL_AMOUNT, what % of tax amount to add
+    achievementDate?: string;
+    status: 'PENDING' | 'COMPLETED';
+    dueDate?: string;
 }
 export interface ARCustomer {
     id: string;
