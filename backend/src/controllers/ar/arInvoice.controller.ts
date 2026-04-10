@@ -1879,13 +1879,18 @@ export const getMatchingMilestones = async (req: Request, res: Response) => {
         // Build OR conditions for matching
         const orConditions: any[] = [];
 
-        // Invoice Number-based matching (Strict matching)
+        // 1. Invoice Number-based matching (Strict matching)
         if (invoice.invoiceNumber) {
             orConditions.push({ invoiceNumber: invoice.invoiceNumber });
         }
 
+        // 2. PO Number-based matching (Broader matching)
+        if (invoice.poNo) {
+            orConditions.push({ poNo: invoice.poNo });
+        }
+
         if (orConditions.length === 0) {
-            return res.json({ milestones: [], message: 'No Invoice Number to match' });
+            return res.json({ milestones: [], message: 'No Invoice Number or PO Number to match' });
         }
 
         // Find milestone invoices with matching PO number or Invoice Number
@@ -1985,7 +1990,14 @@ export const getMatchingMilestones = async (req: Request, res: Response) => {
 export const acceptMilestone = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
-        const { milestoneId, transferPayments = true } = req.body;
+        const {
+            milestoneId,
+            transferPayments = true,
+            transferDelivery = false,
+            transferGuarantees = false,
+            transferRemarks = false,
+            transferTracking = false
+        } = req.body;
 
         if (!milestoneId) {
             return res.status(400).json({ error: 'Milestone invoice ID is required' });
@@ -2002,46 +2014,132 @@ export const acceptMilestone = async (req: Request, res: Response) => {
             ]);
 
             if (!regularInvoice) throw new Error('Regular invoice not found');
-            // Allow null or REGULAR invoiceType (older imports may have null)
             if (regularInvoice.invoiceType === 'MILESTONE') throw new Error('Target cannot be a MILESTONE invoice');
             if (!milestoneInvoice) throw new Error('Milestone invoice not found');
             if (milestoneInvoice.invoiceType !== 'MILESTONE') throw new Error('Source must be a MILESTONE invoice');
 
-            // Allow linking ONLY when invoice numbers match exactly
             const invoiceNumbersMatch = regularInvoice.invoiceNumber && milestoneInvoice.invoiceNumber
                 && regularInvoice.invoiceNumber === milestoneInvoice.invoiceNumber;
+            const poNumbersMatch = regularInvoice.poNo && milestoneInvoice.poNo
+                && regularInvoice.poNo === milestoneInvoice.poNo;
 
-            if (!invoiceNumbersMatch) {
-                throw new Error(`Invoice numbers do not match: ${regularInvoice.invoiceNumber} vs ${milestoneInvoice.invoiceNumber}`);
+            if (!invoiceNumbersMatch && !poNumbersMatch) {
+                throw new Error(`Linking requires either Invoice Numbers (${regularInvoice.invoiceNumber} vs ${milestoneInvoice.invoiceNumber}) or PO Numbers (${regularInvoice.poNo} vs ${milestoneInvoice.poNo}) to match.`);
             }
 
-            // Check if this is a re-link (already linked before)
             const isReLink = milestoneInvoice.linkedInvoiceId === id;
-
             const now = new Date();
-            // Update milestone invoice (only if not already linked)
+
+            // Prepare update data for regular invoice
+            const regularInvoiceUpdate: any = { linkedMilestoneId: milestoneId };
+
+            if (transferDelivery) {
+                regularInvoiceUpdate.deliveryStatus = milestoneInvoice.deliveryStatus;
+                regularInvoiceUpdate.modeOfDelivery = milestoneInvoice.modeOfDelivery;
+                regularInvoiceUpdate.sentHandoverDate = milestoneInvoice.sentHandoverDate;
+                regularInvoiceUpdate.impactDate = milestoneInvoice.impactDate;
+            }
+
+            if (transferTracking) {
+                if (milestoneInvoice.personInCharge) regularInvoiceUpdate.personInCharge = milestoneInvoice.personInCharge;
+                if (milestoneInvoice.region) regularInvoiceUpdate.region = milestoneInvoice.region;
+                if (milestoneInvoice.department) regularInvoiceUpdate.department = milestoneInvoice.department;
+                if (milestoneInvoice.bookingMonth) regularInvoiceUpdate.bookingMonth = milestoneInvoice.bookingMonth;
+                if (milestoneInvoice.accountingStatus) regularInvoiceUpdate.accountingStatus = milestoneInvoice.accountingStatus;
+                if (milestoneInvoice.mailToTSP) regularInvoiceUpdate.mailToTSP = milestoneInvoice.mailToTSP;
+                if (milestoneInvoice.actualPaymentTerms) regularInvoiceUpdate.actualPaymentTerms = milestoneInvoice.actualPaymentTerms;
+                if (milestoneInvoice.soNo) regularInvoiceUpdate.soNo = milestoneInvoice.soNo;
+                if (milestoneInvoice.milestoneTerms) regularInvoiceUpdate.milestoneTerms = milestoneInvoice.milestoneTerms;
+                if (milestoneInvoice.advanceReceivedDate) regularInvoiceUpdate.advanceReceivedDate = milestoneInvoice.advanceReceivedDate;
+                if (milestoneInvoice.deliveryDueDate) regularInvoiceUpdate.deliveryDueDate = milestoneInvoice.deliveryDueDate;
+
+                // Transfer adjustments
+                if (milestoneInvoice.adjustments && Number(milestoneInvoice.adjustments) !== 0) {
+                    const milestoneAdj = Number(milestoneInvoice.adjustments);
+                    const currentRegularAdj = Number(regularInvoice.adjustments || 0);
+                    regularInvoiceUpdate.adjustments = currentRegularAdj + milestoneAdj;
+                }
+
+                // Sync legacy comments field
+                if (milestoneInvoice.comments) {
+                    if (regularInvoice.comments) {
+                        if (!regularInvoice.comments.includes(milestoneInvoice.comments)) {
+                            regularInvoiceUpdate.comments = `${regularInvoice.comments}\n[From Milestone] ${milestoneInvoice.comments}`;
+                        }
+                    } else {
+                        regularInvoiceUpdate.comments = `[From Milestone] ${milestoneInvoice.comments}`;
+                    }
+                }
+            }
+
+            if (transferGuarantees) {
+                regularInvoiceUpdate.hasAPG = milestoneInvoice.hasAPG;
+                regularInvoiceUpdate.apgDraftDate = milestoneInvoice.apgDraftDate;
+                regularInvoiceUpdate.apgDraftNote = milestoneInvoice.apgDraftNote;
+                regularInvoiceUpdate.apgDraftSteps = milestoneInvoice.apgDraftSteps;
+                regularInvoiceUpdate.apgSignedDate = milestoneInvoice.apgSignedDate;
+                regularInvoiceUpdate.apgSignedNote = milestoneInvoice.apgSignedNote;
+                regularInvoiceUpdate.apgSignedSteps = milestoneInvoice.apgSignedSteps;
+
+                regularInvoiceUpdate.hasPBG = milestoneInvoice.hasPBG;
+                regularInvoiceUpdate.pbgDraftDate = milestoneInvoice.pbgDraftDate;
+                regularInvoiceUpdate.pbgDraftNote = milestoneInvoice.pbgDraftNote;
+                regularInvoiceUpdate.pbgDraftSteps = milestoneInvoice.pbgDraftSteps;
+                regularInvoiceUpdate.pbgSignedDate = milestoneInvoice.pbgSignedDate;
+                regularInvoiceUpdate.pbgSignedNote = milestoneInvoice.pbgSignedNote;
+                regularInvoiceUpdate.pbgSignedSteps = milestoneInvoice.pbgSignedSteps;
+            }
+
+            // Update regular invoice with tracking info
+            await tx.aRInvoice.update({
+                where: { id },
+                data: regularInvoiceUpdate
+            });
+
+            // Handle remarks transfer
+            if (transferRemarks) {
+                const milestoneRemarks = await tx.aRInvoiceRemark.findMany({
+                    where: { invoiceId: milestoneId }
+                });
+
+                // Get existing remarks on regular invoice to avoid duplicates
+                const existingRemarks = await tx.aRInvoiceRemark.findMany({
+                    where: { invoiceId: id },
+                    select: { content: true }
+                });
+                const existingContents = new Set(existingRemarks.map(r => r.content));
+
+                for (const remark of milestoneRemarks) {
+                    const newContent = `[From Milestone] ${remark.content}`;
+                    if (!existingContents.has(newContent)) {
+                        await tx.aRInvoiceRemark.create({
+                            data: {
+                                invoiceId: id,
+                                content: newContent,
+                                createdById: remark.createdById,
+                                createdAt: remark.createdAt
+                            }
+                        });
+                    }
+                }
+            }
+
+            // Update milestone invoice linkage
             if (!isReLink) {
                 await tx.aRInvoice.update({
                     where: { id: milestoneId },
                     data: { linkedInvoiceId: id, milestoneStatus: 'LINKED', milestoneAcceptedAt: now }
-                });
-
-                await tx.aRInvoice.update({
-                    where: { id },
-                    data: { linkedMilestoneId: milestoneId }
                 });
             }
 
             let totalTransferred = 0;
 
             if (transferPayments) {
-                // Get all milestone payments ordered by creation to ensure logical transfer
                 const milestonePayments = await tx.aRPaymentHistory.findMany({
                     where: { invoiceId: milestoneId },
                     orderBy: { createdAt: 'asc' }
                 });
 
-                // Get already transferred payments to avoid duplicates
                 const alreadyTransferred = await tx.aRPaymentHistory.findMany({
                     where: {
                         invoiceId: id,
@@ -2051,19 +2149,12 @@ export const acceptMilestone = async (req: Request, res: Response) => {
                     select: { amount: true, paymentDate: true }
                 });
 
-                // Calculate already transferred total
                 const alreadyTransferredTotal = alreadyTransferred.reduce((sum, p) => sum + Number(p.amount), 0);
-
-                // Track running total to find which payments are new
                 let runningTotal = 0;
 
                 for (const payment of milestonePayments) {
                     runningTotal += Number(payment.amount);
-
-                    // Skip if this payment's running total is within already transferred amount
-                    if (runningTotal <= alreadyTransferredTotal) {
-                        continue;
-                    }
+                    if (runningTotal <= alreadyTransferredTotal) continue;
 
                     await tx.aRPaymentHistory.create({
                         data: {
@@ -2081,7 +2172,6 @@ export const acceptMilestone = async (req: Request, res: Response) => {
                     totalTransferred += Number(payment.amount);
                 }
 
-                // Support transferring imported milestone receipts when no payment history records exist
                 if (milestonePayments.length === 0 && Number(milestoneInvoice.receipts || 0) > 0) {
                     const importedReceipts = Number(milestoneInvoice.receipts || 0);
                     if (alreadyTransferredTotal < importedReceipts) {
@@ -2090,7 +2180,7 @@ export const acceptMilestone = async (req: Request, res: Response) => {
                             data: {
                                 invoiceId: id,
                                 amount: amountToTransfer,
-                                paymentDate: invoiceNumbersMatch && milestoneInvoice.invoiceDate ? new Date(milestoneInvoice.invoiceDate) : new Date(),
+                                paymentDate: milestoneInvoice.invoiceDate ? new Date(milestoneInvoice.invoiceDate) : new Date(),
                                 paymentMode: 'ADJUSTMENT',
                                 notes: `[From Milestone ${milestoneInvoice.invoiceNumber}] Imported Receipts Transfer`,
                                 recordedBy: 'System'
@@ -2100,7 +2190,6 @@ export const acceptMilestone = async (req: Request, res: Response) => {
                     }
                 }
 
-                // Recalculate invoice totals from ALL payment history (not stale stored values)
                 const allInvoicePayments = await tx.aRPaymentHistory.findMany({
                     where: { invoiceId: id }
                 });
@@ -2131,27 +2220,58 @@ export const acceptMilestone = async (req: Request, res: Response) => {
                     data: { receipts: newReceipts, adjustments: newAdjustments, totalReceipts: newTotalReceipts, balance: newBalance, status: newStatus }
                 });
 
-                return { success: true, milestoneInvoiceNumber: milestoneInvoice.invoiceNumber, totalTransferred, newBalance, newStatus };
+                return {
+                    success: true,
+                    milestoneInvoiceNumber: milestoneInvoice.invoiceNumber,
+                    totalTransferred,
+                    newBalance,
+                    newStatus,
+                    transferredSections: {
+                        payments: true,
+                        delivery: transferDelivery,
+                        guarantees: transferGuarantees,
+                        remarks: transferRemarks,
+                        tracking: transferTracking
+                    }
+                };
             }
 
-            return { success: true, milestoneInvoiceNumber: milestoneInvoice.invoiceNumber, totalTransferred: 0 };
+            return {
+                success: true,
+                milestoneInvoiceNumber: milestoneInvoice.invoiceNumber,
+                totalTransferred: 0,
+                transferredSections: {
+                    payments: false,
+                    delivery: transferDelivery,
+                    guarantees: transferGuarantees,
+                    remarks: transferRemarks,
+                    tracking: transferTracking
+                }
+            };
         });
+
+        const sections = [];
+        if (transferPayments) sections.push('Payments');
+        if (transferDelivery) sections.push('Delivery');
+        if (transferGuarantees) sections.push('Guarantees');
+        if (transferRemarks) sections.push('Remarks');
+        if (transferTracking) sections.push('Tracking Info');
 
         await Promise.all([
             logInvoiceActivity({
                 invoiceId: id,
                 action: 'MILESTONE_LINKED',
-                description: `Milestone ${result.milestoneInvoiceNumber} linked. Transferred: ₹${result.totalTransferred.toLocaleString()}`,
+                description: `Milestone ${result.milestoneInvoiceNumber} linked. Transferred: ${sections.join(', ')}`,
                 performedById: user.id,
                 performedBy: user.name,
                 ipAddress,
                 userAgent,
-                metadata: { milestoneId, totalTransferred: result.totalTransferred }
+                metadata: { milestoneId, totalTransferred: result.totalTransferred, sections }
             }),
             logInvoiceActivity({
                 invoiceId: milestoneId,
                 action: 'LINKED_TO_INVOICE',
-                description: `Linked to invoice ${id}. Status: LINKED`,
+                description: `Linked to invoice ${id}. Data transferred to regular invoice.`,
                 performedById: user.id,
                 performedBy: user.name,
                 ipAddress,

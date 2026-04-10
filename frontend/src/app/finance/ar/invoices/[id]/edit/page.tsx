@@ -166,8 +166,8 @@ export default function EditInvoicePage() {
 
     try {
       // Validation
-      if (!formData.invoiceNumber || !formData.bpCode || !formData.invoiceDate || !formData.dueDate || !formData.totalAmount) {
-        setError('Please fill in all required fields: Invoice Number, BP Code, Invoice Date, Due Date, and Total Amount');
+      if (!formData.invoiceNumber || !formData.bpCode || !formData.invoiceDate || !formData.totalAmount) {
+        setError('Please fill in all required fields: Invoice Number, BP Code, Invoice Date, and Total Amount');
         return;
       }
 
@@ -449,14 +449,13 @@ export default function EditInvoicePage() {
               />
             </div>
             <div>
-              <label className={labelClass}>Due Date <span className="text-[#E17F70]">*</span></label>
+              <label className={labelClass}>Due Date</label>
               <input
                 type="date"
                 name="dueDate"
                 value={formData.dueDate}
                 onChange={handleChange}
                 className={inputClass}
-                required
               />
             </div>
             <div className="sm:col-span-full">
@@ -585,7 +584,7 @@ export default function EditInvoicePage() {
                   onChange={(e) => setFormData(prev => ({ ...prev, hasAPG: e.target.checked }))}
                   className="w-5 h-5 rounded-md border-2 border-[#AEBFC3] text-[#E17F70] focus:ring-[#E17F70]/20 transition-all"
                 />
-                <span className="font-bold text-[#546A7A] text-lg">Advance Payment Guarantee (APG)</span>
+                <span className="font-bold text-[#546A7A] text-lg">ABG Advance Bank Guarantee</span>
               </label>
               
               {formData.hasAPG && (

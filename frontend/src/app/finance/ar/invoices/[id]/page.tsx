@@ -3,15 +3,17 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { arApi, ARInvoice, ARPaymentHistory, MatchingMilestone, formatARCurrency, formatARDate, formatAmountForInput, parseFormattedAmount } from '@/lib/ar-api';
+import { arApi, ARInvoice, ARPaymentHistory, ARInvoiceActivityLog, MatchingMilestone, formatARCurrency, formatARDate, formatAmountForInput, parseFormattedAmount } from '@/lib/ar-api';
 import { 
   ArrowLeft, Pencil, Trash2, FileText, Calendar, User, Clock, 
   AlertTriangle, CheckCircle, CheckCircle2, Loader2, Mail, Phone, MapPin, Building, 
   CreditCard, Hash, Receipt, Truck, MessageSquare, Shield, Copy, 
   RefreshCw, Plus, X, IndianRupee, Package, TrendingUp, XCircle, ArrowRight, PlusCircle,
   ChevronRight, ChevronLeft, Timer, Banknote, ArrowDownRight, ArrowUpRight, Sparkles,
-  Wallet, CreditCard as CardIcon, BadgeCheck, Scale, Link2, Tag, PackageX
+  Wallet, CreditCard as CardIcon, BadgeCheck, Scale, Link2, Tag, PackageX, ExternalLink,
+  Zap
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function InvoiceViewPage() {
   const params = useParams();
@@ -185,24 +187,59 @@ export default function InvoiceViewPage() {
     return () => window.removeEventListener('keydown', handleEscape);
   }, [showPaymentModal]);
 
+  const [linkingId, setLinkingId] = useState<string | null>(null);
+  const [transferOptions, setTransferOptions] = useState({
+    payments: true,
+    delivery: true,
+    remarks: true,
+    guarantees: true,
+    tracking: true
+  });
+
   // Handle linking milestone to invoice
-  const handleLinkMilestone = async (milestone: MatchingMilestone, transferPayments: boolean = true) => {
+  const handleLinkMilestone = async (milestone: MatchingMilestone) => {
     if (!invoice) return;
     
     try {
       setLinkingMilestone(true);
-      const result = await arApi.acceptMilestone(invoice.id, milestone.id, transferPayments);
+      setLinkingId(milestone.id);
       
-      alert(`Successfully linked milestone ${result.milestoneInvoiceNumber}! Transferred: ${formatARCurrency(result.totalTransferred)}`);
+      const result = await arApi.acceptMilestone(invoice.id, milestone.id, {
+        transferPayments: transferOptions.payments,
+        transferDelivery: transferOptions.delivery,
+        transferRemarks: transferOptions.remarks,
+        transferGuarantees: transferOptions.guarantees,
+        transferTracking: transferOptions.tracking
+      });
+      
+      let message = `Successfully linked milestone ${result.milestoneInvoiceNumber}!`;
+      if (result.totalTransferred > 0) message += `\nTransferred: ${formatARCurrency(result.totalTransferred)} in payments.`;
+      
+      const transferredSections = [];
+      if (transferOptions.delivery) transferredSections.push('Delivery');
+      if (transferOptions.guarantees) transferredSections.push('Guarantees');
+      if (transferOptions.remarks) transferredSections.push('Remarks');
+      if (transferOptions.tracking) transferredSections.push('Payment Terms & Tracking');
+      
+      if (transferredSections.length > 0) {
+        message += `\nTransferred: ${transferredSections.join(', ')}`;
+      }
+      
+      toast.success(message, {
+        duration: 5000,
+        icon: <Zap className="w-5 h-5 text-[#CE9F6B]" />
+      });
       
       // Reload invoice and clear milestones
       await loadInvoice(invoice.id);
       setMatchingMilestones([]);
       setShowLinkModal(false);
       setSelectedMilestone(null);
+      setLinkingId(null);
     } catch (err: any) {
       console.error('Failed to link milestone:', err);
-      alert(err.response?.data?.error || 'Failed to link milestone invoice');
+      toast.error(err.response?.data?.error || 'Failed to link milestone invoice');
+      setLinkingId(null);
     } finally {
       setLinkingMilestone(false);
     }
@@ -755,18 +792,21 @@ export default function InvoiceViewPage() {
                     <span className="px-2 py-0.5 rounded-full bg-white/10 text-white/50 text-[9px] font-bold">via Invoice No: {invoice?.invoiceNumber}</span>
                   </div>
 
-                  <h3 className="text-xl font-bold text-white">Import Milestone Payments?</h3>
+                  <h3 className="text-xl font-bold text-white">
+                    {linkedCount > 0 && linkedCount === matchingMilestones.length ? 'Sync Milestone Data?' : 'Import Milestone Payments?'}
+                  </h3>
                   <p className="text-white/70 text-sm max-w-md">
-                    We found {matchingMilestones.length} milestone{matchingMilestones.length > 1 ? 's' : ''} with 
-                    {hasNewPaymentsCount > 0 ? (
-                      <span className="text-[#CE9F6B] font-bold mx-1">{formatARCurrency(totalNewPaymentsAmount)}</span>
-                    ) : ' available payments'} to import.
+                    {linkedCount > 0 && linkedCount === matchingMilestones.length 
+                      ? `All matching milestones are linked. You can still sync delivery or remarks.`
+                      : `We found ${matchingMilestones.length} milestone${matchingMilestones.length > 1 ? 's' : ''} with ${hasNewPaymentsCount > 0 ? (
+                          <span className="text-[#CE9F6B] font-bold mx-1">{formatARCurrency(totalNewPaymentsAmount)}</span>
+                        ) : ' available payments'} to import.`
+                    }
                   </p>
                 </div>
               </div>
 
               <div className="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto">
-                {/* Visual Connection */}
                 <div className="hidden sm:flex items-center gap-3 bg-black/10 rounded-2xl px-4 py-2 border border-white/10">
                   <div className="flex flex-col">
                     <span className="text-[8px] text-white/40 font-bold uppercase tracking-tighter">Source</span>
@@ -780,13 +820,43 @@ export default function InvoiceViewPage() {
                 </div>
 
                 <div className="flex items-center gap-2 w-full sm:w-auto">
-                  <button
-                    onClick={() => setShowLinkModal(true)}
-                    className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-[#CE9F6B] text-[#546A7A] font-black hover:bg-white hover:shadow-xl transition-all text-sm group/btn"
-                  >
-                    <PlusCircle className="w-4 h-4 group-hover/btn:rotate-90 transition-transform" />
-                    {linkedCount > 0 ? 'Review & Link' : 'Start Import'}
-                  </button>
+                  {matchingMilestones.length === 1 && (
+                    <div className="flex items-center gap-2">
+                       <Link
+                        href={`/finance/ar/milestones/${encodeURIComponent(matchingMilestones[0].invoiceNumber)}`}
+                        className="p-3 rounded-xl bg-white/10 text-white/80 hover:bg-white/20 hover:text-white transition-colors"
+                        title="View Milestone Details"
+                      >
+                        <ExternalLink className="w-5 h-5" />
+                      </Link>
+                      <button
+                        onClick={() => handleLinkMilestone(matchingMilestones[0])}
+                        disabled={linkingMilestone}
+                        className="flex items-center gap-2 px-5 py-3 rounded-xl bg-white text-[#546A7A] font-bold hover:shadow-2xl transition-all text-xs border-2 border-transparent hover:border-[#CE9F6B]"
+                        title="Quick Sync everything in one click"
+                      >
+                        {linkingMilestone ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4 text-[#CE9F6B]" />}
+                        Quick Sync All
+                      </button>
+                    </div>
+                  )}
+                  {matchingMilestones.length > 1 && (
+                    <button
+                      onClick={() => setShowLinkModal(true)}
+                      className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-[#CE9F6B] text-[#546A7A] font-black hover:bg-white hover:shadow-xl transition-all text-sm group/btn"
+                    >
+                      <PlusCircle className="w-4 h-4 group-hover/btn:rotate-90 transition-transform" />
+                      {linkedCount > 0 ? 'Review & Sync Data' : 'Start Import'}
+                    </button>
+                  )}
+                  {matchingMilestones.length === 1 && (
+                    <button
+                      onClick={() => setShowLinkModal(true)}
+                      className="p-3 rounded-xl bg-white/5 text-white/40 hover:bg-white/10 hover:text-white transition-colors text-xs font-bold"
+                    >
+                      Advanced
+                    </button>
+                  )}
                   <button
                     onClick={() => setMatchingMilestones([])}
                     className="p-3 rounded-xl bg-white/5 text-white/60 hover:bg-white/10 hover:text-white transition-colors"
@@ -1014,21 +1084,14 @@ export default function InvoiceViewPage() {
                   <div 
                     key={milestone.id}
                     onClick={() => {
-                      // Allow selection if: not linked, OR linked but has untransferred payments
-                      const isLinked = (milestone as any).linkedInvoiceId === invoice?.id;
-                      const hasNewPayments = (milestone as any).untransferredPayments > 0;
-                      if (!isLinked || hasNewPayments) {
-                        setSelectedMilestone(milestone);
-                      }
+                      setSelectedMilestone(milestone);
                     }}
-                    className={`p-4 rounded-2xl border-2 transition-all ${
-                      (milestone as any).linkedInvoiceId === invoice?.id && (milestone as any).untransferredPayments === 0
-                        ? 'border-[#82A094]/30 bg-[#82A094]/10 cursor-not-allowed opacity-70'
-                        : (milestone as any).linkedInvoiceId === invoice?.id && (milestone as any).untransferredPayments > 0
-                          ? 'border-[#CE9F6B]/50 bg-[#CE9F6B]/5 cursor-pointer'
-                          : selectedMilestone?.id === milestone.id 
-                            ? 'border-[#CE9F6B] bg-[#CE9F6B]/5 shadow-lg cursor-pointer' 
-                            : 'border-[#AEBFC3]/20 hover:border-[#AEBFC3]/50 cursor-pointer'
+                    className={`p-4 rounded-2xl border-2 transition-all cursor-pointer ${
+                      selectedMilestone?.id === milestone.id 
+                        ? 'border-[#CE9F6B] bg-[#CE9F6B]/5 shadow-lg' 
+                        : (milestone as any).linkedInvoiceId === invoice?.id 
+                          ? 'border-[#82A094]/30 bg-[#82A094]/5'
+                          : 'border-[#AEBFC3]/20 hover:border-[#AEBFC3]/50'
                     }`}
                   >
                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
@@ -1044,7 +1107,17 @@ export default function InvoiceViewPage() {
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center gap-2 flex-wrap mb-1">
-                            <p className="font-bold text-[#546A7A]">{milestone.invoiceNumber}</p>
+                            <div className="flex items-center gap-1.5">
+                              <p className="font-bold text-[#546A7A]">{milestone.invoiceNumber}</p>
+                              <Link 
+                                href={`/finance/ar/milestones/${encodeURIComponent(milestone.invoiceNumber)}`}
+                                onClick={(e) => e.stopPropagation()}
+                                className="p-1 rounded-lg hover:bg-[#AEBFC3]/20 text-[#6F8A9D] transition-all"
+                                title="View details"
+                              >
+                                <ExternalLink className="w-3.5 h-3.5" />
+                              </Link>
+                            </div>
                             {(milestone as any).linkedInvoiceId === invoice?.id && (milestone as any).untransferredPayments === 0 && (
                               <span className="px-2 py-0.5 rounded-full bg-[#82A094] text-white text-[10px] font-bold uppercase">
                                 Fully Transferred ✓
@@ -1057,11 +1130,6 @@ export default function InvoiceViewPage() {
                             )}
                           </div>
                           <p className="text-sm text-[#92A2A5]">{milestone.customerName}</p>
-                          {milestone.poNo && (
-                            <p className="text-xs text-[#CE9F6B] font-mono mt-0.5">
-                              PO: <span className="font-bold">{milestone.poNo}</span>
-                            </p>
-                          )}
                         </div>
                       </div>
                       <div className="text-left sm:text-right pl-8 sm:pl-0">
@@ -1071,37 +1139,68 @@ export default function InvoiceViewPage() {
                         </p>
                       </div>
                     </div>
-                    
-                    {/* Payment details */}
-                    {milestone.payments.length > 0 && (
-                      <div className="mt-3 pt-3 border-t border-[#AEBFC3]/20">
-                        <p className="text-xs font-semibold text-[#92A2A5] mb-2">PAYMENT RECORDS</p>
-                        <div className="space-y-1">
-                          {milestone.payments.slice(0, 3).map((payment) => (
-                            <div key={payment.id} className="flex items-center justify-between text-sm">
-                              <span className="text-[#5D6E73]">{formatARDate(payment.paymentDate)} • {payment.paymentMode}</span>
-                              <span className="font-semibold text-[#546A7A]">{formatARCurrency(payment.amount)}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
                   </div>
                 ))}
               </div>
+
+              {selectedMilestone && (
+                <div className="mt-8 p-6 rounded-2xl bg-[#AEBFC3]/5 border-2 border-[#AEBFC3]/20">
+                  <h4 className="flex items-center gap-2 text-sm font-bold text-[#546A7A] mb-4 uppercase tracking-wider">
+                    <Sparkles className="w-4 h-4 text-[#CE9F6B]" />
+                    Select Data to Transfer
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {[
+                      { id: 'payments', label: 'Payment History', desc: 'Transfer all collected receipts', icon: IndianRupee },
+                      { id: 'delivery', label: 'Delivery Tracking', desc: 'Status, mode and handover dates', icon: Truck },
+                      { id: 'remarks', label: 'Comments & Remarks', desc: 'All history of remarks', icon: MessageSquare },
+                      { id: 'guarantees', label: 'Bank Guarantees', desc: 'APG/PBG tracking steps', icon: Shield },
+                      { id: 'tracking', label: 'Tracking Information', desc: 'PIC, Region, Dept, etc.', icon: User },
+                    ].map((opt) => (
+                      <label 
+                        key={opt.id} 
+                        className={`flex items-start gap-3 p-3 rounded-xl border-2 transition-all cursor-pointer ${
+                          (transferOptions as any)[opt.id] 
+                            ? 'bg-white border-[#82A094]/30 shadow-sm' 
+                            : 'border-transparent bg-[#AEBFC3]/10 opacity-70 grayscale'
+                        }`}
+                      >
+                        <div className="pt-0.5">
+                          <input 
+                            type="checkbox" 
+                            checked={(transferOptions as any)[opt.id]}
+                            onChange={(e) => setTransferOptions(prev => ({ ...prev, [opt.id]: e.target.checked }))}
+                            className="w-4 h-4 rounded text-[#82A094] border-[#AEBFC3] focus:ring-[#82A094]"
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <opt.icon className={`w-3.5 h-3.5 ${ (transferOptions as any)[opt.id] ? 'text-[#82A094]' : 'text-[#92A2A5]' }`} />
+                            <span className="text-sm font-bold text-[#546A7A]">{opt.label}</span>
+                          </div>
+                          <p className="text-[10px] text-[#92A2A5] leading-tight">{opt.desc}</p>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
             
             {/* Modal Footer */}
             <div className="p-6 border-t border-[#AEBFC3]/20 bg-[#AEBFC3]/5">
               <div className="flex items-center justify-between">
-                <div>
+                <div className="flex-1 pr-4">
                   {selectedMilestone && (
-                    <p className="text-sm text-[#5D6E73]">
-                      Transferring <span className="font-bold text-[#82A094]">{formatARCurrency(selectedMilestone.totalPayments)}</span> to this invoice
-                    </p>
+                    <div className="flex items-center gap-2 text-[#5D6E73]">
+                      <div className="w-2 h-2 rounded-full bg-[#82A094] animate-pulse" />
+                      <p className="text-xs sm:text-sm">
+                        Transferring <span className="font-bold text-[#82A094]">{formatARCurrency(selectedMilestone.totalPayments)}</span> and selected details
+                      </p>
+                    </div>
                   )}
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-shrink-0">
                   <button
                     onClick={() => { setShowLinkModal(false); setSelectedMilestone(null); }}
                     className="px-5 py-2.5 rounded-xl border border-[#AEBFC3]/30 text-[#5D6E73] font-semibold hover:bg-[#AEBFC3]/10 transition-colors"
@@ -1109,7 +1208,7 @@ export default function InvoiceViewPage() {
                     Cancel
                   </button>
                   <button
-                    onClick={() => selectedMilestone && handleLinkMilestone(selectedMilestone, true)}
+                    onClick={() => selectedMilestone && handleLinkMilestone(selectedMilestone)}
                     disabled={!selectedMilestone || linkingMilestone}
                     className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#CE9F6B] to-[#E17F70] text-white font-bold hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                   >
@@ -1121,7 +1220,7 @@ export default function InvoiceViewPage() {
                     ) : (
                       <>
                         <Link2 className="w-4 h-4" />
-                        Link & Transfer Payments
+                        Complete Link
                       </>
                     )}
                   </button>
@@ -1193,6 +1292,40 @@ export default function InvoiceViewPage() {
                     ))}
                   </div>
                 </div>
+
+                {/* Linked Milestones (if any) */}
+                {matchingMilestones.some(m => (m as any).linkedInvoiceId === invoice.id) && (
+                  <div>
+                    <h4 className="flex items-center gap-2 text-lg font-bold text-[#546A7A] mb-4">
+                      <div className="p-2 rounded-xl bg-gradient-to-br from-[#82A094] to-[#546A7A] shadow-lg shadow-[#82A094]/20">
+                        <Link2 className="w-5 h-5 text-white" />
+                      </div>
+                      Linked Milestones
+                    </h4>
+                    <div className="space-y-3">
+                      {matchingMilestones.filter(m => (m as any).linkedInvoiceId === invoice.id).map((milestone) => (
+                        <div key={milestone.id} className="flex items-center justify-between p-3 rounded-xl bg-[#82A094]/5 border border-[#82A094]/20 hover:border-[#82A094]/40 transition-all">
+                          <div className="flex items-center gap-3">
+                            <div className="p-1.5 rounded-lg bg-white shadow-sm">
+                              <Package className="w-4 h-4 text-[#82A094]" />
+                            </div>
+                            <div>
+                              <p className="font-bold text-[#546A7A] text-sm">{milestone.invoiceNumber}</p>
+                              <p className="text-[10px] text-[#92A2A5] font-medium">SO Number: {milestone.soNo || 'N/A'}</p>
+                            </div>
+                          </div>
+                          <Link 
+                            href={`/finance/ar/milestones/${encodeURIComponent(milestone.invoiceNumber)}`}
+                            className="p-2 rounded-lg bg-white border border-[#AEBFC3]/30 text-[#6F8A9D] hover:bg-[#6F8A9D]/10 hover:border-[#6F8A9D]/30 hover:text-[#546A7A] transition-all shadow-sm"
+                            title="View Milestone Details"
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                          </Link>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 
                 {/* Financial Breakdown */}
                 <div>
@@ -1404,7 +1537,7 @@ export default function InvoiceViewPage() {
                   {invoice.hasAPG && (
                     <div className="space-y-4 bg-white p-5 rounded-2xl border border-[#AEBFC3]/30 shadow-sm transition-all hover:shadow-md">
                       <h4 className="font-bold text-[#E17F70] flex items-center gap-2 text-base pb-3 border-b border-[#AEBFC3]/20">
-                        <Tag className="w-4 h-4" /> Advance Payment Guarantee (APG)
+                        <Tag className="w-4 h-4" /> ABG Advance Bank Guarantee
                       </h4>
                       <div className="space-y-6 pt-2">
                         {/* Draft */}
@@ -1414,7 +1547,7 @@ export default function InvoiceViewPage() {
                             <div className="w-0.5 h-full bg-[#CE9F6B]/20 min-h-[40px]" />
                           </div>
                           <div className="flex-1 pb-4">
-                            <span className="block text-[#92A2A5] text-[10px] font-black uppercase tracking-widest mb-1">Draft APG</span>
+                            <span className="block text-[#92A2A5] text-[10px] font-black uppercase tracking-widest mb-1">Draft ABG</span>
                             <div className="flex items-center gap-4">
                               <span className="font-bold text-[#5D6E73] text-sm">{invoice.apgDraftDate ? formatARDate(invoice.apgDraftDate) : '-'}</span>
                               <span className="text-xs text-[#92A2A5] italic">{invoice.apgDraftNote || ''}</span>
@@ -1462,7 +1595,7 @@ export default function InvoiceViewPage() {
                             <div className="w-3 h-3 rounded-full bg-[#82A094] mt-1.5 border-2 border-white ring-2 ring-[#82A094]/20 shadow-sm" />
                           </div>
                           <div className="flex-1">
-                            <span className="block text-[#92A2A5] text-[10px] font-black uppercase tracking-widest mb-1 font-bold">Signed APG</span>
+                            <span className="block text-[#92A2A5] text-[10px] font-black uppercase tracking-widest mb-1 font-bold">Signed ABG</span>
                             <div className="flex items-center gap-4">
                               <span className="font-bold text-[#5D6E73] text-sm">{invoice.apgSignedDate ? formatARDate(invoice.apgSignedDate) : '-'}</span>
                               <span className="text-xs text-[#92A2A5] italic">{invoice.apgSignedNote || ''}</span>

@@ -626,7 +626,7 @@ export default function NewMilestonePage() {
                   onChange={(e) => setFormData(prev => ({ ...prev, hasAPG: e.target.checked }))}
                   className="w-5 h-5 rounded-md border-2 border-[#AEBFC3] text-[#E17F70] focus:ring-[#E17F70]/20 transition-all"
                 />
-                <span className="font-bold text-[#546A7A] text-lg">Advance Payment Guarantee (APG)</span>
+                <span className="font-bold text-[#546A7A] text-lg">ABG Advance Bank Guarantee</span>
               </label>
               
               {formData.hasAPG && (

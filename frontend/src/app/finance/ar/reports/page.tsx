@@ -269,7 +269,7 @@ function MilestoneTimelineView({ invoice }: { invoice: any }) {
             {invoice.hasAPG && (
               <div className="space-y-4 bg-white p-5 rounded-2xl border border-[#AEBFC3]/30 shadow-sm">
                 <h4 className="font-bold text-[#E17F70] flex items-center gap-2 text-xs uppercase tracking-tight pb-3 border-b border-[#AEBFC3]/20">
-                  <Tag className="w-3.5 h-3.5" /> APG Tracking
+                  <Tag className="w-3.5 h-3.5" /> ABG Tracking
                 </h4>
                 <div className="space-y-6 pt-2">
                   {/* Draft */}
@@ -279,7 +279,7 @@ function MilestoneTimelineView({ invoice }: { invoice: any }) {
                       <div className="w-0.5 h-full bg-[#CE9F6B]/20 min-h-[30px]" />
                     </div>
                     <div className="flex-1 pb-2">
-                      <span className="block text-[#92A2A5] text-[9px] font-black uppercase tracking-widest mb-1">Draft APG</span>
+                      <span className="block text-[#92A2A5] text-[9px] font-black uppercase tracking-widest mb-1">Draft ABG</span>
                       <div className="flex items-center gap-4">
                         <span className="font-bold text-[#5D6E73] text-xs">{invoice.apgDraftDate ? formatARDate(invoice.apgDraftDate) : '-'}</span>
                         <span className="text-[10px] text-[#92A2A5] italic">{invoice.apgDraftNote || ''}</span>
@@ -327,7 +327,7 @@ function MilestoneTimelineView({ invoice }: { invoice: any }) {
                       <div className="w-2.5 h-2.5 rounded-full bg-[#82A094] mt-1.5 border-2 border-white ring-2 ring-[#82A094]/20" />
                     </div>
                     <div className="flex-1">
-                      <span className="block text-[#92A2A5] text-[9px] font-black uppercase tracking-widest mb-1">Signed APG</span>
+                      <span className="block text-[#92A2A5] text-[9px] font-black uppercase tracking-widest mb-1">Signed ABG</span>
                       <div className="flex items-center gap-4">
                         <span className="font-bold text-[#5D6E73] text-xs">{invoice.apgSignedDate ? formatARDate(invoice.apgSignedDate) : '-'}</span>
                         <span className="text-[10px] text-[#92A2A5] italic">{invoice.apgSignedNote || ''}</span>
@@ -517,7 +517,7 @@ const InvoiceTimelineView = ({ invoice }: { invoice: any }) => {
                 <div className="space-y-4 bg-white p-5 rounded-2xl border border-[#AEBFC3]/30 shadow-sm relative overflow-hidden">
                   <div className="absolute top-0 left-0 w-1 h-full bg-[#E17F70]" />
                   <h4 className="font-bold text-[#E17F70] flex items-center gap-2 text-xs uppercase tracking-tight pb-3 border-b border-[#AEBFC3]/20">
-                    <Tag className="w-3.5 h-3.5" /> APG Tracking
+                    <Tag className="w-3.5 h-3.5" /> ABG Tracking
                   </h4>
                   <div className="space-y-6 pt-2">
                     {/* Draft */}
@@ -527,7 +527,7 @@ const InvoiceTimelineView = ({ invoice }: { invoice: any }) => {
                         <div className="w-0.5 h-full bg-[#CE9F6B]/20 min-h-[30px]" />
                       </div>
                       <div className="flex-1 pb-2">
-                        <span className="block text-[#92A2A5] text-[9px] font-black uppercase tracking-widest mb-1">Draft APG</span>
+                        <span className="block text-[#92A2A5] text-[9px] font-black uppercase tracking-widest mb-1">Draft ABG</span>
                         <div className="flex items-center gap-4">
                           <span className="font-bold text-[#5D6E73] text-xs">{invoice.apgDraftDate ? formatARDate(invoice.apgDraftDate) : '-'}</span>
                           <span className="text-[10px] text-[#92A2A5] italic">{invoice.apgDraftNote || ''}</span>
@@ -575,7 +575,7 @@ const InvoiceTimelineView = ({ invoice }: { invoice: any }) => {
                         <div className="w-2.5 h-2.5 rounded-full bg-[#82A094] mt-1.5 border-2 border-white ring-2 ring-[#82A094]/20" />
                       </div>
                       <div className="flex-1">
-                        <span className="block text-[#92A2A5] text-[9px] font-black uppercase tracking-widest mb-1">Signed APG</span>
+                        <span className="block text-[#92A2A5] text-[9px] font-black uppercase tracking-widest mb-1">Signed ABG</span>
                         <div className="flex items-center gap-4">
                           <span className="font-bold text-[#5D6E73] text-xs">{invoice.apgSignedDate ? formatARDate(invoice.apgSignedDate) : '-'}</span>
                           <span className="text-[10px] text-[#92A2A5] italic">{invoice.apgSignedNote || ''}</span>

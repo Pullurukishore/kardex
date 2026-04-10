@@ -117,9 +117,9 @@ export default function NewInvoicePage() {
     e.preventDefault();
     setError(null);
 
-    // Required fields: invoiceNumber, bpCode, invoiceDate, dueDate, totalAmount
-    if (!formData.invoiceNumber || !formData.bpCode || !formData.invoiceDate || !formData.dueDate || !formData.totalAmount) {
-      setError('Please fill in all required fields: Doc. No., Customer Code, Document Date, Due Date, and Amount');
+    // Required fields: invoiceNumber, bpCode, invoiceDate, totalAmount
+    if (!formData.invoiceNumber || !formData.bpCode || !formData.invoiceDate || !formData.totalAmount) {
+      setError('Please fill in all required fields: Doc. No., Customer Code, Document Date, and Amount');
       return;
     }
 
@@ -366,7 +366,7 @@ export default function NewInvoicePage() {
             <div>
               <label className="flex items-center gap-1.5 text-[#5D6E73] text-xs font-bold mb-2 uppercase tracking-wider">
                 <div className="p-1 rounded-lg bg-gradient-to-br from-[#E17F70] to-[#9E3B47]"><Calendar className="w-3 h-3 text-white" /></div>
-                Due Date <span className="text-[#E17F70]">*</span>
+                Due Date
               </label>
               <div className="relative">
                 <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#E17F70]" />
@@ -376,7 +376,6 @@ export default function NewInvoicePage() {
                   value={formData.dueDate}
                   onChange={handleChange}
                   className="w-full h-12 pl-11 pr-4 rounded-xl bg-gradient-to-r from-[#E17F70]/5 to-[#9E3B47]/5 border-2 border-[#AEBFC3]/30 text-[#546A7A] focus:border-[#E17F70] focus:outline-none focus:ring-2 focus:ring-[#E17F70]/10 transition-all font-medium"
-                  required
                 />
               </div>
             </div>
@@ -530,7 +529,7 @@ export default function NewInvoicePage() {
                   onChange={(e) => setFormData(prev => ({ ...prev, hasAPG: e.target.checked }))}
                   className="w-5 h-5 rounded-md border-2 border-[#AEBFC3] text-[#E17F70] focus:ring-[#E17F70]/20 transition-all"
                 />
-                <span className="font-bold text-[#546A7A] text-lg">Advance Payment Guarantee (APG)</span>
+                <span className="font-bold text-[#546A7A] text-lg">ABG Advance Bank Guarantee</span>
               </label>
               
               {formData.hasAPG && (

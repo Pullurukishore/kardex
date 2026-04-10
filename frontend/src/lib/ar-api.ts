@@ -10,19 +10,19 @@ export const TSP_OPTIONS = ['PEND', 'Aijaz', 'Tanmay', 'Anand', 'Rishi', 'Vinay'
 export const PIC_OPTIONS = [
     'Aijaz',
     'Anand',
-    'Ashraf', 
-    'Gajendra', 
-    'Minesh', 
-    'Nitin', 
-    'Pankaj', 
-    'Pradeep', 
-    'Rahul', 
+    'Ashraf',
+    'Gajendra',
+    'Minesh',
+    'Nitin',
+    'Pankaj',
+    'Pradeep',
+    'Rahul',
     'Rishi',
-    'Sai Kumar', 
-    'Sreenadh', 
+    'Sai Kumar',
+    'Sreenadh',
     'Tanmay',
-    'Vinay', 
-    'Yogesh', 
+    'Vinay',
+    'Yogesh',
     'Others'
 ];
 
@@ -126,7 +126,7 @@ export interface ARInvoice {
     apgSignedDate?: string;
     apgSignedNote?: string;
     apgSignedSteps?: { id: string; date: string; note: string }[];
-    
+
     hasPBG?: boolean;
     pbgDraftDate?: string;
     pbgDraftNote?: string;
@@ -163,6 +163,19 @@ export interface ARPaymentHistory {
     notes?: string;
     recordedBy?: string;
     createdAt: string;
+}
+
+export interface ARInvoiceActivityLog {
+    id: string;
+    invoiceId: string;
+    action: string;
+    description: string;
+    fieldName?: string;
+    oldValue?: string;
+    newValue?: string;
+    performedBy?: string;
+    createdAt: string;
+    metadata?: any;
 }
 
 export interface ARDashboardKPIs {
@@ -716,16 +729,31 @@ export const arApi = {
         return res.data;
     },
 
-    async acceptMilestone(invoiceId: string, milestoneId: string, transferPayments = true): Promise<{
+    async acceptMilestone(
+        invoiceId: string,
+        milestoneId: string,
+        options?: {
+            transferPayments?: boolean;
+            transferDelivery?: boolean;
+            transferRemarks?: boolean;
+            transferGuarantees?: boolean;
+            transferTracking?: boolean;
+        }
+    ): Promise<{
         success: boolean;
         milestoneInvoiceNumber: string;
         totalTransferred: number;
         newBalance?: number;
         newStatus?: string;
+        transferredSections: any;
     }> {
         const res = await api.post(`/ar/invoices/${invoiceId}/accept-milestone`, {
             milestoneId,
-            transferPayments
+            transferPayments: options?.transferPayments ?? true,
+            transferDelivery: options?.transferDelivery ?? false,
+            transferRemarks: options?.transferRemarks ?? false,
+            transferGuarantees: options?.transferGuarantees ?? false,
+            transferTracking: options?.transferTracking ?? false
         });
         return res.data;
     },
@@ -1091,7 +1119,7 @@ export const arApi = {
         const res = await api.get('/ar/reports/milestones/detail', { params });
         return res.data;
     },
-    
+
     async getUniqueTSPs(): Promise<string[]> {
         const res = await api.get('/ar/reports/unique-tsps');
         return res.data;
