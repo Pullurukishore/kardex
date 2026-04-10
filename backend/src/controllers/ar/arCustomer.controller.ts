@@ -37,10 +37,13 @@ export const getAllCustomers = async (req: Request, res: Response) => {
         const pageBpCodes = customers.map((c: any) => c.bpCode);
         const financialStats = await prisma.aRInvoice.groupBy({
             by: ['bpCode'],
-            where: { 
+            where: {
                 bpCode: { in: pageBpCodes },
                 status: { not: 'CANCELLED' },
-                NOT: { milestoneStatus: 'LINKED' }
+                OR: [
+                    { milestoneStatus: { not: 'LINKED' } },
+                    { milestoneStatus: null }
+                ]
             },
             _sum: {
                 totalAmount: true,
@@ -101,10 +104,13 @@ export const getCustomerById = async (req: Request, res: Response) => {
         });
 
         const financialStats = await prisma.aRInvoice.aggregate({
-            where: { 
+            where: {
                 bpCode: id,
                 status: { not: 'CANCELLED' },
-                NOT: { milestoneStatus: 'LINKED' }
+                OR: [
+                    { milestoneStatus: { not: 'LINKED' } },
+                    { milestoneStatus: null }
+                ]
             },
             _sum: {
                 totalAmount: true,
@@ -116,7 +122,7 @@ export const getCustomerById = async (req: Request, res: Response) => {
         });
 
         const overdueCount = await prisma.aRInvoice.count({
-            where: { 
+            where: {
                 bpCode: id,
                 status: 'OVERDUE'
             }
@@ -252,9 +258,9 @@ export const deleteCustomer = async (req: Request, res: Response) => {
         });
 
         if (invoiceCount > 0) {
-            return res.status(400).json({ 
-                error: 'Cannot delete customer', 
-                message: `This customer has ${invoiceCount} active invoices. Delete invoices first.` 
+            return res.status(400).json({
+                error: 'Cannot delete customer',
+                message: `This customer has ${invoiceCount} active invoices. Delete invoices first.`
             });
         }
 
