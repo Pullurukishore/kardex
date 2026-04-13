@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { apiService } from '@/services/api';
 import { generateGrowthPillarPdf } from '@/lib/growth-report-pdf';
+import { exportGrowthPillarToExcel } from '@/lib/growth-report-excel';
 
 // ─── TYPES ──────────────────────────────────────────────────────────────
 interface MonthData {
@@ -205,6 +206,7 @@ export default function GrowthPillarDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [excelLoading, setExcelLoading] = useState(false);
 
   // Filters
   const [year, setYear] = useState(new Date().getFullYear());
@@ -253,6 +255,18 @@ export default function GrowthPillarDashboard() {
       console.error('PDF generation failed:', err);
     } finally {
       setPdfLoading(false);
+    }
+  };
+
+  const handleExportExcel = async () => {
+    if (!data) return;
+    try {
+      setExcelLoading(true);
+      await exportGrowthPillarToExcel(data as any);
+    } catch (err) {
+      console.error('Excel generation failed:', err);
+    } finally {
+      setExcelLoading(false);
     }
   };
 
@@ -327,11 +341,18 @@ export default function GrowthPillarDashboard() {
           <button onClick={fetchData} className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
             <RefreshCw className="w-4 h-4" /> Refresh
           </button>
+          <button onClick={handleExportExcel} disabled={excelLoading} className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-lg hover:from-emerald-700 hover:to-teal-700 transition-all shadow-md hover:shadow-lg disabled:opacity-50">
+            {excelLoading ? (
+              <><RefreshCw className="w-4 h-4 animate-spin" /> Generating...</>
+            ) : (
+              <><FileText className="w-4 h-4" /> Excel</>
+            )}
+          </button>
           <button onClick={handleExportPdf} disabled={pdfLoading} className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all shadow-md hover:shadow-lg disabled:opacity-50">
             {pdfLoading ? (
               <><RefreshCw className="w-4 h-4 animate-spin" /> Generating...</>
             ) : (
-              <><Download className="w-4 h-4" /> Download PDF</>
+              <><Download className="w-4 h-4" /> PDF</>
             )}
           </button>
         </div>
