@@ -141,12 +141,26 @@ export const generateReport = async (req: Request, res: Response) => {
 
     const isOfferReport = ['offer-summary', 'zone-user-offer-summary', 'target-report', 'product-type-analysis', 'customer-performance'].includes(reportType);
 
+    const fromMonthStr = format(localStartDate, 'yyyy-MM');
+    const toMonthStr = format(localEndDate, 'yyyy-MM');
+
     const whereClause: any = isOfferReport
       ? {
-        offerMonth: {
-          gte: format(localStartDate, 'yyyy-MM'),
-          lte: format(localEndDate, 'yyyy-MM'),
-        }
+        OR: [
+          {
+            offerMonth: {
+              gte: fromMonthStr,
+              lte: toMonthStr,
+            }
+          },
+          {
+            stage: { in: ['WON', 'PO_RECEIVED'] },
+            poReceivedMonth: {
+              gte: fromMonthStr,
+              lte: toMonthStr,
+            }
+          }
+        ]
       }
       : {
         OR: [
@@ -3804,52 +3818,91 @@ const generateOfferSummaryReport = async (res: Response, whereClause: any, start
     const aggStartTime = Date.now();
     const aggWhere = { ...whereClause };
 
+    // Common filters for sub-queries (extract everything except the date logic from aggWhere)
+    const { offerMonth, stage, ...BaseFiltersForMetrics } = aggWhere;
+
+    // Identify months within the startDate and endDate range
+    // Reverse the server timezone offset applied earlier to get accurate local months
+    // since endDate was set to 23:59:59 local, the UTC shift might have pushed it into the next month
+    const localStart = new Date(startDate.getTime() + startDate.getTimezoneOffset() * 60000);
+    const localEnd = new Date(endDate.getTime() + endDate.getTimezoneOffset() * 60000);
+
+    const fromMonthStr = format(localStart, 'yyyy-MM');
+    const toMonthStr = format(localEnd, 'yyyy-MM');
+
+    // 1. New Pipeline Metrics (based on Offer Month only)
+    const pipelineWhere = { 
+      ...BaseFiltersForMetrics, 
+      offerMonth: { gte: fromMonthStr, lte: toMonthStr } 
+    };
+
+    // 2. Won Metrics (based on PO Received Month override)
+    const wonWhere = {
+      ...BaseFiltersForMetrics,
+      stage: { in: ['WON', 'PO_RECEIVED'] },
+      OR: [
+        { poReceivedMonth: { gte: fromMonthStr, lte: toMonthStr } },
+        { 
+          poReceivedMonth: null, 
+          offerMonth: { gte: fromMonthStr, lte: toMonthStr } 
+        }
+      ]
+    };
+
+    // 3. Lost Metrics (for the period)
+    const lostWhere = {
+      ...BaseFiltersForMetrics,
+      stage: 'LOST',
+      offerMonth: { gte: fromMonthStr, lte: toMonthStr }
+    };
+
     const [summary, wonOffersCount, wonOffersValueRes, lostOffersCount, statusDistribution, stageDistribution, productTypeDistribution] = await Promise.all([
-      // Calculate summary statistics for all matching offers
+      // Calculate pipeline summary (New Offers)
       prisma.offer.aggregate({
-        where: aggWhere,
+        where: pipelineWhere,
+        _count: { id: true },
         _sum: {
           offerValue: true,
           poValue: true,
         },
       }),
 
-      // Total won offers count (independent of pagination)
+      // Total won offers count in period
       prisma.offer.count({
-        where: { ...aggWhere, stage: 'WON' }
+        where: wonWhere
       }),
 
-      // Won offers value statistics
+      // Won offers value statistics in period
       prisma.offer.aggregate({
-        where: { ...aggWhere, stage: 'WON' },
+        where: wonWhere,
         _sum: {
           offerValue: true,
           poValue: true,
         },
       }),
 
-      // Total lost offers count (independent of pagination)
+      // Total lost offers count in period
       prisma.offer.count({
-        where: { ...aggWhere, stage: 'LOST' }
+        where: lostWhere
       }),
 
-      // Status distribution
+      // Status distribution (for the entire main list)
       prisma.offer.groupBy({
         where: aggWhere,
         by: ['status'],
         _count: { id: true },
       }),
 
-      // Stage distribution
+      // Stage distribution (for the entire main list)
       prisma.offer.groupBy({
         where: aggWhere,
         by: ['stage'],
         _count: { id: true },
       }),
 
-      // Product type distribution
+      // Product type distribution (for the pipeline/new offers)
       prisma.offer.groupBy({
-        where: aggWhere,
+        where: pipelineWhere,
         by: ['productType'],
         _count: { id: true },
         _sum: {
@@ -3863,12 +3916,6 @@ const generateOfferSummaryReport = async (res: Response, whereClause: any, start
     const zoneId = whereClause.zoneId;
     const userId = whereClause.createdById;
     const productType = whereClause.productType;
-
-    // Identify months within the startDate and endDate range
-    // Reverse the server timezone offset applied earlier to get accurate local months
-    // since endDate was set to 23:59:59 local, the UTC shift might have pushed it into the next month
-    const localStart = new Date(startDate.getTime() + startDate.getTimezoneOffset() * 60000);
-    const localEnd = new Date(endDate.getTime() + endDate.getTimezoneOffset() * 60000);
 
     const months: string[] = [];
     let current = new Date(localStart.getFullYear(), localStart.getMonth(), 1);
@@ -4009,9 +4056,9 @@ const generateOfferSummaryReport = async (res: Response, whereClause: any, start
         },
         summary: {
           totalCount: totalCount,
-          totalOffers: totalCount,
+          totalOffers: Number(summary._count.id || 0), // New Offers count
           totalTarget: Math.round(totalTarget),
-          totalOfferValue: totalOfferValue,
+          totalOfferValue: Math.round(Number(summary._sum.offerValue || 0)),
           totalPoValue: Math.round(Number(summary._sum.poValue || 0)),
           wonOffers: wonOffersCount,
           wonOfferValue: Math.round(Number(wonOffersValueRes._sum.offerValue || 0)),
