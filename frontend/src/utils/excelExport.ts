@@ -666,17 +666,16 @@ const generateZoneSummarySheet = (
 
     // ALL HEADERS matching the dashboard table exactly
     const headers = [
-        'Zone', '# Offers', 'Offers Value', 'Orders Received',
-        'Open Funnel', 'Order Booking', 'U for Booking',
-        'Hit Rate %', 'Yearly Target', '% Dev', 'Balance BU', 'Achievement %'
+        'Zone', 'No of offers', 'Offers value', 'Orders received',
+        'Open offer funnel', 'Target', '% Dev', 'Balance', 'Achievement %'
     ];
 
     headers.forEach((h, idx) => {
         const cell = ws.getCell(row, idx + 1);
         cell.value = h;
         applyHeaderStyle(cell);
-        // Special styles for Target and %Dev columns
-        if (h === 'Yearly Target') {
+        // Special styles for Target column
+        if (h === 'Target') {
             cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.targetText } };
         }
     });
@@ -699,46 +698,39 @@ const generateZoneSummarySheet = (
             formatInLakhs(zone.offersValue),
             formatInLakhs(zone.ordersReceived),
             formatInLakhs(zone.openFunnel),
-            formatInLakhs(zone.orderBooking),
-            formatInLakhs(zone.uForBooking),
-            zone.hitRatePercent,
             formatInLakhs(zone.yearlyTarget),
             deviationPercent,
-            formatInLakhs(zone.balanceBU),
+            formatInLakhs(zone.yearlyTarget - zone.ordersReceived),
             achievement,
         ];
 
         rowData.forEach((val, colIdx) => {
             const cell = ws.getCell(row, colIdx + 1);
-            if (colIdx === 7 || colIdx === 11) {
+            if (colIdx === 8) { // Achievement %
                 cell.value = `${val}%`;
-            } else if (colIdx === 9) {
+            } else if (colIdx === 6) { // % Dev
                 cell.value = `${(val as number) >= 0 ? '+' : ''}${val}%`;
             } else {
                 cell.value = val;
             }
             applyDataCellStyle(cell, colors.bg, colIdx > 0);
 
-            if (colIdx === 7) { // Hit Rate
-                const rate = typeof val === 'number' ? val : 0;
-                cell.font = { bold: true, color: { argb: rate >= 50 ? COLORS.positive : rate >= 30 ? COLORS.neutral : COLORS.negative } };
-            }
-            if (colIdx === 8) { // Target - sky color
+            if (colIdx === 5) { // Target - sky color
                 cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.targetBg } };
                 cell.font = { color: { argb: COLORS.targetText } };
             }
-            if (colIdx === 9) { // %Dev
+            if (colIdx === 6) { // %Dev
                 const dev = typeof val === 'number' ? val : 0;
                 cell.font = { bold: true, color: { argb: dev >= 0 ? COLORS.positive : COLORS.negative } };
                 cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: dev >= 0 ? COLORS.positiveBg : COLORS.negativeBg } };
             }
-            if (colIdx === 11) { // Achievement
+            if (colIdx === 8) { // Achievement
                 const ach = typeof val === 'number' ? val : 0;
                 cell.font = { bold: true, color: { argb: ach >= 100 ? COLORS.positive : ach >= 50 ? COLORS.neutral : COLORS.negative } };
             }
-            if (colIdx === 10) { // Balance (negative is good)
-                const balNum = typeof zone.balanceBU === 'number' ? zone.balanceBU : 0;
-                cell.font = { color: { argb: balNum <= 0 ? COLORS.positive : COLORS.negative } };
+            if (colIdx === 7) { // Balance (negative/zero is surplus/good)
+                const balanceVal = zone.yearlyTarget - zone.ordersReceived;
+                cell.font = { color: { argb: balanceVal <= 0 ? COLORS.positive : COLORS.negative } };
             }
         });
         row++;
@@ -759,12 +751,9 @@ const generateZoneSummarySheet = (
         formatInLakhs(totals.offersValue),
         formatInLakhs(totals.ordersReceived),
         formatInLakhs(totals.openFunnel),
-        formatInLakhs(totals.orderBooking),
-        formatInLakhs(totals.uForBooking),
-        `${totals.hitRatePercent}%`,
         formatInLakhs(totals.yearlyTarget),
         `${totalDeviation >= 0 ? '+' : ''}${totalDeviation}%`,
-        formatInLakhs(totals.balanceBU),
+        formatInLakhs(totals.yearlyTarget - totals.ordersReceived),
         `${totalAchievement}%`,
     ];
 
@@ -776,9 +765,8 @@ const generateZoneSummarySheet = (
 
     // Set column widths
     ws.columns = [
-        { width: 12 }, { width: 10 }, { width: 16 }, { width: 18 },
-        { width: 16 }, { width: 16 }, { width: 16 },
-        { width: 12 }, { width: 16 }, { width: 10 }, { width: 16 }, { width: 14 },
+        { width: 18 }, { width: 14 }, { width: 22 }, { width: 22 },
+        { width: 22 }, { width: 22 }, { width: 12 }, { width: 22 }, { width: 16 },
     ];
 };
 
@@ -846,15 +834,15 @@ const generateZoneMonthlySheet = (
 
     // Set column widths matching dashboard proportions
     ws.columns = [
-        { width: 12 },  // Month
-        { width: 12 },  // No of Offers
-        { width: 14 },  // Offers Value
-        { width: 16 },  // Orders Received
-        { width: 14 },  // Open Funnel
-        { width: 12 },  // BU/MO
-        { width: 10 },  // %Dev
-        { width: 14 },  // OfferBU
-        { width: 10 },  // %Dev
+        { width: 18 },  // Month
+        { width: 14 },  // No of Offers
+        { width: 22 },  // Offers Value
+        { width: 22 },  // Orders Received
+        { width: 20 },  // Open Funnel
+        { width: 18 },  // BU/MO
+        { width: 14 },  // %Dev
+        { width: 20 },  // OfferBU
+        { width: 14 },  // %Dev
     ];
 };
 
@@ -988,127 +976,12 @@ const generateUserMonthlySheet = (
 
     // Set column widths
     ws.columns = [
-        { width: 12 }, { width: 12 }, { width: 14 }, { width: 16 }, { width: 14 },
-        { width: 14 }, { width: 12 }, { width: 16 }, { width: 14 },
+        { width: 18 }, { width: 14 }, { width: 22 }, { width: 22 }, { width: 20 },
+        { width: 18 }, { width: 15 }, { width: 20 }, { width: 15 },
     ];
 };
 
-// ============ Sheet 4: Consolidated Monthly Comparison ============
 
-/**
- * Write a consolidated zone × month grid for a single metric.
- * Returns the next row number after writing the section.
- */
-const writeConsolidatedSection = (
-    ws: ExcelJS.Worksheet,
-    row: number,
-    title: string,
-    zones: ZoneMonthlyBreakdown[],
-    months: string[],
-    headers: string[],
-    extractValue: (m: MonthlyData) => number
-): number => {
-    // Section title
-    ws.mergeCells(`A${row}:O${row}`);
-    const sectionTitle = ws.getCell(`A${row}`);
-    sectionTitle.value = title;
-    sectionTitle.font = { size: 12, bold: true, color: { argb: COLORS.titleText } };
-    sectionTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.titleBg } };
-    row += 2;
-
-    // Headers
-    row = writeColumnHeaders(ws, row, headers);
-
-    // Zone data rows
-    const grandTotals: number[] = new Array(12).fill(0);
-
-    zones.forEach((zone) => {
-        const colors = getZoneColor(zone.zoneName);
-        let zoneTotal = 0;
-
-        const zoneCell = ws.getCell(row, 1);
-        zoneCell.value = zone.zoneName;
-        zoneCell.font = { bold: true };
-        zoneCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: colors.bg } };
-        zoneCell.border = { left: { style: 'medium', color: { argb: colors.accent } } };
-
-        zone.monthlyData.forEach((m, idx) => {
-            const cell = ws.getCell(row, idx + 2);
-            const val = extractValue(m);
-            cell.value = formatInLakhs(val);
-            cell.numFmt = '#,##0.00';
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: colors.bg } };
-            cell.alignment = { horizontal: 'right' };
-            zoneTotal += val;
-            grandTotals[idx] += val;
-        });
-
-        const totalCell = ws.getCell(row, 14);
-        totalCell.value = formatInLakhs(zoneTotal);
-        totalCell.numFmt = '#,##0.00';
-        totalCell.font = { bold: true };
-        totalCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.totalRowBg } };
-        totalCell.alignment = { horizontal: 'right' };
-
-        row++;
-    });
-
-    // Grand total row
-    const grandTotalCell = ws.getCell(row, 1);
-    grandTotalCell.value = 'GRAND TOTAL';
-    applyTotalRowStyle(grandTotalCell, true);
-
-    grandTotals.forEach((val, idx) => {
-        const cell = ws.getCell(row, idx + 2);
-        cell.value = formatInLakhs(val);
-        cell.numFmt = '#,##0.00';
-        applyTotalRowStyle(cell, true);
-        cell.alignment = { horizontal: 'right' };
-    });
-
-    const grandTotal = grandTotals.reduce((a, b) => a + b, 0);
-    const grandTotalValCell = ws.getCell(row, 14);
-    grandTotalValCell.value = formatInLakhs(grandTotal);
-    grandTotalValCell.numFmt = '#,##0.00';
-    applyTotalRowStyle(grandTotalValCell, true);
-    grandTotalValCell.alignment = { horizontal: 'right' };
-
-    return row + 3;
-};
-
-const generateConsolidatedMonthlySheet = (
-    workbook: ExcelJS.Workbook,
-    zones: ZoneMonthlyBreakdown[],
-    year: number
-): void => {
-    const ws = workbook.addWorksheet('Consolidated Monthly', {
-        properties: { tabColor: { argb: '10B981' } },
-    });
-
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const headers = ['Zone', ...months, 'TOTAL'];
-
-    let row = writeSheetTitle(ws, 1, `CONSOLIDATED MONTHLY COMPARISON (${year})`, 'O');
-
-    // Orders Received section
-    row = writeConsolidatedSection(ws, row, '📊 ORDERS RECEIVED BY ZONE (Monthly)', zones, months, headers, (m) => m.orderReceived);
-
-    // Offers Value section
-    row = writeConsolidatedSection(ws, row, '📊 OFFERS VALUE BY ZONE (Monthly)', zones, months, headers, (m) => m.offersValue);
-
-    // Open Funnel section
-    writeConsolidatedSection(ws, row, '📊 OPEN FUNNEL BY ZONE (Monthly)', zones, months, headers, (m) => m.ordersInHand);
-
-    // Set column widths
-    ws.columns = [
-        { width: 12 },
-        ...months.map(() => ({ width: 10 })),
-        { width: 12 },
-    ];
-
-    // Freeze first row and column
-    ws.views = [{ state: 'frozen' as const, ySplit: 4, xSplit: 1 }];
-};
 
 // ============ Sheet 5: PO Expected Month (Zone-wise with User breakdown) ============
 
@@ -1222,9 +1095,9 @@ const generatePOExpectedSheet = (
 
     // Set column widths
     ws.columns = [
+        { width: 22 },
+        ...months.map(() => ({ width: 15 })),
         { width: 18 },
-        ...months.map(() => ({ width: 10 })),
-        { width: 12 },
     ];
 };
 
@@ -1369,7 +1242,12 @@ const generateProductUserZoneSheet = (
     }
 
     // Set column widths
-    ws.columns = [{ width: 16 }];
+    // Set generous column widths to prevent truncation
+    const maxCols = 50; 
+    ws.columns = [
+        { width: 22 }, // Product column
+        ...Array(maxCols).fill({ width: 18 }) // Large pool of potential user/zone columns
+    ];
 };
 
 // ============ Sheet 7: Product-wise Forecast (Zone → User → Product × Month) ============
@@ -1487,9 +1365,9 @@ const generateProductWiseForecastSheet = (
 
     // Set column widths
     ws.columns = [
-        { width: 16 },
-        ...months.map(() => ({ width: 8 })),
-        { width: 10 },
+        { width: 22 }, // Product
+        ...months.map(() => ({ width: 15 })), // Monthly values
+        { width: 18 }, // TOTAL
     ];
 };
 
@@ -1509,6 +1387,8 @@ export interface ForecastExportData {
     poExpectedData?: POExpectedData | null;
     productUserZoneData?: ProductUserZoneData | null;
     productWiseForecastData?: ProductWiseForecastData | null;
+    zoneId?: number | 'all';
+    zoneName?: string;
 }
 
 /**
@@ -1538,14 +1418,9 @@ export const exportForecastToExcel = async (
         generateZoneMonthlySheet(workbook, monthlyData.zones, year);
     }
 
-    // Sheet 3: User Monthly Breakdown (All Fields per User + Product Breakdowns)
+    // Sheet 4: User Monthly Breakdown (All Fields per User + Product Breakdowns)
     if (userMonthlyData && userMonthlyData.length > 0) {
         generateUserMonthlySheet(workbook, userMonthlyData, year);
-    }
-
-    // Sheet 4: Consolidated Monthly Comparison (Orders, Offers, Funnel by Zone × Month)
-    if (monthlyData?.zones && monthlyData.zones.length > 0) {
-        generateConsolidatedMonthlySheet(workbook, monthlyData.zones, year);
     }
 
     // Sheet 5: PO Expected Month (Zone-wise with User breakdown)
@@ -1565,8 +1440,9 @@ export const exportForecastToExcel = async (
 
     // Generate filename
     const probabilityLabel = probability === 'all' ? 'All' : `${probability}pct`;
+    const zoneLabel = data.zoneId && data.zoneId !== 'all' ? `_Zone_${data.zoneId}` : '';
     const dateStr = new Date().toISOString().split('T')[0];
-    const defaultFilename = `Forecast_Report_${year}_${probabilityLabel}_${dateStr}.xlsx`;
+    const defaultFilename = `Forecast_Report_${year}_${probabilityLabel}${zoneLabel}_${dateStr}.xlsx`;
 
     await triggerDownload(workbook, filename || defaultFilename);
 };
@@ -1590,12 +1466,12 @@ export const exportOverviewToExcel = async (
 
     if (monthlyData?.zones && monthlyData.zones.length > 0) {
         generateZoneMonthlySheet(workbook, monthlyData.zones, year);
-        generateConsolidatedMonthlySheet(workbook, monthlyData.zones, year);
     }
 
     const probabilityLabel = probability === 'all' ? 'All' : `${probability}pct`;
+    const zoneLabel = data.zoneId && data.zoneId !== 'all' ? `_Zone_${data.zoneId}` : '';
     const dateStr = new Date().toISOString().split('T')[0];
-    const defaultFilename = `Forecast_Overview_${year}_${probabilityLabel}_${dateStr}.xlsx`;
+    const defaultFilename = `Forecast_Overview_${year}_${probabilityLabel}${zoneLabel}_${dateStr}.xlsx`;
 
     await triggerDownload(workbook, filename || defaultFilename);
 };

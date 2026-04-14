@@ -46,8 +46,6 @@ export default function ProductUserZoneTab({ year, minProbability = 0, zoneId, u
   const [selectedZone, setSelectedZone] = useState<number | null>(null)
   const [viewMode, setViewMode] = useState<'product' | 'user'>('product')
 
-  // Refs to prevent duplicate API calls (React StrictMode protection)
-  const hasFetchedInitialData = useRef(false)
   const isFetching = useRef(false)
 
   const fetchData = useCallback(async () => {
@@ -71,11 +69,15 @@ export default function ProductUserZoneTab({ year, minProbability = 0, zoneId, u
   }, [year, minProbability, zoneId, userId])
 
   useEffect(() => {
-    // Skip if already fetched (React Strict Mode protection)
-    if (hasFetchedInitialData.current) return
-    hasFetchedInitialData.current = true
     fetchData()
   }, [fetchData])
+
+  // Sync selectedZone state with zoneId prop
+  useEffect(() => {
+    if (zoneId) {
+      setSelectedZone(zoneId)
+    }
+  }, [zoneId])
 
   const formatValue = (value: number) => {
     if (value === 0) return '-'

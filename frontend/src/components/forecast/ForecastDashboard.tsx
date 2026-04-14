@@ -215,6 +215,8 @@ export default function ForecastDashboard() {
   const [activeUserTab, setActiveUserTab] = useState<number | null>(null)
   const [activeMainTab, setActiveMainTab] = useState<'overview' | 'po-expected' | 'product-user-zone' | 'product-wise'>('overview')
   const [selectedProbability, setSelectedProbability] = useState<number | 'all'>('all')
+  const [selectedZone, setSelectedZone] = useState<number | 'all'>('all')
+  const [zonesList, setZonesList] = useState<any[]>([])
   const [showProductBreakdown, setShowProductBreakdown] = useState(false)
   const [expandedProducts, setExpandedProducts] = useState<Set<string>>(new Set())
   const [showUserProductBreakdown, setShowUserProductBreakdown] = useState(false)
@@ -245,9 +247,11 @@ export default function ForecastDashboard() {
       setError(null)
 
       const minProb = selectedProbability === 'all' ? undefined : selectedProbability
+      const zoneId = selectedZone === 'all' ? undefined : selectedZone
+      
       const [summaryRes, monthlyRes] = await Promise.all([
-        apiService.getForecastSummary({ year: selectedYear, minProbability: minProb }),
-        apiService.getForecastMonthly({ year: selectedYear }),
+        apiService.getForecastSummary({ year: selectedYear, minProbability: minProb, zoneId }),
+        apiService.getForecastMonthly({ year: selectedYear, zoneId }),
       ])
 
       setSummaryData(summaryRes)
@@ -264,16 +268,18 @@ export default function ForecastDashboard() {
       setRefreshing(false)
       isFetching.current = false
     }
-  }, [selectedYear, activeZoneTab, selectedProbability])
+  }, [selectedYear, activeZoneTab, selectedProbability, selectedZone])
 
   // Fetch user data separately when zone or year changes
-  const fetchUserData = useCallback(async () => {
-    if (activeZoneTab === null) return
-    
+  const fetchUserMonthlyData = useCallback(async () => {
     try {
+      const minProb = selectedProbability === 'all' ? undefined : selectedProbability
+      const zoneId = selectedZone === 'all' ? undefined : selectedZone
+
       const userMonthlyRes = await apiService.getUserMonthlyBreakdown({ 
-        year: selectedYear,
-        zoneId: activeZoneTab 
+        year: selectedYear, 
+        minProbability: minProb,
+        zoneId: zoneId || activeZoneTab 
       })
       setUserMonthlyData(userMonthlyRes)
       
@@ -285,24 +291,49 @@ export default function ForecastDashboard() {
     } catch (err: any) {
       console.error('Failed to fetch user data:', err)
     }
-  }, [selectedYear, activeZoneTab])
+  }, [selectedYear, activeZoneTab, selectedProbability, selectedZone])
+
+  // Sync activeZoneTab with global selectedZone filter
+  useEffect(() => {
+    if (selectedZone !== 'all') {
+      setActiveZoneTab(selectedZone)
+    }
+  }, [selectedZone])
 
   useEffect(() => {
-    fetchData()
-  }, [selectedYear, selectedProbability])
+    if (activeZoneTab) {
+      fetchUserMonthlyData()
+    }
+  }, [activeZoneTab, selectedYear, selectedProbability, selectedZone, fetchUserMonthlyData])
 
   // Refetch user data when zone changes
   useEffect(() => {
-    // Skip duplicate initial fetch
-    if (!hasFetchedUserData.current) {
-      hasFetchedUserData.current = true
+    // Skip if already fetched (React Strict Mode protection)
+    if (hasFetchedInitialData.current) {
+        // Still fetch if parameters changed
+        fetchData()
+        return
     }
-    fetchUserData()
-  }, [fetchUserData])
+    hasFetchedInitialData.current = true
+    
+    // Initial fetch of zones and data
+    const init = async () => {
+        try {
+            const zonesRes = await apiService.getZones()
+            if (zonesRes.success && Array.isArray(zonesRes.data)) {
+                setZonesList(zonesRes.data)
+            }
+        } catch (err) {
+            console.error('Failed to fetch zones:', err)
+        }
+        fetchData()
+    }
+    init()
+  }, [fetchData])
 
   const handleRefresh = () => {
     fetchData(true)
-    fetchUserData()
+    fetchUserMonthlyData()
   }
 
   // Excel Export Handler - Fetches all data and exports to multi-sheet workbook
@@ -311,6 +342,7 @@ export default function ForecastDashboard() {
       setExporting(true)
       
       const minProb = selectedProbability === 'all' ? undefined : selectedProbability
+      const zoneId = selectedZone === 'all' ? undefined : selectedZone
       
       // Get all zone IDs from monthly data
       const zoneIds = monthlyData?.zones?.map(z => z.zoneId) || []
@@ -339,6 +371,7 @@ export default function ForecastDashboard() {
         poExpectedData,
         productUserZoneData,
         productWiseForecastData,
+        zoneId: zoneId
       })
     } catch (err: any) {
       console.error('Failed to export Excel:', err)
@@ -449,7 +482,9 @@ export default function ForecastDashboard() {
     )
   }
 
-  const activeZone = monthlyData?.zones.find(z => z.zoneId === activeZoneTab)
+  const activeZone = selectedZone !== 'all' 
+    ? monthlyData?.zones.find(z => z.zoneId === selectedZone) 
+    : monthlyData?.zones.find(z => z.zoneId === activeZoneTab)
   const activeUser = userMonthlyData?.users.find(u => u.userId === activeUserTab)
   const totalAchievement = summaryData && summaryData.totals.yearlyTarget > 0 
     ? (summaryData.totals.ordersReceived / summaryData.totals.yearlyTarget) * 100 
@@ -498,6 +533,23 @@ export default function ForecastDashboard() {
                       {years.map((y) => (
                         <SelectItem key={y} value={String(y)} className="font-medium">
                           {y}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-xl px-4 py-2.5 border border-white/10">
+                  <Building2 className="h-4 w-4 text-white/70" />
+                  <Select value={String(selectedZone)} onValueChange={(v) => setSelectedZone(v === 'all' ? 'all' : parseInt(v))}>
+                    <SelectTrigger className="w-[120px] border-0 bg-transparent text-white font-semibold focus:ring-0 focus:ring-offset-0 h-auto p-0">
+                      <SelectValue placeholder="All Zones" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl shadow-2xl">
+                      <SelectItem value="all" className="font-medium">All Zones</SelectItem>
+                      {zonesList.map((z) => (
+                        <SelectItem key={z.id} value={String(z.id)} className="font-medium">
+                          {z.name}
                         </SelectItem>
                       ))}
                     </SelectContent>

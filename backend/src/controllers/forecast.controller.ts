@@ -300,6 +300,7 @@ export class ForecastController {
                     targetPeriod: String(targetYear),
                     periodType: 'YEARLY',
                     productType: null, // Only overall targets, not product-specific
+                    ...(filterZoneId && { serviceZoneId: filterZoneId }),
                 },
                 select: {
                     serviceZoneId: true,
@@ -1711,17 +1712,21 @@ export class ForecastController {
 
     static async getForecastAnalytics(req: AuthenticatedRequest, res: Response) {
         try {
-            const { year } = req.query;
+            const { year, zoneId } = req.query;
             const targetYear = year ? parseInt(year as string) : new Date().getFullYear();
+            const filterZoneId = zoneId ? parseInt(zoneId as string) : null;
 
             const yearStart = new Date(targetYear, 0, 1);
             const yearEnd = new Date(targetYear, 11, 31, 23, 59, 59);
 
             const monthNames = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 
-            // Get all zones
+            // Get all zones (filtered by zoneId if provided)
             const zones = await prisma.serviceZone.findMany({
-                where: { isActive: true },
+                where: { 
+                    isActive: true,
+                    ...(filterZoneId && { id: filterZoneId }),
+                },
                 orderBy: { name: 'asc' },
             });
 

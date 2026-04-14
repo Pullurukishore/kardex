@@ -58,8 +58,6 @@ export default function ProductWiseForecastTab({ year, minProbability = 0, zoneI
   const [selectedZone, setSelectedZone] = useState<number | null>(null)
   const [expandedUsers, setExpandedUsers] = useState<Set<number>>(new Set())
 
-  // Refs to prevent duplicate API calls (React StrictMode protection)
-  const hasFetchedInitialData = useRef(false)
   const isFetching = useRef(false)
 
   const fetchData = useCallback(async () => {
@@ -89,11 +87,15 @@ export default function ProductWiseForecastTab({ year, minProbability = 0, zoneI
   }, [year, minProbability, zoneId, userId])
 
   useEffect(() => {
-    // Skip if already fetched (React Strict Mode protection)
-    if (hasFetchedInitialData.current) return
-    hasFetchedInitialData.current = true
     fetchData()
   }, [fetchData])
+
+  // Sync selectedZone state with zoneId prop
+  useEffect(() => {
+    if (zoneId) {
+      setSelectedZone(zoneId)
+    }
+  }, [zoneId])
 
   // When zone changes, expand first user
   useEffect(() => {

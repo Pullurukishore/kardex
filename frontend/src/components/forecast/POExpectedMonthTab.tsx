@@ -53,8 +53,6 @@ export default function POExpectedMonthTab({ year, minProbability = 0, zoneId, u
   const [activeView, setActiveView] = useState<'zone' | 'month'>('month')
   const [expandedZones, setExpandedZones] = useState<Set<number>>(new Set())
 
-  // Refs to prevent duplicate API calls (React StrictMode protection)
-  const hasFetchedInitialData = useRef(false)
   const isFetching = useRef(false)
 
   const fetchData = useCallback(async () => {
@@ -78,9 +76,6 @@ export default function POExpectedMonthTab({ year, minProbability = 0, zoneId, u
   }, [year, minProbability, zoneId, userId])
 
   useEffect(() => {
-    // Skip if already fetched (React Strict Mode protection)
-    if (hasFetchedInitialData.current) return
-    hasFetchedInitialData.current = true
     fetchData()
   }, [fetchData])
 
