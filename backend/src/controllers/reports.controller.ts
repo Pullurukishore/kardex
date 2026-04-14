@@ -122,6 +122,10 @@ export const generateReport = async (req: Request, res: Response) => {
     // Set end of day for end date (23:59:59.999) in local time
     endDate = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate(), 23, 59, 59, 999);
 
+    // Save local dates before turning them into UTC
+    const localStartDate = new Date(startDate.getTime());
+    const localEndDate = new Date(endDate.getTime());
+
     // Adjust for timezone offset to ensure we get the correct UTC time
     const tzOffset = startDate.getTimezoneOffset() * 60000;
     const startUTC = new Date(startDate.getTime() - tzOffset);
@@ -135,13 +139,13 @@ export const generateReport = async (req: Request, res: Response) => {
     startDate = startUTC;
     endDate = endUTC;
 
-    const isOfferReport = ['offer-summary', 'target-report', 'product-type-analysis', 'customer-performance'].includes(reportType);
+    const isOfferReport = ['offer-summary', 'zone-user-offer-summary', 'target-report', 'product-type-analysis', 'customer-performance'].includes(reportType);
 
     const whereClause: any = isOfferReport
       ? {
         offerMonth: {
-          gte: format(startDate, 'yyyy-MM'),
-          lte: format(endDate, 'yyyy-MM'),
+          gte: format(localStartDate, 'yyyy-MM'),
+          lte: format(localEndDate, 'yyyy-MM'),
         }
       }
       : {
@@ -214,6 +218,7 @@ export const generateReport = async (req: Request, res: Response) => {
         return await generateHerAnalysisReport(res, whereClause, startDate, endDate);
       // Offer Funnel Reports
       case 'offer-summary':
+      case 'zone-user-offer-summary':
         return await generateOfferSummaryReport(res, whereClause, startDate, endDate, pageNum, limitNum);
       case 'target-report':
         return await generateTargetReport(res, whereClause, startDate, endDate);
@@ -1566,7 +1571,7 @@ export const exportReport = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Start date must be before end date' });
     }
 
-    const isOfferReport = ['offer-summary', 'target-report', 'product-type-analysis', 'customer-performance'].includes(reportType);
+    const isOfferReport = ['offer-summary', 'zone-user-offer-summary', 'target-report', 'product-type-analysis', 'customer-performance'].includes(reportType);
 
     const whereClause: any = isOfferReport
       ? {
@@ -1910,6 +1915,7 @@ export const exportReport = async (req: Request, res: Response) => {
         break;
 
       case 'offer-summary':
+      case 'zone-user-offer-summary':
         // Fetch offers with all related data
         const isOfferSummaryReport = reportType === 'offer-summary';
         const offers = await prisma.offer.findMany({
@@ -3305,7 +3311,7 @@ export const generateZoneReport = async (req: Request, res: Response) => {
     endDate.setHours(23, 59, 59, 999);
 
     // Base where clause
-    const isOfferReportRef = ['offer-summary', 'target-report', 'product-type-analysis', 'customer-performance'].includes(reportType);
+    const isOfferReportRef = ['offer-summary', 'zone-user-offer-summary', 'target-report', 'product-type-analysis', 'customer-performance'].includes(reportType);
 
     const whereClause: any = isOfferReportRef
       ? {
@@ -3376,6 +3382,7 @@ export const generateZoneReport = async (req: Request, res: Response) => {
         return await generateHerAnalysisReport(res, whereClause, startDate, endDate);
       // Offer Funnel Reports
       case 'offer-summary':
+      case 'zone-user-offer-summary':
         return await generateOfferSummaryReport(res, whereClause, startDate, endDate, pageNum, limitNum);
       case 'target-report':
         return await generateTargetReport(res, whereClause, startDate, endDate);
@@ -3455,7 +3462,7 @@ export const exportZoneReport = async (req: Request, res: Response) => {
     endDate.setHours(23, 59, 59, 999);
 
     // Base where clause
-    const isOfferReportValue = ['offer-summary', 'target-report', 'product-type-analysis', 'customer-performance'].includes(reportType);
+    const isOfferReportValue = ['offer-summary', 'zone-user-offer-summary', 'target-report', 'product-type-analysis', 'customer-performance'].includes(reportType);
 
     const whereClause: any = isOfferReportValue
       ? {
@@ -3666,6 +3673,34 @@ export const exportZoneReport = async (req: Request, res: Response) => {
         ];
         break;
 
+      case 'offer-summary':
+      case 'zone-user-offer-summary':
+        // Fetch offers with all related data
+        const offers = await prisma.offer.findMany({
+          where: whereClause,
+          include: {
+            customer: true,
+            contact: true,
+            zone: true,
+            assignedTo: true,
+            createdBy: true,
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+        });
+
+        data = offers;
+        summaryData = {
+          totalOffers: offers.length,
+          totalOfferValue: offers.reduce((sum: number, o: any) => sum + (parseFloat(String(o.offerValue || 0)) || 0), 0),
+          totalPoValue: offers.reduce((sum: number, o: any) => sum + (parseFloat(String(o.poValue || 0)) || 0), 0),
+          wonOffers: offers.filter((o: any) => o.stage === 'WON').length,
+          lostOffers: offers.filter((o: any) => o.stage === 'LOST').length,
+        };
+        columns = getPdfColumns('offer-summary');
+        break;
+
       default:
         return res.status(400).json({ error: 'Invalid report type for export.' });
     }
@@ -3769,7 +3804,7 @@ const generateOfferSummaryReport = async (res: Response, whereClause: any, start
     const aggStartTime = Date.now();
     const aggWhere = { ...whereClause };
 
-    const [summary, wonOffersCount, wonOffersValue, lostOffersCount, statusDistribution, stageDistribution, productTypeDistribution] = await Promise.all([
+    const [summary, wonOffersCount, wonOffersValueRes, lostOffersCount, statusDistribution, stageDistribution, productTypeDistribution] = await Promise.all([
       // Calculate summary statistics for all matching offers
       prisma.offer.aggregate({
         where: aggWhere,
@@ -3823,6 +3858,127 @@ const generateOfferSummaryReport = async (res: Response, whereClause: any, start
       })
     ]);
 
+    // Calculate Targets (Growth Pillar logic)
+    let totalTarget = 0;
+    const zoneId = whereClause.zoneId;
+    const userId = whereClause.createdById;
+    const productType = whereClause.productType;
+
+    // Identify months within the startDate and endDate range
+    // Reverse the server timezone offset applied earlier to get accurate local months
+    // since endDate was set to 23:59:59 local, the UTC shift might have pushed it into the next month
+    const localStart = new Date(startDate.getTime() + startDate.getTimezoneOffset() * 60000);
+    const localEnd = new Date(endDate.getTime() + endDate.getTimezoneOffset() * 60000);
+
+    const months: string[] = [];
+    let current = new Date(localStart.getFullYear(), localStart.getMonth(), 1);
+    const end = new Date(localEnd.getFullYear(), localEnd.getMonth(), 1);
+    
+    while (current <= end) {
+      months.push(`${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}`);
+      current.setMonth(current.getMonth() + 1);
+    }
+
+    if (zoneId) {
+      const targetYear = startDate.getFullYear();
+      // Fetch zone targets
+      const [monthlyTargets, yearlyTargets] = await Promise.all([
+        prisma.zoneTarget.findMany({
+          where: {
+            serviceZoneId: zoneId,
+            targetPeriod: { in: months },
+            periodType: 'MONTHLY',
+            productType: productType || null
+          }
+        }),
+        prisma.zoneTarget.findMany({
+          where: {
+            serviceZoneId: zoneId,
+            targetPeriod: String(targetYear),
+            periodType: 'YEARLY',
+            productType: productType || null
+          }
+        })
+      ]);
+
+      const monthlyTargetMap = new Map(monthlyTargets.map(t => [t.targetPeriod, Number(t.targetValue)]));
+      const yearlyValue = yearlyTargets.length > 0 ? Number(yearlyTargets[0].targetValue) : 0;
+      const avgMonthly = yearlyValue / 12;
+
+      months.forEach(m => {
+        totalTarget += monthlyTargetMap.has(m) ? monthlyTargetMap.get(m)! : avgMonthly;
+      });
+    } else if (userId) {
+       const targetYear = startDate.getFullYear();
+       // Fetch user targets
+       const [monthlyTargets, yearlyTargets] = await Promise.all([
+        prisma.userTarget.findMany({
+          where: {
+            userId: userId,
+            targetPeriod: { in: months },
+            periodType: 'MONTHLY',
+            productType: productType || null
+          }
+        }),
+        prisma.userTarget.findMany({
+          where: {
+            userId: userId,
+            targetPeriod: String(targetYear),
+            periodType: 'YEARLY',
+            productType: productType || null
+          }
+        })
+      ]);
+
+      const monthlyTargetMap = new Map(monthlyTargets.map(t => [t.targetPeriod, Number(t.targetValue)]));
+      const yearlyValue = yearlyTargets.length > 0 ? Number(yearlyTargets[0].targetValue) : 0;
+      const avgMonthly = yearlyValue / 12;
+
+      months.forEach(m => {
+        totalTarget += monthlyTargetMap.has(m) ? monthlyTargetMap.get(m)! : avgMonthly;
+      });
+    } else {
+      // Calculate total targets for ALL active zones
+      const targetYear = startDate.getFullYear();
+      
+      const [monthlyTargets, yearlyTargets, zones] = await Promise.all([
+        prisma.zoneTarget.findMany({
+          where: {
+            targetPeriod: { in: months },
+            periodType: 'MONTHLY',
+            productType: productType || null
+          }
+        }),
+        prisma.zoneTarget.findMany({
+          where: {
+            targetPeriod: String(targetYear),
+            periodType: 'YEARLY',
+            productType: productType || null
+          }
+        }),
+        prisma.serviceZone.findMany({
+          where: { isActive: true }
+        })
+      ]);
+
+      for (const zone of zones) {
+        const zoneMonthlyTargets = monthlyTargets.filter(t => t.serviceZoneId === zone.id);
+        const zoneYearlyTargets = yearlyTargets.filter(t => t.serviceZoneId === zone.id);
+        
+        const monthlyTargetMap = new Map(zoneMonthlyTargets.map(t => [t.targetPeriod, Number(t.targetValue)]));
+        const yearlyValue = zoneYearlyTargets.length > 0 ? Number(zoneYearlyTargets[0].targetValue) : 0;
+        const avgMonthly = yearlyValue / 12;
+
+        months.forEach(m => {
+          totalTarget += monthlyTargetMap.has(m) ? monthlyTargetMap.get(m)! : avgMonthly;
+        });
+      }
+    }
+
+    const totalOfferValue = Math.round(Number(summary._sum.offerValue || 0));
+    // wonValue is poValue if available, else offerValue (consistent with growth pillar)
+    const wonValue = Math.round(Number(wonOffersValueRes._sum.poValue || wonOffersValueRes._sum.offerValue || 0));
+
     const statusDist: Record<string, number> = {};
     statusDistribution.forEach((item) => {
       statusDist[item.status] = item._count.id;
@@ -3854,14 +4010,18 @@ const generateOfferSummaryReport = async (res: Response, whereClause: any, start
         summary: {
           totalCount: totalCount,
           totalOffers: totalCount,
-          totalOfferValue: Math.round(Number(summary._sum.offerValue || 0)),
+          totalTarget: Math.round(totalTarget),
+          totalOfferValue: totalOfferValue,
           totalPoValue: Math.round(Number(summary._sum.poValue || 0)),
           wonOffers: wonOffersCount,
-          wonOfferValue: Math.round(Number(wonOffersValue._sum.offerValue || 0)),
-          wonPoValue: Math.round(Number(wonOffersValue._sum.poValue || 0)),
+          wonOfferValue: Math.round(Number(wonOffersValueRes._sum.offerValue || 0)),
+          wonPoValue: Math.round(Number(wonOffersValueRes._sum.poValue || 0)),
+          wonValue: wonValue, // Renamed/New field for consistency
           lostOffers: lostOffersCount,
           successRate: totalCount > 0 ? (wonOffersCount / totalCount) * 100 : 0,
-          conversionRate: summary._sum.offerValue ? (Number(summary._sum.poValue || 0) / Number(summary._sum.offerValue || 1)) * 100 : 0,
+          conversionRate: totalOfferValue > 0 ? (wonValue / totalOfferValue) * 100 : 0,
+          achievementPercent: totalTarget > 0 ? (wonValue / totalTarget) * 100 : 0,
+          hitRatePercent: totalOfferValue > 0 ? (wonValue / totalOfferValue) * 100 : 0,
         },
         statusDistribution: statusDist,
         stageDistribution: stageDist,
@@ -4123,17 +4283,15 @@ export const getProductTypeAnalysis = async (req: Request, res: Response) => {
     // Build where clause
     const where: any = {};
 
-    // Date range filter
+    // Date range filter based on offerMonth
     if (from || to) {
-      where.createdAt = {};
-      if (from) {
-        where.createdAt.gte = new Date(from as string);
-      }
-      if (to) {
-        const endDate = new Date(to as string);
-        endDate.setHours(23, 59, 59, 999);
-        where.createdAt.lte = endDate;
-      }
+      const startDate = from ? new Date(from as string) : subDays(new Date(), 30);
+      const endDate = to ? new Date(to as string) : new Date();
+      
+      where.offerMonth = {
+        gte: format(startDate, 'yyyy-MM'),
+        lte: format(endDate, 'yyyy-MM'),
+      };
     }
 
     // Zone filter
@@ -4265,17 +4423,15 @@ export const getCustomerPerformance = async (req: Request, res: Response) => {
     // Build where clause
     const where: any = {};
 
-    // Date range filter
+    // Date range filter based on offerMonth
     if (from || to) {
-      where.createdAt = {};
-      if (from) {
-        where.createdAt.gte = new Date(from as string);
-      }
-      if (to) {
-        const endDate = new Date(to as string);
-        endDate.setHours(23, 59, 59, 999);
-        where.createdAt.lte = endDate;
-      }
+      const startDate = from ? new Date(from as string) : subDays(new Date(), 30);
+      const endDate = to ? new Date(to as string) : new Date();
+      
+      where.offerMonth = {
+        gte: format(startDate, 'yyyy-MM'),
+        lte: format(endDate, 'yyyy-MM'),
+      };
     }
 
     // Zone filter

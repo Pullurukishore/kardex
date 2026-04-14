@@ -63,7 +63,7 @@ export const getEssentialDashboard = async (req: Request, res: Response) => {
             // Overdue Balance - Strictly REGULAR (Dynamic)
             safeAggregate(
                 prisma.aRInvoice.aggregate({
-                    where: { 
+                    where: {
                         invoiceType: 'REGULAR',
                         OR: [
                             { status: 'OVERDUE' },
@@ -78,30 +78,30 @@ export const getEssentialDashboard = async (req: Request, res: Response) => {
                 { _sum: { balance: null } }
             ),
             // Pending Count - Strictly REGULAR (Dynamic: not yet due)
-            safeCount(prisma.aRInvoice.count({ 
-                where: { 
-                    status: 'PENDING', 
+            safeCount(prisma.aRInvoice.count({
+                where: {
+                    status: 'PENDING',
                     invoiceType: 'REGULAR',
                     OR: [
                         { dueDate: { gte: today } },
                         { dueDate: null }
                     ]
-                } 
+                }
             })),
             // Status Counts - Strictly REGULAR
             safeCount(prisma.aRInvoice.count({ where: { status: 'PAID', invoiceType: 'REGULAR' } })),
-            safeCount(prisma.aRInvoice.count({ 
-                where: { 
-                    status: 'PARTIAL', 
+            safeCount(prisma.aRInvoice.count({
+                where: {
+                    status: 'PARTIAL',
                     invoiceType: 'REGULAR',
                     OR: [
                         { dueDate: { gte: today } },
                         { dueDate: null }
                     ]
-                } 
+                }
             })),
-            safeCount(prisma.aRInvoice.count({ 
-                where: { 
+            safeCount(prisma.aRInvoice.count({
+                where: {
                     invoiceType: 'REGULAR',
                     OR: [
                         { status: 'OVERDUE' },
@@ -110,13 +110,13 @@ export const getEssentialDashboard = async (req: Request, res: Response) => {
                             dueDate: { lt: today }
                         }
                     ]
-                } 
+                }
             })),
 
             // Total Amount (Standard only)
             safeAggregate(
                 prisma.aRInvoice.aggregate({
-                    where: { 
+                    where: {
                         invoiceType: 'REGULAR',
                         status: { not: 'CANCELLED' }
                     },
@@ -128,7 +128,7 @@ export const getEssentialDashboard = async (req: Request, res: Response) => {
             // Total Collected (Sum totalReceipts of REGULAR invoices)
             safeAggregate(
                 prisma.aRInvoice.aggregate({
-                    where: { 
+                    where: {
                         invoiceType: 'REGULAR',
                         status: { not: 'CANCELLED' }
                     },
@@ -155,7 +155,7 @@ export const getEssentialDashboard = async (req: Request, res: Response) => {
             })),
             // Critical overdue (top 5) - Strictly REGULAR (Dynamic)
             safeFindMany(prisma.aRInvoice.findMany({
-                where: { 
+                where: {
                     invoiceType: 'REGULAR',
                     OR: [
                         { status: 'OVERDUE' },

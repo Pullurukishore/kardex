@@ -41,7 +41,9 @@ export async function getZones(): Promise<Zone[]> {
 
 export async function getCustomers(zoneId?: string): Promise<Customer[]> {
   try {
-    const params = new URLSearchParams({ isActive: 'true' });
+    const params = new URLSearchParams();
+    params.append('isActive', 'true');
+    params.append('limit', '2000');
     if (zoneId) {
       params.append('serviceZoneId', zoneId);
     }
@@ -59,7 +61,7 @@ export async function getAssets(customerId?: string): Promise<Asset[]> {
   if (!customerId) return [];
 
   try {
-    const response = await makeServerRequest(`/assets?customerId=${customerId}&isActive=true`);
+    const response = await makeServerRequest(`/assets?customerId=${customerId}&isActive=true&limit=2000`);
     return Array.isArray(response) ? response : response.data || [];
   } catch (error) {
     return [];

@@ -223,25 +223,25 @@ const ReportsFilters: React.FC<ReportsFiltersProps> = ({
       {filters.reportType === 'offer-summary' && !isZoneUser && (
         <div className="space-y-1">
           <Label className="text-sm font-medium text-foreground">Created By</Label>
-          <Select
+          <SearchableSelect
+            options={[
+              { id: 'all', label: 'All users', searchText: 'all users' },
+              ...(users?.map((u: any) => {
+                const zoneNames = u.serviceZones?.map((sz: any) => sz.serviceZone?.name).filter(Boolean).join(', ');
+                const label = `${u.name || u.email}${zoneNames ? ` (${zoneNames})` : ''}`;
+                return {
+                  id: u.id.toString(),
+                  label: label,
+                  searchText: label.toLowerCase()
+                };
+              }) || [])
+            ]}
             value={filters.createdById || 'all'}
             onValueChange={(value) => onFilterChange({ createdById: value === 'all' ? undefined : value })}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="All users" />
-            </SelectTrigger>
-            <SelectContent className="max-h-[300px] overflow-y-auto">
-              <SelectItem value="all">All users</SelectItem>
-              {users?.map((u: any) => {
-                const zoneNames = u.serviceZones?.map((sz: any) => sz.serviceZone?.name).filter(Boolean).join(', ');
-                return (
-                  <SelectItem key={u.id} value={u.id.toString()}>
-                    {u.name || u.email} {zoneNames ? `(${zoneNames})` : ''}
-                  </SelectItem>
-                );
-              })}
-            </SelectContent>
-          </Select>
+            placeholder="Select user..."
+            emptyText="No users found"
+            maxHeight="300px"
+          />
         </div>
       )}
 

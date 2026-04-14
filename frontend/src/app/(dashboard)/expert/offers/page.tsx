@@ -193,11 +193,16 @@ export default function OfferManagement() {
 
   const fetchUsers = async () => {
     try {
-      const response = await apiService.getUsers({ isActive: 'true' })
+      const response = await apiService.getUsers({ isActive: 'true', limit: 1000 })
       // Handle both response formats: { data: { users: [...] } } and direct array
       const usersData = response.data?.users || response.users || response.data || response || []
       const filteredUsers = Array.isArray(usersData) 
-        ? usersData.filter((u: any) => u.role === UserRole.ZONE_USER || u.role === UserRole.ZONE_MANAGER)
+        ? usersData.filter((u: any) => 
+            u.role === UserRole.ZONE_USER || 
+            u.role === UserRole.ZONE_MANAGER || 
+            u.role === UserRole.ADMIN ||
+            u.role === UserRole.EXPERT_HELPDESK
+          )
         : []
       setUsers(filteredUsers)
     } catch (error: any) {

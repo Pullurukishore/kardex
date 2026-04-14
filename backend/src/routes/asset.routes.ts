@@ -21,10 +21,11 @@ router.get(
   '/',
   [
     query('page').optional().isInt({ min: 1 }).toInt(),
-    query('limit').optional().isInt({ min: 1, max: 100 }).toInt(),
+    query('limit').optional().isInt({ min: 1, max: 2000 }).toInt(),
     query('search').optional().trim(),
     query('customerId').optional().isInt().toInt(),
     query('status').optional().trim(),
+    query('isActive').optional().trim(),
     validateRequest
   ],
   requireRole(['ADMIN', 'SERVICE_PERSON', 'ZONE_USER', 'EXTERNAL_USER']),

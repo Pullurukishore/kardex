@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { RefreshCw, FileText, Download, FileDown, BarChart3, Info, Trophy, CheckCircle2, DollarSign, Package } from 'lucide-react';
+import { RefreshCw, FileText, Download, FileDown, BarChart3, Info, Trophy, CheckCircle2, DollarSign, Package, Percent, Award } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiService } from '@/services/api';
 import { UserRole } from '@/types/user.types';
@@ -141,6 +141,32 @@ const ReportsClient: React.FC<ReportsClientProps> = ({
   const [isLoadingCustomers, setIsLoadingCustomers] = useState(false);
   const [users, setUsers] = useState<Array<{ id: number; name: string; email: string }>>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  
+  // Local KPICard component for better organization and reuse
+  const KPICard = ({ title, value, subtitle, icon: Icon, color, trend, valueTitle }: {
+    title: string; value: string | number; subtitle?: React.ReactNode;
+    icon: React.ElementType; color: string; trend?: number | null; valueTitle?: string;
+  }) => (
+    <div className="relative overflow-hidden rounded-xl border border-gray-200/50 dark:border-gray-700/50 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm p-5 shadow-sm hover:shadow-md transition-all duration-300 group">
+      <div className="absolute top-0 right-0 w-20 h-20 rounded-bl-[60px] opacity-10 group-hover:opacity-20 transition-opacity" style={{ background: color }} />
+      <div className="flex items-start justify-between">
+        <div className="space-y-1">
+          <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{title}</p>
+          <p className="text-2xl font-bold text-gray-900 dark:text-white" title={valueTitle}>{value}</p>
+          {subtitle && <div className="text-xs text-gray-500 dark:text-gray-400">{subtitle}</div>}
+        </div>
+        <div className="p-2.5 rounded-lg" style={{ background: `${color}15` }}>
+          <Icon className="w-5 h-5" style={{ color }} />
+        </div>
+      </div>
+      {trend !== undefined && trend !== null && (
+        <div className={`mt-3 flex items-center gap-1 text-xs font-medium ${trend >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+          {trend >= 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+          {Math.abs(trend).toFixed(1)}% vs prev
+        </div>
+      )}
+    </div>
+  );
 
   // Fetch zones and customers on mount
   useEffect(() => {
@@ -186,10 +212,15 @@ const ReportsClient: React.FC<ReportsClientProps> = ({
       if (!isZoneUser && users.length === 0) {
         setIsLoadingUsers(true);
         try {
-          const response = await apiService.getUsers({ isActive: 'true' });
+          const response = await apiService.getUsers({ isActive: 'true', limit: 1000 });
           const usersData = response.data?.users || response.users || response.data || response || [];
           const filteredUsers = Array.isArray(usersData)
-            ? usersData.filter((u: any) => u.role === UserRole.ZONE_USER || u.role === UserRole.ZONE_MANAGER || u.role === UserRole.ADMIN)
+            ? usersData.filter((u: any) => 
+                u.role === UserRole.ZONE_USER || 
+                u.role === UserRole.ZONE_MANAGER || 
+                u.role === UserRole.ADMIN || 
+                u.role === UserRole.EXPERT_HELPDESK
+              )
             : [];
           setUsers(filteredUsers);
         } catch (error) {
@@ -1506,145 +1537,53 @@ const ReportsClient: React.FC<ReportsClientProps> = ({
       {/* Offer Report Results */}
       {(filters.reportType === 'offer-summary' || filters.reportType === 'zone-user-offer-summary') && reportData && offers.length > 0 && (
         <div className="space-y-6">
-          {/* Summary Cards - Enhanced Design */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Total Offers Card */}
-            <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-medium text-[#5D6E73]">Total Offers</CardTitle>
-                  <Package className="h-5 w-5 text-[#6F8A9D]" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="text-3xl font-bold text-[#546A7A]">
-                    {filteredOffers.length}
-                  </div>
-                  {filters.search || filters.stage ? (
-                    <p className="text-xs text-[#AEBFC3]0">
-                      Filtered from <span className="font-semibold text-[#5D6E73]">{totalOffers}</span> total
-                    </p>
-                  ) : (
-                    <p className="text-xs text-[#AEBFC3]0">
-                      Out of <span className="font-semibold text-[#5D6E73]">{totalOffers || 0}</span> total offers
-                    </p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+          {/* Summary Cards - Growth Pillar Style */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            <KPICard 
+              title="Total Target" 
+              value={formatCrLakh(summary.totalTarget || 0)} 
+              valueTitle={formatINRFull(summary.totalTarget || 0)}
+              subtitle={`${summary.totalOffers || 0} offers`} 
+              icon={Target} 
+              color="#6366F1" 
+            />
 
-            {/* Total Offer Value Card */}
-            <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-medium text-[#5D6E73]">Total Offer Value</CardTitle>
-                  <DollarSign className="h-5 w-5 text-[#CE9F6B]" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="text-3xl font-bold text-[#976E44]" title={formatINRFull(summary.totalOfferValue || 0)}>
-                    {formatCrLakh(summary.totalOfferValue || 0)}
-                  </div>
-                  <p className="text-xs text-[#AEBFC3]0">
-                    Avg: <span className="font-semibold text-[#5D6E73]">
-                      {formatCrLakh((summary.totalOfferValue || 0) / Math.max(filteredOffers.length, 1))}
-                    </span>
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+            <KPICard 
+              title="Offer Value" 
+              value={formatCrLakh(summary.totalOfferValue || 0)} 
+              valueTitle={formatINRFull(summary.totalOfferValue || 0)}
+              subtitle={`${summary.totalOffers || 0} offers created`} 
+              icon={DollarSign} 
+              color="#F59E0B" 
+            />
 
-            {/* Total PO Value Card */}
-            <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-medium text-[#5D6E73]">Total PO Value</CardTitle>
-                  <CheckCircle2 className="h-5 w-5 text-[#82A094]" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="text-3xl font-bold text-[#4F6A64]" title={formatINRFull(summary.totalPoValue || 0)}>
-                    {formatCrLakh(summary.totalPoValue || 0)}
-                  </div>
-                  <p className="text-xs text-[#AEBFC3]0">
-                    Conversion: <span className="font-semibold text-[#5D6E73]">
-                      {(Number(summary.totalOfferValue || 0) > 0 ? (Number(summary.totalPoValue || 0) / Number(summary.totalOfferValue)) * 100 : 0).toFixed(1)}%
-                    </span>
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+            <KPICard 
+              title="Won Value" 
+              value={formatCrLakh(summary.wonValue || 0)} 
+              valueTitle={formatINRFull(summary.wonValue || 0)}
+              subtitle={`${summary.wonOffers || 0} orders won`} 
+              icon={Award} 
+              color="#10B981" 
+            />
 
-            {/* Won Offers Card */}
-            <Card className="border-0 shadow-md hover:shadow-lg transition-shadow bg-gradient-to-br from-[#A2B9AF]/10 to-[#A2B9AF]/10">
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-medium text-[#5D6E73]">Won Offers</CardTitle>
-                  <Trophy className="h-5 w-5 text-[#CE9F6B]" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="text-3xl font-bold text-[#4F6A64]">
-                    {offers.filter(o => o.stage === 'WON').length}
-                  </div>
-                  <p className="text-xs text-[#5D6E73]">
-                    Success Rate: <span className="font-semibold text-[#4F6A64]">
-                      {((offers.filter(o => o.stage === 'WON').length / Math.max(filteredOffers.length, 1)) * 100).toFixed(1)}%
-                    </span>
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+            <KPICard 
+              title="Achievement" 
+              value={`${(summary.achievementPercent || 0).toFixed(1)}%`} 
+              subtitle="Won / Target" 
+              icon={TrendingUp} 
+              color="#06B6D4" 
+            />
+
+            <KPICard 
+              title="Hit Rate" 
+              value={`${(summary.hitRatePercent || 0).toFixed(1)}%`} 
+              subtitle="Won / Offer Value" 
+              icon={Percent} 
+              color="#8B5CF6" 
+            />
           </div>
 
-          {/* Won Offers Details Section */}
-          {offers.filter(o => o.stage === 'WON').length > 0 && (
-            <Card className="border-0 shadow-md bg-gradient-to-r from-[#A2B9AF]/10 to-[#A2B9AF]/10">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Trophy className="h-6 w-6 text-[#CE9F6B]" />
-                    <div>
-                      <CardTitle className="text-lg">Won Offers Summary</CardTitle>
-                      <CardDescription>Detailed breakdown of successfully won offers</CardDescription>
-                    </div>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div className="bg-white rounded-lg p-4 border border-[#A2B9AF]">
-                    <p className="text-sm text-[#5D6E73] font-medium">Won Offers Count</p>
-                    <p className="text-2xl font-bold text-[#4F6A64] mt-2">
-                      {offers.filter(o => o.stage === 'WON').length}
-                    </p>
-                  </div>
-                  <div className="bg-white rounded-lg p-4 border border-[#A2B9AF]">
-                    <p className="text-sm text-[#5D6E73] font-medium">Won Offer Value</p>
-                    <p className="text-2xl font-bold text-[#4F6A64] mt-2" title={formatINRFull(summary.wonOfferValue || 0)}>
-                      {formatCrLakh(summary.wonOfferValue || 0)}
-                    </p>
-                  </div>
-                  <div className="bg-white rounded-lg p-4 border border-[#A2B9AF]">
-                    <p className="text-sm text-[#5D6E73] font-medium">Won PO Value</p>
-                    <p className="text-2xl font-bold text-[#4F6A64] mt-2" title={formatINRFull(summary.wonPoValue || 0)}>
-                      {formatCrLakh(summary.wonPoValue || 0)}
-                    </p>
-                  </div>
-                  <div className="bg-white rounded-lg p-4 border border-[#A2B9AF]">
-                    <p className="text-sm text-[#5D6E73] font-medium">Success Rate</p>
-                    <p className="text-2xl font-bold text-[#4F6A64] mt-2">
-                      {(summary.successRate || 0).toFixed(1)}%
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+
 
           {/* Search Bar Above Table */}
           <Card>

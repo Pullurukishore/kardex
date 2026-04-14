@@ -51,6 +51,27 @@ const ReportsFilters: React.FC<ReportsFiltersProps> = ({
   users = [],
   reportTypes = REPORT_TYPES,
 }) => {
+  const isOfferSummary = filters.reportType === 'offer-summary' || filters.reportType === 'zone-user-offer-summary';
+
+  // State calculations for Year/Month selectors (default current year, Jan-Dec)
+  const currentYear = filters.dateRange?.from ? filters.dateRange.from.getFullYear() : new Date().getFullYear();
+  const fromMonth = filters.dateRange?.from ? filters.dateRange.from.getMonth() + 1 : 1;
+  const toMonth = filters.dateRange?.to ? filters.dateRange.to.getMonth() + 1 : 12;
+
+  const yearOptions = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i);
+  const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+  const handleYearMonthChange = (y: number, fM: number, tM: number) => {
+    // Update dateRange to match selected year and months
+    const from = new Date(y, fM - 1, 1);
+    const to = new Date(y, tM, 0); // Last day of toMonth
+    
+    from.setHours(0, 0, 0, 0);
+    to.setHours(23, 59, 59, 999);
+    
+    onFilterChange({ dateRange: { from, to } });
+  };
+
   return (
     <div className="space-y-4">
       {/* Filter Grid */}
@@ -75,44 +96,104 @@ const ReportsFilters: React.FC<ReportsFiltersProps> = ({
           </Select>
         </div>
 
-      {/* Date Range - From - Only show for offer-summary */}
+      {/* Date Filters - Adaptive based on report type */}
       {filters.reportType !== 'target-report' && (
-        <div className="space-y-1">
-          <Label className="text-sm font-medium text-foreground">From Date</Label>
-          <Input
-            type="date"
-            value={filters.dateRange?.from ? format(filters.dateRange.from, 'yyyy-MM-dd') : ''}
-            onChange={(e) => {
-              const newFrom = e.target.value ? new Date(e.target.value) : undefined;
-              const existingTo = filters.dateRange?.to;
-              const newDateRange = (newFrom && existingTo)
-                ? ({ from: newFrom, to: existingTo } as DateRange)
-                : undefined;
-              onFilterChange({ dateRange: newDateRange });
-            }}
-            className="w-full"
-          />
-        </div>
-      )}
+        isOfferSummary ? (
+          <>
+            {/* Year */}
+            <div className="space-y-1">
+              <Label className="text-sm font-medium text-foreground">Year</Label>
+              <Select
+                value={currentYear.toString()}
+                onValueChange={(value) => handleYearMonthChange(Number(value), fromMonth, toMonth)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {yearOptions.map(y => (
+                    <SelectItem key={y} value={y.toString()}>{y}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {/* From Month */}
+            <div className="space-y-1">
+              <Label className="text-sm font-medium text-foreground">From Month</Label>
+              <Select
+                value={fromMonth.toString()}
+                onValueChange={(value) => {
+                  const v = Number(value);
+                  handleYearMonthChange(currentYear, v, Math.max(v, toMonth));
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {MONTH_NAMES.map((m, i) => (
+                    <SelectItem key={i} value={(i + 1).toString()}>{m}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {/* To Month */}
+            <div className="space-y-1">
+              <Label className="text-sm font-medium text-foreground">To Month</Label>
+              <Select
+                value={toMonth.toString()}
+                onValueChange={(value) => handleYearMonthChange(currentYear, fromMonth, Number(value))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {MONTH_NAMES.map((m, i) => (
+                    <SelectItem key={i} value={(i + 1).toString()} disabled={i + 1 < fromMonth}>{m}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Date Range - From */}
+            <div className="space-y-1">
+              <Label className="text-sm font-medium text-foreground">From Date</Label>
+              <Input
+                type="date"
+                value={filters.dateRange?.from ? format(filters.dateRange.from, 'yyyy-MM-dd') : ''}
+                onChange={(e) => {
+                  const newFrom = e.target.value ? new Date(e.target.value) : undefined;
+                  const existingTo = filters.dateRange?.to;
+                  const newDateRange = (newFrom && existingTo)
+                    ? ({ from: newFrom, to: existingTo } as DateRange)
+                    : undefined;
+                  onFilterChange({ dateRange: newDateRange });
+                }}
+                className="w-full"
+              />
+            </div>
 
-      {/* Date Range - To - Only show for offer-summary */}
-      {filters.reportType !== 'target-report' && (
-        <div className="space-y-1">
-          <Label className="text-sm font-medium text-foreground">To Date</Label>
-          <Input
-            type="date"
-            value={filters.dateRange?.to ? format(filters.dateRange.to, 'yyyy-MM-dd') : ''}
-            onChange={(e) => {
-              const newTo = e.target.value ? new Date(e.target.value) : undefined;
-              const existingFrom = filters.dateRange?.from;
-              const newDateRange = (existingFrom && newTo)
-                ? ({ from: existingFrom, to: newTo } as DateRange)
-                : undefined;
-              onFilterChange({ dateRange: newDateRange });
-            }}
-            className="w-full"
-          />
-        </div>
+            {/* Date Range - To */}
+            <div className="space-y-1">
+              <Label className="text-sm font-medium text-foreground">To Date</Label>
+              <Input
+                type="date"
+                value={filters.dateRange?.to ? format(filters.dateRange.to, 'yyyy-MM-dd') : ''}
+                onChange={(e) => {
+                  const newTo = e.target.value ? new Date(e.target.value) : undefined;
+                  const existingFrom = filters.dateRange?.from;
+                  const newDateRange = (existingFrom && newTo)
+                    ? ({ from: existingFrom, to: newTo } as DateRange)
+                    : undefined;
+                  onFilterChange({ dateRange: newDateRange });
+                }}
+                className="w-full"
+              />
+            </div>
+          </>
+        )
       )}
 
       {/* Zone Filter */}
@@ -247,25 +328,25 @@ const ReportsFilters: React.FC<ReportsFiltersProps> = ({
       {(filters.reportType === 'offer-summary' || filters.reportType === 'zone-user-offer-summary') && !isZoneUser && (
         <div className="space-y-1">
           <Label className="text-sm font-medium text-foreground">Created By</Label>
-          <Select
-            value={filters.createdById || 'all'}
-            onValueChange={(value) => onFilterChange({ createdById: value === 'all' ? undefined : value })}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="All users" />
-            </SelectTrigger>
-            <SelectContent className="max-h-[300px] overflow-y-auto">
-              <SelectItem value="all">All users</SelectItem>
-              {users?.map((u: any) => {
+          <SearchableSelect
+            options={users?.filter((u: any) => {
+                if (!filters.zoneId || filters.zoneId === 'all') return true;
+                return u.serviceZones?.some((sz: any) => sz.serviceZone?.id?.toString() === filters.zoneId?.toString());
+              }).map((u: any) => {
                 const zoneNames = u.serviceZones?.map((sz: any) => sz.serviceZone?.name).filter(Boolean).join(', ');
-                return (
-                  <SelectItem key={u.id} value={u.id.toString()}>
-                    {u.name || u.email} {zoneNames ? `(${zoneNames})` : ''}
-                  </SelectItem>
-                );
-              })}
-            </SelectContent>
-          </Select>
+                const label = `${u.name || u.email}${zoneNames ? ` (${zoneNames})` : ''}`;
+                return {
+                  id: u.id.toString(),
+                  label: label,
+                  searchText: label.toLowerCase()
+                };
+              }) || []}
+            value={filters.createdById || ''}
+            onValueChange={(value) => onFilterChange({ createdById: value || undefined })}
+            placeholder="Select user..."
+            emptyText="No users found"
+            maxHeight="300px"
+          />
         </div>
       )}
 

@@ -311,7 +311,6 @@ export default function ARPaymentMilestonesPage() {
   const [minAmount, setMinAmount] = useState(searchParams.get('minAmount') || '');
   const [maxAmount, setMaxAmount] = useState(searchParams.get('maxAmount') || '');
   const [riskClass, setRiskClass] = useState(searchParams.get('riskClass') || '');
-  const [milestoneStatus, setMilestoneStatus] = useState(searchParams.get('milestoneStatus') || '');
   const [personInCharge, setPersonInCharge] = useState(searchParams.get('personInCharge') || '');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
@@ -343,13 +342,12 @@ export default function ARPaymentMilestonesPage() {
     updateParam('minAmount', minAmount);
     updateParam('maxAmount', maxAmount);
     updateParam('riskClass', riskClass);
-    updateParam('milestoneStatus', milestoneStatus);
     updateParam('personInCharge', personInCharge);
 
     if (changed) {
       router.replace(`${pathname}?${params.toString()}`, { scroll: false });
     }
-  }, [search, status, page, customerId, fromDate, toDate, region, category, accountingStatus, minAmount, maxAmount, riskClass, milestoneStatus, personInCharge, pathname, router, searchParams]);
+  }, [search, status, page, customerId, fromDate, toDate, region, category, accountingStatus, minAmount, maxAmount, riskClass, personInCharge, pathname, router, searchParams]);
 
   const agingBucketLabels: Record<string, string> = {
     'current': 'Current (Not Yet Due)',
@@ -361,7 +359,7 @@ export default function ARPaymentMilestonesPage() {
 
   useEffect(() => {
     loadInvoices();
-  }, [search, status, page, agingBucket, customerId, fromDate, toDate, region, category, accountingStatus, minAmount, maxAmount, riskClass, milestoneStatus, personInCharge]);
+  }, [search, status, page, agingBucket, customerId, fromDate, toDate, region, category, accountingStatus, minAmount, maxAmount, riskClass, personInCharge]);
 
   useEffect(() => {
     loadCustomers();
@@ -439,7 +437,7 @@ export default function ARPaymentMilestonesPage() {
 
   const activeFilterCount = [
     customerId, fromDate, toDate, region, category, 
-    accountingStatus, minAmount, maxAmount, riskClass, milestoneStatus, personInCharge
+    accountingStatus, minAmount, maxAmount, riskClass, personInCharge
   ].filter(Boolean).length;
 
   const clearAllFilters = () => {
@@ -454,7 +452,6 @@ export default function ARPaymentMilestonesPage() {
     setMinAmount('');
     setMaxAmount('');
     setRiskClass('');
-    setMilestoneStatus('');
     setPersonInCharge('');
     setPage(1);
   };
@@ -823,26 +820,6 @@ export default function ARPaymentMilestonesPage() {
                       {PIC_OPTIONS.map(p => (
                         <SelectItem key={p} value={p}>{p}</SelectItem>
                       ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Milestone Status */}
-                <div className="space-y-2">
-                  <Label className="text-xs font-bold text-[#546A7A] uppercase tracking-wider flex items-center gap-2">
-                    <Package className="w-3.5 h-3.5" /> Milestone Delivery Status
-                  </Label>
-                  <Select value={milestoneStatus} onValueChange={(val) => { setMilestoneStatus(val); setPage(1); }}>
-                    <SelectTrigger className="border-2 border-[#AEBFC3]/30 rounded-xl h-11">
-                      <SelectValue placeholder="All Delivery Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ALL_DELIVERY">All Delivery Status</SelectItem>
-                      <SelectItem value="AWAITING_DELIVERY">Awaiting Delivery</SelectItem>
-                      <SelectItem value="PARTIALLY_DELIVERED">Partially Delivered</SelectItem>
-                      <SelectItem value="FULLY_DELIVERED">Fully Delivered</SelectItem>
-                      <SelectItem value="EXPIRED">Expired</SelectItem>
-                      <SelectItem value="LINKED">Linked to Invoice</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

@@ -78,8 +78,8 @@ export const getAllInvoices = async (req: Request, res: Response) => {
                 where.status = status;
             }
         } else {
-            // Default: do not show cancelled invoices in the main list
-            where.status = { not: 'CANCELLED' };
+            // Default: show Active invoices (do not show cancelled or paid invoices in the main list)
+            where.status = { notIn: ['CANCELLED', 'PAID'] };
         }
 
         if (customerId) {
@@ -256,31 +256,58 @@ export const getAllInvoices = async (req: Request, res: Response) => {
                     }
 
                     // Calculate if this milestone is dynamically overdue
-                    let totalAllocatedUpToToday = 0;
-                    const netAmount = Number(invoice.netAmount || 0);
+                    // A milestone is overdue if ANY term past its due date has unpaid balance
+                    // Uses FIFO receipt allocation matching the dashboard logic
+                    const netAmount = Number(invoice.netAmount || 0) || Number(invoice.totalAmount || 0);
                     const totalTax = Number(invoice.taxAmount || 0);
+                    const sortedTermsForOverdue = [...terms].sort((a: any, b: any) => new Date(a.termDate).getTime() - new Date(b.termDate).getTime());
+                    const totalPaymentsForInv = paymentsAggr[invoice.id] ? paymentsAggr[invoice.id].total : (Number(invoice.totalReceipts) || 0);
+                    let remainingPayments = totalPaymentsForInv;
+                    let hasAnyOverdueTerm = false;
+                    let totalAllocated = 0;
 
-                    terms.forEach((term: any) => {
-                        // Only consider completed milestones for aging, using the target (due) date
-                        if (term.status === 'COMPLETED' && term.termDate) {
+                    for (const term of sortedTermsForOverdue) {
+                        const percentage = term.percentage || 0;
+                        const taxPercentage = term.taxPercentage || 0;
+                        const isNetBasis = term.calculationBasis !== 'TOTAL_AMOUNT';
+                        let allocatedAmount = 0;
+                        if (isNetBasis) {
+                            allocatedAmount = (netAmount * percentage) / 100;
+                        } else {
+                            allocatedAmount = ((netAmount * percentage) / 100) + ((totalTax * taxPercentage) / 100);
+                        }
+                        totalAllocated += allocatedAmount;
+
+                        const collectedForTerm = Math.min(allocatedAmount, Math.max(0, remainingPayments));
+                        remainingPayments -= collectedForTerm;
+                        const pendingForTerm = Math.max(0, allocatedAmount - collectedForTerm);
+                        const isTermPaid = allocatedAmount > 0 ? (collectedForTerm / allocatedAmount) >= 0.99 : true;
+
+                        if (term.termDate) {
                             const deadlineDate = new Date(term.termDate);
                             deadlineDate.setHours(0, 0, 0, 0);
-                            
                             if (today.getTime() > deadlineDate.getTime()) {
-                                const isNetBasis = term.calculationBasis !== 'TOTAL_AMOUNT';
-                                const percentage = term.percentage || 0;
-                                const taxPercentage = term.taxPercentage || 0;
-                                if (isNetBasis) {
-                                    totalAllocatedUpToToday += (netAmount * percentage) / 100;
-                                } else {
-                                    totalAllocatedUpToToday += ((netAmount * percentage) / 100) + ((totalTax * taxPercentage) / 100);
+                                // This term is past due
+                                if (!isTermPaid && pendingForTerm > 0.01) {
+                                    isOverdue = true;
+                                    break;
                                 }
+                                hasAnyOverdueTerm = true;
                             }
                         }
-                    });
+                    }
 
-                    const paymentDataForTotal = paymentsAggr[invoice.id] ? paymentsAggr[invoice.id].total : (Number(invoice.totalReceipts) || 0);
-                    isOverdue = (totalAllocatedUpToToday - paymentDataForTotal) > 0.01;
+                    // Fallback: if all term allocations were 0 (missing percentage data)
+                    // but there ARE terms past due and the invoice has outstanding balance,
+                    // consider it overdue
+                    if (!isOverdue && totalAllocated < 0.01 && hasAnyOverdueTerm) {
+                        const invBalance = Number(invoice.totalAmount || 0) - totalPaymentsForInv;
+                        if (invBalance > 0.01) {
+                            isOverdue = true;
+                        }
+                    }
+
+
                 }
             } else if (invoice.dueDate) {
                 // calculateDaysBetween should handle Date objects

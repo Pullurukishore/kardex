@@ -163,10 +163,15 @@ const ReportsClient: React.FC<ReportsClientProps> = ({
       if (!isZoneUser && users.length === 0) {
         setIsLoadingUsers(true);
         try {
-          const response = await apiService.getUsers({ isActive: 'true' });
+          const response = await apiService.getUsers({ isActive: 'true', limit: 1000 });
           const usersData = response.data?.users || response.users || response.data || response || [];
           const filteredUsers = Array.isArray(usersData)
-            ? usersData.filter((u: any) => u.role === UserRole.ZONE_USER || u.role === UserRole.ZONE_MANAGER || u.role === UserRole.ADMIN)
+            ? usersData.filter((u: any) => 
+                u.role === UserRole.ZONE_USER || 
+                u.role === UserRole.ZONE_MANAGER || 
+                u.role === UserRole.ADMIN ||
+                u.role === UserRole.EXPERT_HELPDESK
+              )
             : [];
           setUsers(filteredUsers);
         } catch (error) {

@@ -32,12 +32,20 @@ export const listCustomers = async (req: AuthenticatedRequest, res: Response) =>
   const startTime = Date.now();
 
   try {
-    const { search = '', include, serviceZoneId } = req.query;
+    const { search = '', include, serviceZoneId, zoneId, isActive } = req.query;
     const where: any = {};
 
-    // Add serviceZoneId filter if provided
-    if (serviceZoneId) {
-      where.serviceZoneId = parseInt(serviceZoneId as string, 10);
+    // Add isActive filter if provided
+    if (isActive === 'true') {
+      where.isActive = true;
+    } else if (isActive === 'false') {
+      where.isActive = false;
+    }
+
+    // Add serviceZoneId or zoneId filter if provided
+    const targetZoneId = serviceZoneId || zoneId;
+    if (targetZoneId) {
+      where.serviceZoneId = parseInt(targetZoneId as string, 10);
     }
 
     // Parse include parameter (e.g., "contacts,assets,serviceZone")

@@ -200,10 +200,15 @@ export default function OfferManagement() {
     }
     
     try {
-      const response = await apiService.getUsers({ isActive: 'true' }) // Get only active users
+      const response = await apiService.getUsers({ isActive: 'true', limit: 1000 }) // Get only active users
       const usersData = response.data?.users || response.users || []
       const filteredUsers = Array.isArray(usersData) 
-        ? usersData.filter((u: any) => u.role === UserRole.ZONE_USER || u.role === UserRole.ZONE_MANAGER)
+        ? usersData.filter((u: any) => 
+            u.role === UserRole.ZONE_USER || 
+            u.role === UserRole.ZONE_MANAGER || 
+            u.role === UserRole.ADMIN ||
+            u.role === UserRole.EXPERT_HELPDESK
+          )
         : []
       setUsers(filteredUsers)
     } catch (error: any) {

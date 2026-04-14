@@ -80,20 +80,20 @@ export const adminNavigation: NavItem[] = [
         iconBgColor: "bg-[#96AEC2]/10"
       },
       {
-        title: "Activity Log",
-        href: "/admin/offer-activity-log",
-        icon: History,
-        roles: [UserRole.ADMIN],
-        iconColor: "text-[#976E44]",
-        iconBgColor: "bg-[#CE9F6B]/10"
-      },
-      {
         title: "Growth Pillar",
         href: "/admin/growth-report",
         icon: TrendingUp,
         roles: [UserRole.ADMIN],
         iconColor: "text-[#546A7A]",
         iconBgColor: "bg-[#6F8A9D]/10"
+      },
+      {
+        title: "Activity Log",
+        href: "/admin/offer-activity-log",
+        icon: History,
+        roles: [UserRole.ADMIN],
+        iconColor: "text-[#976E44]",
+        iconBgColor: "bg-[#CE9F6B]/10"
       }
     ]
   },
@@ -744,12 +744,12 @@ export const adminOffersNavigation: NavItem[] = [
     iconBgColor: "bg-[#6F8A9D]/10"
   },
   {
-    title: "Forecast Reports",
-    href: "/admin/reports?module=forecast",
-    icon: FileText,
+    title: "Growth Pillar",
+    href: "/admin/growth-report",
+    icon: TrendingUp,
     roles: [UserRole.ADMIN],
-    iconColor: "text-[#4F6A64]",
-    iconBgColor: "bg-[#82A094]/10"
+    iconColor: "text-[#546A7A]",
+    iconBgColor: "bg-[#6F8A9D]/10"
   },
   {
     title: "Activity Log",
@@ -758,14 +758,6 @@ export const adminOffersNavigation: NavItem[] = [
     roles: [UserRole.ADMIN],
     iconColor: "text-[#976E44]",
     iconBgColor: "bg-[#CE9F6B]/10"
-  },
-  {
-    title: "Growth Pillar",
-    href: "/admin/growth-report",
-    icon: TrendingUp,
-    roles: [UserRole.ADMIN],
-    iconColor: "text-[#546A7A]",
-    iconBgColor: "bg-[#6F8A9D]/10"
   }
 ];
 

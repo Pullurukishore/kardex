@@ -363,8 +363,8 @@ class ApiService {
       queryParams.serviceZoneId = zoneId;
     }
 
-    // Ensure limit doesn't exceed the maximum allowed by the backend (100)
-    const safeLimit = Math.min(Number(limit) || 100, 100);
+    // Ensure limit doesn't exceed the maximum allowed by the backend (2000)
+    const safeLimit = Math.min(Number(limit) || 100, 2000);
 
     // Add include parameter to the request if provided
     if (include) {
