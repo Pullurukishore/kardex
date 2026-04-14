@@ -146,21 +146,10 @@ export const generateReport = async (req: Request, res: Response) => {
 
     const whereClause: any = isOfferReport
       ? {
-        OR: [
-          {
-            offerMonth: {
-              gte: fromMonthStr,
-              lte: toMonthStr,
-            }
-          },
-          {
-            stage: { in: ['WON', 'PO_RECEIVED'] },
-            poReceivedMonth: {
-              gte: fromMonthStr,
-              lte: toMonthStr,
-            }
-          }
-        ]
+        offerMonth: {
+          gte: fromMonthStr,
+          lte: toMonthStr,
+        }
       }
       : {
         OR: [
@@ -3772,6 +3761,7 @@ const generateOfferSummaryReport = async (res: Response, whereClause: any, start
         status: true,
         stage: true,
         offerValue: true,
+        probabilityPercentage: true,
         poNumber: true,
         poValue: true,
         customer: {
@@ -3796,6 +3786,12 @@ const generateOfferSummaryReport = async (res: Response, whereClause: any, start
           },
         },
         createdBy: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        assignedTo: {
           select: {
             id: true,
             name: true,

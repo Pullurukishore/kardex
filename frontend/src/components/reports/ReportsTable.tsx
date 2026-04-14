@@ -24,7 +24,9 @@ interface Offer {
   stage: string;
   priority: string;
   offerValue: number | null;
+  probabilityPercentage: number | null;
   poNumber: string | null;
+  poReceivedMonth: string | null;
   poValue: number | null;
   contact?: {
     id: number;
@@ -37,6 +39,10 @@ interface Offer {
     name: string;
     shortForm: string;
   };
+  assignedTo?: {
+    id: number;
+    name: string;
+  } | null;
   createdBy: {
     id: number;
     name: string;
@@ -127,20 +133,45 @@ const OfferRow = memo(({ offer, onViewOffer }: { offer: Offer; onViewOffer: (id:
         <div className="text-sm text-[#5D6E73] font-medium">{offer.zone.name}</div>
       </td>
       <td className="py-3.5 px-4">
-        <div className="text-sm text-[#546A7A]">{offer.createdBy.name}</div>
-        <div className="text-xs text-[#AEBFC3] mt-0.5" title="Offer Date">
+        <div className="text-sm font-medium text-[#546A7A] flex items-center gap-1.5">
+          {offer.probabilityPercentage ? (
+            <Badge className={`${
+              offer.probabilityPercentage >= 70 ? 'bg-emerald-500' : 
+              offer.probabilityPercentage >= 40 ? 'bg-amber-500' : 'bg-red-500'
+            } text-white px-1.5 py-0 h-5 text-[10px] font-bold`}>
+              {offer.probabilityPercentage}%
+            </Badge>
+          ) : (
+            <span className="text-[#AEBFC3]">-</span>
+          )}
+        </div>
+      </td>
+      <td className="py-3.5 px-4">
+        <div className="text-sm text-[#546A7A] font-semibold">{offer.assignedTo?.name || offer.createdBy.name}</div>
+        {offer.assignedTo && offer.assignedTo.name !== offer.createdBy.name && (
+          <div className="text-[10px] text-[#AEBFC3] mt-0.5">Created by {offer.createdBy.name}</div>
+        )}
+        <div className="text-[10px] text-[#979796] mt-0.5" title="Offer Date">
           {formatDateSafe(offer.offerReferenceDate || offer.createdAt, 'MMM dd, yyyy')}
         </div>
       </td>
       <td className="py-3.5 px-4">
-        <div className="text-sm text-[#546A7A]">
+        <div className="text-sm text-[#546A7A] font-medium">
           {offer.poNumber || 'N/A'}
         </div>
-        {offer.poValue && (
-          <div className="text-xs text-[#AEBFC3]0 mt-0.5" title={formatINRFull(offer.poValue)}>
-            {formatCrLakh(offer.poValue)}
-          </div>
-        )}
+        <div className="flex flex-col gap-0.5 mt-0.5">
+          {offer.poValue && (
+            <div className="text-xs font-semibold text-[#4F6A64]" title={formatINRFull(offer.poValue)}>
+              {formatCrLakh(offer.poValue)}
+            </div>
+          )}
+          {offer.poReceivedMonth && (
+            <div className="text-[10px] text-[#AEBFC3] flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+              Won: {offer.poReceivedMonth}
+            </div>
+          )}
+        </div>
       </td>
       <td className="py-3.5 px-4">
         <div className="text-xs text-[#AEBFC3]">
@@ -250,8 +281,11 @@ const ReportsTable: React.FC<ReportsTableProps> = ({
                 <th className="text-left py-3.5 px-4 font-semibold text-[#5D6E73] text-xs uppercase tracking-wider min-w-[100px]">
                   Zone
                 </th>
-                <th className="text-left py-3.5 px-4 font-semibold text-[#5D6E73] text-xs uppercase tracking-wider min-w-[120px]">
-                  Created By
+                <th className="text-left py-3.5 px-4 font-semibold text-[#5D6E73] text-xs uppercase tracking-wider min-w-[80px]">
+                  Prob%
+                </th>
+                <th className="text-left py-3.5 px-4 font-semibold text-[#5D6E73] text-xs uppercase tracking-wider min-w-[130px]">
+                  Assigned To
                 </th>
                 <th className="text-left py-3.5 px-4 font-semibold text-[#5D6E73] text-xs uppercase tracking-wider min-w-[120px]">
                   PO Number

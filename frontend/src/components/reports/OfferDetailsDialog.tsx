@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, Building2, User, MapPin, Phone, Mail, Calendar, DollarSign, FileText, Package, Settings } from 'lucide-react';
+import { Loader2, Building2, User, MapPin, Phone, Mail, Calendar, DollarSign, FileText, Package, Settings, CheckCircle2 } from 'lucide-react';
 import { apiService } from '@/services/api';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -404,6 +404,13 @@ const OfferDetailsDialog: React.FC<OfferDetailsDialogProps> = ({
                         <dd className="text-base font-bold text-[#546A7A] flex items-center gap-1">
                           <Calendar className="h-4 w-4 text-[#4F6A64]" />
                           {offer.poExpectedMonth || '-'}
+                        </dd>
+                      </div>
+                      <div className="bg-[#82A094]/10 rounded-lg p-3 border border-[#82A094]/30">
+                        <dt className="text-xs text-[#4F6A64] font-semibold uppercase mb-1">PO Received Month</dt>
+                        <dd className="text-base font-bold text-[#4F6A64] flex items-center gap-1">
+                          <CheckCircle2 className="h-4 w-4" />
+                          {offer.poReceivedMonth || '-'}
                         </dd>
                       </div>
                       <div className="bg-[#AEBFC3]/10 rounded-lg p-3 border border-[#92A2A5]">
