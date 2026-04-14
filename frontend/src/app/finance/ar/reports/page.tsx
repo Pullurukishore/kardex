@@ -893,9 +893,12 @@ export default function ARReportsPage() {
   const [personInChargeFilter, setPersonInChargeFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [acctFilter, setAcctFilter] = useState('');
+  const [paymentModeFilter, setPaymentModeFilter] = useState('');
+  const [guaranteeFilter, setGuaranteeFilter] = useState('');
   const [sortField, setSortField] = useState('invoiceDate');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [showFilters, setShowFilters] = useState(false);
+  const [availablePaymentModes, setAvailablePaymentModes] = useState<string[]>([]);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [viewRecord, setViewRecord] = useState<any>(null);
   const [page, setPage] = useState(0);
@@ -914,11 +917,17 @@ export default function ARReportsPage() {
   const [forecastDate, setForecastDate] = useState<string>('');
 
   useEffect(() => {
+    arApi.getReportFilters().then(data => {
+      setAvailablePaymentModes(data.paymentModes);
+    }).catch(err => console.error("Error loading filters:", err));
+  }, []);
+
+  useEffect(() => {
     const timer = setTimeout(() => {
       loadData();
     }, 500);
     return () => clearTimeout(timer);
-  }, [activeTab, search, statusFilter, riskFilter, typeFilter, acctFilter, personInChargeFilter, fromDate, toDate, forecastDate]);
+  }, [activeTab, search, statusFilter, riskFilter, typeFilter, acctFilter, personInChargeFilter, fromDate, toDate, forecastDate, paymentModeFilter, guaranteeFilter]);
 
   const loadData = async () => {
     try {
@@ -934,6 +943,8 @@ export default function ARReportsPage() {
         fromDate: fromDate || undefined,
         toDate: toDate || undefined,
         forecastDate: forecastDate || undefined,
+        paymentMode: paymentModeFilter || undefined,
+        guarantees: guaranteeFilter || undefined,
       };
 
       if (activeTab === 'invoice') {
@@ -961,8 +972,9 @@ export default function ARReportsPage() {
   const clearFilters = () => {
     setSearch(''); setStatusFilter(''); setRiskFilter(''); setPersonInChargeFilter(''); setTypeFilter('');
     setAcctFilter(''); setFromDate(''); setToDate(''); setForecastDate('');
+    setPaymentModeFilter(''); setGuaranteeFilter('');
   };
-  const hasFilters = search || statusFilter || riskFilter || personInChargeFilter || typeFilter || acctFilter || fromDate || toDate || forecastDate;
+  const hasFilters = search || statusFilter || riskFilter || personInChargeFilter || typeFilter || acctFilter || fromDate || toDate || forecastDate || paymentModeFilter || guaranteeFilter;
 
   // Filter & sort invoice data
   const filteredInvoices = useMemo(() => {
@@ -1064,8 +1076,10 @@ export default function ARReportsPage() {
     if (fromDate) chips.push({ key: 'from', label: 'From', value: fromDate, onRemove: () => setFromDate('') });
     if (toDate) chips.push({ key: 'to', label: 'To', value: toDate, onRemove: () => setToDate('') });
     if (forecastDate) chips.push({ key: 'forecast', label: 'Due By', value: forecastDate, onRemove: () => setForecastDate('') });
+    if (paymentModeFilter) chips.push({ key: 'paymentMode', label: 'Payment Mode', value: paymentModeFilter, onRemove: () => setPaymentModeFilter('') });
+    if (guaranteeFilter) chips.push({ key: 'guarantee', label: 'Guarantee', value: guaranteeFilter.replace(/_/g, ' '), onRemove: () => setGuaranteeFilter('') });
     return chips;
-  }, [search, statusFilter, riskFilter, typeFilter, acctFilter, fromDate, toDate]);
+  }, [search, statusFilter, riskFilter, typeFilter, acctFilter, fromDate, toDate, paymentModeFilter, guaranteeFilter]);
 
 
 
@@ -1320,6 +1334,29 @@ export default function ARReportsPage() {
                   className="w-full h-10 pl-20 pr-3 rounded-xl bg-white border-2 border-[#AEBFC3]/40 text-sm text-[#546A7A] font-bold focus:border-[#6F8A9D] focus:ring-4 focus:ring-[#6F8A9D]/10 outline-none transition-all shadow-sm cursor-pointer [color-scheme:light]" />
               </div>
             )}
+
+            <div className="relative group min-w-[140px] flex-1">
+              <select value={paymentModeFilter} onChange={e => setPaymentModeFilter(e.target.value)}
+                className="w-full h-10 pl-3 pr-8 rounded-xl bg-white border-2 border-[#AEBFC3]/40 text-sm text-[#546A7A] font-bold focus:border-[#6F8A9D] focus:ring-4 focus:ring-[#6F8A9D]/10 outline-none appearance-none transition-all shadow-sm cursor-pointer">
+                <option value="">Payment Mode: All</option>
+                {availablePaymentModes.map(mode => (
+                  <option key={mode} value={mode}>{mode.charAt(0) + mode.slice(1).toLowerCase().replace(/_/g, ' ')}</option>
+                ))}
+              </select>
+              <CreditCard className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#92A2A5] pointer-events-none group-hover:text-[#6F8A9D] transition-colors" />
+            </div>
+
+            <div className="relative group min-w-[140px] flex-1">
+              <select value={guaranteeFilter} onChange={e => setGuaranteeFilter(e.target.value)}
+                className="w-full h-10 pl-3 pr-8 rounded-xl bg-white border-2 border-[#AEBFC3]/40 text-sm text-[#546A7A] font-bold focus:border-[#6F8A9D] focus:ring-4 focus:ring-[#6F8A9D]/10 outline-none appearance-none transition-all shadow-sm cursor-pointer">
+                <option value="">Guarantees: All</option>
+                <option value="HAS_ABG">Has ABG</option>
+                <option value="HAS_PBG">Has PBG</option>
+                <option value="BOTH">Has Both</option>
+                <option value="NONE">No Guarantees</option>
+              </select>
+              <ShieldCheck className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#92A2A5] pointer-events-none group-hover:text-[#6F8A9D] transition-colors" />
+            </div>
           </div>
         </div>
       )}

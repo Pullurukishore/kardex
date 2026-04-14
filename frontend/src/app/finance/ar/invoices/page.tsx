@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { arApi, ARInvoice, formatARCurrency, formatARDate, PIC_OPTIONS } from '@/lib/ar-api';
-import { Search, ChevronLeft, ChevronRight, FileText, Plus, TrendingUp, AlertTriangle, Clock, CheckCircle2, IndianRupee, Calendar, Building2, Upload, Shield, Layers, Zap, Tag, XCircle, Filter, RotateCcw, User, Truck } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, FileText, Plus, TrendingUp, AlertTriangle, Clock, CheckCircle2, IndianRupee, Calendar, Building2, Upload, Shield, Layers, Zap, Tag, XCircle, Filter, RotateCcw, User, Truck, CreditCard } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetDescription, SheetFooter } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -316,6 +316,13 @@ export default function ARInvoicesPage() {
           >
             <Upload className="w-4 h-4" />
             <span className="hidden sm:inline">Import</span>
+          </Link>
+          <Link 
+            href="/finance/ar/invoices/payment-import"
+            className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 rounded-xl bg-white border-2 border-[#AEBFC3]/40 text-[#546A7A] text-sm font-bold hover:border-[#6F8A9D] hover:bg-[#96AEC2]/5 transition-all min-h-[44px]"
+          >
+            <CreditCard className="w-4 h-4" />
+            <span className="hidden sm:inline">Bulk Payment Update</span>
           </Link>
           <Link 
             href="/finance/ar/invoices/new"

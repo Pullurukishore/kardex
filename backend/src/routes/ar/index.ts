@@ -19,6 +19,7 @@ import * as activityController from '../../controllers/ar/arTotalActivity.contro
 import * as reportsController from '../../controllers/ar/arReports.controller';
 import * as bankReportsController from '../../controllers/ar/bankReports.controller';
 import * as paymentBatchController from '../../controllers/ar/paymentBatch.controller';
+import * as paymentImportController from '../../controllers/ar/arPaymentImport.controller';
 
 // Import auth middleware
 import { authenticate } from '../../middleware/auth.middleware';
@@ -65,6 +66,12 @@ router.get('/dashboard/recent-payments', requireARRead, dashboardController.getR
 // INVOICE ROUTES
 // View: All | Create/Edit: Admin & User | Delete: Admin only
 // ═══════════════════════════════════════════════════════════════════════════
+
+// Bulk Payment Import (Placed before :id route for priority)
+router.get('/invoices/payment-import/template', requireARRead, paymentImportController.downloadPaymentTemplate);
+router.post('/invoices/payment-import/preview', requireFinanceWrite, upload.single('file'), paymentImportController.previewPaymentExcel);
+router.post('/invoices/payment-import/excel', requireFinanceWrite, paymentImportController.importPaymentExcel);
+
 router.get('/invoices', requireARRead, invoiceController.getAllInvoices);
 
 router.get('/invoices/:id', requireARRead, invoiceController.getInvoiceById);
@@ -214,6 +221,7 @@ router.get('/reports/invoices/delivery', requireARRead, reportsController.getDel
 router.get('/reports/invoices/detail', requireARRead, reportsController.getInvoiceDetailReport);
 router.get('/reports/milestones/detail', requireARRead, reportsController.getMilestoneDetailReport);
 router.get('/reports/unique-tsps', requireARRead, reportsController.getUniqueTSPs);
+router.get('/reports/filters', requireARRead, reportsController.getReportFilters);
 
 // Bank Account Reports
 router.get('/reports/bank-accounts/audit', requireFinanceRead, bankReportsController.getVendorMasterAudit);

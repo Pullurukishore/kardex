@@ -25,7 +25,8 @@ export type ARActivityAction =
     | 'CUSTOMER_CREATED'     // When a new customer master is manually created
     | 'CUSTOMER_DELETED'     // When a customer master record is deleted (if allowed)
     | 'INVOICE_CANCELLED'   // When an invoice is cancelled
-    | 'INVOICE_RESTORED';    // When an invoice is restored
+    | 'INVOICE_RESTORED'    // When an invoice is restored
+    | 'BULK_PAYMENT_IMPORTED'; // When payments are imported via bulk Excel
 
 interface LogActivityParams {
     invoiceId?: string | null;

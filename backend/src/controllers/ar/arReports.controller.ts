@@ -24,6 +24,8 @@ export const getInvoiceDetailReport = async (req: Request, res: Response) => {
             tsp,
             personInCharge,
             forecastDate,
+            paymentMode,
+            guarantees,
         } = req.query;
 
         const today = new Date();
@@ -61,6 +63,17 @@ export const getInvoiceDetailReport = async (req: Request, res: Response) => {
         if (riskClass) where.riskClass = String(riskClass);
         if (region) where.region = { contains: String(region), mode: 'insensitive' };
         if (type) where.type = String(type);
+        if (guarantees) {
+            if (guarantees === 'HAS_ABG') where.hasAPG = true;
+            else if (guarantees === 'HAS_PBG') where.hasPBG = true;
+            else if (guarantees === 'BOTH') {
+                where.hasAPG = true;
+                where.hasPBG = true;
+            } else if (guarantees === 'NONE') {
+                where.hasAPG = false;
+                where.hasPBG = false;
+            }
+        }
 
         // Combined Personnel Filter
         const personnel = personInCharge || tsp;
@@ -199,7 +212,8 @@ export const getInvoiceDetailReport = async (req: Request, res: Response) => {
             let computedAdjustments = 0;
             invPayments.forEach((p: any) => {
                 const amt = Number(p.amount);
-                if (p.paymentMode === 'ADJUSTMENT' || p.paymentMode === 'CREDIT_NOTE') {
+                const mode = (p.paymentMode || '').toUpperCase();
+                if (mode === 'ADJUSTMENT' || mode === 'CREDIT_NOTE' || mode === 'TDS' || mode === 'LD') {
                     computedAdjustments += amt;
                 } else {
                     computedReceipts += amt;
@@ -285,8 +299,15 @@ export const getInvoiceDetailReport = async (req: Request, res: Response) => {
             };
         });
 
-        // Apply forecastDate filter
+        // Apply filters
         let filteredInvoices = enrichedInvoices;
+
+        if (paymentMode) {
+            filteredInvoices = filteredInvoices.filter((inv: any) =>
+                inv.paymentHistory.some((p: any) => p.paymentMode === paymentMode)
+            );
+        }
+
         if (forecastDate) {
             const target = new Date(String(forecastDate));
             target.setHours(23, 59, 59, 999);
@@ -405,6 +426,8 @@ export const getMilestoneDetailReport = async (req: Request, res: Response) => {
             tsp,
             personInCharge,
             forecastDate,
+            paymentMode,
+            guarantees,
         } = req.query;
 
         const where: any = { invoiceType: 'MILESTONE' };
@@ -421,6 +444,17 @@ export const getMilestoneDetailReport = async (req: Request, res: Response) => {
         if (milestoneStatus) where.milestoneStatus = String(milestoneStatus);
         if (accountingStatus) where.accountingStatus = String(accountingStatus);
         if (type) where.type = String(type);
+        if (guarantees) {
+            if (guarantees === 'HAS_ABG') where.hasAPG = true;
+            else if (guarantees === 'HAS_PBG') where.hasPBG = true;
+            else if (guarantees === 'BOTH') {
+                where.hasAPG = true;
+                where.hasPBG = true;
+            } else if (guarantees === 'NONE') {
+                where.hasAPG = false;
+                where.hasPBG = false;
+            }
+        }
 
         // Combined Personnel Filter
         const personnel = personInCharge || tsp;
@@ -709,6 +743,13 @@ export const getMilestoneDetailReport = async (req: Request, res: Response) => {
         });
 
         let filteredMilestones = enrichedMilestones;
+
+        if (paymentMode) {
+            filteredMilestones = filteredMilestones.filter((ms: any) =>
+                ms.paymentHistory.some((p: any) => p.paymentMode === paymentMode)
+            );
+        }
+
         if (forecastDate) {
             const target = new Date(String(forecastDate));
             target.setHours(23, 59, 59, 999);
@@ -1343,5 +1384,33 @@ export const getUniqueTSPs = async (req: Request, res: Response) => {
     } catch (error) {
         console.error('Error fetching unique TSPs:', error);
         res.status(500).json({ error: 'Failed to fetch TSPs' });
+    }
+};
+
+export const getReportFilters = async (req: Request, res: Response) => {
+    try {
+        const [paymentModes, hasAPG, hasPBG] = await Promise.all([
+            prisma.aRPaymentHistory.findMany({
+                distinct: ['paymentMode'],
+                select: { paymentMode: true }
+            }),
+            prisma.aRInvoice.findFirst({
+                where: { hasAPG: true },
+                select: { id: true }
+            }),
+            prisma.aRInvoice.findFirst({
+                where: { hasPBG: true },
+                select: { id: true }
+            })
+        ]);
+
+        res.json({
+            paymentModes: paymentModes.map((m: any) => m.paymentMode).filter(Boolean).sort(),
+            hasAPG: !!hasAPG,
+            hasPBG: !!hasPBG
+        });
+    } catch (error) {
+        console.error('Error fetching report filters:', error);
+        res.status(500).json({ error: 'Failed to fetch filters' });
     }
 };

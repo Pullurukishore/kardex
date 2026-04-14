@@ -550,7 +550,8 @@ export const addPaymentRecord = async (req: Request, res: Response) => {
             let newAdjustments = 0;
             allPayments.forEach((p: any) => {
                 const amt = Number(p.amount);
-                if (p.paymentMode === 'ADJUSTMENT' || p.paymentMode === 'CREDIT_NOTE') {
+                const mode = (p.paymentMode || '').toUpperCase();
+                if (mode === 'ADJUSTMENT' || mode === 'CREDIT_NOTE' || mode === 'TDS' || mode === 'LD') {
                     newAdjustments += amt;
                 } else {
                     newReceipts += amt;

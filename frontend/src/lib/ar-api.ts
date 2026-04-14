@@ -829,6 +829,40 @@ export const arApi = {
         return res.data;
     },
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BULK PAYMENT IMPORT
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    async downloadPaymentTemplate() {
+        const res = await api.get('/ar/invoices/payment-import/template', {
+            responseType: 'blob'
+        });
+        const url = window.URL.createObjectURL(new Blob([res.data]));
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', 'Payment_Import_Template.xlsx');
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+    },
+
+    async previewPaymentExcel(file: File) {
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await api.post('/ar/invoices/payment-import/preview', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        return res.data;
+    },
+
+    async importPaymentExcel(rows: any[], selectedIndices?: number[]) {
+        const res = await api.post('/ar/invoices/payment-import/excel', {
+            rows,
+            selectedIndices
+        });
+        return res.data;
+    },
+
     async importCustomerExcel(file: File, selectedIndices?: number[]) {
         const formData = new FormData();
         formData.append('file', file);
@@ -1102,6 +1136,8 @@ export const arApi = {
         search?: string;
         tsp?: string;
         forecastDate?: string;
+        paymentMode?: string;
+        guarantees?: string;
     }): Promise<any> {
         const res = await api.get('/ar/reports/invoices/detail', { params });
         return res.data;
@@ -1125,6 +1161,11 @@ export const arApi = {
 
     async getUniqueTSPs(): Promise<string[]> {
         const res = await api.get('/ar/reports/unique-tsps');
+        return res.data;
+    },
+
+    async getReportFilters(): Promise<{ paymentModes: string[], hasAPG: boolean, hasPBG: boolean }> {
+        const res = await api.get('/ar/reports/filters');
         return res.data;
     }
 };
