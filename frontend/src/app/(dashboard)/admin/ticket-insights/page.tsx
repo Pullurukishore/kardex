@@ -79,7 +79,7 @@ export default function TicketInsightsPage() {
         </div>
 
         {/* AI Insights Component - expanded by default on dedicated page */}
-        <AITicketInsights defaultExpanded={true} />
+        <AITicketInsights />
       </div>
     </div>
   )
