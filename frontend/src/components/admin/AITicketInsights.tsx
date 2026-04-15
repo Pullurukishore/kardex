@@ -138,8 +138,18 @@ export default function AITicketInsights() {
     const msg = chatInput.trim();
     if (!msg || chatLoading) return;
 
+    // Add user message immediately
     const userMsg: ChatMessage = {
       role: "user",
+      content: msg,
+      timestamp: new Date(),
+    };
+    
+    setChatMessages((prev) => [...prev, userMsg]);
+    setChatInput("");
+    setChatLoading(true);
+
+    try {
       const result = await apiService.ticketAIChat(msg);
       const botMsg: ChatMessage = {
         role: "assistant",
@@ -158,7 +168,8 @@ export default function AITicketInsights() {
       setChatMessages((prev) => [...prev, botMsg]);
     } finally {
       setChatLoading(false);
-      inputRef.current?.focus();
+      // Re-focus input after sending
+      setTimeout(() => inputRef.current?.focus(), 100);
     }
   };
 
@@ -177,7 +188,7 @@ export default function AITicketInsights() {
       sendMessage();
     }
   };
-    <Card className="border-0 shadow-xl overflow-hidden flex flex-col h-[calc(100vh-12rem)] min-h-[500px]">
+
   const applyQuickQuestion = (question: string) => {
     setChatInput(question);
     inputRef.current?.focus();
@@ -202,8 +213,10 @@ export default function AITicketInsights() {
     },
     {
       label: "📈 SLA Tracking",
+      q: "How are we performing against our resolution SLAs?",
     },
     {
+      label: "💡 Efficiency",
       q: "How can we improve ticket resolution efficiency this week?",
     },
   ];
@@ -212,36 +225,35 @@ export default function AITicketInsights() {
   if (aiConfigured === false) {
     return (
       <Card className="border-0 shadow-lg overflow-hidden bg-gradient-to-r from-[#546A7A]/5 to-[#96AEC2]/5">
-      <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-gradient-to-b from-[#AEBFC3]/5 to-white">
-          <div className="flex items-center gap-3">
-          <div className="flex flex-col items-center justify-center h-full text-center max-w-2xl mx-auto">
-              <AlertTriangle className="h-5 w-5 text-white" />
+        <CardContent className="p-8">
+          <div className="flex flex-col items-center text-center max-w-md mx-auto">
+            <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-[#CE9F6B] to-[#976E44] flex items-center justify-center shadow-lg mb-6">
+              <AlertTriangle className="h-8 w-8 text-white" />
             </div>
-            <div className="flex-1">
-              <p className="font-semibold text-[#546A7A] text-sm">
-                AI Ticket Intelligence Not Configured
-            <div className="flex flex-wrap gap-3 justify-center">
-              <p className="text-xs text-[#5D6E73]">
-                Add{" "}
-                <code className="bg-[#AEBFC3]/20 px-1.5 py-0.5 rounded text-[11px] font-mono">
-                  onClick={() => { setChatInput(qq.q); inputRef.current?.focus() }}
-                  className="text-sm px-4 py-2 rounded-xl border border-[#AEBFC3]/30 bg-white text-[#5D6E73] hover:bg-[#546A7A]/5 hover:border-[#546A7A]/30 hover:text-[#546A7A] transition-all shadow-sm"
-                <code className="bg-[#AEBFC3]/20 px-1.5 py-0.5 rounded text-[11px] font-mono">
-                  .env
-                </code>{" "}
-                file.{" "}
-                <a
-                  href="https://aistudio.google.com/app/apikey"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[#546A7A] underline hover:text-[#6F8A9D]"
-                >
-                  Get a free key →
-                </a>
-              </p>
-            </div>
+            <h3 className="text-xl font-bold text-[#546A7A] mb-2">
+              AI Ticket Intelligence Not Configured
+            </h3>
+            <p className="text-[#5D6E73] mb-6 leading-relaxed">
+              To enable AI-powered ticket insights, please add your{" "}
+              <code className="bg-[#AEBFC3]/20 px-1.5 py-0.5 rounded text-xs font-mono">
+                GEMINI_API_KEY
+              </code>{" "}
+              to the{" "}
+              <code className="bg-[#AEBFC3]/20 px-1.5 py-0.5 rounded text-xs font-mono">
+                .env.local
+              </code>{" "}
+              file in your frontend directory.
+            </p>
+            <a
+              href="https://aistudio.google.com/app/apikey"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-[#546A7A] font-medium underline hover:text-[#6F8A9D] transition-colors"
+            >
+              Get a free Gemini API key →
+            </a>
           </div>
-            <div className={`max-w-[80%] rounded-2xl px-5 py-4 ${
+        </CardContent>
       </Card>
     );
   }
@@ -251,12 +263,14 @@ export default function AITicketInsights() {
 
   return (
     <Card className="w-full border-0 shadow-xl overflow-hidden flex flex-col h-[calc(100vh-12rem)] min-h-[500px]">
+      {/* Decorative gradient top bar */}
+      <div className="h-1 bg-gradient-to-r from-[#82A094] via-[#546A7A] to-[#CE9F6B] flex-shrink-0" />
+
       {/* Chat Header */}
       <div className="bg-gradient-to-r from-[#546A7A] to-[#6F8A9D] px-6 py-4 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm shadow-sm relative">
-            <Bot className="h-5 w-5 text-white" />
-            <div className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-[#82A094] border-2 border-[#546A7A] animate-pulse" />
+          <div className="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center shadow-inner">
+            <Bot className="h-6 w-6 text-white" />
           </div>
           <div>
             <h3 className="text-base font-bold text-white flex items-center gap-2">
@@ -276,8 +290,7 @@ export default function AITicketInsights() {
             onClick={clearChat}
             disabled={chatLoading || chatMessages.length === 0}
             className="text-white/80 hover:text-white hover:bg-white/10"
-        <div className="max-w-4xl mx-auto flex gap-3">
-            aria-label="Clear chat"
+            title="Clear chat"
           >
             <Trash2 className="h-4 w-4 mr-2" />
             Clear Chat
@@ -290,14 +303,15 @@ export default function AITicketInsights() {
         {chatMessages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-center w-full max-w-5xl mx-auto px-2">
             <div className="h-20 w-20 rounded-3xl bg-gradient-to-br from-[#546A7A]/10 to-[#6F8A9D]/10 flex items-center justify-center mb-6 shadow-sm border border-white">
+              <Bot className="h-10 w-10 text-[#546A7A]" />
+            </div>
             <h2 className="text-2xl font-bold text-[#546A7A] mb-2">
               How can I help you analyze service tickets today?
             </h2>
             <p className="text-[#92A2A5] mb-8">
-              I have access to open tickets, resolution times, SLA compliance,
-              and zone statistics.
+              I have access to open tickets, resolution times, SLA compliance, and zone statistics.
             </p>
-            <div className="grid w-full grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+            <div className="grid w-full grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {quickQuestions.map((qq, idx) => (
                 <button
                   key={idx}
@@ -366,7 +380,7 @@ export default function AITicketInsights() {
 
       {/* Chat Input */}
       <div className="border-t border-[#AEBFC3]/20 p-4 bg-gray-50 flex-shrink-0">
-        <div className="w-full flex gap-3">
+        <div className="w-full flex gap-3 max-w-5xl mx-auto">
           <Input
             ref={inputRef}
             value={chatInput}
@@ -379,9 +393,8 @@ export default function AITicketInsights() {
           <Button
             onClick={sendMessage}
             disabled={chatLoading || !chatInput.trim()}
-            className="h-12 w-12 p-0 bg-gradient-to-r from-[#546A7A] to-[#6F8A9D] hover:from-[#4F6A64] hover:to-[#546A7A] rounded-xl shadow-md"
+            className="h-12 w-12 p-0 bg-gradient-to-r from-[#546A7A] to-[#6F8A9D] hover:from-[#4F6A64] hover:to-[#546A7A] rounded-xl shadow-md transition-all active:scale-95"
             title="Send message"
-            aria-label="Send message"
           >
             <Send className="h-5 w-5" />
           </Button>
