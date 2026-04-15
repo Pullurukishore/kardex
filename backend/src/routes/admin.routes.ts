@@ -22,8 +22,48 @@ import {
   getOfferActivityStats,
   getActivityLogUsers
 } from '../controllers/activityLog.controller';
+import {
+  chatAboutOffers,
+  clearChat,
+  getAIStatus
+} from '../controllers/aiOffers.controller';
+import {
+  chatAboutTickets,
+  clearTicketChat,
+  getTicketAIStatus
+} from '../controllers/aiTickets.controller';
 
 const router = express.Router();
+
+// AI Offer Intelligence Routes (Admin only)
+router.get('/ai/status', authenticate, requireRole(['ADMIN']), (req, res, next) => {
+  return getAIStatus(req as any, res).catch(next);
+});
+
+
+
+router.post('/ai/chat', authenticate, requireRole(['ADMIN']), (req, res, next) => {
+  return chatAboutOffers(req as any, res).catch(next);
+});
+
+router.post('/ai/chat/clear', authenticate, requireRole(['ADMIN']), (req, res, next) => {
+  return clearChat(req as any, res).catch(next);
+});
+
+// AI Ticket Intelligence Routes (Admin only)
+router.get('/ai/ticket-status', authenticate, requireRole(['ADMIN']), (req, res, next) => {
+  return getTicketAIStatus(req as any, res).catch(next);
+});
+
+
+
+router.post('/ai/ticket-chat', authenticate, requireRole(['ADMIN']), (req, res, next) => {
+  return chatAboutTickets(req as any, res).catch(next);
+});
+
+router.post('/ai/ticket-chat/clear', authenticate, requireRole(['ADMIN']), (req, res, next) => {
+  return clearTicketChat(req as any, res).catch(next);
+});
 
 // FSA Routes (Admin only)
 router.get('/fsa', authMiddleware(['ADMIN']), getFSADashboard);

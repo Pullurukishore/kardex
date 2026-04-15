@@ -353,6 +353,48 @@ class ApiService {
     return response.data;
   }
 
+  // AI Offer Intelligence methods (Admin only)
+  async getAIStatus() {
+    const response = await api.get(`${this.baseURL}/admin/ai/status`);
+    return response.data;
+  }
+
+  async getOfferDigest() {
+    const response = await api.get(`${this.baseURL}/admin/ai/offer-digest`, { timeout: 30000 });
+    return response.data;
+  }
+
+  async aiChat(message: string) {
+    const response = await api.post(`${this.baseURL}/admin/ai/chat`, { message }, { timeout: 30000 });
+    return response.data;
+  }
+
+  async clearAIChat() {
+    const response = await api.post(`${this.baseURL}/admin/ai/chat/clear`);
+    return response.data;
+  }
+
+  // AI Ticket Intelligence methods (Admin only)
+  async getTicketAIStatus() {
+    const response = await api.get(`${this.baseURL}/admin/ai/ticket-status`);
+    return response.data;
+  }
+
+  async getTicketDigest() {
+    const response = await api.get(`${this.baseURL}/admin/ai/ticket-digest`, { timeout: 30000 });
+    return response.data;
+  }
+
+  async ticketAIChat(message: string) {
+    const response = await api.post(`${this.baseURL}/admin/ai/ticket-chat`, { message }, { timeout: 30000 });
+    return response.data;
+  }
+
+  async clearTicketAIChat() {
+    const response = await api.post(`${this.baseURL}/admin/ai/ticket-chat/clear`);
+    return response.data;
+  }
+
 
   // Customer methods
   async getCustomers(params?: { zoneId?: number | string;[key: string]: any }) {

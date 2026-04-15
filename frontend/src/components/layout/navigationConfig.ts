@@ -15,6 +15,7 @@ import {
   History,
   Image as ImageIcon,
   TrendingUp,
+  Brain,
 } from "lucide-react";
 
 export type NavItem = {
@@ -588,6 +589,15 @@ export type SubModule = 'tickets' | 'offers' | null;
 // Admin Tickets Navigation (flattened - no submenus)
 export const adminTicketsNavigation: NavItem[] = [
   {
+    title: "AI Intelligence",
+    href: "/admin/ticket-insights",
+    icon: Brain,
+    roles: [UserRole.ADMIN],
+    iconColor: "text-[#9E3B47]",
+    iconBgColor: "bg-[#9E3B47]/10",
+    badge: "AI"
+  },
+  {
     title: "Dashboard",
     href: "/admin/dashboard",
     icon: LayoutDashboard,
@@ -679,6 +689,15 @@ export const adminTicketsNavigation: NavItem[] = [
 
 // Admin Offers Navigation (flattened - no submenus)
 export const adminOffersNavigation: NavItem[] = [
+  {
+    title: "AI Intelligence",
+    href: "/admin/ai-insights",
+    icon: Brain,
+    roles: [UserRole.ADMIN],
+    iconColor: "text-[#82A094]",
+    iconBgColor: "bg-[#82A094]/10",
+    badge: "AI"
+  },
   {
     title: "Offers",
     href: "/admin/offers",
