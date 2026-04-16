@@ -179,9 +179,13 @@ export class ForecastController {
                 const offers = await prisma.offer.findMany({
                     where: {
                         zoneId: zone.id,
-                        poExpectedMonth: {
-                            startsWith: `${targetYear}-`,
-                        },
+                        OR: [
+                            { poExpectedMonth: { startsWith: `${targetYear}-` } },
+                            {
+                                stage: { in: ['WON', 'PO_RECEIVED'] },
+                                poReceivedMonth: { startsWith: `${targetYear}-` }
+                            }
+                        ],
                         stage: { notIn: ['LOST'] }, // Exclude lost offers
                         // User filter - filter by assignedToId or createdById
                         ...(filterUserId && {
@@ -202,6 +206,7 @@ export class ForecastController {
                         id: true,
                         offerValue: true,
                         poExpectedMonth: true,
+                        poReceivedMonth: true, // Added for won deals
                         assignedToId: true,
                         createdById: true,
                         probabilityPercentage: true,
@@ -238,29 +243,27 @@ export class ForecastController {
                     const userId = offer.assignedToId || offer.createdById;
                     const value = toNumber(offer.offerValue);
 
-                    if (!offer.poExpectedMonth) continue;
+                    // Prioritize poReceivedMonth for WON offers, else poExpectedMonth
+                    const effectiveMonth = (offer.stage === 'WON' || offer.stage === 'PO_RECEIVED')
+                        ? (offer.poReceivedMonth || offer.poExpectedMonth)
+                        : offer.poExpectedMonth;
 
-                    // Extract month from poExpectedMonth (format: "YYYY-MM")
-                    const monthNum = parseInt(offer.poExpectedMonth.split('-')[1]);
+                    if (!effectiveMonth) continue;
+
+                    // Extract month from string (format: "YYYY-MM")
+                    const monthParts = effectiveMonth.split('-');
+                    if (monthParts.length < 2) continue;
+
+                    const monthNum = parseInt(monthParts[1]);
                     const monthKey = monthNames[monthNum - 1];
+                    if (!monthKey) continue;
 
-                    // If user not in zone but has offers (assigned from elsewhere), add them
-                    if (!userMap.has(userId)) {
-                        const monthlyValues: { [month: string]: number } = {};
-                        for (let m = 1; m <= 12; m++) {
-                            monthlyValues[monthNames[m - 1]] = 0;
-                        }
-                        userMap.set(userId, {
-                            userId,
-                            userName: `User ${userId}`,
-                            monthlyValues,
-                            total: 0,
-                        });
+                    // Only attribute to user if they are part of the zone's official team (Manager/Exec/Active Admin)
+                    const userData = userMap.get(userId);
+                    if (userData) {
+                        userData.monthlyValues[monthKey] = (userData.monthlyValues[monthKey] || 0) + value;
+                        userData.total += value;
                     }
-
-                    const userData = userMap.get(userId)!;
-                    userData.monthlyValues[monthKey] = (userData.monthlyValues[monthKey] || 0) + value;
-                    userData.total += value;
 
                     // Add to monthly totals
                     monthlyTotals[monthKey] += value;
@@ -313,8 +316,8 @@ export class ForecastController {
                 (sum, t) => sum + Number(t.targetValue || 0), 0
             );
 
-            // Quarterly BU = Yearly Target / 3
-            const quarterlyBU = totalYearlyTarget / 3;
+            // Quarterly BU = Yearly Target / 4
+            const quarterlyBU = totalYearlyTarget / 4;
 
             // Calculate quarterly forecasts (sum of months in each quarter)
             const quarterlyData = [
@@ -1435,9 +1438,13 @@ export class ForecastController {
                 const offers = await prisma.offer.findMany({
                     where: {
                         zoneId: zone.id,
-                        poExpectedMonth: {
-                            startsWith: `${targetYear}-`,
-                        },
+                        OR: [
+                            { poExpectedMonth: { startsWith: `${targetYear}-` } },
+                            {
+                                stage: { in: ['WON', 'PO_RECEIVED'] },
+                                poReceivedMonth: { startsWith: `${targetYear}-` }
+                            }
+                        ],
                         stage: { notIn: ['LOST'] },
                         ...(minProb > 0 && { probabilityPercentage: { gte: minProb } }),
                         // User filter
@@ -1453,9 +1460,11 @@ export class ForecastController {
                         offerValue: true,
                         productType: true,
                         poExpectedMonth: true,
+                        poReceivedMonth: true, // For won deals
                         assignedToId: true,
                         createdById: true,
                         probabilityPercentage: true,
+                        stage: true, // For month selection
                     },
                 });
 
@@ -1591,9 +1600,13 @@ export class ForecastController {
                 const offers = await prisma.offer.findMany({
                     where: {
                         zoneId: zone.id,
-                        poExpectedMonth: {
-                            startsWith: `${targetYear}-`,
-                        },
+                        OR: [
+                            { poExpectedMonth: { startsWith: `${targetYear}-` } },
+                            {
+                                stage: { in: ['WON', 'PO_RECEIVED'] },
+                                poReceivedMonth: { startsWith: `${targetYear}-` }
+                            }
+                        ],
                         stage: { notIn: ['LOST'] },
                         ...(minProb > 0 && { probabilityPercentage: { gte: minProb } }),
                         // User filter
@@ -1609,9 +1622,11 @@ export class ForecastController {
                         offerValue: true,
                         productType: true,
                         poExpectedMonth: true,
+                        poReceivedMonth: true, // Added
                         assignedToId: true,
                         createdById: true,
                         probabilityPercentage: true,
+                        stage: true, // Added
                     },
                 });
 
@@ -1638,8 +1653,12 @@ export class ForecastController {
                         const productOffers = userOffers.filter(o => o.productType === product.key);
 
                         for (const offer of productOffers) {
-                            if (!offer.poExpectedMonth) continue;
-                            const monthNum = parseInt(offer.poExpectedMonth.split('-')[1]);
+                            const effectiveMonth = (offer.stage === 'WON' || offer.stage === 'PO_RECEIVED')
+                                ? (offer.poReceivedMonth || offer.poExpectedMonth)
+                                : offer.poExpectedMonth;
+
+                            if (!effectiveMonth) continue;
+                            const monthNum = parseInt(effectiveMonth.split('-')[1]);
                             const monthIdx = monthNumbers.indexOf(monthNum);
                             if (monthIdx >= 0) {
                                 const monthKey = monthNames[monthIdx];
@@ -1723,7 +1742,7 @@ export class ForecastController {
 
             // Get all zones (filtered by zoneId if provided)
             const zones = await prisma.serviceZone.findMany({
-                where: { 
+                where: {
                     isActive: true,
                     ...(filterZoneId && { id: filterZoneId }),
                 },

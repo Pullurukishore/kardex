@@ -74,7 +74,7 @@ const CHART_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#0
 export function AdvancedTicketSummaryReport({ reportData }: AdvancedTicketSummaryReportProps) {
   const { 
     statusDistribution, 
-    priorityDistribution, 
+    callTypeDistribution, 
     zoneDistribution,
     customerDistribution,
     dailyTrends,
@@ -110,10 +110,10 @@ export function AdvancedTicketSummaryReport({ reportData }: AdvancedTicketSummar
     color: STATUS_COLORS[name as keyof typeof STATUS_COLORS] || '#6B7280'
   }));
 
-  const priorityChartData = Object.entries(priorityDistribution || {}).map(([name, value]) => ({
-    name,
-    value,
-    color: PRIORITY_COLORS[name as keyof typeof PRIORITY_COLORS] || '#6B7280'
+  const callTypeChartData = Object.entries(callTypeDistribution || {}).map(([name, value], idx) => ({
+    name: name.replace('_', ' '),
+    value: value as number,
+    color: CHART_COLORS[idx % CHART_COLORS.length]
   }));
 
   // Prepare zone data for bar chart
@@ -182,7 +182,7 @@ export function AdvancedTicketSummaryReport({ reportData }: AdvancedTicketSummar
 
   // Calculate totals for percentage calculations
   const totalStatusCount = statusChartData.reduce((sum, item) => sum + item.value, 0);
-  const totalPriorityCount = priorityChartData.reduce((sum, item) => sum + item.value, 0);
+  const totalCallTypeCount = callTypeChartData.reduce((sum, item) => sum + item.value, 0);
 
   // Custom label for status pie chart
   const renderStatusLabel = (entry: any) => {
@@ -190,9 +190,9 @@ export function AdvancedTicketSummaryReport({ reportData }: AdvancedTicketSummar
     return `${percent}%`;
   };
 
-  // Custom label for priority pie chart
-  const renderPriorityLabel = (entry: any) => {
-    const percent = totalPriorityCount > 0 ? ((entry.value / totalPriorityCount) * 100).toFixed(0) : '0';
+  // Custom label for call type pie chart
+  const renderCallTypeLabel = (entry: any) => {
+    const percent = totalCallTypeCount > 0 ? ((entry.value / totalCallTypeCount) * 100).toFixed(0) : '0';
     return `${percent}%`;
   };
 
@@ -472,30 +472,30 @@ export function AdvancedTicketSummaryReport({ reportData }: AdvancedTicketSummar
           </CardContent>
         </Card>
 
-        {/* Priority Distribution Pie Chart */}
+        {/* Call Type Analytics Pie Chart */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Target className="h-5 w-5 text-[#546A7A]" />
-              Priority Distribution
+              Call Type Analytics
             </CardTitle>
-            <CardDescription>Breakdown of tickets by priority level</CardDescription>
+            <CardDescription>Breakdown of tickets by call type</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
-                  data={priorityChartData}
+                  data={callTypeChartData}
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={renderPriorityLabel}
+                  label={renderCallTypeLabel}
                   outerRadius={100}
                   fill="#8884d8"
                   dataKey="value"
                   innerRadius={60}
                 >
-                  {priorityChartData.map((entry, index) => (
+                  {callTypeChartData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
@@ -504,12 +504,12 @@ export function AdvancedTicketSummaryReport({ reportData }: AdvancedTicketSummar
               </PieChart>
             </ResponsiveContainer>
 
-            {/* Priority breakdown list */}
+            {/* Call type breakdown list */}
             <div className="mt-4 grid grid-cols-2 gap-2">
-              {Object.entries(priorityDistribution || {}).map(([priority, count]) => (
-                <div key={priority} className="flex items-center justify-between p-2 bg-[#AEBFC3]/10 rounded">
-                  <span className="text-sm text-[#5D6E73]">{priority}</span>
-                  <span className="font-semibold text-[#546A7A]">{count}</span>
+              {Object.entries(callTypeDistribution || {}).map(([type, count]) => (
+                <div key={type} className="flex items-center justify-between p-2 bg-[#AEBFC3]/10 rounded">
+                  <span className="text-sm text-[#5D6E73] capitalize">{type.replace('_', ' ')}</span>
+                  <span className="font-semibold text-[#546A7A]">{count as React.ReactNode}</span>
                 </div>
               ))}
             </div>

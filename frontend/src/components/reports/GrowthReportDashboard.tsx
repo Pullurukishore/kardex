@@ -8,13 +8,14 @@ import {
 import {
   TrendingUp, TrendingDown, Target, DollarSign, Award, Percent,
   Download, RefreshCw, Filter, ChevronDown, ChevronRight, Lightbulb,
-  Calendar, MapPin, User, BarChart3, ArrowUpRight, ArrowDownRight, Minus,
+  Calendar, MapPin, User, Users, BarChart3, ArrowUpRight, ArrowDownRight, Minus,
   FileText, Printer, Activity, Package, Zap, CheckCircle2, AlertTriangle,
   XCircle, Info, Rocket, ShieldCheck,
 } from 'lucide-react';
 import { apiService } from '@/services/api';
 import { generateGrowthPillarPdf } from '@/lib/growth-report-pdf';
 import { exportGrowthPillarToExcel } from '@/lib/growth-report-excel';
+
 
 // ─── TYPES ──────────────────────────────────────────────────────────────
 interface MonthData {
@@ -216,6 +217,10 @@ export default function GrowthPillarDashboard() {
   const [userId, setUserId] = useState<number | null>(null);
   const [expandedProducts, setExpandedProducts] = useState<Set<string>>(new Set());
   const [showFilters, setShowFilters] = useState(true);
+  const [probability, setProbability] = useState<number | 'all'>('all');
+  const [forecastData, setForecastData] = useState<any>(null);
+  const [forecastLoading, setForecastLoading] = useState(false);
+  const [expandedForecastZones, setExpandedForecastZones] = useState<Set<number>>(new Set());
 
   const fetchData = useCallback(async () => {
     try {
@@ -237,6 +242,40 @@ export default function GrowthPillarDashboard() {
 
   // Reset userId when zone changes
   useEffect(() => { setUserId(null); }, [zoneId]);
+
+  // Fetch forecast data (filtered by probability + zone + user)
+  const fetchForecastData = useCallback(async () => {
+    try {
+      setForecastLoading(true);
+      const params: any = { year };
+      if (probability !== 'all') params.minProbability = probability;
+      if (zoneId) params.zoneId = zoneId;
+      if (userId) params.userId = userId;
+      const [poData, puzData, pwfData] = await Promise.all([
+        apiService.getPOExpectedMonthBreakdown(params),
+        apiService.getProductUserZoneBreakdown(params),
+        apiService.getProductWiseForecast(params).catch(() => null),
+      ]);
+      setForecastData({ po: poData, puz: puzData, pwf: pwfData });
+      if (poData?.zones) {
+        setExpandedForecastZones(new Set(poData.zones.map((z: any) => z.zoneId)));
+      }
+    } catch (err) {
+      console.error('Failed to load forecast data:', err);
+    } finally {
+      setForecastLoading(false);
+    }
+  }, [year, probability, zoneId, userId]);
+
+  useEffect(() => { fetchForecastData(); }, [fetchForecastData]);
+
+  const toggleForecastZone = (id: number) => {
+    setExpandedForecastZones(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
 
   const toggleProduct = (productType: string) => {
     setExpandedProducts(prev => {
@@ -361,7 +400,7 @@ export default function GrowthPillarDashboard() {
       {/* ── FILTER BAR ─────────────────────────────────────── */}
       {showFilters && (
         <div className="print:hidden bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-xl p-4 shadow-sm">
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
             {/* Year */}
             <div>
               <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1 block">Year</label>
@@ -397,6 +436,14 @@ export default function GrowthPillarDashboard() {
               <select value={userId || ''} onChange={e => setUserId(e.target.value ? Number(e.target.value) : null)} disabled={!zoneId} className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50 focus:ring-2 focus:ring-indigo-500 outline-none">
                 <option value="">All Users</option>
                 {filters.users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+              </select>
+            </div>
+            {/* Probability */}
+            <div>
+              <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1 block">Probability</label>
+              <select value={String(probability)} onChange={e => setProbability(e.target.value === 'all' ? 'all' : Number(e.target.value))} className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none">
+                <option value="all">All Probability</option>
+                {[10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map(p => <option key={p} value={p}>≥ {p}%</option>)}
               </select>
             </div>
           </div>
@@ -778,6 +825,363 @@ export default function GrowthPillarDashboard() {
           )}
         </div>
       </div>
+
+      {/* ── FORECAST PIPELINE (PO Expected Month) ─────────────── */}
+      {forecastLoading && (
+        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-xl p-8 flex items-center justify-center gap-2">
+          <RefreshCw className="w-5 h-5 animate-spin text-purple-500" />
+          <span className="text-sm text-gray-500 dark:text-gray-400">Loading forecast data...</span>
+        </div>
+      )}
+
+      {!forecastLoading && forecastData?.po && (() => {
+        const poGrandTotal = forecastData.po.overallTotals.grandTotal;
+        const poZones = forecastData.po.zones || [];
+        const poMonths = forecastData.po.months || [];
+        // Find max month total for bar sizing
+        const monthTotals = FULL_MONTHS.map((_, idx) => {
+          const mk = poMonths[idx];
+          if (!mk) return 0;
+          return poZones.reduce((s: number, z: any) => s + (z.monthlyTotals[mk] || 0), 0);
+        });
+        const maxMonthTotal = Math.max(...monthTotals, 1);
+
+        return (
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-xl shadow-sm overflow-hidden">
+            {/* Section header — matches Product-wise Growth style */}
+            <div className="p-5 border-b border-gray-200/50 dark:border-gray-700/50 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                <Activity className="w-4 h-4 text-purple-500" />
+                Forecast Pipeline
+                {probability !== 'all' && (
+                  <span className="ml-1 px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-[10px] font-bold">
+                    ≥{probability}%
+                  </span>
+                )}
+              </h3>
+              <div className="flex items-center gap-4 text-xs">
+                <span className="text-gray-500 dark:text-gray-400">Pipeline: <span className="text-purple-700 dark:text-purple-300 font-bold">{formatCurrency(poGrandTotal)}</span></span>
+                <span className="text-gray-500 dark:text-gray-400">{poZones.length} zones</span>
+              </div>
+            </div>
+
+            {/* Expandable zone rows — like Product-wise Growth cards */}
+            <div className="divide-y divide-gray-100 dark:divide-gray-700/30">
+              {poZones.map((zone: any, zIdx: number) => {
+                const zoneShare = poGrandTotal > 0 ? (zone.grandTotal / poGrandTotal) * 100 : 0;
+                const isExpanded = expandedForecastZones.has(zone.zoneId);
+                // Per-zone month totals
+                const zoneMonthTotals = FULL_MONTHS.map((_, idx) => {
+                  const mk = poMonths[idx];
+                  if (!mk) return 0;
+                  return zone.monthlyTotals[mk] || 0;
+                });
+                const zoneMaxMonth = Math.max(...zoneMonthTotals, 1);
+                // Top month for this zone
+                const topMonthIdx = zoneMonthTotals.indexOf(Math.max(...zoneMonthTotals));
+
+                return (
+                  <div key={zone.zoneId}>
+                    <button
+                      onClick={() => toggleForecastZone(zone.zoneId)}
+                      className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors text-left"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`p-1.5 rounded-lg transition-colors ${isExpanded ? 'bg-purple-600 text-white shadow-md' : 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'}`}>
+                          <MapPin className="w-3.5 h-3.5" />
+                        </div>
+                        <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{zone.zoneName}</span>
+                        <span className="text-xs text-gray-500">({zone.users?.length || 0} users)</span>
+                      </div>
+                      <div className="flex items-center gap-6 text-xs">
+                        <span className="text-gray-500">Pipeline: <span className="text-purple-700 dark:text-purple-300 font-medium">{formatCurrency(zone.grandTotal)}</span></span>
+                        <span className="text-gray-500">Share: <span className="text-purple-700 dark:text-purple-300 font-medium">{zoneShare.toFixed(1)}%</span></span>
+                        <span className="text-gray-500">Top Month: <span className="text-gray-800 dark:text-gray-200 font-medium">{MONTHS[topMonthIdx]}</span></span>
+                        {/* Share bar */}
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-16 h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                            <div className="h-full bg-purple-500 rounded-full transition-all duration-500" style={{ width: `${Math.min(zoneShare, 100)}%` }} />
+                          </div>
+                        </div>
+                        <span className={`px-2 py-0.5 rounded-full font-medium ${zoneShare >= 30 ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400' : zoneShare >= 15 ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'}`}>
+                          {zoneShare.toFixed(1)}%
+                        </span>
+                        {isExpanded ? <ChevronDown className="w-4 h-4 text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
+                      </div>
+                    </button>
+
+                    {/* Expanded: Users with monthly columns — matching Product × Zone style */}
+                    {isExpanded && (
+                      <div className="bg-gray-50/50 dark:bg-gray-900/20 px-5 pb-3">
+                        <div className="overflow-x-auto overflow-hidden rounded-lg border border-gray-200/50 dark:border-gray-700/30">
+                          <table className="w-full text-xs">
+                            <thead>
+                              <tr className="text-gray-500 dark:text-gray-400 bg-white/50 dark:bg-gray-800/50">
+                                <th className="text-left py-2.5 px-3 font-medium sticky left-0 bg-white/90 dark:bg-gray-800/90 z-10 min-w-[120px] border-r border-gray-200/50 dark:border-gray-700/30">Executive</th>
+                                {poMonths.map((m: string) => (
+                                  <th key={m} className="text-right py-2.5 px-2 font-medium min-w-[55px]">{m}</th>
+                                ))}
+                                <th className="text-right py-2.5 px-3 font-bold text-purple-700 dark:text-purple-400 min-w-[70px] bg-purple-50/30 dark:bg-purple-900/10">Total</th>
+                                <th className="text-right py-2.5 px-3 font-medium min-w-[50px]">Share</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {zone.users?.map((user: any, uIdx: number) => {
+                                const userShare = zone.grandTotal > 0 ? (user.total / zone.grandTotal) * 100 : 0;
+                                return (
+                                  <tr key={user.userId} className={`border-t border-gray-200/30 dark:border-gray-700/20 hover:bg-purple-50/30 dark:hover:bg-purple-900/5 transition-colors ${uIdx % 2 !== 0 ? 'bg-gray-50/30 dark:bg-gray-800/30' : ''}`}>
+                                    <td className="py-2.5 px-3 text-gray-900 dark:text-white font-medium flex items-center gap-2 sticky left-0 bg-inherit z-10 border-r border-gray-200/50 dark:border-gray-700/30">
+                                      <div className="w-5 h-5 rounded-full bg-gradient-to-br from-purple-400 to-indigo-500 flex items-center justify-center text-white text-[9px] font-bold shrink-0">{user.userName?.[0] || 'U'}</div>
+                                      {user.userName}
+                                    </td>
+                                    {poMonths.map((m: string) => {
+                                      const mv = user.monthlyValues?.[m] || 0;
+                                      return (
+                                        <td key={m} className={`py-2.5 px-2 text-right font-medium ${mv > 0 ? 'text-gray-700 dark:text-gray-300' : 'text-gray-300 dark:text-gray-600'}`}>
+                                          {mv > 0 ? formatCurrency(mv) : '—'}
+                                        </td>
+                                      );
+                                    })}
+                                    <td className="py-2.5 px-3 text-right font-bold text-purple-700 dark:text-purple-400 bg-purple-50/20 dark:bg-purple-900/5">{formatCurrency(user.total)}</td>
+                                    <td className="py-2.5 px-3 text-right">
+                                      <div className="flex items-center justify-end gap-1.5">
+                                        <span className="text-gray-600 dark:text-gray-400">{userShare.toFixed(1)}%</span>
+                                        <div className="w-10 h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                                          <div className="h-full bg-purple-400 rounded-full" style={{ width: `${Math.min(userShare, 100)}%` }} />
+                                        </div>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                              {/* Zone total row */}
+                              <tr className="border-t-2 border-purple-200 dark:border-purple-700/50 bg-purple-50/50 dark:bg-purple-900/10 font-semibold">
+                                <td className="py-2.5 px-3 text-purple-900 dark:text-purple-100 sticky left-0 bg-purple-50/80 dark:bg-purple-900/20 z-10 border-r border-gray-200/50 dark:border-gray-700/30">Total</td>
+                                {poMonths.map((m: string) => {
+                                  const monthTotal = zone.monthlyTotals?.[m] || 0;
+                                  return (
+                                    <td key={m} className="py-2.5 px-2 text-right font-bold text-purple-800 dark:text-purple-200">
+                                      {monthTotal > 0 ? formatCurrency(monthTotal) : '—'}
+                                    </td>
+                                  );
+                                })}
+                                <td className="py-2.5 px-3 text-right font-black text-purple-700 dark:text-purple-300 bg-purple-50/30 dark:bg-purple-900/10">{formatCurrency(zone.grandTotal)}</td>
+                                <td className="py-2.5 px-3 text-right text-purple-800 dark:text-purple-200 font-bold">100%</td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+
+              {/* Grand totals summary row */}
+              <div className="bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 px-5 py-3.5 flex items-center justify-between border-t border-purple-200/50 dark:border-purple-700/30">
+                <span className="text-xs font-bold text-purple-900 dark:text-purple-100 uppercase tracking-wider flex items-center gap-2">
+                  <Activity className="w-3.5 h-3.5 text-purple-600" /> Total Pipeline
+                </span>
+                <div className="flex items-center gap-6 text-xs">
+                  {poZones.map((z: any) => (
+                    <span key={z.zoneId} className="text-gray-500">{z.zoneName}: <span className="text-purple-700 dark:text-purple-300 font-bold">{formatCurrency(z.grandTotal)}</span></span>
+                  ))}
+                  <span className="text-sm font-black text-purple-800 dark:text-purple-200 pl-2 border-l border-purple-300 dark:border-purple-600">{formatCurrency(poGrandTotal)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── FORECAST BY PRODUCT × ZONE ────────────────────── */}
+      {!forecastLoading && forecastData?.puz && forecastData.puz.zones?.length > 0 && (() => {
+        const puzZones = forecastData.puz.zones || [];
+        const puzProducts = forecastData.puz.productTypes || [];
+        const puzGrandTotal = puzZones.reduce((s: number, z: any) => s + z.zoneTotalValue, 0);
+        // Compute per-product totals once
+        const productTotalsMap = puzProducts.reduce((acc: Record<string, number>, product: any) => {
+          acc[product.key] = puzZones.reduce((sum: number, zone: any) => {
+            const row = zone.productMatrix?.find((p: any) => p.productType === product.key);
+            return sum + (row?.total || 0);
+          }, 0);
+          return acc;
+        }, {} as Record<string, number>);
+        // Find top product
+        const topProductKey = Object.keys(productTotalsMap).reduce((a, b) => (productTotalsMap[a] || 0) > (productTotalsMap[b] || 0) ? a : b, '');
+        const topProduct = puzProducts.find((p: any) => p.key === topProductKey);
+
+        return (
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-xl shadow-sm overflow-hidden">
+            {/* Section header — matches Product-wise Growth style */}
+            <div className="p-5 border-b border-gray-200/50 dark:border-gray-700/50 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                <Package className="w-4 h-4 text-teal-500" />
+                Forecast by Product × Zone
+                {probability !== 'all' && (
+                  <span className="ml-1 px-2 py-0.5 rounded-full bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 text-[10px] font-bold">
+                    ≥{probability}%
+                  </span>
+                )}
+              </h3>
+              <div className="flex items-center gap-4 text-xs">
+                <span className="text-gray-500 dark:text-gray-400">Forecast: <span className="text-teal-700 dark:text-teal-300 font-bold">{formatCurrency(puzGrandTotal)}</span></span>
+                <span className="text-gray-500 dark:text-gray-400">{puzProducts.length} products</span>
+                <span className="text-gray-500 dark:text-gray-400">{puzZones.length} zones</span>
+                {topProduct && <span className="text-gray-500 dark:text-gray-400">Top: <span className="text-teal-700 dark:text-teal-300 font-bold">{topProduct.label}</span></span>}
+              </div>
+            </div>
+
+            {/* Expandable product rows — like Product-wise Growth */}
+            <div className="divide-y divide-gray-100 dark:divide-gray-700/30">
+              {puzProducts.map((product: any, idx: number) => {
+                const productTotal = productTotalsMap[product.key] || 0;
+                const sharePercent = puzGrandTotal > 0 ? (productTotal / puzGrandTotal) * 100 : 0;
+                const isProductExpanded = expandedProducts.has(`forecast_${product.key}`);
+
+                return (
+                  <div key={product.key}>
+                    {/* Product header row */}
+                    <button
+                      onClick={() => toggleProduct(`forecast_${product.key}`)}
+                      className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors text-left"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-3 h-3 rounded-full" style={{ background: PRODUCT_COLORS[idx % PRODUCT_COLORS.length] }} />
+                        <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{product.label}</span>
+                        <span className="text-xs text-gray-500">({puzZones.filter((z: any) => {
+                          const row = z.productMatrix?.find((p: any) => p.productType === product.key);
+                          return row && row.total > 0;
+                        }).length} zones)</span>
+                      </div>
+                      <div className="flex items-center gap-6 text-xs">
+                        <span className="text-gray-500">Forecast: <span className="text-teal-700 dark:text-teal-300 font-medium">{formatCurrency(productTotal)}</span></span>
+                        <span className="text-gray-500">Share: <span className="text-gray-800 dark:text-gray-200 font-medium">{sharePercent.toFixed(1)}%</span></span>
+                        {/* Share bar */}
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-20 h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                            <div className="h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(sharePercent, 100)}%`, background: PRODUCT_COLORS[idx % PRODUCT_COLORS.length] }} />
+                          </div>
+                        </div>
+                        <span className={`px-2 py-0.5 rounded-full font-medium ${sharePercent >= 25 ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400' : sharePercent >= 10 ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'}`}>
+                          {sharePercent.toFixed(1)}%
+                        </span>
+                        {isProductExpanded ? <ChevronDown className="w-4 h-4 text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
+                      </div>
+                    </button>
+
+                    {/* Expanded zone breakdown per product — with monthly columns */}
+                    {isProductExpanded && (() => {
+                      // Get monthly column headers from pwf data
+                      const pwfMonths = forecastData?.pwf?.months || MONTHS;
+                      // Build per-zone monthly data for this product from pwf
+                      const zoneMonthlyForProduct: Record<number, Record<string, number>> = {};
+                      if (forecastData?.pwf?.zones) {
+                        forecastData.pwf.zones.forEach((pwfZone: any) => {
+                          const monthlyVals: Record<string, number> = {};
+                          pwfMonths.forEach((m: string) => { monthlyVals[m] = 0; });
+                          pwfZone.users?.forEach((user: any) => {
+                            const pd = user.products?.find((p: any) => p.productType === product.key);
+                            if (pd) {
+                              pwfMonths.forEach((m: string) => {
+                                monthlyVals[m] += pd.monthlyValues?.[m] || 0;
+                              });
+                            }
+                          });
+                          zoneMonthlyForProduct[pwfZone.zoneId] = monthlyVals;
+                        });
+                      }
+                      // Compute per-month totals across all zones for this product
+                      const productMonthTotals: Record<string, number> = {};
+                      pwfMonths.forEach((m: string) => {
+                        productMonthTotals[m] = Object.values(zoneMonthlyForProduct).reduce((s, zv) => s + (zv[m] || 0), 0);
+                      });
+
+                      return (
+                        <div className="bg-gray-50/50 dark:bg-gray-900/20 px-5 pb-3">
+                          <div className="overflow-x-auto overflow-hidden rounded-lg border border-gray-200/50 dark:border-gray-700/30">
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr className="text-gray-500 dark:text-gray-400 bg-white/50 dark:bg-gray-800/50">
+                                  <th className="text-left py-2.5 px-3 font-medium sticky left-0 bg-white/90 dark:bg-gray-800/90 z-10 min-w-[100px] border-r border-gray-200/50 dark:border-gray-700/30">Zone</th>
+                                  {pwfMonths.map((m: string) => (
+                                    <th key={m} className="text-right py-2.5 px-2 font-medium min-w-[55px]">{m}</th>
+                                  ))}
+                                  <th className="text-right py-2.5 px-3 font-bold min-w-[70px] bg-teal-50/30 dark:bg-teal-900/10" style={{ color: PRODUCT_COLORS[idx % PRODUCT_COLORS.length] }}>Total</th>
+                                  <th className="text-right py-2.5 px-3 font-medium min-w-[50px]">Share</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {puzZones.map((zone: any, zIdx: number) => {
+                                  const row = zone.productMatrix?.find((p: any) => p.productType === product.key);
+                                  const value = row?.total || 0;
+                                  const pctOfProduct = productTotal > 0 ? (value / productTotal) * 100 : 0;
+                                  const zoneMonthVals = zoneMonthlyForProduct[zone.zoneId] || {};
+                                  return (
+                                    <tr key={zone.zoneId} className={`border-t border-gray-200/50 dark:border-gray-700/20 hover:bg-teal-50/30 dark:hover:bg-teal-900/5 transition-colors ${zIdx % 2 !== 0 ? 'bg-gray-50/30 dark:bg-gray-800/30' : ''}`}>
+                                      <td className="py-2.5 px-3 text-gray-800 dark:text-gray-200 font-medium flex items-center gap-2 sticky left-0 bg-inherit z-10 border-r border-gray-200/50 dark:border-gray-700/30">
+                                        <MapPin className="w-3 h-3 text-teal-500" />
+                                        {zone.zoneName}
+                                      </td>
+                                      {pwfMonths.map((m: string) => {
+                                        const mv = zoneMonthVals[m] || 0;
+                                        return (
+                                          <td key={m} className={`py-2.5 px-2 text-right font-medium ${mv > 0 ? 'text-gray-700 dark:text-gray-300' : 'text-gray-300 dark:text-gray-600'}`}>
+                                            {mv > 0 ? formatCurrency(mv) : '—'}
+                                          </td>
+                                        );
+                                      })}
+                                      <td className="py-2.5 px-3 text-right font-bold bg-teal-50/20 dark:bg-teal-900/5" style={{ color: PRODUCT_COLORS[idx % PRODUCT_COLORS.length] }}>
+                                        {value > 0 ? formatCurrency(value) : '—'}
+                                      </td>
+                                      <td className="py-2.5 px-3 text-right">
+                                        <div className="flex items-center justify-end gap-1.5">
+                                          <span className="text-gray-600 dark:text-gray-400">{pctOfProduct > 0 ? `${pctOfProduct.toFixed(1)}%` : '—'}</span>
+                                          <div className="w-10 h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                                            <div className="h-full rounded-full" style={{ width: `${Math.min(pctOfProduct, 100)}%`, background: PRODUCT_COLORS[idx % PRODUCT_COLORS.length] }} />
+                                          </div>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                                {/* Product total row */}
+                                <tr className="border-t-2 border-gray-300 dark:border-gray-600 bg-gray-100/50 dark:bg-gray-700/30 font-semibold">
+                                  <td className="py-2.5 px-3 text-gray-900 dark:text-white sticky left-0 bg-gray-100/80 dark:bg-gray-700/50 z-10 border-r border-gray-200/50 dark:border-gray-700/30">Total</td>
+                                  {pwfMonths.map((m: string) => (
+                                    <td key={m} className="py-2.5 px-2 text-right font-bold text-gray-800 dark:text-gray-200">
+                                      {productMonthTotals[m] > 0 ? formatCurrency(productMonthTotals[m]) : '—'}
+                                    </td>
+                                  ))}
+                                  <td className="py-2.5 px-3 text-right font-black bg-teal-50/30 dark:bg-teal-900/10" style={{ color: PRODUCT_COLORS[idx % PRODUCT_COLORS.length] }}>{formatCurrency(productTotal)}</td>
+                                  <td className="py-2.5 px-3 text-right text-gray-900 dark:text-white font-bold">{sharePercent.toFixed(1)}%</td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                );
+              })}
+
+              {/* Grand totals summary row */}
+              <div className="bg-gradient-to-r from-teal-50 to-emerald-50 dark:from-teal-900/20 dark:to-emerald-900/20 px-5 py-3.5 flex items-center justify-between border-t border-teal-200/50 dark:border-teal-700/30">
+                <span className="text-xs font-bold text-teal-900 dark:text-teal-100 uppercase tracking-wider flex items-center gap-2">
+                  <Package className="w-3.5 h-3.5 text-teal-600" /> Total Forecast
+                </span>
+                <div className="flex items-center gap-6 text-xs">
+                  {puzZones.map((z: any) => (
+                    <span key={z.zoneId} className="text-gray-500">{z.zoneName}: <span className="text-teal-700 dark:text-teal-300 font-bold">{formatCurrency(z.zoneTotalValue)}</span></span>
+                  ))}
+                  <span className="text-sm font-black text-teal-800 dark:text-teal-200 pl-2 border-l border-teal-300 dark:border-teal-600">{formatCurrency(puzGrandTotal)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

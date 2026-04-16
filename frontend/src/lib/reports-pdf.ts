@@ -251,7 +251,7 @@ async function generateTicketAnalyticsPdf(
 
     const summary = data.summary || {}
     const statusDistribution = data.statusDistribution || {}
-    const priorityDistribution = data.priorityDistribution || {}
+    const callTypeDistribution = data.callTypeDistribution || {}
     const zoneDistribution = data.zoneDistribution || []
     const customerDistribution = data.customerDistribution || []
     const insights = data.insights || {}
@@ -331,22 +331,22 @@ async function generateTicketAnalyticsPdf(
         y = (doc as any).lastAutoTable.finalY + 8
     }
 
-    // ── PRIORITY DISTRIBUTION TABLE ──
-    const priorityEntries = Object.entries(priorityDistribution)
-    if (priorityEntries.length > 0) {
+    // ── CALL TYPE DISTRIBUTION TABLE ──
+    const callTypeEntries = Object.entries(callTypeDistribution)
+    if (callTypeEntries.length > 0) {
         y = ensurePage(doc, y, 40, pageNum, reportTitle, subtitle, logoBase64, reportTitle)
-        y = drawSectionTitle(doc, y, 'PRIORITY DISTRIBUTION', COLORS.kardexGreen)
+        y = drawSectionTitle(doc, y, 'CALL TYPE DISTRIBUTION', COLORS.kardexGreen)
 
-        const totalPriorityCount = priorityEntries.reduce((sum, [, count]) => sum + (count as number), 0)
+        const totalCallTypeCount = callTypeEntries.reduce((sum, [, count]) => sum + (count as number), 0)
 
         autoTable(doc, {
             startY: y,
-            head: [['Priority', 'Count', 'Percentage']],
-            body: priorityEntries
+            head: [['Call Type', 'Count', 'Percentage']],
+            body: callTypeEntries
                 .sort(([, a], [, b]) => (b as number) - (a as number))
-                .map(([priority, count]) => {
-                    const pct = totalPriorityCount > 0 ? ((count as number) / totalPriorityCount * 100).toFixed(1) : '0'
-                    return [priority, String(count), `${pct}%`]
+                .map(([callType, count]) => {
+                    const pct = totalCallTypeCount > 0 ? ((count as number) / totalCallTypeCount * 100).toFixed(1) : '0'
+                    return [callType.replace(/_/g, ' '), String(count), `${pct}%`]
                 }),
             theme: 'grid',
             headStyles: {
@@ -357,15 +357,6 @@ async function generateTicketAnalyticsPdf(
             bodyStyles: { fontSize: 7, textColor: COLORS.textBody, halign: 'center' },
             columnStyles: {
                 0: { halign: 'left', fontStyle: 'bold', textColor: COLORS.textDark },
-            },
-            willDrawCell: (hookData: any) => {
-                if (hookData.section === 'body' && hookData.column.index === 0) {
-                    const p = hookData.cell.text[0]
-                    if (p === 'CRITICAL') hookData.cell.styles.textColor = COLORS.negative
-                    else if (p === 'HIGH') hookData.cell.styles.textColor = [239, 68, 68]
-                    else if (p === 'MEDIUM') hookData.cell.styles.textColor = COLORS.warning
-                    else if (p === 'LOW') hookData.cell.styles.textColor = COLORS.positive
-                }
             },
             margin: { left: 15, right: 15 },
         })

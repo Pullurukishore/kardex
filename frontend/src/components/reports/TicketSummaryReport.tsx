@@ -10,7 +10,7 @@ interface TicketSummaryReportProps {
 export function TicketSummaryReport({ reportData }: TicketSummaryReportProps) {
   const { 
     statusDistribution, 
-    priorityDistribution, 
+    callTypeDistribution, 
     zoneDistribution,
     customerDistribution,
     customerPerformanceMetrics,
@@ -57,7 +57,7 @@ export function TicketSummaryReport({ reportData }: TicketSummaryReportProps) {
 
   // Use the processed data from the server
   const statusCounts = statusDistribution || {};
-  const priorityCounts = priorityDistribution || {};
+  const callTypeCounts = callTypeDistribution || {};
   const totalTickets = summary.totalTickets || 0;
 
   // Helper function to get status color - Kardex Colors
@@ -267,28 +267,22 @@ export function TicketSummaryReport({ reportData }: TicketSummaryReportProps) {
         </Card>
       )}
 
-      {/* Priority Distribution */}
-      {priorityDistribution && Object.keys(priorityDistribution).length > 0 && (
+      {/* Call Type Analytics */}
+      {callTypeDistribution && Object.keys(callTypeDistribution).length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Priority Distribution</CardTitle>
-            <CardDescription>Breakdown of tickets by priority level</CardDescription>
+            <CardTitle>Call Type Analytics</CardTitle>
+            <CardDescription>Breakdown of tickets by call type</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {Object.entries(priorityCounts).map(([priority, count]) => {
+              {Object.entries(callTypeCounts).map(([type, count]) => {
                 const percentage = totalTickets > 0 ? ((count / totalTickets) * 100).toFixed(1) : '0';
-                const colors = {
-                  'CRITICAL': 'bg-[#E17F70]/20 text-[#9E3B47]',
-                  'HIGH': 'bg-[#CE9F6B]/20 text-[#976E44]',
-                  'MEDIUM': 'bg-[#EEC18F]/20 text-[#976E44]',
-                  'LOW': 'bg-[#A2B9AF]/20 text-[#4F6A64]'
-                };
                 return (
-                  <div key={priority} className={`text-center p-4 rounded-lg ${colors[priority as keyof typeof colors] || 'bg-[#AEBFC3]/10 text-[#546A7A]'}`}>
-                    <div className="text-2xl font-bold">{count}</div>
-                    <div className="text-sm capitalize">{priority}</div>
-                    <div className="text-xs opacity-75">{percentage}%</div>
+                  <div key={type} className="text-center p-4 bg-[#AEBFC3]/10 rounded-lg">
+                    <div className="text-2xl font-bold text-[#546A7A]">{count}</div>
+                    <div className="text-sm text-[#5D6E73] capitalize">{type.replace('_', ' ')}</div>
+                    <div className="text-xs text-[#AEBFC3]0">{percentage}%</div>
                   </div>
                 );
               })}

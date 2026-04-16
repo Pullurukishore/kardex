@@ -88,6 +88,7 @@ export interface ReportData {
   summary: any;
   statusDistribution?: Record<string, number>;
   priorityDistribution?: Record<string, number>;
+  callTypeDistribution?: Record<string, number>;
   slaDistribution?: Record<string, number>;
   zoneDistribution?: Array<{
     zoneId: number;

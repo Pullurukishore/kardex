@@ -254,6 +254,7 @@ async function generateTicketSummaryReport(res: Response, whereClause: any, star
     tickets,
     statusDistribution,
     priorityDistribution,
+    callTypeDistribution,
     slaDistribution,
     zoneDistribution,
     customerDistribution,
@@ -301,6 +302,12 @@ async function generateTicketSummaryReport(res: Response, whereClause: any, star
     // Priority distribution
     prisma.ticket.groupBy({
       by: ['priority'],
+      where: whereClause,
+      _count: true,
+    }),
+    // Call Type distribution
+    prisma.ticket.groupBy({
+      by: ['callType'],
       where: whereClause,
       _count: true,
     }),
@@ -680,6 +687,11 @@ async function generateTicketSummaryReport(res: Response, whereClause: any, star
         ...acc,
         [curr.priority]: curr._count
       }), {}),
+
+      callTypeDistribution: (callTypeDistribution || []).reduce((acc: any, curr: any) => {
+        if (curr.callType) acc[curr.callType] = curr._count;
+        return acc;
+      }, {}),
 
       slaDistribution: (slaDistribution || []).reduce((acc: any, curr: any) => ({
         ...acc,
