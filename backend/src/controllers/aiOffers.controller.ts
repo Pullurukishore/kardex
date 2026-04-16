@@ -10,8 +10,9 @@ function toNum(val: any): number {
   return Number(val);
 }
 
-// Format value in Lakhs/Crores for readability
+// Format value in Lakhs/Crores for readability (INR)
 function fmtVal(val: number): string {
+  if (val === 0) return '₹0';
   if (val >= 10000000) return `₹${(val / 10000000).toFixed(2)}Cr`;
   if (val >= 100000) return `₹${(val / 100000).toFixed(1)}L`;
   if (val >= 1000) return `₹${(val / 1000).toFixed(1)}K`;
@@ -49,12 +50,13 @@ async function gatherOfferContext() {
   const currentMonthStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
   const yearStart = new Date(currentYear, 0, 1);
   const yearEnd = new Date(currentYear, 11, 31, 23, 59, 59);
+  const thirtyDaysAgo = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
   const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'];
 
-  // ══════════════════════════════════════════════════
+  // =====================================================
   // 1. ALL OFFERS FOR THE YEAR
-  // ══════════════════════════════════════════════════
+  // =====================================================
   const allOffers = await prisma.offer.findMany({
     where: { createdAt: { gte: yearStart, lte: yearEnd } },
     select: {
@@ -68,17 +70,20 @@ async function gatherOfferContext() {
       probabilityPercentage: true,
       openFunnel: true,
       offerMonth: true,
+      poExpectedMonth: true,
       poReceivedMonth: true,
+      lead: true,
       createdAt: true,
+      updatedAt: true,
       zone: { select: { id: true, name: true } },
       assignedTo: { select: { id: true, name: true } },
     },
     orderBy: { createdAt: 'desc' },
   });
 
-  // ══════════════════════════════════════════════════
-  // 2. ZONES & TARGETS (matching Forecast page)
-  // ══════════════════════════════════════════════════
+  // =====================================================
+  // 2. ZONES & TARGETS
+  // =====================================================
   const zones = await prisma.serviceZone.findMany({
     where: { isActive: true },
     orderBy: { name: 'asc' },
@@ -90,22 +95,36 @@ async function gatherOfferContext() {
       targetPeriod: String(currentYear),
       periodType: 'YEARLY',
     },
-    include: { serviceZone: { select: { name: true } } },
   });
 
-  // Monthly targets per zone
-  const allMonthlyTargets = await prisma.zoneTarget.findMany({
+  // User targets for sales person analysis
+  const allUserTargets = await prisma.userTarget.findMany({
     where: {
-      targetPeriod: { startsWith: `${currentYear}-` },
-      periodType: 'MONTHLY',
+      targetPeriod: String(currentYear),
+      periodType: 'YEARLY',
       productType: null,
     },
-    include: { serviceZone: { select: { name: true } } },
+    include: { user: { select: { name: true } } },
   });
 
-  // ══════════════════════════════════════════════════
-  // 3. ZONE-WISE ANALYSIS (mirrors Forecast Zone Summary page)
-  // ══════════════════════════════════════════════════
+  // Recent stage remarks for qualitative analysis
+  const recentRemarks = await prisma.stageRemark.findMany({
+    where: {
+      offer: { createdAt: { gte: yearStart } }
+    },
+    take: 20,
+    orderBy: { createdAt: 'desc' },
+    select: {
+      remarks: true,
+      stage: true,
+      offer: { select: { offerReferenceNumber: true, company: true } },
+      createdAt: true
+    }
+  });
+
+  // =====================================================
+  // 3. ZONE-WISE ANALYSIS (Forecast Summary)
+  // =====================================================
   interface ZoneAnalysis {
     name: string;
     offerCount: number;
@@ -114,12 +133,15 @@ async function gatherOfferContext() {
     openFunnel: number;
     orderBookingThisMonth: number;
     expectedRevenue: number;
+    weightedPipeline: number;
     hitRatePercent: number;
     yearlyTarget: number;
     balanceBU: number;
     achievementPercent: number;
     wonCount: number;
     lostCount: number;
+    stagnantCount: number;
+    avgAgingDays: number;
   }
 
   const zoneAnalysis: ZoneAnalysis[] = [];
@@ -129,7 +151,6 @@ async function gatherOfferContext() {
     const offersValue = zoneOffers.reduce((s, o) => s + toNum(o.offerValue), 0);
     const offerCount = zoneOffers.length;
 
-    // Won offers using poReceivedMonth fallback logic (matching Growth Pillar)
     const wonOffers = allOffers.filter(o =>
       o.zone?.id === zone.id &&
       (o.stage === 'WON' || o.stage === 'PO_RECEIVED')
@@ -145,17 +166,17 @@ async function gatherOfferContext() {
     const lostOffers = zoneOffers.filter(o => o.stage === 'LOST');
     const openFunnelOffers = zoneOffers.filter(o => o.openFunnel && !['WON', 'LOST'].includes(o.stage));
     const openFunnel = offersValue - ordersReceived;
+    const stagnantCount = openFunnelOffers.filter(o => o.updatedAt < thirtyDaysAgo).length;
 
-    // This month's order booking
     const thisMonthWon = wonOffers.filter(o => o.poReceivedMonth === currentMonthStr);
     const orderBookingThisMonth = thisMonthWon.reduce((s, o) => s + toNum(o.poValue || o.offerValue), 0);
 
-    // Expected revenue (weighted by probability)
-    const expectedRevenue = openFunnelOffers.reduce((s, o) => {
-      return s + toNum(o.offerValue);
+    const expectedRevenue = openFunnelOffers.reduce((s, o) => s + toNum(o.offerValue), 0);
+    const weightedPipeline = openFunnelOffers.reduce((s, o) => {
+      const prob = o.probabilityPercentage || 0;
+      return s + (toNum(o.offerValue) * (prob / 100));
     }, 0);
 
-    // Target for this zone
     const zoneYearlyTargets = allZoneTargets.filter(t => t.serviceZoneId === zone.id);
     const overallTarget = zoneYearlyTargets.find(t => t.productType === null);
     const productTargets = zoneYearlyTargets.filter(t => t.productType !== null);
@@ -175,18 +196,63 @@ async function gatherOfferContext() {
       openFunnel,
       orderBookingThisMonth,
       expectedRevenue,
+      weightedPipeline,
       hitRatePercent: Math.round(hitRate),
       yearlyTarget,
       balanceBU,
       achievementPercent: Math.round(achievement * 10) / 10,
       wonCount: wonOffers.length,
       lostCount: lostOffers.length,
+      stagnantCount,
+      avgAgingDays: openFunnelOffers.length > 0 
+        ? Math.round(openFunnelOffers.reduce((s, o) => s + (now.getTime() - o.updatedAt.getTime()) / (1000 * 60 * 60 * 24), 0) / openFunnelOffers.length)
+        : 0
     });
   }
 
-  // ══════════════════════════════════════════════════
-  // 4. STAGE BREAKDOWN (mirrors Offers page)
-  // ══════════════════════════════════════════════════
+  // =====================================================
+  // 3.5 CUSTOMER CONCENTRATION
+  // =====================================================
+  const customerPipeline: Record<string, { value: number; count: number }> = {};
+  allOffers.filter(o => o.openFunnel).forEach(o => {
+    const cust = o.company || 'Unknown';
+    if (!customerPipeline[cust]) customerPipeline[cust] = { value: 0, count: 0 };
+    customerPipeline[cust].value += toNum(o.offerValue);
+    customerPipeline[cust].count += 1;
+  });
+  const topCustomerRisks = Object.entries(customerPipeline)
+    .sort((a, b) => b[1].value - a[1].value)
+    .slice(0, 5)
+    .map(([name, stats]) => ({ name, ...stats }));
+
+  // =====================================================
+  // 3.7 PROBABILITY BRACKETS (Funnel Quality)
+  // =====================================================
+  const openOffers = allOffers.filter(o => o.openFunnel && !['WON', 'LOST'].includes(o.stage));
+  const brackets = {
+    COMMIT: { count: 0, value: 0 },    // > 75%
+    BEST_CASE: { count: 0, value: 0 }, // 50-75%
+    PIPELINE: { count: 0, value: 0 },  // < 50%
+  };
+
+  openOffers.forEach(o => {
+    const prob = o.probabilityPercentage || 0;
+    const val = toNum(o.offerValue);
+    if (prob > 75) {
+      brackets.COMMIT.count++;
+      brackets.COMMIT.value += val;
+    } else if (prob >= 50) {
+      brackets.BEST_CASE.count++;
+      brackets.BEST_CASE.value += val;
+    } else {
+      brackets.PIPELINE.count++;
+      brackets.PIPELINE.value += val;
+    }
+  });
+
+  // =====================================================
+  // 4. STAGE BREAKDOWN
+  // =====================================================
   const byStage: Record<string, { count: number; value: number }> = {};
   allOffers.forEach(o => {
     if (!byStage[o.stage]) byStage[o.stage] = { count: 0, value: 0 };
@@ -194,9 +260,15 @@ async function gatherOfferContext() {
     byStage[o.stage].value += toNum(o.offerValue);
   });
 
-  // ══════════════════════════════════════════════════
-  // 5. PRODUCT TYPE ANALYSIS (mirrors Growth Pillar)
-  // ══════════════════════════════════════════════════
+  const byLead: Record<string, number> = {};
+  allOffers.forEach(o => {
+    const l = (o as any).lead || 'UNSPECIFIED';
+    byLead[l] = (byLead[l] || 0) + 1;
+  });
+
+  // =====================================================
+  // 5. PRODUCT TYPE ANALYSIS (Growth Pillar)
+  // =====================================================
   const productTypes = [
     { key: 'CONTRACT', label: 'Contract' },
     { key: 'BD_SPARE', label: 'BD Spare' },
@@ -228,7 +300,6 @@ async function gatherOfferContext() {
     const wonOffers = ptOffers.filter(o => o.stage === 'WON' || o.stage === 'PO_RECEIVED');
     const wonValue = wonOffers.reduce((s, o) => s + toNum(o.poValue || o.offerValue), 0);
 
-    // Product-specific target (sum across zones)
     const ptTarget = allZoneTargets
       .filter(t => t.productType === pt.key)
       .reduce((s, t) => s + toNum(t.targetValue), 0);
@@ -251,96 +322,152 @@ async function gatherOfferContext() {
     }
   }
 
-  // ══════════════════════════════════════════════════
-  // 6. MONTHLY TRENDS (mirrors Growth Pillar month-wise)
-  // ══════════════════════════════════════════════════
-  interface MonthlyTrend {
-    month: number;
-    monthLabel: string;
-    monthStr: string;
-    target: number;
-    offerValue: number;
-    wonValue: number;
-    offerCount: number;
-    wonCount: number;
-    achievementPercent: number;
-    growthPercent: number | null;
-  }
-
-  const monthlyTrends: MonthlyTrend[] = [];
-  for (let m = 1; m <= currentMonth; m++) {
+  // =====================================================
+  // 6. MONTHLY TRENDS & FORWARD FORECAST
+  // =====================================================
+  const monthlyTrends = [];
+  const _yearlyBU = allZoneTargets.filter(t => t.productType === null).reduce((s, t) => s + toNum(t.targetValue), 0);
+  const monthlyBU = _yearlyBU / 12; // Flat monthly target
+  for (let m = 1; m <= 12; m++) {
     const monthStr = `${currentYear}-${String(m).padStart(2, '0')}`;
     const monthOffers = allOffers.filter(o => o.offerMonth === monthStr);
-    const offerValue = monthOffers.reduce((s, o) => s + toNum(o.offerValue), 0);
-    const offerCount = monthOffers.length;
-
-    const wonThisMonth = allOffers.filter(o =>
-      (o.stage === 'WON' || o.stage === 'PO_RECEIVED') &&
-      ((o.poReceivedMonth && o.poReceivedMonth === monthStr) ||
-        (!o.poReceivedMonth && o.offerMonth === monthStr))
-    );
-    const wonValue = wonThisMonth.reduce((s, o) => s + toNum(o.poValue || o.offerValue), 0);
-    const wonCount = wonThisMonth.length;
-
-    // Monthly target (sum across zones)
-    const monthTarget = allMonthlyTargets
-      .filter(t => t.targetPeriod === monthStr)
-      .reduce((s, t) => s + toNum(t.targetValue), 0);
-
-    // Fallback: yearly / 12
-    const totalYearlyTarget = zoneAnalysis.reduce((s, z) => s + z.yearlyTarget, 0);
-    const target = monthTarget > 0 ? monthTarget : totalYearlyTarget / 12;
-    const achievement = target > 0 ? (wonValue / target) * 100 : 0;
-
-    // MoM growth
-    let growthPercent: number | null = null;
+    const wonThisMonth = allOffers.filter(o => (o.poReceivedMonth || o.offerMonth) === monthStr && (o.stage === 'WON' || o.stage === 'PO_RECEIVED'));
+    
+    // Growth calculation (MoM)
+    let growthPercent = null;
+    let wonValue = wonThisMonth.reduce((s, o) => s + toNum(o.poValue || o.offerValue), 0);
+    
     if (m > 1) {
-      const prevMonth = monthlyTrends[m - 2];
-      if (prevMonth && prevMonth.wonValue > 0) {
-        growthPercent = Math.round(((wonValue - prevMonth.wonValue) / prevMonth.wonValue) * 100);
+      const prevMonthStr = `${currentYear}-${String(m - 1).padStart(2, '0')}`;
+      const wonPrevMonth = allOffers.filter(o => (o.poReceivedMonth || o.offerMonth) === prevMonthStr && (o.stage === 'WON' || o.stage === 'PO_RECEIVED'));
+      const prevWonValue = wonPrevMonth.reduce((s, o) => s + toNum(o.poValue || o.offerValue), 0);
+      
+      if (prevWonValue > 0) {
+        growthPercent = Math.round(((wonValue - prevWonValue) / prevWonValue) * 100);
       }
     }
+
+    const offerValue = monthOffers.reduce((s, o) => s + toNum(o.offerValue), 0);
+    const hitRate = offerValue > 0 ? Math.round((wonValue / offerValue) * 100) : 0;
+    const achievement = monthlyBU > 0 ? Math.round((wonValue / monthlyBU) * 100) : 0;
 
     monthlyTrends.push({
       month: m,
       monthLabel: monthNames[m - 1],
-      monthStr,
-      target,
+      offerCount: monthOffers.length,
       offerValue,
       wonValue,
-      offerCount,
-      wonCount,
-      achievementPercent: Math.round(achievement),
+      hitRate,
+      achievement,
       growthPercent,
+      target: monthlyBU
     });
   }
 
-  // ══════════════════════════════════════════════════
-  // 7. QUARTERLY ANALYSIS (mirrors Forecast quarterly)
-  // ══════════════════════════════════════════════════
-  const totalYearlyTarget = zoneAnalysis.reduce((s, z) => s + z.yearlyTarget, 0);
-  const quarterlyBU = totalYearlyTarget / 4;
+  const forwardForecast = [];
+  for (let i = 0; i < 4; i++) {
+    const futureDate = new Date(now.getFullYear(), now.getMonth() + i, 1);
+    const futureMonthStr = `${futureDate.getFullYear()}-${String(futureDate.getMonth() + 1).padStart(2, '0')}`;
+    const futureOffers = allOffers.filter(o => o.poExpectedMonth === futureMonthStr && !['WON', 'LOST', 'PO_RECEIVED'].includes(o.stage));
+    
+    forwardForecast.push({
+      monthLabel: monthNames[futureDate.getMonth()],
+      offerCount: futureOffers.length,
+      value: futureOffers.reduce((s, o) => s + toNum(o.offerValue), 0),
+      weighted: futureOffers.reduce((s, o) => s + (toNum(o.offerValue) * (o.probabilityPercentage || 0) / 100), 0)
+    });
+  }
+
+  // =====================================================
+  // 7. QUARTERLY ANALYSIS
+  // =====================================================
   const quarters = [
-    { name: 'Q1', months: [1, 2, 3] },
-    { name: 'Q2', months: [4, 5, 6] },
-    { name: 'Q3', months: [7, 8, 9] },
-    { name: 'Q4', months: [10, 11, 12] },
+    { name: 'Q1', months: ['01', '02', '03'] },
+    { name: 'Q2', months: ['04', '05', '06'] },
+    { name: 'Q3', months: ['07', '08', '09'] },
+    { name: 'Q4', months: ['10', '11', '12'] }
   ].map(q => {
-    const qMonths = monthlyTrends.filter(m => q.months.includes(m.month));
-    const wonValue = qMonths.reduce((s, m) => s + m.wonValue, 0);
-    const offerValue = qMonths.reduce((s, m) => s + m.offerValue, 0);
-    return {
-      name: q.name,
-      wonValue,
-      offerValue,
-      bu: quarterlyBU,
-      deviation: quarterlyBU > 0 ? Math.round(((wonValue - quarterlyBU) / quarterlyBU) * 100) : 0,
-    };
+    const qWon = allOffers.filter(o => q.months.some(m => (o.poReceivedMonth || o.offerMonth) === `${currentYear}-${m}`) && (o.stage === 'WON' || o.stage === 'PO_RECEIVED'));
+    const qPipeline = allOffers.filter(o => q.months.some(m => o.offerMonth === `${currentYear}-${m}`) && !['WON', 'LOST', 'PO_RECEIVED'].includes(o.stage));
+    const wonValue = qWon.reduce((s, o) => s + toNum(o.poValue || o.offerValue), 0);
+    const pipelineValue = qPipeline.reduce((s, o) => s + toNum(o.offerValue), 0);
+    const bu = allZoneTargets.reduce((s, t) => s + toNum(t.targetValue), 0) / 4;
+    const deviation = bu > 0 ? Math.round(((wonValue - bu) / bu) * 100) : 0;
+    
+    return { name: q.name, wonValue, pipelineValue, bu, deviation };
   });
 
-  // ══════════════════════════════════════════════════
-  // 8. TOP PERFORMERS & KEY OFFERS (mirrors Offer details page)
-  // ══════════════════════════════════════════════════
+  // =====================================================
+  // 8. SALES PERSON PERFORMANCE (Detailed Pipeline)
+  // =====================================================
+  const userPerformanceMap: Record<number, { name: string; target: number; openFunnel: number; wonValue: number; monthly: Record<number, { w: number, o: number }> }> = {};
+  
+  // Initialize users with targets
+  allUserTargets.forEach(u => {
+    userPerformanceMap[u.userId] = { name: u.user.name || 'Unknown', target: toNum(u.targetValue), openFunnel: 0, wonValue: 0, monthly: {} };
+  });
+
+  // Add info from all offers
+  allOffers.forEach(o => {
+    const userId = o.assignedTo?.id;
+    const userName = o.assignedTo?.name || 'Unassigned';
+    if (!userId) return;
+
+    if (!userPerformanceMap[userId]) {
+      userPerformanceMap[userId] = { name: userName, target: 0, openFunnel: 0, wonValue: 0, monthly: {} };
+    }
+
+    if (o.stage === 'WON' || o.stage === 'PO_RECEIVED') {
+      userPerformanceMap[userId].wonValue += toNum(o.poValue || o.offerValue);
+      // Track Monthly Won
+      const wMonthStr = o.poReceivedMonth || o.offerMonth;
+      if (wMonthStr && wMonthStr.startsWith(String(currentYear))) {
+        const mNode = parseInt(wMonthStr.split('-')[1], 10);
+        if (!userPerformanceMap[userId].monthly[mNode]) userPerformanceMap[userId].monthly[mNode] = { w: 0, o: 0 };
+        userPerformanceMap[userId].monthly[mNode].w += toNum(o.poValue || o.offerValue);
+      }
+    } else if (o.openFunnel && o.stage !== 'LOST') {
+      userPerformanceMap[userId].openFunnel += toNum(o.offerValue);
+      // Track Monthly Pipeline
+      const oMonthStr = o.poExpectedMonth;
+      if (oMonthStr && oMonthStr.startsWith(String(currentYear))) {
+        const mNode = parseInt(oMonthStr.split('-')[1], 10);
+        if (!userPerformanceMap[userId].monthly[mNode]) userPerformanceMap[userId].monthly[mNode] = { w: 0, o: 0 };
+        userPerformanceMap[userId].monthly[mNode].o += toNum(o.offerValue);
+      }
+    }
+  });
+
+  const salesPersonPerformance = Object.values(userPerformanceMap).map(u => {
+    const achievement = u.target > 0 ? Math.round((u.wonValue / u.target) * 100) : 0;
+    
+    // Format monthly string
+    const monthlyStr = Object.keys(u.monthly).length > 0 
+      ? Object.entries(u.monthly)
+          .sort((a, b) => Number(a[0]) - Number(b[0]))
+          .map(([m, val]) => `${monthNames[Number(m)-1]}: W=${fmtVal(val.w)} O=${fmtVal(val.o)}`)
+          .join(', ')
+      : 'No activity';
+      
+    return { ...u, achievement, monthlyStr };
+  }).sort((a, b) => b.wonValue - a.wonValue);
+
+  // =====================================================
+  // 9. HIGH VALUE PIPELINE & TOP WON
+  // =====================================================
+  const highValuePipeline = allOffers
+    .filter(o => !['WON', 'LOST', 'PO_RECEIVED'].includes(o.stage))
+    .sort((a, b) => toNum(b.offerValue) - toNum(a.offerValue))
+    .slice(0, 10)
+    .map(o => ({
+      ref: o.offerReferenceNumber,
+      company: o.company || 'Unknown',
+      value: toNum(o.offerValue),
+      stage: o.stage,
+      probability: o.probabilityPercentage || 0,
+      isStagnant: o.updatedAt < thirtyDaysAgo
+    }));
+
   const topWonOffers = allOffers
     .filter(o => o.stage === 'WON' || o.stage === 'PO_RECEIVED')
     .sort((a, b) => toNum(b.poValue || b.offerValue) - toNum(a.poValue || a.offerValue))
@@ -349,21 +476,25 @@ async function gatherOfferContext() {
       ref: o.offerReferenceNumber,
       company: o.company || 'Unknown',
       value: toNum(o.poValue || o.offerValue),
-      zone: o.zone?.name || 'Unknown',
+      zone: o.zone?.name || 'Unknown'
     }));
 
-  const highValuePipeline = allOffers
-    .filter(o => !['WON', 'LOST'].includes(o.stage))
-    .sort((a, b) => toNum(b.offerValue) - toNum(a.offerValue))
-    .slice(0, 5)
-    .map(o => ({
-      ref: o.offerReferenceNumber,
-      company: o.company || 'Unknown',
-      value: toNum(o.offerValue),
-      stage: o.stage,
-      probability: o.probabilityPercentage || 0,
-      zone: o.zone?.name || 'Unknown',
-    }));
+  const totalYearlyTarget = allZoneTargets
+    .filter(t => t.productType === null)
+    .reduce((s, t) => s + toNum(t.targetValue), 0);
+
+  const totalOfferValue = allOffers.reduce((s, o) => s + toNum(o.offerValue), 0);
+  const totalWonValue = zoneAnalysis.reduce((s, z) => s + z.ordersReceived, 0);
+  const totalOpenFunnel = zoneAnalysis.reduce((s, z) => s + z.openFunnel, 0);
+  const totalWeightedPipeline = zoneAnalysis.reduce((s, z) => s + z.weightedPipeline, 0);
+  const totalStagnant = zoneAnalysis.reduce((s, z) => s + z.stagnantCount, 0);
+  const totalOffers = allOffers.length;
+  const totalWonCount = allOffers.filter(o => o.stage === 'WON' || o.stage === 'PO_RECEIVED').length;
+  const totalLostCount = allOffers.filter(o => o.stage === 'LOST').length;
+  const closedCount = totalWonCount + totalLostCount;
+  const winRate = closedCount > 0 ? Math.round((totalWonCount / closedCount) * 100) : 0;
+  const hitRate = totalOfferValue > 0 ? Math.round((totalWonValue / totalOfferValue) * 100) : 0;
+  const overallAchievement = totalYearlyTarget > 0 ? Math.round((totalWonValue / totalYearlyTarget) * 100) : 0;
 
   const recentOffers = allOffers.slice(0, 10).map(o => ({
     ref: o.offerReferenceNumber,
@@ -374,52 +505,25 @@ async function gatherOfferContext() {
     date: o.createdAt.toISOString().split('T')[0],
   }));
 
-  // ══════════════════════════════════════════════════
-  // 9. SALES PERSON PERFORMANCE
-  // ══════════════════════════════════════════════════
-  const userPerf = new Map<string, { name: string; offers: number; wonValue: number; wonCount: number }>();
-  allOffers.forEach(o => {
-    const userName = o.assignedTo?.name || 'Unassigned';
-    if (!userPerf.has(userName)) userPerf.set(userName, { name: userName, offers: 0, wonValue: 0, wonCount: 0 });
-    const u = userPerf.get(userName)!;
-    u.offers += 1;
-    if (o.stage === 'WON' || o.stage === 'PO_RECEIVED') {
-      u.wonValue += toNum(o.poValue || o.offerValue);
-      u.wonCount += 1;
-    }
-  });
-  const topSalesPersons = [...userPerf.values()]
-    .sort((a, b) => b.wonValue - a.wonValue)
-    .slice(0, 5);
-
-  // ══════════════════════════════════════════════════
-  // 10. OVERALL TOTALS
-  // ══════════════════════════════════════════════════
-  const totalOfferValue = allOffers.reduce((s, o) => s + toNum(o.offerValue), 0);
-  const totalWonValue = zoneAnalysis.reduce((s, z) => s + z.ordersReceived, 0);
-  const totalOpenFunnel = zoneAnalysis.reduce((s, z) => s + z.openFunnel, 0);
-  const totalOffers = allOffers.length;
-  const totalWonCount = allOffers.filter(o => o.stage === 'WON' || o.stage === 'PO_RECEIVED').length;
-  const totalLostCount = allOffers.filter(o => o.stage === 'LOST').length;
-  const closedCount = totalWonCount + totalLostCount;
-  const winRate = closedCount > 0 ? Math.round((totalWonCount / closedCount) * 100) : 0;
-  const hitRate = totalOfferValue > 0 ? Math.round((totalWonValue / totalOfferValue) * 100) : 0;
-  const overallAchievement = totalYearlyTarget > 0 ? Math.round((totalWonValue / totalYearlyTarget) * 1000) / 10 : 0;
-
   return {
     currentYear, currentMonth, currentMonthStr,
     totalOffers, totalOfferValue, totalWonValue, totalOpenFunnel,
+    totalWeightedPipeline, totalStagnant,
     totalWonCount, totalLostCount, winRate, hitRate,
     totalYearlyTarget, overallAchievement,
     zoneAnalysis,
-    byStage,
+    byStage, byLead,
     productAnalysis,
     monthlyTrends,
+    forwardForecast,
     quarters,
     topWonOffers,
     highValuePipeline,
+    salesPersonPerformance,
     recentOffers,
-    topSalesPersons,
+    recentRemarks,
+    topCustomerRisks,
+    brackets
   };
 }
 
@@ -430,11 +534,11 @@ async function gatherOfferContext() {
 function buildSystemPrompt(ctx: Awaited<ReturnType<typeof gatherOfferContext>>): string {
   return `You are a senior business intelligence analyst for **Kardex Remstar India**, a company that sells warehouse automation solutions (vertical lifts, carousels) and provides after-sales services.
 
-Your role is to analyse the **complete sales pipeline data** and provide deep, actionable insights — matching the level of detail shown in the Growth Pillar, Forecast Dashboard, and Offer Summary Reports.
+Your role is to analyse the **complete sales pipeline data** and provide deep, qualitative and quantitative insights - matching the level of detail shown in the Growth Pillar, Forecast Dashboard, and Offer Summary Reports.
 
 **Key Business Terms:**
 - "Offer" = a sales opportunity / deal with value, stage, probability
-- Stage flow: INITIAL → PROPOSAL_SENT → NEGOTIATION → PO_RECEIVED → WON (or LOST at any stage)
+- Stage flow: INITIAL > PROPOSAL_SENT > NEGOTIATION > PO_RECEIVED > WON (or LOST at any stage)
 - "Open Funnel" = active offers not yet won or lost
 - "PO" = Purchase Order (when customer confirms)
 - "BU" = Business Unit target = Quarterly target (Yearly / 4)
@@ -442,89 +546,120 @@ Your role is to analyse the **complete sales pipeline data** and provide deep, a
 - "Hit Rate" = Orders Received / Offers Value (value conversion rate)
 - "Win Rate" = Won deals / (Won + Lost deals) (count-based)
 - "U for Booking" = Expected revenue from pipeline (probability-weighted)
+- "Stagnant" = Active offers not updated in > 30 days (High Risk)
 - Zone = geographic sales territory
 - Product types: CONTRACT (CON), BD_SPARE, SPARE_PARTS (SSP), KARDEX_CONNECT (KCN), RELOCATION (REL), SOFTWARE (SFT), OTHERS, RETROFIT_KIT, UPGRADE_KIT (Optilife)
 - Currency: INR. Format: Lakhs (L) or Crores (Cr).
 
-═══════════════════════════════════════
-📊 OVERALL PERFORMANCE (${ctx.currentYear})
-═══════════════════════════════════════
-- Total Offers: ${ctx.totalOffers}
-- Total Offer Value: ${fmtVal(ctx.totalOfferValue)}
-- Orders Received (Won): ${fmtVal(ctx.totalWonValue)} (${ctx.totalWonCount} deals)
-- Open Funnel: ${fmtVal(ctx.totalOpenFunnel)}
-- Lost: ${ctx.totalLostCount} offers
-- Win Rate: ${ctx.winRate}% (count-based)
-- Hit Rate: ${ctx.hitRate}% (value-based)
-- Yearly Target: ${fmtVal(ctx.totalYearlyTarget)}
-- Achievement: ${ctx.overallAchievement}%
-- Balance BU (Gap): ${fmtVal(ctx.totalYearlyTarget - ctx.totalWonValue)}
+---
 
-═══════════════════════════════════════
-🏢 ZONE-WISE PERFORMANCE (Forecast Summary)
-═══════════════════════════════════════
+## 🏗️ ANALYTICAL FRAMEWORK
+When answering, structure your analysis using the same logic seen on the Growth Report and Forecast Dashboards:
+1. **Performance Summary**: Use Achievement % and Balance BU to decide if the area is AHEAD, ON_TRACK, or NEEDS_ATTENTION.
+2. **Growth Analysis**: Compare Product-wise achievement. Identify "Growth Drivers" (high achievement) vs "Gaps" (low achievement).
+3. **Pipeline Health**: Use Stagnant counts, Average Aging, and Customer Concentration to identify risks.
+4. **Actionable Recommendations**: Give 3-5 specific bullet points on how to close the BU gap.
+
+---
+
+## 📊 OVERALL PERFORMANCE (${ctx.currentYear})
+
+- **Total Offers:** ${ctx.totalOffers}
+- **Total Offer Value:** ${fmtVal(ctx.totalOfferValue)}
+- **Orders Received (Won):** ${fmtVal(ctx.totalWonValue)} (${ctx.totalWonCount} deals)
+- **Open Funnel:** ${fmtVal(ctx.totalOpenFunnel)}
+- **Weighted Pipeline (U for Booking):** ${fmtVal(ctx.totalWeightedPipeline)}
+- **Stagnant Offers:** ${ctx.totalStagnant} ⚠️
+- **Win Rate:** ${ctx.winRate}% | Hit Rate: ${ctx.hitRate}%
+- **Yearly Target:** ${fmtVal(ctx.totalYearlyTarget)}
+- **Achievement:** ${ctx.overallAchievement}%
+- **Balance BU (Gap):** ${fmtVal(ctx.totalYearlyTarget - ctx.totalWonValue)}
+
+### 🛡️ Pipeline Quality (Brackets):
+- **Commit (>75%):** ${ctx.brackets.COMMIT.count} deals | ${fmtVal(ctx.brackets.COMMIT.value)}
+- **Best Case (50-75%):** ${ctx.brackets.BEST_CASE.count} deals | ${fmtVal(ctx.brackets.BEST_CASE.value)}
+- **Pipeline (<50%):** ${ctx.brackets.PIPELINE.count} deals | ${fmtVal(ctx.brackets.PIPELINE.value)}
+
+---
+
+## 🗺️ ZONE-WISE PERFORMANCE (Forecast Summary)
+
 ${ctx.zoneAnalysis.map(z => `**${z.name}:**
-  Offers: ${z.offerCount} | Value: ${fmtVal(z.offersValue)} | Won: ${fmtVal(z.ordersReceived)} (${z.wonCount} deals)
-  Open Funnel: ${fmtVal(z.openFunnel)} | This Month Booking: ${fmtVal(z.orderBookingThisMonth)}
-  Expected Revenue: ${fmtVal(z.expectedRevenue)} | Hit Rate: ${z.hitRatePercent}%
-  Target: ${fmtVal(z.yearlyTarget)} | Achievement: ${z.achievementPercent}% | Balance BU: ${fmtVal(z.balanceBU)}
-  Won: ${z.wonCount} | Lost: ${z.lostCount}`).join('\n\n')}
+  Offers: ${z.offerCount} | Value: ${fmtVal(z.offersValue)} | Won: ${fmtVal(z.ordersReceived)}
+  Open Funnel: ${fmtVal(z.openFunnel)} | Weighted: ${fmtVal(z.weightedPipeline)}
+  Target: ${fmtVal(z.yearlyTarget)} | Achievement: ${z.achievementPercent}%
+  Stagnant: ${z.stagnantCount} ⚠️`).join('\n\n')}
 
-═══════════════════════════════════════
-📦 PRODUCT-WISE ANALYSIS (Growth Pillar)
-═══════════════════════════════════════
-${ctx.productAnalysis.map(p => `**${p.label} (${p.productType}):**
-  Offers: ${p.offerCount} | Value: ${fmtVal(p.offerValue)} | Won: ${fmtVal(p.wonValue)} (${p.wonCount} deals)
-  Target: ${fmtVal(p.target)} | Achievement: ${p.achievementPercent}% | Hit Rate: ${p.hitRatePercent}%`).join('\n')}
+---
 
-═══════════════════════════════════════
-${ctx.monthlyTrends.slice(-6).map(m => `${m.monthLabel}: T:${fmtVal(m.target)}|O:${fmtVal(m.offerValue)}|W:${fmtVal(m.wonValue)}|Acc:${m.achievementPercent}%`).join('\n')}
+## 🌱 PRODUCT-WISE ANALYSIS (Growth Pillar)
 
-═══════════════════════════════════════
-📈 QUARTERLY ANALYSIS (Forecast Quarterly)
-═══════════════════════════════════════
-${ctx.quarters.map(q => `${q.name}: Won ${fmtVal(q.wonValue)} | Pipeline ${fmtVal(q.offerValue)} | BU Target ${fmtVal(q.bu)} | Deviation ${q.deviation > 0 ? '+' : ''}${q.deviation}%`).join('\n')}
+${ctx.productAnalysis.map(p => `**${p.label}:**
+  Offers: ${p.offerCount} | Won: ${fmtVal(p.wonValue)} | Target: ${fmtVal(p.target)} | Acc: ${p.achievementPercent}%`).join('\n')}
 
-═══════════════════════════════════════
-🔄 STAGE BREAKDOWN
-═══════════════════════════════════════
-${Object.entries(ctx.byStage).map(([stage, d]) => `${stage}: ${d.count} offers (${fmtVal(d.value)})`).join('\n')}
+---
 
-═══════════════════════════════════════
-${ctx.topWonOffers.slice(0, 5).map((o, i) => `${i + 1}. ${o.ref}|${o.company}|${fmtVal(o.value)}|${o.zone}`).join('\n')}
+## 📈 MONTHLY TRENDS & MoM GROWTH (Growth Report Match)
 
-═══════════════════════════════════════
-💰 HIGH-VALUE PIPELINE (Active)
-═══════════════════════════════════════
-${ctx.highValuePipeline.map((o, i) => `${i + 1}. ${o.ref} — ${o.company} — ${fmtVal(o.value)} — ${o.stage} (${o.probability}% prob) — ${o.zone}`).join('\n')}
+${ctx.monthlyTrends.filter(m => m.offerCount > 0 || m.wonValue > 0).map(m => `**${m.monthLabel}:** Target ${fmtVal(m.target)} | Won ${fmtVal(m.wonValue)} | Acc ${m.achievement}% | Hit Rate ${m.hitRate}% | MoM Growth ${m.growthPercent !== null ? (m.growthPercent > 0 ? '+' : '') + m.growthPercent + '%' : '-'}`).join('\n')}
 
-═══════════════════════════════════════
-👤 SALES PERSON PERFORMANCE
-═══════════════════════════════════════
-${ctx.topSalesPersons.map((u, i) => `${i + 1}. ${u.name}: ${u.offers} offers, ${fmtVal(u.wonValue)} won (${u.wonCount} deals)`).join('\n')}
+---
 
-═══════════════════════════════════════
-📝 RECENT OFFERS (Latest 10)
-═══════════════════════════════════════
-${ctx.recentOffers.map(o => `${o.ref} | ${o.company} | ${fmtVal(o.value)} | ${o.stage} | ${o.zone} | ${o.date}`).join('\n')}
+## 🔮 FORWARD FORECAST (PO Expected Month)
+
+${ctx.forwardForecast.map(f => `**${f.monthLabel}:** ${f.offerCount} offers | Expected: ${fmtVal(f.value)} | Weighted: ${fmtVal(f.weighted)}`).join('\n')}
+
+---
+
+## 📅 QUARTERLY ANALYSIS (Forecast Quarterly)
+
+${ctx.quarters.map(q => `${q.name}: Won ${fmtVal(q.wonValue)} | Pipeline ${fmtVal(q.pipelineValue)} | BU Target ${fmtVal(q.bu)} | Deviation ${q.deviation > 0 ? '+' : ''}${q.deviation}%`).join('\n')}
+
+---
+
+## 🏆 SALES PERSON ACHIEVEMENT (Expanded & Monthly Breakdown)
+
+${ctx.salesPersonPerformance.map((u, i) => `${i + 1}. ${u.name}: Target ${fmtVal(u.target)} | Won ${fmtVal(u.wonValue)} (${u.achievement}%) | Open Funnel ${fmtVal(u.openFunnel)}
+    - Monthly: ${u.monthlyStr}`).join('\n')}
+
+---
+
+## 📈 LEAD STATUS (Source Sentiment)
+
+${Object.entries(ctx.byLead).map(([status, count]) => `${status}: ${count} offers`).join('\n')}
+
+---
+
+## 💬 RECENT QUALITATIVE REMARKS
+
+${ctx.recentRemarks.map(r => `-${r.offer.offerReferenceNumber} (${r.offer.company}) @${r.stage}: "${r.remarks}"`).join('\n')}
+
+---
+
+## ⚖️ HIGH-VALUE PIPELINE (Active & Risks)
+
+${ctx.highValuePipeline.map((o, i) => `${i + 1}. ${o.ref} - ${o.company} - ${fmtVal(o.value)} - ${o.stage} (${o.probability}% prob) - ${o.isStagnant ? 'STAGNANT ⚠️' : 'Active'}`).join('\n')}
+
+---
+
+## 🏢 CUSTOMER CONCENTRATION (Top Pipeline Risks)
+
+${ctx.topCustomerRisks.map((c, i) => `${i + 1}. ${c.name}: ${fmtVal(c.value)} (${c.count} offers)`).join('\n')}
 
 **Response Guidelines:**
-1. Always use specific numbers from the data — never make up data.
-2. Currency in ₹, formatted in Lakhs (L) or Crores (Cr).
-3. Compare performance across zones, products, months — highlight gaps.
-4. Reference what the Growth Pillar, Forecast, and Offer Summary pages show.
-5. When discussing targets, always show: Target vs Won vs Gap vs Achievement%.
-6. Use ⚠️ for risks, ✅ for strengths, 📈 for growth, 📉 for decline.
-7. Provide actionable recommendations tied to specific numbers.
-8. Use bullet points and markdown formatting.`;
+1. Always use specific numbers from the data - never make up data.
+2. Compare Actual vs Target for Zones/Sales Persons.
+3. Highlight **Stagnant Offers** as immediate risks for follow-up.
+4. Use the **Recent Remarks** to provide qualitative context on WHY deals are moving or stuck.
+5. Use the **Forward Forecast** to discuss future revenue visibility.
+6. Provide actionable recommendations based on gap analysis.
+7. Currency in ₹, formatted in Lakhs (L) or Crores (Cr).`;
 }
-
-
 
 /**
  * POST /api/admin/ai/chat
  */
-export async function chatAboutOffers(req: AuthenticatedRequest, res: Response) {
+export async function offerAIChat(req: AuthenticatedRequest, res: Response) {
   try {
     if (!aiService.isConfigured()) {
       return res.status(503).json({ error: 'AI service not configured', message: 'Please add API keys to .env' });
@@ -550,7 +685,7 @@ export async function chatAboutOffers(req: AuthenticatedRequest, res: Response) 
 /**
  * POST /api/admin/ai/chat/clear
  */
-export async function clearChat(req: AuthenticatedRequest, res: Response) {
+export async function clearOfferAIChat(req: AuthenticatedRequest, res: Response) {
   const sessionId = `admin-offers-${req.user!.id}`;
   aiService.clearChatSession(sessionId);
   // Also clear context cache to force refresh on next interaction
@@ -561,13 +696,13 @@ export async function clearChat(req: AuthenticatedRequest, res: Response) {
 /**
  * GET /api/admin/ai/status
  */
-export async function getAIStatus(req: AuthenticatedRequest, res: Response) {
+export async function getOfferAIStatus(req: AuthenticatedRequest, res: Response) {
   return res.json({
     configured: aiService.isConfigured(),
     providers: {
       gemini: { configured: !!process.env.GEMINI_API_KEY, model: 'gemini-2.0-flash' },
       groq: { configured: !!process.env.GROQ_API_KEY, model: 'llama-3.3-70b-versatile' },
     },
-    fallback: 'Gemini → Groq (automatic)',
+    fallback: 'Gemini > Groq (automatic)',
   });
 }

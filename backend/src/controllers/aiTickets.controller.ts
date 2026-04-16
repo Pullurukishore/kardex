@@ -737,7 +737,7 @@ ${ctx.recentTickets.map(t =>
  * POST /api/admin/ai/ticket-chat
  * Interactive chat about ticket data.
  */
-export async function chatAboutTickets(req: AuthenticatedRequest, res: Response) {
+export async function ticketAIChat(req: AuthenticatedRequest, res: Response) {
   try {
     if (!aiService.isConfigured()) {
       return res.status(503).json({ error: 'AI service not configured', message: 'Please add API keys to .env' });
@@ -764,7 +764,7 @@ export async function chatAboutTickets(req: AuthenticatedRequest, res: Response)
  * POST /api/admin/ai/ticket-chat/clear
  * Clear the ticket chat session.
  */
-export async function clearTicketChat(req: AuthenticatedRequest, res: Response) {
+export async function clearTicketAIChat(req: AuthenticatedRequest, res: Response) {
   const sessionId = `admin-tickets-${req.user!.id}`;
   aiService.clearChatSession(sessionId);
   // Also clear context cache to force refresh on next interaction

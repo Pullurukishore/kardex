@@ -151,13 +151,18 @@ const applyHeaderStyle = (cell: any): void => {
     cell.border = thinBorder(COLORS.headerBg)
 }
 
-const applyDataCell = (cell: any, bgColor: string, isNumber = false): void => {
+const applyDataCell = (cell: any, bgColor: string, isNumber = false, isCurrency = false, isPercent = false): void => {
     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgColor } }
     cell.border = thinBorder()
     cell.alignment = { horizontal: isNumber ? 'right' : 'left', vertical: 'middle' }
+    if (typeof cell.value === 'number') {
+        if (isPercent) cell.numFmt = '0.0%'
+        else if (isCurrency) cell.numFmt = '[$₹-en-IN]#,##0'
+        else cell.numFmt = '#,##0'
+    }
 }
 
-const applyTotalRow = (cell: any, isGrand = false): void => {
+const applyTotalRow = (cell: any, isGrand = false, isCurrency = false, isPercent = false): void => {
     cell.font = { bold: true, color: { argb: isGrand ? COLORS.headerText : COLORS.textDark }, size: 10 }
     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isGrand ? COLORS.grandTotalBg : COLORS.totalRowBg } }
     cell.border = {
@@ -166,7 +171,12 @@ const applyTotalRow = (cell: any, isGrand = false): void => {
         bottom: { style: 'medium' as const, color: { argb: COLORS.headerBg } },
         right: { style: 'thin' as const, color: { argb: COLORS.headerBg } },
     }
-    cell.alignment = { horizontal: 'center', vertical: 'middle' }
+    cell.alignment = { horizontal: isCurrency || isPercent || typeof cell.value === 'number' ? 'right' : 'center', vertical: 'middle' }
+    if (typeof cell.value === 'number') {
+        if (isPercent) cell.numFmt = '0.0%'
+        else if (isCurrency) cell.numFmt = '[$₹-en-IN]#,##0'
+        else cell.numFmt = '#,##0'
+    }
 }
 
 // ============ Sheet 1: KPI Summary ============
@@ -205,11 +215,11 @@ function generateSummarySheet(workbook: any, data: GrowthPillarExcelData): void 
 
     // KPI Row
     const kpis = [
-        { label: 'Total Target', value: fmtCurrency(data.totals.target), sub: `${data.totals.offerCount} offers`, accent: COLORS.kpiTarget },
-        { label: 'Offer Value', value: fmtCurrency(data.totals.offerValue), sub: `${data.totals.offerCount} offers created`, accent: COLORS.kpiOffer },
-        { label: 'Won Value', value: fmtCurrency(data.totals.wonValue), sub: `${data.totals.wonCount} orders won`, accent: COLORS.kpiWon },
-        { label: 'Achievement', value: `${data.totals.achievementPercent}%`, sub: 'Won / Target', accent: COLORS.kpiAchieve },
-        { label: 'Hit Rate', value: `${data.totals.hitRatePercent}%`, sub: 'Won / Offer Value', accent: COLORS.kpiHitRate },
+        { label: 'Total Target', value: data.totals.target, sub: `${data.totals.offerCount} offers`, accent: COLORS.kpiTarget, isPercent: false },
+        { label: 'Offer Value', value: data.totals.offerValue, sub: `${data.totals.offerCount} offers created`, accent: COLORS.kpiOffer, isPercent: false },
+        { label: 'Won Value', value: data.totals.wonValue, sub: `${data.totals.wonCount} orders won`, accent: COLORS.kpiWon, isPercent: false },
+        { label: 'Achievement', value: data.totals.achievementPercent / 100, sub: 'Won / Target', accent: COLORS.kpiAchieve, isPercent: true },
+        { label: 'Hit Rate', value: data.totals.hitRatePercent / 100, sub: 'Won / Offer Value', accent: COLORS.kpiHitRate, isPercent: true },
     ]
 
     // KPI labels
@@ -233,6 +243,9 @@ function generateSummarySheet(workbook: any, data: GrowthPillarExcelData): void 
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.rowEven } }
         cell.alignment = { horizontal: 'center', vertical: 'middle' }
         cell.border = thinBorder()
+        if (typeof kpi.value === 'number') {
+            cell.numFmt = kpi.isPercent ? '0.0%' : '[$₹-en-IN]#,##0'
+        }
     })
     ws.getRow(row).height = 32
     row++
@@ -273,30 +286,32 @@ function generateSummarySheet(workbook: any, data: GrowthPillarExcelData): void 
         data.productData.forEach((p, idx) => {
             const bgColor = idx % 2 === 0 ? COLORS.rowEven : COLORS.rowOdd
             const pColor = COLORS.product[idx % COLORS.product.length]
-            const rowData = [
+            const rowData: (string | number | null)[] = [
                 p.productLabel,
-                fmtCurrency(p.target),
-                fmtCurrency(p.offerValue),
-                fmtCurrency(p.wonValue),
+                p.target,
+                p.offerValue,
+                p.wonValue,
                 p.offerCount,
                 p.wonCount,
-                `${p.achievementPercent}%`,
-                `${p.hitRatePercent}%`,
+                p.achievementPercent / 100,
+                p.hitRatePercent / 100,
             ]
             rowData.forEach((val, colIdx) => {
                 const cell = ws.getCell(row, colIdx + 1)
-                cell.value = val
-                applyDataCell(cell, bgColor, colIdx > 0)
+                cell.value = val === null ? '—' : val
+                const isCurrency = colIdx >= 1 && colIdx <= 3
+                const isPercent = colIdx === 6 || colIdx === 7
+                applyDataCell(cell, bgColor, colIdx > 0, isCurrency, isPercent)
                 if (colIdx === 0) {
                     cell.font = { bold: true, color: { argb: pColor } }
                 }
                 if (colIdx === 6) {
                     const ach = p.achievementPercent
                     cell.font = { bold: true, color: { argb: ach >= 100 ? COLORS.positive : ach >= 50 ? COLORS.warning : COLORS.negative } }
-                    cell.alignment = { horizontal: 'center', vertical: 'middle' }
+                    cell.alignment = { horizontal: 'right', vertical: 'middle' }
                 }
                 if (colIdx === 7) {
-                    cell.alignment = { horizontal: 'center', vertical: 'middle' }
+                    cell.alignment = { horizontal: 'right', vertical: 'middle' }
                 }
             })
             row++
@@ -327,6 +342,18 @@ function generateMonthlySheet(workbook: any, data: GrowthPillarExcelData): void 
     titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.headerBg } }
     titleCell.alignment = { horizontal: 'center', vertical: 'middle' }
     ws.getRow(row).height = 30
+    row++
+
+    // Subtitle
+    ws.mergeCells(`A${row}:I${row}`)
+    const subCell = ws.getCell(`A${row}`)
+    const zoneName = data.filters.zoneId ? data.filters.zones.find(z => z.id === data.filters.zoneId)?.name || 'Zone' : 'All Zones'
+    const userName = data.filters.userId ? data.filters.users.find(u => u.id === data.filters.userId)?.name || '' : ''
+    subCell.value = `${MONTH_NAMES[data.fromMonth - 1]} – ${MONTH_NAMES[data.toMonth - 1]} ${data.year}  |  ${zoneName}${userName ? `  |  ${userName}` : ''}`
+    subCell.font = { size: 10, italic: true, color: { argb: COLORS.textLight } }
+    subCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.titleBg } }
+    subCell.alignment = { horizontal: 'center', vertical: 'middle' }
+    ws.getRow(row).height = 22
     row += 2
 
     // Headers
@@ -342,22 +369,24 @@ function generateMonthlySheet(workbook: any, data: GrowthPillarExcelData): void 
     // Monthly data rows
     data.monthlyData.forEach((d, idx) => {
         const bgColor = idx % 2 === 0 ? COLORS.rowEven : COLORS.rowOdd
-        const rowData: (string | number)[] = [
+        const rowData: (string | number | null)[] = [
             d.monthLabel,
-            fmtCurrency(d.target),
-            fmtCurrency(d.offerValue),
-            fmtCurrency(d.wonValue),
+            d.target,
+            d.offerValue,
+            d.wonValue,
             d.offerCount,
             d.wonCount,
-            `${d.achievementPercent}%`,
-            `${d.hitRatePercent}%`,
-            d.growthPercent !== null ? `${d.growthPercent >= 0 ? '+' : ''}${d.growthPercent}%` : '—',
+            d.achievementPercent / 100,
+            d.hitRatePercent / 100,
+            d.growthPercent !== null ? d.growthPercent / 100 : null,
         ]
 
         rowData.forEach((val, colIdx) => {
             const cell = ws.getCell(row, colIdx + 1)
-            cell.value = val
-            applyDataCell(cell, bgColor, colIdx > 0)
+            cell.value = val === null ? '—' : val
+            const isCurrency = colIdx >= 1 && colIdx <= 3
+            const isPercent = colIdx >= 6 && colIdx <= 8
+            applyDataCell(cell, bgColor, colIdx > 0, isCurrency, isPercent)
 
             if (colIdx === 0) cell.font = { bold: true, color: { argb: COLORS.textDark } }
 
@@ -365,40 +394,42 @@ function generateMonthlySheet(workbook: any, data: GrowthPillarExcelData): void 
             if (colIdx === 6) {
                 const ach = d.achievementPercent
                 cell.font = { bold: true, color: { argb: ach >= 100 ? COLORS.positive : ach >= 50 ? COLORS.warning : COLORS.negative } }
-                cell.alignment = { horizontal: 'center', vertical: 'middle' }
+                cell.alignment = { horizontal: 'right', vertical: 'middle' }
             }
 
             // Growth color
             if (colIdx === 8 && d.growthPercent !== null) {
                 cell.font = { bold: true, color: { argb: d.growthPercent >= 0 ? COLORS.positive : COLORS.negative } }
-                cell.alignment = { horizontal: 'center', vertical: 'middle' }
+                cell.alignment = { horizontal: 'right', vertical: 'middle' }
             }
 
             // Center align percentage columns
             if (colIdx === 7 || colIdx === 8) {
-                cell.alignment = { horizontal: 'center', vertical: 'middle' }
+                cell.alignment = { horizontal: 'right', vertical: 'middle' }
             }
         })
         row++
     })
 
     // Totals row
-    const totalData: (string | number)[] = [
+    const totalData: (string | number | null)[] = [
         'TOTAL',
-        fmtCurrency(data.totals.target),
-        fmtCurrency(data.totals.offerValue),
-        fmtCurrency(data.totals.wonValue),
+        data.totals.target,
+        data.totals.offerValue,
+        data.totals.wonValue,
         data.totals.offerCount,
         data.totals.wonCount,
-        `${data.totals.achievementPercent}%`,
-        `${data.totals.hitRatePercent}%`,
-        '—',
+        data.totals.achievementPercent / 100,
+        data.totals.hitRatePercent / 100,
+        null,
     ]
 
     totalData.forEach((val, colIdx) => {
         const cell = ws.getCell(row, colIdx + 1)
-        cell.value = val
-        applyTotalRow(cell, true)
+        cell.value = val === null ? '—' : val
+        const isCurrency = colIdx >= 1 && colIdx <= 3
+        const isPercent = colIdx >= 6 && colIdx <= 8
+        applyTotalRow(cell, true, isCurrency, isPercent)
     })
     ws.getRow(row).height = 26
 
@@ -427,6 +458,18 @@ function generateProductMonthlySheet(workbook: any, data: GrowthPillarExcelData)
     titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.headerBg } }
     titleCell.alignment = { horizontal: 'center', vertical: 'middle' }
     ws.getRow(row).height = 30
+    row++
+
+    // Subtitle
+    ws.mergeCells(`A${row}:H${row}`)
+    const subCell = ws.getCell(`A${row}`)
+    const zoneName = data.filters.zoneId ? data.filters.zones.find(z => z.id === data.filters.zoneId)?.name || 'Zone' : 'All Zones'
+    const userName = data.filters.userId ? data.filters.users.find(u => u.id === data.filters.userId)?.name || '' : ''
+    subCell.value = `${MONTH_NAMES[data.fromMonth - 1]} – ${MONTH_NAMES[data.toMonth - 1]} ${data.year}  |  ${zoneName}${userName ? `  |  ${userName}` : ''}`
+    subCell.font = { size: 10, italic: true, color: { argb: COLORS.textLight } }
+    subCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.titleBg } }
+    subCell.alignment = { horizontal: 'center', vertical: 'middle' }
+    ws.getRow(row).height = 22
     row += 2
 
     // For each product
@@ -459,51 +502,55 @@ function generateProductMonthlySheet(workbook: any, data: GrowthPillarExcelData)
         // Monthly rows
         product.monthlyData.forEach((m, idx) => {
             const bgColor = idx % 2 === 0 ? COLORS.rowEven : COLORS.rowOdd
-            const rowData: (string | number)[] = [
+            const rowData: (string | number | null)[] = [
                 m.monthLabel.slice(0, 3),
-                fmtCurrency(m.target),
-                fmtCurrency(m.offerValue),
-                fmtCurrency(m.wonValue),
+                m.target,
+                m.offerValue,
+                m.wonValue,
                 m.offerCount,
                 m.wonCount,
-                `${m.achievementPercent}%`,
-                m.growthPercent !== null ? `${m.growthPercent >= 0 ? '+' : ''}${m.growthPercent}%` : '—',
+                m.achievementPercent / 100,
+                m.growthPercent !== null ? m.growthPercent / 100 : null,
             ]
 
             rowData.forEach((val, colIdx) => {
                 const cell = ws.getCell(row, colIdx + 1)
-                cell.value = val
-                applyDataCell(cell, bgColor, colIdx > 0)
+                cell.value = val === null ? '—' : val
+                const isCurrency = colIdx >= 1 && colIdx <= 3
+                const isPercent = colIdx === 6 || colIdx === 7
+                applyDataCell(cell, bgColor, colIdx > 0, isCurrency, isPercent)
 
                 if (colIdx === 0) cell.font = { bold: true, color: { argb: COLORS.textDark } }
                 if (colIdx === 6) {
                     const ach = m.achievementPercent
                     cell.font = { bold: true, color: { argb: ach >= 100 ? COLORS.positive : ach >= 50 ? COLORS.warning : COLORS.negative } }
-                    cell.alignment = { horizontal: 'center', vertical: 'middle' }
+                    cell.alignment = { horizontal: 'right', vertical: 'middle' }
                 }
                 if (colIdx === 7 && m.growthPercent !== null) {
                     cell.font = { bold: true, color: { argb: m.growthPercent >= 0 ? COLORS.positive : COLORS.negative } }
-                    cell.alignment = { horizontal: 'center', vertical: 'middle' }
+                    cell.alignment = { horizontal: 'right', vertical: 'middle' }
                 }
             })
             row++
         })
 
         // Product total row
-        const productTotal: (string | number)[] = [
+        const productTotal: (string | number | null)[] = [
             'TOTAL',
-            fmtCurrency(product.target),
-            fmtCurrency(product.offerValue),
-            fmtCurrency(product.wonValue),
+            product.target,
+            product.offerValue,
+            product.wonValue,
             product.offerCount,
             product.wonCount,
-            `${product.achievementPercent}%`,
-            '—',
+            product.achievementPercent / 100,
+            null,
         ]
         productTotal.forEach((val, colIdx) => {
             const cell = ws.getCell(row, colIdx + 1)
-            cell.value = val
-            applyTotalRow(cell, false)
+            cell.value = val === null ? '—' : val
+            const isCurrency = colIdx >= 1 && colIdx <= 3
+            const isPercent = colIdx === 6 || colIdx === 7
+            applyTotalRow(cell, false, isCurrency, isPercent)
         })
         ws.getRow(row).height = 24
         row += 2 // gap between products
@@ -532,6 +579,18 @@ function generateInsightsSheet(workbook: any, data: GrowthPillarExcelData): void
     titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.headerBg } }
     titleCell.alignment = { horizontal: 'center', vertical: 'middle' }
     ws.getRow(row).height = 30
+    row++
+
+    // Subtitle
+    ws.mergeCells(`A${row}:C${row}`)
+    const subCell = ws.getCell(`A${row}`)
+    const zoneName = data.filters.zoneId ? data.filters.zones.find(z => z.id === data.filters.zoneId)?.name || 'Zone' : 'All Zones'
+    const userName = data.filters.userId ? data.filters.users.find(u => u.id === data.filters.userId)?.name || '' : ''
+    subCell.value = `${MONTH_NAMES[data.fromMonth - 1]} – ${MONTH_NAMES[data.toMonth - 1]} ${data.year}  |  ${zoneName}${userName ? `  |  ${userName}` : ''}`
+    subCell.font = { size: 10, italic: true, color: { argb: COLORS.textLight } }
+    subCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.titleBg } }
+    subCell.alignment = { horizontal: 'center', vertical: 'middle' }
+    ws.getRow(row).height = 22
     row += 2
 
     const insightSections: { title: string; items: InsightItem[]; color: string }[] = [
@@ -639,13 +698,16 @@ export async function exportGrowthPillarToExcel(data: GrowthPillarExcelData): Pr
     generateInsightsSheet(workbook, data)
 
     // Generate filename
-    const zoneName = data.filters.zoneId
+    const zoneLabel = data.filters.zoneId
         ? data.filters.zones.find(z => z.id === data.filters.zoneId)?.name?.replace(/\s+/g, '_') || 'Zone'
         : 'All_Zones'
+    const userLabel = data.filters.userId
+        ? `${data.filters.users.find(u => u.id === data.filters.userId)?.name?.replace(/\s+/g, '_')}_`
+        : ''
     const dateStr = new Date().toISOString().split('T')[0]
     const fromM = MONTH_NAMES[data.fromMonth - 1].substring(0, 3)
     const toM = MONTH_NAMES[data.toMonth - 1].substring(0, 3)
-    const filename = `Growth_Pillar_${data.year}_${fromM}-${toM}_${zoneName}_${dateStr}.xlsx`
+    const filename = `${userLabel}${zoneLabel}_Growth_Pillar_${data.year}_${fromM}-${toM}_${dateStr}.xlsx`
 
     // Write buffer and trigger download
     const buffer = await workbook.xlsx.writeBuffer()

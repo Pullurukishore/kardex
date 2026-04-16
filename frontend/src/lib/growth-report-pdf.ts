@@ -559,7 +559,8 @@ export async function generateGrowthPillarPdf(data: GrowthPillarPdfData): Promis
     drawFooter(doc, pageNum.val)
 
     // Save
-    const zoneName = data.filters.zoneId ? data.filters.zones.find(z => z.id === data.filters.zoneId)?.name?.replace(/\s+/g, '_') : 'All_Zones'
-    const fileName = `Growth_Pillar_${data.year}_${MONTH_NAMES[data.fromMonth - 1].substring(0, 3)}-${MONTH_NAMES[data.toMonth - 1].substring(0, 3)}_${zoneName}.pdf`
+    const zoneLabel = data.filters.zoneId ? data.filters.zones.find(z => z.id === data.filters.zoneId)?.name?.replace(/\s+/g, '_') : 'All_Zones'
+    const userLabel = data.filters.userId ? `${data.filters.users.find(u => u.id === data.filters.userId)?.name?.replace(/\s+/g, '_')}_` : ''
+    const fileName = `${userLabel}${zoneLabel}_Growth_Pillar_${data.year}_${MONTH_NAMES[data.fromMonth - 1].substring(0, 3)}-${MONTH_NAMES[data.toMonth - 1].substring(0, 3)}.pdf`
     doc.save(fileName)
 }
