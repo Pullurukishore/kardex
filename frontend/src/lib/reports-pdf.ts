@@ -292,45 +292,6 @@ async function generateTicketAnalyticsPdf(
     })
     y += 40
 
-    // ── STATUS DISTRIBUTION TABLE ──
-    const statusEntries = Object.entries(statusDistribution)
-    if (statusEntries.length > 0) {
-        y = ensurePage(doc, y, 50, pageNum, reportTitle, subtitle, logoBase64, reportTitle)
-        y = drawSectionTitle(doc, y, 'STATUS DISTRIBUTION', COLORS.sectionBlue)
-
-        const totalStatusCount = statusEntries.reduce((sum, [, count]) => sum + (count as number), 0)
-
-        autoTable(doc, {
-            startY: y,
-            head: [['Status', 'Count', 'Percentage', 'Visual']],
-            body: statusEntries
-                .sort(([, a], [, b]) => (b as number) - (a as number))
-                .map(([status, count]) => {
-                    const pct = totalStatusCount > 0 ? ((count as number) / totalStatusCount * 100).toFixed(1) : '0'
-                    const bar = '|'.repeat(Math.min(Math.round((count as number) / totalStatusCount * 30), 30))
-                    return [
-                        status.replace(/_/g, ' '),
-                        String(count),
-                        `${pct}%`,
-                        bar
-                    ]
-                }),
-            theme: 'grid',
-            headStyles: {
-                fillColor: COLORS.sectionBlue,
-                textColor: COLORS.white,
-                fontSize: 7, fontStyle: 'bold', halign: 'center',
-            },
-            bodyStyles: { fontSize: 7, textColor: COLORS.textBody, halign: 'center' },
-            columnStyles: {
-                0: { halign: 'left', fontStyle: 'bold', textColor: COLORS.textDark, cellWidth: 55 },
-                3: { halign: 'left', textColor: COLORS.sectionBlue, fontStyle: 'bold', fontSize: 5 },
-            },
-            margin: { left: 15, right: 15 },
-        })
-        y = (doc as any).lastAutoTable.finalY + 8
-    }
-
     // ── CALL TYPE DISTRIBUTION TABLE ──
     const callTypeEntries = Object.entries(callTypeDistribution)
     if (callTypeEntries.length > 0) {
@@ -368,12 +329,15 @@ async function generateTicketAnalyticsPdf(
         y = ensurePage(doc, y, 50, pageNum, reportTitle, subtitle, logoBase64, reportTitle)
         y = drawSectionTitle(doc, y, 'ZONE-WISE TICKET DISTRIBUTION', COLORS.headerBg)
 
-        const totalZoneTickets = zoneDistribution.reduce((sum: number, z: any) => sum + (z.count || 0), 0)
+        const totalZoneTickets = zoneDistribution
+            .filter((z: any) => !filters.zoneId || z.zoneId?.toString() === filters.zoneId)
+            .reduce((sum: number, z: any) => sum + (z.count || 0), 0)
 
         autoTable(doc, {
             startY: y,
             head: [['Zone', 'Total', 'Resolved', 'Open', 'Critical', 'Res. Rate', 'Avg Res.', 'Share']],
             body: zoneDistribution
+                .filter((z: any) => !filters.zoneId || z.zoneId?.toString() === filters.zoneId)
                 .sort((a: any, b: any) => (b.count || 0) - (a.count || 0))
                 .map((zone: any) => {
                     const total = zone.count || 0
@@ -382,7 +346,7 @@ async function generateTicketAnalyticsPdf(
                     const crt = zone.criticalCount || 0
                     const resRate = total > 0 ? ((resolved / total) * 100).toFixed(0) : '0'
                     const avgResHrs = zone.avgResolutionMinutes ? fmtHours(zone.avgResolutionMinutes / 60) : '-'
-                    const bar = '|'.repeat(Math.min(Math.round((total / (totalZoneTickets || 1)) * 25), 25))
+                    const sharePct = totalZoneTickets > 0 ? ((total / totalZoneTickets) * 100).toFixed(1) : '0'
                     return [
                         zone.zoneName || 'Unknown', 
                         String(total),
@@ -391,7 +355,7 @@ async function generateTicketAnalyticsPdf(
                         String(crt),
                         `${resRate}%`,
                         avgResHrs,
-                        bar
+                        `${sharePct}%`
                     ]
                 }),
             theme: 'grid',
@@ -429,7 +393,7 @@ async function generateTicketAnalyticsPdf(
     // ── CUSTOMER DISTRIBUTION TABLE ──
     if (customerDistribution.length > 0) {
         y = ensurePage(doc, y, 50, pageNum, reportTitle, subtitle, logoBase64, reportTitle)
-        y = drawSectionTitle(doc, y, 'TOP CUSTOMERS BY TICKET VOLUME', COLORS.sectionSand)
+        y = drawSectionTitle(doc, y, 'CUSTOMER-WISE TICKET DISTRIBUTION', COLORS.sectionSand)
 
         const totalCustTickets = customerDistribution.reduce((sum: number, c: any) => sum + (c.count || 0), 0)
 
@@ -437,8 +401,8 @@ async function generateTicketAnalyticsPdf(
             startY: y,
             head: [['#', 'Customer', 'Tickets', 'Percentage']],
             body: customerDistribution
+                .filter((customer: any) => (customer.count || 0) > 0)
                 .sort((a: any, b: any) => (b.count || 0) - (a.count || 0))
-                .slice(0, 15)
                 .map((customer: any, idx: number) => {
                     const pct = totalCustTickets > 0 ? ((customer.count / totalCustTickets) * 100).toFixed(1) : '0'
                     const name = customer.customerName?.length > 35
@@ -529,49 +493,78 @@ async function generateTicketAnalyticsPdf(
     })
     y += 24
 
-    // ── KEY INSIGHTS ──
-    if (insights) {
-        y = ensurePage(doc, y, 60, pageNum, reportTitle, subtitle, logoBase64, reportTitle)
-        y = drawSectionTitle(doc, y, 'KEY INSIGHTS & PERFORMANCE HIGHLIGHTS', COLORS.sectionPurple)
+    // ── KEY INSIGHTS & PERFORMANCE HIGHLIGHTS ──
+    y = ensurePage(doc, y, 70, pageNum, reportTitle, subtitle, logoBase64, reportTitle)
+    y = drawSectionTitle(doc, y, 'KEY INSIGHTS & PERFORMANCE HIGHLIGHTS', COLORS.sectionPurple)
 
-        const insightItems: { text: string; type: string }[] = []
+    const insightItems: { text: string; type: string }[] = []
 
-        if (insights.topPerformingZone) {
-            insightItems.push({ text: `Top Performing Zone: ${insights.topPerformingZone}`, type: 'success' })
-        }
-        if (insights.mostActiveCustomer) {
-            insightItems.push({ text: `Most Active Customer: ${insights.mostActiveCustomer}`, type: 'info' })
-        }
-        if (insights.topAssignee) {
-            insightItems.push({ text: `Top Assignee: ${insights.topAssignee}`, type: 'success' })
-        }
-        if (insights.worstPerformingCustomer) {
-            insightItems.push({ text: `Needs Attention: ${insights.worstPerformingCustomer}`, type: 'warning' })
-        }
-        if (resolutionRate >= 90) {
-            insightItems.push({ text: `Excellent resolution rate of ${resolutionRate.toFixed(1)}% - well above industry benchmark`, type: 'success' })
-        } else if (resolutionRate >= 70) {
-            insightItems.push({ text: `Good resolution rate of ${resolutionRate.toFixed(1)}% - room for improvement`, type: 'info' })
-        } else if (resolutionRate > 0) {
-            insightItems.push({ text: `Resolution rate of ${resolutionRate.toFixed(1)}% is below target - prioritize ticket closure`, type: 'warning' })
-        }
+    // 1. Overall Efficiency Insight
+    const overallResRatePct = resolutionRate.toFixed(1)
+    if (resolutionRate >= 85) {
+        insightItems.push({ text: `Operational Excellence: Outstanding overall resolution rate of ${overallResRatePct}% exceeds internal benchmarks.`, type: 'success' })
+    } else if (resolutionRate >= 70) {
+        insightItems.push({ text: `Steady Performance: Resolution rate at ${overallResRatePct}% indicates stable service delivery with potential for optimization.`, type: 'info' })
+    } else {
+        insightItems.push({ text: `Service Focus Required: Current resolution rate of ${overallResRatePct}% is below the target threshold. Prioritizing ticket closures is recommended.`, type: 'warning' })
+    }
 
-        if (totalOnsiteVisits > 0 && totalTickets > 0) {
-            const onsitePct = ((totalOnsiteVisits / totalTickets) * 100).toFixed(0)
-            insightItems.push({ text: `${onsitePct}% of tickets required onsite visits (${totalOnsiteVisits} visits)`, type: 'info' })
+    // 2. Zone Performance Insight
+    if (zoneDistribution.length > 0) {
+        const sortedZones = [...zoneDistribution].sort((a: any, b: any) => {
+            const rateA = a.count > 0 ? (a.resolvedCount / a.count) : 0
+            const rateB = b.count > 0 ? (b.resolvedCount / b.count) : 0
+            return rateB - rateA
+        })
+        const bestZone = sortedZones[0]
+        const bestRate = bestZone.count > 0 ? ((bestZone.resolvedCount / bestZone.count) * 100).toFixed(1) : '0'
+        
+        if (parseFloat(bestRate) > resolutionRate) {
+            insightItems.push({ text: `Top Performing Zone: ${bestZone.zoneName || 'Unknown'} is leading with a ${bestRate}% resolution rate across ${bestZone.count} tickets.`, type: 'success' })
         }
 
-        // Add recommendations
-        insightItems.push({ text: 'Recommendation: Focus on reducing first response time to improve customer satisfaction', type: 'action' })
-        if (summary.criticalTickets > 0) {
-            insightItems.push({ text: `Action Required: ${summary.criticalTickets} critical tickets need immediate attention`, type: 'error' })
+        const criticalZone = [...zoneDistribution].sort((a: any, b: any) => (b.criticalCount || 0) - (a.criticalCount || 0))[0]
+        if (criticalZone && criticalZone.criticalCount > 0) {
+            insightItems.push({ text: `Critical Load Alert: ${criticalZone.zoneName} has reported the highest volume of critical issues (${criticalZone.criticalCount}).`, type: 'error' })
         }
+    }
 
-        for (const item of insightItems) {
-            y = ensurePage(doc, y, 12, pageNum, reportTitle, subtitle, logoBase64, reportTitle)
-            const rowH = drawInsightRow(doc, 20, y, pageW - 40, item.text, item.type)
-            y += rowH
+    // 3. Customer & Volume Insight
+    if (customerDistribution.length > 0) {
+        const topCust = [...customerDistribution].sort((a: any, b: any) => (b.count || 0) - (a.count || 0))[0]
+        insightItems.push({ text: `Volume Concentration: ${topCust.customerName} represents the highest ticket demand in this period (${topCust.count} tickets).`, type: 'info' })
+    }
+
+    // 4. Time & SLA Insights
+    if (summary.averageFirstResponseTime > 0) {
+        const resTimeHrs = summary.averageResolutionTime / 60
+        if (resTimeHrs > 48) {
+            insightItems.push({ text: `SLA Optimization: Average resolution time of ${avgResolutionTime} suggests complex issue handling. Reviewing remote diagnostic tools may help reduce onsite dependency.`, type: 'action' })
         }
+        if (summary.averageFirstResponseTime <= 60) {
+            insightItems.push({ text: `First Response Excellence: Average initial response time of ${avgFirstResponse} ensures high customer confidence.`, type: 'success' })
+        } else if (summary.averageFirstResponseTime > 240) {
+            insightItems.push({ text: `Responsiveness Alert: Average first response time of ${avgFirstResponse} is increasing. Early engagement is key to maintaining customer satisfaction.`, type: 'warning' })
+        }
+    }
+
+    // 5. Service Strategy
+    const onsitePct = totalTickets > 0 ? ((totalOnsiteVisits / totalTickets) * 100).toFixed(0) : '0'
+    if (parseInt(onsitePct) > 50) {
+        insightItems.push({ text: `Service Strategy: ${onsitePct}% of tickets required onsite visits. Exploring 'Kardex Connect' or remote support modules could significantly reduce travel overhead.`, type: 'action' })
+    }
+
+    // 6. Actionable Recommendation
+    if (summary.criticalTickets > 0) {
+        insightItems.push({ text: `Immediate Action: ${summary.criticalTickets} tickets are currently flagged as CRITICAL. Expedited resource allocation is required for these items.`, type: 'error' })
+    } else {
+        insightItems.push({ text: 'Continuous Improvement: Focus on preemptive maintenance scheduling to further reduce unscheduled breakdowns.', type: 'action' })
+    }
+
+    for (const item of insightItems.slice(0, 7)) { // Show up to 7 key insights
+        y = ensurePage(doc, y, 12, pageNum, reportTitle, subtitle, logoBase64, reportTitle)
+        const rowH = drawInsightRow(doc, 20, y, pageW - 40, item.text, item.type)
+        y += rowH
     }
 
     drawFooter(doc, pageNum.val, reportTitle)

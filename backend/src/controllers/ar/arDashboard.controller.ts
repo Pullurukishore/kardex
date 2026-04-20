@@ -140,7 +140,7 @@ export const getEssentialDashboard = async (req: Request, res: Response) => {
             // All unpaid invoices for aging - Strictly REGULAR
             safeFindMany(prisma.aRInvoice.findMany({
                 where: {
-                    status: { not: 'PAID' },
+                    status: { notIn: ['PAID', 'CANCELLED'] },
                     invoiceType: 'REGULAR'
                 },
                 select: {
@@ -196,7 +196,10 @@ export const getEssentialDashboard = async (req: Request, res: Response) => {
             ),
             // All milestone invoices (for milestones section)
             safeFindMany(prisma.aRInvoice.findMany({
-                where: { invoiceType: 'MILESTONE' },
+                where: { 
+                    invoiceType: 'MILESTONE',
+                    status: { notIn: ['PAID', 'CANCELLED'] }
+                },
                 select: {
                     id: true,
                     soNo: true,
@@ -317,7 +320,7 @@ export const getEssentialDashboard = async (req: Request, res: Response) => {
                 remainingReceipts -= collectedForTerm;
 
                 const pendingForTerm = Math.max(0, allocatedAmount - collectedForTerm);
-                const isPaid = allocatedAmount > 0 ? (collectedForTerm / allocatedAmount) >= 0.99 : true;
+                const isPaid = pendingForTerm < 0.01;
 
                 // Track Stages Breakdown
                 const label = (term.label || term.termType || '').toLowerCase();

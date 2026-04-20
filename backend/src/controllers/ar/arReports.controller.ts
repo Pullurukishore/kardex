@@ -273,6 +273,7 @@ export const getInvoiceDetailReport = async (req: Request, res: Response) => {
                 actualPaymentTerms: invoice.actualPaymentTerms,
                 deliveryStatus: invoice.deliveryStatus,
                 daysOverdue: Math.max(0, daysOverdue),
+                dueByDays: daysOverdue,
                 agingBucket: agingBucketLabel,
                 collectionPercentage: Math.round(collectionPercentage * 100) / 100,
                 paymentCount: invPayments.length,
@@ -662,7 +663,7 @@ export const getMilestoneDetailReport = async (req: Request, res: Response) => {
                 genericPool -= fromGeneric;
 
                 const pending = Math.max(0, allocatedAmount - collected);
-                const isPaid = allocatedAmount > 0 ? (collected / allocatedAmount) >= 0.99 : true;
+                const isPaid = pending < 0.01;
 
                 const deadlineDate = new Date(term.termDate);
                 deadlineDate.setHours(0, 0, 0, 0);

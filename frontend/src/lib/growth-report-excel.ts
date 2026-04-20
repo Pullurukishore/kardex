@@ -811,14 +811,30 @@ function generateForecastProductZoneSheet(workbook: any, data: GrowthPillarExcel
         'KARDEX_CONNECT': 'Kardex Connect',
         'RELOCATION': 'Relocation',
         'SOFTWARE': 'Software',
-        'OTHERS': 'Others',
-        'RETROFIT_KIT': 'Retrofit kit',
-        'UPGRADE_KIT': 'Upgrade kit',
+        'OTHERS': 'Repairs & Others',
+        'RETROFIT_KIT': 'Retrofit Kit',
+        'UPGRADE_KIT': 'Optilife Upgrade',
         'TRAINING': 'Training'
     } as Record<string, string>
 
-    // Get all standard product types
-    const activeProducts = Object.keys(productLabels).sort()
+    // Merge labels from forecast data if available to ensure sync with dashboard 'page names'
+    const dataLabels = data.forecastData?.puz?.productTypes || data.forecastData?.pwf?.productTypes || []
+    dataLabels.forEach((p: any) => {
+        if (p.key && p.label) productLabels[p.key] = p.label
+    })
+
+    // Get all product types from the actual data + standard ones
+    const dataProductKeys = new Set<string>()
+    pwfData.zones.forEach((z: any) => {
+        z.users?.forEach((u: any) => {
+            u.products?.forEach((p: any) => {
+                if (p.productType) dataProductKeys.add(p.productType)
+            })
+        })
+    })
+
+    // Combine standard products (to ensure they shown even if 0) and data products
+    const activeProducts = Array.from(new Set([...Object.keys(productLabels), ...Array.from(dataProductKeys)])).sort()
 
     // Title
     ws.mergeCells(row, 1, row, months.length + 3)

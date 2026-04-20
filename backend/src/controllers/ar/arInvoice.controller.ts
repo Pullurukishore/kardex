@@ -244,20 +244,9 @@ export const getAllInvoices = async (req: Request, res: Response) => {
             let isOverdue = false;
 
             if (invoice.invoiceType === 'MILESTONE' && invoice.milestoneTerms) {
-                // For milestone invoices, calculate aging from the earliest term date
+                // For milestone invoices, calculate aging from the earliest UNPAID past-due term date
                 const terms = invoice.milestoneTerms as any[];
                 if (Array.isArray(terms) && terms.length > 0) {
-                    const earliestTerm = terms.reduce((earliest: any, term: any) => {
-                        if (!earliest || new Date(term.termDate) < new Date(earliest.termDate)) return term;
-                        return earliest;
-                    }, null);
-                    if (earliestTerm?.termDate) {
-                        dueByDays = calculateDaysBetween(new Date(earliestTerm.termDate), today);
-                    }
-
-                    // Calculate if this milestone is dynamically overdue
-                    // A milestone is overdue if ANY term past its due date has unpaid balance
-                    // Uses FIFO receipt allocation matching the dashboard logic
                     const netAmount = Number(invoice.netAmount || 0) || Number(invoice.totalAmount || 0);
                     const totalTax = Number(invoice.taxAmount || 0);
                     const sortedTermsForOverdue = [...terms].sort((a: any, b: any) => new Date(a.termDate).getTime() - new Date(b.termDate).getTime());
@@ -265,6 +254,7 @@ export const getAllInvoices = async (req: Request, res: Response) => {
                     let remainingPayments = totalPaymentsForInv;
                     let hasAnyOverdueTerm = false;
                     let totalAllocated = 0;
+                    let earliestUnpaidPastDueDate: Date | null = null;
 
                     for (const term of sortedTermsForOverdue) {
                         const percentage = term.percentage || 0;
@@ -281,20 +271,30 @@ export const getAllInvoices = async (req: Request, res: Response) => {
                         const collectedForTerm = Math.min(allocatedAmount, Math.max(0, remainingPayments));
                         remainingPayments -= collectedForTerm;
                         const pendingForTerm = Math.max(0, allocatedAmount - collectedForTerm);
-                        const isTermPaid = allocatedAmount > 0 ? (collectedForTerm / allocatedAmount) >= 0.99 : true;
+                        const isTermPaid = pendingForTerm < 0.01;
 
                         if (term.termDate) {
                             const deadlineDate = new Date(term.termDate);
                             deadlineDate.setHours(0, 0, 0, 0);
+                            
                             if (today.getTime() > deadlineDate.getTime()) {
                                 // This term is past due
                                 if (!isTermPaid && pendingForTerm > 0.01) {
                                     isOverdue = true;
-                                    break;
+                                    if (!earliestUnpaidPastDueDate) {
+                                        earliestUnpaidPastDueDate = deadlineDate;
+                                    }
                                 }
                                 hasAnyOverdueTerm = true;
                             }
                         }
+                    }
+
+                    // Calculate dueByDays based on the earliest unpaid past-due term
+                    if (earliestUnpaidPastDueDate) {
+                        dueByDays = calculateDaysBetween(earliestUnpaidPastDueDate, today);
+                    } else {
+                        dueByDays = 0; // Not overdue = Current in aging
                     }
 
                     // Fallback: if all term allocations were 0 (missing percentage data)
@@ -304,10 +304,13 @@ export const getAllInvoices = async (req: Request, res: Response) => {
                         const invBalance = Number(invoice.totalAmount || 0) - totalPaymentsForInv;
                         if (invBalance > 0.01) {
                             isOverdue = true;
+                            // For fallback, use the earliest term's date for aging
+                            const earliestTerm = sortedTermsForOverdue[0];
+                            if (earliestTerm?.termDate) {
+                                dueByDays = calculateDaysBetween(new Date(earliestTerm.termDate), today);
+                            }
                         }
                     }
-
-
                 }
             } else if (invoice.dueDate) {
                 // calculateDaysBetween should handle Date objects

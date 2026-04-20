@@ -2138,17 +2138,20 @@ async function getTicketSummaryData(whereClause: any, startDate: Date, endDate: 
 
   let avgResolutionTime = 0;
   if (resolvedTickets.length > 0) {
-    const totalTime = resolvedTickets.reduce((sum: number, ticket: any) => {
-      const resolutionMinutes = calculateTicketResolutionMinutes(
+    const resolutionTimes = resolvedTickets
+      .map((ticket: any) => calculateTicketResolutionMinutes(
         ticket.actualResolutionTime,
         ticket.relatedMachineIds,
         ticket.createdAt,
         ticket.updatedAt,
         ticket.visitCompletedDate
-      );
-      return sum + resolutionMinutes;
-    }, 0);
-    avgResolutionTime = Math.round(totalTime / resolvedTickets.length);
+      ))
+      .filter(time => time > 0);
+
+    if (resolutionTimes.length > 0) {
+      const totalTime = resolutionTimes.reduce((sum, time) => sum + time, 0);
+      avgResolutionTime = Math.round(totalTime / resolutionTimes.length);
+    }
   }
 
   // Enhanced ticket data with all required fields

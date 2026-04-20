@@ -13,7 +13,6 @@ import {
   Zap,
   Clock,
   History,
-  Image as ImageIcon,
   TrendingUp,
   Brain,
 } from "lucide-react";
@@ -153,14 +152,6 @@ export const adminNavigation: NavItem[] = [
         roles: [UserRole.ADMIN],
         iconColor: "text-[#546A7A]",
         iconBgColor: "bg-[#6F8A9D]/10"
-      },
-      {
-        title: "Image Management",
-        href: "/admin/image-management",
-        icon: ImageIcon,
-        roles: [UserRole.ADMIN],
-        iconColor: "text-[#546A7A]",
-        iconBgColor: "bg-[#96AEC2]/10"
       }
     ]
   },
@@ -676,14 +667,6 @@ export const adminTicketsNavigation: NavItem[] = [
     roles: [UserRole.ADMIN],
     iconColor: "text-[#546A7A]",
     iconBgColor: "bg-[#6F8A9D]/10",
-  },
-  {
-    title: "Image Management",
-    href: "/admin/image-management",
-    icon: ImageIcon,
-    roles: [UserRole.ADMIN],
-    iconColor: "text-[#546A7A]",
-    iconBgColor: "bg-[#96AEC2]/10"
   },
 ];
 

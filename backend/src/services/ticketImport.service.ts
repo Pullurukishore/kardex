@@ -72,7 +72,8 @@ function parseTimeToMinutes(timeStr: string | null): number | null {
     if (parts.length >= 2) {
         const hours = parseInt(parts[0]) || 0;
         const minutes = parseInt(parts[1]) || 0;
-        return (hours * 60) + minutes;
+        const total = (hours * 60) + minutes;
+        return total;
     }
     return null;
 }

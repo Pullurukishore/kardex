@@ -906,7 +906,11 @@ export default function ARReportsPage() {
   const toggleRow = (id: string) => {
     setExpandedRows(prev => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
+      if (next.has(id)) next.delete(id); else {
+        // Option to only have one expanded row at a time for cleaner layout if file is massive
+        // next.clear(); 
+        next.add(id);
+      }
       return next;
     });
   };
@@ -1399,34 +1403,6 @@ export default function ARReportsPage() {
             <KpiCard icon={TrendingUp} label="Collection Rate" value={`${computedInvSummary.collectionRate}%`} sub={`${computedInvSummary.paidCount} fully paid`} gradient="bg-gradient-to-br from-[#CE9F6B] to-[#976E44]" />
           </div>
 
-          {/* Distribution Cards */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Aging Distribution */}
-            <div className="bg-white rounded-2xl border-2 border-[#AEBFC3]/30 p-5 shadow-sm">
-              <h3 className="font-bold text-[#546A7A] text-sm mb-3 flex items-center gap-2"><Timer className="w-4 h-4 text-[#6F8A9D]" /> Aging Distribution</h3>
-              <div className="space-y-2">
-                {[
-                  { k: 'current', l: 'Current', c: 'bg-[#82A094]' }, { k: '1-30', l: '1-30 Days', c: 'bg-[#6F8A9D]' },
-                  { k: '31-60', l: '31-60 Days', c: 'bg-[#CE9F6B]' }, { k: '61-90', l: '61-90 Days', c: 'bg-[#E17F70]' },
-                  { k: '90+', l: '90+ Days', c: 'bg-[#9E3B47]' },
-                ].map(b => (
-                  <DistBar key={b.k} label={b.l} count={computedInvSummary.agingDistribution[b.k]?.count || 0}
-                    amount={computedInvSummary.agingDistribution[b.k]?.amount || 0} total={computedInvSummary.totalOutstanding} color={b.c} />
-                ))}
-              </div>
-            </div>
-            {/* Risk Distribution */}
-            <div className="bg-white rounded-2xl border-2 border-[#AEBFC3]/30 p-5 shadow-sm">
-              <h3 className="font-bold text-[#546A7A] text-sm mb-3 flex items-center gap-2"><Shield className="w-4 h-4 text-[#6F8A9D]" /> Risk Distribution</h3>
-              <div className="space-y-2">
-                {['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].map(r => {
-                  const colors: Record<string,string> = { LOW: 'bg-[#82A094]', MEDIUM: 'bg-[#CE9F6B]', HIGH: 'bg-[#E17F70]', CRITICAL: 'bg-[#9E3B47]' };
-                  return <DistBar key={r} label={r} count={computedInvSummary.riskDistribution[r]?.count || 0}
-                    amount={computedInvSummary.riskDistribution[r]?.amount || 0} total={computedInvSummary.totalOutstanding} color={colors[r]} />;
-                })}
-              </div>
-            </div>
-          </div>
 
           {/* Exact Match Invoice Table (Aligned with invoices/page.tsx) */}
           <div className="hidden md:block relative bg-white rounded-[2rem] border-2 border-[#AEBFC3]/30 overflow-hidden shadow-xl mb-6">
@@ -1451,37 +1427,37 @@ export default function ARReportsPage() {
               <table className="w-full border-collapse">
                 <thead className="sticky top-0 z-20">
                   <tr>
-                    <th className="text-left py-3 px-4 border-b-2 border-[#546A7A]/30 bg-gradient-to-r from-[#546A7A]/10 to-[#546A7A]/5 text-[10px] font-bold uppercase text-[#546A7A] cursor-pointer" onClick={() => handleSort('invoiceNumber')}>
+                    <th className="text-left py-4 px-4 border-b-2 border-[#546A7A]/30 bg-gradient-to-r from-[#546A7A]/10 to-[#546A7A]/5 text-[11px] font-black uppercase text-[#546A7A] cursor-pointer whitespace-nowrap" onClick={() => handleSort('invoiceNumber')}>
                       Invoice <SortIcon field="invoiceNumber" />
                     </th>
-                    <th className="text-left py-3 px-4 border-b-2 border-[#6F8A9D]/30 bg-gradient-to-r from-[#6F8A9D]/10 to-[#6F8A9D]/5 text-[10px] font-bold uppercase text-[#6F8A9D] cursor-pointer" onClick={() => handleSort('customerName')}>
+                    <th className="text-left py-4 px-4 border-b-2 border-[#6F8A9D]/30 bg-gradient-to-r from-[#6F8A9D]/10 to-[#6F8A9D]/5 text-[11px] font-black uppercase text-[#6F8A9D] cursor-pointer min-w-[200px]" onClick={() => handleSort('customerName')}>
                       Customer <SortIcon field="customerName" />
                     </th>
-                    <th className="text-left py-3 px-4 border-b-2 border-[#976E44]/30 bg-gradient-to-r from-[#976E44]/10 to-[#976E44]/5 text-[10px] font-bold uppercase text-[#976E44] cursor-pointer" onClick={() => handleSort('type')}>
+                    <th className="text-left py-4 px-4 border-b-2 border-[#976E44]/30 bg-gradient-to-r from-[#976E44]/10 to-[#976E44]/5 text-[11px] font-black uppercase text-[#976E44] cursor-pointer whitespace-nowrap" onClick={() => handleSort('type')}>
                       Type <SortIcon field="type" />
                     </th>
-                    <th className="text-left py-3 px-4 border-b-2 border-[#82A094]/30 bg-gradient-to-r from-[#82A094]/10 to-[#82A094]/5 text-[10px] font-bold uppercase text-[#4F6A64] cursor-pointer" onClick={() => handleSort('invoiceDate')}>
+                    <th className="text-left py-4 px-4 border-b-2 border-[#82A094]/30 bg-gradient-to-r from-[#82A094]/10 to-[#82A094]/5 text-[11px] font-black uppercase text-[#4F6A64] cursor-pointer whitespace-nowrap" onClick={() => handleSort('invoiceDate')}>
                       Date <SortIcon field="invoiceDate" />
                     </th>
-                    <th className="text-left py-3 px-4 border-b-2 border-[#E17F70]/30 bg-gradient-to-r from-[#E17F70]/10 to-[#E17F70]/5 text-[10px] font-bold uppercase text-[#E17F70] cursor-pointer" onClick={() => handleSort('dueDate')}>
+                    <th className="text-left py-4 px-4 border-b-2 border-[#E17F70]/30 bg-gradient-to-r from-[#E17F70]/10 to-[#E17F70]/5 text-[11px] font-black uppercase text-[#E17F70] cursor-pointer whitespace-nowrap" onClick={() => handleSort('dueDate')}>
                       Due Date <SortIcon field="dueDate" />
                     </th>
-                    <th className="text-right py-3 px-4 border-b-2 border-[#4F6A64]/30 bg-gradient-to-r from-[#4F6A64]/10 to-[#4F6A64]/5 text-[10px] font-bold uppercase text-[#4F6A64] cursor-pointer" onClick={() => handleSort('totalAmount')}>
+                    <th className="text-right py-4 px-4 border-b-2 border-[#4F6A64]/30 bg-gradient-to-r from-[#4F6A64]/10 to-[#4F6A64]/5 text-[11px] font-black uppercase text-[#4F6A64] cursor-pointer whitespace-nowrap" onClick={() => handleSort('totalAmount')}>
                       Total <SortIcon field="totalAmount" />
                     </th>
-                    <th className="text-right py-3 px-4 border-b-2 border-[#96AEC2]/30 bg-gradient-to-r from-[#96AEC2]/10 to-[#96AEC2]/5 text-[10px] font-bold uppercase text-[#6F8A9D] cursor-pointer" onClick={() => handleSort('totalReceipts')}>
+                    <th className="text-right py-4 px-4 border-b-2 border-[#96AEC2]/30 bg-gradient-to-r from-[#96AEC2]/10 to-[#96AEC2]/5 text-[11px] font-black uppercase text-[#6F8A9D] cursor-pointer whitespace-nowrap" onClick={() => handleSort('totalReceipts')}>
                       Received <SortIcon field="totalReceipts" />
                     </th>
-                    <th className="text-right py-3 px-4 border-b-2 border-[#9E3B47]/30 bg-gradient-to-r from-[#9E3B47]/10 to-[#9E3B47]/5 text-[10px] font-bold uppercase text-[#9E3B47] cursor-pointer" onClick={() => handleSort('balance')}>
+                    <th className="text-right py-4 px-4 border-b-2 border-[#9E3B47]/30 bg-gradient-to-r from-[#9E3B47]/10 to-[#9E3B47]/5 text-[11px] font-black uppercase text-[#9E3B47] cursor-pointer whitespace-nowrap" onClick={() => handleSort('balance')}>
                       Balance <SortIcon field="balance" />
                     </th>
-                    <th className="text-center py-3 px-4 border-b-2 border-[#5D6E73]/30 bg-gradient-to-r from-[#5D6E73]/10 to-[#5D6E73]/5 text-[10px] font-bold uppercase text-[#5D6E73] cursor-pointer" onClick={() => handleSort('riskClass')}>
+                    <th className="text-center py-4 px-4 border-b-2 border-[#5D6E73]/30 bg-gradient-to-r from-[#5D6E73]/10 to-[#5D6E73]/5 text-[11px] font-black uppercase text-[#5D6E73] cursor-pointer whitespace-nowrap" onClick={() => handleSort('riskClass')}>
                       Risk <SortIcon field="riskClass" />
                     </th>
-                    <th className="text-center py-3 px-4 border-b-2 border-[#75242D]/30 bg-gradient-to-r from-[#75242D]/10 to-[#75242D]/5 text-[10px] font-bold uppercase text-[#5D6E73] cursor-pointer" onClick={() => handleSort('status')}>
+                    <th className="text-center py-4 px-4 border-b-2 border-[#75242D]/30 bg-gradient-to-r from-[#75242D]/10 to-[#75242D]/5 text-[11px] font-black uppercase text-[#5D6E73] cursor-pointer whitespace-nowrap" onClick={() => handleSort('status')}>
                       Status <SortIcon field="status" />
                     </th>
-                    <th className="text-center py-3 px-3 border-b-2 border-[#AEBFC3]/30 bg-[#AEBFC3]/5 text-[10px] font-bold uppercase text-[#546A7A] w-12">View</th>
+                    <th className="text-center py-4 px-3 border-b-2 border-[#AEBFC3]/30 bg-[#AEBFC3]/5 text-[11px] font-black uppercase text-[#546A7A] w-12">View</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#AEBFC3]/15">
@@ -1511,9 +1487,9 @@ export default function ARReportsPage() {
                               <div className="font-bold text-[#546A7A] text-[13px]">{inv.invoiceNumber}</div>
                               {inv.poNo && <div className="text-[10px] text-white bg-gradient-to-r from-[#976E44] to-[#CE9F6B] px-1.5 py-0.5 rounded inline-block mt-0.5 font-bold tracking-tighter">PO: {inv.poNo}</div>}
                             </td>
-                            <td className="py-3 px-4">
-                              <div className="text-sm font-semibold truncate max-w-[150px] text-[#546A7A]">{inv.customerName}</div>
-                              <div className="text-[10px] text-[#92A2A5] font-bold">{inv.bpCode}</div>
+                            <td className="py-4 px-4">
+                              <div className="text-sm font-bold text-[#546A7A] leading-snug">{inv.customerName}</div>
+                              <div className="text-[10px] text-[#92A2A5] font-black uppercase mt-0.5">{inv.bpCode}</div>
                             </td>
                             <td className="py-3 px-4">
                                <span className="text-[10px] font-bold px-2 py-1 bg-gradient-to-r from-[#82A094]/20 to-[#4F6A64]/20 text-[#4F6A64] rounded-lg border border-[#82A094]/30">{inv.type || '-'}</span>
@@ -1705,9 +1681,9 @@ export default function ARReportsPage() {
         const agBdg = getAgingBadge(r.daysOverdue || r.maxOverdueDays || 0, r.agingBucket);
         const goUrl = isInv ? `/finance/ar/invoices/${encodeURIComponent(r.invoiceNumber)}` : `/finance/ar/milestones/${r.id}`;
         const DetailRow = ({ label, value, color, bold }: { label: string; value: any; color?: string; bold?: boolean }) => (
-          <div className="flex items-center justify-between py-2.5 border-b border-[#AEBFC3]/10 last:border-0">
-            <span className="text-[11px] text-[#92A2A5] font-bold uppercase tracking-wider">{label}</span>
-            <span className={`text-sm ${bold ? 'font-bold' : 'font-semibold'} ${color || 'text-[#546A7A]'}`}>{value || '-'}</span>
+          <div className="flex items-center justify-between py-2 border-b border-[#AEBFC3]/10 last:border-0">
+            <span className="text-[10px] text-[#92A2A5] font-black uppercase tracking-widest">{label}</span>
+            <span className={`text-[13px] ${bold ? 'font-black' : 'font-bold'} ${color || 'text-[#546A7A]'} pl-4 text-right`}>{value || '-'}</span>
           </div>
         );
         const SectionHead = ({ icon: SI, title, grad }: { icon: any; title: string; grad: string }) => (
@@ -1791,7 +1767,12 @@ export default function ARReportsPage() {
                   <div className="bg-[#F8FAFB] rounded-xl p-4 space-y-0">
                     {isInv && (
                       <>
-                        <DetailRow label="Days Overdue" value={r.daysOverdue > 0 ? `${r.daysOverdue} days` : 'Current'} color={r.daysOverdue > 0 ? 'text-[#9E3B47]' : 'text-[#82A094]'} bold />
+                        <DetailRow 
+                          label={r.dueByDays > 0 ? "Days Overdue" : "Aging Days"} 
+                          value={r.dueByDays > 0 ? `${r.dueByDays} days overdue` : (r.dueByDays < 0 ? `${Math.abs(r.dueByDays)} days remaining` : 'Due Today')} 
+                          color={r.dueByDays > 0 ? 'text-[#9E3B47]' : 'text-[#82A094]'} 
+                          bold 
+                        />
                         <div className="flex items-center justify-between py-2.5 border-b border-[#AEBFC3]/10">
                           <span className="text-[11px] text-[#92A2A5] font-bold uppercase tracking-wider">Aging Bucket</span>
                           <span className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border ${agBdg.cls}`}>{agBdg.label}</span>
@@ -1898,61 +1879,6 @@ export default function ARReportsPage() {
             <KpiCard icon={PackageCheck} label="Completed Stages" value={String(computedMsSummary.completedTerms)} sub={`${computedMsSummary.totalTerms > 0 ? Math.round((computedMsSummary.completedTerms / computedMsSummary.totalTerms) * 100) : 0}% done`} gradient="bg-gradient-to-br from-[#4F6A64] to-[#82A094]" />
           </div>
 
-          {/* Distribution Cards */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            {/* Payment Status */}
-            <div className="bg-white rounded-2xl border-2 border-[#AEBFC3]/30 p-5 shadow-sm">
-              <h3 className="font-bold text-[#546A7A] text-sm mb-3 flex items-center gap-2"><PieChart className="w-4 h-4 text-[#6F8A9D]" /> Payment Status</h3>
-              <div className="space-y-2">
-                {[
-                  { k: 'paid', l: 'Paid', c: 'bg-[#82A094]' }, { k: 'partial', l: 'Partial', c: 'bg-[#CE9F6B]' },
-                  { k: 'pending', l: 'Pending', c: 'bg-[#96AEC2]' }, { k: 'overdue', l: 'Overdue', c: 'bg-[#E17F70]' },
-                ].map(s => (
-                  <div key={s.k} className="flex items-center gap-2">
-                    <div className={`w-2.5 h-2.5 rounded-full ${s.c}`} />
-                    <span className="text-xs font-semibold text-[#546A7A] w-16">{s.l}</span>
-                    <div className="flex-1 h-4 bg-[#F0F4F5] rounded-lg overflow-hidden">
-                      <div className={`h-full ${s.c} rounded-lg`} style={{ width: `${computedMsSummary.totalMilestones > 0 ? ((computedMsSummary.statusBreakdown[s.k] || 0) / computedMsSummary.totalMilestones) * 100 : 0}%` }} />
-                    </div>
-                    <span className="text-xs font-bold text-[#546A7A] w-8 text-right">{computedMsSummary.statusBreakdown[s.k] || 0}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            {/* Accounting Status */}
-            <div className="bg-white rounded-2xl border-2 border-[#AEBFC3]/30 p-5 shadow-sm">
-              <h3 className="font-bold text-[#546A7A] text-sm mb-3 flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-[#82A094]" /> Accounting Status</h3>
-              <div className="space-y-3 mt-4">
-                <div className="flex items-center justify-between p-3 rounded-xl bg-[#82A094]/10 border border-[#82A094]/20">
-                  <span className="text-xs font-bold text-[#4F6A64]">Revenue Recognised</span>
-                  <span className="text-lg font-bold text-[#4F6A64]">{computedMsSummary.accountingBreakdown.revenueRecognised}</span>
-                </div>
-                <div className="flex items-center justify-between p-3 rounded-xl bg-[#E17F70]/10 border border-[#E17F70]/20">
-                  <span className="text-xs font-bold text-[#9E3B47]">Backlog</span>
-                  <span className="text-lg font-bold text-[#9E3B47]">{computedMsSummary.accountingBreakdown.backlog}</span>
-                </div>
-              </div>
-            </div>
-            {/* Type Breakdown */}
-            <div className="bg-white rounded-2xl border-2 border-[#AEBFC3]/30 p-5 shadow-sm">
-              <h3 className="font-bold text-[#546A7A] text-sm mb-3 flex items-center gap-2"><Tag className="w-4 h-4 text-[#CE9F6B]" /> By Type</h3>
-              <div className="space-y-2">
-                {Object.entries(computedMsSummary.typeBreakdown || {}).map(([type, data]: [string, any]) => (
-                  <div key={type} className="flex items-center justify-between p-2.5 rounded-xl bg-[#F8FAFB] border border-[#AEBFC3]/20 hover:border-[#6F8A9D]/30 transition-colors">
-                    <div>
-                      <span className="text-xs font-bold text-[#546A7A]">{type}</span>
-                      <div className="text-[9px] text-[#92A2A5]">{data.count} items</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-xs font-bold text-[#4F6A64]">{formatARCurrency(data.amount)}</div>
-                      <div className="text-[9px] text-[#E17F70] font-bold">OS: {formatARCurrency(data.outstanding)}</div>
-                    </div>
-                  </div>
-                ))}
-                {Object.keys(computedMsSummary.typeBreakdown || {}).length === 0 && <p className="text-xs text-[#92A2A5] text-center py-4">No type data</p>}
-              </div>
-            </div>
-          </div>
 
           {/* High-Fidelity Milestone Table (Desktop) */}
           <div className="hidden md:block relative bg-white rounded-2xl border-2 border-[#6F8A9D]/30 overflow-hidden shadow-xl">
@@ -1978,22 +1904,22 @@ export default function ARReportsPage() {
                     <th className="w-12 py-4 px-3 border-b-2 border-[#6F8A9D]/20 text-center">
                        <div className="w-2 h-2 rounded-full bg-[#6F8A9D]/30 mx-auto" />
                     </th>
-                    <th className="text-left py-4 px-4 border-b-2 border-[#6F8A9D]/20 text-xs font-bold uppercase text-[#6F8A9D] tracking-wide cursor-pointer hover:bg-[#6F8A9D]/5 transition-colors" onClick={() => handleSort('soNo')}>
-                      Sales Order Info <SortIcon field="soNo" />
+                    <th className="text-left py-4 px-4 border-b-2 border-[#6F8A9D]/20 text-[11px] font-black uppercase text-[#6F8A9D] tracking-wide cursor-pointer hover:bg-[#6F8A9D]/5 transition-colors whitespace-nowrap min-w-[120px]" onClick={() => handleSort('soNo')}>
+                      Sales Order <SortIcon field="soNo" />
                     </th>
-                    <th className="text-left py-4 px-4 border-b-2 border-[#6F8A9D]/20 text-xs font-bold uppercase text-[#976E44] tracking-wide cursor-pointer hover:bg-[#CE9F6B]/5 transition-colors" onClick={() => handleSort('poNo')}>
-                      PO References <SortIcon field="poNo" />
+                    <th className="text-left py-4 px-4 border-b-2 border-[#6F8A9D]/20 text-[11px] font-black uppercase text-[#976E44] tracking-wide cursor-pointer hover:bg-[#CE9F6B]/5 transition-colors whitespace-nowrap min-w-[120px]" onClick={() => handleSort('poNo')}>
+                      References <SortIcon field="poNo" />
                     </th>
-                    <th className="text-left py-4 px-4 border-b-2 border-[#6F8A9D]/20 text-xs font-bold uppercase text-[#546A7A] tracking-wide cursor-pointer hover:bg-[#546A7A]/5 transition-colors" onClick={() => handleSort('customerName')}>
-                      Customer Profile <SortIcon field="customerName" />
+                    <th className="text-left py-4 px-4 border-b-2 border-[#6F8A9D]/20 text-[11px] font-black uppercase text-[#546A7A] tracking-wide cursor-pointer hover:bg-[#546A7A]/5 transition-colors min-w-[220px]" onClick={() => handleSort('customerName')}>
+                      Customer <SortIcon field="customerName" />
                     </th>
-                    <th className="text-left py-4 px-4 border-b-2 border-[#6F8A9D]/20 text-xs font-bold uppercase text-[#546A7A] tracking-wide">Operational Context</th>
-                    <th className="text-left py-4 px-4 border-b-2 border-[#6F8A9D]/20 text-xs font-bold uppercase text-[#CE9F6B] tracking-wide">Recent Activity</th>
-                    <th className="text-right py-4 px-4 border-b-2 border-[#6F8A9D]/20 text-xs font-bold uppercase text-[#546A7A] tracking-wide cursor-pointer hover:bg-[#546A7A]/5 transition-colors" onClick={() => handleSort('totalAmount')}>
-                      Financial Status <SortIcon field="totalAmount" />
+                    <th className="text-left py-4 px-4 border-b-2 border-[#6F8A9D]/20 text-[11px] font-black uppercase text-[#546A7A] tracking-wide whitespace-nowrap">Context</th>
+                    <th className="text-left py-4 px-4 border-b-2 border-[#6F8A9D]/20 text-[11px] font-black uppercase text-[#CE9F6B] tracking-wide whitespace-nowrap">Latest Remark</th>
+                    <th className="text-right py-4 px-4 border-b-2 border-[#6F8A9D]/20 text-[11px] font-black uppercase text-[#546A7A] tracking-wide cursor-pointer hover:bg-[#546A7A]/5 transition-colors whitespace-nowrap min-w-[140px]" onClick={() => handleSort('totalAmount')}>
+                      Financials <SortIcon field="totalAmount" />
                     </th>
-                    <th className="text-center py-4 px-4 border-b-2 border-[#6F8A9D]/20 text-xs font-bold uppercase text-[#546A7A] tracking-wide">Tracking Summary</th>
-                    <th className="text-center py-4 px-3 border-b-2 border-[#6F8A9D]/20 text-xs font-bold uppercase text-[#546A7A] tracking-wide w-16">View</th>
+                    <th className="text-center py-4 px-4 border-b-2 border-[#6F8A9D]/20 text-[11px] font-black uppercase text-[#546A7A] tracking-wide whitespace-nowrap min-w-[120px]">Tracking</th>
+                    <th className="text-center py-4 px-3 border-b-2 border-[#6F8A9D]/20 text-[11px] font-black uppercase text-[#546A7A] tracking-wide w-16">View</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#AEBFC3]/20">
@@ -2065,18 +1991,18 @@ export default function ARReportsPage() {
                             <td className="py-4 px-4" onClick={(e) => e.stopPropagation()}>
                               <div className="flex flex-col group/cust">
                                 {ms.customerName && (
-                                  <span className="text-sm font-bold text-[#546A7A] mb-1 line-clamp-1">{ms.customerName}</span>
+                                  <span className="text-sm font-bold text-[#546A7A] mb-1 leading-snug">{ms.customerName}</span>
                                 )}
                                 <div className="flex items-center gap-2">
                                   {ms.bpCode ? (
-                                    <span className="px-2 py-0.5 rounded-lg bg-gradient-to-r from-[#6F8A9D]/10 to-[#546A7A]/5 text-[9px] font-bold text-[#546A7A] tracking-tight border border-[#6F8A9D]/20">{ms.bpCode}</span>
+                                    <span className="px-2 py-0.5 rounded-lg bg-gradient-to-r from-[#6F8A9D]/10 to-[#546A7A]/5 text-[9px] font-black uppercase tracking-tight border border-[#6F8A9D]/20">{ms.bpCode}</span>
                                   ) : !ms.customerName && (
                                     <div className="w-16 h-3 bg-[#AEBFC3]/10 rounded animate-pulse" />
                                   )}
                                   {ms.region && ms.region.toUpperCase() !== 'GLOBAL' && (
-                                    <div className="flex items-center gap-1 text-[9px] text-[#92A2A5] font-bold">
+                                    <div className="flex items-center gap-1 text-[9px] text-[#92A2A5] font-black uppercase">
                                       <ShieldCheck className="w-2.5 h-2.5 text-[#82A094]" />
-                                      <span className="uppercase">{ms.region}</span>
+                                      <span>{ms.region}</span>
                                     </div>
                                   )}
                                 </div>
