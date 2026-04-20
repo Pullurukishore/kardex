@@ -147,10 +147,13 @@ export const getEssentialDashboard = async (req: Request, res: Response) => {
                     dueDate: true,
                     balance: true,
                     totalAmount: true,
+                    netAmount: true,
+                    totalReceipts: true,
                     invoiceType: true,
                     milestoneTerms: true,
                     advanceReceivedDate: true,
-                    invoiceDate: true
+                    invoiceDate: true,
+                    status: true
                 }
             })),
             // Critical overdue (top 5) - Strictly REGULAR (Dynamic)
@@ -246,7 +249,44 @@ export const getEssentialDashboard = async (req: Request, res: Response) => {
         };
 
         allUnpaidInvoices.forEach(inv => {
-            const daysOverdue = calculateDaysBetween(inv.dueDate, today);
+            let daysOverdue = 0;
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            if (inv.milestoneTerms && Array.isArray(inv.milestoneTerms) && inv.milestoneTerms.length > 0) {
+                const terms = inv.milestoneTerms as any[];
+                const sortedTerms = [...terms].sort((a, b) => new Date(a.termDate).getTime() - new Date(b.termDate).getTime());
+                
+                const tAmt = Number(inv.totalAmount || 0);
+                const nAmt = Number(inv.netAmount || inv.totalAmount || 0);
+                let remainingReceipts = Number(inv.totalReceipts || 0);
+                
+                let earliestUnpaidPastDueDate: Date | null = null;
+
+                for (const term of sortedTerms) {
+                    const allocatedAmount = (term.calculationBasis !== 'TOTAL_AMOUNT' ? nAmt : tAmt) * (term.percentage || 0) / 100;
+                    const collectedForTerm = Math.min(allocatedAmount, Math.max(0, remainingReceipts));
+                    remainingReceipts -= collectedForTerm;
+                    const pendingForTerm = Math.max(0, allocatedAmount - collectedForTerm);
+                    
+                    if (pendingForTerm > 0.01 && term.termDate) {
+                        const termDate = new Date(term.termDate);
+                        termDate.setHours(0, 0, 0, 0);
+                        if (termDate < today) {
+                            if (!earliestUnpaidPastDueDate) earliestUnpaidPastDueDate = termDate;
+                        }
+                    }
+                }
+                
+                if (earliestUnpaidPastDueDate) {
+                    daysOverdue = calculateDaysBetween(earliestUnpaidPastDueDate, today);
+                } else {
+                    daysOverdue = 0;
+                }
+            } else if (inv.dueDate) {
+                daysOverdue = calculateDaysBetween(inv.dueDate, today);
+            }
+
             const amount = Number(inv.balance ?? inv.totalAmount ?? 0);
 
             if (daysOverdue <= 0) { aging.current.count++; aging.current.amount += amount; }

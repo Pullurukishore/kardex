@@ -551,7 +551,7 @@ export function AdvancedTicketSummaryReport({ reportData }: AdvancedTicketSummar
                     monthlyData[monthKey].created += day.created || 0;
                     monthlyData[monthKey].resolved += day.resolved || 0;
                     monthlyData[monthKey].escalated += day.escalated || 0;
-                    monthlyData[monthKey].pending = monthlyData[monthKey].created - monthlyData[monthKey].resolved;
+                    monthlyData[monthKey].pending += day.pending || 0;
                   });
                   
                   return Object.values(monthlyData).slice(-12); // Last 12 months

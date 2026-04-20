@@ -346,7 +346,7 @@ async function generateTicketSummaryReport(res: Response, whereClause: any, star
     }),
     prisma.ticketStatusHistory.findMany({
       where: {
-        status: { in: ['RESOLVED', 'CLOSED'] },
+        status: { in: ['RESOLVED', 'CLOSED', 'CLOSED_PENDING'] },
         changedAt: { gte: startDate, lte: endDate },
         ticket: whereClause
       },
@@ -365,6 +365,12 @@ async function generateTicketSummaryReport(res: Response, whereClause: any, star
       date: dateStr,
       created: trendCreated.filter(t => t.createdAt >= dStart && t.createdAt <= dEnd).length,
       resolved: trendResolved.filter(h => h.changedAt >= dStart && h.changedAt <= dEnd).length,
+      // Pending = Tickets created on this day that are currently NOT in a resolved/closed state
+      pending: trendCreated.filter(t => 
+        t.createdAt >= dStart && 
+        t.createdAt <= dEnd && 
+        !['RESOLVED', 'CLOSED', 'CLOSED_PENDING'].includes(t.status)
+      ).length,
       escalated: trendCreated.filter(t => t.isEscalated && t.escalatedAt && t.escalatedAt >= dStart && t.escalatedAt <= dEnd).length,
       assigned: trendCreated.filter(t => t.status === 'ASSIGNED' && t.updatedAt >= dStart && t.updatedAt <= dEnd).length
     };
@@ -372,7 +378,7 @@ async function generateTicketSummaryReport(res: Response, whereClause: any, star
 
   // Calculate average resolution time
   const resolvedTickets = tickets.filter((t: { status: string }) =>
-    t.status === 'RESOLVED' || t.status === 'CLOSED'
+    t.status === 'RESOLVED' || t.status === 'CLOSED' || t.status === 'CLOSED_PENDING'
   );
 
   // Calculate average resolution time
@@ -405,7 +411,9 @@ async function generateTicketSummaryReport(res: Response, whereClause: any, star
 
   // Calculate onsite resolution time (Work Hour)
   let avgOnsiteResolutionTime = 0;
-  const closedOrResolvedTickets = tickets.filter((t: any) => t.status === 'CLOSED' || t.status === 'RESOLVED');
+  const closedOrResolvedTickets = tickets.filter((t: any) => 
+    ['CLOSED', 'RESOLVED', 'CLOSED_PENDING'].includes(t.status)
+  );
   if (closedOrResolvedTickets.length > 0) {
     let totalOnsiteTime = 0;
     let validOnsiteTickets = 0;
@@ -1735,31 +1743,30 @@ export const exportReport = async (req: Request, res: Response) => {
             const visitCompletedDate = ticket.visitCompletedDate || findStatus('ONSITE_VISIT_COMPLETED')?.changedAt || null;
             const onsiteStart = ticket.visitInProgressAt || findStatus('ONSITE_VISIT_IN_PROGRESS')?.changedAt || null;
 
-            // Travel time = (Started→Reached) 
-            // Fallback: If Started is missing but we have Reached, we assume a minimal travel or ignore
-            let travelTime = 0;
-            if (visitStartedAt && visitReachedAt) {
-              travelTime = Math.max(0, differenceInMinutes(new Date(visitReachedAt), new Date(visitStartedAt)));
-            } else if (visitReachedAt && ticket.createdAt) {
-              // If we have a reach time but no start time, calculate from creation as a loose fallback
-              travelTime = Math.max(0, differenceInMinutes(new Date(visitReachedAt), new Date(ticket.createdAt)));
-            }
+            // Travel time (uses metadata, status history, and timestamps)
+            const travelTime = calculateTravelMinutes(
+              ticket.relatedMachineIds,
+              ticket.statusHistory,
+              visitStartedAt,
+              visitReachedAt,
+              onsiteStart
+            );
 
-            // Onsite working time = (InProgress→Resolved)
-            let onsiteWorkingTime = 0;
-            if (onsiteStart && visitResolvedAt) {
-              onsiteWorkingTime = Math.max(0, differenceInMinutes(new Date(visitResolvedAt), new Date(onsiteStart)));
-            } else if (visitResolvedAt && visitReachedAt) {
-              // Fallback: If InProgress is missing, use Reached to Resolved
-              onsiteWorkingTime = Math.max(0, differenceInMinutes(new Date(visitResolvedAt), new Date(visitReachedAt)));
-            }
+            // Onsite working time (uses metadata and status history)
+            const onsiteWorkingTime = calculateOnsiteResolutionMinutes(
+              ticket.relatedMachineIds,
+              ticket.statusHistory
+            );
 
-            // Total resolution time (business hours)
-            let totalResolutionTime = 0;
-            if (ticket.status === 'RESOLVED' || ticket.status === 'CLOSED') {
-              const resolutionEnd = visitCompletedDate || visitResolvedAt || ticket.updatedAt;
-              totalResolutionTime = calculateBusinessHoursMinutes(ticket.createdAt, resolutionEnd);
-            }
+            // Total resolution time (business hours, uses actualResolutionTime, metadata, or duration)
+            const totalResolutionTime = calculateTicketResolutionMinutes(
+              ticket.actualResolutionTime,
+              ticket.relatedMachineIds,
+              ticket.createdAt,
+              ticket.updatedAt,
+              visitCompletedDate || visitResolvedAt
+            );
+
             return {
               ...ticket,
               visitPlannedDate,

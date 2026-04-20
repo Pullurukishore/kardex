@@ -164,56 +164,139 @@ export const getAllInvoices = async (req: Request, res: Response) => {
         }
 
         const skip = (Number(page) - 1) * Number(limit);
+        let invoices: any[] = [];
+        let total = 0;
 
-        const [invoices, total] = await Promise.all([
-            prisma.aRInvoice.findMany({
-                where,
-                skip,
-                take: Number(limit),
-                orderBy: { createdAt: 'desc' },
+        // Common select fields for the full fetch
+        const fullSelect = {
+            id: true,
+            invoiceNumber: true,
+            bpCode: true,
+            customerName: true,
+            poNo: true,
+            totalAmount: true,
+            netAmount: true,
+            taxAmount: true,
+            invoiceDate: true,
+            dueDate: true,
+            balance: true,
+            status: true,
+            riskClass: true,
+            region: true,
+            invoiceType: true,
+            totalReceipts: true,
+            linkedMilestoneId: true,
+            advanceReceivedDate: true,
+            deliveryDueDate: true,
+            milestoneStatus: true,
+            type: true,
+            soNo: true,
+            milestoneTerms: true,
+            accountingStatus: true,
+            mailToTSP: true,
+            bookingMonth: true,
+            createdAt: true,
+            remarks: {
+                take: 1,
+                orderBy: { createdAt: 'desc' as const },
                 select: {
                     id: true,
-                    invoiceNumber: true,
-                    bpCode: true,
-                    customerName: true,
-                    poNo: true,
-                    totalAmount: true,
-                    netAmount: true,
-                    taxAmount: true,
-                    invoiceDate: true,
-                    dueDate: true,
-                    balance: true,
-                    status: true,
-                    riskClass: true,
-                    region: true,
-                    invoiceType: true,
-                    totalReceipts: true,
-                    linkedMilestoneId: true,
-                    advanceReceivedDate: true,
-                    deliveryDueDate: true,
-                    milestoneStatus: true,
-                    type: true,
-                    soNo: true,
-                    milestoneTerms: true,
-                    accountingStatus: true,
-                    mailToTSP: true,
-                    bookingMonth: true,
+                    content: true,
                     createdAt: true,
-                    remarks: {
-                        take: 1,
-                        orderBy: { createdAt: 'desc' },
-                        include: {
-                            createdBy: {
-                                select: {
-                                    name: true
-                                }
-                            }
+                    createdBy: {
+                        select: {
+                            name: true
                         }
                     }
                 }
-            }),
-            prisma.aRInvoice.count({ where })
-        ]);
+            }
+        };
+
+        if (agingBucket) {
+            // 1. Fetch all candidates matching the where clause to filter by aging in memory
+            const candidates = await prisma.aRInvoice.findMany({
+                where,
+                select: {
+                    id: true,
+                    invoiceType: true,
+                    dueDate: true,
+                    milestoneTerms: true,
+                    status: true,
+                    totalAmount: true,
+                    netAmount: true,
+                    totalReceipts: true,
+                },
+                orderBy: { createdAt: 'desc' }
+            });
+
+            // 2. Filter candidates by calculating aging for each
+            const bucket = String(agingBucket);
+            const filteredIds = candidates.filter((inv: any) => {
+                let dueByDays = 0;
+                const today = new Date();
+                today.setHours(0,0,0,0);
+
+                if (inv.milestoneTerms && Array.isArray(inv.milestoneTerms) && inv.milestoneTerms.length > 0) {
+                    const terms = inv.milestoneTerms as any[];
+                    const sortedTerms = [...terms].sort((a,b) => new Date(a.termDate).getTime() - new Date(b.termDate).getTime());
+                    
+                    const tAmt = Number(inv.totalAmount || 0);
+                    const nAmt = Number(inv.netAmount || inv.totalAmount || 0);
+                    let remainingReceipts = Number(inv.totalReceipts || 0);
+                    let earliestUnpaidPastDueDate: Date | null = null;
+
+                    for(const term of sortedTerms) {
+                        const allocatedAmount = (term.calculationBasis !== 'TOTAL_AMOUNT' ? nAmt : tAmt) * (term.percentage || 0) / 100;
+                        const collectedForTerm = Math.min(allocatedAmount, Math.max(0, remainingReceipts));
+                        remainingReceipts -= collectedForTerm;
+                        const pendingForTerm = Math.max(0, allocatedAmount - collectedForTerm);
+
+                        if(pendingForTerm > 0.01 && term.termDate) {
+                            const termDate = new Date(term.termDate);
+                            termDate.setHours(0,0,0,0);
+                            if(termDate < today) {
+                                if(!earliestUnpaidPastDueDate) earliestUnpaidPastDueDate = termDate;
+                            }
+                        }
+                    }
+                    if(earliestUnpaidPastDueDate) dueByDays = calculateDaysBetween(earliestUnpaidPastDueDate, today);
+                } else if (inv.dueDate) {
+                    dueByDays = calculateDaysBetween(inv.dueDate, today);
+                }
+
+                switch (bucket) {
+                    case 'current': return dueByDays <= 0;
+                    case '1-30': return dueByDays >= 1 && dueByDays <= 30;
+                    case '31-60': return dueByDays >= 31 && dueByDays <= 60;
+                    case '61-90': return dueByDays >= 61 && dueByDays <= 90;
+                    case '90+': return dueByDays > 90;
+                    default: return true;
+                }
+            }).map(c => c.id);
+
+            // 3. Paginate the filtered IDs
+            total = filteredIds.length;
+            const paginatedIds = filteredIds.slice(skip, skip + Number(limit));
+
+            // 4. Fetch the full objects for the current page
+            invoices = await prisma.aRInvoice.findMany({
+                where: { id: { in: paginatedIds } },
+                select: fullSelect,
+                orderBy: { createdAt: 'desc' }
+            });
+        } else {
+            // Standard SQL pagination
+            [invoices, total] = await Promise.all([
+                prisma.aRInvoice.findMany({
+                    where,
+                    skip,
+                    take: Number(limit),
+                    orderBy: { createdAt: 'desc' },
+                    select: fullSelect
+                }),
+                prisma.aRInvoice.count({ where })
+            ]);
+        }
 
         // Fetch payment history for these invoices to calculate accurate totals
         const invoiceIds = invoices.map((inv: any) => inv.id);
@@ -240,10 +323,11 @@ export const getAllInvoices = async (req: Request, res: Response) => {
         // Calculate days overdue for each invoice and attach aggregated payment data
         const invoicesWithOverdue = invoices.map((invoice: any) => {
             const today = new Date();
+            today.setHours(0,0,0,0);
             let dueByDays = 0;
             let isOverdue = false;
 
-            if (invoice.invoiceType === 'MILESTONE' && invoice.milestoneTerms) {
+            if (invoice.milestoneTerms && Array.isArray(invoice.milestoneTerms) && invoice.milestoneTerms.length > 0) {
                 // For milestone invoices, calculate aging from the earliest UNPAID past-due term date
                 const terms = invoice.milestoneTerms as any[];
                 if (Array.isArray(terms) && terms.length > 0) {

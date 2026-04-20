@@ -622,6 +622,11 @@ export const getTickets = async (req: TicketRequest, res: Response) => {
         OR: [
           { title: { contains: search as string, mode: 'insensitive' } },
           { description: { contains: search as string, mode: 'insensitive' } },
+          { ticketNumber: { contains: search as string, mode: 'insensitive' } },
+          { customer: { companyName: { contains: search as string, mode: 'insensitive' } } },
+          { asset: { serialNo: { contains: search as string, mode: 'insensitive' } } },
+          { asset: { model: { contains: search as string, mode: 'insensitive' } } },
+          { assignedTo: { name: { contains: search as string, mode: 'insensitive' } } },
           { id: { equals: isNaN(Number(search)) ? undefined : Number(search) } }
         ]
       });
