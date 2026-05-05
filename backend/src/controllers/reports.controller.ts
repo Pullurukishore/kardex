@@ -1343,15 +1343,9 @@ async function generateIndustrialDataReport(res: Response, whereClause: any, sta
   });
 
   // Build additional filters for tickets based on customerId and assetId
+  // Build ticket filters based on summary report logic
   const ticketFilters: any = {
     ...whereClause,
-    OR: [
-      { status: { in: ['OPEN', 'IN_PROGRESS', 'ASSIGNED'] } },
-      {
-        status: { in: ['RESOLVED', 'CLOSED'] },
-        updatedAt: { gte: startDate, lte: endDate }
-      }
-    ]
   };
 
   // Add customer filter if specified
@@ -1370,12 +1364,16 @@ async function generateIndustrialDataReport(res: Response, whereClause: any, sta
     take: 5000, // Safety limit
     select: {
       id: true,
+      ticketNumber: true,
       title: true,
       status: true,
       priority: true,
       createdAt: true,
       updatedAt: true,
       assetId: true,
+      relatedMachineIds: true,
+      actualResolutionTime: true,
+      visitCompletedDate: true,
       asset: {
         select: {
           machineId: true,
@@ -1405,25 +1403,28 @@ async function generateIndustrialDataReport(res: Response, whereClause: any, sta
 
   // Calculate downtime for each ticket
   const ticketDowntimeData = ticketsWithDowntime.map((ticket: any) => {
-    let downtimeMinutes = 0;
-
-    if (ticket.status === 'RESOLVED' || ticket.status === 'CLOSED') {
-      // For resolved tickets, calculate the time between creation and resolution (business hours)
-      downtimeMinutes = calculateBusinessHoursInMinutes(ticket.createdAt, ticket.updatedAt);
-    } else {
-      // For open tickets, calculate time from creation to now (business hours)
-      downtimeMinutes = calculateBusinessHoursInMinutes(ticket.createdAt, new Date());
-    }
+    const isResolved = ['RESOLVED', 'CLOSED', 'CLOSED_PENDING'].includes(ticket.status);
+    const downtimeMinutes = isResolved
+      ? calculateTicketResolutionMinutes(
+        ticket.actualResolutionTime,
+        ticket.relatedMachineIds,
+        ticket.createdAt,
+        ticket.updatedAt,
+        ticket.visitCompletedDate
+      )
+      : 0; // Exclude open tickets from downtime sum to align with Ticket Analytics report
 
     return {
       assetId: ticket.assetId,
+      relatedMachineIds: ticket.relatedMachineIds,
       machineId: ticket.asset?.machineId || 'Unknown',
       model: ticket.asset?.model || 'Unknown',
       serialNo: ticket.asset?.serialNo || 'Unknown',
       customer: ticket.asset?.customer?.companyName || 'Unknown',
-      customerId: ticket.asset?.customerId,
+      customerId: ticket.asset?.customer?.customerId,
       zone: ticket.zone?.name || 'Unknown',
       ticketId: ticket.id,
+      ticketNumber: ticket.ticketNumber,
       ticketTitle: ticket.title,
       status: ticket.status,
       priority: ticket.priority,
@@ -1434,32 +1435,55 @@ async function generateIndustrialDataReport(res: Response, whereClause: any, sta
     };
   });
 
-  // Group tickets by asset to calculate downtime per machine
+  // Group tickets by asset to calculate downtime per machine (handling both assetId and relatedMachineIds)
   const assetDowntimeMap = ticketDowntimeData.reduce((acc: any, ticket: any) => {
-    const assetKey = ticket.assetId || ticket.machineId;
-    if (!acc[assetKey]) {
-      acc[assetKey] = {
-        assetId: ticket.assetId,
-        machineId: ticket.machineId,
-        model: ticket.model,
-        serialNo: ticket.serialNo,
-        customer: ticket.customer,
-        customerId: ticket.customerId,
-        totalDowntimeMinutes: 0,
-        incidents: 0,
-        openIncidents: 0,
-        resolvedIncidents: 0
-      };
+    // Collect all machines this ticket belongs to
+    const affectedMachineIds: number[] = [];
+    if (ticket.assetId) affectedMachineIds.push(ticket.assetId);
+
+    // Also check relatedMachineIds metadata (JSON array of asset IDs or similar)
+    if (ticket.relatedMachineIds) {
+      try {
+        const metadata = JSON.parse(ticket.relatedMachineIds);
+        const extraIds = Array.isArray(metadata) ? metadata : (typeof metadata === 'object' ? Object.keys(metadata) : []);
+        extraIds.forEach((id: any) => {
+          const parsedId = parseInt(id);
+          if (!isNaN(parsedId) && !affectedMachineIds.includes(parsedId)) {
+            affectedMachineIds.push(parsedId);
+          }
+        });
+      } catch (e) {
+        // Ignore parse errors for relatedMachineIds
+      }
     }
 
-    acc[assetKey].totalDowntimeMinutes += ticket.downtimeMinutes;
-    acc[assetKey].incidents += 1;
+    // For each affected machine, update the summary
+    affectedMachineIds.forEach(machineId => {
+      const assetKey = machineId;
+      if (!acc[assetKey]) {
+        acc[assetKey] = {
+          assetId: machineId,
+          machineId: ticket.machineId,
+          model: ticket.model,
+          serialNo: ticket.serialNo,
+          customer: ticket.customer,
+          customerId: ticket.customerId,
+          totalDowntimeMinutes: 0,
+          incidents: 0,
+          openIncidents: 0,
+          resolvedIncidents: 0
+        };
+      }
 
-    if (ticket.status === 'RESOLVED' || ticket.status === 'CLOSED') {
-      acc[assetKey].resolvedIncidents += 1;
-    } else {
-      acc[assetKey].openIncidents += 1;
-    }
+      acc[assetKey].totalDowntimeMinutes += ticket.downtimeMinutes;
+      acc[assetKey].incidents += 1;
+
+      if (ticket.status === 'RESOLVED' || ticket.status === 'CLOSED') {
+        acc[assetKey].resolvedIncidents += 1;
+      } else {
+        acc[assetKey].openIncidents += 1;
+      }
+    });
 
     return acc;
   }, {} as Record<string, any>);
@@ -2610,15 +2634,9 @@ async function getIndustrialDataData(whereClause: any, startDate: Date, endDate:
   });
 
   // Build additional filters for tickets based on customerId and assetId
+  // Build ticket filters based on summary report logic
   const ticketFilters: any = {
     ...whereClause,
-    OR: [
-      { status: { in: ['OPEN', 'IN_PROGRESS', 'ASSIGNED'] } },
-      {
-        status: { in: ['RESOLVED', 'CLOSED'] },
-        updatedAt: { gte: startDate, lte: endDate }
-      }
-    ]
   };
 
   // Add customer filter if specified
@@ -2642,25 +2660,22 @@ async function getIndustrialDataData(whereClause: any, startDate: Date, endDate:
       },
       zone: true,
       assignedTo: true
-    }
+    },
+    take: 5000 // Safety limit
   });
 
   // Calculate downtime for each machine
   const machineDowntime = ticketsWithDowntime.map((ticket: any) => {
-    let downtimeMinutes = 0;
-
-    if (ticket.status === 'RESOLVED' || ticket.status === 'CLOSED') {
-      downtimeMinutes = calculateTicketResolutionMinutes(
+    const isResolved = ['RESOLVED', 'CLOSED', 'CLOSED_PENDING'].includes(ticket.status);
+    const downtimeMinutes = isResolved
+      ? calculateTicketResolutionMinutes(
         ticket.actualResolutionTime,
         ticket.relatedMachineIds,
         ticket.createdAt,
         ticket.updatedAt,
         ticket.visitCompletedDate
-      );
-    } else {
-      // For open tickets, calculate time from creation to now (business hours)
-      downtimeMinutes = calculateBusinessHoursInMinutes(new Date(ticket.createdAt), new Date());
-    }
+      )
+      : 0; // Exclude open tickets from downtime sum to align with Ticket Analytics report
 
     // Format downtime in hours and minutes
     const downtimeHours = Math.floor(downtimeMinutes / 60);
@@ -2685,12 +2700,15 @@ async function getIndustrialDataData(whereClause: any, startDate: Date, endDate:
     }
 
     return {
+      assetId: ticket.assetId,
+      relatedMachineIds: ticket.relatedMachineIds,
       machineId: ticket.asset?.machineId || 'Unknown',
       model: ticket.asset?.model || 'Unknown',
       serialNo: ticket.asset?.serialNo || 'Unknown',
       customer: ticket.asset?.customer?.companyName || 'Unknown',
       zone: ticket.zone?.name || 'Unknown',
       ticketId: ticket.id,
+      ticketNumber: ticket.ticketNumber || null,
       ticketTitle: ticket.title,
       status: ticket.status,
       priority: ticket.priority,
@@ -2703,30 +2721,53 @@ async function getIndustrialDataData(whereClause: any, startDate: Date, endDate:
     };
   });
 
-  // Group downtime by machine
+  // Group downtime by machine (handling both assetId and relatedMachineIds)
   const machineDowntimeSummary = machineDowntime.reduce((acc: any, curr: any) => {
-    const machineKey = curr.machineId;
-    if (!acc[machineKey]) {
-      acc[machineKey] = {
-        machineId: curr.machineId,
-        model: curr.model,
-        serialNo: curr.serialNo,
-        customer: curr.customer,
-        totalDowntimeMinutes: 0,
-        incidents: 0,
-        openIncidents: 0,
-        resolvedIncidents: 0
-      };
+    // Collect all machines this ticket belongs to
+    const affectedAssetIds: number[] = [];
+    if (curr.assetId) affectedAssetIds.push(curr.assetId);
+
+    // Also check relatedMachineIds metadata
+    if (curr.relatedMachineIds) {
+      try {
+        const metadata = JSON.parse(curr.relatedMachineIds);
+        const extraIds = Array.isArray(metadata) ? metadata : (typeof metadata === 'object' ? Object.keys(metadata) : []);
+        extraIds.forEach((id: any) => {
+          const parsedId = parseInt(id);
+          if (!isNaN(parsedId) && !affectedAssetIds.includes(parsedId)) {
+            affectedAssetIds.push(parsedId);
+          }
+        });
+      } catch (e) {
+        // Ignore parse errors
+      }
     }
 
-    acc[machineKey].totalDowntimeMinutes += curr.downtimeMinutes;
-    acc[machineKey].incidents += 1;
+    // Update summary for each machine
+    affectedAssetIds.forEach(assetId => {
+      const machineKey = assetId;
+      if (!acc[machineKey]) {
+        acc[machineKey] = {
+          machineId: curr.machineId,
+          model: curr.model,
+          serialNo: curr.serialNo,
+          customer: curr.customer,
+          totalDowntimeMinutes: 0,
+          incidents: 0,
+          openIncidents: 0,
+          resolvedIncidents: 0
+        };
+      }
 
-    if (curr.status === 'RESOLVED' || curr.status === 'CLOSED') {
-      acc[machineKey].resolvedIncidents += 1;
-    } else {
-      acc[machineKey].openIncidents += 1;
-    }
+      acc[machineKey].totalDowntimeMinutes += curr.downtimeMinutes;
+      acc[machineKey].incidents += 1;
+
+      if (curr.status === 'RESOLVED' || curr.status === 'CLOSED') {
+        acc[machineKey].resolvedIncidents += 1;
+      } else {
+        acc[machineKey].openIncidents += 1;
+      }
+    });
 
     return acc;
   }, {} as Record<string, any>);

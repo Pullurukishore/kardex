@@ -6,6 +6,7 @@
  * Currently supports:
  *   - Ticket Analytics (ticket-summary)
  *   - Service Person Performance (agent-productivity)
+ *   - Machine Analytics (industrial-data)
  *
  * Note: jsPDF default Helvetica does NOT support Unicode.
  *       All text uses ASCII-safe characters only (no ₹, etc.).
@@ -74,8 +75,10 @@ const cleanText = (text: string): string => {
         .trim()
 }
 
-const fmtDate = (d: Date | string): string => {
+const fmtDate = (d: Date | string | null | undefined): string => {
+    if (!d) return 'N/A'
     const date = typeof d === 'string' ? new Date(d) : d
+    if (isNaN(date.getTime())) return 'N/A'
     return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
@@ -836,6 +839,108 @@ async function generateServicePersonPdf(
     drawFooter(doc, pageNum.val, reportTitle)
 }
 
+// ============ MACHINE ANALYTICS (INDUSTRIAL DATA) PDF ============
+async function generateMachineAnalyticsPdf(
+    doc: any, autoTable: any,
+    data: any, filters: any, zones: any[],
+    logoBase64: string | null
+): Promise<void> {
+    const reportTitle = 'MACHINE ANALYTICS REPORT'
+    const subtitle = `Asset Analysis  |  ${fmtDate(filters.from)} - ${fmtDate(filters.to)}`
+    const pageW = doc.internal.pageSize.getWidth()
+    const pageNum = { val: 1 }
+
+    let y = drawHeader(doc, reportTitle, subtitle, logoBase64)
+
+    // ── DATA PREPARATION ──
+    const summary = data.summary || {}
+    const machineDowntime = data.machineDowntime || []
+    const detailedDowntime = data.detailedDowntime || []
+
+    // ── PAGE 1: KPI CARDS ──
+    y = drawSectionTitle(doc, y, 'FLEET PERFORMANCE SUMMARY')
+    const cardW = (pageW - 45) / 4
+    const totalDowntimeMin = summary.totalDowntimeMinutes || (summary.totalDowntimeHours ? summary.totalDowntimeHours * 60 : 0)
+    const kpis = [
+        { label: 'Total Machines', value: String(summary.totalMachines || machineDowntime.length || 0), sub: `${summary.totalMachinesWithoutIssues || 0} healthy`, color: COLORS.kardexGreen },
+        { label: 'Total Downtime', value: fmtHoursMinutes(totalDowntimeMin), sub: 'Across fleet', color: COLORS.warning },
+        { label: 'Active Incidents', value: String(summary.totalOpenIncidents || 0), sub: 'Action required', color: COLORS.negative },
+        { label: 'Resolved Tickets', value: String(summary.totalResolvedIncidents || 0), sub: 'Closed in period', color: COLORS.positive },
+    ]
+    kpis.forEach((kpi, i) => {
+        drawKPICard(doc, 15 + i * (cardW + 5), y, cardW, 34, kpi.label, kpi.value, kpi.color, kpi.sub)
+    })
+    y += 40
+
+    // ── DOWNTIME LEADERBOARD ──
+    y = ensurePage(doc, y, 60, pageNum, reportTitle, subtitle, logoBase64, reportTitle)
+    y = drawSectionTitle(doc, y, 'MACHINE INCIDENT & PERFORMANCE SUMMARY')
+
+    const topMachines = [...machineDowntime]
+        .filter(m => (m.incidents || 0) > 0)
+        .sort((a, b) => (b.totalDowntimeMinutes || 0) - (a.totalDowntimeMinutes || 0))
+
+    autoTable(doc, {
+        startY: y,
+        head: [['S.No', 'Model / Serial', 'Customer', 'Total Downtime', 'Incidents', 'Status']],
+        body: topMachines.map((m, i) => [
+            i + 1,
+            `${m.model || 'N/A'} (${m.serialNo || 'N/A'})`,
+            m.customer || 'Unknown',
+            fmtHoursMinutes(m.totalDowntimeMinutes),
+            String(m.incidents || 0),
+            m.openIncidents > 0 ? 'CRITICAL' : 'STABLE'
+        ]),
+        theme: 'grid',
+        headStyles: { fillColor: COLORS.headerBg, textColor: COLORS.white, fontSize: 7, fontStyle: 'bold', halign: 'center' },
+        bodyStyles: { fontSize: 7, textColor: COLORS.textBody, halign: 'center' },
+        columnStyles: {
+            2: { halign: 'left', fontStyle: 'bold' },
+            3: { halign: 'left' },
+            4: { textColor: COLORS.textDark, fontStyle: 'bold' }
+        },
+        willDrawCell: (hookData: any) => {
+            if (hookData.section === 'body' && hookData.column.index === 5) {
+                const text = hookData.cell.text[0]
+                if (text === 'CRITICAL') hookData.cell.styles.textColor = COLORS.negative
+                else hookData.cell.styles.textColor = COLORS.positive
+                hookData.cell.styles.fontStyle = 'bold'
+            }
+        },
+        margin: { left: 15, right: 15 },
+    })
+
+    y = (doc as any).lastAutoTable.finalY + 10
+
+    y = (doc as any).lastAutoTable.finalY + 12
+
+    // ── FLEET HEALTH INSIGHTS ──
+    y = ensurePage(doc, y, 40, pageNum, reportTitle, subtitle, logoBase64, reportTitle)
+    y = drawSectionTitle(doc, y, 'FLEET HEALTH INSIGHTS', COLORS.warning)
+
+    const insightItems = []
+    if (summary.totalOpenIncidents > 0) {
+        insightItems.push({ text: `Alert: ${summary.totalOpenIncidents} machines have active, unresolved breakdowns. Immediate intervention recommended for high-downtime units.`, type: 'error' })
+    }
+    const highDowntimeMachines = machineDowntime.filter((m: any) => (m.totalDowntimeMinutes || 0) > 480)
+    if (highDowntimeMachines.length > 0) {
+        insightItems.push({ text: `Investigation required: ${highDowntimeMachines.length} machines have exceeded 8 hours of cumulative downtime in this period.`, type: 'warning' })
+    }
+    if (summary.totalResolvedIncidents > 0) {
+        insightItems.push({ text: `Efficiency: Successfully resolved ${summary.totalResolvedIncidents} incidents during this reporting period.`, type: 'success' })
+    }
+
+    for (const item of insightItems) {
+        y = ensurePage(doc, y, 12, pageNum, reportTitle, subtitle, logoBase64, reportTitle)
+        const rowH = drawInsightRow(doc, 20, y, pageW - 40, item.text, item.type)
+        y += rowH
+    }
+
+    drawFooter(doc, pageNum.val, reportTitle)
+}
+
+
+
 // ============ Main Entry Point ============
 export async function generateReportPdf(
     reportType: string,
@@ -866,6 +971,12 @@ export async function generateReportPdf(
             const data = reportData.servicePersonPerformanceData
             if (!data) throw new Error('No service person performance data available')
             await generateServicePersonPdf(doc, autoTable, data, filters, zones, logoBase64)
+            break
+        }
+        case 'industrial-data': {
+            const data = reportData.industrialDataReport
+            if (!data) throw new Error('No machine analytics data available')
+            await generateMachineAnalyticsPdf(doc, autoTable, data, filters, zones, logoBase64)
             break
         }
         default:

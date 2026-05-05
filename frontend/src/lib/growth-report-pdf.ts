@@ -276,7 +276,7 @@ export async function generateGrowthPillarPdf(data: GrowthPillarPdfData): Promis
         { label: 'Total Target', value: fmtVal(data.totals.target), sub: `${data.totals.offerCount} offers`, color: COLORS.headerBg },
         { label: 'Offer Value', value: fmtVal(data.totals.offerValue), sub: `${data.totals.offerCount} created`, color: COLORS.warning },
         { label: 'Won Value', value: fmtVal(data.totals.wonValue), sub: `${data.totals.wonCount} orders won`, color: COLORS.positive },
-        { label: 'Achievement', value: `${data.totals.achievementPercent}%`, sub: 'Won / Target', color: COLORS.accentCyan },
+        { label: 'Achieved', value: `${data.totals.achievementPercent}%`, sub: 'Won / Target', color: COLORS.accentCyan },
         { label: 'Hit Rate', value: `${data.totals.hitRatePercent}%`, sub: 'Won / Offer Value', color: COLORS.kardexGreen },
     ]
     kpis.forEach((kpi, i) => {
@@ -290,7 +290,7 @@ export async function generateGrowthPillarPdf(data: GrowthPillarPdfData): Promis
 
     autoTable(doc, {
         startY: y,
-        head: [['Month', 'Target', 'Offer Value', 'Won Value', 'Offers', 'Won', 'Achievement %', 'Hit Rate %', 'MoM Growth']],
+        head: [['Month', 'Target', 'Offer Value', 'Won Value', 'Offers', 'Won', 'Achieved %', 'Hit Rate %', 'MoM Growth']],
         body: [
             ...data.monthlyData.map(d => [
                 d.monthLabel,
@@ -366,7 +366,7 @@ export async function generateGrowthPillarPdf(data: GrowthPillarPdfData): Promis
 
         autoTable(doc, {
             startY: y,
-            head: [['Product', 'Target', 'Offer Value', 'Won Value', 'Offers', 'Won', 'Achievement %', 'Hit Rate %']],
+            head: [['Product', 'Target', 'Offer Value', 'Won Value', 'Offers', 'Won', 'Achieved %', 'Hit Rate %']],
             body: data.productData.map(p => [
                 p.productLabel,
                 fmtVal(p.target),
@@ -420,12 +420,12 @@ export async function generateGrowthPillarPdf(data: GrowthPillarPdfData): Promis
         doc.setFillColor(...pColor)
         doc.roundedRect(15, y, pageW - 30, 8, 1.5, 1.5, 'F')
         doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(...COLORS.white)
-        doc.text(`${product.productLabel}  |  Target: ${fmtVal(product.target)}  |  Won: ${fmtVal(product.wonValue)}  |  Achievement: ${product.achievementPercent}%`, 20, y + 5.5)
+        doc.text(`${product.productLabel}  |  Target: ${fmtVal(product.target)}  |  Won: ${fmtVal(product.wonValue)}  |  Achieved: ${product.achievementPercent}%`, 20, y + 5.5)
         y += 11
 
         autoTable(doc, {
             startY: y,
-            head: [['Month', 'Target', 'Offer Value', 'Won Value', 'Offers', 'Won', 'Achievement %', 'Growth']],
+            head: [['Month', 'Target', 'Offer Value', 'Won Value', 'Offers', 'Won', 'Achieved %', 'Growth']],
             body: product.monthlyData.map(m => [
                 m.monthLabel.substring(0, 3),
                 fmtVal(m.target),

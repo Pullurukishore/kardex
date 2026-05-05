@@ -659,6 +659,15 @@ export const getPdfColumns = (reportType: string): ColumnDefinition[] => {
             { key: 'avgResolutionTime', header: 'Avg Time', width: 80, dataType: 'number', align: 'center' },
             { key: 'performanceScore', header: 'Score', width: 70, dataType: 'percentage', align: 'center' },
         ],
+        'industrial-data': [
+            { key: 'model', header: 'Model', width: 100, align: 'left' },
+            { key: 'serialNo', header: 'Serial No', width: 90, align: 'left' },
+            { key: 'customer', header: 'Customer', width: 120, align: 'left' },
+            { key: 'totalDowntimeMinutes', header: 'Downtime', width: 70, dataType: 'duration' as any, align: 'center' },
+            { key: 'incidents', header: 'Incidents', width: 60, dataType: 'number', align: 'center' },
+            { key: 'openIncidents', header: 'Open', width: 50, dataType: 'number', align: 'center' },
+            { key: 'resolvedIncidents', header: 'Resolved', width: 60, dataType: 'number', align: 'center' },
+        ],
         'customer-performance': [
             { key: 'companyName', header: 'Customer', width: 150, align: 'left' },
             { key: 'totalTickets', header: 'Tickets', width: 70, dataType: 'number', align: 'center' },

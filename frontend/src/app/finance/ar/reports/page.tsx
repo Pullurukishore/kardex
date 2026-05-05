@@ -4,6 +4,7 @@ import { Fragment, useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { arApi, formatARCurrency, formatARDate, formatARMonth, PIC_OPTIONS } from '@/lib/ar-api';
 import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import {
   FileText, Wallet, Search, RefreshCw, Download, AlertTriangle, Clock,
   CheckCircle2, TrendingUp, IndianRupee, Shield, ShieldAlert, ShieldCheck,
@@ -763,111 +764,128 @@ function DistBar({ label, count, amount, total, color }: {
 // ═══════════════════════════════════════════════════════════════════════════
 const fmtDate = (v: any) => { if (!v) return ''; try { return new Date(v).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }); } catch { return ''; } };
 
-function exportExcel(data: any[], filename: string, columns: { key: string; label: string; fmt?: 'date' | 'amount' | 'pct' | 'payments' | 'terms' | 'remarks' }[]) {
-  // Only use valid columns (skip spacers)
+async function exportExcel(data: any[], filename: string, columns: { key: string; label: string; fmt?: 'date' | 'amount' | 'pct' | 'payments' | 'terms' | 'remarks' }[]) {
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet('Report');
+
+  // Define columns
   const validCols = columns.filter(c => c.key !== '__spacer');
+  
+  // Set headers and define column keys
+  worksheet.columns = validCols.map(c => ({
+    header: c.label,
+    key: c.key,
+    width: 20 // default, will auto-adjust later
+  }));
 
-  // Build rows, splitting payments and terms into multiple downward rows per record
-  const excelData: any[] = [];
-  data.forEach(row => {
-    let maxSubRows = 1;
+  // Style Header Row
+  const headerRow = worksheet.getRow(1);
+  headerRow.height = 30;
+  headerRow.eachCell((cell) => {
+    cell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: '1E3A8A' } // Deep Blue
+    };
+    cell.font = {
+      bold: true,
+      color: { argb: 'FFFFFF' }, // White
+      size: 11
+    };
+    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+    cell.border = {
+      bottom: { style: 'medium', color: { argb: 'FFFFFF' } }
+    };
+  });
 
+  // Enable AutoFilter
+  worksheet.autoFilter = {
+    from: { row: 1, column: 1 },
+    to: { row: 1, column: validCols.length }
+  };
+
+  // Freeze top row
+  worksheet.views = [{ state: 'frozen', xSplit: 0, ySplit: 1 }];
+
+  // Add Data Rows
+  data.forEach(item => {
+    const rowData: any = {};
     validCols.forEach(c => {
-      let val = row[c.key];
-      if ((c.fmt === 'payments' || c.fmt === 'remarks') && Array.isArray(val)) {
-        maxSubRows = Math.max(maxSubRows, val.length);
+      let val = item[c.key];
+
+      if (c.fmt === 'payments') {
+        if (Array.isArray(val)) {
+          rowData[c.key] = val.map((p, i) => 
+            `${i + 1}. ${p.paymentMode || 'Unknown'} - Rs. ${Number(p.amount || 0).toLocaleString('en-IN')} on ${fmtDate(p.paymentDate)}`
+          ).join('\n');
+        } else {
+          rowData[c.key] = '';
+        }
+      } 
+      else if (c.fmt === 'remarks') {
+        if (Array.isArray(val)) {
+          rowData[c.key] = val.map(r => 
+            `• [${fmtDate(r.createdAt)}] ${r.createdBy?.name || 'System'}: ${r.content}`
+          ).join('\n');
+        } else {
+          rowData[c.key] = '';
+        }
+      } 
+      else if (c.fmt === 'terms') {
+        if (typeof val === 'string') {
+          rowData[c.key] = val.split(',').map(s => `• ${s.trim()}`).join('\n');
+        } else {
+          rowData[c.key] = '';
+        }
       }
-      else if (c.fmt === 'terms' && typeof val === 'string') {
-        const termsArr = val.split(',').map(s => s.trim()).filter(Boolean);
-        maxSubRows = Math.max(maxSubRows, termsArr.length);
+      else if (c.fmt === 'date') {
+        rowData[c.key] = val ? fmtDate(val) : '';
       }
-    });
-
-    for (let i = 0; i < maxSubRows; i++) {
-        const rowObj: any = {};
-        validCols.forEach(c => {
-            let val = row[c.key];
-            
-            if (c.fmt === 'payments') {
-                if (Array.isArray(val) && val[i]) {
-                    const p = val[i];
-                    rowObj[c.label] = `${i + 1}. ${p.paymentMode || 'Unknown'} - Rs. ${Number(p.amount || 0).toLocaleString('en-IN')} on ${fmtDate(p.paymentDate)}`;
-                } else {
-                    rowObj[c.label] = '';
-                }
-            }
-            else if (c.fmt === 'remarks') {
-                if (Array.isArray(val) && val[i]) {
-                    const r = val[i];
-                    rowObj[c.label] = `• [${fmtDate(r.createdAt)}] ${r.createdBy?.name || 'System'}: ${r.content}`;
-                } else {
-                    rowObj[c.label] = '';
-                }
-            }
-            else if (c.fmt === 'terms') {
-                if (typeof val === 'string') {
-                    const termsArr = val.split(',').map(s => s.trim()).filter(Boolean);
-                    rowObj[c.label] = termsArr[i] ? `• ${termsArr[i]}` : '';
-                } else {
-                    rowObj[c.label] = '';
-                }
-            }
-            else {
-                // Show core data only on the first row of this record's group
-                if (i === 0) {
-                    if (val === null || val === undefined) val = '';
-                    if (c.fmt === 'date') val = fmtDate(val);
-                    else if (c.fmt === 'amount') val = Number(val) || 0;
-                    else if (c.fmt === 'pct') val = `${Math.round(Number(val) || 0)}%`;
-                    rowObj[c.label] = val;
-                } else {
-                    rowObj[c.label] = '';
-                }
-            }
-        });
-        excelData.push(rowObj);
-    }
-  });
-
-  // Create worksheet
-  const ws = XLSX.utils.json_to_sheet(excelData);
-
-  // Auto-size columns
-  const colWidths = validCols.map(c => {
-    // Header width
-    let maxWidth = c.label.length;
-    // Data width
-    excelData.forEach(row => {
-      const cellVal = row[c.label];
-      if (cellVal !== null && cellVal !== undefined) {
-        // Calculate max line length if there are newlines
-        const maxLineLen = String(cellVal).split('\n').reduce((m, line) => Math.max(m, line.length), 0);
-        if (maxLineLen > maxWidth) maxWidth = maxLineLen;
+      else if (c.fmt === 'amount') {
+        rowData[c.key] = Number(val) || 0;
+      }
+      else if (c.fmt === 'pct') {
+        rowData[c.key] = `${Math.round(Number(val) || 0)}%`;
+      }
+      else {
+        rowData[c.key] = val === null || val === undefined ? '' : val;
       }
     });
-    // Upper bound cap at 100 characters so columns don't get ridiculously wide for long comments/terms
-    return { wch: Math.min(maxWidth + 2, 100) }; 
-  });
-  ws['!cols'] = colWidths;
-
-  // Enable text wrap for cells containing newlines
-  const range = XLSX.utils.decode_range(ws['!ref'] || "A1");
-  for (let R = range.s.r; R <= range.e.r; ++R) {
-    for (let C = range.s.c; C <= range.e.c; ++C) {
-      const addr = XLSX.utils.encode_cell({ r: R, c: C });
-      const cell = ws[addr];
-      if (cell && typeof cell.v === 'string' && cell.v.includes('\n')) {
-        if (!cell.s) cell.s = {};
-        if (!cell.s.alignment) cell.s.alignment = {};
-        cell.s.alignment.wrapText = true;
+    
+    const row = worksheet.addRow(rowData);
+    
+    // Check for multi-line cells to enable wrap text
+    row.eachCell((cell) => {
+      if (typeof cell.value === 'string' && cell.value.includes('\n')) {
+        cell.alignment = { wrapText: true, vertical: 'top' };
       }
-    }
-  }
+    });
+  });
 
-  // Create workbook and export
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Report');
-  XLSX.writeFile(wb, `${filename}_${new Date().toISOString().split('T')[0]}.xlsx`);
+  // Auto-size columns accurately
+  validCols.forEach((col, i) => {
+    let maxWidth = col.label.length;
+    worksheet.getColumn(i + 1).eachCell({ includeEmpty: true }, (cell) => {
+      if (cell.value) {
+        const val = cell.value.toString();
+        const lines = val.split('\n');
+        const maxLine = lines.reduce((a: number, b: string) => Math.max(a, b.length), 0);
+        if (maxLine > maxWidth) maxWidth = maxLine;
+      }
+    });
+    // Set width with bounds
+    worksheet.getColumn(i + 1).width = Math.min(Math.max(maxWidth + 4, 12), 100);
+  });
+
+  // Export File
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${filename}_${new Date().toISOString().split('T')[0]}.xlsx`;
+  a.click();
+  window.URL.revokeObjectURL(url);
 }
 
 const getAgingBadge = (days: number, bucket?: string) => {
@@ -1113,7 +1131,6 @@ export default function ARReportsPage() {
         { key: 'daysOverdue', label: 'Days Overdue' },
         { key: 'agingBucket', label: 'Aging Bucket' },
         { key: 'status', label: 'Payment Status' },
-        { key: 'riskClass', label: 'Risk Class' },
         { key: '__spacer', label: '' },
         { key: 'actualPaymentTerms', label: 'Payment Terms', fmt: 'terms' },
         { key: 'deliveryStatus', label: 'Delivery Status' },
@@ -1145,9 +1162,6 @@ export default function ARReportsPage() {
         { key: 'collectionPercentage', label: 'Collection %', fmt: 'pct' },
         { key: '__spacer', label: '' },
         { key: 'status', label: 'Payment Status' },
-        { key: 'milestoneStatus', label: 'Milestone Status' },
-        { key: 'accountingStatus', label: 'Accounting Status' },
-        { key: 'riskClass', label: 'Risk Class' },
         { key: 'actualPaymentTerms', label: 'Payment Terms', fmt: 'terms' },
         { key: 'paymentCount', label: 'Payment Count' },
         { key: 'paymentHistory', label: 'Payment History', fmt: 'payments' },
@@ -1160,7 +1174,6 @@ export default function ARReportsPage() {
         { key: 'customerName', label: 'Customer Name' },
         { key: 'bpCode', label: 'BP Code' },
         { key: 'region', label: 'Region' },
-        { key: 'riskClass', label: 'Risk Class' },
         { key: 'invoiceCount', label: 'Invoice Count' },
         { key: 'totalInvoiced', label: 'Total Invoiced', fmt: 'amount' },
         { key: 'totalCollected', label: 'Total Collected', fmt: 'amount' },

@@ -22,7 +22,7 @@ export default function ARCustomersPage() {
   const loadCustomers = async () => {
     try {
       setLoading(true);
-      const result = await arApi.getCustomers({ search, page, limit: 20 });
+      const result = await arApi.getCustomers({ search, page, limit: 500 });
       setCustomers(result.data);
       setTotalPages(result.pagination?.totalPages || 1);
       setTotal(result.pagination?.total || result.data?.length || 0);

@@ -204,7 +204,7 @@ async function gatherOfferContext() {
       wonCount: wonOffers.length,
       lostCount: lostOffers.length,
       stagnantCount,
-      avgAgingDays: openFunnelOffers.length > 0 
+      avgAgingDays: openFunnelOffers.length > 0
         ? Math.round(openFunnelOffers.reduce((s, o) => s + (now.getTime() - o.updatedAt.getTime()) / (1000 * 60 * 60 * 24), 0) / openFunnelOffers.length)
         : 0
     });
@@ -332,16 +332,16 @@ async function gatherOfferContext() {
     const monthStr = `${currentYear}-${String(m).padStart(2, '0')}`;
     const monthOffers = allOffers.filter(o => o.offerMonth === monthStr);
     const wonThisMonth = allOffers.filter(o => (o.poReceivedMonth || o.offerMonth) === monthStr && (o.stage === 'WON' || o.stage === 'PO_RECEIVED'));
-    
+
     // Growth calculation (MoM)
     let growthPercent = null;
     let wonValue = wonThisMonth.reduce((s, o) => s + toNum(o.poValue || o.offerValue), 0);
-    
+
     if (m > 1) {
       const prevMonthStr = `${currentYear}-${String(m - 1).padStart(2, '0')}`;
       const wonPrevMonth = allOffers.filter(o => (o.poReceivedMonth || o.offerMonth) === prevMonthStr && (o.stage === 'WON' || o.stage === 'PO_RECEIVED'));
       const prevWonValue = wonPrevMonth.reduce((s, o) => s + toNum(o.poValue || o.offerValue), 0);
-      
+
       if (prevWonValue > 0) {
         growthPercent = Math.round(((wonValue - prevWonValue) / prevWonValue) * 100);
       }
@@ -369,7 +369,7 @@ async function gatherOfferContext() {
     const futureDate = new Date(now.getFullYear(), now.getMonth() + i, 1);
     const futureMonthStr = `${futureDate.getFullYear()}-${String(futureDate.getMonth() + 1).padStart(2, '0')}`;
     const futureOffers = allOffers.filter(o => o.poExpectedMonth === futureMonthStr && !['WON', 'LOST', 'PO_RECEIVED'].includes(o.stage));
-    
+
     forwardForecast.push({
       monthLabel: monthNames[futureDate.getMonth()],
       offerCount: futureOffers.length,
@@ -393,7 +393,7 @@ async function gatherOfferContext() {
     const pipelineValue = qPipeline.reduce((s, o) => s + toNum(o.offerValue), 0);
     const bu = allZoneTargets.reduce((s, t) => s + toNum(t.targetValue), 0) / 4;
     const deviation = bu > 0 ? Math.round(((wonValue - bu) / bu) * 100) : 0;
-    
+
     return { name: q.name, wonValue, pipelineValue, bu, deviation };
   });
 
@@ -401,7 +401,7 @@ async function gatherOfferContext() {
   // 8. SALES PERSON PERFORMANCE (Detailed Pipeline)
   // =====================================================
   const userPerformanceMap: Record<number, { name: string; target: number; openFunnel: number; wonValue: number; monthly: Record<number, { w: number, o: number }> }> = {};
-  
+
   // Initialize users with targets
   allUserTargets.forEach(u => {
     userPerformanceMap[u.userId] = { name: u.user.name || 'Unknown', target: toNum(u.targetValue), openFunnel: 0, wonValue: 0, monthly: {} };
@@ -440,15 +440,15 @@ async function gatherOfferContext() {
 
   const salesPersonPerformance = Object.values(userPerformanceMap).map(u => {
     const achievement = u.target > 0 ? Math.round((u.wonValue / u.target) * 100) : 0;
-    
+
     // Format monthly string
-    const monthlyStr = Object.keys(u.monthly).length > 0 
+    const monthlyStr = Object.keys(u.monthly).length > 0
       ? Object.entries(u.monthly)
-          .sort((a, b) => Number(a[0]) - Number(b[0]))
-          .map(([m, val]) => `${monthNames[Number(m)-1]}: W=${fmtVal(val.w)} O=${fmtVal(val.o)}`)
-          .join(', ')
+        .sort((a, b) => Number(a[0]) - Number(b[0]))
+        .map(([m, val]) => `${monthNames[Number(m) - 1]}: W=${fmtVal(val.w)} O=${fmtVal(val.o)}`)
+        .join(', ')
       : 'No activity';
-      
+
     return { ...u, achievement, monthlyStr };
   }).sort((a, b) => b.wonValue - a.wonValue);
 
@@ -477,6 +477,26 @@ async function gatherOfferContext() {
       company: o.company || 'Unknown',
       value: toNum(o.poValue || o.offerValue),
       zone: o.zone?.name || 'Unknown'
+    }));
+
+  // =====================================================
+  // 9.5. ALL OPEN OFFERS RAW DATA (EVERYTHING)
+  // =====================================================
+  const allOpenOffersFullData = allOffers
+    .filter(o => o.openFunnel && !['WON', 'LOST'].includes(o.stage))
+    .map(o => ({
+      ref: o.offerReferenceNumber,
+      company: o.company || 'Unknown',
+      value: toNum(o.offerValue),
+      stage: o.stage,
+      prob: o.probabilityPercentage || 0,
+      zone: o.zone?.name || 'Unknown',
+      assigned: o.assignedTo?.name || 'Unassigned',
+      productType: o.productType,
+      created: o.createdAt.toISOString().split('T')[0],
+      updated: o.updatedAt.toISOString().split('T')[0],
+      poExpected: o.poExpectedMonth || '-',
+      isStagnant: o.updatedAt < thirtyDaysAgo
     }));
 
   const totalYearlyTarget = allZoneTargets
@@ -523,7 +543,8 @@ async function gatherOfferContext() {
     recentOffers,
     recentRemarks,
     topCustomerRisks,
-    brackets
+    brackets,
+    allOpenOffersFullData
   };
 }
 
@@ -645,6 +666,17 @@ ${ctx.highValuePipeline.map((o, i) => `${i + 1}. ${o.ref} - ${o.company} - ${fmt
 ## 🏢 CUSTOMER CONCENTRATION (Top Pipeline Risks)
 
 ${ctx.topCustomerRisks.map((c, i) => `${i + 1}. ${c.name}: ${fmtVal(c.value)} (${c.count} offers)`).join('\n')}
+
+---
+
+## 📂 ALL OPEN OFFERS (RAW DATA EXTRACT)
+
+Here is a raw JSON extract of **all** currently open offers in the pipeline with full information. Use this to lookup specific offers, compare values across branches, or when the user asks about specific deals in detail.
+\`\`\`json
+${JSON.stringify(ctx.allOpenOffersFullData)}
+\`\`\`
+
+---
 
 **Response Guidelines:**
 1. Always use specific numbers from the data - never make up data.

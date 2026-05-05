@@ -1025,13 +1025,14 @@ const ReportsClient: React.FC<ReportsClientProps> = ({
   const handleExport = useCallback(async (exportFormat: 'pdf' | 'excel') => {
     try {
       // ── CLIENT-SIDE PDF GENERATION for supported report types ──
-      const pdfSupportedTypes = ['ticket-summary', 'agent-productivity'];
+      const pdfSupportedTypes = ['ticket-summary', 'agent-productivity', 'industrial-data'];
       if (exportFormat === 'pdf' && pdfSupportedTypes.includes(filters.reportType)) {
         toast.info('Generating premium PDF report...');
         const { generateReportPdf } = await import('@/lib/reports-pdf');
         await generateReportPdf(filters.reportType, {
           ticketSummaryData,
           servicePersonPerformanceData,
+          industrialDataReport,
         }, {
           filters,
           zones,
@@ -1130,7 +1131,7 @@ const ReportsClient: React.FC<ReportsClientProps> = ({
       console.error('Export error:', error);
       toast.error(error?.message || 'Failed to export report');
     }
-  }, [filters, ticketSummaryData, servicePersonPerformanceData, zones, customers]);
+  }, [filters, ticketSummaryData, servicePersonPerformanceData, industrialDataReport, zones, customers]);
 
   const summary = useMemo(() => reportData?.summary || {}, [reportData]);
   const selectedReportType = reportTypes.find(type => type.value === filters.reportType) || REPORT_TYPES.find(type => type.value === filters.reportType);

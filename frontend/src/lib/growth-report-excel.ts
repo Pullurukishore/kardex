@@ -128,6 +128,18 @@ const COLORS = {
     actionBg: 'E0E7FF',
 }
 
+// Distinct colors for each zone in Forecast Pipeline
+const ZONE_COLORS = [
+    { bg: '1E3A8A', light: '3B82F6', name: 'Deep Blue' },
+    { bg: '065F46', light: '10B981', name: 'Emerald' },
+    { bg: '92400E', light: 'F59E0B', name: 'Amber' },
+    { bg: '5B21B6', light: '8B5CF6', name: 'Purple' },
+    { bg: '0F766E', light: '14B8A6', name: 'Teal' },
+    { bg: '9F1239', light: 'FB7185', name: 'Rose' },
+    { bg: '334155', light: '94A3B8', name: 'Slate' },
+    { bg: 'C2410C', light: 'FB923C', name: 'Orange' },
+]
+
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December']
 
@@ -225,7 +237,7 @@ function generateSummarySheet(workbook: any, data: GrowthPillarExcelData): void 
         { label: 'Total Target', value: data.totals.target, sub: `${data.totals.offerCount} offers`, accent: COLORS.kpiTarget, isPercent: false },
         { label: 'Offer Value', value: data.totals.offerValue, sub: `${data.totals.offerCount} offers created`, accent: COLORS.kpiOffer, isPercent: false },
         { label: 'Won Value', value: data.totals.wonValue, sub: `${data.totals.wonCount} orders won`, accent: COLORS.kpiWon, isPercent: false },
-        { label: 'Achievement', value: data.totals.achievementPercent / 100, sub: 'Won / Target', accent: COLORS.kpiAchieve, isPercent: true },
+        { label: 'Achieved', value: data.totals.achievementPercent / 100, sub: 'Won / Target', accent: COLORS.kpiAchieve, isPercent: true },
         { label: 'Hit Rate', value: data.totals.hitRatePercent / 100, sub: 'Won / Offer Value', accent: COLORS.kpiHitRate, isPercent: true },
     ]
 
@@ -281,7 +293,7 @@ function generateSummarySheet(workbook: any, data: GrowthPillarExcelData): void 
         ws.getRow(row).height = 26
         row++
 
-        const prodHeaders = ['Product', 'Target', 'Offer Value', 'Won Value', 'Offers', 'Won', 'Achievement %', 'Hit Rate %']
+        const prodHeaders = ['Product', 'Target', 'Offer Value', 'Won Value', 'Offers', 'Won', 'Achieved %', 'Hit Rate %']
         prodHeaders.forEach((h, idx) => {
             const cell = ws.getCell(row, idx + 1)
             cell.value = h
@@ -365,7 +377,7 @@ function generateMonthlySheet(workbook: any, data: GrowthPillarExcelData): void 
     row += 2
 
     // Headers
-    const headers = ['Month', 'Target', 'Offer Value', 'Won Value', 'Offers', 'Won', 'Achievement %', 'Hit Rate %', 'MoM Growth']
+    const headers = ['Month', 'Target', 'Offer Value', 'Won Value', 'Offers', 'Won', 'Achieved %', 'Hit Rate %', 'MoM Growth']
     headers.forEach((h, idx) => {
         const cell = ws.getCell(row, idx + 1)
         cell.value = h
@@ -488,7 +500,7 @@ function generateProductMonthlySheet(workbook: any, data: GrowthPillarExcelData)
         // Product header bar
         ws.mergeCells(`A${row}:H${row}`)
         const prodHeader = ws.getCell(`A${row}`)
-        prodHeader.value = `${product.productLabel}  |  Target: ${fmtCurrency(product.target)}  |  Won: ${fmtCurrency(product.wonValue)}  |  Achievement: ${product.achievementPercent}%  |  Hit Rate: ${product.hitRatePercent}%`
+        prodHeader.value = `${product.productLabel}  |  Target: ${fmtCurrency(product.target)}  |  Won: ${fmtCurrency(product.wonValue)}  |  Achieved: ${product.achievementPercent}%  |  Hit Rate: ${product.hitRatePercent}%`
         prodHeader.font = { size: 11, bold: true, color: { argb: COLORS.headerText } }
         prodHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: pColor } }
         prodHeader.alignment = { horizontal: 'left', vertical: 'middle' }
@@ -496,7 +508,7 @@ function generateProductMonthlySheet(workbook: any, data: GrowthPillarExcelData)
         row++
 
         // Column headers
-        const headers = ['Month', 'Target', 'Offer Value', 'Won Value', 'Offers', 'Won', 'Achievement %', 'Growth']
+        const headers = ['Month', 'Target', 'Offer Value', 'Won Value', 'Offers', 'Won', 'Achieved %', 'Growth']
         headers.forEach((h, idx) => {
             const cell = ws.getCell(row, idx + 1)
             cell.value = h
@@ -689,7 +701,7 @@ function generateInsightsSheet(workbook: any, data: GrowthPillarExcelData): void
     ]
 }
 
-// ============ Sheet 5: Forecast Pipeline (Executive-wise Monthly) ============
+// ============ Sheet 5: Forecast Pipeline + Product Breakdown (Combined) ============
 function generateForecastPipelineSheet(workbook: any, data: GrowthPillarExcelData): void {
     const poData = data.forecastData?.po
     if (!poData || !poData.zones || poData.zones.length === 0) return
@@ -699,10 +711,23 @@ function generateForecastPipelineSheet(workbook: any, data: GrowthPillarExcelDat
     })
 
     const months = poData.months || []
+    const colCount = months.length + 3
     let row = 1
 
+    // ── Helper: Apply header style with custom color ──
+    const applyZoneHeaderStyle = (cell: any, bgColor: string): void => {
+        cell.font = { bold: true, color: { argb: COLORS.headerText }, size: 10 }
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgColor } }
+        cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }
+        cell.border = thinBorder(bgColor)
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    //  PART 1: EXECUTIVE-WISE PIPELINE
+    // ══════════════════════════════════════════════════════════════
+
     // Title
-    ws.mergeCells(row, 1, row, months.length + 3)
+    ws.mergeCells(row, 1, row, colCount)
     const titleCell = ws.getCell(row, 1)
     titleCell.value = `FORECAST PIPELINE — EXECUTIVE PERFORMANCE (${data.year})`
     titleCell.font = { size: 16, bold: true, color: { argb: COLORS.headerText } }
@@ -712,7 +737,7 @@ function generateForecastPipelineSheet(workbook: any, data: GrowthPillarExcelDat
     row++
 
     // Subtitle
-    ws.mergeCells(row, 1, row, months.length + 3)
+    ws.mergeCells(row, 1, row, colCount)
     const subCell = ws.getCell(row, 1)
     const probLabel = data.filters.probability === 'all' ? 'All' : `>= ${data.filters.probability}%`
     subCell.value = `Values represent Expected PO Amount | Range: ${months[0]} to ${months[months.length - 1]} ${data.year} | Probability: ${probLabel}`
@@ -721,23 +746,25 @@ function generateForecastPipelineSheet(workbook: any, data: GrowthPillarExcelDat
     subCell.alignment = { horizontal: 'center', vertical: 'middle' }
     row += 2
 
-    // Loop through zones
-    poData.zones.forEach((zone: any) => {
+    // Loop through zones — each gets a unique color
+    poData.zones.forEach((zone: any, zIdx: number) => {
+        const zColor = ZONE_COLORS[zIdx % ZONE_COLORS.length]
+
         // Zone Title Row
-        ws.mergeCells(row, 1, row, months.length + 3)
+        ws.mergeCells(row, 1, row, colCount)
         const zoneCell = ws.getCell(row, 1)
         zoneCell.value = `ZONE: ${zone.zoneName} (Total Pipeline: ${fmtCurrency(zone.grandTotal)})`
-        zoneCell.font = { bold: true, color: { argb: COLORS.headerText } }
-        zoneCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.kpiTarget } }
-        ws.getRow(row).height = 24
+        zoneCell.font = { bold: true, size: 11, color: { argb: COLORS.headerText } }
+        zoneCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: zColor.bg } }
+        ws.getRow(row).height = 26
         row++
 
-        // Headers
+        // Headers — colored per zone
         const headers = ['Executive', ...months, 'Total', 'Share %']
         headers.forEach((h, i) => {
             const cell = ws.getCell(row, i + 1)
             cell.value = h
-            applyHeaderStyle(cell)
+            applyZoneHeaderStyle(cell, zColor.light)
         })
         ws.getRow(row).height = 22
         row++
@@ -751,7 +778,7 @@ function generateForecastPipelineSheet(workbook: any, data: GrowthPillarExcelDat
             const nameCell = ws.getCell(row, 1)
             nameCell.value = user.userName
             applyDataCell(nameCell, bgColor)
-            nameCell.font = { bold: true, color: { argb: COLORS.textDark } }
+            nameCell.font = { bold: true, color: { argb: zColor.bg } }
 
             // Monthly values
             months.forEach((m: string, mIdx: number) => {
@@ -764,7 +791,7 @@ function generateForecastPipelineSheet(workbook: any, data: GrowthPillarExcelDat
             const totalCell = ws.getCell(row, months.length + 2)
             totalCell.value = user.total
             applyDataCell(totalCell, bgColor, true, true)
-            totalCell.font = { bold: true }
+            totalCell.font = { bold: true, color: { argb: zColor.bg } }
 
             // Share
             const shareCell = ws.getCell(row, months.length + 3)
@@ -774,20 +801,216 @@ function generateForecastPipelineSheet(workbook: any, data: GrowthPillarExcelDat
             row++
         })
 
-        // Zone Totals row
-        const labels = ['ZONE TOTAL', ...months.map((m: string) => zone.monthlyTotals[m] || 0), zone.grandTotal, 1]
-        labels.forEach((val, i) => {
+        // Zone Totals row — styled with zone color
+        const totals = ['ZONE TOTAL', ...months.map((m: string) => zone.monthlyTotals[m] || 0), zone.grandTotal, 1]
+        totals.forEach((val, i) => {
             const cell = ws.getCell(row, i + 1)
             cell.value = val
-            applyTotalRow(cell, false, i > 0 && i < labels.length - 1, i === labels.length - 1)
+            cell.font = { bold: true, color: { argb: COLORS.headerText }, size: 10 }
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: zColor.bg } }
+            cell.border = {
+                top: { style: 'medium' as const, color: { argb: zColor.bg } },
+                left: { style: 'thin' as const, color: { argb: zColor.bg } },
+                bottom: { style: 'medium' as const, color: { argb: zColor.bg } },
+                right: { style: 'thin' as const, color: { argb: zColor.bg } },
+            }
+            cell.alignment = { horizontal: i === 0 ? 'center' : 'right', vertical: 'middle' }
+            if (typeof val === 'number') {
+                if (i === totals.length - 1) cell.numFmt = '0.0%'
+                else cell.numFmt = '[$₹-en-IN]#,##0'
+            }
         })
+        ws.getRow(row).height = 24
         row += 2 // Gap between zones
     })
 
+    // ══════════════════════════════════════════════════════════════
+    //  PART 2: PRODUCT-WISE FORECAST BREAKDOWN (merged into same sheet)
+    // ══════════════════════════════════════════════════════════════
+    const pwfData = data.forecastData?.pwf
+    if (pwfData && pwfData.zones && pwfData.zones.length > 0) {
+        const pwfMonths = pwfData.months || months
+
+        // Product labels map
+        const productLabels = {
+            'CONTRACT': 'Contract',
+            'BD_SPARE': 'BD Spare',
+            'SPARE_PARTS': 'Spare Parts',
+            'KARDEX_CONNECT': 'Kardex Connect',
+            'RELOCATION': 'Relocation',
+            'SOFTWARE': 'Software',
+            'OTHERS': 'Repairs & Others',
+            'RETROFIT_KIT': 'Retrofit Kit',
+            'UPGRADE_KIT': 'Optilife Upgrade',
+            'TRAINING': 'Training'
+        } as Record<string, string>
+
+        // Merge labels from forecast data if available
+        const dataLabels = data.forecastData?.puz?.productTypes || data.forecastData?.pwf?.productTypes || []
+        dataLabels.forEach((p: any) => {
+            if (p.key && p.label) productLabels[p.key] = p.label
+        })
+
+        // Get all product types from the actual data
+        const dataProductKeys = new Set<string>()
+        pwfData.zones.forEach((z: any) => {
+            z.users?.forEach((u: any) => {
+                u.products?.forEach((p: any) => {
+                    if (p.productType) dataProductKeys.add(p.productType)
+                })
+            })
+        })
+        const activeProducts = Array.from(new Set([...Object.keys(productLabels), ...Array.from(dataProductKeys)])).sort()
+
+        // ── Separator: Product Breakdown Section Header ──
+        row += 1
+        ws.mergeCells(row, 1, row, colCount)
+        const sepCell = ws.getCell(row, 1)
+        sepCell.value = `PRODUCT-WISE FORECAST BREAKDOWN — ${data.year}`
+        sepCell.font = { size: 14, bold: true, color: { argb: COLORS.headerText } }
+        sepCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.headerBg } }
+        sepCell.alignment = { horizontal: 'center', vertical: 'middle' }
+        ws.getRow(row).height = 30
+        row++
+
+        ws.mergeCells(row, 1, row, colCount)
+        const sepSub = ws.getCell(row, 1)
+        sepSub.value = `Segmented breakdown of pipeline across all products and regions | Probability: ${probLabel}`
+        sepSub.font = { size: 10, italic: true, color: { argb: COLORS.textLight } }
+        sepSub.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.titleBg } }
+        sepSub.alignment = { horizontal: 'center', vertical: 'middle' }
+        ws.getRow(row).height = 22
+        row += 2
+
+        // Process each product
+        activeProducts.forEach((pType, pIdx) => {
+            const pLabel = productLabels[pType] || pType
+            const pColor = COLORS.product[pIdx % COLORS.product.length]
+
+            // Product Header
+            ws.mergeCells(row, 1, row, colCount)
+            const pCell = ws.getCell(row, 1)
+            pCell.value = `PRODUCT: ${pLabel.toUpperCase()}`
+            pCell.font = { bold: true, size: 11, color: { argb: COLORS.headerText } }
+            pCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: pColor } }
+            ws.getRow(row).height = 24
+            row++
+
+            // Table Headers
+            const pHeaders = ['Zone', ...pwfMonths, 'Total', 'Product Share %']
+            pHeaders.forEach((h: string, i: number) => {
+                const cell = ws.getCell(row, i + 1)
+                cell.value = h
+                applyZoneHeaderStyle(cell, pColor)
+            })
+            ws.getRow(row).height = 22
+            row++
+
+            // Calculate product grand total across all zones
+            let productGrandTotal = 0
+            const zoneRows: any[] = []
+
+            pwfData.zones.forEach((zone: any) => {
+                const monthlyTotals = pwfMonths.reduce((acc: any, m: string) => { acc[m] = 0; return acc }, {} as any)
+                let zoneProductTotal = 0
+
+                zone.users?.forEach((u: any) => {
+                    const prodData = u.products?.find((p: any) => p.productType === pType)
+                    if (prodData) {
+                        zoneProductTotal += prodData.total
+                        pwfMonths.forEach((m: string) => {
+                            monthlyTotals[m] += prodData.monthlyValues[m] || 0
+                        })
+                    }
+                })
+
+                zoneRows.push({ name: zone.zoneName, totals: monthlyTotals, total: zoneProductTotal })
+                productGrandTotal += zoneProductTotal
+            })
+
+            // Zone and User rows
+            zoneRows.forEach((zRow, zIdx) => {
+                const zBgColor = zIdx % 2 === 0 ? COLORS.rowEven : COLORS.rowOdd
+
+                // Zone Row
+                const zNameCell = ws.getCell(row, 1)
+                zNameCell.value = zRow.name
+                applyDataCell(zNameCell, zBgColor)
+                zNameCell.font = { bold: true, color: { argb: COLORS.textDark } }
+
+                pwfMonths.forEach((m: string, mIdx: number) => {
+                    const mCell = ws.getCell(row, mIdx + 2)
+                    mCell.value = zRow.totals[m]
+                    applyDataCell(mCell, zBgColor, true, true)
+                })
+
+                const zTotalCell = ws.getCell(row, pwfMonths.length + 2)
+                zTotalCell.value = zRow.total
+                applyDataCell(zTotalCell, zBgColor, true, true)
+                zTotalCell.font = { bold: true, color: { argb: pColor } }
+
+                const zShareCell = ws.getCell(row, pwfMonths.length + 3)
+                zShareCell.value = productGrandTotal > 0 ? zRow.total / productGrandTotal : 0
+                applyDataCell(zShareCell, zBgColor, true, false, true)
+                row++
+
+                // User rows for this zone
+                const pwfZone = pwfData.zones.find((z: any) => z.zoneName === zRow.name)
+                const usersForZone = pwfZone?.users || []
+
+                usersForZone.forEach((user: any) => {
+                    const uProduct = user.products?.find((p: any) => p.productType === pType) || { total: 0, monthlyValues: {} }
+                    const uBgColor = COLORS.rowOdd
+
+                    // Indented User Row
+                    const uNameCell = ws.getCell(row, 1)
+                    uNameCell.value = `    • ${user.userName}`
+                    applyDataCell(uNameCell, uBgColor)
+                    uNameCell.font = { italic: true, size: 9, color: { argb: COLORS.textLight } }
+
+                    pwfMonths.forEach((m: string, mIdx: number) => {
+                        const umCell = ws.getCell(row, mIdx + 2)
+                        umCell.value = uProduct.monthlyValues?.[m] || 0
+                        applyDataCell(umCell, uBgColor, true, true)
+                        umCell.font = { size: 9, color: { argb: COLORS.textLight } }
+                    })
+
+                    const utCell = ws.getCell(row, pwfMonths.length + 2)
+                    utCell.value = uProduct.total || 0
+                    applyDataCell(utCell, uBgColor, true, true)
+                    utCell.font = { size: 9, italic: true, color: { argb: COLORS.textLight } }
+
+                    const usCell = ws.getCell(row, pwfMonths.length + 3)
+                    usCell.value = zRow.total > 0 ? (uProduct.total || 0) / zRow.total : 0
+                    applyDataCell(usCell, uBgColor, true, false, true)
+                    usCell.font = { size: 8, color: { argb: COLORS.textLight } }
+
+                    row++
+                })
+            })
+
+            // Product total row
+            if (zoneRows.length > 0) {
+                ws.getCell(row, 1).value = `${pLabel} TOTAL`
+                pwfMonths.forEach((m: string, i: number) => {
+                    ws.getCell(row, i + 2).value = zoneRows.reduce((s, z) => s + z.totals[m], 0)
+                })
+                ws.getCell(row, pwfMonths.length + 2).value = productGrandTotal
+                ws.getCell(row, pwfMonths.length + 3).value = 1
+
+                for (let i = 1; i <= pwfMonths.length + 3; i++) {
+                    applyTotalRow(ws.getCell(row, i), true, i > 1 && i < pwfMonths.length + 3, i === pwfMonths.length + 3)
+                }
+                ws.getRow(row).height = 24
+                row += 2
+            }
+        })
+    }
+
     // Column widths
-    ws.getColumn(1).width = 20
+    ws.getColumn(1).width = 22
     ws.getColumn(months.length + 2).width = 16
-    ws.getColumn(months.length + 3).width = 10
+    ws.getColumn(months.length + 3).width = 16
     months.forEach((_: any, i: number) => ws.getColumn(i + 2).width = 14)
 }
 
@@ -1003,7 +1226,6 @@ export async function exportGrowthPillarToExcel(data: GrowthPillarExcelData): Pr
     generateMonthlySheet(workbook, data)
     generateProductMonthlySheet(workbook, data)
     generateForecastPipelineSheet(workbook, data)
-    generateForecastProductZoneSheet(workbook, data)
     generateInsightsSheet(workbook, data)
 
     // Generate filename

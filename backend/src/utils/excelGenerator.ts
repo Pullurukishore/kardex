@@ -669,7 +669,7 @@ export const generateExcel = async (
         workbook.modified = new Date();
         workbook.properties.date1904 = false;
 
-        const isTicketReport = filters.reportType === 'ticket-summary';
+        const isTicketReport = filters.reportType === 'ticket-summary' || filters.reportType === 'industrial-data';
 
         const worksheet = workbook.addWorksheet(isTicketReport ? 'Ticket Details' : 'Report', {
             properties: {
@@ -833,6 +833,16 @@ export const getExcelColumns = (reportType: string): ColumnDefinition[] => {
             { key: 'resolvedTickets', header: 'Resolved', width: 12, dataType: 'number' },
             { key: 'avgResolutionTime', header: 'Avg Time (hrs)', width: 14, dataType: 'number' },
             { key: 'performanceScore', header: 'Score', width: 10, dataType: 'percentage' },
+        ],
+        'industrial-data': [
+            { key: '_sno', header: 'S.No', width: 6, format: (value: any, item: any) => '', dataType: 'number' },
+            { key: 'model', header: 'Model', width: 22 },
+            { key: 'serialNo', header: 'Serial Number', width: 22 },
+            { key: 'customer', header: 'Customer', width: 28 },
+            { key: 'totalDowntimeMinutes', header: 'Total Downtime', width: 18, dataType: 'duration' },
+            { key: 'incidents', header: 'Total Incidents', width: 14, dataType: 'number' },
+            { key: 'openIncidents', header: 'Open Incidents', width: 14, dataType: 'number' },
+            { key: 'resolvedIncidents', header: 'Resolved Incidents', width: 14, dataType: 'number' },
         ],
         'customer-performance': [
             { key: 'companyName', header: 'Customer', width: 24 },

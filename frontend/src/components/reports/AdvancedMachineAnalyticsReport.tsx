@@ -9,7 +9,8 @@ import {
 } from 'recharts';
 import { 
   TrendingUp, TrendingDown, AlertCircle, CheckCircle, Clock, 
-  Users, Target, Award, Activity, Zap, Settings, BarChart3, Factory
+  Users, Target, Award, Activity, Zap, Settings, BarChart3, Factory,
+  Monitor, Cpu
 } from 'lucide-react';
 
 interface AdvancedMachineAnalyticsReportProps {
@@ -34,14 +35,15 @@ export function AdvancedMachineAnalyticsReport({ reportData }: AdvancedMachineAn
     );
   }
 
-  const totalMachines = summary.totalMachines || 0;
-  const totalMachinesWithIssues = summary.totalMachinesWithDowntime || 0;
-  const totalMachinesWithoutIssues = summary.totalMachinesWithoutIssues || 0;
-  const totalDowntimeHours = summary.totalDowntimeHours || 0;
-  const avgDowntimePerMachine = summary.averageDowntimePerMachine || 0;
-  const totalIncidents = summary.totalIncidents || machineDowntime.reduce((sum, m) => sum + (m.incidents || 0), 0);
-  const totalOpenIncidents = summary.totalOpenIncidents || machineDowntime.reduce((sum, m) => sum + (m.openIncidents || 0), 0);
-  const totalResolvedIncidents = summary.totalResolvedIncidents || machineDowntime.reduce((sum, m) => sum + (m.resolvedIncidents || 0), 0);
+  const totalMachines = summary.totalMachines || machineDowntime.length || 0;
+  const totalMachinesWithIssues = summary.totalMachinesWithDowntime || machineDowntime.filter(m => (m.incidents || 0) > 0).length || 0;
+  const totalMachinesWithoutIssues = summary.totalMachinesWithoutIssues || (totalMachines - totalMachinesWithIssues);
+  // Backend may return totalDowntimeHours as hours or totalDowntimeMinutes as minutes
+  const totalDowntimeHours = summary.totalDowntimeHours || (summary.totalDowntimeMinutes ? summary.totalDowntimeMinutes / 60 : 0);
+  const avgDowntimePerMachine = summary.averageDowntimePerMachine || (totalMachinesWithIssues > 0 ? totalDowntimeHours / totalMachinesWithIssues : 0);
+  const totalIncidents = summary.totalIncidents || machineDowntime.reduce((sum: number, m: any) => sum + (m.incidents || 0), 0);
+  const totalOpenIncidents = summary.totalOpenIncidents || machineDowntime.reduce((sum: number, m: any) => sum + (m.openIncidents || 0), 0);
+  const totalResolvedIncidents = summary.totalResolvedIncidents || machineDowntime.reduce((sum: number, m: any) => sum + (m.resolvedIncidents || 0), 0);
   const resolutionRate = totalIncidents > 0 ? ((totalResolvedIncidents / totalIncidents) * 100).toFixed(1) : '100';
 
   const machinesByCustomer = machineDowntime.reduce((acc: any, machine: any) => {
@@ -86,7 +88,7 @@ export function AdvancedMachineAnalyticsReport({ reportData }: AdvancedMachineAn
 
   const topMachines = [...machinesWithIssues]
     .sort((a, b) => (b.totalDowntimeMinutes || 0) - (a.totalDowntimeMinutes || 0))
-    .slice(0, 10).map(m => ({
+    .map(m => ({
       name: `${m.model || 'N/A'} - ${m.serialNo?.substring(0, 8) || 'N/A'}`,
       fullName: `${m.model || 'N/A'} (${m.serialNo || 'N/A'})`,
       downtime: (m.totalDowntimeMinutes || 0) / 60,
@@ -265,46 +267,7 @@ export function AdvancedMachineAnalyticsReport({ reportData }: AdvancedMachineAn
         </Card>
       </div>
 
-      {/* Top Machines by Downtime */}
-      {topMachines.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-[#9E3B47]" />
-              Top 10 Machines by Downtime
-            </CardTitle>
-            <CardDescription>Machines requiring immediate attention</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={400}>
-              <BarChart data={topMachines} layout="horizontal">
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis type="number" label={{ value: 'Downtime (hours)', position: 'insideBottom', offset: -5 }} />
-                <YAxis dataKey="name" type="category" width={150} />
-                <Tooltip content={({ active, payload }) => {
-                  if (active && payload && payload.length) {
-                    const data = payload[0].payload;
-                    return (
-                      <div className="bg-white p-3 border rounded-lg shadow-lg">
-                        <p className="font-semibold">{data.fullName}</p>
-                        <p className="text-sm text-[#5D6E73]">Customer: {data.customer}</p>
-                        <p className="text-sm text-[#9E3B47]">Downtime: {data.downtime.toFixed(1)} hours</p>
-                        <p className="text-sm text-[#976E44]">Incidents: {data.incidents}</p>
-                      </div>
-                    );
-                  }
-                  return null;
-                }} />
-                <Bar dataKey="downtime" fill="#EF4444" radius={[0, 8, 8, 0]}>
-                  {topMachines.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      )}
+
 
       {/* Customer Performance */}
       {customerChartData.length > 0 && (
@@ -345,21 +308,75 @@ export function AdvancedMachineAnalyticsReport({ reportData }: AdvancedMachineAn
               <div className="max-h-96 overflow-y-auto space-y-2">
                 {customerChartData.map((customer, index) => {
                   const percentage = totalCustomerDowntime > 0 ? ((customer.value / totalCustomerDowntime) * 100).toFixed(1) : '0';
+                  const machines = (machinesByCustomer[customer.fullName] || [])
+                    .filter((m: any) => (m.incidents || 0) > 0)
+                    .sort((a: any, b: any) => (b.totalDowntimeMinutes || 0) - (a.totalDowntimeMinutes || 0));
+
+                  if (machines.length === 0) return null;
+
                   return (
-                    <div key={customer.fullName} className="flex items-center justify-between p-3 bg-gradient-to-r from-[#96AEC2]/10 to-transparent rounded-lg hover:from-[#96AEC2]/20 transition-colors">
-                      <div className="flex items-center gap-3 flex-1">
-                        <div className="w-4 h-4 rounded-full flex-shrink-0" 
-                          style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }} />
-                        <div className="flex flex-col">
-                          <span className="font-medium text-[#546A7A]">{customer.fullName}</span>
-                          <span className="text-xs text-[#AEBFC3]0">{customer.machineCount} machines</span>
+                    <div key={customer.fullName} className="mb-8 last:mb-0">
+                      {/* Customer Header */}
+                      <div className="flex items-center justify-between p-3 bg-gradient-to-r from-[#546A7A] to-[#6F8A9D] rounded-t-lg shadow-sm">
+                        <div className="flex items-center gap-3">
+                          <div className="w-4 h-4 rounded-full bg-white/20" />
+                          <div className="flex flex-col">
+                            <span className="font-bold text-white text-lg">{customer.fullName}</span>
+                            <span className="text-xs text-white/70">{customer.machineCount} machines tracked</span>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-white text-sm font-medium pr-4">{percentage}% share</span>
+                          <span className="bg-white/20 text-white px-3 py-1 rounded text-sm font-bold">
+                            Total: {(customer.value / 60).toFixed(1)}h
+                          </span>
                         </div>
                       </div>
-                      <div className="flex items-center gap-4">
-                        <span className="text-sm text-[#AEBFC3]0">{percentage}%</span>
-                        <span className="font-bold text-[#9E3B47] min-w-[80px] text-right">
-                          {(customer.value / 60).toFixed(1)}h
-                        </span>
+
+                      {/* Machine Wise Detailed List */}
+                      <div className="bg-white border-x border-b border-[#AEBFC3]/20 rounded-b-lg overflow-hidden">
+                        <table className="w-100 border-collapse">
+                          <thead>
+                            <tr className="bg-[#AEBFC3]/5 border-b border-[#AEBFC3]/10">
+                              <th className="text-left py-3 px-4 text-xs font-semibold text-[#5D6E73] uppercase tracking-wider">Machine Model & S/N</th>
+                              <th className="text-center py-3 px-4 text-xs font-semibold text-[#5D6E73] uppercase tracking-wider">Incidents</th>
+                              <th className="text-right py-3 px-4 text-xs font-semibold text-[#5D6E73] uppercase tracking-wider">Downtime (Hours)</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-[#AEBFC3]/10">
+                            {machines.map((m: any, mIdx: number) => (
+                              <tr key={mIdx} className="hover:bg-[#96AEC2]/5 transition-colors">
+                                <td className="py-3 px-4">
+                                  <div className="flex items-center gap-3">
+                                    <div className="bg-[#546A7A]/10 p-2 rounded">
+                                      <Monitor className="h-4 w-4 text-[#546A7A]" />
+                                    </div>
+                                    <div className="flex flex-col">
+                                      <span className="text-sm font-bold text-[#546A7A]">{m.model || 'N/A'}</span>
+                                      <span className="text-[11px] font-medium text-[#AEBFC3]0">SN: {m.serialNo || 'N/A'}</span>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="py-3 px-4 text-center">
+                                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${m.incidents > 0 ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
+                                    {m.incidents || 0}
+                                  </span>
+                                </td>
+                                <td className="py-3 px-4 text-right">
+                                  <div className="flex flex-col items-end">
+                                    <span className="text-sm font-bold text-[#9E3B47]">{(m.totalDowntimeMinutes / 60).toFixed(1)}h</span>
+                                    <div className="w-16 h-1.5 bg-gray-100 rounded-full mt-1 overflow-hidden">
+                                      <div 
+                                        className="h-full bg-[#9E3B47]" 
+                                        style={{ width: `${Math.min((m.totalDowntimeMinutes / customer.value) * 100, 100)}%` }} 
+                                      />
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
                       </div>
                     </div>
                   );
@@ -418,6 +435,8 @@ export function AdvancedMachineAnalyticsReport({ reportData }: AdvancedMachineAn
           </div>
         </CardContent>
       </Card>
+
+
 
       {/* Key Insights */}
       <Card className="border-t-4 border-t-purple-500">

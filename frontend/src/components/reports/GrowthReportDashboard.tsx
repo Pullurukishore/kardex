@@ -359,7 +359,7 @@ export default function GrowthPillarDashboard() {
 
   const achievementChartData = monthlyData.map(d => ({
     name: d.monthLabel.slice(0, 3),
-    'Achievement %': d.achievementPercent,
+    'Achieved %': d.achievementPercent,
     'Hit Rate %': d.hitRatePercent,
   }));
 
@@ -475,7 +475,7 @@ export default function GrowthPillarDashboard() {
         <KPICard title="Total Target" value={formatCurrency(totals.target)} subtitle={`${totals.offerCount} offers`} icon={Target} color="#6366f1" />
         <KPICard title="Offer Value" value={formatCurrency(totals.offerValue)} subtitle={`${totals.offerCount} offers created`} icon={DollarSign} color="#f59e0b" />
         <KPICard title="Won Value" value={formatCurrency(totals.wonValue)} subtitle={`${totals.wonCount} orders won`} icon={Award} color="#10b981" />
-        <KPICard title="Achievement" value={`${totals.achievementPercent}%`} subtitle="Won / Target" icon={TrendingUp} color="#06b6d4" />
+        <KPICard title="Achieved" value={`${totals.achievementPercent}%`} subtitle="Won / Target" icon={TrendingUp} color="#06b6d4" />
         <KPICard title="Hit Rate" value={`${totals.hitRatePercent}%`} subtitle="Won / Offer Value" icon={Percent} color="#8b5cf6" />
       </div>
 
@@ -503,7 +503,7 @@ export default function GrowthPillarDashboard() {
         {/* Achievement Trend */}
         <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-xl p-5 shadow-sm">
           <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-cyan-500" /> Achievement & Hit Rate Trend
+            <TrendingUp className="w-4 h-4 text-cyan-500" /> Achieved & Hit Rate Trend
           </h3>
           <ResponsiveContainer width="100%" height={300}>
             <AreaChart data={achievementChartData}>
@@ -522,7 +522,7 @@ export default function GrowthPillarDashboard() {
               <YAxis tick={{ fontSize: 11 }} unit="%" />
               <Tooltip content={<CustomTooltip />} />
               <Legend wrapperStyle={{ fontSize: '12px' }} />
-              <Area type="monotone" dataKey="Achievement %" stroke={CHART_COLORS.achievement} fill="url(#gradAchievement)" strokeWidth={2} dot={{ r: 3 }} />
+              <Area type="monotone" dataKey="Achieved %" stroke={CHART_COLORS.achievement} fill="url(#gradAchievement)" strokeWidth={2} dot={{ r: 3 }} />
               <Area type="monotone" dataKey="Hit Rate %" stroke={CHART_COLORS.growth} fill="url(#gradHitRate)" strokeWidth={2} dot={{ r: 3 }} />
             </AreaChart>
           </ResponsiveContainer>
@@ -582,7 +582,7 @@ export default function GrowthPillarDashboard() {
                 <th className="text-right px-4 py-3 font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">Won Value</th>
                 <th className="text-right px-4 py-3 font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">Offers</th>
                 <th className="text-right px-4 py-3 font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">Won</th>
-                <th className="text-right px-4 py-3 font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">Achievement</th>
+                <th className="text-right px-4 py-3 font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">Achieved</th>
                 <th className="text-right px-4 py-3 font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">Hit Rate</th>
                 <th className="text-right px-4 py-3 font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">MoM Growth</th>
               </tr>
@@ -681,7 +681,7 @@ export default function GrowthPillarDashboard() {
                           <th className="text-right py-2 px-2 font-medium">Won Value</th>
                           <th className="text-right py-2 px-2 font-medium">Offers</th>
                           <th className="text-right py-2 px-2 font-medium">Won</th>
-                          <th className="text-right py-2 px-2 font-medium">Achievement</th>
+                          <th className="text-right py-2 px-2 font-medium">Achieved</th>
                           <th className="text-right py-2 px-2 font-medium">Growth</th>
                         </tr>
                       </thead>

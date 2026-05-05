@@ -45,10 +45,10 @@ async function getCachedTicketContext() {
 const STATUS_GROUPS = {
   OPEN_NEW: ['OPEN', 'PENDING'],
   IN_PROGRESS: ['ASSIGNED', 'IN_PROGRESS', 'IN_PROCESS'],
-  ONSITE: ['ONSITE_VISIT', 'ONSITE_VISIT_PLANNED', 'ONSITE_VISIT_STARTED', 'ONSITE_VISIT_REACHED', 
-           'ONSITE_VISIT_IN_PROGRESS', 'ONSITE_VISIT_PENDING', 'ONSITE_VISIT_RESOLVED', 'ONSITE_VISIT_COMPLETED'],
-  WAITING: ['WAITING_CUSTOMER', 'PO_NEEDED', 'PO_REACHED', 'PO_RECEIVED', 
-            'SPARE_PARTS_NEEDED', 'SPARE_PARTS_BOOKED', 'SPARE_PARTS_DELIVERED'],
+  ONSITE: ['ONSITE_VISIT', 'ONSITE_VISIT_PLANNED', 'ONSITE_VISIT_STARTED', 'ONSITE_VISIT_REACHED',
+    'ONSITE_VISIT_IN_PROGRESS', 'ONSITE_VISIT_PENDING', 'ONSITE_VISIT_RESOLVED', 'ONSITE_VISIT_COMPLETED'],
+  WAITING: ['WAITING_CUSTOMER', 'PO_NEEDED', 'PO_REACHED', 'PO_RECEIVED',
+    'SPARE_PARTS_NEEDED', 'SPARE_PARTS_BOOKED', 'SPARE_PARTS_DELIVERED'],
   ON_HOLD: ['ON_HOLD', 'ESCALATED'],
   CLOSED: ['CLOSED', 'CLOSED_PENDING', 'RESOLVED', 'CANCELLED'],
 };
@@ -79,10 +79,10 @@ async function gatherTicketContext() {
     'July', 'August', 'September', 'October', 'November', 'December'];
 
   // Status categories for quick counts
-  const openStatuses = ['OPEN', 'ASSIGNED', 'IN_PROGRESS', 'IN_PROCESS', 'PENDING', 
+  const openStatuses = ['OPEN', 'ASSIGNED', 'IN_PROGRESS', 'IN_PROCESS', 'PENDING',
     'ONSITE_VISIT', 'ONSITE_VISIT_PLANNED', 'ONSITE_VISIT_STARTED', 'ONSITE_VISIT_REACHED',
     'ONSITE_VISIT_IN_PROGRESS', 'ONSITE_VISIT_PENDING', 'ONSITE_VISIT_RESOLVED', 'ONSITE_VISIT_COMPLETED',
-    'WAITING_CUSTOMER', 'PO_NEEDED', 'PO_REACHED', 'PO_RECEIVED', 
+    'WAITING_CUSTOMER', 'PO_NEEDED', 'PO_REACHED', 'PO_RECEIVED',
     'SPARE_PARTS_NEEDED', 'SPARE_PARTS_BOOKED', 'SPARE_PARTS_DELIVERED', 'ON_HOLD', 'ESCALATED', 'REOPENED'];
   const closedStatuses = ['CLOSED', 'CLOSED_PENDING', 'RESOLVED', 'CANCELLED'];
 
@@ -165,7 +165,7 @@ async function gatherTicketContext() {
     const closedTickets = zoneTickets.filter(t => closedStatuses.includes(t.status));
     const criticalTickets = zoneTickets.filter(t => t.priority === 'CRITICAL' || t.isCritical);
     const escalatedTickets = zoneTickets.filter(t => t.isEscalated || t.status === 'ESCALATED');
-    
+
     // SLA analysis
     const slaBreachedCount = zoneTickets.filter(t => t.slaStatus === 'BREACHED').length;
     const slaOnTimeCount = zoneTickets.filter(t => t.slaStatus === 'ON_TIME').length;
@@ -316,10 +316,10 @@ async function gatherTicketContext() {
 
     // Backlog calculation
     const prevMonthEnd = m > 1 ? new Date(currentYear, m - 1, 0, 23, 59, 59) : new Date(currentYear - 1, 11, 31, 23, 59, 59);
-    const backlogStart = allTickets.filter(t => 
+    const backlogStart = allTickets.filter(t =>
       t.createdAt <= prevMonthEnd && !closedStatuses.includes(t.status)
     ).length;
-    const backlogEnd = allTickets.filter(t => 
+    const backlogEnd = allTickets.filter(t =>
       t.createdAt <= mEnd && !closedStatuses.includes(t.status)
     ).length;
 
@@ -373,11 +373,11 @@ async function gatherTicketContext() {
   // =====================================================
   // 10. TOP PERFORMERS
   // =====================================================
-  const userPerf = new Map<string, { 
-    name: string; 
+  const userPerf = new Map<string, {
+    name: string;
     role: string;
-    assigned: number; 
-    resolved: number; 
+    assigned: number;
+    resolved: number;
     avgResolutionTime: number;
     criticalHandled: number;
     escalatedCount: number;
@@ -387,11 +387,11 @@ async function gatherTicketContext() {
     const userName = t.assignedTo?.name || 'Unassigned';
     const userRole = t.assignedTo?.role || 'N/A';
     if (!userPerf.has(userName)) {
-      userPerf.set(userName, { 
-        name: userName, 
+      userPerf.set(userName, {
+        name: userName,
         role: userRole,
-        assigned: 0, 
-        resolved: 0, 
+        assigned: 0,
+        resolved: 0,
         avgResolutionTime: 0,
         criticalHandled: 0,
         escalatedCount: 0,
@@ -406,7 +406,7 @@ async function gatherTicketContext() {
 
   // Calculate avg resolution time per user
   userPerf.forEach((perf, userName) => {
-    const userResolved = allTickets.filter(t => 
+    const userResolved = allTickets.filter(t =>
       (t.assignedTo?.name || 'Unassigned') === userName && t.actualResolutionTime != null
     );
     if (userResolved.length > 0) {
@@ -418,15 +418,13 @@ async function gatherTicketContext() {
 
   const topPerformers = [...userPerf.values()]
     .filter(u => u.assigned > 0)
-    .sort((a, b) => b.resolved - a.resolved)
-    .slice(0, 5);
+    .sort((a, b) => b.resolved - a.resolved);
 
   // =====================================================
   // 11. CRITICAL & ESCALATED TICKETS
   // =====================================================
   const criticalOpenTickets = allTickets
     .filter(t => (t.priority === 'CRITICAL' || t.isCritical) && openStatuses.includes(t.status))
-    .slice(0, 10)
     .map(t => ({
       id: t.id,
       ticketNumber: t.ticketNumber || `#${t.id}`,
@@ -441,7 +439,6 @@ async function gatherTicketContext() {
 
   const escalatedTickets = allTickets
     .filter(t => t.isEscalated || t.status === 'ESCALATED')
-    .slice(0, 10)
     .map(t => ({
       id: t.id,
       ticketNumber: t.ticketNumber || `#${t.id}`,
@@ -460,7 +457,6 @@ async function gatherTicketContext() {
   const stuckTickets = allTickets
     .filter(t => openStatuses.includes(t.status) && t.createdAt < sevenDaysAgo)
     .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
-    .slice(0, 10)
     .map(t => ({
       id: t.id,
       ticketNumber: t.ticketNumber || `#${t.id}`,
@@ -476,7 +472,7 @@ async function gatherTicketContext() {
   // =====================================================
   // 13. RECENT TICKETS
   // =====================================================
-  const recentTickets = allTickets.slice(0, 10).map(t => ({
+  const recentTickets = allTickets.slice(0, 50).map(t => ({
     id: t.id,
     ticketNumber: t.ticketNumber || `#${t.id}`,
     title: t.title,
@@ -489,6 +485,26 @@ async function gatherTicketContext() {
   }));
 
   // =====================================================
+  // 13.5. ALL TICKETS RAW DATA (EVERYTHING FOR REPORTS)
+  // =====================================================
+  const thirtyDaysAgoReport = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const allTicketsFullData = allTickets
+    .filter(t => openStatuses.includes(t.status) || (t.actualResolutionTime != null && t.createdAt > thirtyDaysAgoReport))
+    .map(t => ({
+      ticketNo: t.ticketNumber || `#${t.id}`,
+      title: t.title.substring(0, 50),
+      desc: t.description ? t.description.substring(0, 100) : '',
+      status: t.status,
+      pri: t.priority,
+      zone: t.zone?.name || '-',
+      cust: t.customer?.companyName?.substring(0, 30) || '-',
+      eq: t.asset ? t.asset.serialNo : '-',
+      assign: t.assignedTo?.name || '-',
+      ageD: Math.floor((now.getTime() - t.createdAt.getTime()) / (1000 * 60 * 60 * 24)),
+      esc: !!t.isEscalated
+    }));
+
+  // =====================================================
   // 14. OVERALL TOTALS
   // =====================================================
   const totalTickets = allTickets.length;
@@ -496,10 +512,10 @@ async function gatherTicketContext() {
   const totalClosed = allTickets.filter(t => closedStatuses.includes(t.status)).length;
   const totalCritical = allTickets.filter(t => t.priority === 'CRITICAL' || t.isCritical).length;
   const totalEscalated = allTickets.filter(t => t.isEscalated).length;
-  const totalCriticalOpen = allTickets.filter(t => 
+  const totalCriticalOpen = allTickets.filter(t =>
     (t.priority === 'CRITICAL' || t.isCritical) && openStatuses.includes(t.status)
   ).length;
-  const totalEscalatedOpen = allTickets.filter(t => 
+  const totalEscalatedOpen = allTickets.filter(t =>
     t.isEscalated && openStatuses.includes(t.status)
   ).length;
 
@@ -518,14 +534,14 @@ async function gatherTicketContext() {
 
   // This month stats
   const createdThisMonth = allTickets.filter(t => t.createdAt >= monthStart && t.createdAt <= monthEnd).length;
-  const resolvedThisMonth = allTickets.filter(t => 
-    closedStatuses.includes(t.status) && 
+  const resolvedThisMonth = allTickets.filter(t =>
+    closedStatuses.includes(t.status) &&
     ((t.visitResolvedAt && t.visitResolvedAt >= monthStart && t.visitResolvedAt <= monthEnd) ||
-     (t.lastStatusChange && t.lastStatusChange >= monthStart && t.lastStatusChange <= monthEnd))
+      (t.lastStatusChange && t.lastStatusChange >= monthStart && t.lastStatusChange <= monthEnd))
   ).length;
 
   // Backlog (open tickets from previous months)
-  const currentBacklog = allTickets.filter(t => 
+  const currentBacklog = allTickets.filter(t =>
     t.createdAt < monthStart && openStatuses.includes(t.status)
   ).length;
 
@@ -551,6 +567,7 @@ async function gatherTicketContext() {
     escalatedTickets,
     stuckTickets,
     recentTickets,
+    allTicketsFullData,
   };
 }
 
@@ -625,41 +642,41 @@ ${ctx.zoneAnalysis.map(z => `**${z.name}:**
 
 ## STATUS BREAKDOWN
 
-${Object.entries(ctx.byStatus).map(([status, d]) => 
-  `${status}: ${d.count} tickets (${d.critical} critical) | Avg Age: ${fmtDuration(d.avgAge)}`
-).join('\n')}
+${Object.entries(ctx.byStatus).map(([status, d]) =>
+    `${status}: ${d.count} tickets (${d.critical} critical) | Avg Age: ${fmtDuration(d.avgAge)}`
+  ).join('\n')}
 
 ---
 
 ## PRIORITY BREAKDOWN
 
-${Object.entries(ctx.byPriority).map(([priority, d]) => 
-  `**${priority}:** Total ${d.total} | Open ${d.open} | Closed ${d.closed} | Avg Resolution: ${fmtDuration(d.avgResolutionTime)}`
-).join('\n')}
+${Object.entries(ctx.byPriority).map(([priority, d]) =>
+    `**${priority}:** Total ${d.total} | Open ${d.open} | Closed ${d.closed} | Avg Resolution: ${fmtDuration(d.avgResolutionTime)}`
+  ).join('\n')}
 
 ---
 
 ## CALL TYPE ANALYSIS
 
-${Object.entries(ctx.byCallType).map(([type, d]) => 
-  `**${type}:** Total ${d.total} | Open ${d.open} | Closed ${d.closed} | Avg Resolution: ${fmtDuration(d.avgResolution)}`
-).join('\n')}
+${Object.entries(ctx.byCallType).map(([type, d]) =>
+    `**${type}:** Total ${d.total} | Open ${d.open} | Closed ${d.closed} | Avg Resolution: ${fmtDuration(d.avgResolution)}`
+  ).join('\n')}
 
 ---
 
 ## MONTHLY TRENDS
 
-${ctx.monthlyTrends.slice(-6).map(m => 
-  `${m.monthLabel}: C:${m.created}|R:${m.resolved}|Crit:${m.criticalCreated}|Esc:${m.escalatedCount}|Back:${m.backlogEnd}`
-).join('\n')}
+${ctx.monthlyTrends.map(m =>
+    `${m.monthLabel}: C:${m.created}|R:${m.resolved}|Crit:${m.criticalCreated}|Esc:${m.escalatedCount}|Back:${m.backlogEnd}`
+  ).join('\n')}
 
 ---
 
 ## QUARTERLY ANALYSIS
 
-${ctx.quarters.map(q => 
-  `${q.name}: Created ${q.created} | Resolved ${q.resolved} | Critical ${q.critical} | Avg Resolution ${fmtDuration(q.avgResolution)}`
-).join('\n')}
+${ctx.quarters.map(q =>
+    `${q.name}: Created ${q.created} | Resolved ${q.resolved} | Critical ${q.critical} | Avg Resolution ${fmtDuration(q.avgResolution)}`
+  ).join('\n')}
 
 ---
 
@@ -675,47 +692,56 @@ ${ctx.quarters.map(q =>
 
 ## TOP PERFORMERS (By Resolved Tickets)
 
-${ctx.topPerformers.slice(0, 5).map((u, i) => 
-  `${i + 1}.${u.name}: Assig:${u.assigned}|Res:${u.resolved}|Crit:${u.criticalHandled}`
-).join('\n')}
+${ctx.topPerformers.map((u, i) =>
+    `${i + 1}.${u.name}: Assig:${u.assigned}|Res:${u.resolved}|Crit:${u.criticalHandled}`
+  ).join('\n')}
 
 ---
 
 ## CRITICAL OPEN TICKETS
 
-${ctx.criticalOpenTickets.length > 0 
-  ? ctx.criticalOpenTickets.slice(0, 5).map((t, i) => 
-      `${t.ticketNumber}|${t.customer}|${t.status}|Age:${t.age}`
-    ).join('\n')
-  : 'None'}
+${ctx.criticalOpenTickets.length > 0
+      ? ctx.criticalOpenTickets.map((t, i) =>
+        `${t.ticketNumber}|${t.customer}|${t.status}|Age:${t.age}`
+      ).join('\n')
+      : 'None'}
 
 ---
 
 ## ESCALATED TICKETS
 
 ${ctx.escalatedTickets.length > 0
-  ? ctx.escalatedTickets.map((t, i) =>
-      `${i + 1}. ${t.ticketNumber} - ${t.title.substring(0, 50)}... | ${t.customer} | ${t.zone} | ${t.status} | Escalated: ${t.escalatedAt} | Assigned: ${t.assignedTo}`
-    ).join('\n')
-  : 'No escalated tickets.'}
+      ? ctx.escalatedTickets.map((t, i) =>
+        `${i + 1}. ${t.ticketNumber} - ${t.title.substring(0, 50)}... | ${t.customer} | ${t.zone} | ${t.status} | Escalated: ${t.escalatedAt} | Assigned: ${t.assignedTo}`
+      ).join('\n')
+      : 'No escalated tickets.'}
 
 ---
 
 ## STUCK/AGING TICKETS (Open > 7 days)
 
 ${ctx.stuckTickets.length > 0
-  ? ctx.stuckTickets.slice(0, 5).map((t, i) =>
-      `${t.ticketNumber}|${t.customer}|Age:${t.age}|Last:${t.lastStatusChange}`
-    ).join('\n')
-  : 'None'}
+      ? ctx.stuckTickets.map((t, i) =>
+        `${t.ticketNumber}|${t.customer}|Age:${t.age}|Last:${t.lastStatusChange}`
+      ).join('\n')
+      : 'None'}
 
 ---
 
-## RECENT TICKETS (Latest 10)
+## RECENT TICKETS (Latest 50)
 
-${ctx.recentTickets.map(t => 
-  `${t.ticketNumber} | ${t.title.substring(0, 40)}... | ${t.customer} | ${t.zone} | ${t.priority} | ${t.status} | ${t.assignedTo} | ${t.createdAt}`
-).join('\n')}
+${ctx.recentTickets.map(t =>
+        `${t.ticketNumber} | ${t.title.substring(0, 40)}... | ${t.customer} | ${t.zone} | ${t.priority} | ${t.status} | ${t.assignedTo} | ${t.createdAt}`
+      ).join('\n')}
+
+---
+
+## 📂 REPORT TICKETS (RAW DATA EXTRACT)
+
+Here is a raw JSON extract of all open tickets + recent resolved tickets for reporting and lookup.
+\`\`\`json
+${JSON.stringify(ctx.allTicketsFullData)}
+\`\`\`
 
 ---
 
