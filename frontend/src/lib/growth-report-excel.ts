@@ -5,6 +5,15 @@
  *
  * Data shape matches GrowthPillarPdfData from growth-report-pdf.ts
  */
+import { 
+    kardexBlue, 
+    kardexGreen, 
+    kardexGrey, 
+    kardexSilver, 
+    kardexRed, 
+    kardexSand,
+    chartColors
+} from './kardex-colors'
 
 // ============ Types ============
 interface MonthData {
@@ -81,63 +90,68 @@ export interface GrowthPillarExcelData {
     }
 }
 
-// ============ Color Scheme (ARGB Hex without FF prefix – ExcelJS adds it) ============
+// ============ Color Helpers ============
+const c = (hex: string) => hex.replace('#', '')
+const solid = (hex: string) => 'FF' + c(hex)
+const alpha = (hex: string, a: string) => a + c(hex)
+
+// ============ Color Scheme (ARGB Hex: AARRGGBB) ============
 const COLORS = {
-    headerBg: '1E3A8A',      // Deep blue
-    headerText: 'FFFFFF',
-    titleBg: 'EFF6FF',
-    titleText: '1E40AF',
+    headerBg: solid(kardexBlue[3]),      // Dark blue
+    headerText: 'FFFFFFFF',
+    titleBg: alpha(kardexBlue[1], '33'), // Light blue (20% opacity)
+    titleText: solid(kardexBlue[3]),
 
     // KPI accent
-    kpiTarget: '6366F1',     // Indigo
-    kpiOffer: 'F59E0B',      // Amber
-    kpiWon: '10B981',        // Emerald
-    kpiAchieve: '06B6D4',    // Cyan
-    kpiHitRate: '8B5CF6',    // Purple
+    kpiTarget: solid(kardexBlue[2]),     
+    kpiOffer: solid(kardexSand[2]),      
+    kpiWon: solid(kardexGreen[2]),        
+    kpiAchieve: solid(kardexBlue[1]),    
+    kpiHitRate: solid(kardexGrey[3]),    
 
     // Status
-    positive: '059669',
-    positiveBg: 'D1FAE5',
-    warning: 'D97706',
-    warningBg: 'FEF3C7',
-    negative: 'DC2626',
-    negativeBg: 'FEE2E2',
+    positive: solid(kardexGreen[3]),
+    positiveBg: solid(kardexGreen[1]),
+    warning: solid(kardexSand[3]),
+    warningBg: solid(kardexSand[1]),
+    negative: solid(kardexRed[2]),
+    negativeBg: solid(kardexRed[1]),
 
     // Table
-    rowEven: 'F8FAFC',
-    rowOdd: 'FFFFFF',
-    borderLight: 'E2E8F0',
-    totalRowBg: 'E0E7FF',
-    grandTotalBg: '1E3A8A',
+    rowEven: 'FFF8FAFC',
+    rowOdd: 'FFFFFFFF',
+    borderLight: solid(kardexSilver[1]),
+    totalRowBg: alpha(kardexBlue[1], '4D'), // 30% opacity
+    grandTotalBg: solid(kardexBlue[3]),
 
-    // Product accent palette
-    product: ['6366F1', 'EC4899', 'F59E0B', '10B981', '06B6D4', '8B5CF6', 'EF4444', '14B8A6', 'F97316'],
+    // Product accent palette from design system
+    product: chartColors.map(hex => solid(hex)),
 
     // Text
-    textDark: '1E293B',
-    textLight: '64748B',
+    textDark: solid(kardexBlue[3]),
+    textLight: solid(kardexGrey[3]), // Darker for better contrast
 
     // Insight types
-    success: '059669',
-    successBg: 'D1FAE5',
-    info: '2563EB',
-    infoBg: 'DBEAFE',
-    error: 'DC2626',
-    errorBg: 'FEE2E2',
-    action: '4F46E5',
-    actionBg: 'E0E7FF',
+    success: solid(kardexGreen[2]),
+    successBg: alpha(kardexGreen[1], '33'),
+    info: solid(kardexBlue[2]),
+    infoBg: alpha(kardexBlue[1], '33'),
+    error: solid(kardexRed[2]),
+    errorBg: alpha(kardexRed[1], '33'),
+    action: solid(kardexSand[2]),
+    actionBg: alpha(kardexSand[1], '33'),
 }
 
-// Distinct colors for each zone in Forecast Pipeline
+// Distinct colors for each zone in Forecast Pipeline using brand colors
 const ZONE_COLORS = [
-    { bg: '1E3A8A', light: '3B82F6', name: 'Deep Blue' },
-    { bg: '065F46', light: '10B981', name: 'Emerald' },
-    { bg: '92400E', light: 'F59E0B', name: 'Amber' },
-    { bg: '5B21B6', light: '8B5CF6', name: 'Purple' },
-    { bg: '0F766E', light: '14B8A6', name: 'Teal' },
-    { bg: '9F1239', light: 'FB7185', name: 'Rose' },
-    { bg: '334155', light: '94A3B8', name: 'Slate' },
-    { bg: 'C2410C', light: 'FB923C', name: 'Orange' },
+    { bg: solid(kardexBlue[3]), light: solid(kardexBlue[2]), name: 'Kardex Blue' },
+    { bg: solid(kardexGreen[3]), light: solid(kardexGreen[2]), name: 'Kardex Green' },
+    { bg: solid(kardexSand[3]), light: solid(kardexSand[2]), name: 'Kardex Sand' },
+    { bg: solid(kardexGrey[3]), light: solid(kardexGrey[2]), name: 'Kardex Grey' },
+    { bg: solid(kardexBlue[2]), light: solid(kardexBlue[1]), name: 'Sky Blue' },
+    { bg: solid(kardexGreen[2]), light: solid(kardexGreen[1]), name: 'Pale Green' },
+    { bg: solid(kardexSand[2]), light: solid(kardexSand[1]), name: 'Warm Sand' },
+    { bg: solid(kardexGrey[2]), light: solid(kardexGrey[1]), name: 'Silver Grey' },
 ]
 
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
@@ -226,7 +240,7 @@ function generateSummarySheet(workbook: any, data: GrowthPillarExcelData): void 
         : ''
     const probLabel = data.filters.probability === 'all' ? 'All' : `>= ${data.filters.probability}%`
     subCell.value = `${MONTH_NAMES[data.fromMonth - 1]} – ${MONTH_NAMES[data.toMonth - 1]} ${data.year}  |  ${zoneName}${userName ? `  |  ${userName}` : ''}  |  Probability: ${probLabel}  |  Generated: ${new Date().toLocaleString('en-IN')}`
-    subCell.font = { size: 10, italic: true, color: { argb: COLORS.textLight } }
+    subCell.font = { size: 10, italic: true, color: { argb: COLORS.textDark } } // Using textDark for visibility
     subCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.titleBg } }
     subCell.alignment = { horizontal: 'center', vertical: 'middle' }
     ws.getRow(row).height = 22
@@ -249,6 +263,10 @@ function generateSummarySheet(workbook: any, data: GrowthPillarExcelData): void 
         cell.font = { bold: true, size: 9, color: { argb: COLORS.headerText } }
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: kpi.accent } }
         cell.alignment = { horizontal: 'center', vertical: 'middle' }
+        // Ensure white text is readable, or use dark text for light accents
+        if (kpi.accent === COLORS.kpiAchieve || kpi.accent === COLORS.kpiTarget) {
+            cell.font.color = { argb: COLORS.textDark }
+        }
     })
     ws.getRow(row).height = 22
     row++
@@ -274,7 +292,7 @@ function generateSummarySheet(workbook: any, data: GrowthPillarExcelData): void 
         const cell = ws.getCell(row, i * 2 + 1)
         ws.mergeCells(row, i * 2 + 1, row, i * 2 + 2)
         cell.value = kpi.sub
-        cell.font = { size: 8, italic: true, color: { argb: kpi.accent } }
+        cell.font = { size: 8, italic: true, color: { argb: COLORS.textDark } } // High contrast for small text
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.rowEven } }
         cell.alignment = { horizontal: 'center', vertical: 'middle' }
         cell.border = thinBorder()
@@ -370,7 +388,7 @@ function generateMonthlySheet(workbook: any, data: GrowthPillarExcelData): void 
     const userName = data.filters.userId ? data.filters.users.find(u => u.id === data.filters.userId)?.name || '' : ''
     const probLabel = data.filters.probability === 'all' ? 'All' : `>= ${data.filters.probability}%`
     subCell.value = `${MONTH_NAMES[data.fromMonth - 1]} – ${MONTH_NAMES[data.toMonth - 1]} ${data.year}  |  ${zoneName}${userName ? `  |  ${userName}` : ''}  |  Probability: ${probLabel}`
-    subCell.font = { size: 10, italic: true, color: { argb: COLORS.textLight } }
+    subCell.font = { size: 10, italic: true, color: { argb: COLORS.textDark } }
     subCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.titleBg } }
     subCell.alignment = { horizontal: 'center', vertical: 'middle' }
     ws.getRow(row).height = 22
@@ -487,7 +505,7 @@ function generateProductMonthlySheet(workbook: any, data: GrowthPillarExcelData)
     const userName = data.filters.userId ? data.filters.users.find(u => u.id === data.filters.userId)?.name || '' : ''
     const probLabel = data.filters.probability === 'all' ? 'All' : `>= ${data.filters.probability}%`
     subCell.value = `${MONTH_NAMES[data.fromMonth - 1]} – ${MONTH_NAMES[data.toMonth - 1]} ${data.year}  |  ${zoneName}${userName ? `  |  ${userName}` : ''}  |  Probability: ${probLabel}`
-    subCell.font = { size: 10, italic: true, color: { argb: COLORS.textLight } }
+    subCell.font = { size: 10, italic: true, color: { argb: COLORS.textDark } }
     subCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.titleBg } }
     subCell.alignment = { horizontal: 'center', vertical: 'middle' }
     ws.getRow(row).height = 22
@@ -609,7 +627,7 @@ function generateInsightsSheet(workbook: any, data: GrowthPillarExcelData): void
     const userName = data.filters.userId ? data.filters.users.find(u => u.id === data.filters.userId)?.name || '' : ''
     const probLabel = data.filters.probability === 'all' ? 'All' : `>= ${data.filters.probability}%`
     subCell.value = `${MONTH_NAMES[data.fromMonth - 1]} – ${MONTH_NAMES[data.toMonth - 1]} ${data.year}  |  ${zoneName}${userName ? `  |  ${userName}` : ''}  |  Probability: ${probLabel}`
-    subCell.font = { size: 10, italic: true, color: { argb: COLORS.textLight } }
+    subCell.font = { size: 10, italic: true, color: { argb: COLORS.textDark } }
     subCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.titleBg } }
     subCell.alignment = { horizontal: 'center', vertical: 'middle' }
     ws.getRow(row).height = 22
@@ -641,8 +659,8 @@ function generateInsightsSheet(workbook: any, data: GrowthPillarExcelData): void
         headers.forEach((h, idx) => {
             const cell = ws.getCell(row, idx + 1)
             cell.value = h
-            cell.font = { bold: true, size: 9, color: { argb: COLORS.textLight } }
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'F1F5F9' } }
+            cell.font = { bold: true, size: 9, color: { argb: COLORS.textDark } }
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } }
             cell.alignment = { horizontal: idx === 1 ? 'left' : 'center', vertical: 'middle' }
             cell.border = { bottom: { style: 'thin' as const, color: { argb: COLORS.borderLight } } }
         })
@@ -742,7 +760,7 @@ function generateForecastPipelineSheet(workbook: any, data: GrowthPillarExcelDat
     ws.mergeCells(rowRight, rightOffset + 1, rowRight, rightOffset + colCount)
     const subCellRight = ws.getCell(rowRight, rightOffset + 1)
     subCellRight.value = `Values represent Expected PO Amount | Probability: ${probLabel}`
-    subCellRight.font = { size: 10, italic: true, color: { argb: COLORS.textLight } }
+    subCellRight.font = { size: 10, italic: true, color: { argb: COLORS.textDark } }
     subCellRight.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.titleBg } }
     subCellRight.alignment = { horizontal: 'center', vertical: 'middle' }
     rowRight += 2
@@ -870,7 +888,7 @@ function generateForecastPipelineSheet(workbook: any, data: GrowthPillarExcelDat
         ws.mergeCells(rowLeft, 1, rowLeft, colCount)
         const subCellLeft = ws.getCell(rowLeft, 1)
         subCellLeft.value = `Segmented breakdown across regions | Probability: ${probLabel}`
-        subCellLeft.font = { size: 10, italic: true, color: { argb: COLORS.textLight } }
+        subCellLeft.font = { size: 10, italic: true, color: { argb: COLORS.textDark } }
         subCellLeft.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.titleBg } }
         subCellLeft.alignment = { horizontal: 'center', vertical: 'middle' }
         rowLeft += 2
@@ -1061,7 +1079,7 @@ function generateForecastProductZoneSheet(workbook: any, data: GrowthPillarExcel
     const subCell = ws.getCell(row, 1)
     const probLabel = data.filters.probability === 'all' ? 'All' : `>= ${data.filters.probability}%`
     subCell.value = `Segmented breakdown of pipeline across all products and regions | Probability: ${probLabel}`
-    subCell.font = { size: 10, italic: true, color: { argb: COLORS.textLight } }
+    subCell.font = { size: 10, italic: true, color: { argb: COLORS.textDark } }
     subCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.titleBg } }
     subCell.alignment = { horizontal: 'center', vertical: 'middle' }
     row += 2

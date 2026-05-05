@@ -6,42 +6,49 @@
  * Note: jsPDF default Helvetica does NOT support Unicode.
  *       All text uses ASCII-safe characters only (Rs. instead of ₹).
  */
+import { 
+    kardexBlue, 
+    kardexGreen, 
+    kardexGrey, 
+    kardexSilver, 
+    kardexRed, 
+    kardexSand,
+    chartColors
+} from './kardex-colors'
+
+// ============ Color Helpers ============
+const hexToRgb = (hex: string): [number, number, number] => {
+    const r = parseInt(hex.slice(1, 3), 16)
+    const g = parseInt(hex.slice(3, 5), 16)
+    const b = parseInt(hex.slice(5, 7), 16)
+    return [r, g, b]
+}
 
 // ============ Kardex Brand Color Palette ============
 const COLORS = {
-    headerBg: [84, 106, 122] as [number, number, number],
-    headerLight: [111, 138, 157] as [number, number, number],
-    accentCyan: [150, 174, 194] as [number, number, number],
-    kardexGreen: [79, 106, 100] as [number, number, number],
-    kardexSilver: [146, 162, 165] as [number, number, number],
+    headerBg: hexToRgb(kardexBlue[3]),
+    headerLight: hexToRgb(kardexBlue[2]),
+    accentCyan: hexToRgb(kardexBlue[1]),
+    kardexGreen: hexToRgb(kardexGreen[3]),
+    kardexSilver: hexToRgb(kardexSilver[2]),
     // Status
-    positive: [130, 160, 148] as [number, number, number],
-    warning: [206, 159, 107] as [number, number, number],
-    negative: [225, 127, 112] as [number, number, number],
+    positive: hexToRgb(kardexGreen[2]),
+    warning: hexToRgb(kardexSand[2]),
+    negative: hexToRgb(kardexRed[1]),
     // Surfaces
     cardBg: [255, 255, 255] as [number, number, number],
-    cardBorder: [210, 220, 226] as [number, number, number],
+    cardBorder: hexToRgb(kardexSilver[1]),
     offWhite: [248, 250, 252] as [number, number, number],
     lightGray: [241, 245, 249] as [number, number, number],
     darkTrack: [230, 236, 240] as [number, number, number],
     // Text
     white: [255, 255, 255] as [number, number, number],
-    textDark: [84, 106, 122] as [number, number, number],
-    textBody: [93, 110, 115] as [number, number, number],
-    textMuted: [146, 162, 165] as [number, number, number],
-    textLight: [174, 191, 195] as [number, number, number],
+    textDark: hexToRgb(kardexBlue[3]),
+    textBody: hexToRgb(kardexGrey[3]),
+    textMuted: hexToRgb(kardexGrey[3]), // Darker for better contrast
+    textLight: hexToRgb(kardexGrey[2]), // Darker for better contrast
     // Product colors
-    product: [
-        [84, 106, 122],   // Blue 3
-        [79, 106, 100],   // Green 3
-        [206, 159, 107],  // Sand 2
-        [150, 174, 194],  // Blue 1
-        [111, 138, 157],  // Blue 2
-        [130, 160, 148],  // Green 2
-        [225, 127, 112],  // Red 1
-        [146, 162, 165],  // Silver 2
-        [151, 110, 68],   // Sand 3
-    ] as [number, number, number][],
+    product: chartColors.map(hex => hexToRgb(hex)),
 }
 
 // ============ Types ============
