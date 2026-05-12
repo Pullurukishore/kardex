@@ -257,6 +257,13 @@ export default function VendorAccountImportPage() {
                     </div>
                   </div>
 
+                  {row._parsed.emailId && (
+                    <div className="mt-3 bg-[#F8FAFB] p-3 rounded-xl border border-[#AEBFC3]/15">
+                      <span className="text-[8px] uppercase tracking-[0.2em] text-[#AEBFC3] font-black block mb-1">Email ID</span>
+                      <span className="font-bold text-xs text-[#6F8A9D] truncate block">{row._parsed.emailId}</span>
+                    </div>
+                  )}
+
                   {!row._isValid && (
                     <div className="bg-white/80 rounded-2xl p-4 border border-[#E17F70]/30 shadow-sm">
                       <p className="text-[10px] font-black text-[#E17F70] mb-2 uppercase tracking-widest flex items-center gap-2">
@@ -291,6 +298,7 @@ export default function VendorAccountImportPage() {
                     <th className="px-6 py-4">IFSC Code / SWIFT Code</th>
                     <th className="px-6 py-4">GST / PAN / MSME</th>
                     <th className="px-6 py-4">Beneficiary</th>
+                    <th className="px-6 py-4">Email ID</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#AEBFC3]/10">

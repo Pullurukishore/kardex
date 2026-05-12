@@ -189,7 +189,7 @@ export default function GrowthReportDashboard() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<GrowthPillarData | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [showFilters, setShowFilters] = useState(false);
+  const [showFilters, setShowFilters] = useState(true);
   const [excelLoading, setExcelLoading] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
 

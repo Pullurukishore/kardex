@@ -16,9 +16,18 @@ interface BankAccountImportRow {
 // ═══════════════════════════════════════════════════════════════════════════
 
 function getValue(row: BankAccountImportRow, ...keys: string[]): any {
-    for (const key of keys) {
-        if (row[key] !== undefined && row[key] !== null && row[key] !== '') {
-            return row[key].toString().trim();
+    const rowKeys = Object.keys(row);
+    for (const searchKey of keys) {
+        // Try exact match first for performance
+        if (row[searchKey] !== undefined && row[searchKey] !== null && row[searchKey] !== '') {
+            return row[searchKey].toString().trim();
+        }
+        
+        // Try case-insensitive match (robust: ignore spaces and hyphens)
+        const normalize = (s: string) => s.toLowerCase().replace(/[\s-]/g, '');
+        const foundKey = rowKeys.find(k => normalize(k) === normalize(searchKey));
+        if (foundKey && row[foundKey] !== undefined && row[foundKey] !== null && row[foundKey] !== '') {
+            return row[foundKey].toString().trim();
         }
     }
     return null;
@@ -66,7 +75,7 @@ function validateRow(row: BankAccountImportRow, index: number) {
             accountNumber: finalAccountNumber,
             ifscCode: finalIfscCode,
             beneficiaryName: getValue(row, 'Beneficiary Name', 'BeneficiaryName') || finalVendorName,
-            emailId: getValue(row, 'Email', 'EmailId', 'Email ID'),
+            emailId: getValue(row, 'Email', 'EmailId', 'Email ID', 'E-mail', 'E-Mail', 'E Mail'),
             nickName: getValue(row, 'Nick Name', 'NickName', 'Alias'),
             gstNumber,
             panNumber,
