@@ -441,9 +441,9 @@ function generateSummarySheet(workbook: any, data: GrowthPillarExcelData): void 
 
     // Column widths
     ws.columns = [
-        { width: 18 }, { width: 16 }, { width: 16 }, { width: 16 },
-        { width: 10 }, { width: 10 }, { width: 14 }, { width: 14 },
-        { width: 18 }, { width: 12 }, { width: 16 }, { width: 16 }, { width: 14 }
+        { width: 18 }, { width: 18 }, { width: 18 }, { width: 18 },
+        { width: 18 }, { width: 18 }, { width: 16 }, { width: 16 },
+        { width: 18 }, { width: 14 }, { width: 16 }, { width: 16 }, { width: 14 }
     ]
 }
 
