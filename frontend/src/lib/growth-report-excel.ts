@@ -28,6 +28,12 @@ interface MonthData {
     achievementPercent: number
     hitRatePercent: number
     growthPercent: number | null
+    // New metrics
+    openValue?: number
+    buMonthly?: number
+    percentDev?: number | null
+    offerBUMonth?: number
+    offerBUMonthDev?: number | null
 }
 
 interface ProductData {
@@ -41,6 +47,10 @@ interface ProductData {
     achievementPercent: number
     hitRatePercent: number
     monthlyData: MonthData[]
+    // New metrics
+    openValue?: number
+    buMonthly?: number
+    offerBUMonth?: number
 }
 
 interface InsightItem {
@@ -246,6 +256,8 @@ function generateSummarySheet(workbook: any, data: GrowthPillarExcelData): void 
     ws.getRow(row).height = 22
     row += 2
 
+    // Dynamic parameters moved below
+
     // KPI Row
     const kpis = [
         { label: 'Total Target', value: data.totals.target, sub: `${data.totals.offerCount} offers`, accent: COLORS.kpiTarget, isPercent: false },
@@ -300,18 +312,39 @@ function generateSummarySheet(workbook: any, data: GrowthPillarExcelData): void 
     ws.getRow(row).height = 18
     row += 2
 
+    // Dynamic Parameters for Upside Analysis (Positioned above the table)
+    ws.getCell(row, 9).value = 'Exchange Rate (1 EUR = INR):'
+    ws.getCell(row, 9).font = { size: 9, italic: true, color: { argb: COLORS.textDark } }
+    ws.getCell(row, 10).value = 107
+    ws.getCell(row, 10).font = { bold: true, color: { argb: COLORS.kpiOffer } }
+    ws.getCell(row, 10).border = thinBorder()
+    const rateRef = ws.getCell(row, 10).address
+    row++
+
+    ws.getCell(row, 9).value = 'Target Hit Rate:'
+    ws.getCell(row, 9).font = { size: 9, italic: true, color: { argb: COLORS.textDark } }
+    ws.getCell(row, 10).value = 0.40
+    ws.getCell(row, 10).font = { bold: true, color: { argb: COLORS.kpiOffer } }
+    ws.getCell(row, 10).numFmt = '0%'
+    ws.getCell(row, 10).border = thinBorder()
+    const targetRef = ws.getCell(row, 10).address
+    row++
+
     // Product-wise Summary Section
     if (data.productData.length > 0) {
-        ws.mergeCells(`A${row}:I${row}`)
+        ws.mergeCells(`A${row}:M${row}`)
         const prodTitle = ws.getCell(`A${row}`)
-        prodTitle.value = 'PRODUCT-WISE PERFORMANCE'
+        prodTitle.value = 'PRODUCT-WISE PERFORMANCE & UPSIDE ANALYSIS'
         prodTitle.font = { size: 12, bold: true, color: { argb: COLORS.headerText } }
         prodTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.kpiWon } }
         prodTitle.alignment = { horizontal: 'center', vertical: 'middle' }
         ws.getRow(row).height = 26
         row++
 
-        const prodHeaders = ['Product', 'Target', 'Offer Value', 'Won Value', 'Offers', 'Won', 'Achieved %', 'Hit Rate %']
+        const prodHeaders = [
+            'Product', 'Target', 'Offer Value', 'Won Value', 'Offers', 'Won', 'Achieved %', 'Hit Rate %', 
+            'Open Offer Funnel', 'IN Keuro', 'Current Hit Rate', 'Target Hitrate', 'Upside'
+        ]
         prodHeaders.forEach((h, idx) => {
             const cell = ws.getCell(row, idx + 1)
             cell.value = h
@@ -319,11 +352,21 @@ function generateSummarySheet(workbook: any, data: GrowthPillarExcelData): void 
         })
         ws.getRow(row).height = 24
         row++
+        const startProdRow = row
 
         data.productData.forEach((p, idx) => {
             const bgColor = idx % 2 === 0 ? COLORS.rowEven : COLORS.rowOdd
             const pColor = COLORS.product[idx % COLORS.product.length]
-            const rowData: (string | number | null)[] = [
+            const exchangeRateCell = rateRef
+            const targetHRCell = targetRef
+            
+            // Note: row index in Excel is 1-based. 
+            // In the data loop, 'row' is already correctly pointing to the current excel row.
+            const currRow = row 
+            const funnelCol = 'I'
+            const hitRateCol = 'H'
+
+            const rowData: (any)[] = [
                 p.productLabel,
                 p.target,
                 p.offerValue,
@@ -332,13 +375,24 @@ function generateSummarySheet(workbook: any, data: GrowthPillarExcelData): void 
                 p.wonCount,
                 p.achievementPercent / 100,
                 p.hitRatePercent / 100,
+                p.openValue || 0,
+                { formula: `${funnelCol}${currRow}/${exchangeRateCell}/1000` }, // IN Keuro
+                { formula: `J${currRow}*${hitRateCol}${currRow}` },           // Current HR
+                { formula: `J${currRow}*${targetHRCell}` },                   // Target HR
+                { formula: `MAX(0, L${currRow}-K${currRow})` }                // Upside
             ]
             rowData.forEach((val, colIdx) => {
                 const cell = ws.getCell(row, colIdx + 1)
                 cell.value = val === null ? '—' : val
-                const isCurrency = colIdx >= 1 && colIdx <= 3
+                const isCurrency = (colIdx >= 1 && colIdx <= 3) || colIdx === 8
+                const isEur = colIdx >= 9 && colIdx <= 12
                 const isPercent = colIdx === 6 || colIdx === 7
                 applyDataCell(cell, bgColor, colIdx > 0, isCurrency, isPercent)
+                
+                if (isEur) {
+                    cell.value = val === 0 ? 0 : val
+                    cell.numFmt = '"EUR "#,##0'
+                }
                 if (colIdx === 0) {
                     cell.font = { bold: true, color: { argb: pColor } }
                 }
@@ -350,16 +404,46 @@ function generateSummarySheet(workbook: any, data: GrowthPillarExcelData): void 
                 if (colIdx === 7) {
                     cell.alignment = { horizontal: 'right', vertical: 'middle' }
                 }
+                if (colIdx === 12 && val && (val as number) > 0) {
+                    cell.font = { bold: true, color: { argb: COLORS.positive } }
+                }
             })
             row++
         })
+
+        // Totals for the upside section
+        const totalFunnel = data.productData.reduce((s, p) => s + (p.openValue || 0), 0)
+        const totalUpside = data.productData.reduce((s, p) => {
+            const inKeuro = (p.openValue || 0) / 107 / 1000
+            const currentHR = inKeuro * (p.hitRatePercent / 100)
+            const targetHR = inKeuro * 0.40
+            return s + Math.max(0, targetHR - currentHR)
+        }, 0)
+
+        const totalRowIndex = row
+        const funnelCell = ws.getCell(totalRowIndex, 9)
+        funnelCell.value = { formula: `SUM(I${startProdRow}:I${totalRowIndex - 1})` }
+        applyTotalRow(funnelCell, false, true)
+        
+        const inKeuroCell = ws.getCell(totalRowIndex, 10)
+        inKeuroCell.value = { formula: `SUM(J${startProdRow}:J${totalRowIndex - 1})` }
+        applyTotalRow(inKeuroCell, false, false)
+        inKeuroCell.numFmt = '"EUR "#,##0'
+
+        const upsideCell = ws.getCell(totalRowIndex, 13)
+        upsideCell.value = { formula: `SUM(M${startProdRow}:M${totalRowIndex - 1})` }
+        applyTotalRow(upsideCell, false, false)
+        upsideCell.numFmt = '"EUR "#,##0'
+        upsideCell.font = { bold: true, color: { argb: COLORS.positive } }
+        
+        row += 2
     }
 
     // Column widths
     ws.columns = [
         { width: 18 }, { width: 16 }, { width: 16 }, { width: 16 },
-        { width: 12 }, { width: 12 }, { width: 16 }, { width: 14 },
-        { width: 14 }, { width: 14 },
+        { width: 10 }, { width: 10 }, { width: 14 }, { width: 14 },
+        { width: 18 }, { width: 12 }, { width: 16 }, { width: 16 }, { width: 14 }
     ]
 }
 
@@ -395,11 +479,27 @@ function generateMonthlySheet(workbook: any, data: GrowthPillarExcelData): void 
     row += 2
 
     // Headers
-    const headers = ['Month', 'Target', 'Offer Value', 'Won Value', 'Offers', 'Won', 'Achieved %', 'Hit Rate %', 'MoM Growth']
+    const headers = [
+        'Month', 
+        'Offer Value', 
+        'Won Value', 
+        'Open Offer Funnel', 
+        'BU/Mo', 
+        '%Dev', 
+        'OfferBU', 
+        '%Dev', 
+        'Achieved %', 
+        'Hit Rate %', 
+        'MoM Growth'
+    ]
     headers.forEach((h, idx) => {
         const cell = ws.getCell(row, idx + 1)
         cell.value = h
         applyHeaderStyle(cell)
+        // Highlight forecast target columns
+        if (h === 'BU/Mo' || h === 'OfferBU') {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: alpha(COLORS.kpiTarget, 'B3') } }
+        }
     })
     ws.getRow(row).height = 26
     row++
@@ -409,11 +509,13 @@ function generateMonthlySheet(workbook: any, data: GrowthPillarExcelData): void 
         const bgColor = idx % 2 === 0 ? COLORS.rowEven : COLORS.rowOdd
         const rowData: (string | number | null)[] = [
             d.monthLabel,
-            d.target,
             d.offerValue,
             d.wonValue,
-            d.offerCount,
-            d.wonCount,
+            d.openValue || 0,
+            d.buMonthly || 0,
+            d.percentDev !== undefined ? (d.percentDev || 0) / 100 : null,
+            d.offerBUMonth || 0,
+            d.offerBUMonthDev !== undefined ? (d.offerBUMonthDev || 0) / 100 : null,
             d.achievementPercent / 100,
             d.hitRatePercent / 100,
             d.growthPercent !== null ? d.growthPercent / 100 : null,
@@ -422,28 +524,26 @@ function generateMonthlySheet(workbook: any, data: GrowthPillarExcelData): void 
         rowData.forEach((val, colIdx) => {
             const cell = ws.getCell(row, colIdx + 1)
             cell.value = val === null ? '—' : val
-            const isCurrency = colIdx >= 1 && colIdx <= 3
-            const isPercent = colIdx >= 6 && colIdx <= 8
+            const isCurrency = (colIdx >= 1 && colIdx <= 4) || colIdx === 6
+            const isPercent = colIdx === 5 || colIdx === 7 || (colIdx >= 8 && colIdx <= 10)
             applyDataCell(cell, bgColor, colIdx > 0, isCurrency, isPercent)
 
             if (colIdx === 0) cell.font = { bold: true, color: { argb: COLORS.textDark } }
 
+            // Deviation colors
+            if (colIdx === 5 && d.percentDev !== undefined) {
+                const dev = d.percentDev || 0
+                cell.font = { bold: true, color: { argb: dev >= 0 ? COLORS.positive : dev >= -25 ? COLORS.warning : COLORS.negative } }
+            }
+            if (colIdx === 7 && d.offerBUMonthDev !== undefined) {
+                const dev = d.offerBUMonthDev || 0
+                cell.font = { bold: true, color: { argb: dev >= 0 ? COLORS.positive : dev >= -25 ? COLORS.warning : COLORS.negative } }
+            }
+
             // Achievement color
-            if (colIdx === 6) {
+            if (colIdx === 8) {
                 const ach = d.achievementPercent
                 cell.font = { bold: true, color: { argb: ach >= 100 ? COLORS.positive : ach >= 50 ? COLORS.warning : COLORS.negative } }
-                cell.alignment = { horizontal: 'right', vertical: 'middle' }
-            }
-
-            // Growth color
-            if (colIdx === 8 && d.growthPercent !== null) {
-                cell.font = { bold: true, color: { argb: d.growthPercent >= 0 ? COLORS.positive : COLORS.negative } }
-                cell.alignment = { horizontal: 'right', vertical: 'middle' }
-            }
-
-            // Center align percentage columns
-            if (colIdx === 7 || colIdx === 8) {
-                cell.alignment = { horizontal: 'right', vertical: 'middle' }
             }
         })
         row++
@@ -452,11 +552,13 @@ function generateMonthlySheet(workbook: any, data: GrowthPillarExcelData): void 
     // Totals row
     const totalData: (string | number | null)[] = [
         'TOTAL',
-        data.totals.target,
         data.totals.offerValue,
         data.totals.wonValue,
-        data.totals.offerCount,
-        data.totals.wonCount,
+        data.monthlyData.reduce((s, m) => s + (m.openValue || 0), 0),
+        data.monthlyData.reduce((s, m) => s + (m.buMonthly || 0), 0),
+        null,
+        data.monthlyData.reduce((s, m) => s + (m.offerBUMonth || 0), 0),
+        null,
         data.totals.achievementPercent / 100,
         data.totals.hitRatePercent / 100,
         null,
@@ -465,8 +567,8 @@ function generateMonthlySheet(workbook: any, data: GrowthPillarExcelData): void 
     totalData.forEach((val, colIdx) => {
         const cell = ws.getCell(row, colIdx + 1)
         cell.value = val === null ? '—' : val
-        const isCurrency = colIdx >= 1 && colIdx <= 3
-        const isPercent = colIdx >= 6 && colIdx <= 8
+        const isCurrency = (colIdx >= 1 && colIdx <= 4) || colIdx === 6
+        const isPercent = colIdx === 5 || colIdx === 7 || (colIdx >= 8 && colIdx <= 10)
         applyTotalRow(cell, true, isCurrency, isPercent)
     })
     ws.getRow(row).height = 26
@@ -474,7 +576,8 @@ function generateMonthlySheet(workbook: any, data: GrowthPillarExcelData): void 
     // Column widths
     ws.columns = [
         { width: 14 }, { width: 16 }, { width: 16 }, { width: 16 },
-        { width: 10 }, { width: 10 }, { width: 16 }, { width: 14 }, { width: 14 },
+        { width: 16 }, { width: 10 }, { width: 16 }, { width: 10 }, 
+        { width: 14 }, { width: 14 }, { width: 14 },
     ]
 }
 
@@ -526,7 +629,7 @@ function generateProductMonthlySheet(workbook: any, data: GrowthPillarExcelData)
         row++
 
         // Column headers
-        const headers = ['Month', 'Target', 'Offer Value', 'Won Value', 'Offers', 'Won', 'Achieved %', 'Growth']
+        const headers = ['Month', 'Offer Value', 'Won Value', 'Open Offer Funnel', 'BU/Mo', '%Dev', 'OfferBU', '%Dev', 'Achieved %', 'Growth']
         headers.forEach((h, idx) => {
             const cell = ws.getCell(row, idx + 1)
             cell.value = h
@@ -543,11 +646,13 @@ function generateProductMonthlySheet(workbook: any, data: GrowthPillarExcelData)
             const bgColor = idx % 2 === 0 ? COLORS.rowEven : COLORS.rowOdd
             const rowData: (string | number | null)[] = [
                 m.monthLabel.slice(0, 3),
-                m.target,
                 m.offerValue,
                 m.wonValue,
-                m.offerCount,
-                m.wonCount,
+                m.openValue || 0,
+                m.buMonthly || 0,
+                m.percentDev !== undefined ? (m.percentDev || 0) / 100 : null,
+                m.offerBUMonth || 0,
+                m.offerBUMonthDev !== undefined ? (m.offerBUMonthDev || 0) / 100 : null,
                 m.achievementPercent / 100,
                 m.growthPercent !== null ? m.growthPercent / 100 : null,
             ]
@@ -555,19 +660,18 @@ function generateProductMonthlySheet(workbook: any, data: GrowthPillarExcelData)
             rowData.forEach((val, colIdx) => {
                 const cell = ws.getCell(row, colIdx + 1)
                 cell.value = val === null ? '—' : val
-                const isCurrency = colIdx >= 1 && colIdx <= 3
-                const isPercent = colIdx === 6 || colIdx === 7
+                const isCurrency = (colIdx >= 1 && colIdx <= 4) || colIdx === 6
+                const isPercent = colIdx === 5 || colIdx === 7 || (colIdx >= 8 && colIdx <= 9)
                 applyDataCell(cell, bgColor, colIdx > 0, isCurrency, isPercent)
 
                 if (colIdx === 0) cell.font = { bold: true, color: { argb: COLORS.textDark } }
+                if (colIdx === 5 && m.percentDev !== undefined) {
+                    const dev = m.percentDev || 0
+                    cell.font = { bold: true, color: { argb: dev >= 0 ? COLORS.positive : dev >= -25 ? COLORS.warning : COLORS.negative } }
+                }
                 if (colIdx === 6) {
                     const ach = m.achievementPercent
                     cell.font = { bold: true, color: { argb: ach >= 100 ? COLORS.positive : ach >= 50 ? COLORS.warning : COLORS.negative } }
-                    cell.alignment = { horizontal: 'right', vertical: 'middle' }
-                }
-                if (colIdx === 7 && m.growthPercent !== null) {
-                    cell.font = { bold: true, color: { argb: m.growthPercent >= 0 ? COLORS.positive : COLORS.negative } }
-                    cell.alignment = { horizontal: 'right', vertical: 'middle' }
                 }
             })
             row++
@@ -576,19 +680,19 @@ function generateProductMonthlySheet(workbook: any, data: GrowthPillarExcelData)
         // Product total row
         const productTotal: (string | number | null)[] = [
             'TOTAL',
-            product.target,
             product.offerValue,
             product.wonValue,
-            product.offerCount,
-            product.wonCount,
+            product.monthlyData.reduce((s, m) => s + (m.openValue || 0), 0),
+            product.monthlyData.reduce((s, m) => s + (m.buMonthly || 0), 0),
+            null,
             product.achievementPercent / 100,
             null,
         ]
         productTotal.forEach((val, colIdx) => {
             const cell = ws.getCell(row, colIdx + 1)
             cell.value = val === null ? '—' : val
-            const isCurrency = colIdx >= 1 && colIdx <= 3
-            const isPercent = colIdx === 6 || colIdx === 7
+            const isCurrency = colIdx >= 1 && colIdx <= 4
+            const isPercent = colIdx >= 5 && colIdx <= 7
             applyTotalRow(cell, false, isCurrency, isPercent)
         })
         ws.getRow(row).height = 24
@@ -598,7 +702,7 @@ function generateProductMonthlySheet(workbook: any, data: GrowthPillarExcelData)
     // Column widths
     ws.columns = [
         { width: 12 }, { width: 16 }, { width: 16 }, { width: 16 },
-        { width: 10 }, { width: 10 }, { width: 16 }, { width: 14 },
+        { width: 16 }, { width: 10 }, { width: 14 }, { width: 12 },
     ]
 }
 

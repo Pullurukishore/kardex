@@ -1,23 +1,36 @@
-'use client';
-
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-  ResponsiveContainer, LineChart, Line, AreaChart, Area, PieChart, Pie, Cell,
-} from 'recharts';
-import {
-  TrendingUp, TrendingDown, Target, DollarSign, Award, Percent,
-  Download, RefreshCw, Filter, ChevronDown, ChevronRight, Lightbulb,
-  Calendar, MapPin, User, Users, BarChart3, ArrowUpRight, ArrowDownRight, Minus,
-  FileText, Printer, Activity, Package, Zap, CheckCircle2, AlertTriangle,
-  XCircle, Info, Rocket, ShieldCheck,
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { 
+  TrendingUp, TrendingDown, Target, Award, DollarSign, Calendar, 
+  Filter, RefreshCw, Download, FileText, ChevronRight, ChevronDown, 
+  ArrowUpRight, ArrowDownRight, Minus, AlertCircle, 
+  Info, CheckCircle2, ShieldCheck, Activity, Package, MapPin, Zap, Rocket, 
+  BarChart3, PieChart as PieChartIcon, Percent, Lightbulb
 } from 'lucide-react';
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, 
+  LineChart, Line, AreaChart, Area, Cell, PieChart, Pie 
+} from 'recharts';
 import { apiService } from '@/services/api';
-import { generateGrowthPillarPdf } from '@/lib/growth-report-pdf';
+import { formatCurrency, formatLargeNumber } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton';
 import { exportGrowthPillarToExcel } from '@/lib/growth-report-excel';
+import { generateGrowthPillarPdf } from '@/lib/growth-report-pdf';
+import { kardexBlue, kardexGreen, kardexSand, kardexGrey, kardexRed, chartColors } from '@/lib/kardex-colors';
 
+// ─── CONSTANTS & TYPES ──────────────────────────────────────────────────
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const FULL_MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-// ─── TYPES ──────────────────────────────────────────────────────────────
+const PRODUCT_COLORS = chartColors;
+
+const CHART_COLORS = {
+  target: kardexBlue[2],
+  offerValue: kardexSand[2],
+  wonValue: kardexGreen[2],
+  achievement: kardexBlue[1],
+  growth: kardexGrey[3]
+};
+
 interface MonthData {
   month: number;
   monthLabel: string;
@@ -30,6 +43,12 @@ interface MonthData {
   achievementPercent: number;
   hitRatePercent: number;
   growthPercent: number | null;
+  // Performance metrics (matching forecast)
+  openValue?: number;
+  buMonthly?: number;
+  percentDev?: number | null;
+  offerBUMonth?: number;
+  offerBUMonthDev?: number | null;
 }
 
 interface ProductData {
@@ -43,35 +62,18 @@ interface ProductData {
   achievementPercent: number;
   hitRatePercent: number;
   monthlyData: MonthData[];
+  // Summary totals for performance
+  openValue?: number;
+  buMonthly?: number;
+  offerBUMonth?: number;
 }
 
 interface InsightItem {
   text: string;
-  type: string; // success | info | warning | error | action
-}
-
-interface GrowthInsights {
-  performance: {
-    status: string;
-    statusColor: string;
-    points: InsightItem[];
-  };
-  trends: InsightItem[];
-  products: InsightItem[];
-  conversion: InsightItem[];
-  recommendations: InsightItem[];
+  type: 'success' | 'warning' | 'danger' | 'info';
 }
 
 interface GrowthPillarData {
-  year: number;
-  fromMonth: number;
-  toMonth: number;
-  filters: {
-    zoneId: number | null;
-    userId: number | null;
-    zones: { id: number; name: string }[];
-    users: { id: number; name: string }[];
-  };
   totals: {
     target: number;
     offerValue: number;
@@ -83,110 +85,76 @@ interface GrowthPillarData {
   };
   monthlyData: MonthData[];
   productData: ProductData[];
-  insights: GrowthInsights;
+  insights: {
+    performance: {
+      status: string;
+      points: InsightItem[];
+    };
+    trends: InsightItem[];
+    products: InsightItem[];
+    conversion: InsightItem[];
+    recommendations: { text: string }[];
+  };
+  filters: {
+    zones: { id: number; name: string }[];
+    users: { id: number; name: string }[];
+  };
 }
 
-// ─── HELPERS ────────────────────────────────────────────────────────────
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const FULL_MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-
-const formatCurrency = (value: number) => {
-  if (value >= 10000000) return `₹${(value / 10000000).toFixed(2)}Cr`;
-  if (value >= 100000) return `₹${(value / 100000).toFixed(2)}L`;
-  if (value >= 1000) return `₹${(value / 1000).toFixed(1)}K`;
-  return `₹${value.toFixed(0)}`;
+const INSIGHT_CONFIG = {
+  success: { bg: 'bg-emerald-50 dark:bg-emerald-900/20', border: 'border-emerald-100 dark:border-emerald-800/30', text: 'text-emerald-800 dark:text-emerald-300', icon: CheckCircle2, iconColor: 'text-emerald-500' },
+  warning: { bg: 'bg-amber-50 dark:bg-amber-900/20', border: 'border-amber-100 dark:border-amber-800/30', text: 'text-amber-800 dark:text-amber-300', icon: AlertCircle, iconColor: 'text-amber-500' },
+  danger: { bg: 'bg-red-50 dark:bg-red-900/20', border: 'border-red-100 dark:border-red-800/30', text: 'text-red-800 dark:text-red-300', icon: TrendingDown, iconColor: 'text-red-500' },
+  info: { bg: 'bg-indigo-50 dark:bg-indigo-900/20', border: 'border-indigo-100 dark:border-indigo-800/30', text: 'text-indigo-800 dark:text-indigo-300', icon: Info, iconColor: 'text-indigo-500' },
 };
 
-const formatLargeNumber = (value: number) => {
-  if (value >= 10000000) return `${(value / 10000000).toFixed(2)} Cr`;
-  if (value >= 100000) return `${(value / 100000).toFixed(2)} L`;
-  if (value >= 1000) return `${(value / 1000).toFixed(1)} K`;
-  return value.toFixed(0);
-};
+// ─── COMPONENTS ─────────────────────────────────────────────────────────
 
-const CHART_COLORS = {
-  target: '#6366f1',
-  offerValue: '#f59e0b',
-  wonValue: '#10b981',
-  growth: '#8b5cf6',
-  achievement: '#06b6d4',
-};
-
-const PRODUCT_COLORS = [
-  '#6366f1', '#ec4899', '#f59e0b', '#10b981', '#06b6d4',
-  '#8b5cf6', '#ef4444', '#14b8a6', '#f97316',
-];
-
-// ─── SKELETON ───────────────────────────────────────────────────────────
-const SkeletonLoader = () => (
-  <div className="animate-pulse space-y-6 p-6">
-    <div className="flex gap-4">
-      {[1, 2, 3, 4].map(i => (
-        <div key={i} className="flex-1 h-28 bg-gray-200 dark:bg-gray-700 rounded-xl" />
-      ))}
-    </div>
-    <div className="grid grid-cols-2 gap-6">
-      <div className="h-80 bg-gray-200 dark:bg-gray-700 rounded-xl" />
-      <div className="h-80 bg-gray-200 dark:bg-gray-700 rounded-xl" />
-    </div>
-    <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded-xl" />
-  </div>
-);
-
-// ─── KPI CARD ───────────────────────────────────────────────────────────
-const KPICard = ({ title, value, subtitle, icon: Icon, color, trend }: {
-  title: string; value: string; subtitle?: string;
-  icon: React.ElementType; color: string; trend?: number | null;
-}) => (
-  <div className="relative overflow-hidden rounded-xl border border-gray-200/50 dark:border-gray-700/50 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm p-5 shadow-sm hover:shadow-md transition-all duration-300 group">
-    <div className="absolute top-0 right-0 w-20 h-20 rounded-bl-[60px] opacity-10 group-hover:opacity-20 transition-opacity" style={{ background: color }} />
-    <div className="flex items-start justify-between">
-      <div className="space-y-1">
-        <p className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">{title}</p>
-        <p className="text-2xl font-bold text-gray-900 dark:text-white">{value}</p>
-        {subtitle && <p className="text-xs text-gray-500 dark:text-gray-400">{subtitle}</p>}
-      </div>
-      <div className="p-2.5 rounded-lg" style={{ background: `${color}15` }}>
-        <Icon className="w-5 h-5" style={{ color }} />
-      </div>
-    </div>
-    {trend !== undefined && trend !== null && (
-      <div className={`mt-3 flex items-center gap-1 text-xs font-medium ${trend >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
-        {trend >= 0 ? <ArrowUpRight className="w-3.5 h-3.5" /> : <ArrowDownRight className="w-3.5 h-3.5" />}
-        {Math.abs(trend).toFixed(1)}% vs prev period
-      </div>
-    )}
-  </div>
-);
-
-// ─── CUSTOM TOOLTIP ─────────────────────────────────────────────────────
 const CustomTooltip = ({ active, payload, label }: any) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl p-3 text-xs">
-      <p className="font-semibold text-gray-800 dark:text-gray-200 mb-1.5">{label}</p>
-      {payload.map((item: any, idx: number) => (
-        <div key={idx} className="flex items-center gap-2 py-0.5">
-          <div className="w-2.5 h-2.5 rounded-full" style={{ background: item.color }} />
-          <span className="text-gray-600 dark:text-gray-400">{item.name}:</span>
-          <span className="font-semibold text-gray-900 dark:text-white">
-            {typeof item.value === 'number' && item.name?.includes('%')
-              ? `${item.value}%`
-              : formatCurrency(item.value)}
-          </span>
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-3 shadow-xl rounded-lg backdrop-blur-md bg-opacity-90">
+        <p className="text-xs font-bold text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wider">{label}</p>
+        <div className="space-y-1.5">
+          {payload.map((entry: any, index: number) => (
+            <div key={index} className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-1.5">
+                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
+                <span className="text-xs text-gray-600 dark:text-gray-300">{entry.name}:</span>
+              </div>
+              <span className="text-xs font-bold text-gray-900 dark:text-white">
+                {typeof entry.value === 'number' && entry.name.includes('%') ? `${entry.value}%` : 
+                 typeof entry.value === 'number' ? formatCurrency(entry.value) : entry.value}
+              </span>
+            </div>
+          ))}
         </div>
-      ))}
+      </div>
+    );
+  }
+  return null;
+};
+
+const KPICard = ({ title, value, subtitle, icon: Icon, color }: any) => (
+  <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-xl p-4 shadow-sm hover:shadow-md transition-all group overflow-hidden relative">
+    <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+      <Icon className="w-12 h-12" style={{ color }} />
     </div>
-  );
-};
-// ─── INSIGHT ROW ────────────────────────────────────────────────────────
-const INSIGHT_CONFIG: Record<string, { icon: React.ElementType; bg: string; border: string; iconColor: string; text: string }> = {
-  success: { icon: CheckCircle2, bg: 'bg-emerald-50 dark:bg-emerald-900/20', border: 'border-emerald-200/50 dark:border-emerald-800/30', iconColor: 'text-emerald-600 dark:text-emerald-400', text: 'text-emerald-800 dark:text-emerald-300' },
-  info: { icon: Info, bg: 'bg-blue-50 dark:bg-blue-900/20', border: 'border-blue-200/50 dark:border-blue-800/30', iconColor: 'text-blue-600 dark:text-blue-400', text: 'text-blue-800 dark:text-blue-300' },
-  warning: { icon: AlertTriangle, bg: 'bg-amber-50 dark:bg-amber-900/20', border: 'border-amber-200/50 dark:border-amber-800/30', iconColor: 'text-amber-600 dark:text-amber-400', text: 'text-amber-800 dark:text-amber-300' },
-  error: { icon: XCircle, bg: 'bg-red-50 dark:bg-red-900/20', border: 'border-red-200/50 dark:border-red-800/30', iconColor: 'text-red-600 dark:text-red-400', text: 'text-red-800 dark:text-red-300' },
-  action: { icon: Rocket, bg: 'bg-indigo-50 dark:bg-indigo-900/20', border: 'border-indigo-200/50 dark:border-indigo-800/30', iconColor: 'text-indigo-600 dark:text-indigo-400', text: 'text-indigo-800 dark:text-indigo-300' },
-};
+    <div className="flex items-center gap-3 mb-2">
+      <div className="p-2 rounded-lg" style={{ backgroundColor: `${color}15`, color }}>
+        <Icon className="w-4 h-4" />
+      </div>
+      <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">{title}</span>
+    </div>
+    <div className="flex flex-col">
+      <span className="text-lg font-bold text-gray-900 dark:text-white tracking-tight">{value}</span>
+      <span className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">{subtitle}</span>
+    </div>
+    <div className="absolute bottom-0 left-0 w-full h-1" style={{ backgroundColor: `${color}40` }}>
+      <div className="h-full" style={{ backgroundColor: color, width: '40%' }} />
+    </div>
+  </div>
+);
 
 const InsightRow = ({ item }: { item: InsightItem }) => {
   const config = INSIGHT_CONFIG[item.type] || INSIGHT_CONFIG.info;
@@ -200,51 +168,60 @@ const InsightRow = ({ item }: { item: InsightItem }) => {
   );
 };
 
+// ─── PERFORMANCE HELPERS ────────────────────────────────────────────────
+const getDeviationColor = (value: number | null) => {
+  if (value === null) return 'text-gray-400';
+  if (value >= 0) return 'text-emerald-600 dark:text-emerald-400';
+  if (value >= -25) return 'text-amber-600 dark:text-amber-400';
+  return 'text-red-600 dark:text-red-400';
+};
+
+const getDeviationBg = (value: number | null) => {
+  if (value === null) return 'bg-gray-100 dark:bg-gray-800/50';
+  if (value >= 0) return 'bg-emerald-100/50 dark:bg-emerald-900/20';
+  if (value >= -25) return 'bg-amber-100/50 dark:bg-amber-900/20';
+  return 'bg-red-100/50 dark:bg-red-900/20';
+};
+
 // ─── MAIN COMPONENT ─────────────────────────────────────────────────────
-export default function GrowthPillarDashboard() {
+export default function GrowthReportDashboard() {
   const printRef = useRef<HTMLDivElement>(null);
-  const [data, setData] = useState<GrowthPillarData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<GrowthPillarData | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [pdfLoading, setPdfLoading] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
   const [excelLoading, setExcelLoading] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   // Filters
   const [year, setYear] = useState(new Date().getFullYear());
   const [fromMonth, setFromMonth] = useState(1);
-  const [toMonth, setToMonth] = useState(12);
+  const [toMonth, setToMonth] = useState(new Date().getMonth() + 1);
   const [zoneId, setZoneId] = useState<number | null>(null);
   const [userId, setUserId] = useState<number | null>(null);
+  const [probability, setProbability] = useState<number | 'all'>('all');
+
+  const [expandedProducts, setExpandedProducts] = useState<Set<string>>(new Set());
+  const [forecastLoading, setForecastLoading] = useState(false);
+  const [forecastData, setForecastData] = useState<any>(null);
   const [expandedForecastZones, setExpandedForecastZones] = useState<Set<number>>(new Set());
   const [expandedForecastPuzZones, setExpandedForecastPuzZones] = useState<Set<string>>(new Set());
-  const [expandedProducts, setExpandedProducts] = useState<Set<string>>(new Set());
-  const [showFilters, setShowFilters] = useState(true);
-  const [probability, setProbability] = useState<number | 'all'>('all');
-  const [forecastData, setForecastData] = useState<any>(null);
-  const [forecastLoading, setForecastLoading] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const params: any = { year, fromMonth, toMonth };
-      if (zoneId) params.zoneId = zoneId;
-      if (userId) params.userId = userId;
+      const params = { year, fromMonth, toMonth, zoneId, userId };
       const result = await apiService.getGrowthPillar(params);
       setData(result);
     } catch (err: any) {
-      setError(err.message || 'Failed to load growth pillar');
+      console.error('Failed to load growth pillar:', err);
+      setError(err.message || 'An error occurred while fetching data');
     } finally {
       setLoading(false);
     }
   }, [year, fromMonth, toMonth, zoneId, userId]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
-
-  // Reset userId when zone changes
-  useEffect(() => { setUserId(null); }, [zoneId]);
-
-  // Fetch forecast data (filtered by probability + zone + user + month range)
   const fetchForecastData = useCallback(async () => {
     try {
       setForecastLoading(true);
@@ -252,12 +229,17 @@ export default function GrowthPillarDashboard() {
       if (probability !== 'all') params.minProbability = probability;
       if (zoneId) params.zoneId = zoneId;
       if (userId) params.userId = userId;
-      const [poData, puzData, pwfData] = await Promise.all([
+
+      const [poData, puzData, pwfData, monthlyForecast] = await Promise.all([
         apiService.getPOExpectedMonthBreakdown(params),
         apiService.getProductUserZoneBreakdown(params),
         apiService.getProductWiseForecast(params).catch(() => null),
+        userId 
+          ? apiService.getUserMonthlyBreakdown({ year, zoneId, userId, minProbability: probability === 'all' ? undefined : probability }).catch(() => null)
+          : apiService.getForecastMonthly({ year, zoneId }).catch(() => null)
       ]);
-      setForecastData({ po: poData, puz: puzData, pwf: pwfData });
+      
+      setForecastData({ po: poData, puz: puzData, pwf: pwfData, monthly: monthlyForecast });
       if (poData?.zones) {
         setExpandedForecastZones(new Set(poData.zones.map((z: any) => z.zoneId)));
       }
@@ -268,10 +250,139 @@ export default function GrowthPillarDashboard() {
     }
   }, [year, fromMonth, toMonth, probability, zoneId, userId]);
 
+  useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { fetchForecastData(); }, [fetchForecastData]);
 
+  // Merge performance metrics from forecast into growth data
+  const enrichedData = useMemo(() => {
+    if (!data) return null;
+    const enriched = JSON.parse(JSON.stringify(data));
+
+    if (forecastData?.monthly) {
+      // Get forecast monthly list based on active filters
+      let forecastMonthly: any[] = [];
+      if (userId) {
+        forecastMonthly = forecastData.monthly.users?.find((u: any) => u.userId === userId)?.monthlyData || [];
+      } else if (zoneId) {
+        forecastMonthly = forecastData.monthly.zones?.find((z: any) => z.zoneId === zoneId)?.monthlyData || [];
+      } else if (forecastData.monthly.zones) {
+        // Aggregate zones if no specific filter
+        const agg: Record<string, any> = {};
+        forecastData.monthly.zones.forEach((z: any) => {
+          z.monthlyData.forEach((m: any) => {
+            if (!agg[m.monthLabel]) {
+              agg[m.monthLabel] = { ...m };
+            } else {
+              agg[m.monthLabel].noOfOffers += m.noOfOffers;
+              agg[m.monthLabel].offersValue += m.offersValue;
+              agg[m.monthLabel].orderReceived += m.orderReceived;
+              agg[m.monthLabel].ordersInHand += m.ordersInHand;
+              agg[m.monthLabel].buMonthly += m.buMonthly;
+              agg[m.monthLabel].offerBUMonth += m.offerBUMonth;
+            }
+          });
+        });
+        forecastMonthly = Object.values(agg).map(m => ({
+          ...m,
+          percentDev: m.buMonthly > 0 ? Math.round(((m.orderReceived - m.buMonthly) / m.buMonthly) * 100) : 0,
+          offerBUMonthDev: m.offerBUMonth > 0 ? Math.round(((m.offersValue - m.offerBUMonth) / m.offerBUMonth) * 100) : 0
+        }));
+      }
+
+      // Merge into monthlyData
+      enriched.monthlyData = enriched.monthlyData.map((m: any) => {
+        const fm = forecastMonthly.find(f => f.monthLabel === m.monthLabel || f.monthLabel?.startsWith(m.monthLabel?.slice(0, 3)));
+        return fm ? { 
+          ...m, 
+          openValue: fm.ordersInHand, 
+          buMonthly: fm.buMonthly, 
+          percentDev: fm.percentDev, 
+          offerBUMonth: fm.offerBUMonth, 
+          offerBUMonthDev: fm.offerBUMonthDev 
+        } : m;
+      });
+
+      // Enrich productData if available in forecast monthly breakdown
+      let forecastProductMonthly: any[] | null = null;
+      
+      if (userId) {
+        forecastProductMonthly = forecastData.monthly.users?.find((u: any) => u.userId === userId)?.productBreakdown || null;
+      } else if (zoneId) {
+        forecastProductMonthly = forecastData.monthly.zones?.find((z: any) => z.zoneId === zoneId)?.productBreakdown || null;
+      } else if (forecastData.monthly.zones) {
+        // Aggregate product breakdown across all zones
+        const prodAgg: Record<string, any> = {};
+        forecastData.monthly.zones.forEach((z: any) => {
+          if (!z.productBreakdown) return;
+          z.productBreakdown.forEach((pb: any) => {
+            if (!prodAgg[pb.productType]) {
+              prodAgg[pb.productType] = JSON.parse(JSON.stringify(pb));
+            } else {
+              // Aggregate totals
+              prodAgg[pb.productType].totals.offersValue += pb.totals?.offersValue || 0;
+              prodAgg[pb.productType].totals.orderReceived += pb.totals?.orderReceived || 0;
+              prodAgg[pb.productType].totals.ordersInHand += pb.totals?.ordersInHand || 0;
+              prodAgg[pb.productType].totals.buMonthly += pb.totals?.buMonthly || 0;
+              prodAgg[pb.productType].totals.offerBUMonth += pb.totals?.offerBUMonth || 0;
+
+              // Aggregate monthly data
+              pb.monthlyData?.forEach((m: any) => {
+                const existingMonth = prodAgg[pb.productType].monthlyData.find((em: any) => em.monthLabel === m.monthLabel);
+                if (existingMonth) {
+                  existingMonth.noOfOffers += m.noOfOffers || 0;
+                  existingMonth.offersValue += m.offersValue || 0;
+                  existingMonth.orderReceived += m.orderReceived || 0;
+                  existingMonth.ordersInHand += m.ordersInHand || 0;
+                  existingMonth.buMonthly += m.buMonthly || 0;
+                  existingMonth.offerBUMonth += m.offerBUMonth || 0;
+                }
+              });
+            }
+          });
+        });
+        
+        // Recalculate deviations for aggregated products
+        forecastProductMonthly = Object.values(prodAgg).map((p: any) => ({
+          ...p,
+          monthlyData: p.monthlyData.map((m: any) => ({
+            ...m,
+            percentDev: m.buMonthly > 0 ? Math.round(((m.orderReceived - m.buMonthly) / m.buMonthly) * 100) : 0,
+            offerBUMonthDev: m.offerBUMonth > 0 ? Math.round(((m.offersValue - m.offerBUMonth) / m.offerBUMonth) * 100) : 0
+          }))
+        }));
+      }
+
+      if (forecastProductMonthly) {
+        enriched.productData = enriched.productData.map((p: any) => {
+          const fp = forecastProductMonthly?.find((f: any) => f.productType === p.productType);
+          if (fp) {
+            return {
+              ...p,
+              openValue: fp.totals?.ordersInHand,
+              buMonthly: fp.totals?.buMonthly,
+              offerBUMonth: fp.totals?.offerBUMonth,
+              monthlyData: p.monthlyData.map((pm: any) => {
+                const fpm = fp.monthlyData?.find((f: any) => f.monthLabel === pm.monthLabel || f.monthLabel?.startsWith(pm.monthLabel?.slice(0, 3)));
+                return fpm ? {
+                  ...pm,
+                  openValue: fpm.ordersInHand,
+                  buMonthly: fpm.buMonthly,
+                  percentDev: fpm.percentDev,
+                  offerBUMonth: fpm.offerBUMonth,
+                  offerBUMonthDev: fpm.offerBUMonthDev
+                } : pm;
+              })
+            };
+          }
+          return p;
+        });
+      }
+    }
+    return enriched;
+  }, [data, forecastData, zoneId, userId]);
+
   const toggleForecastZone = (id: number) => {
-    setExpandedForecastZones(prev => {
+    setExpandedForecastZones((prev: Set<number>) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -279,9 +390,9 @@ export default function GrowthPillarDashboard() {
     });
   };
 
-  const toggleForecastPuzZone = (productId: string, zoneId: number) => {
-    const key = `${productId}_${zoneId}`;
-    setExpandedForecastPuzZones(prev => {
+  const toggleForecastPuzZone = (productKey: string, zoneId: number) => {
+    const key = `${productKey}_${zoneId}`;
+    setExpandedForecastPuzZones((prev: Set<string>) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
       else next.add(key);
@@ -290,7 +401,7 @@ export default function GrowthPillarDashboard() {
   };
 
   const toggleProduct = (productType: string) => {
-    setExpandedProducts(prev => {
+    setExpandedProducts((prev: Set<string>) => {
       const next = new Set(prev);
       next.has(productType) ? next.delete(productType) : next.add(productType);
       return next;
@@ -298,10 +409,10 @@ export default function GrowthPillarDashboard() {
   };
 
   const handleExportPdf = async () => {
-    if (!data) return;
+    if (!enrichedData) return;
     try {
       setPdfLoading(true);
-      await generateGrowthPillarPdf(data as any);
+      await generateGrowthPillarPdf(enrichedData as any);
     } catch (err) {
       console.error('PDF generation failed:', err);
     } finally {
@@ -310,16 +421,16 @@ export default function GrowthPillarDashboard() {
   };
 
   const handleExportExcel = async () => {
-    if (!data) return;
+    if (!enrichedData) return;
     try {
       setExcelLoading(true);
       const exportData = {
-        ...data,
+        ...enrichedData,
         filters: {
-          ...data.filters,
+          ...enrichedData.filters,
           probability: probability // Pass current probability filter
         },
-        forecastData: forecastData // Include forecast pipeline and product breakdown
+        forecastData: forecastData // Include forecast pipeline and product breakdown for extra sheets
       };
       await exportGrowthPillarToExcel(exportData as any);
     } catch (err) {
@@ -331,7 +442,25 @@ export default function GrowthPillarDashboard() {
 
   const yearOptions = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i);
 
-  if (loading) return <SkeletonLoader />;
+  if (loading) return (
+    <div className="p-6 space-y-6">
+      <div className="flex justify-between items-center">
+        <Skeleton className="h-10 w-48" />
+        <div className="flex gap-2">
+          <Skeleton className="h-10 w-24" />
+          <Skeleton className="h-10 w-24" />
+          <Skeleton className="h-10 w-24" />
+        </div>
+      </div>
+      <div className="grid grid-cols-5 gap-4">
+        {[1, 2, 3, 4, 5].map(i => <Skeleton key={i} className="h-32 w-full rounded-xl" />)}
+      </div>
+      <div className="grid grid-cols-2 gap-6">
+        <Skeleton className="h-[400px] w-full rounded-xl" />
+        <Skeleton className="h-[400px] w-full rounded-xl" />
+      </div>
+    </div>
+  );
   if (error) return (
     <div className="flex flex-col items-center justify-center h-[60vh] text-center space-y-4">
       <div className="p-4 rounded-full bg-red-100 dark:bg-red-900/30">
@@ -345,38 +474,34 @@ export default function GrowthPillarDashboard() {
     </div>
   );
 
-  if (!data) return null;
+  if (!enrichedData) return null;
 
-  const { totals, monthlyData, productData, insights, filters } = data;
+  const { totals, monthlyData, productData, insights, filters } = enrichedData;
 
   // Prepare chart data
-  const barChartData = monthlyData.map(d => ({
+  const barChartData = monthlyData.map((d: MonthData) => ({
     name: d.monthLabel.slice(0, 3),
     Target: d.target,
     'Offer Value': d.offerValue,
     'Won Value': d.wonValue,
   }));
 
-  const achievementChartData = monthlyData.map(d => ({
+  const achievementChartData = monthlyData.map((d: MonthData) => ({
     name: d.monthLabel.slice(0, 3),
     'Achieved %': d.achievementPercent,
     'Hit Rate %': d.hitRatePercent,
   }));
 
-  const growthChartData = monthlyData.filter(d => d.growthPercent !== null).map(d => ({
+  const growthChartData = monthlyData.filter((d: MonthData) => d.growthPercent !== null).map((d: MonthData) => ({
     name: d.monthLabel.slice(0, 3),
     'Growth %': d.growthPercent,
   }));
 
-  const productPieData = productData.map((p, i) => ({
+  const productPieData = productData.map((p: ProductData, i: number) => ({
     name: p.productLabel,
     value: p.wonValue,
     color: PRODUCT_COLORS[i % PRODUCT_COLORS.length],
-  })).filter(p => p.value > 0);
-
-  // Average growth
-  const avgGrowth = monthlyData.filter(d => d.growthPercent !== null).reduce((s, d) => s + (d.growthPercent || 0), 0) /
-    (monthlyData.filter(d => d.growthPercent !== null).length || 1);
+  })).filter((p: any) => p.value > 0);
 
   return (
     <div ref={printRef} className="space-y-6 print:space-y-4">
@@ -389,8 +514,8 @@ export default function GrowthPillarDashboard() {
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             {FULL_MONTHS[fromMonth - 1]} – {FULL_MONTHS[toMonth - 1]} {year}
-            {zoneId && filters.zones.length > 0 ? ` • ${filters.zones.find(z => z.id === zoneId)?.name || 'Zone'}` : ' • All Zones'}
-            {userId && filters.users.length > 0 ? ` • ${filters.users.find(u => u.id === userId)?.name || 'User'}` : ''}
+            {zoneId && filters.zones.length > 0 ? ` • ${filters.zones.find((z: any) => z.id === zoneId)?.name || 'Zone'}` : ' • All Zones'}
+            {userId && filters.users.length > 0 ? ` • ${filters.users.find((u: any) => u.id === userId)?.name || 'User'}` : ''}
           </p>
         </div>
         <div className="flex items-center gap-2 print:hidden">
@@ -447,7 +572,7 @@ export default function GrowthPillarDashboard() {
               <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1 block">Zone</label>
               <select value={zoneId || ''} onChange={e => setZoneId(e.target.value ? Number(e.target.value) : null)} className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none">
                 <option value="">All Zones</option>
-                {filters.zones.map(z => <option key={z.id} value={z.id}>{z.name}</option>)}
+                {filters.zones.map((z: any) => <option key={z.id} value={z.id}>{z.name}</option>)}
               </select>
             </div>
             {/* User (only when zone selected) */}
@@ -455,7 +580,7 @@ export default function GrowthPillarDashboard() {
               <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1 block">User</label>
               <select value={userId || ''} onChange={e => setUserId(e.target.value ? Number(e.target.value) : null)} disabled={!zoneId} className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50 focus:ring-2 focus:ring-indigo-500 outline-none">
                 <option value="">All Users</option>
-                {filters.users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                {filters.users.map((u: any) => <option key={u.id} value={u.id}>{u.name}</option>)}
               </select>
             </div>
             {/* Probability */}
@@ -471,12 +596,19 @@ export default function GrowthPillarDashboard() {
       )}
 
       {/* ── KPI CARDS ──────────────────────────────────────── */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-        <KPICard title="Total Target" value={formatCurrency(totals.target)} subtitle={`${totals.offerCount} offers`} icon={Target} color="#6366f1" />
-        <KPICard title="Offer Value" value={formatCurrency(totals.offerValue)} subtitle={`${totals.offerCount} offers created`} icon={DollarSign} color="#f59e0b" />
-        <KPICard title="Won Value" value={formatCurrency(totals.wonValue)} subtitle={`${totals.wonCount} orders won`} icon={Award} color="#10b981" />
-        <KPICard title="Achieved" value={`${totals.achievementPercent}%`} subtitle="Won / Target" icon={TrendingUp} color="#06b6d4" />
-        <KPICard title="Hit Rate" value={`${totals.hitRatePercent}%`} subtitle="Won / Offer Value" icon={Percent} color="#8b5cf6" />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <KPICard title="Total Target" value={formatCurrency(totals.target)} subtitle={`${totals.offerCount} offers`} icon={Target} color={kardexBlue[2]} />
+        <KPICard title="Offer Value" value={formatCurrency(totals.offerValue)} subtitle={`${totals.offerCount} offers created`} icon={DollarSign} color={kardexSand[2]} />
+        <KPICard title="Won Value" value={formatCurrency(totals.wonValue)} subtitle={`${totals.wonCount} orders won`} icon={Award} color={kardexGreen[2]} />
+        <KPICard 
+          title="Achieved" 
+          value={`${totals.achievementPercent.toFixed(1)}%`} 
+          subtitle="Won / Target" 
+          icon={TrendingUp} 
+          color={kardexBlue[1]} 
+          trend={totals.achievementPercent >= 100 ? 'up' : totals.achievementPercent >= 70 ? 'neutral' : 'down'} 
+        />
+        <KPICard title="Hit Rate" value={`${totals.hitRatePercent.toFixed(0)}%`} subtitle="Won / Offer Value" icon={Percent} color={kardexGrey[3]} />
       </div>
 
       {/* ── CHARTS GRID ────────────────────────────────────── */}
@@ -556,7 +688,7 @@ export default function GrowthPillarDashboard() {
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie data={productPieData} cx="50%" cy="50%" innerRadius={60} outerRadius={110} paddingAngle={2} dataKey="value" label={({ name, percent }: any) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={{ stroke: '#9ca3af' }} style={{ fontSize: '11px' }}>
-                  {productPieData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                  {productPieData.map((entry: any, i: number) => <Cell key={i} fill={entry.color} />)}
                 </Pie>
                 <Tooltip formatter={(value: number) => formatCurrency(value)} />
               </PieChart>
@@ -569,66 +701,90 @@ export default function GrowthPillarDashboard() {
       <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-xl shadow-sm overflow-hidden">
         <div className="p-5 border-b border-gray-200/50 dark:border-gray-700/50">
           <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-indigo-500" /> Monthly Breakdown
+            <Calendar className="w-4 h-4 text-[#96AEC2]" /> Monthly Breakdown
           </h3>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-xs">
+          <table className="w-full text-[11px]">
             <thead>
-              <tr className="bg-gray-50 dark:bg-gray-700/50">
-                <th className="text-left px-4 py-3 font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">Month</th>
-                <th className="text-right px-4 py-3 font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">Target</th>
-                <th className="text-right px-4 py-3 font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">Offer Value</th>
-                <th className="text-right px-4 py-3 font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">Won Value</th>
-                <th className="text-right px-4 py-3 font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">Offers</th>
-                <th className="text-right px-4 py-3 font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">Won</th>
-                <th className="text-right px-4 py-3 font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">Achieved</th>
-                <th className="text-right px-4 py-3 font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">Hit Rate</th>
-                <th className="text-right px-4 py-3 font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">MoM Growth</th>
+              <tr className="bg-gray-50 dark:bg-gray-700/50 text-gray-600 dark:text-gray-300 uppercase tracking-wide">
+                <th className="text-left px-3 py-3 font-semibold sticky left-0 bg-inherit z-10">Month</th>
+                <th className="text-right px-2 py-3 font-semibold">Offer Value</th>
+                <th className="text-right px-2 py-3 font-semibold">Won Value</th>
+                <th className="text-right px-2 py-3 font-semibold">Open Offer Funnel</th>
+                <th className="text-right px-2 py-3 font-semibold bg-[#96AEC2]/10 dark:bg-[#96AEC2]/5">BU/Mo</th>
+                <th className="text-center px-2 py-3 font-semibold">%Dev</th>
+                <th className="text-right px-2 py-3 font-semibold bg-[#96AEC2]/10 dark:bg-[#96AEC2]/5">OfferBU</th>
+                <th className="text-center px-2 py-3 font-semibold">%Dev</th>
+                <th className="text-right px-2 py-3 font-semibold">Achieved</th>
+                <th className="text-right px-2 py-3 font-semibold">Hit Rate</th>
+                <th className="text-right px-2 py-3 font-semibold">Growth</th>
               </tr>
             </thead>
             <tbody>
-              {monthlyData.map((d, i) => (
-                <tr key={d.month} className={`border-t border-gray-100 dark:border-gray-700/30 ${i % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50/50 dark:bg-gray-750/30'} hover:bg-indigo-50/50 dark:hover:bg-indigo-900/10 transition-colors`}>
-                  <td className="px-4 py-3 font-medium text-gray-800 dark:text-gray-200">{d.monthLabel}</td>
-                  <td className="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{formatCurrency(d.target)}</td>
-                  <td className="px-4 py-3 text-right text-amber-600 dark:text-amber-400 font-medium">{formatCurrency(d.offerValue)}</td>
-                  <td className="px-4 py-3 text-right text-emerald-600 dark:text-emerald-400 font-medium">{formatCurrency(d.wonValue)}</td>
-                  <td className="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{d.offerCount}</td>
-                  <td className="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{d.wonCount}</td>
-                  <td className="px-4 py-3 text-right">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${d.achievementPercent >= 100 ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400' : d.achievementPercent >= 50 ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'}`}>
+              {monthlyData.map((d: MonthData, i: number) => (
+                <tr key={d.month} className={`border-t border-gray-100 dark:border-gray-700/30 ${i % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50/50 dark:bg-gray-750/30'} hover:bg-[#96AEC2]/5 dark:hover:bg-[#96AEC2]/5 transition-colors`}>
+                  <td className="px-3 py-2 font-medium text-gray-800 dark:text-gray-200 sticky left-0 bg-inherit z-10">{d.monthLabel}</td>
+                  <td className="px-2 py-2 text-right text-[#CE9F6B] font-medium">{formatCurrency(d.offerValue)}</td>
+                  <td className="px-2 py-2 text-right text-[#82A094] font-medium">{formatCurrency(d.wonValue)}</td>
+                  <td className="px-2 py-2 text-right text-[#6F8A9D] font-medium">{d.openValue ? formatCurrency(d.openValue) : '—'}</td>
+                  <td className="px-2 py-2 text-right bg-[#96AEC2]/10 dark:bg-[#96AEC2]/5 text-gray-700 dark:text-gray-300">{d.buMonthly ? formatCurrency(d.buMonthly) : '—'}</td>
+                  <td className="px-2 py-2 text-center">
+                    {d.percentDev !== undefined && d.percentDev !== null ? (
+                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${getDeviationBg(d.percentDev)} ${getDeviationColor(d.percentDev)}`}>
+                        {d.percentDev > 0 ? '+' : ''}{d.percentDev}%
+                      </span>
+                    ) : '—'}
+                  </td>
+                  <td className="px-2 py-2 text-right bg-[#96AEC2]/10 dark:bg-[#96AEC2]/5 text-gray-700 dark:text-gray-300">{d.offerBUMonth ? formatCurrency(d.offerBUMonth) : '—'}</td>
+                  <td className="px-2 py-2 text-center">
+                    {d.offerBUMonthDev !== undefined && d.offerBUMonthDev !== null ? (
+                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${getDeviationBg(d.offerBUMonthDev)} ${getDeviationColor(d.offerBUMonthDev)}`}>
+                        {d.offerBUMonthDev > 0 ? '+' : ''}{d.offerBUMonthDev}%
+                      </span>
+                    ) : '—'}
+                  </td>
+                  <td className="px-2 py-2 text-right">
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${d.achievementPercent >= 100 ? 'bg-[#82A094]/20 text-[#4F6A64]' : d.achievementPercent >= 50 ? 'bg-[#CE9F6B]/20 text-[#976E44]' : 'bg-[#E17F70]/20 text-[#75242D]'}`}>
                       {d.achievementPercent}%
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{d.hitRatePercent}%</td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-2 py-2 text-right text-gray-700 dark:text-gray-300">{d.hitRatePercent}%</td>
+                  <td className="px-2 py-2 text-right">
                     {d.growthPercent !== null ? (
-                      <span className={`inline-flex items-center gap-0.5 ${d.growthPercent >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}`}>
-                        {d.growthPercent >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+                      <span className={`inline-flex items-center gap-0.5 ${d.growthPercent >= 0 ? 'text-[#82A094]' : 'text-[#E17F70]'}`}>
+                        {d.growthPercent >= 0 ? <ArrowUpRight className="w-2.5 h-2.5" /> : <ArrowDownRight className="w-2.5 h-2.5" />}
                         {Math.abs(d.growthPercent)}%
                       </span>
                     ) : (
-                      <span className="text-gray-400"><Minus className="w-3 h-3 inline" /></span>
+                      <span className="text-gray-400"><Minus className="w-2.5 h-2.5 inline" /></span>
                     )}
                   </td>
                 </tr>
               ))}
               {/* Totals row */}
               <tr className="border-t-2 border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700/70 font-semibold">
-                <td className="px-4 py-3 text-gray-900 dark:text-white">Total</td>
-                <td className="px-4 py-3 text-right text-gray-900 dark:text-white">{formatCurrency(totals.target)}</td>
-                <td className="px-4 py-3 text-right text-amber-700 dark:text-amber-300">{formatCurrency(totals.offerValue)}</td>
-                <td className="px-4 py-3 text-right text-emerald-700 dark:text-emerald-300">{formatCurrency(totals.wonValue)}</td>
-                <td className="px-4 py-3 text-right text-gray-900 dark:text-white">{totals.offerCount}</td>
-                <td className="px-4 py-3 text-right text-gray-900 dark:text-white">{totals.wonCount}</td>
-                <td className="px-4 py-3 text-right">
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${totals.achievementPercent >= 100 ? 'bg-emerald-200 text-emerald-900' : 'bg-indigo-200 text-indigo-900'}`}>
+                <td className="px-3 py-3 text-gray-900 dark:text-white sticky left-0 bg-inherit z-10">Total</td>
+                <td className="px-2 py-3 text-right text-[#976E44]">{formatCurrency(totals.offerValue)}</td>
+                <td className="px-2 py-3 text-right text-[#4F6A64]">{formatCurrency(totals.wonValue)}</td>
+                <td className="px-2 py-3 text-right text-[#546A7A]">
+                  {formatCurrency(monthlyData.reduce((s: number, m: MonthData) => s + (m.openValue || 0), 0))}
+                </td>
+                <td className="px-2 py-3 text-right text-gray-900 dark:text-white bg-[#96AEC2]/15">
+                  {formatCurrency(monthlyData.reduce((s: number, m: MonthData) => s + (m.buMonthly || 0), 0))}
+                </td>
+                <td className="px-2 py-3 text-center">—</td>
+                <td className="px-2 py-3 text-right text-gray-900 dark:text-white bg-[#96AEC2]/15">
+                  {formatCurrency(monthlyData.reduce((s: number, m: MonthData) => s + (m.offerBUMonth || 0), 0))}
+                </td>
+                <td className="px-2 py-3 text-center">—</td>
+                <td className="px-2 py-3 text-right">
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${totals.achievementPercent >= 100 ? 'bg-[#82A094]/30 text-[#4F6A64]' : 'bg-[#96AEC2]/30 text-[#546A7A]'}`}>
                     {totals.achievementPercent}%
                   </span>
                 </td>
-                <td className="px-4 py-3 text-right text-gray-900 dark:text-white">{totals.hitRatePercent}%</td>
-                <td className="px-4 py-3 text-right text-gray-400">—</td>
+                <td className="px-2 py-3 text-right text-gray-900 dark:text-white">{totals.hitRatePercent}%</td>
+                <td className="px-2 py-3 text-right text-gray-400">—</td>
               </tr>
             </tbody>
           </table>
@@ -644,11 +800,9 @@ export default function GrowthPillarDashboard() {
             </h3>
           </div>
 
-          {/* Product summaries */}
           <div className="divide-y divide-gray-100 dark:divide-gray-700/30">
-            {productData.map((p, idx) => (
+            {productData.map((p: ProductData, idx: number) => (
               <div key={p.productType}>
-                {/* Product header row */}
                 <button
                   onClick={() => toggleProduct(p.productType)}
                   className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors text-left"
@@ -658,10 +812,10 @@ export default function GrowthPillarDashboard() {
                     <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{p.productLabel}</span>
                     <span className="text-xs text-gray-500">({p.offerCount} offers)</span>
                   </div>
-                  <div className="flex items-center gap-6 text-xs">
+                  <div className="flex items-center gap-6 text-[11px]">
                     <span className="text-gray-500">Target: <span className="text-gray-800 dark:text-gray-200 font-medium">{formatCurrency(p.target)}</span></span>
-                    <span className="text-gray-500">Offer: <span className="text-amber-600 font-medium">{formatCurrency(p.offerValue)}</span></span>
                     <span className="text-gray-500">Won: <span className="text-emerald-600 font-medium">{formatCurrency(p.wonValue)}</span></span>
+                    <span className="text-gray-500">Open: <span className="text-indigo-600 font-medium">{p.openValue ? formatCurrency(p.openValue) : '—'}</span></span>
                     <span className={`px-2 py-0.5 rounded-full font-medium ${p.achievementPercent >= 100 ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400' : p.achievementPercent >= 50 ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'}`}>
                       {p.achievementPercent}%
                     </span>
@@ -669,47 +823,64 @@ export default function GrowthPillarDashboard() {
                   </div>
                 </button>
 
-                {/* Expanded monthly data */}
                 {expandedProducts.has(p.productType) && (
                   <div className="bg-gray-50/50 dark:bg-gray-900/20 px-5 pb-3">
-                    <table className="w-full text-xs mt-1">
-                      <thead>
-                        <tr className="text-gray-500 dark:text-gray-400">
-                          <th className="text-left py-2 px-2 font-medium">Month</th>
-                          <th className="text-right py-2 px-2 font-medium">Target</th>
-                          <th className="text-right py-2 px-2 font-medium">Offer Value</th>
-                          <th className="text-right py-2 px-2 font-medium">Won Value</th>
-                          <th className="text-right py-2 px-2 font-medium">Offers</th>
-                          <th className="text-right py-2 px-2 font-medium">Won</th>
-                          <th className="text-right py-2 px-2 font-medium">Achieved</th>
-                          <th className="text-right py-2 px-2 font-medium">Growth</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {p.monthlyData.map(md => (
-                          <tr key={md.month} className="border-t border-gray-200/50 dark:border-gray-700/20">
-                            <td className="py-2 px-2 text-gray-700 dark:text-gray-300">{md.monthLabel.slice(0, 3)}</td>
-                            <td className="py-2 px-2 text-right text-gray-600 dark:text-gray-400">{formatCurrency(md.target)}</td>
-                            <td className="py-2 px-2 text-right text-amber-600">{formatCurrency(md.offerValue)}</td>
-                            <td className="py-2 px-2 text-right text-emerald-600">{formatCurrency(md.wonValue)}</td>
-                            <td className="py-2 px-2 text-right text-gray-600 dark:text-gray-400">{md.offerCount}</td>
-                            <td className="py-2 px-2 text-right text-gray-600 dark:text-gray-400">{md.wonCount}</td>
-                            <td className="py-2 px-2 text-right">
-                              <span className={`${md.achievementPercent >= 100 ? 'text-emerald-600' : md.achievementPercent >= 50 ? 'text-amber-600' : 'text-red-500'}`}>
-                                {md.achievementPercent}%
-                              </span>
-                            </td>
-                            <td className="py-2 px-2 text-right">
-                              {md.growthPercent !== null ? (
-                                <span className={md.growthPercent >= 0 ? 'text-emerald-600' : 'text-red-500'}>
-                                  {md.growthPercent >= 0 ? '+' : ''}{md.growthPercent}%
-                                </span>
-                              ) : '—'}
-                            </td>
+                    <div className="overflow-x-auto rounded-lg border border-gray-200/50 dark:border-gray-700/30">
+                      <table className="w-full text-[10px] mt-1">
+                        <thead>
+                          <tr className="bg-white/50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400 uppercase tracking-tight">
+                            <th className="text-left py-2 px-3 font-semibold">Month</th>
+                            <th className="text-right py-2 px-2 font-semibold">Offer Value</th>
+                            <th className="text-right py-2 px-2 font-semibold">Won Value</th>
+                            <th className="text-right py-2 px-2 font-semibold">Open Offer Funnel</th>
+                            <th className="text-right py-2 px-2 font-semibold bg-[#96AEC2]/10 dark:bg-[#96AEC2]/5">BU/Mo</th>
+                            <th className="text-center py-2 px-2 font-semibold">%Dev</th>
+                            <th className="text-right py-2 px-2 font-semibold bg-[#96AEC2]/10 dark:bg-[#96AEC2]/5">OfferBU</th>
+                            <th className="text-center py-2 px-2 font-semibold">%Dev</th>
+                            <th className="text-right py-2 px-2 font-semibold">Achieved</th>
+                            <th className="text-right py-2 px-2 font-semibold">Growth</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody>
+                          {p.monthlyData.map((md: MonthData) => (
+                            <tr key={md.month} className="border-t border-gray-100 dark:border-gray-700/20 hover:bg-white/80 dark:hover:bg-gray-800/80 transition-colors">
+                              <td className="py-2 px-3 font-medium text-gray-700 dark:text-gray-300">{md.monthLabel.slice(0, 3)}</td>
+                              <td className="py-2 px-2 text-right text-amber-600/80">{formatCurrency(md.offerValue)}</td>
+                              <td className="py-2 px-2 text-right text-emerald-600/80 font-medium">{formatCurrency(md.wonValue)}</td>
+                              <td className="py-2 px-2 text-right text-indigo-600/80">{md.openValue ? formatCurrency(md.openValue) : '—'}</td>
+                              <td className="py-2 px-2 text-right bg-[#96AEC2]/10 dark:bg-[#96AEC2]/5">{md.buMonthly ? formatCurrency(md.buMonthly) : '—'}</td>
+                              <td className="py-2 px-2 text-center">
+                                {md.percentDev !== undefined && md.percentDev !== null ? (
+                                  <span className={`px-1 rounded-sm font-bold ${getDeviationColor(md.percentDev)}`}>
+                                    {md.percentDev > 0 ? '+' : ''}{md.percentDev}%
+                                  </span>
+                                ) : '—'}
+                              </td>
+                              <td className="py-2 px-2 text-right bg-[#96AEC2]/10 dark:bg-[#96AEC2]/5">{md.offerBUMonth ? formatCurrency(md.offerBUMonth) : '—'}</td>
+                              <td className="py-2 px-2 text-center">
+                                {md.offerBUMonthDev !== undefined && md.offerBUMonthDev !== null ? (
+                                  <span className={`px-1 rounded-sm font-bold ${getDeviationColor(md.offerBUMonthDev)}`}>
+                                    {md.offerBUMonthDev > 0 ? '+' : ''}{md.offerBUMonthDev}%
+                                  </span>
+                                ) : '—'}
+                              </td>
+                              <td className="py-2 px-2 text-right">
+                                <span className={`${md.achievementPercent >= 100 ? 'text-[#82A094]' : md.achievementPercent >= 50 ? 'text-[#CE9F6B]' : 'text-[#E17F70]'} font-medium`}>
+                                  {md.achievementPercent}%
+                                </span>
+                              </td>
+                              <td className="py-2 px-2 text-right">
+                                {md.growthPercent !== null ? (
+                                  <span className={`inline-flex items-center gap-0.5 ${md.growthPercent >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                                    {md.growthPercent >= 0 ? '+' : ''}{md.growthPercent}%
+                                  </span>
+                                ) : '—'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 )}
               </div>
@@ -725,7 +896,7 @@ export default function GrowthPillarDashboard() {
             <BarChart3 className="w-4 h-4 text-amber-500" /> Product-wise: Target vs Offer vs Won
           </h3>
           <ResponsiveContainer width="100%" height={350}>
-            <BarChart data={productData.map(p => ({
+            <BarChart data={productData.map((p: ProductData) => ({
               name: p.productLabel.length > 12 ? p.productLabel.slice(0, 12) + '..' : p.productLabel,
               Target: p.target,
               'Offer Value': p.offerValue,
@@ -752,7 +923,6 @@ export default function GrowthPillarDashboard() {
         </h2>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-
           {/* ─ PERFORMANCE SUMMARY ─ */}
           <div className="lg:col-span-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-xl overflow-hidden shadow-sm">
             <div className="flex items-center justify-between p-4 border-b border-gray-200/50 dark:border-gray-700/50 bg-gradient-to-r from-gray-50 to-gray-100/50 dark:from-gray-800 dark:to-gray-750">
@@ -770,7 +940,7 @@ export default function GrowthPillarDashboard() {
               </span>
             </div>
             <div className="p-4 space-y-2">
-              {insights.performance.points.map((item, i) => (
+              {insights.performance.points.map((item: InsightItem, i: number) => (
                 <InsightRow key={i} item={item} />
               ))}
             </div>
@@ -785,7 +955,7 @@ export default function GrowthPillarDashboard() {
                 <span className="ml-auto text-xs text-gray-400">{insights.trends.length} insights</span>
               </div>
               <div className="p-4 space-y-2">
-                {insights.trends.map((item, i) => (
+                {insights.trends.map((item: InsightItem, i: number) => (
                   <InsightRow key={i} item={item} />
                 ))}
               </div>
@@ -801,7 +971,7 @@ export default function GrowthPillarDashboard() {
                 <span className="ml-auto text-xs text-gray-400">{insights.products.length} insights</span>
               </div>
               <div className="p-4 space-y-2">
-                {insights.products.map((item, i) => (
+                {insights.products.map((item: InsightItem, i: number) => (
                   <InsightRow key={i} item={item} />
                 ))}
               </div>
@@ -817,7 +987,7 @@ export default function GrowthPillarDashboard() {
                 <span className="ml-auto text-xs text-gray-400">{insights.conversion.length} insights</span>
               </div>
               <div className="p-4 space-y-2">
-                {insights.conversion.map((item, i) => (
+                {insights.conversion.map((item: InsightItem, i: number) => (
                   <InsightRow key={i} item={item} />
                 ))}
               </div>
@@ -832,7 +1002,7 @@ export default function GrowthPillarDashboard() {
                 <h3 className="text-sm font-semibold text-indigo-800 dark:text-indigo-200">Recommendations & Action Items</h3>
               </div>
               <div className="p-4 space-y-2.5">
-                {insights.recommendations.map((item, i) => (
+                {insights.recommendations.map((item: { text: string }, i: number) => (
                   <div key={i} className="flex items-start gap-3 p-3 bg-white/60 dark:bg-gray-800/40 rounded-lg border border-indigo-100 dark:border-indigo-800/30">
                     <div className="mt-0.5 p-1 rounded-md bg-indigo-100 dark:bg-indigo-900/40">
                       <Rocket className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
@@ -858,21 +1028,12 @@ export default function GrowthPillarDashboard() {
         const poGrandTotal = forecastData.po.overallTotals.grandTotal;
         const poZones = forecastData.po.zones || [];
         const poMonths = forecastData.po.months || [];
-        // Find max month total for bar sizing
-        const monthTotals = FULL_MONTHS.map((_, idx) => {
-          const mk = poMonths[idx];
-          if (!mk) return 0;
-          return poZones.reduce((s: number, z: any) => s + (z.monthlyTotals[mk] || 0), 0);
-        });
-        const maxMonthTotal = Math.max(...monthTotals, 1);
-
+        
         return (
           <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-xl shadow-sm overflow-hidden">
-            {/* Section header — matches Product-wise Growth style */}
             <div className="p-5 border-b border-gray-200/50 dark:border-gray-700/50 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
-                <Activity className="w-4 h-4 text-purple-500" />
-                Forecast Pipeline
+                <Activity className="w-4 h-4 text-purple-500" /> Forecast Pipeline
                 {probability !== 'all' && (
                   <span className="ml-1 px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-[10px] font-bold">
                     ≥{probability}%
@@ -885,21 +1046,10 @@ export default function GrowthPillarDashboard() {
               </div>
             </div>
 
-            {/* Expandable zone rows — like Product-wise Growth cards */}
             <div className="divide-y divide-gray-100 dark:divide-gray-700/30">
               {poZones.map((zone: any, zIdx: number) => {
                 const zoneShare = poGrandTotal > 0 ? (zone.grandTotal / poGrandTotal) * 100 : 0;
                 const isExpanded = expandedForecastZones.has(zone.zoneId);
-                // Per-zone month totals
-                const zoneMonthTotals = FULL_MONTHS.map((_, idx) => {
-                  const mk = poMonths[idx];
-                  if (!mk) return 0;
-                  return zone.monthlyTotals[mk] || 0;
-                });
-                const zoneMaxMonth = Math.max(...zoneMonthTotals, 1);
-                // Top month for this zone
-                const topMonthIdx = zoneMonthTotals.indexOf(Math.max(...zoneMonthTotals));
-
                 const zColor = PRODUCT_COLORS[zIdx % PRODUCT_COLORS.length];
 
                 return (
@@ -909,98 +1059,46 @@ export default function GrowthPillarDashboard() {
                       className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors text-left"
                     >
                       <div className="flex items-center gap-3">
-                        <div 
-                          className={`p-1.5 rounded-lg transition-colors ${isExpanded ? 'text-white shadow-md' : ''}`}
-                          style={{ 
-                            background: isExpanded ? zColor : `${zColor}15`,
-                            color: isExpanded ? 'white' : zColor 
-                          }}
-                        >
+                        <div className={`p-1.5 rounded-lg ${isExpanded ? 'text-white' : ''}`} style={{ background: isExpanded ? zColor : `${zColor}15`, color: isExpanded ? 'white' : zColor }}>
                           <MapPin className="w-3.5 h-3.5" />
                         </div>
                         <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{zone.zoneName}</span>
-                        <span className="text-xs text-gray-500">({zone.users?.length || 0} users)</span>
                       </div>
                       <div className="flex items-center gap-6 text-xs">
                         <span className="text-gray-500">Pipeline: <span className="font-medium" style={{ color: zColor }}>{formatCurrency(zone.grandTotal)}</span></span>
-                        <span className="text-gray-500">Share: <span className="font-medium" style={{ color: zColor }}>{zoneShare.toFixed(1)}%</span></span>
-                        <span className="text-gray-500">Top Month: <span className="text-gray-800 dark:text-gray-200 font-medium">{MONTHS[topMonthIdx]}</span></span>
-                        {/* Share bar */}
-                        <div className="flex items-center gap-1.5">
-                          <div className="w-16 h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-                            <div className="h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(zoneShare, 100)}%`, background: zColor }} />
-                          </div>
+                        <div className="w-16 h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                          <div className="h-full rounded-full" style={{ width: `${Math.min(zoneShare, 100)}%`, background: zColor }} />
                         </div>
-                        <span className={`px-2 py-0.5 rounded-full font-medium ${zoneShare >= 30 ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400' : zoneShare >= 15 ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'}`}>
+                        <span className={`px-2 py-0.5 rounded-full font-medium ${zoneShare >= 30 ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-800'}`}>
                           {zoneShare.toFixed(1)}%
                         </span>
                         {isExpanded ? <ChevronDown className="w-4 h-4 text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
                       </div>
                     </button>
 
-                    {/* Expanded: Users with monthly columns — matching Product × Zone style */}
                     {isExpanded && (
                       <div className="bg-gray-50/50 dark:bg-gray-900/20 px-5 pb-3">
-                        <div className="overflow-x-auto overflow-hidden rounded-lg border border-gray-200/50 dark:border-gray-700/30">
-                          <table className="w-full text-xs">
+                        <div className="overflow-x-auto rounded-lg border border-gray-200/50 dark:border-gray-700/30">
+                          <table className="w-full text-[10px]">
                             <thead>
-                              <tr className="text-gray-500 dark:text-gray-400 bg-white/50 dark:bg-gray-800/50">
-                                <th className="text-left py-2.5 px-3 font-medium sticky left-0 bg-white/90 dark:bg-gray-800/90 z-10 min-w-[120px] border-r border-gray-200/50 dark:border-gray-700/30">Executive</th>
+                              <tr className="bg-white/50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400 uppercase">
+                                <th className="text-left py-2 px-3 font-semibold sticky left-0 bg-inherit z-10 border-r border-gray-200/50">Executive</th>
                                 {poMonths.map((m: string) => (
-                                  <th key={m} className="text-right py-2.5 px-2 font-medium min-w-[55px]">{m}</th>
+                                  <th key={m} className="text-right py-2 px-2 font-semibold">{m}</th>
                                 ))}
-                                <th className="text-right py-2.5 px-3 font-bold min-w-[70px] bg-gray-50/50 dark:bg-gray-800/50" style={{ color: zColor }}>Total</th>
-                                <th className="text-right py-2.5 px-3 font-medium min-w-[50px]">Share</th>
+                                <th className="text-right py-2 px-3 font-bold bg-gray-50/50" style={{ color: zColor }}>Total</th>
                               </tr>
                             </thead>
                             <tbody>
-                              {zone.users?.map((user: any, uIdx: number) => {
-                                const userShare = zone.grandTotal > 0 ? (user.total / zone.grandTotal) * 100 : 0;
-                                return (
-                                  <tr key={user.userId} className={`border-t border-gray-200/30 dark:border-gray-700/20 hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors ${uIdx % 2 !== 0 ? 'bg-gray-50/30 dark:bg-gray-800/30' : ''}`}>
-                                    <td className="py-2.5 px-3 text-gray-900 dark:text-white font-medium flex items-center gap-2 sticky left-0 bg-inherit z-10 border-r border-gray-200/50 dark:border-gray-700/30">
-                                      <div 
-                                        className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[9px] font-bold shrink-0 shadow-sm"
-                                        style={{ background: `linear-gradient(135deg, ${zColor}, ${zColor}dd)` }}
-                                      >
-                                        {user.userName?.[0] || 'U'}
-                                      </div>
-                                      {user.userName}
-                                    </td>
-                                    {poMonths.map((m: string) => {
-                                      const mv = user.monthlyValues?.[m] || 0;
-                                      return (
-                                        <td key={m} className={`py-2.5 px-2 text-right font-medium ${mv > 0 ? 'text-gray-700 dark:text-gray-300' : 'text-gray-300 dark:text-gray-600'}`}>
-                                          {mv > 0 ? formatCurrency(mv) : '—'}
-                                        </td>
-                                      );
-                                    })}
-                                    <td className="py-2.5 px-3 text-right font-bold bg-gray-50/20 dark:bg-gray-800/20" style={{ color: zColor }}>{formatCurrency(user.total)}</td>
-                                    <td className="py-2.5 px-3 text-right">
-                                      <div className="flex items-center justify-end gap-1.5">
-                                        <span className="text-gray-600 dark:text-gray-400">{userShare.toFixed(1)}%</span>
-                                        <div className="w-10 h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-                                          <div className="h-full rounded-full" style={{ width: `${Math.min(userShare, 100)}%`, background: zColor }} />
-                                        </div>
-                                      </div>
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                              {/* Zone total row */}
-                              <tr className="border-t-2 border-gray-200 dark:border-gray-700/50 bg-gray-50/50 dark:bg-gray-800/50 font-semibold">
-                                <td className="py-2.5 px-3 text-gray-900 dark:text-white sticky left-0 bg-gray-50/80 dark:bg-gray-800/80 z-10 border-r border-gray-200/50 dark:border-gray-700/30">Total</td>
-                                {poMonths.map((m: string) => {
-                                  const monthTotal = zone.monthlyTotals?.[m] || 0;
-                                  return (
-                                    <td key={m} className="py-2.5 px-2 text-right font-bold text-gray-800 dark:text-gray-200">
-                                      {monthTotal > 0 ? formatCurrency(monthTotal) : '—'}
-                                    </td>
-                                  );
-                                })}
-                                <td className="py-2.5 px-3 text-right font-black bg-gray-50/30 dark:bg-gray-800/30" style={{ color: zColor }}>{formatCurrency(zone.grandTotal)}</td>
-                                <td className="py-2.5 px-3 text-right text-gray-900 dark:text-white font-bold">100%</td>
-                              </tr>
+                              {zone.users?.map((user: any) => (
+                                <tr key={user.userId} className="border-t border-gray-100 dark:border-gray-700/20 hover:bg-white dark:hover:bg-gray-800 transition-colors">
+                                  <td className="py-2 px-3 font-medium text-gray-800 dark:text-gray-200 sticky left-0 bg-inherit z-10 border-r border-gray-200/50">{user.userName}</td>
+                                  {poMonths.map((m: string) => (
+                                    <td key={m} className="py-2 px-2 text-right">{user.monthlyValues?.[m] ? formatCurrency(user.monthlyValues[m]) : '—'}</td>
+                                  ))}
+                                  <td className="py-2 px-3 text-right font-bold" style={{ color: zColor }}>{formatCurrency(user.total)}</td>
+                                </tr>
+                              ))}
                             </tbody>
                           </table>
                         </div>
@@ -1009,21 +1107,6 @@ export default function GrowthPillarDashboard() {
                   </div>
                 );
               })}
-
-              {/* Grand totals summary row */}
-              <div className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-900/20 dark:to-gray-800/20 px-5 py-3.5 flex items-center justify-between border-t border-gray-200/50 dark:border-gray-700/30">
-                <span className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
-                  <Activity className="w-3.5 h-3.5 text-purple-500" /> Total Pipeline
-                </span>
-                <div className="flex items-center gap-6 text-xs">
-                  {poZones.map((z: any, idx: number) => (
-                    <span key={z.zoneId} className="text-gray-500">
-                      {z.zoneName}: <span className="font-bold" style={{ color: PRODUCT_COLORS[idx % PRODUCT_COLORS.length] }}>{formatCurrency(z.grandTotal)}</span>
-                    </span>
-                  ))}
-                  <span className="text-sm font-black text-gray-900 dark:text-white pl-2 border-l border-gray-200 dark:border-gray-700">{formatCurrency(poGrandTotal)}</span>
-                </div>
-              </div>
             </div>
           </div>
         );
@@ -1034,49 +1117,29 @@ export default function GrowthPillarDashboard() {
         const puzZones = forecastData.puz.zones || [];
         const puzProducts = forecastData.puz.productTypes || [];
         const puzGrandTotal = puzZones.reduce((s: number, z: any) => s + z.zoneTotalValue, 0);
-        // Compute per-product totals once
-        const productTotalsMap = puzProducts.reduce((acc: Record<string, number>, product: any) => {
-          acc[product.key] = puzZones.reduce((sum: number, zone: any) => {
-            const row = zone.productMatrix?.find((p: any) => p.productType === product.key);
-            return sum + (row?.total || 0);
-          }, 0);
-          return acc;
-        }, {} as Record<string, number>);
-        // Find top product
-        const topProductKey = Object.keys(productTotalsMap).reduce((a, b) => (productTotalsMap[a] || 0) > (productTotalsMap[b] || 0) ? a : b, '');
-        const topProduct = puzProducts.find((p: any) => p.key === topProductKey);
 
         return (
           <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-xl shadow-sm overflow-hidden">
-            {/* Section header — matches Product-wise Growth style */}
             <div className="p-5 border-b border-gray-200/50 dark:border-gray-700/50 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
-                <Package className="w-4 h-4 text-teal-500" />
-                Forecast by Product × Zone
-                {probability !== 'all' && (
-                  <span className="ml-1 px-2 py-0.5 rounded-full bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 text-[10px] font-bold">
-                    ≥{probability}%
-                  </span>
-                )}
+                <Package className="w-4 h-4 text-teal-500" /> Forecast by Product × Zone
               </h3>
-              <div className="flex items-center gap-4 text-xs">
-                <span className="text-gray-500 dark:text-gray-400">Forecast: <span className="text-teal-700 dark:text-teal-300 font-bold">{formatCurrency(puzGrandTotal)}</span></span>
-                <span className="text-gray-500 dark:text-gray-400">{puzProducts.length} products</span>
-                <span className="text-gray-500 dark:text-gray-400">{puzZones.length} zones</span>
-                {topProduct && <span className="text-gray-500 dark:text-gray-400">Top: <span className="text-teal-700 dark:text-teal-300 font-bold">{topProduct.label}</span></span>}
+              <div className="text-xs text-gray-500 dark:text-gray-400">
+                Total: <span className="text-teal-700 dark:text-teal-300 font-bold">{formatCurrency(puzGrandTotal)}</span>
               </div>
             </div>
 
-            {/* Expandable product rows — like Product-wise Growth */}
             <div className="divide-y divide-gray-100 dark:divide-gray-700/30">
               {puzProducts.map((product: any, idx: number) => {
-                const productTotal = productTotalsMap[product.key] || 0;
+                const productTotal = puzZones.reduce((sum: number, zone: any) => {
+                  const row = zone.productMatrix?.find((p: any) => p.productType === product.key);
+                  return sum + (row?.total || 0);
+                }, 0);
                 const sharePercent = puzGrandTotal > 0 ? (productTotal / puzGrandTotal) * 100 : 0;
                 const isProductExpanded = expandedProducts.has(`forecast_${product.key}`);
 
                 return (
                   <div key={product.key}>
-                    {/* Product header row */}
                     <button
                       onClick={() => toggleProduct(`forecast_${product.key}`)}
                       className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors text-left"
@@ -1084,193 +1147,43 @@ export default function GrowthPillarDashboard() {
                       <div className="flex items-center gap-3">
                         <div className="w-3 h-3 rounded-full" style={{ background: PRODUCT_COLORS[idx % PRODUCT_COLORS.length] }} />
                         <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{product.label}</span>
-                        <span className="text-xs text-gray-500">({puzZones.filter((z: any) => {
-                          const row = z.productMatrix?.find((p: any) => p.productType === product.key);
-                          return row && row.total > 0;
-                        }).length} zones)</span>
                       </div>
                       <div className="flex items-center gap-6 text-xs">
-                        <span className="text-gray-500">Forecast: <span className="text-teal-700 dark:text-teal-300 font-medium">{formatCurrency(productTotal)}</span></span>
-                        <span className="text-gray-500">Share: <span className="text-gray-800 dark:text-gray-200 font-medium">{sharePercent.toFixed(1)}%</span></span>
-                        {/* Share bar */}
-                        <div className="flex items-center gap-1.5">
-                          <div className="w-20 h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-                            <div className="h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(sharePercent, 100)}%`, background: PRODUCT_COLORS[idx % PRODUCT_COLORS.length] }} />
-                          </div>
-                        </div>
-                        <span className={`px-2 py-0.5 rounded-full font-medium ${sharePercent >= 25 ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400' : sharePercent >= 10 ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'}`}>
-                          {sharePercent.toFixed(1)}%
-                        </span>
+                        <span className="text-gray-500">Value: <span className="text-teal-700 dark:text-teal-300 font-medium">{formatCurrency(productTotal)}</span></span>
+                        <span className="text-gray-800 dark:text-gray-200 font-medium">{sharePercent.toFixed(1)}%</span>
                         {isProductExpanded ? <ChevronDown className="w-4 h-4 text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
                       </div>
                     </button>
 
-                    {/* Expanded zone breakdown per product — with monthly columns */}
-                    {isProductExpanded && (() => {
-                      // Get monthly column headers from pwf data
-                      const pwfMonths = forecastData?.pwf?.months || MONTHS;
-                      // Build per-zone monthly data for this product from pwf
-                      const zoneMonthlyForProduct: Record<number, Record<string, number>> = {};
-                      if (forecastData?.pwf?.zones) {
-                        forecastData.pwf.zones.forEach((pwfZone: any) => {
-                          const monthlyVals: Record<string, number> = {};
-                          pwfMonths.forEach((m: string) => { monthlyVals[m] = 0; });
-                          pwfZone.users?.forEach((user: any) => {
-                            const pd = user.products?.find((p: any) => p.productType === product.key);
-                            if (pd) {
-                              pwfMonths.forEach((m: string) => {
-                                monthlyVals[m] += pd.monthlyValues?.[m] || 0;
-                              });
-                            }
-                          });
-                          zoneMonthlyForProduct[pwfZone.zoneId] = monthlyVals;
-                        });
-                      }
-                      // Compute per-month totals across all zones for this product
-                      const productMonthTotals: Record<string, number> = {};
-                      pwfMonths.forEach((m: string) => {
-                        productMonthTotals[m] = Object.values(zoneMonthlyForProduct).reduce((s, zv) => s + (zv[m] || 0), 0);
-                      });
-
-                      return (
-                        <div className="bg-gray-50/50 dark:bg-gray-900/20 px-5 pb-3">
-                          <div className="overflow-x-auto overflow-hidden rounded-lg border border-gray-200/50 dark:border-gray-700/30">
-                            <table className="w-full text-xs">
-                              <thead>
-                                <tr className="text-gray-500 dark:text-gray-400 bg-white/50 dark:bg-gray-800/50">
-                                  <th className="text-left py-2.5 px-3 font-medium sticky left-0 bg-white/90 dark:bg-gray-800/90 z-10 min-w-[100px] border-r border-gray-200/50 dark:border-gray-700/30">Zone</th>
-                                  {pwfMonths.map((m: string) => (
-                                    <th key={m} className="text-right py-2.5 px-2 font-medium min-w-[55px]">{m}</th>
-                                  ))}
-                                  <th className="text-right py-2.5 px-3 font-bold min-w-[70px] bg-teal-50/30 dark:bg-teal-900/10" style={{ color: PRODUCT_COLORS[idx % PRODUCT_COLORS.length] }}>Total</th>
-                                  <th className="text-right py-2.5 px-3 font-medium min-w-[50px]">Share</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {puzZones.map((zone: any, zIdx: number) => {
-                                  const row = zone.productMatrix?.find((p: any) => p.productType === product.key);
-                                  const value = row?.total || 0;
-                                  const pctOfProduct = productTotal > 0 ? (value / productTotal) * 100 : 0;
-                                  const zoneMonthVals = zoneMonthlyForProduct[zone.zoneId] || {};
-                                  
-                                  const puzKey = `forecast_${product.key}_${zone.zoneId}`;
-                                  const isZoneExpanded = expandedForecastPuzZones.has(puzKey);
-                                  
-                                  // Look up users from pwf data
-                                  const pwfZone = forecastData?.pwf?.zones?.find((z: any) => z.zoneId === zone.zoneId);
-                                  const usersForProduct = pwfZone?.users?.filter((u: any) => 
-                                    u.products?.some((p: any) => p.productType === product.key && p.total > 0)
-                                  ) || [];
-
-                                  const zColor = PRODUCT_COLORS[idx % PRODUCT_COLORS.length];
-
-                                  return (
-                                    <React.Fragment key={zone.zoneId}>
-                                      <tr 
-                                        onClick={() => toggleForecastPuzZone(`forecast_${product.key}`, zone.zoneId)}
-                                        className={`border-t border-gray-200/50 dark:border-gray-700/20 hover:bg-teal-50/30 dark:hover:bg-teal-900/5 transition-colors cursor-pointer ${zIdx % 2 !== 0 ? 'bg-gray-50/30 dark:bg-gray-800/30' : ''}`}
-                                      >
-                                        <td className="py-2.5 px-3 text-gray-800 dark:text-gray-200 font-medium flex items-center gap-2 sticky left-0 bg-inherit z-10 border-r border-gray-200/50 dark:border-gray-700/30">
-                                          <div className={`p-1 rounded bg-teal-50 dark:bg-teal-900/20 text-teal-600 transition-transform duration-200 ${isZoneExpanded ? 'rotate-90' : ''}`}>
-                                            <ChevronRight className="w-3 h-3" />
-                                          </div>
-                                          <MapPin className="w-3 h-3 text-teal-500" />
-                                          {zone.zoneName}
-                                          {usersForProduct.length > 0 && (
-                                            <span className="text-[10px] text-gray-400 font-normal">({usersForProduct.length})</span>
-                                          )}
-                                        </td>
-                                        {pwfMonths.map((m: string) => {
-                                          const mv = zoneMonthVals[m] || 0;
-                                          return (
-                                            <td key={m} className={`py-2.5 px-2 text-right font-medium ${mv > 0 ? 'text-gray-700 dark:text-gray-300' : 'text-gray-300 dark:text-gray-600'}`}>
-                                              {mv > 0 ? formatCurrency(mv) : '—'}
-                                            </td>
-                                          );
-                                        })}
-                                        <td className="py-2.5 px-3 text-right font-bold bg-teal-50/20 dark:bg-teal-900/5" style={{ color: zColor }}>
-                                          {value > 0 ? formatCurrency(value) : '—'}
-                                        </td>
-                                        <td className="py-2.5 px-3 text-right">
-                                          <div className="flex items-center justify-end gap-1.5">
-                                            <span className="text-gray-600 dark:text-gray-400">{pctOfProduct > 0 ? `${pctOfProduct.toFixed(1)}%` : '—'}</span>
-                                            <div className="w-10 h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-                                              <div className="h-full rounded-full" style={{ width: `${Math.min(pctOfProduct, 100)}%`, background: zColor }} />
-                                            </div>
-                                          </div>
-                                        </td>
-                                      </tr>
-
-                                      {/* Nested User Breakdown */}
-                                      {isZoneExpanded && usersForProduct.length > 0 && usersForProduct.map((user: any) => {
-                                        const userProductData = user.products?.find((p: any) => p.productType === product.key);
-                                        const userTotal = userProductData?.total || 0;
-                                        const userShareOfZone = value > 0 ? (userTotal / value) * 100 : 0;
-                                        
-                                        return (
-                                          <tr key={user.userId} className="bg-gray-50/40 dark:bg-gray-900/40 border-t border-gray-100 dark:border-gray-800/40">
-                                            <td className="py-2 px-3 pl-8 text-gray-600 dark:text-gray-400 text-[11px] flex items-center gap-2 sticky left-0 bg-inherit z-10 border-r border-gray-200/50 dark:border-gray-700/30">
-                                              <div 
-                                                className="w-4 h-4 rounded-full flex items-center justify-center text-white text-[8px] font-bold shrink-0"
-                                                style={{ background: `linear-gradient(135deg, ${zColor}bb, ${zColor}88)` }}
-                                              >
-                                                {user.userName?.[0] || 'U'}
-                                              </div>
-                                              {user.userName}
-                                            </td>
-                                            {pwfMonths.map((m: string) => {
-                                              const umv = userProductData?.monthlyValues?.[m] || 0;
-                                              return (
-                                                <td key={m} className={`py-2 px-2 text-right font-medium text-[11px] ${umv > 0 ? 'text-gray-500 dark:text-gray-400' : 'text-gray-200 dark:text-gray-700'}`}>
-                                                  {umv > 0 ? formatCurrency(umv) : '—'}
-                                                </td>
-                                              );
-                                            })}
-                                            <td className="py-2 px-3 text-right font-semibold text-[11px]" style={{ color: `${zColor}cc` }}>
-                                              {formatCurrency(userTotal)}
-                                            </td>
-                                            <td className="py-2 px-3 text-right text-[10px] text-gray-400">
-                                              {userShareOfZone.toFixed(0)}%
-                                            </td>
-                                          </tr>
-                                        );
-                                      })}
-                                    </React.Fragment>
-                                  );
-                                })}
-                                {/* Product total row */}
-                                <tr className="border-t-2 border-gray-300 dark:border-gray-600 bg-gray-100/50 dark:bg-gray-700/30 font-semibold">
-                                  <td className="py-2.5 px-3 text-gray-900 dark:text-white sticky left-0 bg-gray-100/80 dark:bg-gray-700/50 z-10 border-r border-gray-200/50 dark:border-gray-700/30">Total</td>
-                                  {pwfMonths.map((m: string) => (
-                                    <td key={m} className="py-2.5 px-2 text-right font-bold text-gray-800 dark:text-gray-200">
-                                      {productMonthTotals[m] > 0 ? formatCurrency(productMonthTotals[m]) : '—'}
-                                    </td>
-                                  ))}
-                                  <td className="py-2.5 px-3 text-right font-black bg-teal-50/30 dark:bg-teal-900/10" style={{ color: PRODUCT_COLORS[idx % PRODUCT_COLORS.length] }}>{formatCurrency(productTotal)}</td>
-                                  <td className="py-2.5 px-3 text-right text-gray-900 dark:text-white font-bold">{sharePercent.toFixed(1)}%</td>
-                                </tr>
-                              </tbody>
-                            </table>
-                          </div>
+                    {isProductExpanded && (
+                      <div className="bg-gray-50/50 dark:bg-gray-900/20 px-5 pb-3">
+                        <div className="overflow-x-auto rounded-lg border border-gray-200/50 dark:border-gray-700/30">
+                          <table className="w-full text-[10px]">
+                            <thead>
+                              <tr className="bg-white/50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400 uppercase">
+                                <th className="text-left py-2 px-3 font-semibold border-r border-gray-200/50">Zone</th>
+                                <th className="text-right py-2 px-3 font-bold" style={{ color: PRODUCT_COLORS[idx % PRODUCT_COLORS.length] }}>Total</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {puzZones.map((zone: any) => {
+                                const row = zone.productMatrix?.find((p: any) => p.productType === product.key);
+                                if (!row || row.total === 0) return null;
+                                return (
+                                  <tr key={zone.zoneId} className="border-t border-gray-100 dark:border-gray-700/20 hover:bg-white dark:hover:bg-gray-800 transition-colors">
+                                    <td className="py-2 px-3 font-medium text-gray-800 dark:text-gray-200 border-r border-gray-200/50">{zone.zoneName}</td>
+                                    <td className="py-2 px-3 text-right font-semibold">{formatCurrency(row.total)}</td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
                         </div>
-                      );
-                    })()}
+                      </div>
+                    )}
                   </div>
                 );
               })}
-
-              {/* Grand totals summary row */}
-              <div className="bg-gradient-to-r from-teal-50 to-emerald-50 dark:from-teal-900/20 dark:to-emerald-900/20 px-5 py-3.5 flex items-center justify-between border-t border-teal-200/50 dark:border-teal-700/30">
-                <span className="text-xs font-bold text-teal-900 dark:text-teal-100 uppercase tracking-wider flex items-center gap-2">
-                  <Package className="w-3.5 h-3.5 text-teal-600" /> Total Forecast
-                </span>
-                <div className="flex items-center gap-6 text-xs">
-                  {puzZones.map((z: any) => (
-                    <span key={z.zoneId} className="text-gray-500">{z.zoneName}: <span className="text-teal-700 dark:text-teal-300 font-bold">{formatCurrency(z.zoneTotalValue)}</span></span>
-                  ))}
-                  <span className="text-sm font-black text-teal-800 dark:text-teal-200 pl-2 border-l border-teal-300 dark:border-teal-600">{formatCurrency(puzGrandTotal)}</span>
-                </div>
-              </div>
             </div>
           </div>
         );

@@ -35,7 +35,7 @@ export function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
     currency: 'INR',
-    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
   }).format(amount);
 }
 
@@ -61,4 +61,28 @@ export function formatBytes(bytes: number): string {
   const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+export function formatLargeNumber(v: number): string {
+  if (v === 0) return '₹0'
+  const abs = Math.abs(v)
+  const sign = v < 0 ? '-' : ''
+  
+  let val: string;
+  let unit = '';
+  
+  if (abs >= 10000000) {
+    val = (abs / 10000000).toFixed(2);
+    unit = ' Cr';
+  } else if (abs >= 100000) {
+    val = (abs / 100000).toFixed(2);
+    unit = ' L';
+  } else if (abs >= 1000) {
+    val = (abs / 1000).toFixed(1);
+    unit = ' K';
+  } else {
+    val = abs.toFixed(0);
+  }
+  
+  return `${sign}₹${parseFloat(val)}${unit}`;
 }

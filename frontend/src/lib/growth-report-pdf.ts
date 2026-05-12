@@ -64,6 +64,12 @@ interface MonthData {
     achievementPercent: number
     hitRatePercent: number
     growthPercent: number | null
+    // New metrics
+    openValue?: number
+    buMonthly?: number
+    percentDev?: number | null
+    offerBUMonth?: number
+    offerBUMonthDev?: number | null
 }
 
 interface ProductData {
@@ -77,6 +83,10 @@ interface ProductData {
     achievementPercent: number
     hitRatePercent: number
     monthlyData: MonthData[]
+    // New metrics
+    openValue?: number
+    buMonthly?: number
+    offerBUMonth?: number
 }
 
 interface InsightItem {
@@ -297,15 +307,17 @@ export async function generateGrowthPillarPdf(data: GrowthPillarPdfData): Promis
 
     autoTable(doc, {
         startY: y,
-        head: [['Month', 'Target', 'Offer Value', 'Won Value', 'Offers', 'Won', 'Achieved %', 'Hit Rate %', 'MoM Growth']],
+        head: [['Month', 'Offer Value', 'Won Value', 'Open Offer Funnel', 'BU/Mo', '%Dev', 'OfferBU', '%Dev', 'Achieved %', 'Hit Rate %', 'Growth']],
         body: [
             ...data.monthlyData.map(d => [
                 d.monthLabel,
-                fmtVal(d.target),
                 fmtVal(d.offerValue),
                 fmtVal(d.wonValue),
-                String(d.offerCount),
-                String(d.wonCount),
+                fmtVal(d.openValue || 0),
+                fmtVal(d.buMonthly || 0),
+                fmtPct(d.percentDev || 0),
+                fmtVal(d.offerBUMonth || 0),
+                fmtPct(d.offerBUMonthDev || 0),
                 `${d.achievementPercent}%`,
                 `${d.hitRatePercent}%`,
                 d.growthPercent !== null ? fmtPct(d.growthPercent) : '-',
@@ -313,11 +325,13 @@ export async function generateGrowthPillarPdf(data: GrowthPillarPdfData): Promis
             // Totals row
             [
                 'TOTAL',
-                fmtVal(data.totals.target),
                 fmtVal(data.totals.offerValue),
                 fmtVal(data.totals.wonValue),
-                String(data.totals.offerCount),
-                String(data.totals.wonCount),
+                fmtVal(data.monthlyData.reduce((s, m) => s + (m.openValue || 0), 0)),
+                fmtVal(data.monthlyData.reduce((s, m) => s + (m.buMonthly || 0), 0)),
+                '-',
+                fmtVal(data.monthlyData.reduce((s, m) => s + (m.offerBUMonth || 0), 0)),
+                '-',
                 `${data.totals.achievementPercent}%`,
                 `${data.totals.hitRatePercent}%`,
                 '-',
@@ -338,8 +352,18 @@ export async function generateGrowthPillarPdf(data: GrowthPillarPdfData): Promis
         },
         columnStyles: {
             0: { halign: 'left', fontStyle: 'bold', textColor: COLORS.textDark },
+            5: { fontStyle: 'bold' },
         },
         willDrawCell: (hookData: any) => {
+            // Color code deviation
+            if (hookData.section === 'body' && hookData.column.index === 5) {
+                const text = hookData.cell.text[0]
+                if (text.startsWith('+')) hookData.cell.styles.textColor = COLORS.positive
+                else if (text.startsWith('-')) {
+                    const val = Math.abs(parseFloat(text))
+                    hookData.cell.styles.textColor = val > 25 ? COLORS.negative : COLORS.warning
+                }
+            }
             // Color code achievement column
             if (hookData.section === 'body' && hookData.column.index === 6) {
                 const val = parseFloat(hookData.cell.text[0])
@@ -347,12 +371,6 @@ export async function generateGrowthPillarPdf(data: GrowthPillarPdfData): Promis
                 else if (val >= 50) hookData.cell.styles.textColor = COLORS.warning
                 else hookData.cell.styles.textColor = COLORS.negative
                 hookData.cell.styles.fontStyle = 'bold'
-            }
-            // Color code growth column
-            if (hookData.section === 'body' && hookData.column.index === 8) {
-                const text = hookData.cell.text[0]
-                if (text.startsWith('+')) hookData.cell.styles.textColor = COLORS.positive
-                else if (text.startsWith('-')) hookData.cell.styles.textColor = COLORS.negative
             }
             // Bold totals row
             if (hookData.section === 'body' && hookData.row.index === data.monthlyData.length) {
@@ -373,12 +391,17 @@ export async function generateGrowthPillarPdf(data: GrowthPillarPdfData): Promis
 
         autoTable(doc, {
             startY: y,
-            head: [['Product', 'Target', 'Offer Value', 'Won Value', 'Offers', 'Won', 'Achieved %', 'Hit Rate %']],
+            head: [['Product', 'Target', 'Offer Value', 'Won Value', 'Open Offer Funnel', 'BU/Mo', '%Dev', 'OfferBU', '%Dev', 'Offers', 'Won', 'Achieved %', 'Hit Rate %']],
             body: data.productData.map(p => [
                 p.productLabel,
                 fmtVal(p.target),
                 fmtVal(p.offerValue),
                 fmtVal(p.wonValue),
+                fmtVal(p.openValue || 0),
+                fmtVal(p.buMonthly || 0),
+                p.buMonthly ? `${Math.round(((p.wonValue - p.buMonthly) / p.buMonthly) * 100)}%` : '0%',
+                fmtVal(p.offerBUMonth || 0),
+                p.offerBUMonth ? `${Math.round(((p.offerValue - p.offerBUMonth) / p.offerBUMonth) * 100)}%` : '0%',
                 String(p.offerCount),
                 String(p.wonCount),
                 `${p.achievementPercent}%`,
@@ -401,7 +424,7 @@ export async function generateGrowthPillarPdf(data: GrowthPillarPdfData): Promis
                 0: { halign: 'left', fontStyle: 'bold', textColor: COLORS.textDark },
             },
             willDrawCell: (hookData: any) => {
-                if (hookData.section === 'body' && hookData.column.index === 6) {
+                if (hookData.section === 'body' && hookData.column.index === 11) {
                     const val = parseFloat(hookData.cell.text[0])
                     if (val >= 100) hookData.cell.styles.textColor = COLORS.positive
                     else if (val >= 50) hookData.cell.styles.textColor = COLORS.warning
@@ -432,14 +455,16 @@ export async function generateGrowthPillarPdf(data: GrowthPillarPdfData): Promis
 
         autoTable(doc, {
             startY: y,
-            head: [['Month', 'Target', 'Offer Value', 'Won Value', 'Offers', 'Won', 'Achieved %', 'Growth']],
+            head: [['Month', 'Offer Value', 'Won Value', 'Open Offer Funnel', 'BU/Mo', '%Dev', 'OfferBU', '%Dev', 'Achieved %', 'Growth']],
             body: product.monthlyData.map(m => [
                 m.monthLabel.substring(0, 3),
-                fmtVal(m.target),
                 fmtVal(m.offerValue),
                 fmtVal(m.wonValue),
-                String(m.offerCount),
-                String(m.wonCount),
+                fmtVal(m.openValue || 0),
+                fmtVal(m.buMonthly || 0),
+                fmtPct(m.percentDev || 0),
+                fmtVal(m.offerBUMonth || 0),
+                fmtPct(m.offerBUMonthDev || 0),
                 `${m.achievementPercent}%`,
                 m.growthPercent !== null ? fmtPct(m.growthPercent) : '-',
             ]),
@@ -452,19 +477,25 @@ export async function generateGrowthPillarPdf(data: GrowthPillarPdfData): Promis
                 halign: 'center',
             },
             bodyStyles: { fontSize: 6.5, textColor: COLORS.textBody, halign: 'center' },
-            columnStyles: { 0: { halign: 'left', fontStyle: 'bold' } },
+            columnStyles: { 
+                0: { halign: 'left', fontStyle: 'bold' },
+                5: { fontStyle: 'bold' }
+            },
             willDrawCell: (hookData: any) => {
+                if (hookData.section === 'body' && hookData.column.index === 5) {
+                    const text = hookData.cell.text[0]
+                    if (text.startsWith('+')) hookData.cell.styles.textColor = COLORS.positive
+                    else if (text.startsWith('-')) {
+                        const val = Math.abs(parseFloat(text))
+                        hookData.cell.styles.textColor = val > 25 ? COLORS.negative : COLORS.warning
+                    }
+                }
                 if (hookData.section === 'body' && hookData.column.index === 6) {
                     const val = parseFloat(hookData.cell.text[0])
                     if (val >= 100) hookData.cell.styles.textColor = COLORS.positive
                     else if (val >= 50) hookData.cell.styles.textColor = COLORS.warning
                     else hookData.cell.styles.textColor = COLORS.negative
                     hookData.cell.styles.fontStyle = 'bold'
-                }
-                if (hookData.section === 'body' && hookData.column.index === 7) {
-                    const text = hookData.cell.text[0]
-                    if (text.startsWith('+')) hookData.cell.styles.textColor = COLORS.positive
-                    else if (text.startsWith('-')) hookData.cell.styles.textColor = COLORS.negative
                 }
             },
             margin: { left: 20, right: 20 },
