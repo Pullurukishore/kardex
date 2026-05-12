@@ -247,7 +247,9 @@ export default function VendorAccountImportPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="bg-[#F8FAFB] p-3 rounded-xl border border-[#AEBFC3]/15">
                       <span className="text-[8px] uppercase tracking-[0.2em] text-[#AEBFC3] font-black block mb-1">Account Number</span>
-                      <span className="font-mono font-bold text-xs text-[#CE9F6B] truncate block">{row._parsed.accountNumber || '-'}</span>
+                      <span className="font-mono font-bold text-xs text-[#CE9F6B] truncate block">
+                        {row._parsed.accountNumber?.startsWith('PENDING-') ? 'PENDING' : (row._parsed.accountNumber || '-')}
+                      </span>
                     </div>
                     <div className="bg-[#F8FAFB] p-3 rounded-xl border border-[#AEBFC3]/15">
                       <span className="text-[8px] uppercase tracking-[0.2em] text-[#AEBFC3] font-black block mb-1">Bank & IFSC</span>
@@ -339,7 +341,9 @@ export default function VendorAccountImportPage() {
                           {row._parsed.currency || 'INR'}
                         </span>
                       </td>
-                      <td className="px-6 py-4 font-mono text-xs font-bold text-[#CE9F6B] truncate max-w-[150px]">{row._parsed.accountNumber || '-'}</td>
+                      <td className="px-6 py-4 font-mono text-xs font-bold text-[#CE9F6B] truncate max-w-[150px]">
+                        {row._parsed.accountNumber?.startsWith('PENDING-') ? 'PENDING' : (row._parsed.accountNumber || '-')}
+                      </td>
                       <td className="px-6 py-4 font-mono text-xs text-[#5D6E73]">{row._parsed.ifscCode || '-'}</td>
                       <td className="px-6 py-4">
                         <div className="flex flex-col gap-1">
@@ -373,7 +377,7 @@ export default function VendorAccountImportPage() {
           <ul className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6">
             {[
               { icon: CheckCircle2, color: '#82A094', text: 'Use the official template for 100% success rate.' },
-              { icon: Building2, color: '#6F8A9D', text: 'All Vendor Names & Bank Details must be clearly stated.' },
+              { icon: Building2, color: '#6F8A9D', text: 'All fields are optional; missing details will show as PENDING and can be updated later.' },
               { icon: XCircle, color: '#E17F70', text: 'Duplicate Account Numbers will trigger an automatic error.' },
               { icon: Sparkles, color: '#CE9F6B', text: 'Only valid records will be committed to the database.' }
             ].map((item, i) => (

@@ -33,10 +33,18 @@ function validateRow(row: BankAccountImportRow, index: number) {
     const accountNumber = getValue(row, 'Account Number', 'AccountNumber', 'Account No', 'Account');
     const ifscCode = getValue(row, 'IFSC / SWIFT Code', 'IFSC Code', 'IFSC', 'IFSCCode', 'SWIFT Code', 'SWIFT');
 
-    if (!vendorName) errors.push({ field: 'Vendor Name', message: 'Missing vendor name' });
-    if (!bankName) errors.push({ field: 'Bank Name', message: 'Missing bank name' });
-    if (!accountNumber) errors.push({ field: 'Account Number', message: 'Missing account number' });
-    if (!ifscCode) errors.push({ field: 'IFSC / SWIFT Code', message: 'Missing IFSC / SWIFT code' });
+    // All fields are now optional for the import preview. 
+    // We provide fallbacks for database-mandatory fields.
+
+    // Fallbacks for DB mandatory fields to allow importing partial data
+    const finalVendorName = vendorName || (bpCode ? `Vendor ${bpCode}` : 'Unknown Vendor');
+    const finalBankName = bankName || 'PENDING';
+    const finalIfscCode = ifscCode || 'PENDING';
+
+    // For Account Number, if missing, we generate a deterministic temporary ID 
+    // so the record can be identified during re-imports and updated later.
+    const fallbackKey = (bpCode || vendorName || `ROW-${index}`).toString().toUpperCase().replace(/\s+/g, '-');
+    const finalAccountNumber = accountNumber || `PENDING-${fallbackKey}`;
 
     // MSME logic
     const msmeVal = getValue(row, 'Is MSME', 'MSME', 'isMSME');
@@ -46,25 +54,18 @@ function validateRow(row: BankAccountImportRow, index: number) {
     const gstNumber = getValue(row, 'GST Number', 'GSTNumber', 'GST', 'GSTIN');
     const panNumber = getValue(row, 'PAN Number', 'PANNumber', 'PAN');
 
-    if (isMSME && !udyamRegNum) {
-        errors.push({ field: 'Udyam Registration Number', message: 'Udyam number is required for MSME vendors' });
-    }
-
-    if (currency === 'INR') {
-        if (!gstNumber) errors.push({ field: 'GST Number', message: 'GST number is required for INR transactions' });
-        if (!panNumber) errors.push({ field: 'PAN Number', message: 'PAN number is required for INR transactions' });
-    }
+    // Validation for MSME, GST, and PAN removed as per user request
 
     return {
         isValid: errors.length === 0,
         errors,
         data: {
             bpCode,
-            vendorName,
-            beneficiaryBankName: bankName,
-            accountNumber,
-            ifscCode,
-            beneficiaryName: getValue(row, 'Beneficiary Name', 'BeneficiaryName') || vendorName,
+            vendorName: finalVendorName,
+            beneficiaryBankName: finalBankName,
+            accountNumber: finalAccountNumber,
+            ifscCode: finalIfscCode,
+            beneficiaryName: getValue(row, 'Beneficiary Name', 'BeneficiaryName') || finalVendorName,
             emailId: getValue(row, 'Email', 'EmailId', 'Email ID'),
             nickName: getValue(row, 'Nick Name', 'NickName', 'Alias'),
             gstNumber,
@@ -180,64 +181,45 @@ export const importFromExcel = async (req: Request, res: Response) => {
         const results = await prisma.$transaction(async (tx: any) => {
             const processed = [];
             for (const row of selectedRows) {
-                if (isAdmin) {
-                    // Direct Import as Admin
-                    const account = await tx.bankAccount.upsert({
-                        where: { accountNumber: row.accountNumber },
-                        create: {
-                            bpCode: row.bpCode || null,
-                            vendorName: row.vendorName,
-                            beneficiaryBankName: row.beneficiaryBankName,
-                            accountNumber: row.accountNumber,
-                            ifscCode: row.ifscCode,
-                            beneficiaryName: row.beneficiaryName || row.vendorName,
-                            emailId: row.emailId || null,
-                            nickName: row.nickName || null,
-                            gstNumber: row.gstNumber || null,
-                            panNumber: row.panNumber || null,
-                            accountType: row.accountType || null,
-                            isMSME: row.isMSME || false,
-                            udyamRegNum: row.udyamRegNum || null,
-                            currency: row.currency || 'INR',
-                            createdById: userId,
-                            updatedById: userId
-                        },
-                        update: {
-                            bpCode: row.bpCode || null,
-                            vendorName: row.vendorName,
-                            beneficiaryBankName: row.beneficiaryBankName,
-                            ifscCode: row.ifscCode,
-                            beneficiaryName: row.beneficiaryName || row.vendorName,
-                            emailId: row.emailId || null,
-                            nickName: row.nickName || null,
-                            gstNumber: row.gstNumber || null,
-                            panNumber: row.panNumber || null,
-                            accountType: row.accountType || null,
-                            isMSME: row.isMSME || false,
-                            udyamRegNum: row.udyamRegNum || null,
-                            currency: row.currency || 'INR',
-                            updatedById: userId
-                        }
-                    });
-                    processed.push(account);
-                } else {
-                    // Create Request for approval for Finance User
-                    const existingAccount = await tx.bankAccount.findUnique({
-                        where: { accountNumber: row.accountNumber }
-                    });
-
-                    const request = await tx.bankAccountChangeRequest.create({
-                        data: {
-                            bankAccountId: existingAccount?.id || null,
-                            requestType: existingAccount ? 'UPDATE' : 'CREATE',
-                            status: 'PENDING',
-                            requestedData: row,
-                            requestedById: userId,
-                            requestedAt: new Date()
-                        }
-                    });
-                    processed.push(request);
-                }
+                // Direct Import for all users as per request to bypass approval workflow
+                const account = await tx.bankAccount.upsert({
+                    where: { accountNumber: row.accountNumber },
+                    create: {
+                        bpCode: row.bpCode || null,
+                        vendorName: row.vendorName,
+                        beneficiaryBankName: row.beneficiaryBankName,
+                        accountNumber: row.accountNumber,
+                        ifscCode: row.ifscCode,
+                        beneficiaryName: row.beneficiaryName || row.vendorName,
+                        emailId: row.emailId || null,
+                        nickName: row.nickName || null,
+                        gstNumber: row.gstNumber || null,
+                        panNumber: row.panNumber || null,
+                        accountType: row.accountType || null,
+                        isMSME: row.isMSME || false,
+                        udyamRegNum: row.udyamRegNum || null,
+                        currency: row.currency || 'INR',
+                        createdById: userId,
+                        updatedById: userId
+                    },
+                    update: {
+                        bpCode: row.bpCode || null,
+                        vendorName: row.vendorName,
+                        beneficiaryBankName: row.beneficiaryBankName,
+                        ifscCode: row.ifscCode,
+                        beneficiaryName: row.beneficiaryName || row.vendorName,
+                        emailId: row.emailId || null,
+                        nickName: row.nickName || null,
+                        gstNumber: row.gstNumber || null,
+                        panNumber: row.panNumber || null,
+                        accountType: row.accountType || null,
+                        isMSME: row.isMSME || false,
+                        udyamRegNum: row.udyamRegNum || null,
+                        currency: row.currency || 'INR',
+                        updatedById: userId
+                    }
+                });
+                processed.push(account);
             }
             return processed;
         });
@@ -251,38 +233,23 @@ export const importFromExcel = async (req: Request, res: Response) => {
             const item = results[i];
             const row = selectedRows[i];
 
-            if (isAdmin) {
-                await logBankAccountActivity({
-                    bankAccountId: item.id,
-                    action: 'BANK_ACCOUNT_CREATED',
-                    description: `Directly imported vendor bank account for: ${row.vendorName}`,
-                    performedById: user.id,
-                    performedBy: user.name,
-                    ipAddress,
-                    userAgent,
-                    metadata: { accountNumber: row.accountNumber, isBulk: true }
-                });
-            } else {
-                await logBankAccountActivity({
-                    bankAccountId: item.bankAccountId || null,
-                    action: 'CHANGE_REQUEST_CREATED',
-                    description: `Change request (${item.requestType}) created via bulk import for: ${row.vendorName || 'Unknown'}`,
-                    performedById: user.id,
-                    performedBy: user.name,
-                    ipAddress,
-                    userAgent,
-                    metadata: { requestId: item.id, requestType: item.requestType, isBulk: true }
-                });
-            }
+            await logBankAccountActivity({
+                bankAccountId: item.id,
+                action: 'BANK_ACCOUNT_CREATED',
+                description: `Directly imported vendor bank account for: ${row.vendorName} (Bypassed Approval)`,
+                performedById: user.id,
+                performedBy: user.name,
+                ipAddress,
+                userAgent,
+                metadata: { accountNumber: row.accountNumber, isBulk: true }
+            });
         }
 
         res.json({
             success: true,
-            message: isAdmin
-                ? `Successfully processed ${results.length} vendor accounts (Add/Update)`
-                : `Successfully submitted ${results.length} accounts for admin approval`,
+            message: `Successfully processed ${results.length} vendor accounts!`,
             count: results.length,
-            isRequest: !isAdmin
+            isRequest: false
         });
     } catch (error: any) {
         res.status(500).json({ error: 'Import failed during processing', message: error.message });

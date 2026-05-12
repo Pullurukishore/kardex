@@ -198,11 +198,11 @@ export default function EditBankAccountPage() {
     }
 
     if (name === 'accountNumber' || name === 'confirmAccountNumber') {
-      if (value !== '' && !isNumericOnly(value)) {
-        setFieldErrors(prev => ({ ...prev, [name]: 'Account Number must contain numbers only' }));
-        return;
+      if (value !== '' && !isNumericOnly(value) && !value.startsWith('PENDING')) {
+        setFieldErrors(prev => ({ ...prev, [name]: 'Account Number usually contains numbers only' }));
+      } else {
+        setFieldErrors(prev => ({ ...prev, [name]: '' }));
       }
-      setFieldErrors(prev => ({ ...prev, [name]: '' }));
     }
 
     if (name === 'ifscCode') {
@@ -392,7 +392,7 @@ export default function EditBankAccountPage() {
 
       }
 
-      if (!isNumericOnly(formData.accountNumber)) {
+      if (!isNumericOnly(formData.accountNumber) && !formData.accountNumber.startsWith('PENDING')) {
         setError('Account Number must contain numbers only');
         setSaving(false);
         return;
@@ -453,19 +453,9 @@ export default function EditBankAccountPage() {
     delete (dataToSubmit as any).confirmAccountNumber;
     delete (dataToSubmit as any).otherCurrency;
 
-      if (isAdmin) {
-        await arApi.updateBankAccount(params.id as string, dataToSubmit);
-        setSuccess('Vendor account updated successfully!');
-        setTimeout(() => router.push(`/finance/bank-accounts/${params.id}`), 1500);
-      } else {
-        await arApi.createBankAccountRequest({
-          bankAccountId: params.id as string,
-          requestType: 'UPDATE',
-          requestedData: dataToSubmit
-        });
-        setSuccess('Update request submitted! Waiting for admin approval.');
-        setTimeout(() => router.push('/finance/bank-accounts/requests'), 1500);
-      }
+      await arApi.updateBankAccount(params.id as string, dataToSubmit);
+      setSuccess('Vendor account updated successfully!');
+      setTimeout(() => router.push(`/finance/bank-accounts/${params.id}`), 1500);
     } catch (err: any) {
       console.error('Submission error:', err);
       setError(err.message || 'Failed to submit changes');
@@ -627,7 +617,7 @@ export default function EditBankAccountPage() {
           </Button>
           <div className="min-w-0 flex-1">
             <h1 className="text-2xl sm:text-3xl font-black text-[#546A7A] truncate tracking-tight">
-              {isAdmin ? 'Edit Vendor Account' : 'Request Changes'}
+              Edit Vendor Account
             </h1>
             <p className="text-[#5D6E73] mt-1 text-sm sm:text-base truncate">
               {originalAccount?.vendorName} • <span className="font-bold text-[#CE9F6B]">{originalAccount?.currency} {originalAccount?.accountType || ''} Account</span>
@@ -642,22 +632,7 @@ export default function EditBankAccountPage() {
         </div>
       </div>
 
-      {/* Info banner for non-admin */}
-      {!isAdmin && (
-        <Card className="border-[#6F8A9D]/30 bg-gradient-to-r from-[#6F8A9D]/10 to-[#6F8A9D]/5">
-          <CardContent className="p-4">
-            <div className="flex items-start gap-3">
-              <div className="p-2 bg-[#6F8A9D]/20 rounded-lg">
-                <Info className="w-5 h-5 text-[#6F8A9D]" />
-              </div>
-              <div className="text-sm text-[#5D6E73]">
-                <p className="font-semibold text-[#6F8A9D] mb-1">Request Mode</p>
-                <p>Your changes will be sent to a Finance Admin for approval before being applied.</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Form Section */}
@@ -1163,8 +1138,8 @@ export default function EditBankAccountPage() {
                     value={formData.accountNumber}
                     onChange={handleChange}
                     maxLength={18}
-                    inputMode="numeric"
-                    pattern="[0-9]*"
+                    inputMode="text"
+                    pattern=".*"
                     className={`w-full px-4 py-3.5 bg-[#F8FAFB] border rounded-xl text-[#546A7A] focus:outline-none focus:ring-2 focus:ring-[#CE9F6B]/20 focus:bg-white transition-all font-mono ${
                       fieldErrors.accountNumber ? 'border-[#E17F70] focus:border-[#E17F70]' : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B]/50'
                     }`}
@@ -1216,8 +1191,8 @@ export default function EditBankAccountPage() {
                     value={formData.confirmAccountNumber}
                     onChange={handleChange}
                     maxLength={18}
-                    inputMode="numeric"
-                    pattern="[0-9]*"
+                    inputMode="text"
+                    pattern=".*"
                     className={`w-full px-4 py-3.5 bg-[#F8FAFB] border rounded-xl text-[#546A7A] focus:outline-none transition-all font-mono ${
                       fieldErrors.confirmAccountNumber
                         ? 'border-[#E17F70] ring-2 ring-[#E17F70]/10'

@@ -210,12 +210,10 @@ export default function BankAccountDetailPage() {
           </div>
         </div>
         <div className="flex items-center gap-3 w-full sm:w-auto">
-          {!isAdmin && (
-            <Button onClick={() => router.push(`/finance/bank-accounts/${account.id}/edit`)} className="w-full sm:w-auto">
-              <Pencil className="h-4 w-4 mr-2" />
-              Request Changes
-            </Button>
-          )}
+          <Button onClick={() => router.push(`/finance/bank-accounts/${account.id}/edit`)} className="w-full sm:w-auto">
+            <Pencil className="h-4 w-4 mr-2" />
+            Edit Account
+          </Button>
         </div>
       </div>
 
@@ -596,7 +594,6 @@ export default function BankAccountDetailPage() {
             </CardHeader>
             <CardContent className="p-3 bg-gradient-to-br from-[#AEBFC3]/5 to-white">
               <div className="space-y-2">
-                {!isAdmin && (
                 <Link
                   href={`/finance/bank-accounts/${account.id}/edit`}
                   className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-[#CE9F6B]/10 text-[#5D6E73] hover:text-[#976E44] transition-all group"
@@ -604,9 +601,8 @@ export default function BankAccountDetailPage() {
                   <div className="p-2 bg-[#CE9F6B]/10 rounded-lg group-hover:bg-[#CE9F6B]/20 group-hover:scale-110 transition-all">
                     <Pencil className="w-4 h-4 text-[#CE9F6B]" />
                   </div>
-                  <span className="text-sm font-semibold">Request Changes</span>
+                  <span className="text-sm font-semibold">Edit Account</span>
                 </Link>
-                )}
                 <Link
                   href="/finance/bank-accounts/requests"
                   className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-[#6F8A9D]/10 text-[#5D6E73] hover:text-[#6F8A9D] transition-all group"

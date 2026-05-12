@@ -123,9 +123,9 @@ router.put('/payment-terms/:id', requireFinanceAdmin, paymentTermsController.upd
 // ═══════════════════════════════════════════════════════════════════════════
 router.get('/bank-accounts', requireFinanceRead, bankAccountController.getAllBankAccounts);
 router.get('/bank-accounts/:id', requireFinanceRead, bankAccountController.getBankAccountById);
-router.post('/bank-accounts', requireFinanceAdmin, bankAccountController.createBankAccount);
-router.put('/bank-accounts/:id', requireFinanceAdmin, bankAccountController.updateBankAccount);
-router.delete('/bank-accounts/:id', requireFinanceAdmin, bankAccountController.deleteBankAccount);
+router.post('/bank-accounts', requireFinanceWrite, bankAccountController.createBankAccount);
+router.put('/bank-accounts/:id', requireFinanceWrite, bankAccountController.updateBankAccount);
+router.delete('/bank-accounts/:id', requireFinanceWrite, bankAccountController.deleteBankAccount);
 
 // ═══════════════════════════════════════════════════════════════════════════
 // BANK ACCOUNT CHANGE REQUEST ROUTES
