@@ -35,21 +35,21 @@ export const downloadICICICMS = async (payments: PaymentRow[], customFilename?: 
         "Payment Detail 1", "Payment Detail 2", "Payment Detail 3", "Payment Detail 4",
         "Payment Detail 5", "Payment Detail 6", "Payment Detail 7",
         "Instrument no", "Inst. Date", "MICR NO", "IFSC Code", "Bene Bank Name",
-        "Bene Bank Branch Name", "", "", "", "Bene Email ID"
+        "Bene Bank Branch Name", "", "", "", "", "", "Bene Email ID"
     ];
 
     // Row 2: Type Codes
     const row2 = [
         "A", "A", "A", "N", "C", "A", "A", "A", "A", "A", "A", "A", "A", "C",
         "C", "C", "C", "C", "C", "C", "C", "N", "DD/MM/YYYY", "N", "A", "A",
-        "A", "A", "A", "A", "A"
+        "A", "A", "A", "A", "A", "A", "A"
     ];
 
     // Row 3: Character Lengths
     const row3 = [
-        "1", "15", "20", "20", "100", "30", "30", "70", "70", "70", "70", "20", "30", "30",
+        "1", "13", "20", "20", "100", "30", "30", "70", "70", "70", "70", "20", "30", "30",
         "30", "30", "30", "30", "30", "30", "30", "12", "10", "15", "15", "100",
-        "50", "50", "50", "50", "100"
+        "50", "50", "50", "50", "50", "50", "100"
     ];
 
     // Row 4: Mandatory/Optional Flags
@@ -58,7 +58,7 @@ export const downloadICICICMS = async (payments: PaymentRow[], customFilename?: 
         "Optional", "Optional", "Optional", "Optional", "Optional", "Optional", "Optional",
         "Optional", "Mandatory", "Optional", "Optional", "Optional", "Optional", "Optional", "Optional",
         "Optional", "Optional", "Mandatory", "Optional", "Mandatory", "Mandatory", "Optional",
-        "Optional", "Optional", "Optional", "Mandatory"
+        "Optional", "Optional", "Optional", "Optional", "Optional", "Mandatory"
     ];
 
     // Styling Constants
@@ -89,10 +89,10 @@ export const downloadICICICMS = async (payments: PaymentRow[], customFilename?: 
     payments.forEach(p => {
         const trnType = p.transactionMode === 'NFT' ? 'N' : p.transactionMode === 'RTI' ? 'R' : 'I';
         const cleanName = (p.vendorName || '').replace(/,/g, '').trim();
-        const beneCode = (p.nickName || cleanName.substring(0, 15)).trim();
-        const custRef = (p.nickName || cleanName.split(' ')[0].substring(0, 30)).trim();
+        const beneCode = (p.nickName || cleanName).substring(0, 13).trim();
+        const custRef = (p.nickName || cleanName.split(' ')[0]).substring(0, 30).trim();
 
-        const rowData = Array(31).fill("");
+        const rowData = Array(33).fill("");
         rowData[0] = trnType;
         rowData[1] = beneCode;
         rowData[2] = p.accountNumber;
@@ -102,8 +102,8 @@ export const downloadICICICMS = async (payments: PaymentRow[], customFilename?: 
 
         rowData[22] = format(p.valueDate, 'dd/MM/yyyy');
         rowData[24] = p.transactionMode === 'FT' ? '' : p.ifscCode;
-        rowData[25] = p.bankName;
-        rowData[30] = p.emailId;
+        rowData[25] = p.transactionMode === 'FT' ? '' : p.bankName;
+        rowData[32] = p.emailId;
 
         const row = worksheet.addRow(rowData);
         row.eachCell({ includeEmpty: true }, (cell: any) => {
@@ -114,7 +114,7 @@ export const downloadICICICMS = async (payments: PaymentRow[], customFilename?: 
     });
 
     // Set Column Widths (Row 3 values mapped to Excel widths)
-    const widths = [8, 15, 20, 15, 40, 12, 12, 15, 15, 15, 15, 15, 15, 20, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 30, 20, 15, 15, 15, 30];
+    const widths = [8, 15, 20, 15, 40, 12, 12, 15, 15, 15, 15, 15, 15, 20, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 30, 20, 15, 15, 15, 15, 15, 30];
     worksheet.columns = widths.map(w => ({ width: w }));
 
     const buffer = await workbook.xlsx.writeBuffer();
@@ -191,10 +191,10 @@ function buildICICIDataRows(payments: PaymentRow[], formatDate: (d: Date, f: str
     return payments.map(p => {
         const trnType = p.transactionMode === 'NFT' ? 'N' : p.transactionMode === 'RTI' ? 'R' : 'I';
         const cleanName = (p.vendorName || '').replace(/,/g, '').trim();
-        const beneCode = (p.nickName || cleanName.substring(0, 15)).trim();
-        const custRef = (p.nickName || cleanName.split(' ')[0].substring(0, 30)).trim();
+        const beneCode = (p.nickName || cleanName).substring(0, 13).trim();
+        const custRef = (p.nickName || cleanName.split(' ')[0]).substring(0, 30).trim();
 
-        const row = Array(31).fill('');
+        const row = Array(33).fill('');
         row[0] = trnType;
         row[1] = beneCode;
         row[2] = p.accountNumber;
@@ -203,8 +203,8 @@ function buildICICIDataRows(payments: PaymentRow[], formatDate: (d: Date, f: str
         row[13] = custRef;
         row[22] = formatDate(p.valueDate, 'dd/MM/yyyy');
         row[24] = p.transactionMode === 'FT' ? '' : p.ifscCode;
-        row[25] = (p.bankName || '').replace(/,/g, '');
-        row[30] = (p.emailId || '').replace(/,/g, '');
+        row[25] = p.transactionMode === 'FT' ? '' : (p.bankName || '').replace(/,/g, '');
+        row[32] = (p.emailId || '').replace(/,/g, '');
         return row;
     });
 }
@@ -268,10 +268,10 @@ export const downloadICICICMS_CSV = async (payments: PaymentRow[], customFilenam
     const { format } = await import('date-fns');
     const rows = buildICICIDataRows(payments, format);
     // Force quotes for column indices: 1 (Bene Code), 2 (Account No), 24 (IFSC)
-    const csvContent = rows.map(row => 
+    const csvContent = rows.map(row =>
         row.map((val, i) => csvEscape(val, i === 1 || i === 2 || i === 24)).join(',')
     ).join('\r\n');
-    const finalFilename = customFilename ? (customFilename.endsWith('.csv') ? customFilename : `${customFilename}.csv`) : `HDFC_Data_${format(new Date(), 'yyyyMMdd')}.csv`;
+    const finalFilename = customFilename || `HDFC_Data_${format(new Date(), 'yyyyMMdd')}.csv`;
     downloadBlob(csvContent, finalFilename, 'text/csv;charset=utf-8;', true);
 };
 
@@ -282,7 +282,7 @@ export const downloadICICICMS_TXT = async (payments: PaymentRow[], customFilenam
     const { format } = await import('date-fns');
     const rows = buildICICIDataRows(payments, format);
     const txtContent = rows.map(row => row.join(',')).join('\r\n');
-    const finalFilename = customFilename ? (customFilename.endsWith('.txt') ? customFilename : `${customFilename}.txt`) : `HDFC_Data_${format(new Date(), 'yyyyMMdd')}.txt`;
+    const finalFilename = customFilename || `HDFC_Data_${format(new Date(), 'yyyyMMdd')}.txt`;
     downloadBlob(txtContent, finalFilename, 'text/plain;charset=utf-8;');
 };
 
@@ -293,10 +293,10 @@ export const downloadStandard_CSV = async (payments: PaymentRow[], customFilenam
     const { format } = await import('date-fns');
     const rows = buildStandardDataRows(payments, format);
     // Force quotes for column indices: 4 (Account No), 6 (IFSC/Bank Code)
-    const csvContent = rows.map(row => 
+    const csvContent = rows.map(row =>
         row.map((val, i) => csvEscape(val, i === 4 || i === 6)).join(',')
     ).join('\r\n');
-    const finalFilename = customFilename ? (customFilename.endsWith('.csv') ? customFilename : `${customFilename}.csv`) : `DB_Payment_Data_${format(new Date(), 'yyyyMMdd')}.csv`;
+    const finalFilename = customFilename || `DB_Payment_Data_${format(new Date(), 'yyyyMMdd')}.csv`;
     downloadBlob(csvContent, finalFilename, 'text/csv;charset=utf-8;', true);
 };
 
@@ -307,7 +307,7 @@ export const downloadStandard_TXT = async (payments: PaymentRow[], customFilenam
     const { format } = await import('date-fns');
     const rows = buildStandardDataRows(payments, format);
     const txtContent = rows.map(row => row.join(',')).join('\r\n');
-    const finalFilename = customFilename ? (customFilename.endsWith('.txt') ? customFilename : `${customFilename}.txt`) : `DB_Payment_Data_${format(new Date(), 'yyyyMMdd')}.txt`;
+    const finalFilename = customFilename || `DB_Payment_Data_${format(new Date(), 'yyyyMMdd')}.txt`;
     downloadBlob(txtContent, finalFilename, 'text/plain;charset=utf-8;');
 };
 
