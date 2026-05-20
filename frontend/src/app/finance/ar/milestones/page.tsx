@@ -4,7 +4,7 @@ import { Fragment, useEffect, useState, useMemo } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { arApi, ARInvoice, MilestonePaymentTerm, formatARCurrency, formatARDate, formatARMonth, PIC_OPTIONS } from '@/lib/ar-api';
+import { arApi, ARInvoice, MilestonePaymentTerm, formatARCurrency, formatARDate, formatARMonth, PIC_OPTIONS, copyTextToClipboard } from '@/lib/ar-api';
 import { 
   Search, ChevronLeft, ChevronRight, ChevronDown, Plus, 
   TrendingUp, AlertTriangle, Clock, CheckCircle2, Calendar, 
@@ -273,7 +273,7 @@ export default function ARPaymentMilestonesPage() {
 
   const copyToClipboard = (text: string, label: string = 'Value') => {
     if (!text) return;
-    navigator.clipboard.writeText(text).then(() => {
+    copyTextToClipboard(text).then(() => {
       toast({
         title: "Copied!",
         description: `${label} "${text}" copied to clipboard`,

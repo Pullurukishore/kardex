@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { arApi } from '@/lib/ar-api';
+import { arApi, copyTextToClipboard } from '@/lib/ar-api';
 import { toast } from 'sonner';
 
 const FilePreview = dynamic(() => import('@/components/FilePreview'), {
@@ -230,9 +230,12 @@ export default function BankAccountReportsPage() {
     };
 
     const copyToClipboard = useCallback((text: string, field: string) => {
-        navigator.clipboard.writeText(text);
-        setCopied(field);
-        setTimeout(() => setCopied(null), 2000);
+        copyTextToClipboard(text).then(() => {
+            setCopied(field);
+            setTimeout(() => setCopied(null), 2000);
+        }).catch(err => {
+            console.error('Failed to copy:', err);
+        });
     }, []);
 
     const filteredAudit = auditData.filter(acc => {

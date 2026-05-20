@@ -303,7 +303,7 @@ export default function PaymentsPage() {
                 bankName: p.bankName!,
                 bpCode: p.bpCode || undefined,
                 emailId: exportFormat === 'HDFC'
-                    ? (benEmailIds.length > 0 ? benEmailIds.join(';') : undefined)
+                    ? (Array.from(new Set([p.emailId?.trim(), ...benEmailIds].filter(Boolean))).join(';').substring(0, 100) || undefined)
                     : (p.emailId || undefined),
                 accountType: p.accountType || undefined,
                 amount: p.amount!,
@@ -348,7 +348,7 @@ export default function PaymentsPage() {
                 bankName: p.bankName!,
                 amount: p.amount!,
                 emailId: exportFormat === 'HDFC'
-                    ? (benEmailIds.length > 0 ? benEmailIds.join(';') : '')
+                    ? Array.from(new Set([p.emailId?.trim(), ...benEmailIds].filter(Boolean))).join(';').substring(0, 100)
                     : (p.emailId || ''),
                 valueDate: p.valueDate || new Date(),
                 transactionMode: (p.transactionMode as 'NFT' | 'RTI' | 'FT') || 'NFT',
@@ -907,15 +907,15 @@ export default function PaymentsPage() {
                                         <div className="flex items-center gap-2">
                                             <input
                                                 type="email"
-                                                placeholder={isAdmin ? 'Add email address...' : 'Add Gmail address (e.g. user@gmail.com)...'}
+                                                placeholder="Add email address..."
                                                 value={newEmailInput}
                                                 onChange={e => setNewEmailInput(e.target.value)}
                                                 onKeyDown={e => {
                                                     if (e.key === 'Enter') {
                                                         const v = newEmailInput.trim();
                                                         if (!v || benEmailIds.includes(v)) return;
-                                                        if (!isAdmin && !v.toLowerCase().endsWith('@gmail.com')) {
-                                                            toast.error('Only Gmail addresses are allowed. Please use an @gmail.com email.');
+                                                        if (!v.includes('@') || !v.includes('.')) {
+                                                            toast.error('Please enter a valid email address.');
                                                             return;
                                                         }
                                                         setBenEmailIds(prev => [...prev, v]);
@@ -928,8 +928,8 @@ export default function PaymentsPage() {
                                                 onClick={() => {
                                                     const v = newEmailInput.trim();
                                                     if (!v || benEmailIds.includes(v)) return;
-                                                    if (!isAdmin && !v.toLowerCase().endsWith('@gmail.com')) {
-                                                        toast.error('Only Gmail addresses are allowed. Please use an @gmail.com email.');
+                                                    if (!v.includes('@') || !v.includes('.')) {
+                                                        toast.error('Please enter a valid email address.');
                                                         return;
                                                     }
                                                     setBenEmailIds(prev => [...prev, v]);
@@ -941,12 +941,10 @@ export default function PaymentsPage() {
                                                 <Plus className="w-3 h-3" /> Add
                                             </button>
                                         </div>
-                                        {!isAdmin && (
-                                            <p className="text-[9px] text-slate-400 font-medium flex items-center gap-1 pl-1">
-                                                <Info className="w-2.5 h-2.5" />
-                                                Only @gmail.com addresses can be added
-                                            </p>
-                                        )}
+                                        <p className="text-[9px] text-slate-400 font-medium flex items-center gap-1 pl-1">
+                                            <Info className="w-2.5 h-2.5" />
+                                            Configure custom notification email addresses
+                                        </p>
                                     </div>
                                 </div>
                             )}
@@ -1024,6 +1022,11 @@ export default function PaymentsPage() {
                                         <TableHead className="w-[140px] text-white/90 font-bold uppercase text-[10px] tracking-wider py-4 text-center">
                                             <div className="flex items-center gap-1.5 justify-center">
                                                 <Zap className="w-3 h-3 text-white/70" /> Mode
+                                            </div>
+                                        </TableHead>
+                                        <TableHead className="w-[200px] text-white/90 font-bold uppercase text-[10px] tracking-wider py-4">
+                                            <div className="flex items-center gap-1.5">
+                                                <Mail className="w-3 h-3 text-white/70" /> Email ID
                                             </div>
                                         </TableHead>
 
@@ -1127,6 +1130,26 @@ export default function PaymentsPage() {
                                                     </Select>
                                                 </TableCell>
 
+                                                {/* Email ID */}
+                                                <TableCell className="py-4">
+                                                    <div className="relative group/input">
+                                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                                                            <Mail className="w-3.5 h-3.5 text-slate-400 transition-colors group-focus-within/input:text-[#B18E63]" />
+                                                        </span>
+                                                        <Input 
+                                                            type="email" 
+                                                            className={cn(
+                                                                "pl-9 h-11 w-full min-w-[200px] text-xs font-bold border-slate-200 transition-all shadow-none rounded-xl",
+                                                                "bg-slate-50/50 focus:bg-white focus:border-[#B18E63]/40 focus:ring-1 focus:ring-[#B18E63]/20",
+                                                                p.emailId ? "text-slate-700 font-semibold" : "text-slate-400 font-normal"
+                                                            )}
+                                                            placeholder="vendor@email.com"
+                                                            value={p.emailId || ''}
+                                                            onChange={(e) => updatePayment(p.tempId, { emailId: e.target.value })}
+                                                        />
+                                                    </div>
+                                                </TableCell>
+
 
                                                 {/* Action */}
                                                 <TableCell className="text-right py-4">
@@ -1143,7 +1166,7 @@ export default function PaymentsPage() {
                                         ))
                                     ) : (
                                         <TableRow>
-                                            <TableCell colSpan={6} className="h-72 text-center">
+                                            <TableCell colSpan={7} className="h-72 text-center">
                                                 <div className="flex flex-col items-center justify-center space-y-5">
                                                     <div className="relative">
                                                         <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center border-2 border-dashed border-slate-200">
@@ -1240,6 +1263,22 @@ export default function PaymentsPage() {
                                                         <SelectItem value="FT" className="text-xs font-bold">SAME BANK</SelectItem>
                                                     </SelectContent>
                                                 </Select>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-1.5">
+                                            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Email ID</label>
+                                            <div className="relative group/input">
+                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                                                    <Mail className="w-3.5 h-3.5 text-slate-400 transition-colors group-focus-within/input:text-[#B18E63]" />
+                                                </span>
+                                                <Input 
+                                                    type="email" 
+                                                    className="pl-9 h-10 text-xs font-medium border-slate-200 bg-slate-50/50 rounded-xl w-full"
+                                                    placeholder="vendor@email.com"
+                                                    value={p.emailId || ''}
+                                                    onChange={(e) => updatePayment(p.tempId, { emailId: e.target.value })}
+                                                />
                                             </div>
                                         </div>
 

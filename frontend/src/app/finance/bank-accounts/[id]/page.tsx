@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { arApi, BankAccount, BankAccountChangeRequest, BankAccountActivityLog } from '@/lib/ar-api';
+import { arApi, BankAccount, BankAccountChangeRequest, BankAccountActivityLog, copyTextToClipboard } from '@/lib/ar-api';
 import { useAuth } from '@/contexts/AuthContext';
 import { FinanceRole } from '@/types/user.types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -93,9 +93,12 @@ export default function BankAccountDetailPage() {
   };
 
   const copyToClipboard = (text: string, field: string) => {
-    navigator.clipboard.writeText(text);
-    setCopied(field);
-    setTimeout(() => setCopied(null), 2000);
+    copyTextToClipboard(text).then(() => {
+      setCopied(field);
+      setTimeout(() => setCopied(null), 2000);
+    }).catch(err => {
+      console.error('Failed to copy:', err);
+    });
   };
 
   const handleDeleteAttachment = async (attachmentId: string) => {

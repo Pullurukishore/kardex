@@ -1463,3 +1463,46 @@ export const deleteBatchItem = async (id: string, itemId: string): Promise<{ mes
     const response = await api.delete(`/ar/payment-batches/${id}/items/${itemId}`);
     return response.data;
 };
+
+// Helper to copy text to clipboard with HTTP fallback
+export const copyTextToClipboard = async (text: string): Promise<void> => {
+    if (!text) return;
+    
+    if (typeof window === 'undefined') return;
+
+    // In secure contexts (HTTPS or localhost), use navigator.clipboard
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        try {
+            await navigator.clipboard.writeText(text);
+            return;
+        } catch (err) {
+            console.error('Failed to copy using navigator.clipboard, trying fallback:', err);
+        }
+    }
+
+    // In insecure contexts (HTTP), use document.execCommand fallback
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    
+    // Avoid scrolling to bottom in Safari/Chrome
+    textArea.style.top = "0";
+    textArea.style.left = "0";
+    textArea.style.position = "fixed";
+    textArea.style.opacity = "0";
+    
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    
+    try {
+        const successful = document.execCommand('copy');
+        if (!successful) {
+            throw new Error('execCommand copy was unsuccessful');
+        }
+    } catch (err) {
+        console.error('Fallback copy failed:', err);
+        throw err;
+    } finally {
+        document.body.removeChild(textArea);
+    }
+};

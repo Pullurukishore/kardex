@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { arApi, BankAccount } from '@/lib/ar-api';
+import { arApi, BankAccount, copyTextToClipboard } from '@/lib/ar-api';
 import { useAuth } from '@/contexts/AuthContext';
 import { FinanceRole } from '@/types/user.types';
 import { 
@@ -192,9 +192,12 @@ const BankCard = ({
 
   const copyToClipboard = useCallback((text: string, field: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    navigator.clipboard.writeText(text);
-    setCopied(field);
-    setTimeout(() => setCopied(null), 2000);
+    copyTextToClipboard(text).then(() => {
+      setCopied(field);
+      setTimeout(() => setCopied(null), 2000);
+    }).catch(err => {
+      console.error('Failed to copy:', err);
+    });
   }, []);
 
   return (
@@ -453,9 +456,12 @@ const MobileVendorCard = ({
 
   const copyToClipboard = useCallback((text: string, field: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    navigator.clipboard.writeText(text);
-    setCopied(field);
-    setTimeout(() => setCopied(null), 2000);
+    copyTextToClipboard(text).then(() => {
+      setCopied(field);
+      setTimeout(() => setCopied(null), 2000);
+    }).catch(err => {
+      console.error('Failed to copy:', err);
+    });
   }, []);
 
   return (
@@ -575,9 +581,12 @@ const VendorTable = ({
 
   const copyToClipboard = useCallback((text: string, field: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    navigator.clipboard.writeText(text);
-    setCopied(field);
-    setTimeout(() => setCopied(null), 2000);
+    copyTextToClipboard(text).then(() => {
+      setCopied(field);
+      setTimeout(() => setCopied(null), 2000);
+    }).catch(err => {
+      console.error('Failed to copy:', err);
+    });
   }, []);
 
   return (

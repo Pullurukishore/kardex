@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { arApi, ARInvoice, ARPaymentHistory, ARInvoiceActivityLog, MatchingMilestone, formatARCurrency, formatARDate, formatAmountForInput, parseFormattedAmount } from '@/lib/ar-api';
+import { arApi, ARInvoice, ARPaymentHistory, ARInvoiceActivityLog, MatchingMilestone, formatARCurrency, formatARDate, formatAmountForInput, parseFormattedAmount, copyTextToClipboard } from '@/lib/ar-api';
 import { 
   ArrowLeft, Pencil, Trash2, FileText, Calendar, User, Clock, 
   AlertTriangle, CheckCircle, CheckCircle2, Loader2, Mail, Phone, MapPin, Building, 
@@ -396,9 +396,12 @@ export default function InvoiceViewPage() {
   };
 
   const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    copyTextToClipboard(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(err => {
+      console.error('Failed to copy:', err);
+    });
   };
 
   if (loading) {

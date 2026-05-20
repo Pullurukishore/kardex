@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { arApi, ARInvoice, ARPaymentHistory, formatARCurrency, formatARDate, formatARMonth, MilestonePaymentTerm, formatAmountForInput, parseFormattedAmount } from '@/lib/ar-api';
+import { arApi, ARInvoice, ARPaymentHistory, formatARCurrency, formatARDate, formatARMonth, MilestonePaymentTerm, formatAmountForInput, parseFormattedAmount, copyTextToClipboard } from '@/lib/ar-api';
 import { useToast } from "@/components/ui/use-toast";
 import {
   ArrowLeft, ArrowRight, Pencil, Trash2, FileText, Calendar, User, Clock, CheckCircle2,
@@ -216,7 +216,7 @@ export default function MilestoneViewPage() {
 
   const copyToClipboard = (text: string, label: string = 'Value') => { 
     if (!text) return;
-    navigator.clipboard.writeText(text).then(() => {
+    copyTextToClipboard(text).then(() => {
       setCopied(true); 
       toast({
         title: "Copied!",

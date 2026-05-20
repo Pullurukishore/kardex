@@ -47,7 +47,7 @@ export const downloadICICICMS = async (payments: PaymentRow[], customFilename?: 
 
     // Row 3: Character Lengths
     const row3 = [
-        "1", "13", "20", "20", "100", "30", "30", "70", "70", "70", "70", "20", "30", "30",
+        "1", "13", "20", "20", "100", "30", "30", "70", "70", "70", "70", "20", "30", "13",
         "30", "30", "30", "30", "30", "30", "30", "12", "10", "15", "15", "100",
         "50", "50", "50", "50", "50", "50", "100"
     ];
@@ -90,7 +90,7 @@ export const downloadICICICMS = async (payments: PaymentRow[], customFilename?: 
         const trnType = p.transactionMode === 'NFT' ? 'N' : p.transactionMode === 'RTI' ? 'R' : 'I';
         const cleanName = (p.vendorName || '').replace(/,/g, '').trim();
         const beneCode = (p.nickName || cleanName).substring(0, 13).trim();
-        const custRef = (p.nickName || cleanName.split(' ')[0].substring(0, 30)).trim();
+        const custRef = (p.nickName || cleanName.split(' ')[0]).substring(0, 13).trim();
 
         const isFT = p.transactionMode === 'FT';
         const rowData = Array(isFT ? 33 : 31).fill("");
@@ -192,7 +192,7 @@ function buildICICIDataRows(payments: PaymentRow[], formatDate: (d: Date, f: str
         const trnType = p.transactionMode === 'NFT' ? 'N' : p.transactionMode === 'RTI' ? 'R' : 'I';
         const cleanName = (p.vendorName || '').replace(/,/g, '').trim();
         const beneCode = (p.nickName || cleanName).substring(0, 13).trim();
-        const custRef = (p.nickName || cleanName.split(' ')[0].substring(0, 30)).trim();
+        const custRef = (p.nickName || cleanName.split(' ')[0]).substring(0, 13).trim();
 
         const isFT = p.transactionMode === 'FT';
         const row = Array(isFT ? 33 : 31).fill('');
