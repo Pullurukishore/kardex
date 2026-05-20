@@ -30,36 +30,6 @@ export const getInvoiceDetailReport = async (req: Request, res: Response) => {
 
         const today = new Date();
         const where: any = { invoiceType: 'REGULAR' };
-
-        if (status) {
-            if (status === 'OVERDUE') {
-                where.AND = [
-                    ...(where.AND || []),
-                    {
-                        OR: [
-                            { status: 'OVERDUE' },
-                            {
-                                status: { in: ['PENDING', 'PARTIAL'] },
-                                dueDate: { lt: today }
-                            }
-                        ]
-                    }
-                ];
-            } else if (status === 'PENDING' || status === 'PARTIAL') {
-                where.status = String(status);
-                where.AND = [
-                    ...(where.AND || []),
-                    {
-                        OR: [
-                            { dueDate: { gte: today } },
-                            { dueDate: null }
-                        ]
-                    }
-                ];
-            } else {
-                where.status = String(status);
-            }
-        }
         if (riskClass) where.riskClass = String(riskClass);
         if (region) where.region = { contains: String(region), mode: 'insensitive' };
         if (type) where.type = String(type);
@@ -303,6 +273,19 @@ export const getInvoiceDetailReport = async (req: Request, res: Response) => {
         // Apply filters
         let filteredInvoices = enrichedInvoices;
 
+        // Apply status filter
+        if (status !== undefined && status !== null) {
+            const statusStr = String(status).toUpperCase();
+            if (statusStr === 'ACTIVE' || statusStr === '') {
+                filteredInvoices = filteredInvoices.filter((inv: any) => inv.status !== 'PAID' && inv.status !== 'CANCELLED');
+            } else if (statusStr !== 'ALL') {
+                filteredInvoices = filteredInvoices.filter((inv: any) => inv.status === statusStr);
+            }
+        } else {
+            // Default: show Active invoices (align with invoices/page.tsx behavior)
+            filteredInvoices = filteredInvoices.filter((inv: any) => inv.status !== 'PAID' && inv.status !== 'CANCELLED');
+        }
+
         if (paymentMode) {
             filteredInvoices = filteredInvoices.filter((inv: any) =>
                 inv.paymentHistory.some((p: any) => p.paymentMode === paymentMode)
@@ -324,7 +307,7 @@ export const getInvoiceDetailReport = async (req: Request, res: Response) => {
         // Apply aging bucket filter if specified
         if (agingBucket) {
             const bucket = String(agingBucket);
-            filteredInvoices = enrichedInvoices.filter((inv: any) => {
+            filteredInvoices = filteredInvoices.filter((inv: any) => {
                 const days = inv.daysOverdue;
                 switch (bucket) {
                     case 'current': return days <= 0;
@@ -432,16 +415,6 @@ export const getMilestoneDetailReport = async (req: Request, res: Response) => {
         } = req.query;
 
         const where: any = { invoiceType: 'MILESTONE' };
-        let filterStatusInMemory: string | null = null;
-
-        if (status) {
-            if (['OVERDUE', 'PENDING', 'PARTIAL'].includes(String(status))) {
-                where.status = { not: 'CANCELLED' };
-                filterStatusInMemory = String(status);
-            } else {
-                where.status = String(status);
-            }
-        }
         if (milestoneStatus) where.milestoneStatus = String(milestoneStatus);
         if (accountingStatus) where.accountingStatus = String(accountingStatus);
         if (type) where.type = String(type);
@@ -594,13 +567,6 @@ export const getMilestoneDetailReport = async (req: Request, res: Response) => {
             invPayments.forEach((p: any) => { computedTotalReceipts += Number(p.amount); });
             const computedBalance = Number(invoice.totalAmount) - computedTotalReceipts;
 
-            // Determine status
-            let computedStatus = invoice.status;
-            if (invoice.status !== 'CANCELLED') {
-                if (computedBalance <= 0 && computedTotalReceipts > 0) computedStatus = 'PAID';
-                else if (computedTotalReceipts > 0) computedStatus = 'PARTIAL';
-            }
-
             // Build per-term analysis
             const paymentsByTarget: Record<string, number> = {};
             let genericPool = 0;
@@ -691,6 +657,15 @@ export const getMilestoneDetailReport = async (req: Request, res: Response) => {
                 };
             });
 
+            // Determine status
+            let computedStatus = invoice.status;
+            if (invoice.status !== 'CANCELLED') {
+                if (computedBalance <= 0 && computedTotalReceipts > 0) computedStatus = 'PAID';
+                else if (overdueTermCount > 0) computedStatus = 'OVERDUE';
+                else if (computedTotalReceipts > 0) computedStatus = 'PARTIAL';
+                else computedStatus = 'PENDING';
+            }
+
             return {
                 id: invoice.id,
                 invoiceNumber: invoice.invoiceNumber,
@@ -744,6 +719,19 @@ export const getMilestoneDetailReport = async (req: Request, res: Response) => {
         });
 
         let filteredMilestones = enrichedMilestones;
+
+        // Apply status filter
+        if (status !== undefined && status !== null) {
+            const statusStr = String(status).toUpperCase();
+            if (statusStr === 'ACTIVE' || statusStr === '') {
+                filteredMilestones = filteredMilestones.filter((ms: any) => ms.status !== 'PAID' && ms.status !== 'CANCELLED');
+            } else if (statusStr !== 'ALL') {
+                filteredMilestones = filteredMilestones.filter((ms: any) => ms.status === statusStr);
+            }
+        } else {
+            // Default: show Active milestones
+            filteredMilestones = filteredMilestones.filter((ms: any) => ms.status !== 'PAID' && ms.status !== 'CANCELLED');
+        }
 
         if (paymentMode) {
             filteredMilestones = filteredMilestones.filter((ms: any) =>

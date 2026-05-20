@@ -1290,9 +1290,13 @@ export default function ARReportsPage() {
             <div className="relative group min-w-[140px] flex-1">
               <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
                 className="w-full h-10 pl-3 pr-8 rounded-xl bg-white border-2 border-[#AEBFC3]/40 text-sm text-[#546A7A] font-bold focus:border-[#6F8A9D] focus:ring-4 focus:ring-[#6F8A9D]/10 outline-none appearance-none transition-all shadow-sm cursor-pointer">
-                <option value="">Status: All</option>
-                <option value="PENDING">Pending</option><option value="PARTIAL">Partial</option>
-                <option value="PAID">Paid</option><option value="OVERDUE">Overdue</option>
+                <option value="">Status: Active</option>
+                <option value="ALL">Status: All</option>
+                <option value="PENDING">Pending</option>
+                <option value="PARTIAL">Partial</option>
+                <option value="PAID">Paid</option>
+                <option value="OVERDUE">Overdue</option>
+                <option value="CANCELLED">Cancelled</option>
               </select>
               <Filter className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#92A2A5] pointer-events-none group-hover:text-[#6F8A9D] transition-colors" />
             </div>
