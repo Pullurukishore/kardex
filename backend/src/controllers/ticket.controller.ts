@@ -2654,6 +2654,73 @@ export const deleteTicketReport = async (req: TicketRequest, res: Response) => {
   }
 };
 
+// Delete a ticket (Admin only)
+export const deleteTicket = async (req: TicketRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const user = req.user as AuthUser;
+
+    if (!user) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    // Only Admin is allowed to delete tickets
+    if (user.role !== UserRoleEnum.ADMIN) {
+      return res.status(403).json({ error: 'Only administrators are allowed to delete tickets' });
+    }
+
+    const ticketId = Number(id);
+    const ticket = await prisma.ticket.findUnique({
+      where: { id: ticketId },
+    });
+
+    if (!ticket) {
+      return res.status(404).json({ error: 'Ticket not found' });
+    }
+
+    // Use a transaction to clean up related records that don't cascade delete automatically
+    await prisma.$transaction(async (tx) => {
+      // 1. Delete attachments
+      await tx.attachment.deleteMany({ where: { ticketId } });
+      // 2. Delete notes
+      await tx.ticketNote.deleteMany({ where: { ticketId } });
+      // 3. Delete PO requests
+      await tx.pORequest.deleteMany({ where: { ticketId } });
+      // 4. Delete feedbacks
+      await tx.ticketFeedback.deleteMany({ where: { ticketId } });
+      // 5. Delete status history
+      await tx.ticketStatusHistory.deleteMany({ where: { ticketId } });
+      // 6. Finally delete the ticket
+      await tx.ticket.delete({ where: { id: ticketId } });
+    });
+
+    // Create audit log for deletion
+    await prisma.auditLog.create({
+      data: {
+        action: 'TICKET_DELETED',
+        entityType: 'Ticket',
+        entityId: ticketId,
+        userId: user.id,
+        metadata: {
+          ticketNumber: ticket.ticketNumber,
+          title: ticket.title,
+        },
+        updatedAt: new Date(),
+        performedAt: new Date(),
+        performedById: user.id,
+      },
+    });
+
+    return res.json({ success: true, message: 'Ticket deleted successfully' });
+  } catch (error: any) {
+    console.error('Failed to delete ticket:', error);
+    return res.status(500).json({
+      error: 'Failed to delete ticket',
+      details: error?.message || 'Unknown error occurred',
+    });
+  }
+};
+
 // Start onsite visit with location tracking
 export const startOnsiteVisit = async (req: TicketRequest, res: Response) => {
   try {

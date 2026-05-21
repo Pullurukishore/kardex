@@ -35,7 +35,8 @@ import {
   getTicketPhotos,
   respondToAssignment,
   importTickets,
-  previewTicketImport
+  previewTicketImport,
+  deleteTicket
 } from '../controllers/ticket.controller';
 import { authenticate, requireRole } from '../middleware/auth.middleware';
 import { validateRequest } from '../middleware/validate-request';
@@ -357,6 +358,17 @@ router.delete(
   ],
   requireRole(['ADMIN', 'SERVICE_PERSON', 'ZONE_USER', 'EXPERT_HELPDESK']),
   deleteTicketReport
+);
+
+// Delete ticket
+router.delete(
+  '/:id',
+  [
+    param('id').isInt().toInt().withMessage('Invalid ticket ID'),
+    validateRequest
+  ],
+  requireRole(['ADMIN']),
+  deleteTicket
 );
 
 // Enhanced Onsite Visit Lifecycle Routes

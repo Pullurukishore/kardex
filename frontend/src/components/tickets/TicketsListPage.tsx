@@ -532,6 +532,8 @@ export default function TicketsListPage({
                           ticketId={ticket.id} 
                           basePath={basePath} 
                           detailPathSuffix={detailPathSuffix} 
+                          showDelete={role === UserRole.ADMIN}
+                          onDeleteSuccess={fetchTickets}
                         />
                       </td>
                     </tr>
