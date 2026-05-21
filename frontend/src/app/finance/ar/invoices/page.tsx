@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { arApi, ARInvoice, formatARCurrency, formatARDate, PIC_OPTIONS } from '@/lib/ar-api';
-import { Search, ChevronLeft, ChevronRight, FileText, Plus, TrendingUp, AlertTriangle, Clock, CheckCircle2, IndianRupee, Calendar, Building2, Upload, Shield, Layers, Zap, Tag, XCircle, Filter, RotateCcw, User, Truck, CreditCard } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, FileText, Plus, TrendingUp, AlertTriangle, Clock, CheckCircle2, IndianRupee, Calendar, Building2, Upload, Shield, Layers, Zap, Tag, XCircle, Filter, RotateCcw, User, Truck, CreditCard, Sparkles, ArrowRight, Loader2, CheckCircle, ExternalLink, X } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetDescription, SheetFooter } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -41,6 +41,20 @@ export default function ARInvoicesPage() {
   const [riskClass, setRiskClass] = useState(searchParams.get('riskClass') || '');
   const [personInCharge, setPersonInCharge] = useState(searchParams.get('personInCharge') || '');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+
+  // Bulk Milestone Sync State
+  const [showMilestoneSync, setShowMilestoneSync] = useState(false);
+  const [milestoneMatches, setMilestoneMatches] = useState<any[]>([]);
+  const [matchesSummary, setMatchesSummary] = useState<{ totalMatches: number; totalUntransferred: number; totalAmount: number }>({ totalMatches: 0, totalUntransferred: 0, totalAmount: 0 });
+  const [matchesLoading, setMatchesLoading] = useState(false);
+  const [selectedForSync, setSelectedForSync] = useState<Set<string>>(new Set());
+  const [syncingIds, setSyncingIds] = useState<Set<string>>(new Set());
+  const [syncResults, setSyncResults] = useState<Map<string, { success: boolean; message: string }>>(new Map());
+  const [bulkSyncing, setBulkSyncing] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0 });
+  const [transferOptions, setTransferOptions] = useState({
+    payments: true, delivery: false, remarks: false, guarantees: false, tracking: false
+  });
 
   const agingBucket = searchParams.get('agingBucket') || '';
 
@@ -140,6 +154,80 @@ export default function ARInvoicesPage() {
       console.error('Failed to load invoices:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Load bulk milestone matches
+  const loadBulkMatches = async () => {
+    try {
+      setMatchesLoading(true);
+      setSyncResults(new Map());
+      const result = await arApi.getBulkMilestoneMatches();
+      setMilestoneMatches(result.matches);
+      setMatchesSummary(result.summary);
+      // Auto-select all
+      setSelectedForSync(new Set(result.matches.map((m: any) => m.invoiceId)));
+    } catch (error) {
+      console.error('Failed to load bulk milestone matches:', error);
+    } finally {
+      setMatchesLoading(false);
+    }
+  };
+
+  // Handle opening the sync panel
+  const openMilestoneSync = () => {
+    setShowMilestoneSync(true);
+    loadBulkMatches();
+  };
+
+  // Handle single row sync
+  const handleSingleSync = async (match: any) => {
+    const invoiceId = match.invoiceId;
+    setSyncingIds(prev => new Set(prev).add(invoiceId));
+    try {
+      for (const milestone of match.milestones) {
+        const isMismatch = milestone.isLinked && milestone.totalPayments !== milestone.alreadyTransferred;
+        if (milestone.untransferredAmount > 0 || !milestone.isLinked || isMismatch) {
+          await arApi.acceptMilestone(invoiceId, milestone.id, {
+            transferPayments: transferOptions.payments,
+            transferDelivery: transferOptions.delivery,
+            transferRemarks: transferOptions.remarks,
+            transferGuarantees: transferOptions.guarantees,
+            transferTracking: transferOptions.tracking
+          });
+        }
+      }
+      setSyncResults(prev => new Map(prev).set(invoiceId, { success: true, message: 'Synced successfully' }));
+      // Remove from selection
+      setSelectedForSync(prev => { const next = new Set(prev); next.delete(invoiceId); return next; });
+    } catch (err: any) {
+      setSyncResults(prev => new Map(prev).set(invoiceId, { success: false, message: err.response?.data?.error || 'Sync failed' }));
+    } finally {
+      setSyncingIds(prev => { const next = new Set(prev); next.delete(invoiceId); return next; });
+    }
+  };
+
+  // Handle bulk sync all selected
+  const handleBulkSync = async () => {
+    const selected = milestoneMatches.filter(m => selectedForSync.has(m.invoiceId) && !syncResults.has(m.invoiceId));
+    if (selected.length === 0) return;
+    setBulkSyncing(true);
+    setBulkProgress({ current: 0, total: selected.length });
+    for (let i = 0; i < selected.length; i++) {
+      setBulkProgress({ current: i + 1, total: selected.length });
+      await handleSingleSync(selected[i]);
+    }
+    setBulkSyncing(false);
+    // Refresh invoice list
+    loadInvoices();
+  };
+
+  const toggleSelectAll = () => {
+    const unsynced = milestoneMatches.filter(m => !syncResults.has(m.invoiceId));
+    if (selectedForSync.size === unsynced.length) {
+      setSelectedForSync(new Set());
+    } else {
+      setSelectedForSync(new Set(unsynced.map(m => m.invoiceId)));
     }
   };
 
@@ -310,6 +398,13 @@ export default function ARInvoicesPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={openMilestoneSync}
+            className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#CE9F6B] to-[#976E44] text-white text-sm font-bold shadow-lg shadow-[#CE9F6B]/20 hover:shadow-xl hover:shadow-[#CE9F6B]/30 hover:-translate-y-0.5 active:scale-95 transition-all min-h-[44px]"
+          >
+            <Sparkles className="w-4 h-4" />
+            <span className="hidden sm:inline">Milestone Sync</span>
+          </button>
           <Link 
             href="/finance/ar/import"
             className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 rounded-xl bg-white border-2 border-[#AEBFC3]/40 text-[#546A7A] text-sm font-bold hover:border-[#6F8A9D] hover:bg-[#96AEC2]/5 transition-all min-h-[44px]"
@@ -792,6 +887,326 @@ export default function ARInvoicesPage() {
             </div>
           )}
       </div>
+
+      {/* ═══════════ Bulk Milestone Sync Panel ═══════════ */}
+      <Sheet open={showMilestoneSync} onOpenChange={setShowMilestoneSync}>
+        <SheetContent className="w-full sm:max-w-2xl bg-white border-l-4 border-[#CE9F6B] p-0 flex flex-col">
+          {/* Header */}
+          <div className="relative bg-gradient-to-r from-[#546A7A] to-[#6F8A9D] p-6 flex-shrink-0">
+            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#CE9F6B] via-[#976E44] to-[#E17F70]" />
+            <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -mr-32 -mt-32" />
+            <div className="relative flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center shadow-inner border border-white/20">
+                <Sparkles className="w-7 h-7 text-[#CE9F6B]" />
+              </div>
+              <div className="flex-1">
+                <SheetTitle className="text-xl font-bold text-white">Bulk Milestone Sync</SheetTitle>
+                <p className="text-white/60 text-sm mt-0.5">
+                  {matchesLoading ? 'Scanning invoices...' : `${matchesSummary.totalMatches} invoices with matching milestones`}
+                </p>
+              </div>
+              {!matchesLoading && matchesSummary.totalUntransferred > 0 && (
+                <div className="hidden sm:flex flex-col items-end bg-white/10 rounded-xl px-4 py-2 border border-white/20">
+                  <span className="text-[9px] font-bold text-white/50 uppercase tracking-widest">Available</span>
+                  <span className="text-lg font-bold text-[#CE9F6B]">{formatARCurrency(matchesSummary.totalUntransferred)}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Transfer Options */}
+          <div className="flex-shrink-0 px-6 py-4 border-b-2 border-[#AEBFC3]/20 bg-gradient-to-r from-[#CE9F6B]/5 to-[#976E44]/5">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-[10px] font-bold text-[#976E44] uppercase tracking-widest">Transfer Options</span>
+              <div className="flex-1 h-px bg-[#CE9F6B]/20" />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { key: 'payments' as const, label: 'Payments', locked: true },
+                { key: 'delivery' as const, label: 'Delivery' },
+                { key: 'remarks' as const, label: 'Remarks' },
+                { key: 'guarantees' as const, label: 'Guarantees' },
+                { key: 'tracking' as const, label: 'Tracking' },
+              ].map(opt => (
+                <button
+                  key={opt.key}
+                  onClick={() => !opt.locked && setTransferOptions(prev => ({ ...prev, [opt.key]: !prev[opt.key] }))}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
+                    transferOptions[opt.key]
+                      ? 'bg-gradient-to-r from-[#CE9F6B] to-[#976E44] text-white border-transparent shadow-md shadow-[#CE9F6B]/20'
+                      : 'bg-white text-[#5D6E73] border-[#AEBFC3]/30 hover:border-[#CE9F6B]/50'
+                  } ${opt.locked ? 'cursor-default' : ''}`}
+                >
+                  {transferOptions[opt.key] ? <CheckCircle className="w-3 h-3" /> : <div className="w-3 h-3 rounded-full border-2 border-current" />}
+                  {opt.label}
+                  {opt.locked && <Shield className="w-2.5 h-2.5 opacity-50" />}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Select Controls */}
+          {!matchesLoading && milestoneMatches.length > 0 && (
+            <div className="flex-shrink-0 px-6 py-3 border-b border-[#AEBFC3]/15 flex items-center justify-between bg-white">
+              <button
+                onClick={toggleSelectAll}
+                className="flex items-center gap-2 text-xs font-bold text-[#546A7A] hover:text-[#CE9F6B] transition-colors"
+              >
+                <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${
+                  selectedForSync.size === milestoneMatches.filter(m => !syncResults.has(m.invoiceId)).length && selectedForSync.size > 0
+                    ? 'bg-gradient-to-r from-[#CE9F6B] to-[#976E44] border-transparent'
+                    : 'border-[#AEBFC3]'
+                }`}>
+                  {selectedForSync.size > 0 && selectedForSync.size === milestoneMatches.filter(m => !syncResults.has(m.invoiceId)).length && (
+                    <CheckCircle className="w-3 h-3 text-white" />
+                  )}
+                </div>
+                {selectedForSync.size === milestoneMatches.filter(m => !syncResults.has(m.invoiceId)).length ? 'Deselect All' : 'Select All'}
+              </button>
+              <div className="flex items-center gap-3">
+                <span className="text-[10px] font-bold text-[#92A2A5]">
+                  {selectedForSync.size} selected
+                </span>
+                <button
+                  onClick={loadBulkMatches}
+                  disabled={matchesLoading}
+                  className="p-1.5 rounded-lg hover:bg-[#AEBFC3]/10 text-[#92A2A5] hover:text-[#546A7A] transition-colors"
+                  title="Refresh"
+                >
+                  <RotateCcw className={`w-3.5 h-3.5 ${matchesLoading ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Match List */}
+          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+            {matchesLoading ? (
+              <div className="flex flex-col items-center justify-center py-20">
+                <div className="relative w-16 h-16 mb-4">
+                  <div className="absolute inset-0 rounded-full border-4 border-[#AEBFC3]/20" />
+                  <div className="absolute inset-0 rounded-full border-4 border-t-[#CE9F6B] border-r-transparent border-b-transparent border-l-transparent animate-spin" />
+                  <Sparkles className="absolute inset-0 m-auto w-6 h-6 text-[#CE9F6B]" />
+                </div>
+                <p className="text-sm font-bold text-[#546A7A]">Scanning for milestone matches...</p>
+                <p className="text-xs text-[#92A2A5] mt-1">This may take a moment</p>
+              </div>
+            ) : milestoneMatches.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20">
+                <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-[#82A094]/10 to-[#4F6A64]/10 flex items-center justify-center mb-4 shadow-lg border-2 border-[#82A094]/20">
+                  <CheckCircle className="w-10 h-10 text-[#82A094]" />
+                </div>
+                <h3 className="text-lg font-bold text-[#546A7A]">All Caught Up!</h3>
+                <p className="text-sm text-[#92A2A5] mt-1 text-center max-w-xs">No invoices have pending milestone data to import.</p>
+              </div>
+            ) : (
+              milestoneMatches.map((match) => {
+                const result = syncResults.get(match.invoiceId);
+                const isSyncing = syncingIds.has(match.invoiceId);
+                const isSelected = selectedForSync.has(match.invoiceId);
+                const totalUntransferred = match.milestones.reduce((s: number, m: any) => s + m.untransferredAmount, 0);
+
+                return (
+                  <div
+                    key={match.invoiceId}
+                    className={`relative rounded-2xl border-2 overflow-hidden transition-all ${
+                      result?.success
+                        ? 'border-[#82A094]/40 bg-[#82A094]/5 opacity-70'
+                        : result && !result.success
+                        ? 'border-[#E17F70]/40 bg-[#E17F70]/5'
+                        : isSyncing
+                        ? 'border-[#CE9F6B]/40 bg-[#CE9F6B]/5'
+                        : isSelected
+                        ? 'border-[#CE9F6B]/30 bg-white shadow-md hover:shadow-lg'
+                        : 'border-[#AEBFC3]/20 bg-white hover:border-[#AEBFC3]/40'
+                    }`}
+                  >
+                    {/* Top accent */}
+                    <div className={`absolute top-0 left-0 right-0 h-1 ${
+                      result?.success ? 'bg-gradient-to-r from-[#82A094] to-[#4F6A64]'
+                      : result && !result.success ? 'bg-gradient-to-r from-[#E17F70] to-[#9E3B47]'
+                      : isSyncing ? 'bg-gradient-to-r from-[#CE9F6B] to-[#976E44] animate-pulse'
+                      : 'bg-gradient-to-r from-[#AEBFC3]/40 to-[#92A2A5]/30'
+                    }`} />
+
+                    <div className="p-4">
+                      {/* Row Header */}
+                      <div className="flex items-center gap-3">
+                        {/* Checkbox */}
+                        {!result && (
+                          <button
+                            onClick={() => {
+                              setSelectedForSync(prev => {
+                                const next = new Set(prev);
+                                if (next.has(match.invoiceId)) next.delete(match.invoiceId);
+                                else next.add(match.invoiceId);
+                                return next;
+                              });
+                            }}
+                            className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+                              isSelected
+                                ? 'bg-gradient-to-r from-[#CE9F6B] to-[#976E44] border-transparent shadow-sm'
+                                : 'border-[#AEBFC3] hover:border-[#CE9F6B]'
+                            }`}
+                          >
+                            {isSelected && <CheckCircle className="w-3 h-3 text-white" />}
+                          </button>
+                        )}
+
+                        {/* Result icon */}
+                        {result?.success && (
+                          <div className="w-5 h-5 rounded-full bg-[#82A094] flex items-center justify-center flex-shrink-0">
+                            <CheckCircle className="w-3 h-3 text-white" />
+                          </div>
+                        )}
+                        {result && !result.success && (
+                          <div className="w-5 h-5 rounded-full bg-[#E17F70] flex items-center justify-center flex-shrink-0">
+                            <XCircle className="w-3 h-3 text-white" />
+                          </div>
+                        )}
+
+                        {/* Invoice Info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-[#546A7A] text-sm truncate">{match.invoiceNumber}</span>
+                            <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${getStatusStyle(match.status)}`}>{match.status}</span>
+                          </div>
+                          <p className="text-xs text-[#92A2A5] truncate mt-0.5">{match.customerName} • {match.bpCode}</p>
+                        </div>
+
+                        {/* Amount + Sync Button */}
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {!result && (
+                            totalUntransferred > 0 ? (
+                              <div className="hidden sm:flex flex-col items-end">
+                                <span className="text-[9px] font-bold text-[#CE9F6B] uppercase">To Import</span>
+                                <span className="text-sm font-bold text-[#976E44]">{formatARCurrency(totalUntransferred)}</span>
+                              </div>
+                            ) : (
+                              match.milestones.some((m: any) => m.isLinked && m.totalPayments !== m.alreadyTransferred) && (
+                                <div className="hidden sm:flex flex-col items-end">
+                                  <span className="text-[9px] font-bold text-[#E17F70] uppercase">Mismatch</span>
+                                  <span className="text-xs font-bold text-[#9E3B47] uppercase tracking-wider">Requires Sync</span>
+                                </div>
+                              )
+                            )
+                          )}
+                          {!result && (
+                            <button
+                              onClick={() => handleSingleSync(match)}
+                              disabled={isSyncing}
+                              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gradient-to-r from-[#82A094] to-[#4F6A64] text-white text-xs font-bold shadow-md shadow-[#82A094]/20 hover:shadow-lg hover:-translate-y-0.5 active:scale-95 transition-all disabled:opacity-50"
+                            >
+                              {isSyncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+                              {isSyncing ? 'Syncing...' : 'Sync'}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Milestone details */}
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {match.milestones.map((ms: any) => {
+                          const isMismatch = ms.isLinked && ms.totalPayments !== ms.alreadyTransferred;
+                          return (
+                            <div
+                              key={ms.id}
+                              className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-[10px] font-bold ${
+                                isMismatch
+                                  ? 'bg-[#E17F70]/5 border-[#E17F70]/20 text-[#9E3B47]'
+                                  : ms.isLinked
+                                  ? 'bg-[#82A094]/5 border-[#82A094]/20 text-[#4F6A64]'
+                                  : 'bg-[#CE9F6B]/5 border-[#CE9F6B]/20 text-[#976E44]'
+                              }`}
+                            >
+                              <div className="flex items-center gap-1">
+                                <span className="text-[8px] text-[#92A2A5] uppercase">Source</span>
+                                <ArrowRight className="w-2.5 h-2.5 text-[#AEBFC3]" />
+                                <span className="font-mono">{ms.invoiceNumber}</span>
+                              </div>
+                              <div className="w-px h-3 bg-current opacity-20" />
+                              <span>
+                                {isMismatch ? (
+                                  <span className="flex items-center gap-1">
+                                    <span>🔄 Out of Sync</span>
+                                    <span className="opacity-80 font-normal">({formatARCurrency(ms.alreadyTransferred)} ➡️ {formatARCurrency(ms.totalPayments)})</span>
+                                  </span>
+                                ) : ms.isLinked ? (
+                                  '🔗 Linked'
+                                ) : (
+                                  '⚡ New'
+                                )}
+                                {ms.untransferredAmount > 0 && !isMismatch && ` • ${formatARCurrency(ms.untransferredAmount)}`}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Error message */}
+                      {result && !result.success && (
+                        <p className="text-xs text-[#E17F70] mt-2 font-medium">⚠ {result.message}</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Footer - Bulk Sync Action */}
+          {!matchesLoading && milestoneMatches.length > 0 && (
+            <div className="flex-shrink-0 border-t-2 border-[#CE9F6B]/20 bg-gradient-to-t from-[#CE9F6B]/5 to-white p-4">
+              {bulkSyncing && (
+                <div className="mb-3">
+                  <div className="flex items-center justify-between text-xs font-bold text-[#976E44] mb-1.5">
+                    <span>Syncing {bulkProgress.current} of {bulkProgress.total}...</span>
+                    <span>{Math.round((bulkProgress.current / bulkProgress.total) * 100)}%</span>
+                  </div>
+                  <div className="h-2 bg-[#AEBFC3]/20 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-[#CE9F6B] to-[#976E44] rounded-full transition-all duration-300"
+                      style={{ width: `${(bulkProgress.current / bulkProgress.total) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+              <div className="flex items-center gap-3">
+                <div className="flex-1">
+                  {(() => {
+                    const successCount = Array.from(syncResults.values()).filter(r => r.success).length;
+                    const failCount = Array.from(syncResults.values()).filter(r => !r.success).length;
+                    if (successCount > 0 || failCount > 0) {
+                      return (
+                        <div className="flex items-center gap-3 text-xs font-bold">
+                          {successCount > 0 && <span className="text-[#4F6A64]">✓ {successCount} synced</span>}
+                          {failCount > 0 && <span className="text-[#E17F70]">✕ {failCount} failed</span>}
+                        </div>
+                      );
+                    }
+                    return (
+                      <p className="text-xs text-[#92A2A5]">
+                        {selectedForSync.size} invoice{selectedForSync.size !== 1 ? 's' : ''} selected for sync
+                      </p>
+                    );
+                  })()}
+                </div>
+                <button
+                  onClick={handleBulkSync}
+                  disabled={bulkSyncing || selectedForSync.size === 0}
+                  className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-[#CE9F6B] to-[#976E44] text-white font-bold shadow-lg shadow-[#CE9F6B]/30 hover:shadow-xl hover:-translate-y-0.5 active:scale-95 transition-all disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:shadow-lg"
+                >
+                  {bulkSyncing ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Syncing...</>
+                  ) : (
+                    <><Zap className="w-4 h-4" /> Sync All Selected ({selectedForSync.size})</>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

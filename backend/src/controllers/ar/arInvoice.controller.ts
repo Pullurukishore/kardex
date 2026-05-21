@@ -2254,27 +2254,20 @@ export const acceptMilestone = async (req: Request, res: Response) => {
             let totalTransferred = 0;
 
             if (transferPayments) {
+                // Delete all previously transferred payments from this milestone to ensure a clean sync
+                await tx.aRPaymentHistory.deleteMany({
+                    where: {
+                        invoiceId: id,
+                        notes: { contains: `[From Milestone ${milestoneInvoice.invoiceNumber}]` }
+                    }
+                });
+
                 const milestonePayments = await tx.aRPaymentHistory.findMany({
                     where: { invoiceId: milestoneId },
                     orderBy: { createdAt: 'asc' }
                 });
 
-                const alreadyTransferred = await tx.aRPaymentHistory.findMany({
-                    where: {
-                        invoiceId: id,
-                        notes: { contains: `[From Milestone ${milestoneInvoice.invoiceNumber}]` }
-                    },
-                    orderBy: { createdAt: 'asc' },
-                    select: { amount: true, paymentDate: true }
-                });
-
-                const alreadyTransferredTotal = alreadyTransferred.reduce((sum, p) => sum + Number(p.amount), 0);
-                let runningTotal = 0;
-
                 for (const payment of milestonePayments) {
-                    runningTotal += Number(payment.amount);
-                    if (runningTotal <= alreadyTransferredTotal) continue;
-
                     await tx.aRPaymentHistory.create({
                         data: {
                             invoiceId: id,
@@ -2292,21 +2285,18 @@ export const acceptMilestone = async (req: Request, res: Response) => {
                 }
 
                 if (milestonePayments.length === 0 && Number(milestoneInvoice.receipts || 0) > 0) {
-                    const importedReceipts = Number(milestoneInvoice.receipts || 0);
-                    if (alreadyTransferredTotal < importedReceipts) {
-                        const amountToTransfer = importedReceipts - alreadyTransferredTotal;
-                        await tx.aRPaymentHistory.create({
-                            data: {
-                                invoiceId: id,
-                                amount: amountToTransfer,
-                                paymentDate: milestoneInvoice.invoiceDate ? new Date(milestoneInvoice.invoiceDate) : new Date(),
-                                paymentMode: 'ADJUSTMENT',
-                                notes: `[From Milestone ${milestoneInvoice.invoiceNumber}] Imported Receipts Transfer`,
-                                recordedBy: 'System'
-                            }
-                        });
-                        totalTransferred += amountToTransfer;
-                    }
+                    const amountToTransfer = Number(milestoneInvoice.receipts || 0);
+                    await tx.aRPaymentHistory.create({
+                        data: {
+                            invoiceId: id,
+                            amount: amountToTransfer,
+                            paymentDate: milestoneInvoice.invoiceDate ? new Date(milestoneInvoice.invoiceDate) : new Date(),
+                            paymentMode: 'ADJUSTMENT',
+                            notes: `[From Milestone ${milestoneInvoice.invoiceNumber}] Imported Receipts Transfer`,
+                            recordedBy: 'System'
+                        }
+                    });
+                    totalTransferred += amountToTransfer;
                 }
 
                 const allInvoicePayments = await tx.aRPaymentHistory.findMany({
@@ -2447,5 +2437,192 @@ export const getLinkedMilestoneDetails = async (req: Request, res: Response) => 
         });
     } catch (error: any) {
         res.status(500).json({ error: 'Failed to fetch linked milestone details', message: error.message });
+    }
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BULK MILESTONE MATCHING - Scan all invoices for milestone matches
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const getBulkMilestoneMatches = async (req: Request, res: Response) => {
+    try {
+        const { search, status } = req.query;
+
+        // 1. Find all MILESTONE invoices that have payments or receipts
+        const milestoneInvoices = await prisma.aRInvoice.findMany({
+            where: {
+                invoiceType: 'MILESTONE',
+                status: { not: 'CANCELLED' }
+            },
+            select: {
+                id: true,
+                invoiceNumber: true,
+                soNo: true,
+                poNo: true,
+                totalAmount: true,
+                receipts: true,
+                totalReceipts: true,
+                balance: true,
+                customerName: true,
+                bpCode: true,
+                status: true,
+                linkedInvoiceId: true,
+                milestoneStatus: true,
+            }
+        });
+
+        if (milestoneInvoices.length === 0) {
+            return res.json({ matches: [], summary: { totalMatches: 0, totalUntransferred: 0, totalAmount: 0 } });
+        }
+
+        // 2. Build lookup maps for matching: invoiceNumber -> milestones, poNo -> milestones
+        const byInvoiceNumber = new Map<string, typeof milestoneInvoices>();
+        const byPoNo = new Map<string, typeof milestoneInvoices>();
+
+        for (const m of milestoneInvoices) {
+            if (m.invoiceNumber) {
+                const arr = byInvoiceNumber.get(m.invoiceNumber) || [];
+                arr.push(m);
+                byInvoiceNumber.set(m.invoiceNumber, arr);
+            }
+            if (m.poNo) {
+                const arr = byPoNo.get(m.poNo) || [];
+                arr.push(m);
+                byPoNo.set(m.poNo, arr);
+            }
+        }
+
+        // 3. Find all REGULAR invoices (active only)
+        const regularWhere: any = {
+            invoiceType: { not: 'MILESTONE' },
+            status: { not: 'CANCELLED' }
+        };
+
+        if (status && String(status) !== 'ALL') {
+            regularWhere.status = String(status);
+        }
+
+        if (search) {
+            regularWhere.OR = [
+                { invoiceNumber: { contains: String(search), mode: 'insensitive' } },
+                { customerName: { contains: String(search), mode: 'insensitive' } },
+                { bpCode: { contains: String(search), mode: 'insensitive' } },
+                { poNo: { contains: String(search), mode: 'insensitive' } },
+            ];
+        }
+
+        const regularInvoices = await prisma.aRInvoice.findMany({
+            where: regularWhere,
+            select: {
+                id: true,
+                invoiceNumber: true,
+                customerName: true,
+                bpCode: true,
+                poNo: true,
+                totalAmount: true,
+                balance: true,
+                status: true,
+                linkedMilestoneId: true,
+            },
+            orderBy: { invoiceDate: 'desc' }
+        });
+
+        // 4. For each regular invoice, find matching milestones and calculate untransferred amounts
+        const matches: any[] = [];
+        let totalUntransferred = 0;
+        let totalAmount = 0;
+
+        for (const inv of regularInvoices) {
+            // Find matching milestones by invoiceNumber or poNo
+            const matchedSet = new Map<string, (typeof milestoneInvoices)[0]>();
+
+            const byNum = byInvoiceNumber.get(inv.invoiceNumber) || [];
+            for (const m of byNum) matchedSet.set(m.id, m);
+
+            if (inv.poNo) {
+                const byPo = byPoNo.get(inv.poNo) || [];
+                for (const m of byPo) matchedSet.set(m.id, m);
+            }
+
+            if (matchedSet.size === 0) continue;
+
+            // For each matching milestone, get payment details
+            const milestoneDetails = await Promise.all(
+                Array.from(matchedSet.values()).map(async (milestone) => {
+                    const payments = await prisma.aRPaymentHistory.findMany({
+                        where: { invoiceId: milestone.id },
+                        select: { amount: true }
+                    });
+                    const totalPayments = payments.reduce((sum, p) => sum + Number(p.amount), 0);
+
+                    // Check for already transferred payments
+                    let alreadyTransferred = 0;
+                    const isLinked = milestone.linkedInvoiceId === inv.id;
+
+                    if (isLinked) {
+                        const transferred = await prisma.aRPaymentHistory.findMany({
+                            where: {
+                                invoiceId: inv.id,
+                                notes: { contains: `[From Milestone ${milestone.invoiceNumber}]` }
+                            },
+                            select: { amount: true }
+                        });
+                        alreadyTransferred = transferred.reduce((sum, p) => sum + Number(p.amount), 0);
+                    }
+
+                    // Also consider imported receipts (no explicit payment records)
+                    const milestoneReceipts = Number(milestone.receipts || 0);
+                    const effectiveTotal = Math.max(totalPayments, milestoneReceipts);
+                    const untransferredAmount = Math.max(0, effectiveTotal - alreadyTransferred);
+
+                    return {
+                        id: milestone.id,
+                        invoiceNumber: milestone.invoiceNumber,
+                        soNo: milestone.soNo,
+                        totalPayments: effectiveTotal,
+                        alreadyTransferred,
+                        untransferredAmount,
+                        isLinked,
+                        paymentCount: payments.length,
+                        milestoneStatus: milestone.milestoneStatus,
+                        status: milestone.status,
+                    };
+                })
+            );
+
+            // Only include if there's something to transfer, or if they are unlinked, or if there's a payment mismatch (out of sync)
+            const hasUntransferred = milestoneDetails.some(m => m.untransferredAmount > 0);
+            const hasUnlinked = milestoneDetails.some(m => !m.isLinked);
+            const hasMismatch = milestoneDetails.some(m => m.isLinked && m.totalPayments !== m.alreadyTransferred);
+
+            if (hasUntransferred || hasUnlinked || hasMismatch) {
+                const invoiceUntransferred = milestoneDetails.reduce((sum, m) => sum + m.untransferredAmount, 0);
+                totalUntransferred += invoiceUntransferred;
+                totalAmount += Number(inv.totalAmount || 0);
+
+                matches.push({
+                    invoiceId: inv.id,
+                    invoiceNumber: inv.invoiceNumber,
+                    customerName: inv.customerName,
+                    bpCode: inv.bpCode,
+                    totalAmount: Number(inv.totalAmount || 0),
+                    balance: Number(inv.balance || 0),
+                    status: inv.status,
+                    milestones: milestoneDetails
+                });
+            }
+        }
+
+        res.json({
+            matches,
+            summary: {
+                totalMatches: matches.length,
+                totalUntransferred,
+                totalAmount
+            }
+        });
+    } catch (error: any) {
+        console.error('Failed to fetch bulk milestone matches:', error);
+        res.status(500).json({ error: 'Failed to fetch bulk milestone matches', message: error.message });
     }
 };

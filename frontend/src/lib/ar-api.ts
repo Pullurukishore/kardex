@@ -770,6 +770,37 @@ export const arApi = {
         return res.data;
     },
 
+    async getBulkMilestoneMatches(params?: { search?: string; status?: string }): Promise<{
+        matches: {
+            invoiceId: string;
+            invoiceNumber: string;
+            customerName: string;
+            bpCode: string;
+            totalAmount: number;
+            balance: number;
+            status: string;
+            milestones: {
+                id: string;
+                invoiceNumber: string;
+                soNo?: string;
+                totalPayments: number;
+                untransferredAmount: number;
+                isLinked: boolean;
+                paymentCount: number;
+                milestoneStatus?: string;
+                status: string;
+            }[];
+        }[];
+        summary: {
+            totalMatches: number;
+            totalUntransferred: number;
+            totalAmount: number;
+        };
+    }> {
+        const res = await api.get('/ar/invoices/bulk-milestone-matches', { params });
+        return res.data;
+    },
+
     // ═══════════════════════════════════════════════════════════════════════════
     // TOTAL ACTIVITIES - Combined invoice and session activities
     // ═══════════════════════════════════════════════════════════════════════════

@@ -74,7 +74,11 @@ router.post('/invoices/payment-import/excel', requireFinanceWrite, paymentImport
 
 router.get('/invoices', requireARRead, invoiceController.getAllInvoices);
 
+// Bulk Milestone Matching (before :id route)
+router.get('/invoices/bulk-milestone-matches', requireARRead, invoiceController.getBulkMilestoneMatches);
+
 router.get('/invoices/:id', requireARRead, invoiceController.getInvoiceById);
+
 router.post('/invoices', requireFinanceWrite, invoiceController.createInvoice);
 router.put('/invoices/:id', requireFinanceWrite, invoiceController.updateInvoice);
 router.delete('/invoices/:id', requireFinanceDelete, invoiceController.deleteInvoice);
