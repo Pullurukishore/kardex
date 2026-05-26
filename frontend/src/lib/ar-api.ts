@@ -940,7 +940,7 @@ export const arApi = {
 
     async createBankAccountRequest(data: {
         bankAccountId?: string;
-        requestType: 'CREATE' | 'UPDATE' | 'DELETE';
+        requestType: 'CREATE' | 'UPDATE' | 'DELETE' | 'ACTIVATE' | 'DEACTIVATE';
         requestedData: Partial<BankAccount>;
     }): Promise<BankAccountChangeRequest> {
         const res = await api.post('/ar/bank-accounts/requests', data);
@@ -1232,7 +1232,7 @@ export interface BankAccount {
 export interface BankAccountChangeRequest {
     id: string;
     bankAccountId?: string;
-    requestType: 'CREATE' | 'UPDATE' | 'DELETE';
+    requestType: 'CREATE' | 'UPDATE' | 'DELETE' | 'ACTIVATE' | 'DEACTIVATE';
     status: 'PENDING' | 'APPROVED' | 'REJECTED';
     requestedData: Partial<BankAccount>;
     requestedById: number;

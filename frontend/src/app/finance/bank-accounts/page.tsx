@@ -268,14 +268,25 @@ const BankCard = ({
             <Eye className="w-4 h-4" />
           </Link>
           {!isAdmin && (
-            <Link
-              href={`/finance/bank-accounts/${account.id}/edit`}
-              onClick={(e) => e.stopPropagation()}
-              className="p-2.5 rounded-xl bg-white/95 backdrop-blur-xl hover:bg-white text-[#CE9F6B] hover:text-[#976E44] hover:scale-110 transition-all duration-200 shadow-lg hover:shadow-xl"
-              title="Edit Account"
-            >
-              <Pencil className="w-4 h-4" />
-            </Link>
+            <>
+              <Link
+                href={`/finance/bank-accounts/${account.id}/edit`}
+                onClick={(e) => e.stopPropagation()}
+                className="p-2.5 rounded-xl bg-white/95 backdrop-blur-xl hover:bg-white text-[#CE9F6B] hover:text-[#976E44] hover:scale-110 transition-all duration-200 shadow-lg hover:shadow-xl"
+                title="Edit Account"
+              >
+                <Pencil className="w-4 h-4" />
+              </Link>
+              <button
+                onClick={(e) => onToggleStatus(account, e)}
+                className={`p-2.5 rounded-xl bg-white/95 backdrop-blur-xl hover:bg-white hover:scale-110 transition-all duration-200 shadow-lg hover:shadow-xl ${
+                  account.isActive ? 'text-[#E17F70] hover:text-[#C45C4D]' : 'text-[#82A094] hover:text-[#4F6A64]'
+                }`}
+                title={account.isActive ? "Request Deactivation" : "Request Activation"}
+              >
+                <Power className="w-4 h-4" />
+              </button>
+            </>
           )}
           {isAdmin && (
             <>
@@ -497,13 +508,24 @@ const MobileVendorCard = ({
         </div>
         <div className="flex items-center gap-1">
           {!isAdmin && (
-            <Link
-              href={`/finance/bank-accounts/${account.id}/edit`}
-              onClick={(e) => e.stopPropagation()}
-              className="p-2 rounded-lg text-[#5D6E73] hover:bg-[#F8F9FB]"
-            >
-              <Pencil className="w-3.5 h-3.5" />
-            </Link>
+            <>
+              <Link
+                href={`/finance/bank-accounts/${account.id}/edit`}
+                onClick={(e) => e.stopPropagation()}
+                className="p-2 rounded-lg text-[#5D6E73] hover:bg-[#F8F9FB]"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+              </Link>
+              <button
+                onClick={(e) => onToggleStatus(account, e)}
+                className={`p-2 rounded-lg transition-colors ${
+                  account.isActive ? 'text-[#E17F70] hover:bg-[#E17F70]/10' : 'text-[#82A094] hover:bg-[#82A094]/10'
+                }`}
+                title={account.isActive ? "Request Deactivation" : "Request Activation"}
+              >
+                <Power className="w-3.5 h-3.5" />
+              </button>
+            </>
           )}
           <Link
             href={`/finance/bank-accounts/${account.id}`}
@@ -554,6 +576,20 @@ const MobileVendorCard = ({
               }`}
             >
               {account.isActive ? 'Deactivate Account' : 'Activate Account'}
+            </button>
+          </div>
+        )}
+        {!isAdmin && (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={(e) => onToggleStatus(account, e)}
+              className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold transition-all border ${
+                account.isActive 
+                  ? 'border-[#E17F70]/20 text-[#E17F70] hover:bg-[#E17F70]/5' 
+                  : 'border-[#82A094]/20 text-[#82A094] hover:bg-[#82A094]/5'
+              }`}
+            >
+              {account.isActive ? 'Request Deactivation' : 'Request Activation'}
             </button>
           </div>
         )}
@@ -811,14 +847,27 @@ const VendorTable = ({
                           <Eye className="w-4 h-4" />
                         </Link>
                         {!isAdmin && (
-                          <Link
-                            href={`/finance/bank-accounts/${account.id}/edit`}
-                            onClick={(e) => e.stopPropagation()}
-                            className="p-2 rounded-lg hover:bg-[#CE9F6B]/20 text-[#5D6E73] hover:text-[#CE9F6B] transition-colors"
-                            title="Edit Account"
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </Link>
+                          <>
+                            <Link
+                              href={`/finance/bank-accounts/${account.id}/edit`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="p-2 rounded-lg hover:bg-[#CE9F6B]/20 text-[#5D6E73] hover:text-[#CE9F6B] transition-colors"
+                              title="Edit Account"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </Link>
+                            <button
+                              onClick={(e) => onToggleStatus(account, e)}
+                              className={`p-2 rounded-lg transition-colors ${
+                                account.isActive 
+                                  ? 'hover:bg-[#E17F70]/20 text-[#5D6E73] hover:text-[#E17F70]' 
+                                  : 'hover:bg-[#82A094]/20 text-[#5D6E73] hover:text-[#82A094]'
+                              }`}
+                              title={account.isActive ? "Request Deactivation" : "Request Activation"}
+                            >
+                              <Power className="w-4 h-4" />
+                            </button>
+                          </>
                         )}
                         {isAdmin && (
                           <>
@@ -877,38 +926,56 @@ export default function BankAccountsPage() {
     }
   }, [showInactive]);
 
-  const loadPendingCount = async () => {
+  const loadPendingCount = useCallback(async () => {
     try {
       const stats = await arApi.getRequestStats();
       setPendingCount(stats.pending);
     } catch (error) {
       console.error('Failed to load pending count:', error);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadBankAccounts();
     loadPendingCount();
-  }, [loadBankAccounts]);
+  }, [loadBankAccounts, loadPendingCount]);
 
   const handleToggleStatus = useCallback(async (account: BankAccount, e: React.MouseEvent) => {
     e.stopPropagation();
     const newStatus = !account.isActive;
-    if (!confirm(`Are you sure you want to ${newStatus ? 'activate' : 'deactivate'} this vendor account?`)) return;
     
-    try {
-      await arApi.updateBankAccount(account.id, { isActive: newStatus });
-      // Update locally first for instant feedback
-      setAccounts(prev => prev.map(a => 
-        a.id === account.id ? { ...a, isActive: newStatus } : a
-      ));
-      // Then silently reload from server to ensure data consistency
-      await loadBankAccounts(true);
-    } catch (error) {
-      console.error('Failed to toggle bank account status:', error);
-      alert('Failed to update status');
+    if (isAdmin) {
+      if (!confirm(`Are you sure you want to ${newStatus ? 'activate' : 'deactivate'} this vendor account?`)) return;
+      
+      try {
+        await arApi.updateBankAccount(account.id, { isActive: newStatus });
+        // Update locally first for instant feedback
+        setAccounts(prev => prev.map(a => 
+          a.id === account.id ? { ...a, isActive: newStatus } : a
+        ));
+        // Then silently reload from server to ensure data consistency
+        await loadBankAccounts(true);
+      } catch (error) {
+        console.error('Failed to toggle bank account status:', error);
+        alert('Failed to update status');
+      }
+    } else {
+      if (!confirm(`Are you sure you want to request ${newStatus ? 'activation' : 'deactivation'} for this vendor account?`)) return;
+      
+      try {
+        await arApi.createBankAccountRequest({
+          bankAccountId: account.id,
+          requestType: newStatus ? 'ACTIVATE' : 'DEACTIVATE',
+          requestedData: { isActive: newStatus }
+        });
+        alert(`Change request for ${newStatus ? 'activation' : 'deactivation'} submitted successfully!`);
+        await loadPendingCount();
+      } catch (error: any) {
+        console.error('Failed to submit change request:', error);
+        alert(error.response?.data?.error || error.message || 'Failed to submit change request');
+      }
     }
-  }, [loadBankAccounts]);
+  }, [isAdmin, loadBankAccounts, loadPendingCount]);
 
   const handleDelete = useCallback(async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();

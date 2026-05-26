@@ -10,7 +10,7 @@ import {
   ArrowLeft, Sparkles, Clock, CheckCircle2, XCircle, 
   AlertCircle, Building2, Plus, Trash2, Pencil, Eye,
   MessageSquare, Loader2, Square, CheckSquare,
-  ArrowRight, ExternalLink, Search
+  ArrowRight, ExternalLink, Search, Power
 } from 'lucide-react';
 
 export default function BankAccountRequestsPage() {
@@ -162,6 +162,8 @@ export default function BankAccountRequestsPage() {
       case 'CREATE': return <Plus className="w-4 h-4" />;
       case 'UPDATE': return <Pencil className="w-4 h-4" />;
       case 'DELETE': return <Trash2 className="w-4 h-4" />;
+      case 'ACTIVATE': return <Power className="w-4 h-4" />;
+      case 'DEACTIVATE': return <Power className="w-4 h-4" />;
       default: return <AlertCircle className="w-4 h-4" />;
     }
   };
@@ -171,6 +173,8 @@ export default function BankAccountRequestsPage() {
       case 'CREATE': return 'bg-[#82A094]/15 text-[#4F6A64] border-[#82A094]/30';
       case 'UPDATE': return 'bg-[#CE9F6B]/15 text-[#976E44] border-[#CE9F6B]/30';
       case 'DELETE': return 'bg-[#E17F70]/15 text-[#E17F70] border-[#E17F70]/30';
+      case 'ACTIVATE': return 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30';
+      case 'DEACTIVATE': return 'bg-rose-500/15 text-rose-600 border-rose-500/30';
       default: return 'bg-[#AEBFC3]/15 text-[#5D6E73] border-[#AEBFC3]/30';
     }
   };
@@ -412,7 +416,10 @@ export default function BankAccountRequestsPage() {
                         <h3 className="text-lg font-semibold text-[#546A7A] group-hover:text-[#CE9F6B] transition-colors">
                           {request.requestType === 'CREATE' ? 'New Vendor Bank Account Request' :
                            request.requestType === 'UPDATE' ? 'Vendor Bank Account Update Request' :
-                           'Vendor Bank Account Deletion Request'}
+                           request.requestType === 'DELETE' ? 'Vendor Bank Account Deletion Request' :
+                           request.requestType === 'ACTIVATE' ? 'Vendor Bank Account Activation Request' :
+                           request.requestType === 'DEACTIVATE' ? 'Vendor Bank Account Deactivation Request' :
+                           'Vendor Bank Account Change Request'}
                         </h3>
                         <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${getStatusColor(request.status)}`}>
                           {request.status}
@@ -425,20 +432,25 @@ export default function BankAccountRequestsPage() {
                       </p>
 
                       <div className="flex flex-wrap gap-4 text-sm">
-                        {request.requestedData.vendorName && (
+                        {(request.bankAccount?.vendorName || request.requestedData.vendorName) && (
                           <div className="flex items-center gap-2">
                             <Building2 className="w-4 h-4 text-[#92A2A5]" />
-                            <span className="text-[#546A7A]">{request.requestedData.vendorName} ({request.requestedData.bpCode || '—'})</span>
+                            <span className="text-[#546A7A]">
+                              {request.bankAccount?.vendorName || request.requestedData.vendorName}
+                              {` (${request.bankAccount?.bpCode || request.requestedData.bpCode || '—'})`}
+                            </span>
                           </div>
                         )}
-                        {request.requestedData.beneficiaryBankName && (
+                        {(request.bankAccount?.beneficiaryBankName || request.requestedData.beneficiaryBankName) && (
                           <div className="text-[#92A2A5]">
-                            Bank: <span className="text-[#546A7A]">{request.requestedData.beneficiaryBankName}</span>
+                            Bank: <span className="text-[#546A7A]">{request.bankAccount?.beneficiaryBankName || request.requestedData.beneficiaryBankName}</span>
                           </div>
                         )}
-                        {request.requestedData.accountNumber && (
+                        {(request.bankAccount?.accountNumber || request.requestedData.accountNumber) && (
                           <div className="text-[#92A2A5]">
-                            A/C: <span className="text-[#546A7A] font-mono">****{request.requestedData.accountNumber.slice(-4)}</span>
+                            A/C: <span className="text-[#546A7A] font-mono">
+                              ****{(request.bankAccount?.accountNumber || request.requestedData.accountNumber || '').slice(-4)}
+                            </span>
                           </div>
                         )}
                       </div>

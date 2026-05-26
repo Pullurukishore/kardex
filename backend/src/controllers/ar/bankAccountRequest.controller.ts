@@ -20,13 +20,13 @@ export const createChangeRequest = async (req: Request, res: Response) => {
         const userId = (req as any).user?.id || 1;
 
         // Validate request type
-        if (!['CREATE', 'UPDATE', 'DELETE'].includes(requestType)) {
-            return res.status(400).json({ error: 'Invalid request type. Must be CREATE, UPDATE, or DELETE' });
+        if (!['CREATE', 'UPDATE', 'DELETE', 'ACTIVATE', 'DEACTIVATE'].includes(requestType)) {
+            return res.status(400).json({ error: 'Invalid request type. Must be CREATE, UPDATE, DELETE, ACTIVATE, or DEACTIVATE' });
         }
 
-        // For UPDATE and DELETE, bankAccountId is required
-        if ((requestType === 'UPDATE' || requestType === 'DELETE') && !bankAccountId) {
-            return res.status(400).json({ error: 'Bank account ID is required for UPDATE and DELETE requests' });
+        // For UPDATE, DELETE, ACTIVATE, and DEACTIVATE, bankAccountId is required
+        if (['UPDATE', 'DELETE', 'ACTIVATE', 'DEACTIVATE'].includes(requestType) && !bankAccountId) {
+            return res.status(400).json({ error: 'Bank account ID is required for UPDATE, DELETE, ACTIVATE, and DEACTIVATE requests' });
         }
 
         // For CREATE, validate required fields in requestedData
@@ -64,13 +64,21 @@ export const createChangeRequest = async (req: Request, res: Response) => {
             }
         }
 
-        // For UPDATE/DELETE, verify the bank account exists
+        // For UPDATE/DELETE/ACTIVATE/DEACTIVATE, verify the bank account exists
         if (bankAccountId) {
             const bankAccount = await prisma.bankAccount.findUnique({
                 where: { id: bankAccountId }
             });
             if (!bankAccount) {
                 return res.status(404).json({ error: 'Bank account not found' });
+            }
+
+            // For ACTIVATE/DEACTIVATE, validate current status
+            if (requestType === 'ACTIVATE' && bankAccount.isActive) {
+                return res.status(400).json({ error: 'Bank account is already active' });
+            }
+            if (requestType === 'DEACTIVATE' && !bankAccount.isActive) {
+                return res.status(400).json({ error: 'Bank account is already inactive' });
             }
         }
 
@@ -91,11 +99,18 @@ export const createChangeRequest = async (req: Request, res: Response) => {
             }
         }
 
+        let finalRequestedData = requestedData || {};
+        if (requestType === 'ACTIVATE') {
+            finalRequestedData = { ...finalRequestedData, isActive: true };
+        } else if (requestType === 'DEACTIVATE') {
+            finalRequestedData = { ...finalRequestedData, isActive: false };
+        }
+
         const changeRequest = await prisma.bankAccountChangeRequest.create({
             data: {
                 bankAccountId: bankAccountId || null,
                 requestType: requestType as any,
-                requestedData: requestedData || {},
+                requestedData: finalRequestedData,
                 requestedById: userId
             },
             include: {
@@ -127,7 +142,9 @@ export const createChangeRequest = async (req: Request, res: Response) => {
                 select: { name: true, email: true }
             });
             const typeLabel = requestType === 'CREATE' ? 'Add'
-                : requestType === 'UPDATE' ? 'Edit' : 'Delete';
+                : requestType === 'UPDATE' ? 'Edit'
+                : requestType === 'DELETE' ? 'Delete'
+                : requestType === 'ACTIVATE' ? 'Activate' : 'Deactivate';
             const vendorName = requestedData?.vendorName
                 || changeRequest.bankAccount?.vendorName
                 || 'Unknown';
@@ -147,6 +164,8 @@ export const createChangeRequest = async (req: Request, res: Response) => {
                         isAdd: requestType === 'CREATE',
                         isEdit: requestType === 'UPDATE',
                         isDelete: requestType === 'DELETE',
+                        isActivate: requestType === 'ACTIVATE',
+                        isDeactivate: requestType === 'DEACTIVATE',
                         actionUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/finance/bank-accounts/requests`,
                         currentYear: new Date().getFullYear()
                     }
@@ -195,7 +214,9 @@ export const getPendingRequests = async (req: Request, res: Response) => {
                     select: {
                         id: true,
                         vendorName: true,
-                        accountNumber: true
+                        accountNumber: true,
+                        beneficiaryBankName: true,
+                        bpCode: true
                     }
                 }
             }
@@ -240,7 +261,9 @@ export const getMyRequests = async (req: Request, res: Response) => {
                     select: {
                         id: true,
                         vendorName: true,
-                        accountNumber: true
+                        accountNumber: true,
+                        beneficiaryBankName: true,
+                        bpCode: true
                     }
                 }
             }
@@ -396,6 +419,52 @@ export const approveRequest = async (req: Request, res: Response) => {
             }
 
             // Soft delete the bank account
+            bankAccount = await prisma.bankAccount.update({
+                where: { id: request.bankAccountId },
+                data: {
+                    isActive: false,
+                    updatedById: userId
+                }
+            });
+
+            await prisma.bankAccountChangeRequest.update({
+                where: { id },
+                data: {
+                    status: 'APPROVED',
+                    reviewedById: userId,
+                    reviewedAt: new Date(),
+                    reviewNotes
+                }
+            });
+        } else if (request.requestType === 'ACTIVATE') {
+            if (!request.bankAccountId) {
+                return res.status(400).json({ error: 'Bank account ID is missing from request' });
+            }
+
+            // Activate the bank account
+            bankAccount = await prisma.bankAccount.update({
+                where: { id: request.bankAccountId },
+                data: {
+                    isActive: true,
+                    updatedById: userId
+                }
+            });
+
+            await prisma.bankAccountChangeRequest.update({
+                where: { id },
+                data: {
+                    status: 'APPROVED',
+                    reviewedById: userId,
+                    reviewedAt: new Date(),
+                    reviewNotes
+                }
+            });
+        } else if (request.requestType === 'DEACTIVATE') {
+            if (!request.bankAccountId) {
+                return res.status(400).json({ error: 'Bank account ID is missing from request' });
+            }
+
+            // Deactivate the bank account
             bankAccount = await prisma.bankAccount.update({
                 where: { id: request.bankAccountId },
                 data: {

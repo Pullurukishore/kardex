@@ -11,7 +11,7 @@ import {
   ArrowLeft, Sparkles, Clock, CheckCircle2, XCircle, 
   AlertCircle, Building2, Plus, Trash2, Pencil,
   ArrowRight, GitCompare, FileText, Eye, Download, FileImage, FileSpreadsheet, File, Download as DownloadIcon,
-  User, Calendar, CreditCard, Hash, Mail, MessageSquare, Loader2, Shield, BadgeCheck
+  User, Calendar, CreditCard, Hash, Mail, MessageSquare, Loader2, Shield, BadgeCheck, Power
 } from 'lucide-react';
 // Lazy-load FilePreview — it pulls in the heavy `xlsx` library (~1MB).
 const FilePreview = dynamic(() => import('@/components/FilePreview'), {
@@ -52,8 +52,8 @@ export default function RequestDetailPage() {
       const data = await arApi.getRequestById(params.id as string);
       setRequest(data);
 
-      // Load original account for UPDATE requests
-      if (data.bankAccountId && data.requestType === 'UPDATE') {
+      // Load original account for non-CREATE requests
+      if (data.bankAccountId && data.requestType !== 'CREATE') {
         try {
           const account = await arApi.getBankAccountById(data.bankAccountId);
           setOriginalAccount(account);
@@ -140,6 +140,8 @@ export default function RequestDetailPage() {
       case 'CREATE': return <Plus className="w-5 h-5" />;
       case 'UPDATE': return <Pencil className="w-5 h-5" />;
       case 'DELETE': return <Trash2 className="w-5 h-5" />;
+      case 'ACTIVATE': return <Power className="w-5 h-5" />;
+      case 'DEACTIVATE': return <Power className="w-5 h-5" />;
       default: return <AlertCircle className="w-5 h-5" />;
     }
   };
@@ -149,6 +151,8 @@ export default function RequestDetailPage() {
       case 'CREATE': return 'bg-[#82A094]/15 text-[#4F6A64] border-[#82A094]/30';
       case 'UPDATE': return 'bg-[#CE9F6B]/15 text-[#976E44] border-[#CE9F6B]/30';
       case 'DELETE': return 'bg-[#E17F70]/15 text-[#E17F70] border-[#E17F70]/30';
+      case 'ACTIVATE': return 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30';
+      case 'DEACTIVATE': return 'bg-rose-500/15 text-rose-600 border-rose-500/30';
       default: return 'bg-[#AEBFC3]/15 text-[#5D6E73] border-[#AEBFC3]/30';
     }
   };
@@ -164,104 +168,125 @@ export default function RequestDetailPage() {
   const getFieldChanges = (): FieldChange[] => {
     if (!request) return [];
     
+    const getNewValue = (field: string, requestedValue: any, oldValue: any) => {
+      if (request.requestType === 'CREATE') {
+        return requestedValue;
+      }
+      if (request.requestType === 'UPDATE') {
+        return field in request.requestedData ? requestedValue : oldValue;
+      }
+      if (field === 'isActive') {
+        if (request.requestType === 'ACTIVATE') return 'Active';
+        if (request.requestType === 'DEACTIVATE') return 'Inactive';
+      }
+      return oldValue;
+    };
+
     const fields: FieldChange[] = [
       {
         field: 'bpCode',
         label: 'BP Code / Vendor Code',
         oldValue: originalAccount?.bpCode || null,
-        newValue: request.requestedData.bpCode || null,
+        newValue: getNewValue('bpCode', request.requestedData.bpCode, originalAccount?.bpCode || null),
         icon: <Shield className="w-4 h-4" />
       },
       {
         field: 'vendorName',
         label: 'Vendor Name',
         oldValue: originalAccount?.vendorName || null,
-        newValue: request.requestedData.vendorName || null,
+        newValue: getNewValue('vendorName', request.requestedData.vendorName, originalAccount?.vendorName || null),
         icon: <User className="w-4 h-4" />
       },
       {
         field: 'beneficiaryName',
         label: 'Beneficiary Name',
         oldValue: (originalAccount as any)?.beneficiaryName || null,
-        newValue: (request.requestedData as any).beneficiaryName || null,
+        newValue: getNewValue('beneficiaryName', (request.requestedData as any).beneficiaryName, (originalAccount as any)?.beneficiaryName || null),
         icon: <User className="w-4 h-4" />
       },
       {
         field: 'nickName',
         label: 'Nick Name',
         oldValue: originalAccount?.nickName || null,
-        newValue: request.requestedData.nickName || null,
+        newValue: getNewValue('nickName', request.requestedData.nickName, originalAccount?.nickName || null),
         icon: <Hash className="w-4 h-4" />
       },
       {
         field: 'beneficiaryBankName',
         label: 'Bank Name',
         oldValue: originalAccount?.beneficiaryBankName || null,
-        newValue: request.requestedData.beneficiaryBankName || null,
+        newValue: getNewValue('beneficiaryBankName', request.requestedData.beneficiaryBankName, originalAccount?.beneficiaryBankName || null),
         icon: <Building2 className="w-4 h-4" />
       },
       {
         field: 'accountNumber',
         label: 'Account Number',
         oldValue: originalAccount?.accountNumber || null,
-        newValue: request.requestedData.accountNumber || null,
+        newValue: getNewValue('accountNumber', request.requestedData.accountNumber, originalAccount?.accountNumber || null),
         icon: <CreditCard className="w-4 h-4" />
       },
       {
         field: 'ifscCode',
         label: 'IFSC Code / SWIFT Code',
         oldValue: originalAccount?.ifscCode || null,
-        newValue: request.requestedData.ifscCode || null,
+        newValue: getNewValue('ifscCode', request.requestedData.ifscCode, originalAccount?.ifscCode || null),
         icon: <Hash className="w-4 h-4" />
       },
       {
         field: 'emailId',
         label: 'Email ID',
         oldValue: originalAccount?.emailId || null,
-        newValue: request.requestedData.emailId || null,
+        newValue: getNewValue('emailId', request.requestedData.emailId, originalAccount?.emailId || null),
         icon: <Mail className="w-4 h-4" />
       },
       {
         field: 'isMSME',
         label: 'MSME Registered',
         oldValue: originalAccount?.isMSME ? 'Yes' : 'No',
-        newValue: request.requestedData.isMSME ? 'Yes' : 'No',
+        newValue: getNewValue('isMSME', request.requestedData.isMSME !== undefined ? (request.requestedData.isMSME ? 'Yes' : 'No') : null, originalAccount?.isMSME ? 'Yes' : 'No'),
         icon: <Sparkles className="w-4 h-4" />
       },
       {
         field: 'udyamRegNum',
         label: 'Udyam Reg. Number',
         oldValue: (originalAccount as any)?.udyamRegNum || null,
-        newValue: (request.requestedData as any).udyamRegNum || null,
+        newValue: getNewValue('udyamRegNum', (request.requestedData as any).udyamRegNum, (originalAccount as any)?.udyamRegNum || null),
         icon: <Hash className="w-4 h-4" />
       },
       {
         field: 'gstNumber',
         label: 'GST Number',
         oldValue: (originalAccount as any)?.gstNumber || 'Unregistered',
-        newValue: (request.requestedData as any).gstNumber || 'Unregistered',
+        newValue: getNewValue('gstNumber', (request.requestedData as any).gstNumber, (originalAccount as any)?.gstNumber || 'Unregistered'),
         icon: <Shield className="w-4 h-4" />
       },
       {
         field: 'panNumber',
         label: 'PAN Number',
         oldValue: (originalAccount as any)?.panNumber || null,
-        newValue: (request.requestedData as any).panNumber || null,
+        newValue: getNewValue('panNumber', (request.requestedData as any).panNumber, (originalAccount as any)?.panNumber || null),
         icon: <BadgeCheck className="w-4 h-4" />
       },
       {
         field: 'currency',
         label: 'Currency',
         oldValue: originalAccount?.currency || null,
-        newValue: request.requestedData.currency || null,
+        newValue: getNewValue('currency', request.requestedData.currency, originalAccount?.currency || null),
         icon: <CreditCard className="w-4 h-4" />
       },
       {
         field: 'accountType',
         label: 'Account Type',
         oldValue: originalAccount?.accountType || null,
-        newValue: (request.requestedData as any).accountType || null,
+        newValue: getNewValue('accountType', (request.requestedData as any).accountType, originalAccount?.accountType || null),
         icon: <FileText className="w-4 h-4" />
+      },
+      {
+        field: 'isActive',
+        label: 'Account Status',
+        oldValue: originalAccount ? (originalAccount.isActive ? 'Active' : 'Inactive') : null,
+        newValue: getNewValue('isActive', null, originalAccount ? (originalAccount.isActive ? 'Active' : 'Inactive') : null),
+        icon: <Power className="w-4 h-4" />
       }
     ];
 
@@ -329,7 +354,10 @@ export default function RequestDetailPage() {
               <h2 className="text-xl font-bold text-[#546A7A]">
                 {request.requestType === 'CREATE' ? 'New Vendor Account Request' :
                  request.requestType === 'UPDATE' ? 'Vendor Account Update Request' :
-                 'Vendor Account Deletion Request'}
+                 request.requestType === 'DELETE' ? 'Vendor Account Deletion Request' :
+                 request.requestType === 'ACTIVATE' ? 'Vendor Account Activation Request' :
+                 request.requestType === 'DEACTIVATE' ? 'Vendor Account Deactivation Request' :
+                 'Vendor Account Change Request'}
               </h2>
               <div className="flex items-center gap-4 mt-1 text-sm text-[#92A2A5]">
                 <span className="flex items-center gap-1">
@@ -351,15 +379,16 @@ export default function RequestDetailPage() {
         <div className="p-6">
           <h3 className="text-lg font-semibold text-[#546A7A] mb-4 flex items-center gap-2">
             <GitCompare className="w-5 h-5 text-[#CE9F6B]" />
-            {request.requestType === 'UPDATE' ? 'Changes Comparison' : 'Requested Data'}
+            {request.requestType === 'UPDATE' || request.requestType === 'ACTIVATE' || request.requestType === 'DEACTIVATE' ? 'Changes Comparison' : 'Requested Data'}
           </h3>
 
           <div className="space-y-3">
             {fieldChanges.map((change) => {
-              const hasChange = request.requestType === 'UPDATE' && change.oldValue !== change.newValue;
+              const isStatusRequest = request.requestType === 'ACTIVATE' || request.requestType === 'DEACTIVATE';
+              const hasChange = (request.requestType === 'UPDATE' && change.oldValue !== change.newValue) || (isStatusRequest && change.field === 'isActive');
               const showField = request.requestType === 'CREATE' ? change.newValue : true;
               
-              if (!showField && request.requestType === 'CREATE') return null;
+              if (!showField) return null;
               
               return (
                 <div 
