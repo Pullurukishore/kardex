@@ -528,6 +528,12 @@ export default function EditRequestPage() {
                     className="w-full px-4 py-3.5 bg-[#F8FAFB] border border-[#AEBFC3]/30 rounded-xl text-[#546A7A] font-mono"
                     required
                   />
+                  {formData.accountNumber !== formData.confirmAccountNumber && (
+                    <p className="text-[10px] text-[#E17F70] font-medium flex items-center gap-1 mt-1">
+                      <AlertCircle className="w-3 h-3" />
+                      Account numbers do not match
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -540,14 +546,6 @@ export default function EditRequestPage() {
                     className="w-full px-4 py-3.5 bg-[#F8FAFB] border border-[#AEBFC3]/30 rounded-xl text-[#546A7A] font-mono uppercase"
                     required
                   />
-                </div>
-
-                  {formData.accountNumber !== formData.confirmAccountNumber && (
-                    <p className="text-[10px] text-[#E17F70] font-medium flex items-center gap-1 mt-1">
-                      <AlertCircle className="w-3 h-3" />
-                      Account numbers do not match
-                    </p>
-                  )}
                 </div>
 
                 {/* Additional Account Numbers */}
