@@ -6,6 +6,7 @@ import {
     getUserFromRequest,
     getIpFromRequest
 } from './bankAccountActivityLog.controller';
+import { checkAccountNumberUnique } from './bankAccount.controller';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // BANK ACCOUNT CHANGE REQUEST OPERATIONS
@@ -31,7 +32,7 @@ export const createChangeRequest = async (req: Request, res: Response) => {
 
         // For CREATE, validate required fields in requestedData
         if (requestType === 'CREATE') {
-            const { vendorName, beneficiaryBankName, accountNumber, ifscCode } = requestedData || {};
+            const { vendorName, beneficiaryBankName, accountNumber, ifscCode, otherAccountNumbers } = requestedData || {};
             if (!vendorName || !beneficiaryBankName || !accountNumber || !ifscCode) {
                 return res.status(400).json({
                     error: 'Vendor Name, Beneficiary Bank Name, Account Number, and IFSC Code are required'
@@ -55,12 +56,28 @@ export const createChangeRequest = async (req: Request, res: Response) => {
                 return res.status(400).json({ error: 'Udyam Registration Number is required for MSME vendors' });
             }
 
-            // Check if account number already exists
-            const existing = await prisma.bankAccount.findUnique({
-                where: { accountNumber }
-            });
-            if (existing) {
-                return res.status(400).json({ error: 'An account with this account number already exists' });
+            // Check for duplicate account number
+            const uniquenessCheck = await checkAccountNumberUnique(accountNumber, otherAccountNumbers || []);
+            if (!uniquenessCheck.unique) {
+                return res.status(400).json({ error: uniquenessCheck.error });
+            }
+        }
+
+        // For UPDATE, validate duplicate account numbers
+        if (requestType === 'UPDATE') {
+            const existing = await prisma.bankAccount.findUnique({ where: { id: bankAccountId } });
+            if (!existing) {
+                return res.status(404).json({ error: 'Bank account not found' });
+            }
+
+            const targetAccountNumber = requestedData.accountNumber !== undefined ? requestedData.accountNumber : existing.accountNumber;
+            const targetOtherAccountNumbers = requestedData.otherAccountNumbers !== undefined ? requestedData.otherAccountNumbers : existing.otherAccountNumbers;
+
+            if (requestedData.accountNumber !== undefined || requestedData.otherAccountNumbers !== undefined) {
+                const uniquenessCheck = await checkAccountNumberUnique(targetAccountNumber, targetOtherAccountNumbers, bankAccountId);
+                if (!uniquenessCheck.unique) {
+                    return res.status(400).json({ error: uniquenessCheck.error });
+                }
             }
         }
 
@@ -347,6 +364,12 @@ export const approveRequest = async (req: Request, res: Response) => {
         const requestedData = request.requestedData as any;
 
         if (request.requestType === 'CREATE') {
+            // Check uniqueness at approval time
+            const uniquenessCheck = await checkAccountNumberUnique(requestedData.accountNumber, requestedData.otherAccountNumbers || []);
+            if (!uniquenessCheck.unique) {
+                return res.status(400).json({ error: uniquenessCheck.error });
+            }
+
             // Create new bank account
             bankAccount = await prisma.bankAccount.create({
                 data: {
@@ -365,6 +388,7 @@ export const approveRequest = async (req: Request, res: Response) => {
                     currency: requestedData.currency || 'INR',
                     accountType: requestedData.accountType || null,
                     accountCategory: requestedData.accountCategory || 'DOMESTIC',
+                    otherAccountNumbers: requestedData.otherAccountNumbers || [],
                     createdById: request.requestedById,
                     updatedById: userId
                 }
@@ -390,6 +414,19 @@ export const approveRequest = async (req: Request, res: Response) => {
         } else if (request.requestType === 'UPDATE') {
             if (!request.bankAccountId) {
                 return res.status(400).json({ error: 'Bank account ID is missing from request' });
+            }
+
+            const existing = await prisma.bankAccount.findUnique({ where: { id: request.bankAccountId } });
+            if (!existing) {
+                return res.status(404).json({ error: 'Bank account not found' });
+            }
+
+            const targetAccountNumber = requestedData.accountNumber !== undefined ? requestedData.accountNumber : existing.accountNumber;
+            const targetOtherAccountNumbers = requestedData.otherAccountNumbers !== undefined ? requestedData.otherAccountNumbers : existing.otherAccountNumbers;
+
+            const uniquenessCheck = await checkAccountNumberUnique(targetAccountNumber, targetOtherAccountNumbers, request.bankAccountId);
+            if (!uniquenessCheck.unique) {
+                return res.status(400).json({ error: uniquenessCheck.error });
             }
 
             const updatePayload = { ...requestedData };

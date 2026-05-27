@@ -233,6 +233,18 @@ export default function RequestDetailPage() {
         icon: <Hash className="w-4 h-4" />
       },
       {
+        field: 'otherAccountNumbers',
+        label: 'Additional Account Numbers',
+        oldValue: originalAccount?.otherAccountNumbers && originalAccount.otherAccountNumbers.length > 0
+          ? originalAccount.otherAccountNumbers.join(', ')
+          : null,
+        newValue: (() => {
+          const val = getNewValue('otherAccountNumbers', request.requestedData.otherAccountNumbers, originalAccount?.otherAccountNumbers || null);
+          return Array.isArray(val) && val.length > 0 ? val.join(', ') : (val ? String(val) : null);
+        })(),
+        icon: <Building2 className="w-4 h-4" />
+      },
+      {
         field: 'emailId',
         label: 'Email ID',
         oldValue: originalAccount?.emailId || null,

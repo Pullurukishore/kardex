@@ -28,6 +28,7 @@ interface FormData {
   panNumber: string;
   currency: string;
   otherCurrency?: string;
+  otherAccountNumbers: string[];
 }
 
 export default function EditRequestPage() {
@@ -38,6 +39,8 @@ export default function EditRequestPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [newOtherAccountNum, setNewOtherAccountNum] = useState('');
+  const [otherAccError, setOtherAccError] = useState('');
   
   const [formData, setFormData] = useState<FormData>({
     bpCode: '',
@@ -55,7 +58,8 @@ export default function EditRequestPage() {
     gstNumber: '',
     panNumber: '',
     currency: 'INR',
-    otherCurrency: ''
+    otherCurrency: '',
+    otherAccountNumbers: []
   });
 
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -93,7 +97,8 @@ export default function EditRequestPage() {
         gstNumber: data.gstNumber || '',
         panNumber: data.panNumber || '',
         currency: ['INR', 'EUR', 'USD'].includes(data.currency) ? data.currency : 'Other',
-        otherCurrency: ['INR', 'EUR', 'USD'].includes(data.currency) ? '' : data.currency
+        otherCurrency: ['INR', 'EUR', 'USD'].includes(data.currency) ? '' : data.currency,
+        otherAccountNumbers: data.otherAccountNumbers || []
       });
     } catch (err) {
       console.error('Failed to load request:', err);
@@ -116,6 +121,38 @@ export default function EditRequestPage() {
       return newData;
     });
     setError('');
+  };
+
+  const isNumericOnly = (val: string) => /^[0-9]*$/.test(val);
+
+  const handleAddOtherAccountNumber = () => {
+    const num = newOtherAccountNum.trim();
+    if (!num) return;
+    if (!isNumericOnly(num)) {
+      setOtherAccError('Additional account number must contain numbers only');
+      return;
+    }
+    if (num === formData.accountNumber) {
+      setOtherAccError('Cannot be the same as the primary account number');
+      return;
+    }
+    if (formData.otherAccountNumbers.includes(num)) {
+      setOtherAccError('This account number has already been added');
+      return;
+    }
+    setFormData(prev => ({
+      ...prev,
+      otherAccountNumbers: [...(prev.otherAccountNumbers || []), num]
+    }));
+    setNewOtherAccountNum('');
+    setOtherAccError('');
+  };
+
+  const handleRemoveOtherAccountNumber = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      otherAccountNumbers: (prev.otherAccountNumbers || []).filter((_, i) => i !== index)
+    }));
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -173,6 +210,11 @@ export default function EditRequestPage() {
         const oldVal = (originalRequest?.requestedData as any)?.[key];
         // Treat undefined, null, and empty string as equivalent for comparison
         if (!newVal && !oldVal) return false;
+        if (key === 'otherAccountNumbers') {
+          const orig = JSON.stringify([...(oldVal || [])].sort());
+          const curr = JSON.stringify([...(newVal || [])].sort());
+          return orig !== curr;
+        }
         return newVal !== oldVal;
       });
 
@@ -500,18 +542,79 @@ export default function EditRequestPage() {
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-[#5D6E73]">Confirm Account Number *</label>
-                  <input
-                    type="text"
-                    name="confirmAccountNumber"
-                    value={formData.confirmAccountNumber}
-                    onChange={handleChange}
-                    className={`w-full px-4 py-3.5 bg-[#F8FAFB] border rounded-xl text-[#546A7A] font-mono ${
-                      formData.accountNumber !== formData.confirmAccountNumber ? 'border-[#E17F70]' : 'border-[#AEBFC3]/30'
-                    }`}
-                    required
-                  />
+                  {formData.accountNumber !== formData.confirmAccountNumber && (
+                    <p className="text-[10px] text-[#E17F70] font-medium flex items-center gap-1 mt-1">
+                      <AlertCircle className="w-3 h-3" />
+                      Account numbers do not match
+                    </p>
+                  )}
+                </div>
+
+                {/* Additional Account Numbers */}
+                <div className="md:col-span-2 space-y-4 pt-4 border-t border-[#AEBFC3]/20">
+                  <label className="flex items-center gap-2 text-sm font-semibold text-[#5D6E73]">
+                    <Building2 className="w-4 h-4 text-[#CE9F6B]" />
+                    Additional Account Numbers
+                    <span className="ml-auto text-[10px] font-medium normal-case tracking-normal text-[#92A2A5]">
+                      Optional secondary accounts
+                    </span>
+                  </label>
+
+                  <div className="flex gap-3">
+                    <div className="relative flex-1">
+                      <input
+                        type="text"
+                        value={newOtherAccountNum}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === '' || isNumericOnly(val)) {
+                            setNewOtherAccountNum(val);
+                            setOtherAccError('');
+                          }
+                        }}
+                        placeholder="Enter additional account number"
+                        maxLength={18}
+                        className={`w-full px-4 py-3 rounded-xl font-mono font-bold text-sm tracking-wider transition-all focus:outline-none border-2 text-[#546A7A] bg-white ${
+                          otherAccError ? 'border-[#E17F70]' : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B]/50'
+                        }`}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleAddOtherAccountNumber}
+                      className="px-6 h-12 rounded-xl font-bold bg-[#CE9F6B] text-white hover:bg-[#976E44] shadow-md shadow-[#CE9F6B]/20"
+                    >
+                      Add
+                    </button>
+                  </div>
+
+                  {otherAccError && (
+                    <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1">
+                      <AlertCircle className="w-3.5 h-3.5" />
+                      {otherAccError}
+                    </p>
+                  )}
+
+                  {formData.otherAccountNumbers && formData.otherAccountNumbers.length > 0 && (
+                    <div className="flex flex-wrap gap-2 pt-2">
+                      {formData.otherAccountNumbers.map((num, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-center gap-2 px-3 py-1.5 rounded-xl font-mono font-bold text-xs bg-white border border-[#AEBFC3]/30 text-[#CE9F6B]"
+                        >
+                          <span>{num}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveOtherAccountNumber(idx)}
+                            className="p-1 rounded-lg hover:bg-[#E17F70]/20 hover:text-[#E17F70] transition-colors"
+                            title="Remove account number"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

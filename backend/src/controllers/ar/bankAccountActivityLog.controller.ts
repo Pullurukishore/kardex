@@ -138,6 +138,7 @@ const formatFieldName = (field: string): string => {
         udyamRegNum: 'Udyam Registration Number',
         currency: 'Currency',
         isActive: 'Active Status',
+        otherAccountNumbers: 'Additional Account Numbers',
         USER_LOGIN: 'User Login',
         USER_LOGOUT: 'User Logout'
     };

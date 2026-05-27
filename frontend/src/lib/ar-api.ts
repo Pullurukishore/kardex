@@ -1220,6 +1220,7 @@ export interface BankAccount {
     currency: string;
     accountType?: string;
     accountCategory?: string;
+    otherAccountNumbers?: string[];
     createdById: number;
     updatedById: number;
     createdAt: string;
@@ -1498,7 +1499,7 @@ export const deleteBatchItem = async (id: string, itemId: string): Promise<{ mes
 // Helper to copy text to clipboard with HTTP fallback
 export const copyTextToClipboard = async (text: string): Promise<void> => {
     if (!text) return;
-    
+
     if (typeof window === 'undefined') return;
 
     // In secure contexts (HTTPS or localhost), use navigator.clipboard
@@ -1514,17 +1515,17 @@ export const copyTextToClipboard = async (text: string): Promise<void> => {
     // In insecure contexts (HTTP), use document.execCommand fallback
     const textArea = document.createElement("textarea");
     textArea.value = text;
-    
+
     // Avoid scrolling to bottom in Safari/Chrome
     textArea.style.top = "0";
     textArea.style.left = "0";
     textArea.style.position = "fixed";
     textArea.style.opacity = "0";
-    
+
     document.body.appendChild(textArea);
     textArea.focus();
     textArea.select();
-    
+
     try {
         const successful = document.execCommand('copy');
         if (!successful) {

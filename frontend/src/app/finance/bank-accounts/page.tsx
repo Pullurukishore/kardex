@@ -380,6 +380,21 @@ const BankCard = ({
                   {copied === 'account' ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                 </button>
               </div>
+              {account.otherAccountNumbers && account.otherAccountNumbers.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                  {account.otherAccountNumbers.map((num, idx) => (
+                    <span key={idx} className="inline-flex items-center gap-1 text-white/70 text-[10px] font-mono font-bold bg-white/10 backdrop-blur-sm px-2 py-0.5 rounded-md tracking-wider">
+                      {num}
+                      <button
+                        onClick={(e) => copyToClipboard(num, `other-${idx}`, e)}
+                        className={`p-0.5 rounded transition-all duration-200 ${copied === `other-${idx}` ? 'text-emerald-300' : 'text-white/40 hover:text-white'}`}
+                      >
+                        {copied === `other-${idx}` ? <Check className="w-2.5 h-2.5" /> : <Copy className="w-2.5 h-2.5" />}
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* IFSC Code */}
@@ -543,6 +558,21 @@ const MobileVendorCard = ({
             <div className="flex flex-col">
               <span className="text-[8px] uppercase tracking-widest text-[#92A2A5] font-black">Account Number</span>
               <span className="text-sm font-mono font-bold text-[#546A7A] mt-0.5">{account.accountNumber}</span>
+              {account.otherAccountNumbers && account.otherAccountNumbers.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1 mt-1">
+                  {account.otherAccountNumbers.map((num, idx) => (
+                    <span key={idx} className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-[#CE9F6B] bg-[#CE9F6B]/10 px-1.5 py-0.5 rounded">
+                      {num}
+                      <button
+                        onClick={(e) => copyToClipboard(num, `other-acc-${idx}`, e)}
+                        className={`p-0.5 rounded transition-all ${copied === `other-acc-${idx}` ? 'text-[#82A094]' : 'text-[#AEBFC3] hover:text-[#CE9F6B]'}`}
+                      >
+                        {copied === `other-acc-${idx}` ? <Check className="w-2.5 h-2.5" /> : <Copy className="w-2.5 h-2.5" />}
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
             <button 
               onClick={(e) => copyToClipboard(account.accountNumber, 'acc', e)}
@@ -777,18 +807,35 @@ const VendorTable = ({
 
                     {/* Account Number */}
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono font-bold text-[#546A7A]">{account.accountNumber}</span>
-                        <button 
-                          onClick={(e) => copyToClipboard(account.accountNumber, `acc-${account.id}`, e)}
-                          className={`p-1 rounded transition-all ${
-                            copied === `acc-${account.id}` 
-                              ? 'text-[#82A094]' 
-                              : 'text-[#AEBFC3] hover:text-[#CE9F6B]'
-                          }`}
-                        >
-                          {copied === `acc-${account.id}` ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                        </button>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-bold text-[#546A7A]">{account.accountNumber}</span>
+                          <button 
+                            onClick={(e) => copyToClipboard(account.accountNumber, `acc-${account.id}`, e)}
+                            className={`p-1 rounded transition-all ${
+                              copied === `acc-${account.id}` 
+                                ? 'text-[#82A094]' 
+                                : 'text-[#AEBFC3] hover:text-[#CE9F6B]'
+                            }`}
+                          >
+                            {copied === `acc-${account.id}` ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                          </button>
+                        </div>
+                        {account.otherAccountNumbers && account.otherAccountNumbers.length > 0 && (
+                          <div className="flex flex-wrap items-center gap-1">
+                            {account.otherAccountNumbers.map((num, idx) => (
+                              <span key={idx} className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-[#CE9F6B] bg-[#CE9F6B]/10 px-1.5 py-0.5 rounded">
+                                {num}
+                                <button
+                                  onClick={(e) => copyToClipboard(num, `other-${account.id}-${idx}`, e)}
+                                  className={`p-0.5 rounded transition-all ${copied === `other-${account.id}-${idx}` ? 'text-[#82A094]' : 'text-[#AEBFC3] hover:text-[#CE9F6B]'}`}
+                                >
+                                  {copied === `other-${account.id}-${idx}` ? <Check className="w-2.5 h-2.5" /> : <Copy className="w-2.5 h-2.5" />}
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </td>
 

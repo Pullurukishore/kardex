@@ -1353,6 +1353,7 @@ model BankAccount {
   panNumber           String?
   currency            String   @default("INR")
   accountCategory     String?  @default("DOMESTIC") // 'DOMESTIC', 'INTERNATIONAL', 'EMPLOYEE'
+  otherAccountNumbers String[] @default([])
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 

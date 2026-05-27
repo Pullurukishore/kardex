@@ -7,6 +7,83 @@ import {
     getIpFromRequest
 } from './bankAccountActivityLog.controller';
 
+/**
+ * Helper to check if an account number or additional account numbers are already in use
+ * in any existing bank accounts.
+ */
+export const checkAccountNumberUnique = async (
+    accountNumber: string,
+    otherAccountNumbers: string[],
+    ignoreId?: string
+) => {
+    const mainAcc = (accountNumber || '').trim();
+    const otherAccs = (otherAccountNumbers || []).map(a => (a || '').trim()).filter(Boolean);
+
+    if (!mainAcc) {
+        return { unique: false, error: 'Account number is required' };
+    }
+
+    // 1. Check main accountNumber uniqueness
+    const duplicateMain = await prisma.bankAccount.findFirst({
+        where: {
+            OR: [
+                { accountNumber: mainAcc },
+                { otherAccountNumbers: { has: mainAcc } }
+            ],
+            id: ignoreId ? { not: ignoreId } : undefined
+        }
+    });
+
+    if (duplicateMain) {
+        if (duplicateMain.accountNumber === mainAcc) {
+            return { unique: false, error: `Account number ${mainAcc} is already in use as a primary account number` };
+        } else {
+            return { unique: false, error: `Account number ${mainAcc} is already in use as an additional account number` };
+        }
+    }
+
+    // 2. Check otherAccountNumbers uniqueness
+    if (otherAccs.length > 0) {
+        // Check if any of them is used as a primary account number elsewhere
+        const duplicateOtherInMain = await prisma.bankAccount.findFirst({
+            where: {
+                accountNumber: { in: otherAccs },
+                id: ignoreId ? { not: ignoreId } : undefined
+            }
+        });
+
+        if (duplicateOtherInMain) {
+            return { unique: false, error: `Account number ${duplicateOtherInMain.accountNumber} is already in use as a primary account number` };
+        }
+
+        // Check if any of them is used as an additional account number elsewhere
+        const duplicateOtherInOthers = await prisma.bankAccount.findFirst({
+            where: {
+                otherAccountNumbers: { hasSome: otherAccs },
+                id: ignoreId ? { not: ignoreId } : undefined
+            }
+        });
+
+        if (duplicateOtherInOthers) {
+            const duplicatedVal = otherAccs.find(num => duplicateOtherInOthers.otherAccountNumbers.includes(num));
+            return { unique: false, error: `Account number ${duplicatedVal} is already in use as an additional account number` };
+        }
+
+        // Check internal duplicates (main vs others)
+        if (otherAccs.includes(mainAcc)) {
+            return { unique: false, error: `Additional account numbers cannot contain the primary account number` };
+        }
+
+        // Check internal duplicates (within others)
+        const uniqueOthers = new Set(otherAccs);
+        if (uniqueOthers.size !== otherAccs.length) {
+            return { unique: false, error: `Duplicate account numbers found in the additional account numbers list` };
+        }
+    }
+
+    return { unique: true };
+};
+
 // ═══════════════════════════════════════════════════════════════════════════
 // BANK ACCOUNT CRUD OPERATIONS
 // Only FINANCE_ADMIN can directly create/update/delete
@@ -46,6 +123,7 @@ export const getAllBankAccounts = async (req: Request, res: Response) => {
                 beneficiaryName: true,
                 nickName: true,
                 accountNumber: true,
+                otherAccountNumbers: true,
                 ifscCode: true,
                 emailId: true,
                 currency: true,
@@ -100,7 +178,7 @@ export const getBankAccountById = async (req: Request, res: Response) => {
 // Create bank account (FINANCE_ADMIN only)
 export const createBankAccount = async (req: Request, res: Response) => {
     try {
-        const { bpCode, vendorName, beneficiaryBankName, beneficiaryName, accountNumber, ifscCode, emailId, nickName, gstNumber, panNumber, accountType, accountCategory } = req.body;
+        const { bpCode, vendorName, beneficiaryBankName, beneficiaryName, accountNumber, ifscCode, emailId, nickName, gstNumber, panNumber, accountType, accountCategory, otherAccountNumbers } = req.body;
         const userId = (req as any).user?.id || 1; // Get from auth context
 
         // Validate required fields
@@ -123,12 +201,9 @@ export const createBankAccount = async (req: Request, res: Response) => {
         }
 
         // Check for duplicate account number
-        const existing = await prisma.bankAccount.findUnique({
-            where: { accountNumber }
-        });
-
-        if (existing) {
-            return res.status(400).json({ error: 'An account with this account number already exists' });
+        const uniquenessCheck = await checkAccountNumberUnique(accountNumber, otherAccountNumbers || []);
+        if (!uniquenessCheck.unique) {
+            return res.status(400).json({ error: uniquenessCheck.error });
         }
 
         const account = await prisma.bankAccount.create({
@@ -148,6 +223,7 @@ export const createBankAccount = async (req: Request, res: Response) => {
                 currency: req.body.currency || 'INR',
                 accountType: accountType || null,
                 accountCategory: category,
+                otherAccountNumbers: otherAccountNumbers || [],
                 createdById: userId,
                 updatedById: userId
             }
@@ -195,13 +271,14 @@ export const updateBankAccount = async (req: Request, res: Response) => {
             return res.status(404).json({ error: 'Bank account not found' });
         }
 
-        // Check for duplicate account number if being updated
-        if (updateData.accountNumber && updateData.accountNumber !== existing.accountNumber) {
-            const duplicate = await prisma.bankAccount.findUnique({
-                where: { accountNumber: updateData.accountNumber }
-            });
-            if (duplicate) {
-                return res.status(400).json({ error: 'Account number already exists' });
+        // Validate uniqueness if accountNumber or otherAccountNumbers is being updated
+        const targetAccountNumber = updateData.accountNumber !== undefined ? updateData.accountNumber : existing.accountNumber;
+        const targetOtherAccountNumbers = updateData.otherAccountNumbers !== undefined ? updateData.otherAccountNumbers : existing.otherAccountNumbers;
+
+        if (updateData.accountNumber !== undefined || updateData.otherAccountNumbers !== undefined) {
+            const uniquenessCheck = await checkAccountNumberUnique(targetAccountNumber, targetOtherAccountNumbers, id);
+            if (!uniquenessCheck.unique) {
+                return res.status(400).json({ error: uniquenessCheck.error });
             }
         }
 
@@ -217,7 +294,8 @@ export const updateBankAccount = async (req: Request, res: Response) => {
         const fieldsToTrack = [
             'bpCode', 'vendorName', 'beneficiaryBankName', 'beneficiaryName', 'accountNumber',
             'ifscCode', 'emailId', 'nickName', 'gstNumber', 'panNumber',
-            'isMSME', 'udyamRegNum', 'currency', 'accountType', 'accountCategory', 'isActive'
+            'isMSME', 'udyamRegNum', 'currency', 'accountType', 'accountCategory', 'isActive',
+            'otherAccountNumbers'
         ];
         await logBankAccountFieldChanges(id, existing, account, req, fieldsToTrack);
 
