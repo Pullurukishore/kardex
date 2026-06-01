@@ -48,7 +48,7 @@ function validateRow(row: BankAccountImportRow, index: number) {
     // Fallbacks for DB mandatory fields to allow importing partial data
     const finalVendorName = vendorName || (bpCode ? `Vendor ${bpCode}` : 'Unknown Vendor');
     const finalBankName = bankName || 'PENDING';
-    const finalIfscCode = ifscCode || 'PENDING';
+    const finalIfscCode = ifscCode ? ifscCode.toUpperCase() : 'PENDING';
 
     // For Account Number, if missing, we generate a deterministic temporary ID 
     // so the record can be identified during re-imports and updated later.

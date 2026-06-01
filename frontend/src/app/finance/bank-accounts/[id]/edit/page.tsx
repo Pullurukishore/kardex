@@ -211,11 +211,15 @@ export default function EditBankAccountPage() {
     }
 
     if (name === 'ifscCode') {
-      if (value !== '' && !isAlphanumeric(value)) {
+      const upper = value.toUpperCase();
+      if (upper !== '' && !isAlphanumeric(upper)) {
         setFieldErrors(prev => ({ ...prev, ifscCode: 'IFSC/SWIFT Code must be alphanumeric' }));
         return;
       }
       setFieldErrors(prev => ({ ...prev, ifscCode: '' }));
+      setFormData(prev => ({ ...prev, ifscCode: upper }));
+      setError('');
+      return;
     }
 
     if (name === 'gstNumber') {
@@ -449,6 +453,12 @@ export default function EditBankAccountPage() {
 
       if (formData.otherCurrency && !isLettersOnlyStrict(formData.otherCurrency)) {
         setError('Currency code must contain letters only');
+        setSaving(false);
+        return;
+      }
+      
+      if (formData.currency === 'INR' && !isValidIFSC(formData.ifscCode)) {
+        setError('Invalid IFSC Code format. Must be 11 characters (e.g. SBIN0001234)');
         setSaving(false);
         return;
       }
