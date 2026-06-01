@@ -22,8 +22,8 @@ const FilePreview = dynamic(() => import('@/components/FilePreview'), {
 interface FieldChange {
   field: string;
   label: string;
-  oldValue: string | null;
-  newValue: string | null;
+  oldValue: any;
+  newValue: any;
   icon: React.ReactNode;
 }
 
@@ -234,14 +234,9 @@ export default function RequestDetailPage() {
       },
       {
         field: 'otherAccountNumbers',
-        label: 'Additional Account Numbers',
-        oldValue: originalAccount?.otherAccountNumbers && originalAccount.otherAccountNumbers.length > 0
-          ? originalAccount.otherAccountNumbers.join(', ')
-          : null,
-        newValue: (() => {
-          const val = getNewValue('otherAccountNumbers', request.requestedData.otherAccountNumbers, originalAccount?.otherAccountNumbers || null);
-          return Array.isArray(val) && val.length > 0 ? val.join(', ') : (val ? String(val) : null);
-        })(),
+        label: 'Another Bank Account Details',
+        oldValue: originalAccount?.otherAccountNumbers || null,
+        newValue: getNewValue('otherAccountNumbers', request.requestedData.otherAccountNumbers, originalAccount?.otherAccountNumbers || null),
         icon: <Building2 className="w-4 h-4" />
       },
       {
@@ -397,10 +392,53 @@ export default function RequestDetailPage() {
           <div className="space-y-3">
             {fieldChanges.map((change) => {
               const isStatusRequest = request.requestType === 'ACTIVATE' || request.requestType === 'DEACTIVATE';
-              const hasChange = (request.requestType === 'UPDATE' && change.oldValue !== change.newValue) || (isStatusRequest && change.field === 'isActive');
-              const showField = request.requestType === 'CREATE' ? change.newValue : true;
+              const hasChange = (request.requestType === 'UPDATE' && (
+                change.field === 'otherAccountNumbers'
+                  ? JSON.stringify(change.oldValue || []) !== JSON.stringify(change.newValue || [])
+                  : change.oldValue !== change.newValue
+              )) || (isStatusRequest && change.field === 'isActive');
+              
+              const showField = request.requestType === 'CREATE'
+                ? (change.field === 'otherAccountNumbers'
+                    ? (Array.isArray(change.newValue) && change.newValue.length > 0)
+                    : !!change.newValue)
+                : true;
               
               if (!showField) return null;
+
+              const renderDetailedAccounts = (value: any) => {
+                let accounts: string[] = [];
+                if (Array.isArray(value)) {
+                  accounts = value;
+                } else if (typeof value === 'string') {
+                  accounts = value.split(',').map(s => s.trim()).filter(Boolean);
+                }
+
+                if (accounts.length === 0) {
+                  return <span className="text-[#AEBFC3] italic">No secondary accounts</span>;
+                }
+
+                return (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2 w-full">
+                    {accounts.map((item, idx) => {
+                      const [accNum, ifsc, bankName] = item.includes('|')
+                        ? item.split('|')
+                        : [item, '—', '—'];
+                      return (
+                        <div key={idx} className="p-3 rounded-xl bg-white border border-[#AEBFC3]/25 shadow-sm text-xs space-y-1 w-full flex flex-col justify-center">
+                          <span className="font-bold text-[#CE9F6B] uppercase tracking-tight truncate" title={bankName}>{bankName}</span>
+                          <div className="text-[#546A7A] font-mono text-[11px] font-medium">
+                            A/C: <span className="font-bold">{accNum}</span>
+                          </div>
+                          <div className="text-[#92A2A5] font-mono text-[10px]">
+                            IFSC: <span className="font-bold">{ifsc}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              };
               
               return (
                 <div 
@@ -422,26 +460,38 @@ export default function RequestDetailPage() {
                   </div>
                   
                   {request.requestType === 'UPDATE' ? (
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                       <div className="flex-1 p-3 rounded-lg bg-white border border-[#AEBFC3]/20">
                         <div className="text-xs text-[#92A2A5] mb-1">Current</div>
                         <div className={`font-medium ${change.field === 'accountNumber' || change.field === 'ifscCode' ? 'font-mono' : ''} ${!change.oldValue ? 'text-[#AEBFC3] italic' : 'text-[#5D6E73]'}`}>
-                          {change.oldValue || 'Not set'}
+                          {change.field === 'otherAccountNumbers' ? (
+                            renderDetailedAccounts(change.oldValue)
+                          ) : (
+                            change.oldValue || 'Not set'
+                          )}
                         </div>
                       </div>
                       
-                      <ArrowRight className={`w-5 h-5 flex-shrink-0 ${hasChange ? 'text-[#CE9F6B]' : 'text-[#AEBFC3]'}`} />
+                      <ArrowRight className={`w-5 h-5 flex-shrink-0 self-center rotate-90 sm:rotate-0 ${hasChange ? 'text-[#CE9F6B]' : 'text-[#AEBFC3]'}`} />
                       
                       <div className={`flex-1 p-3 rounded-lg border ${hasChange ? 'bg-[#CE9F6B]/10 border-[#CE9F6B]/30' : 'bg-white border-[#AEBFC3]/20'}`}>
                         <div className="text-xs text-[#92A2A5] mb-1">Requested</div>
                         <div className={`font-medium ${change.field === 'accountNumber' || change.field === 'ifscCode' ? 'font-mono' : ''} ${!change.newValue ? 'text-[#AEBFC3] italic' : 'text-[#546A7A]'}`}>
-                          {change.newValue || 'Not set'}
+                          {change.field === 'otherAccountNumbers' ? (
+                            renderDetailedAccounts(change.newValue)
+                          ) : (
+                            change.newValue || 'Not set'
+                          )}
                         </div>
                       </div>
                     </div>
                   ) : (
                     <div className={`font-medium ${change.field === 'accountNumber' || change.field === 'ifscCode' ? 'font-mono' : ''} text-[#546A7A]`}>
-                      {change.newValue || <span className="text-[#AEBFC3] italic">Not provided</span>}
+                      {change.field === 'otherAccountNumbers' ? (
+                        renderDetailedAccounts(change.newValue)
+                      ) : (
+                        change.newValue || <span className="text-[#AEBFC3] italic">Not provided</span>
+                      )}
                     </div>
                   )}
                 </div>

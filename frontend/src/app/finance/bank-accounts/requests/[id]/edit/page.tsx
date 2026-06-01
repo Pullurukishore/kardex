@@ -40,6 +40,9 @@ export default function EditRequestPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [newOtherAccountNum, setNewOtherAccountNum] = useState('');
+  const [newOtherConfirmAccountNum, setNewOtherConfirmAccountNum] = useState('');
+  const [newOtherAccountIFSC, setNewOtherAccountIFSC] = useState('');
+  const [newOtherAccountBank, setNewOtherAccountBank] = useState('');
   const [otherAccError, setOtherAccError] = useState('');
   
   const [formData, setFormData] = useState<FormData>({
@@ -124,27 +127,50 @@ export default function EditRequestPage() {
   };
 
   const isNumericOnly = (val: string) => /^[0-9]*$/.test(val);
+  const isLettersOnly = (val: string) => /^[a-zA-Z\s]*$/.test(val);
 
   const handleAddOtherAccountNumber = () => {
     const num = newOtherAccountNum.trim();
-    if (!num) return;
+    const confirmNum = newOtherConfirmAccountNum.trim();
+    const ifsc = newOtherAccountIFSC.trim().toUpperCase();
+    const bank = newOtherAccountBank.trim();
+
+    if (!num || !confirmNum || !ifsc || !bank) {
+      setOtherAccError('Please fill in Account Number, Confirm Account Number, IFSC, and Bank Name');
+      return;
+    }
+    if (num !== confirmNum) {
+      setOtherAccError('Account numbers do not match');
+      return;
+    }
     if (!isNumericOnly(num)) {
-      setOtherAccError('Additional account number must contain numbers only');
+      setOtherAccError('Account number must contain numbers only');
       return;
     }
     if (num === formData.accountNumber) {
       setOtherAccError('Cannot be the same as the primary account number');
       return;
     }
-    if (formData.otherAccountNumbers.includes(num)) {
+
+    // Check if the account number already exists in the otherAccountNumbers list
+    const isDuplicate = (formData.otherAccountNumbers || []).some(item => {
+      const existingNum = item.includes('|') ? item.split('|')[0] : item;
+      return existingNum === num;
+    });
+    if (isDuplicate) {
       setOtherAccError('This account number has already been added');
       return;
     }
+
+    const encoded = `${num}|${ifsc}|${bank}`;
     setFormData(prev => ({
       ...prev,
-      otherAccountNumbers: [...(prev.otherAccountNumbers || []), num]
+      otherAccountNumbers: [...(prev.otherAccountNumbers || []), encoded]
     }));
     setNewOtherAccountNum('');
+    setNewOtherConfirmAccountNum('');
+    setNewOtherAccountIFSC('');
+    setNewOtherAccountBank('');
     setOtherAccError('');
   };
 
@@ -548,18 +574,19 @@ export default function EditRequestPage() {
                   />
                 </div>
 
-                {/* Additional Account Numbers */}
+                {/* Another Bank Account Details */}
                 <div className="md:col-span-2 space-y-4 pt-4 border-t border-[#AEBFC3]/20">
                   <label className="flex items-center gap-2 text-sm font-semibold text-[#5D6E73]">
                     <Building2 className="w-4 h-4 text-[#CE9F6B]" />
-                    Additional Account Numbers
+                    Another Bank Account Details
                     <span className="ml-auto text-[10px] font-medium normal-case tracking-normal text-[#92A2A5]">
                       Optional secondary accounts
                     </span>
                   </label>
 
-                  <div className="flex gap-3">
-                    <div className="relative flex-1">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-[#5D6E73]">Account Number</label>
                       <input
                         type="text"
                         value={newOtherAccountNum}
@@ -570,20 +597,88 @@ export default function EditRequestPage() {
                             setOtherAccError('');
                           }
                         }}
-                        placeholder="Enter additional account number"
+                        placeholder="e.g. 1234567890"
                         maxLength={18}
-                        className={`w-full px-4 py-3 rounded-xl font-mono font-bold text-sm tracking-wider transition-all focus:outline-none border-2 text-[#546A7A] bg-white ${
-                          otherAccError ? 'border-[#E17F70]' : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B]/50'
-                        }`}
+                        className={`w-full px-4 py-2.5 rounded-xl font-mono font-bold text-sm tracking-wider transition-all focus:outline-none border-2 text-[#546A7A] bg-white ${otherAccError ? 'border-[#E17F70]' : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B]/50'
+                          }`}
                       />
                     </div>
-                    <button
-                      type="button"
-                      onClick={handleAddOtherAccountNumber}
-                      className="px-6 h-12 rounded-xl font-bold bg-[#CE9F6B] text-white hover:bg-[#976E44] shadow-md shadow-[#CE9F6B]/20"
-                    >
-                      Add
-                    </button>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-[#5D6E73]">Confirm Account Number</label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={newOtherConfirmAccountNum}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === '' || isNumericOnly(val)) {
+                              setNewOtherConfirmAccountNum(val);
+                              setOtherAccError('');
+                            }
+                          }}
+                          placeholder="Re-type account number"
+                          maxLength={18}
+                          className={`w-full pl-4 pr-10 py-2.5 rounded-xl font-mono font-bold text-sm tracking-wider transition-all focus:outline-none border-2 text-[#546A7A] bg-white ${
+                            newOtherConfirmAccountNum && newOtherAccountNum !== newOtherConfirmAccountNum
+                              ? 'border-[#E17F70]'
+                              : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B]/50'
+                          }`}
+                        />
+                        {newOtherConfirmAccountNum && newOtherAccountNum === newOtherConfirmAccountNum && (
+                          <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                            <CheckCircle2 className="w-4 h-4" style={{ color: '#82A094' }} />
+                          </div>
+                        )}
+                        {newOtherConfirmAccountNum && newOtherAccountNum !== newOtherConfirmAccountNum && (
+                          <div className="absolute right-3 top-1/2 -translate-y-1/2 animate-bounce">
+                            <AlertCircle className="w-4 h-4" style={{ color: '#E17F70' }} />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-[#5D6E73]">IFSC / SWIFT Code</label>
+                      <input
+                        type="text"
+                        value={newOtherAccountIFSC}
+                        onChange={(e) => {
+                          const val = e.target.value.toUpperCase();
+                          setNewOtherAccountIFSC(val);
+                          setOtherAccError('');
+                        }}
+                        placeholder="e.g. SBIN0001234"
+                        maxLength={11}
+                        className={`w-full px-4 py-2.5 rounded-xl font-mono font-bold text-sm tracking-widest transition-all focus:outline-none border-2 text-[#546A7A] bg-white ${otherAccError ? 'border-[#E17F70]' : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B]/50'
+                          }`}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-[#5D6E73]">Beneficiary Bank Name</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={newOtherAccountBank}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === '' || isLettersOnly(val)) {
+                              setNewOtherAccountBank(val);
+                              setOtherAccError('');
+                            }
+                          }}
+                          placeholder="e.g. State Bank of India"
+                          maxLength={50}
+                          className={`flex-1 px-4 py-2.5 rounded-xl font-bold text-sm transition-all focus:outline-none border-2 text-[#546A7A] bg-white ${otherAccError ? 'border-[#E17F70]' : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B]/50'
+                            }`}
+                        />
+                        <button
+                          type="button"
+                          onClick={handleAddOtherAccountNumber}
+                          className="px-4 py-2.5 rounded-xl font-bold bg-[#CE9F6B] text-white hover:bg-[#976E44] shadow-md shadow-[#CE9F6B]/20 transition-all text-xs"
+                        >
+                          Add
+                        </button>
+                      </div>
+                    </div>
                   </div>
 
                   {otherAccError && (
@@ -594,23 +689,32 @@ export default function EditRequestPage() {
                   )}
 
                   {formData.otherAccountNumbers && formData.otherAccountNumbers.length > 0 && (
-                    <div className="flex flex-wrap gap-2 pt-2">
-                      {formData.otherAccountNumbers.map((num, idx) => (
-                        <div
-                          key={idx}
-                          className="flex items-center gap-2 px-3 py-1.5 rounded-xl font-mono font-bold text-xs bg-white border border-[#AEBFC3]/30 text-[#CE9F6B]"
-                        >
-                          <span>{num}</span>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveOtherAccountNumber(idx)}
-                            className="p-1 rounded-lg hover:bg-[#E17F70]/20 hover:text-[#E17F70] transition-colors"
-                            title="Remove account number"
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-3">
+                      {formData.otherAccountNumbers.map((item, idx) => {
+                        const [accNum, ifsc, bankName] = item.includes('|')
+                          ? item.split('|')
+                          : [item, '—', '—'];
+                        return (
+                          <div
+                            key={idx}
+                            className="flex items-center justify-between p-3.5 rounded-2xl bg-[#F8FAFB] border border-[#AEBFC3]/30 hover:border-[#CE9F6B]/40 hover:bg-white transition-all text-[#546A7A] text-xs"
                           >
-                            <X className="w-3 h-3" />
-                          </button>
-                        </div>
-                      ))}
+                            <div className="space-y-1">
+                              <p className="font-black text-[#976E44] uppercase tracking-tight">{bankName}</p>
+                              <p className="font-mono text-[#546A7A]/80">A/C: <span className="font-bold">{accNum}</span></p>
+                              <p className="font-mono text-[#92A2A5] text-[10px]">IFSC: <span className="font-bold">{ifsc}</span></p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveOtherAccountNumber(idx)}
+                              className="p-2 rounded-xl bg-white border border-[#AEBFC3]/20 hover:bg-[#E17F70]/20 hover:text-[#E17F70] transition-colors"
+                              title="Remove additional account"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>

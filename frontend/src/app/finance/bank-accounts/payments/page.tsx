@@ -269,6 +269,16 @@ export default function PaymentsPage() {
     };
 
     const updatePayment = (tempId: string, updates: Partial<PendingPayment>) => {
+        // If accountNumber is being updated and it's a pipe-separated secondary account, extract fields
+        if (updates.accountNumber && updates.accountNumber.includes('|')) {
+            const [accNum, ifsc, bankName] = updates.accountNumber.split('|');
+            updates = {
+                ...updates,
+                accountNumber: updates.accountNumber, // Keep the full encoded value for the Select component
+                ifscCode: ifsc || updates.ifscCode,
+                bankName: bankName || updates.bankName,
+            };
+        }
         setPendingPayments(prev => prev.map(p =>
             p.tempId === tempId ? { ...p, ...updates } : p
         ));
@@ -295,21 +305,27 @@ export default function PaymentsPage() {
         }
         setSubmittingBatch(true);
         try {
-            const items = pendingPayments.map(p => ({
-                bankAccountId: p.bankAccount.id,
-                vendorName: p.vendorName!,
-                accountNumber: p.accountNumber!,
-                ifscCode: p.ifscCode!,
-                bankName: p.bankName!,
-                bpCode: p.bpCode || undefined,
-                emailId: exportFormat === 'HDFC'
-                    ? (Array.from(new Set([p.emailId?.trim(), ...benEmailIds].filter(Boolean))).join(';').substring(0, 100) || undefined)
-                    : (p.emailId || undefined),
-                accountType: p.accountType || undefined,
-                amount: p.amount!,
-                transactionMode: p.transactionMode!,
-                valueDate: p.valueDate ? p.valueDate.toISOString() : new Date().toISOString(),
-            }));
+            const items = pendingPayments.map(p => {
+                const rawAcc = p.accountNumber || '';
+                const cleanAcc = rawAcc.includes('|') ? rawAcc.split('|')[0] : rawAcc;
+                const cleanIfsc = rawAcc.includes('|') ? rawAcc.split('|')[1] : p.ifscCode;
+                const cleanBank = rawAcc.includes('|') ? rawAcc.split('|')[2] : p.bankName;
+                return {
+                    bankAccountId: p.bankAccount.id,
+                    vendorName: p.vendorName!,
+                    accountNumber: cleanAcc,
+                    ifscCode: cleanIfsc!,
+                    bankName: cleanBank!,
+                    bpCode: p.bpCode || undefined,
+                    emailId: exportFormat === 'HDFC'
+                        ? (Array.from(new Set([p.emailId?.trim(), ...benEmailIds].filter(Boolean))).join(';').substring(0, 100) || undefined)
+                        : (p.emailId || undefined),
+                    accountType: p.accountType || undefined,
+                    amount: p.amount!,
+                    transactionMode: p.transactionMode!,
+                    valueDate: p.valueDate ? p.valueDate.toISOString() : new Date().toISOString(),
+                };
+            });
 
             const currency = currencyFilter !== 'ALL' ? currencyFilter : 'INR';
             const result = await submitPaymentBatch({ items, currency, exportFormat });
@@ -339,21 +355,27 @@ export default function PaymentsPage() {
     const buildPaymentRows = useCallback((): PaymentRow[] => {
         return pendingPayments
             .filter(p => p.amount && p.amount > 0)
-            .map(p => ({
-                vendorName: p.vendorName!,
-                bpCode: p.bpCode || '',
-                nickName: (p.bankAccount as any).nickName || '',
-                accountNumber: p.accountNumber!,
-                ifscCode: p.ifscCode!,
-                bankName: p.bankName!,
-                amount: p.amount!,
-                emailId: exportFormat === 'HDFC'
-                    ? Array.from(new Set([p.emailId?.trim(), ...benEmailIds].filter(Boolean))).join(';').substring(0, 100)
-                    : (p.emailId || ''),
-                valueDate: p.valueDate || new Date(),
-                transactionMode: (p.transactionMode as 'NFT' | 'RTI' | 'FT') || 'NFT',
-                accountType: p.accountType || ''
-            }));
+            .map(p => {
+                const rawAcc = p.accountNumber || '';
+                const cleanAcc = rawAcc.includes('|') ? rawAcc.split('|')[0] : rawAcc;
+                const cleanIfsc = rawAcc.includes('|') ? rawAcc.split('|')[1] : p.ifscCode;
+                const cleanBank = rawAcc.includes('|') ? rawAcc.split('|')[2] : p.bankName;
+                return {
+                    vendorName: p.vendorName!,
+                    bpCode: p.bpCode || '',
+                    nickName: (p.bankAccount as any).nickName || '',
+                    accountNumber: cleanAcc,
+                    ifscCode: cleanIfsc!,
+                    bankName: cleanBank!,
+                    amount: p.amount!,
+                    emailId: exportFormat === 'HDFC'
+                        ? Array.from(new Set([p.emailId?.trim(), ...benEmailIds].filter(Boolean))).join(';').substring(0, 100)
+                        : (p.emailId || ''),
+                    valueDate: p.valueDate || new Date(),
+                    transactionMode: (p.transactionMode as 'NFT' | 'RTI' | 'FT') || 'NFT',
+                    accountType: p.accountType || ''
+                };
+            });
     }, [pendingPayments, exportFormat, benEmailIds]);
 
     const handleLocalDownload = async (format: 'HDFC' | 'DB', subFormat: 'EXCEL' | 'CSV' | 'TXT') => {
@@ -1081,11 +1103,14 @@ export default function PaymentsPage() {
                                                                         <SelectItem value={p.bankAccount.accountNumber} className="text-xs font-bold font-mono">
                                                                             Primary: {p.bankAccount.accountNumber}
                                                                         </SelectItem>
-                                                                        {p.bankAccount.otherAccountNumbers.map((num, nIdx) => (
-                                                                            <SelectItem key={nIdx} value={num} className="text-xs font-bold font-mono">
-                                                                                Sec: {num}
-                                                                            </SelectItem>
-                                                                        ))}
+                                                                        {p.bankAccount.otherAccountNumbers.map((num, nIdx) => {
+                                                                            const [accNum, , bankName] = num.includes('|') ? num.split('|') : [num, '', ''];
+                                                                            return (
+                                                                                <SelectItem key={nIdx} value={num} className="text-xs font-bold font-mono">
+                                                                                    Sec: {accNum}{bankName ? ` (${bankName})` : ''}
+                                                                                </SelectItem>
+                                                                            );
+                                                                        })}
                                                                     </SelectContent>
                                                                 </Select>
                                                             ) : (
@@ -1331,11 +1356,14 @@ export default function PaymentsPage() {
                                                         <SelectItem value={p.bankAccount.accountNumber} className="text-xs font-bold font-mono">
                                                             Primary: {p.bankAccount.accountNumber}
                                                         </SelectItem>
-                                                        {p.bankAccount.otherAccountNumbers.map((num, nIdx) => (
-                                                            <SelectItem key={nIdx} value={num} className="text-xs font-bold font-mono">
-                                                                Sec: {num}
-                                                            </SelectItem>
-                                                        ))}
+                                                        {p.bankAccount.otherAccountNumbers.map((num, nIdx) => {
+                                                            const [accNum, , bankName] = num.includes('|') ? num.split('|') : [num, '', ''];
+                                                            return (
+                                                                <SelectItem key={nIdx} value={num} className="text-xs font-bold font-mono">
+                                                                    Sec: {accNum}{bankName ? ` (${bankName})` : ''}
+                                                                </SelectItem>
+                                                            );
+                                                        })}
                                                     </SelectContent>
                                                 </Select>
                                             ) : (

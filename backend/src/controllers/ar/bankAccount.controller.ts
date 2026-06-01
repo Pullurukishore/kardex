@@ -17,67 +17,78 @@ export const checkAccountNumberUnique = async (
     ignoreId?: string
 ) => {
     const mainAcc = (accountNumber || '').trim();
-    const otherAccs = (otherAccountNumbers || []).map(a => (a || '').trim()).filter(Boolean);
-
     if (!mainAcc) {
         return { unique: false, error: 'Account number is required' };
     }
 
-    // 1. Check main accountNumber uniqueness
-    const duplicateMain = await prisma.bankAccount.findFirst({
+    const otherAccs = (otherAccountNumbers || [])
+        .map(a => (a || '').trim())
+        .filter(Boolean)
+        .map(a => a.includes('|') ? a.split('|')[0].trim() : a);
+
+    // Check internal duplicate (main vs others)
+    if (otherAccs.includes(mainAcc)) {
+        return { unique: false, error: `Additional account numbers cannot contain the primary account number` };
+    }
+
+    // Check internal duplicates (within others)
+    const uniqueOthers = new Set(otherAccs);
+    if (uniqueOthers.size !== otherAccs.length) {
+        return { unique: false, error: `Duplicate account numbers found in the additional account numbers list` };
+    }
+
+    // Determine all account IDs to exclude (primary + all secondary accounts of this vendor)
+    let excludeIds: string[] = [];
+    if (ignoreId) {
+        excludeIds.push(ignoreId);
+        const existing = await prisma.bankAccount.findUnique({
+            where: { id: ignoreId },
+            select: { id: true, parentAccountId: true }
+        });
+        if (existing) {
+            const parentId = existing.parentAccountId || existing.id;
+            excludeIds.push(parentId);
+            const secondaries = await prisma.bankAccount.findMany({
+                where: { parentAccountId: parentId },
+                select: { id: true }
+            });
+            excludeIds.push(...secondaries.map((s: { id: string }) => s.id));
+        }
+    }
+    const uniqueExcludeIds = Array.from(new Set(excludeIds));
+
+    // Fetch all accounts to check uniqueness (handles pipe-separated encoded account numbers)
+    const accounts = await prisma.bankAccount.findMany({
         where: {
-            OR: [
-                { accountNumber: mainAcc },
-                { otherAccountNumbers: { has: mainAcc } }
-            ],
-            id: ignoreId ? { not: ignoreId } : undefined
+            id: uniqueExcludeIds.length > 0 ? { notIn: uniqueExcludeIds } : undefined
+        },
+        select: {
+            id: true,
+            accountNumber: true,
+            otherAccountNumbers: true
         }
     });
 
-    if (duplicateMain) {
-        if (duplicateMain.accountNumber === mainAcc) {
+    for (const acc of accounts) {
+        const accMain = acc.accountNumber.trim();
+        const accOthers = acc.otherAccountNumbers.map((a: string) => a.includes('|') ? a.split('|')[0].trim() : a.trim());
+
+        // 1. Check if our main account number is used as primary or secondary elsewhere
+        if (accMain === mainAcc) {
             return { unique: false, error: `Account number ${mainAcc} is already in use as a primary account number` };
-        } else {
+        }
+        if (accOthers.includes(mainAcc)) {
             return { unique: false, error: `Account number ${mainAcc} is already in use as an additional account number` };
         }
-    }
 
-    // 2. Check otherAccountNumbers uniqueness
-    if (otherAccs.length > 0) {
-        // Check if any of them is used as a primary account number elsewhere
-        const duplicateOtherInMain = await prisma.bankAccount.findFirst({
-            where: {
-                accountNumber: { in: otherAccs },
-                id: ignoreId ? { not: ignoreId } : undefined
+        // 2. Check if any of our secondary account numbers are used as primary or secondary elsewhere
+        for (const otherAcc of otherAccs) {
+            if (accMain === otherAcc) {
+                return { unique: false, error: `Account number ${otherAcc} is already in use as a primary account number` };
             }
-        });
-
-        if (duplicateOtherInMain) {
-            return { unique: false, error: `Account number ${duplicateOtherInMain.accountNumber} is already in use as a primary account number` };
-        }
-
-        // Check if any of them is used as an additional account number elsewhere
-        const duplicateOtherInOthers = await prisma.bankAccount.findFirst({
-            where: {
-                otherAccountNumbers: { hasSome: otherAccs },
-                id: ignoreId ? { not: ignoreId } : undefined
+            if (accOthers.includes(otherAcc)) {
+                return { unique: false, error: `Account number ${otherAcc} is already in use as an additional account number` };
             }
-        });
-
-        if (duplicateOtherInOthers) {
-            const duplicatedVal = otherAccs.find(num => duplicateOtherInOthers.otherAccountNumbers.includes(num));
-            return { unique: false, error: `Account number ${duplicatedVal} is already in use as an additional account number` };
-        }
-
-        // Check internal duplicates (main vs others)
-        if (otherAccs.includes(mainAcc)) {
-            return { unique: false, error: `Additional account numbers cannot contain the primary account number` };
-        }
-
-        // Check internal duplicates (within others)
-        const uniqueOthers = new Set(otherAccs);
-        if (uniqueOthers.size !== otherAccs.length) {
-            return { unique: false, error: `Duplicate account numbers found in the additional account numbers list` };
         }
     }
 
@@ -93,12 +104,18 @@ export const checkAccountNumberUnique = async (
 // Get all bank accounts
 export const getAllBankAccounts = async (req: Request, res: Response) => {
     try {
-        const { search, activeOnly } = req.query;
+        const { search, activeOnly, isPrimary } = req.query;
 
         const where: any = {};
 
         if (activeOnly === 'true') {
             where.isActive = true;
+        }
+
+        if (isPrimary !== undefined) {
+            where.isPrimary = isPrimary === 'true';
+        } else {
+            where.isPrimary = true; // Default to only showing primary bank accounts in main lists
         }
 
         if (search) {
@@ -132,11 +149,16 @@ export const getAllBankAccounts = async (req: Request, res: Response) => {
                 isMSME: true,
                 panNumber: true,
                 gstNumber: true,
+                isPrimary: true,
+                parentAccountId: true,
                 attachments: {
                     select: { id: true }
                 },
                 _count: {
-                    select: { changeRequests: true }
+                    select: {
+                        changeRequests: true,
+                        secondaryAccounts: true
+                    }
                 }
             }
         });
@@ -160,6 +182,10 @@ export const getBankAccountById = async (req: Request, res: Response) => {
                 changeRequests: {
                     orderBy: { requestedAt: 'desc' },
                     take: 10
+                },
+                secondaryAccounts: {
+                    where: { isActive: true },
+                    include: { attachments: true }
                 }
             }
         });
@@ -178,24 +204,67 @@ export const getBankAccountById = async (req: Request, res: Response) => {
 // Create bank account (FINANCE_ADMIN only)
 export const createBankAccount = async (req: Request, res: Response) => {
     try {
-        const { bpCode, vendorName, beneficiaryBankName, beneficiaryName, accountNumber, ifscCode, emailId, nickName, gstNumber, panNumber, accountType, accountCategory, otherAccountNumbers } = req.body;
+        const {
+            bpCode,
+            vendorName,
+            beneficiaryBankName,
+            beneficiaryName,
+            accountNumber,
+            ifscCode,
+            emailId,
+            nickName,
+            gstNumber,
+            panNumber,
+            accountType,
+            accountCategory,
+            otherAccountNumbers,
+            parentAccountId
+        } = req.body;
         const userId = (req as any).user?.id || 1; // Get from auth context
 
+        let isPrimary = req.body.isPrimary !== undefined ? req.body.isPrimary : true;
+        let finalBpCode = bpCode || null;
+        let finalVendorName = vendorName;
+        let finalGstNumber = gstNumber || null;
+        let finalPanNumber = panNumber || null;
+        let finalIsMSME = req.body.isMSME || false;
+        let finalUdyamRegNum = req.body.isMSME ? req.body.udyamRegNum : null;
+
+        // If parentAccountId is provided, this is a secondary account
+        if (parentAccountId) {
+            isPrimary = false;
+            // Fetch parent account to verify it exists and inherit vendor details
+            const parent = await prisma.bankAccount.findUnique({ where: { id: parentAccountId } });
+            if (!parent) {
+                return res.status(404).json({ error: 'Primary bank account not found' });
+            }
+            if (!parent.isPrimary) {
+                return res.status(400).json({ error: 'Parent bank account must be a primary bank account' });
+            }
+            // Inherit fields from parent if not explicitly provided
+            finalBpCode = bpCode || parent.bpCode;
+            finalVendorName = vendorName || parent.vendorName;
+            finalGstNumber = gstNumber || parent.gstNumber;
+            finalPanNumber = panNumber || parent.panNumber;
+            finalIsMSME = req.body.isMSME !== undefined ? req.body.isMSME : parent.isMSME;
+            finalUdyamRegNum = req.body.isMSME ? req.body.udyamRegNum : (parent.isMSME ? parent.udyamRegNum : null);
+        }
+
         // Validate required fields
-        if (!vendorName || !beneficiaryBankName || !accountNumber || !ifscCode || !accountType) {
+        if (!finalVendorName || !beneficiaryBankName || !accountNumber || !ifscCode || !accountType) {
             return res.status(400).json({
                 error: 'Vendor Name, Beneficiary Bank Name, Account Number, IFSC Code, and Account Type are required'
             });
         }
 
-        // Smart Mandatory Validation for GST/PAN (only for non-International with INR)
+        // Smart Mandatory Validation for GST/PAN (only for primary, non-International with INR)
         const currency = req.body.currency || 'INR';
         const category = accountCategory || 'DOMESTIC';
-        if (currency === 'INR' && category !== 'INTERNATIONAL') {
-            if (req.body.isGstRegistered !== false && !gstNumber) {
+        if (isPrimary && currency === 'INR' && category !== 'INTERNATIONAL') {
+            if (req.body.isGstRegistered !== false && !finalGstNumber) {
                 return res.status(400).json({ error: 'GST Number is required for INR transactions' });
             }
-            if (!panNumber) {
+            if (!finalPanNumber) {
                 return res.status(400).json({ error: 'PAN Number is required for INR transactions' });
             }
         }
@@ -208,22 +277,24 @@ export const createBankAccount = async (req: Request, res: Response) => {
 
         const account = await prisma.bankAccount.create({
             data: {
-                bpCode: bpCode || null,
-                vendorName,
+                bpCode: finalBpCode,
+                vendorName: finalVendorName,
                 beneficiaryBankName,
-                beneficiaryName: beneficiaryName || vendorName, // Default to vendorName if not provided
+                beneficiaryName: beneficiaryName || finalVendorName, // Default to vendorName if not provided
                 accountNumber,
                 ifscCode,
                 emailId: emailId || null,
                 nickName: nickName || null,
-                gstNumber: gstNumber || null,
-                panNumber: panNumber || null,
-                isMSME: req.body.isMSME || false,
-                udyamRegNum: req.body.isMSME ? req.body.udyamRegNum : null,
+                gstNumber: finalGstNumber,
+                panNumber: finalPanNumber,
+                isMSME: finalIsMSME,
+                udyamRegNum: finalUdyamRegNum,
                 currency: req.body.currency || 'INR',
                 accountType: accountType || null,
                 accountCategory: category,
                 otherAccountNumbers: otherAccountNumbers || [],
+                isPrimary,
+                parentAccountId: parentAccountId || null,
                 createdById: userId,
                 updatedById: userId
             }
@@ -234,7 +305,7 @@ export const createBankAccount = async (req: Request, res: Response) => {
         await logBankAccountActivity({
             bankAccountId: account.id,
             action: 'BANK_ACCOUNT_CREATED',
-            description: `Bank account created for vendor: ${vendorName}`,
+            description: `Bank account created for vendor: ${finalVendorName} (${isPrimary ? 'Primary' : 'Secondary'})`,
             performedById: user.id,
             performedBy: user.name,
             ipAddress: getIpFromRequest(req),
@@ -271,6 +342,18 @@ export const updateBankAccount = async (req: Request, res: Response) => {
             return res.status(404).json({ error: 'Bank account not found' });
         }
 
+        // Prevent isPrimary change if it has secondaries
+        if (updateData.isPrimary === false && existing.isPrimary === true) {
+            const secondariesCount = await prisma.bankAccount.count({
+                where: { parentAccountId: id }
+            });
+            if (secondariesCount > 0) {
+                return res.status(400).json({
+                    error: 'Cannot convert a primary bank account with secondary accounts into a secondary account.'
+                });
+            }
+        }
+
         // Validate uniqueness if accountNumber or otherAccountNumbers is being updated
         const targetAccountNumber = updateData.accountNumber !== undefined ? updateData.accountNumber : existing.accountNumber;
         const targetOtherAccountNumbers = updateData.otherAccountNumbers !== undefined ? updateData.otherAccountNumbers : existing.otherAccountNumbers;
@@ -295,7 +378,7 @@ export const updateBankAccount = async (req: Request, res: Response) => {
             'bpCode', 'vendorName', 'beneficiaryBankName', 'beneficiaryName', 'accountNumber',
             'ifscCode', 'emailId', 'nickName', 'gstNumber', 'panNumber',
             'isMSME', 'udyamRegNum', 'currency', 'accountType', 'accountCategory', 'isActive',
-            'otherAccountNumbers'
+            'otherAccountNumbers', 'isPrimary', 'parentAccountId'
         ];
         await logBankAccountFieldChanges(id, existing, account, req, fieldsToTrack);
 
@@ -389,5 +472,32 @@ export const permanentDeleteBankAccount = async (req: Request, res: Response) =>
             return res.status(404).json({ error: 'Bank account not found' });
         }
         res.status(500).json({ error: 'Failed to delete bank account', message: error.message });
+    }
+};
+
+// Get secondary accounts for a primary bank account
+export const getSecondaryAccounts = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+
+        const primary = await prisma.bankAccount.findUnique({ where: { id } });
+        if (!primary) {
+            return res.status(404).json({ error: 'Primary bank account not found' });
+        }
+
+        const secondaries = await prisma.bankAccount.findMany({
+            where: {
+                parentAccountId: id,
+                isActive: true
+            },
+            include: {
+                attachments: true
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+
+        res.json(secondaries);
+    } catch (error: any) {
+        res.status(500).json({ error: 'Failed to fetch secondary bank accounts', message: error.message });
     }
 };

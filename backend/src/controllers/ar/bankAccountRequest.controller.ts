@@ -160,8 +160,8 @@ export const createChangeRequest = async (req: Request, res: Response) => {
             });
             const typeLabel = requestType === 'CREATE' ? 'Add'
                 : requestType === 'UPDATE' ? 'Edit'
-                : requestType === 'DELETE' ? 'Delete'
-                : requestType === 'ACTIVATE' ? 'Activate' : 'Deactivate';
+                    : requestType === 'DELETE' ? 'Delete'
+                        : requestType === 'ACTIVATE' ? 'Activate' : 'Deactivate';
             const vendorName = requestedData?.vendorName
                 || changeRequest.bankAccount?.vendorName
                 || 'Unknown';

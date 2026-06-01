@@ -22,7 +22,7 @@ function getValue(row: BankAccountImportRow, ...keys: string[]): any {
         if (row[searchKey] !== undefined && row[searchKey] !== null && row[searchKey] !== '') {
             return row[searchKey].toString().trim();
         }
-        
+
         // Try case-insensitive match (robust: ignore spaces and hyphens)
         const normalize = (s: string) => s.toLowerCase().replace(/[\s-]/g, '');
         const foundKey = rowKeys.find(k => normalize(k) === normalize(searchKey));
@@ -208,6 +208,7 @@ export const importFromExcel = async (req: Request, res: Response) => {
                         isMSME: row.isMSME || false,
                         udyamRegNum: row.udyamRegNum || null,
                         currency: row.currency || 'INR',
+                        isPrimary: true,
                         createdById: userId,
                         updatedById: userId
                     },

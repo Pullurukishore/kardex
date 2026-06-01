@@ -200,8 +200,8 @@ export default function BankAccountDetailPage() {
               {account?.vendorName} • <span className="font-bold text-[#CE9F6B]">{account?.currency} {account?.accountType || ''} Account</span>
               {account?.accountCategory && (
                 <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${account.accountCategory === 'DOMESTIC' ? 'bg-[#82A094]/10 text-[#4F6A64] border-[#82A094]/20' :
-                    account.accountCategory === 'INTERNATIONAL' ? 'bg-[#6F8A9D]/10 text-[#6F8A9D] border-[#6F8A9D]/20' :
-                      'bg-[#CE9F6B]/10 text-[#976E44] border-[#CE9F6B]/20'
+                  account.accountCategory === 'INTERNATIONAL' ? 'bg-[#6F8A9D]/10 text-[#6F8A9D] border-[#6F8A9D]/20' :
+                    'bg-[#CE9F6B]/10 text-[#976E44] border-[#CE9F6B]/20'
                   }`}>
                   {account.accountCategory === 'DOMESTIC' ? '🏠 Domestic' :
                     account.accountCategory === 'INTERNATIONAL' ? '🌐 International' :
@@ -226,8 +226,8 @@ export default function BankAccountDetailPage() {
           {/* Account Status Card */}
           <Card className="shadow-xl overflow-hidden border-0">
             <CardHeader className={`border-b-0 py-4 sm:py-6 ${account.isActive
-                ? 'bg-gradient-to-r from-[#82A094] to-[#4F6A64]'
-                : 'bg-gradient-to-r from-[#92A2A5] to-[#5D6E73]'
+              ? 'bg-gradient-to-r from-[#82A094] to-[#4F6A64]'
+              : 'bg-gradient-to-r from-[#92A2A5] to-[#5D6E73]'
               } text-white`}>
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
@@ -240,8 +240,8 @@ export default function BankAccountDetailPage() {
                   </CardDescription>
                 </div>
                 <Badge className={`border-0 text-sm sm:text-base px-4 py-2 shadow-lg ${account.isActive
-                    ? 'bg-white/20 text-white backdrop-blur-sm'
-                    : 'bg-white/20 text-white backdrop-blur-sm'
+                  ? 'bg-white/20 text-white backdrop-blur-sm'
+                  : 'bg-white/20 text-white backdrop-blur-sm'
                   }`}>
                   {account.isActive ? '✓ Active' : '○ Inactive'}
                 </Badge>
@@ -251,8 +251,8 @@ export default function BankAccountDetailPage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Account Category */}
                 <div className={`relative overflow-hidden p-4 sm:p-6 rounded-xl shadow-lg hover:shadow-2xl transition-all transform hover:scale-105 ${account.accountCategory === 'DOMESTIC' ? 'bg-gradient-to-br from-[#82A094] to-[#4F6A64]' :
-                    account.accountCategory === 'INTERNATIONAL' ? 'bg-gradient-to-br from-[#6F8A9D] to-[#546A7A]' :
-                      'bg-gradient-to-br from-[#CE9F6B] to-[#976E44]'
+                  account.accountCategory === 'INTERNATIONAL' ? 'bg-gradient-to-br from-[#6F8A9D] to-[#546A7A]' :
+                    'bg-gradient-to-br from-[#CE9F6B] to-[#976E44]'
                   }`}>
                   <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -mr-10 -mt-10"></div>
                   <div className="relative">
@@ -284,8 +284,8 @@ export default function BankAccountDetailPage() {
 
                 {/* MSME Status */}
                 <div className={`relative overflow-hidden p-4 sm:p-6 rounded-xl shadow-lg hover:shadow-2xl transition-all transform hover:scale-105 ${account.isMSME
-                    ? 'bg-gradient-to-br from-[#CE9F6B] to-[#976E44]'
-                    : 'bg-gradient-to-br from-[#AEBFC3] to-[#92A2A5]'
+                  ? 'bg-gradient-to-br from-[#CE9F6B] to-[#976E44]'
+                  : 'bg-gradient-to-br from-[#AEBFC3] to-[#92A2A5]'
                   }`}>
                   <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -mr-10 -mt-10"></div>
                   <div className="relative">
@@ -370,21 +370,38 @@ export default function BankAccountDetailPage() {
                         </dd>
                       </div>
                     </div>
-                    {account.otherAccountNumbers && account.otherAccountNumbers.length > 0 && (
+                    {account.secondaryAccounts && account.secondaryAccounts.length > 0 && (
                       <div className="flex items-start gap-3">
                         <div className="w-1.5 h-1.5 bg-[#CE9F6B] rounded-full mt-2 shrink-0"></div>
                         <div className="min-w-0 flex-1">
-                          <dt className="text-[10px] sm:text-xs text-[#AEBFC3] font-semibold uppercase tracking-wider">Additional Account Numbers</dt>
-                          <div className="mt-1.5 space-y-2">
-                            {account.otherAccountNumbers.map((num, idx) => (
-                              <div key={idx} className="text-xs sm:text-sm font-mono font-bold text-[#5D6E73] flex items-center gap-2 bg-[#F8FAFB] px-2.5 py-1 rounded-lg border border-[#AEBFC3]/20 w-fit">
-                                {num}
-                                <button
-                                  onClick={() => copyToClipboard(num, `other-account-${idx}`)}
-                                  className="p-1 rounded hover:bg-[#CE9F6B]/10 text-[#92A2A5] hover:text-[#CE9F6B] transition-all"
-                                >
-                                  {copied === `other-account-${idx}` ? <Check className="w-3 h-3 text-[#82A094]" /> : <Copy className="w-3 h-3" />}
-                                </button>
+                          <dt className="text-[10px] sm:text-xs text-[#AEBFC3] font-semibold uppercase tracking-wider mb-2">Secondary Bank Accounts</dt>
+                          <div className="space-y-3">
+                            {account.secondaryAccounts.map((secAcc, idx) => (
+                              <div key={secAcc.id} className="flex flex-col gap-1.5 p-3 rounded-xl bg-[#F8FAFB] border border-[#AEBFC3]/20 hover:border-[#CE9F6B]/30 hover:shadow-sm transition-all">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[10px] font-black uppercase tracking-wider text-[#92A2A5]">Account #{idx + 1}</span>
+                                  <span className="text-xs font-bold text-[#6F8A9D]">{secAcc.beneficiaryBankName}</span>
+                                </div>
+                                <div className="flex items-center justify-between gap-4">
+                                  <div className="font-mono font-bold text-sm text-[#546A7A] flex items-center gap-1.5">
+                                    <span>{secAcc.accountNumber}</span>
+                                    <button
+                                      onClick={() => copyToClipboard(secAcc.accountNumber, `sec-acc-${idx}`)}
+                                      className="p-1 rounded hover:bg-[#CE9F6B]/10 text-[#92A2A5] hover:text-[#CE9F6B] transition-all"
+                                    >
+                                      {copied === `sec-acc-${idx}` ? <Check className="w-3.5 h-3.5 text-[#82A094]" /> : <Copy className="w-3.5 h-3.5" />}
+                                    </button>
+                                  </div>
+                                  <div className="font-mono text-xs font-semibold text-[#CE9F6B] flex items-center gap-1.5">
+                                    <span>{secAcc.ifscCode}</span>
+                                    <button
+                                      onClick={() => copyToClipboard(secAcc.ifscCode, `sec-ifsc-${idx}`)}
+                                      className="p-1 rounded hover:bg-[#CE9F6B]/10 text-[#92A2A5] hover:text-[#CE9F6B] transition-all"
+                                    >
+                                      {copied === `sec-ifsc-${idx}` ? <Check className="w-3 h-3 text-[#82A094]" /> : <Copy className="w-3 h-3" />}
+                                    </button>
+                                  </div>
+                                </div>
                               </div>
                             ))}
                           </div>
@@ -563,8 +580,8 @@ export default function BankAccountDetailPage() {
                           <p className="text-[10px] text-[#92A2A5] mt-1">{formatFileSize(file.size)} • {new Date(file.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}</p>
                           {file.vendorType && (
                             <span className={`inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${file.vendorType === 'DOMESTIC' ? 'bg-[#82A094]/15 text-[#4F6A64]' :
-                                file.vendorType === 'INTERNATIONAL' ? 'bg-[#6F8A9D]/15 text-[#6F8A9D]' :
-                                  'bg-[#CE9F6B]/15 text-[#976E44]'
+                              file.vendorType === 'INTERNATIONAL' ? 'bg-[#6F8A9D]/15 text-[#6F8A9D]' :
+                                'bg-[#CE9F6B]/15 text-[#976E44]'
                               }`}>
                               {file.vendorType === 'DOMESTIC' ? '🏠 Domestic' :
                                 file.vendorType === 'INTERNATIONAL' ? '🌐 International' :
@@ -680,11 +697,11 @@ export default function BankAccountDetailPage() {
                       className="flex gap-3 p-3 rounded-xl bg-white border border-[#AEBFC3]/10 hover:border-[#CE9F6B]/30 hover:shadow-sm transition-all"
                     >
                       <div className={`w-2.5 h-2.5 rounded-full mt-1.5 shrink-0 ${log.action.includes('CREATED') ? 'bg-[#82A094]' :
-                          log.action.includes('UPDATED') ? 'bg-[#CE9F6B]' :
-                            log.action.includes('APPROVED') ? 'bg-[#82A094]' :
-                              log.action.includes('REJECTED') ? 'bg-[#E17F70]' :
-                                log.action.includes('DELETE') || log.action.includes('DEACTIVATED') ? 'bg-[#E17F70]' :
-                                  'bg-[#6F8A9D]'
+                        log.action.includes('UPDATED') ? 'bg-[#CE9F6B]' :
+                          log.action.includes('APPROVED') ? 'bg-[#82A094]' :
+                            log.action.includes('REJECTED') ? 'bg-[#E17F70]' :
+                              log.action.includes('DELETE') || log.action.includes('DEACTIVATED') ? 'bg-[#E17F70]' :
+                                'bg-[#6F8A9D]'
                         }`} />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-[#546A7A] leading-tight">{log.description}</p>
@@ -729,8 +746,8 @@ export default function BankAccountDetailPage() {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${request.status === 'APPROVED' ? 'bg-[#82A094]/15 text-[#4F6A64]' :
-                              request.status === 'REJECTED' ? 'bg-[#E17F70]/15 text-[#E17F70]' :
-                                'bg-[#CE9F6B]/15 text-[#976E44]'
+                            request.status === 'REJECTED' ? 'bg-[#E17F70]/15 text-[#E17F70]' :
+                              'bg-[#CE9F6B]/15 text-[#976E44]'
                             }`}>
                             {request.status === 'APPROVED' ? <CheckCircle2 className="w-4 h-4" /> :
                               request.status === 'REJECTED' ? <XCircle className="w-4 h-4" /> :
@@ -742,8 +759,8 @@ export default function BankAccountDetailPage() {
                           </div>
                         </div>
                         <Badge className={`text-xs ${request.status === 'APPROVED' ? 'bg-[#82A094]/15 text-[#4F6A64] border-0' :
-                            request.status === 'REJECTED' ? 'bg-[#E17F70]/15 text-[#E17F70] border-0' :
-                              'bg-[#CE9F6B]/15 text-[#976E44] border-0'
+                          request.status === 'REJECTED' ? 'bg-[#E17F70]/15 text-[#E17F70] border-0' :
+                            'bg-[#CE9F6B]/15 text-[#976E44] border-0'
                           }`}>
                           {request.status}
                         </Badge>

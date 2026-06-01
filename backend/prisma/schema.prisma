@@ -1354,6 +1354,10 @@ model BankAccount {
   currency            String   @default("INR")
   accountCategory     String?  @default("DOMESTIC") // 'DOMESTIC', 'INTERNATIONAL', 'EMPLOYEE'
   otherAccountNumbers String[] @default([])
+  isPrimary           Boolean  @default(true)
+  parentAccountId     String?
+  parentAccount       BankAccount?   @relation("SecondaryAccounts", fields: [parentAccountId], references: [id], onDelete: Cascade)
+  secondaryAccounts   BankAccount[]  @relation("SecondaryAccounts")
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
@@ -1364,6 +1368,7 @@ model BankAccount {
   @@index([vendorName])
   @@index([accountNumber])
   @@index([isActive])
+  @@index([parentAccountId])
   @@map("bank_accounts")
 }
 

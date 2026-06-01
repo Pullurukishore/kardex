@@ -8,8 +8,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { FinanceRole } from '@/types/user.types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { 
-  ArrowLeft, Building2, Sparkles, Save, AlertCircle, 
+import {
+  ArrowLeft, Building2, Sparkles, Save, AlertCircle,
   CheckCircle2, Mail, CreditCard, Hash, User, Loader2,
   Info, ArrowRight, FileSpreadsheet, Globe, Shield,
   Upload, FileText, FileIcon, Trash2, Download,
@@ -63,8 +63,11 @@ export default function EditBankAccountPage() {
   const [showPreview, setShowPreview] = useState(false);
   const [selectedDocContexts, setSelectedDocContexts] = useState<string[]>(['DOMESTIC']);
   const [newOtherAccountNum, setNewOtherAccountNum] = useState('');
+  const [newOtherConfirmAccountNum, setNewOtherConfirmAccountNum] = useState('');
+  const [newOtherAccountIFSC, setNewOtherAccountIFSC] = useState('');
+  const [newOtherAccountBank, setNewOtherAccountBank] = useState('');
   const [otherAccError, setOtherAccError] = useState('');
-  
+
   const isAdmin = user?.financeRole === FinanceRole.FINANCE_ADMIN;
 
   const [formData, setFormData] = useState<FormData>({
@@ -108,6 +111,11 @@ export default function EditBankAccountPage() {
       setLoading(true);
       const data = await arApi.getBankAccountById(params.id as string);
       setOriginalAccount(data);
+      const encodedSecondaries = (data.secondaryAccounts || []).map((sec: any) =>
+        `${sec.accountNumber}|${sec.ifscCode}|${sec.beneficiaryBankName}`
+      );
+      const rawSecondaries = (data.secondaryAccounts || []).map((sec: any) => sec.accountNumber);
+
       setFormData({
         bpCode: data.bpCode || '',
         vendorName: data.vendorName,
@@ -121,15 +129,15 @@ export default function EditBankAccountPage() {
         isMSME: data.isMSME || false,
         udyamRegNum: data.udyamRegNum || '',
         gstNumber: data.gstNumber || '',
-      panNumber: data.panNumber || '',
-      currency: ['INR', 'EUR', 'USD'].includes(data.currency) ? data.currency : 'Other',
-      accountType: data.accountType || '',
-      otherCurrency: ['INR', 'EUR', 'USD'].includes(data.currency) ? '' : data.currency,
-      accountCategory: data.accountCategory || 'DOMESTIC',
-      isGstRegistered: !!data.gstNumber && data.gstNumber !== 'UNREGISTERED',
-      otherAccountNumbers: data.otherAccountNumbers || []
-    });
-    setSelectedDocContexts([data.accountCategory || 'DOMESTIC']);
+        panNumber: data.panNumber || '',
+        currency: ['INR', 'EUR', 'USD'].includes(data.currency) ? data.currency : 'Other',
+        accountType: data.accountType || '',
+        otherCurrency: ['INR', 'EUR', 'USD'].includes(data.currency) ? '' : data.currency,
+        accountCategory: data.accountCategory || 'DOMESTIC',
+        isGstRegistered: !!data.gstNumber && data.gstNumber !== 'UNREGISTERED',
+        otherAccountNumbers: [...rawSecondaries, ...encodedSecondaries]
+      });
+      setSelectedDocContexts([data.accountCategory || 'DOMESTIC']);
     } catch (error) {
       console.error('Failed to load bank account:', error);
       setError('Failed to load bank account');
@@ -146,7 +154,7 @@ export default function EditBankAccountPage() {
   const isValidEmail = (val: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
   const isValidGST = (val: string) => /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[0-9A-Z]{1}[Z]{1}[0-9A-Z]{1}$/.test(val);
   const isValidPAN = (val: string) => /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(val);
-  const isValidIFSC = (val: string) => /^[A-Z]{4}0[A-Z0-9]{6}$/.test(val);
+  const isValidIFSC = (val: string) => true;
   const isLettersOnlyStrict = (val: string) => /^[A-Za-z]*$/.test(val);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -212,10 +220,6 @@ export default function EditBankAccountPage() {
 
     if (name === 'ifscCode') {
       const upper = value.toUpperCase();
-      if (upper !== '' && !isAlphanumeric(upper)) {
-        setFieldErrors(prev => ({ ...prev, ifscCode: 'IFSC/SWIFT Code must be alphanumeric' }));
-        return;
-      }
       setFieldErrors(prev => ({ ...prev, ifscCode: '' }));
       setFormData(prev => ({ ...prev, ifscCode: upper }));
       setError('');
@@ -302,7 +306,7 @@ export default function EditBankAccountPage() {
       if (suffix.length > 0) formatted += suffix.slice(0, 2);
       if (suffix.length > 2) formatted += '-' + suffix.slice(2, 4);
       if (suffix.length > 4) formatted += '-' + suffix.slice(4, 11);
-      
+
       setFormData(prev => ({ ...prev, udyamRegNum: formatted }));
       setFieldErrors(prev => ({ ...prev, udyamRegNum: '' }));
       setError('');
@@ -316,11 +320,11 @@ export default function EditBankAccountPage() {
       }
       setFieldErrors(prev => ({ ...prev, otherCurrency: '' }));
     }
-    
+
     setFormData(prev => {
       const val = type === 'checkbox' ? checked : value;
       const newData = { ...prev, [name]: val };
-      
+
       // Default beneficiaryName to vendorName if it was matching or empty (and it's a new vendor name)
       if (name === 'vendorName' && (prev.beneficiaryName === prev.vendorName || prev.beneficiaryName === '')) {
         newData.beneficiaryName = value;
@@ -330,7 +334,7 @@ export default function EditBankAccountPage() {
       if (name === 'isMSME' && checked && !prev.udyamRegNum) {
         newData.udyamRegNum = 'UDYAM-';
       }
-      
+
       return newData;
     });
     setError('');
@@ -338,24 +342,46 @@ export default function EditBankAccountPage() {
 
   const handleAddOtherAccountNumber = () => {
     const num = newOtherAccountNum.trim();
-    if (!num) return;
+    const confirmNum = newOtherConfirmAccountNum.trim();
+    const ifsc = newOtherAccountIFSC.trim().toUpperCase();
+    const bank = newOtherAccountBank.trim();
+
+    if (!num || !confirmNum || !ifsc || !bank) {
+      setOtherAccError('Please fill in Account Number, Confirm Account Number, IFSC, and Bank Name');
+      return;
+    }
+    if (num !== confirmNum) {
+      setOtherAccError('Account numbers do not match');
+      return;
+    }
     if (!isNumericOnly(num)) {
-      setOtherAccError('Additional account number must contain numbers only');
+      setOtherAccError('Account number must contain numbers only');
       return;
     }
     if (num === formData.accountNumber) {
       setOtherAccError('Cannot be the same as the primary account number');
       return;
     }
-    if (formData.otherAccountNumbers.includes(num)) {
+
+    // Check if the account number already exists in the otherAccountNumbers list
+    const isDuplicate = (formData.otherAccountNumbers || []).some(item => {
+      const existingNum = item.includes('|') ? item.split('|')[0] : item;
+      return existingNum === num;
+    });
+    if (isDuplicate) {
       setOtherAccError('This account number has already been added');
       return;
     }
+
+    const encoded = `${num}|${ifsc}|${bank}`;
     setFormData(prev => ({
       ...prev,
-      otherAccountNumbers: [...(prev.otherAccountNumbers || []), num]
+      otherAccountNumbers: [...(prev.otherAccountNumbers || []), encoded]
     }));
     setNewOtherAccountNum('');
+    setNewOtherConfirmAccountNum('');
+    setNewOtherAccountIFSC('');
+    setNewOtherAccountBank('');
     setOtherAccError('');
   };
 
@@ -372,8 +398,8 @@ export default function EditBankAccountPage() {
     setError('');
 
     try {
-      if (!formData.vendorName || !formData.beneficiaryBankName || 
-          !formData.accountNumber || !formData.ifscCode) {
+      if (!formData.vendorName || !formData.beneficiaryBankName ||
+        !formData.accountNumber || !formData.ifscCode) {
         setError('Please fill in all required fields');
         setSaving(false);
         return;
@@ -456,13 +482,13 @@ export default function EditBankAccountPage() {
         setSaving(false);
         return;
       }
-      
+
       if (formData.currency === 'INR' && !isValidIFSC(formData.ifscCode)) {
         setError('Invalid IFSC Code format. Must be 11 characters (e.g. SBIN0001234)');
         setSaving(false);
         return;
       }
-      
+
       if (formData.accountNumber !== formData.confirmAccountNumber) {
         setError('Account numbers do not match');
         setSaving(false);
@@ -488,18 +514,66 @@ export default function EditBankAccountPage() {
       **/
 
       const dataToSubmit = {
-      ...formData,
-      currency: formData.currency === 'Other' ? formData.otherCurrency : formData.currency,
-      panNumber: formData.panNumber.toUpperCase(),
-      gstNumber: formData.isGstRegistered ? formData.gstNumber.toUpperCase() : ''
-    };
-    
-    // Remove temporary frontend fields
-    delete (dataToSubmit as any).confirmAccountNumber;
-    delete (dataToSubmit as any).otherCurrency;
+        ...formData,
+        currency: formData.currency === 'Other' ? formData.otherCurrency : formData.currency,
+        panNumber: formData.panNumber.toUpperCase(),
+        gstNumber: formData.isGstRegistered ? formData.gstNumber.toUpperCase() : ''
+      };
+
+      // Remove temporary frontend fields
+      delete (dataToSubmit as any).confirmAccountNumber;
+      delete (dataToSubmit as any).otherCurrency;
+
+      // 1. Identify deleted secondary accounts
+      const existingSecAccs = originalAccount?.secondaryAccounts || [];
+      const currentSecNumbers = (formData.otherAccountNumbers || [])
+        .filter(item => item.includes('|'))
+        .map(item => item.split('|')[0]);
+
+      const deletedSecs = existingSecAccs.filter(sec => !currentSecNumbers.includes(sec.accountNumber));
+      for (const delSec of deletedSecs) {
+        try {
+          await arApi.deleteBankAccount(delSec.id);
+        } catch (e) {
+          console.error('Failed to delete secondary account:', delSec.id, e);
+        }
+      }
+
+      // 2. Identify and create new secondary accounts
+      const existingSecNumbers = existingSecAccs.map(sec => sec.accountNumber);
+      const newSecEncodeds = (formData.otherAccountNumbers || [])
+        .filter(item => item.includes('|'))
+        .filter(item => !existingSecNumbers.includes(item.split('|')[0]));
+
+      for (const encoded of newSecEncodeds) {
+        const [accNum, ifsc, bankName] = encoded.split('|');
+        try {
+          await arApi.createBankAccount({
+            bpCode: dataToSubmit.bpCode || undefined,
+            vendorName: dataToSubmit.vendorName,
+            beneficiaryBankName: bankName,
+            beneficiaryName: dataToSubmit.beneficiaryName || dataToSubmit.vendorName,
+            accountNumber: accNum,
+            ifscCode: ifsc,
+            emailId: dataToSubmit.emailId || undefined,
+            nickName: dataToSubmit.nickName || undefined,
+            gstNumber: dataToSubmit.gstNumber || undefined,
+            panNumber: dataToSubmit.panNumber || undefined,
+            currency: dataToSubmit.currency,
+            accountType: dataToSubmit.accountType,
+            accountCategory: dataToSubmit.accountCategory,
+            isMSME: dataToSubmit.isMSME,
+            udyamRegNum: dataToSubmit.udyamRegNum || undefined,
+            parentAccountId: params.id as string,
+            isPrimary: false
+          });
+        } catch (e) {
+          console.error('Failed to create new secondary account:', accNum, e);
+        }
+      }
 
       await arApi.updateBankAccount(params.id as string, dataToSubmit);
-      setSuccess('Vendor account updated successfully!');
+      setSuccess('Vendor account and secondary accounts updated successfully!');
       setTimeout(() => router.push(`/finance/bank-accounts/${params.id}`), 1500);
     } catch (err: any) {
       console.error('Submission error:', err);
@@ -587,7 +661,7 @@ export default function EditBankAccountPage() {
 
   const hasChanges = (field: keyof FormData) => {
     if (!originalAccount || field === 'confirmAccountNumber') return false;
-    
+
     const originalValue = (originalAccount as any)[field];
     const currentValue = formData[field];
 
@@ -612,15 +686,15 @@ export default function EditBankAccountPage() {
 
     // 3. Handle currency specially since it split into two fields in the form
     if (field === 'currency') {
-      const originalCurrency = ['INR', 'EUR', 'USD'].includes(originalAccount.currency) 
-        ? originalAccount.currency 
+      const originalCurrency = ['INR', 'EUR', 'USD'].includes(originalAccount.currency)
+        ? originalAccount.currency
         : 'Other';
       return currentValue !== originalCurrency;
     }
 
     if (field === 'otherCurrency') {
-      const originalOtherCurrency = ['INR', 'EUR', 'USD'].includes(originalAccount.currency) 
-        ? '' 
+      const originalOtherCurrency = ['INR', 'EUR', 'USD'].includes(originalAccount.currency)
+        ? ''
         : originalAccount.currency;
       return currentValue !== originalOtherCurrency;
     }
@@ -729,171 +803,166 @@ export default function EditBankAccountPage() {
               </CardHeader>
               <CardContent className="pt-6 bg-gradient-to-br from-[#AEBFC3]/5 to-white p-4 sm:p-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div className={`space-y-2 ${hasChanges('bpCode') ? 'ring-2 ring-[#CE9F6B]/30 rounded-xl p-3 -m-3' : ''}`}>
-                  <label className="flex items-center gap-2 text-sm font-semibold text-[#5D6E73]">
-                    <Shield className="w-4 h-4 text-[#CE9F6B]" />
-                    BP Code / Vendor Code <span className="text-[#E17F70]">*</span>
-                    {hasChanges('bpCode') && (
-                      <span className="ml-auto text-xs text-[#CE9F6B] font-medium">Modified</span>
-                    )}
-                  </label>
-                  <input
-                    type="text"
-                    name="bpCode"
-                    value={formData.bpCode}
-                    onChange={handleChange}
-                    maxLength={10}
-                    className={`w-full px-4 py-3.5 bg-[#F8FAFB] border rounded-xl text-[#546A7A] focus:outline-none focus:ring-2 focus:ring-[#CE9F6B]/20 focus:bg-white transition-all uppercase tracking-wider font-bold ${
-                      fieldErrors.bpCode ? 'border-[#E17F70] focus:border-[#E17F70]' : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B]/50'
-                    }`}
-                    required
-                  />
-                  {fieldErrors.bpCode && (
-                    <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
-                      <AlertCircle className="w-3 h-3" />
-                      {fieldErrors.bpCode}
-                    </p>
-                  )}
-                </div>
-
-                <div className={`space-y-2 ${hasChanges('vendorName') ? 'ring-2 ring-[#CE9F6B]/30 rounded-xl p-3 -m-3' : ''}`}>
-                  <label className="flex items-center gap-2 text-sm font-semibold text-[#5D6E73]">
-                    <User className="w-4 h-4 text-[#CE9F6B]" />
-                    Vendor Name <span className="text-[#E17F70]">*</span>
-                    {hasChanges('vendorName') && (
-                      <span className="ml-auto text-xs text-[#CE9F6B] font-medium">Modified</span>
-                    )}
-                  </label>
-                  <input
-                    type="text"
-                    name="vendorName"
-                    value={formData.vendorName}
-                    onChange={handleChange}
-                    maxLength={100}
-                    className={`w-full px-4 py-3.5 bg-[#F8FAFB] border rounded-xl text-[#546A7A] focus:outline-none focus:ring-2 focus:ring-[#CE9F6B]/20 focus:bg-white transition-all ${
-                      fieldErrors.vendorName ? 'border-[#E17F70] focus:border-[#E17F70]' : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B]/50'
-                    }`}
-                    required
-                  />
-                  {fieldErrors.vendorName && (
-                    <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
-                      <AlertCircle className="w-3 h-3" />
-                      {fieldErrors.vendorName}
-                    </p>
-                  )}
-                </div>
-
-                <div className={`space-y-2 ${hasChanges('nickName') ? 'ring-2 ring-[#CE9F6B]/30 rounded-xl p-3 -m-3' : ''}`}>
-                  <label className="flex items-center gap-2 text-sm font-semibold text-[#5D6E73]">
-                    <Hash className="w-4 h-4 text-[#CE9F6B]" />
-                    Nick Name
-                    {hasChanges('nickName') && (
-                      <span className="ml-auto text-xs text-[#CE9F6B] font-medium">Modified</span>
-                    )}
-                  </label>
-                  <input
-                    type="text"
-                    name="nickName"
-                    value={formData.nickName}
-                    onChange={handleChange}
-                    maxLength={30}
-                    className={`w-full px-4 py-3.5 bg-[#F8FAFB] border rounded-xl text-[#546A7A] focus:outline-none focus:ring-2 focus:ring-[#CE9F6B]/20 focus:bg-white transition-all ${
-                      fieldErrors.nickName ? 'border-[#E17F70] focus:border-[#E17F70]' : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B]/50'
-                    }`}
-                  />
-                  {fieldErrors.nickName && (
-                    <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
-                      <AlertCircle className="w-3 h-3" />
-                      {fieldErrors.nickName}
-                    </p>
-                  )}
-                </div>
-
-                <div className={`space-y-2 ${hasChanges('emailId') ? 'ring-2 ring-[#CE9F6B]/30 rounded-xl p-3 -m-3' : ''}`}>
-                  <label className="flex items-center gap-2 text-sm font-semibold text-[#5D6E73]">
-                    <Mail className="w-4 h-4 text-[#CE9F6B]" />
-                    Email ID
-                    {hasChanges('emailId') && (
-                      <span className="ml-auto text-xs text-[#CE9F6B] font-medium">Modified</span>
-                    )}
-                  </label>
-                  <input
-                    type="email"
-                    name="emailId"
-                    value={formData.emailId}
-                    onChange={handleChange}
-                    maxLength={50}
-                    className={`w-full px-4 py-3.5 bg-[#F8FAFB] border rounded-xl text-[#546A7A] focus:outline-none focus:ring-2 focus:ring-[#CE9F6B]/20 focus:bg-white transition-all ${
-                      fieldErrors.emailId ? 'border-[#E17F70] focus:border-[#E17F70]' : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B]/50'
-                    }`}
-                  />
-                  {fieldErrors.emailId && (
-                    <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
-                      <AlertCircle className="w-3 h-3" />
-                      {fieldErrors.emailId}
-                    </p>
-                  )}
-                </div>
-
-
-
-                <div className={`md:col-span-2 flex flex-col gap-4 p-4 rounded-xl ${hasChanges('isMSME') || hasChanges('udyamRegNum') ? 'bg-[#CE9F6B]/5 border-[#CE9F6B]/30' : 'bg-[#F8FAFB] border-[#AEBFC3]/20'}`}>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg ${formData.isMSME ? 'bg-[#CE9F6B]/20 text-[#CE9F6B]' : 'bg-[#AEBFC3]/20 text-[#5D6E73]'}`}>
-                        <Sparkles className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <p className="font-bold text-[#546A7A]">MSME Registered Vendor?</p>
-                          {hasChanges('isMSME') && (
-                            <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-[#CE9F6B]/20 text-[#976E44] uppercase tracking-wider">Modified</span>
-                          )}
-                        </div>
-                        <p className="text-xs text-[#92A2A5]">Is this vendor registered as a Micro, Small, or Medium Enterprise?</p>
-                      </div>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        name="isMSME"
-                        checked={formData.isMSME}
-                        onChange={handleChange}
-                        className="sr-only peer" 
-                      />
-                      <div className="w-11 h-6 bg-[#AEBFC3]/30 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#CE9F6B]"></div>
+                  <div className={`space-y-2 ${hasChanges('bpCode') ? 'ring-2 ring-[#CE9F6B]/30 rounded-xl p-3 -m-3' : ''}`}>
+                    <label className="flex items-center gap-2 text-sm font-semibold text-[#5D6E73]">
+                      <Shield className="w-4 h-4 text-[#CE9F6B]" />
+                      BP Code / Vendor Code <span className="text-[#E17F70]">*</span>
+                      {hasChanges('bpCode') && (
+                        <span className="ml-auto text-xs text-[#CE9F6B] font-medium">Modified</span>
+                      )}
                     </label>
+                    <input
+                      type="text"
+                      name="bpCode"
+                      value={formData.bpCode}
+                      onChange={handleChange}
+                      maxLength={10}
+                      className={`w-full px-4 py-3.5 bg-[#F8FAFB] border rounded-xl text-[#546A7A] focus:outline-none focus:ring-2 focus:ring-[#CE9F6B]/20 focus:bg-white transition-all uppercase tracking-wider font-bold ${fieldErrors.bpCode ? 'border-[#E17F70] focus:border-[#E17F70]' : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B]/50'
+                        }`}
+                      required
+                    />
+                    {fieldErrors.bpCode && (
+                      <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
+                        <AlertCircle className="w-3 h-3" />
+                        {fieldErrors.bpCode}
+                      </p>
+                    )}
                   </div>
 
-                  {formData.isMSME && (
-                    <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
-                      <label className="flex items-center gap-2 text-sm font-semibold text-[#5D6E73]">
-                        Udyam Registration Number <span className="text-[#E17F70]">*</span>
-                        {hasChanges('udyamRegNum') && (
-                          <span className="ml-auto text-xs text-[#CE9F6B] font-medium">Modified</span>
-                        )}
-                      </label>
-                      <div className="relative">
-                        <span className="absolute left-4 top-1/2 -translate-y-1/2 font-mono font-bold text-sm tracking-widest text-[#CE9F6B] pointer-events-none select-none">UDYAM-</span>
-                        <input
-                          type="text"
-                          name="udyamRegNum"
-                          value={formData.udyamRegNum}
-                          onChange={handleChange}
-                          placeholder="UDYAM-XX-00-0000000"
-                          maxLength={19}
-                          className={`w-full pl-[88px] pr-4 py-3.5 border rounded-xl text-[#546A7A] focus:outline-none focus:ring-2 focus:ring-[#CE9F6B]/20 transition-all font-mono ${
-                            hasChanges('udyamRegNum') ? 'bg-white border-[#CE9F6B]' : 'bg-white border-[#CE9F6B]/30'
-                          }`}
-                          required={formData.isMSME}
-                        />
+                  <div className={`space-y-2 ${hasChanges('vendorName') ? 'ring-2 ring-[#CE9F6B]/30 rounded-xl p-3 -m-3' : ''}`}>
+                    <label className="flex items-center gap-2 text-sm font-semibold text-[#5D6E73]">
+                      <User className="w-4 h-4 text-[#CE9F6B]" />
+                      Vendor Name <span className="text-[#E17F70]">*</span>
+                      {hasChanges('vendorName') && (
+                        <span className="ml-auto text-xs text-[#CE9F6B] font-medium">Modified</span>
+                      )}
+                    </label>
+                    <input
+                      type="text"
+                      name="vendorName"
+                      value={formData.vendorName}
+                      onChange={handleChange}
+                      maxLength={100}
+                      className={`w-full px-4 py-3.5 bg-[#F8FAFB] border rounded-xl text-[#546A7A] focus:outline-none focus:ring-2 focus:ring-[#CE9F6B]/20 focus:bg-white transition-all ${fieldErrors.vendorName ? 'border-[#E17F70] focus:border-[#E17F70]' : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B]/50'
+                        }`}
+                      required
+                    />
+                    {fieldErrors.vendorName && (
+                      <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
+                        <AlertCircle className="w-3 h-3" />
+                        {fieldErrors.vendorName}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className={`space-y-2 ${hasChanges('nickName') ? 'ring-2 ring-[#CE9F6B]/30 rounded-xl p-3 -m-3' : ''}`}>
+                    <label className="flex items-center gap-2 text-sm font-semibold text-[#5D6E73]">
+                      <Hash className="w-4 h-4 text-[#CE9F6B]" />
+                      Nick Name
+                      {hasChanges('nickName') && (
+                        <span className="ml-auto text-xs text-[#CE9F6B] font-medium">Modified</span>
+                      )}
+                    </label>
+                    <input
+                      type="text"
+                      name="nickName"
+                      value={formData.nickName}
+                      onChange={handleChange}
+                      maxLength={30}
+                      className={`w-full px-4 py-3.5 bg-[#F8FAFB] border rounded-xl text-[#546A7A] focus:outline-none focus:ring-2 focus:ring-[#CE9F6B]/20 focus:bg-white transition-all ${fieldErrors.nickName ? 'border-[#E17F70] focus:border-[#E17F70]' : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B]/50'
+                        }`}
+                    />
+                    {fieldErrors.nickName && (
+                      <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
+                        <AlertCircle className="w-3 h-3" />
+                        {fieldErrors.nickName}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className={`space-y-2 ${hasChanges('emailId') ? 'ring-2 ring-[#CE9F6B]/30 rounded-xl p-3 -m-3' : ''}`}>
+                    <label className="flex items-center gap-2 text-sm font-semibold text-[#5D6E73]">
+                      <Mail className="w-4 h-4 text-[#CE9F6B]" />
+                      Email ID
+                      {hasChanges('emailId') && (
+                        <span className="ml-auto text-xs text-[#CE9F6B] font-medium">Modified</span>
+                      )}
+                    </label>
+                    <input
+                      type="email"
+                      name="emailId"
+                      value={formData.emailId}
+                      onChange={handleChange}
+                      maxLength={50}
+                      className={`w-full px-4 py-3.5 bg-[#F8FAFB] border rounded-xl text-[#546A7A] focus:outline-none focus:ring-2 focus:ring-[#CE9F6B]/20 focus:bg-white transition-all ${fieldErrors.emailId ? 'border-[#E17F70] focus:border-[#E17F70]' : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B]/50'
+                        }`}
+                    />
+                    {fieldErrors.emailId && (
+                      <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
+                        <AlertCircle className="w-3 h-3" />
+                        {fieldErrors.emailId}
+                      </p>
+                    )}
+                  </div>
+
+
+
+                  <div className={`md:col-span-2 flex flex-col gap-4 p-4 rounded-xl ${hasChanges('isMSME') || hasChanges('udyamRegNum') ? 'bg-[#CE9F6B]/5 border-[#CE9F6B]/30' : 'bg-[#F8FAFB] border-[#AEBFC3]/20'}`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-lg ${formData.isMSME ? 'bg-[#CE9F6B]/20 text-[#CE9F6B]' : 'bg-[#AEBFC3]/20 text-[#5D6E73]'}`}>
+                          <Sparkles className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="font-bold text-[#546A7A]">MSME Registered Vendor?</p>
+                            {hasChanges('isMSME') && (
+                              <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-[#CE9F6B]/20 text-[#976E44] uppercase tracking-wider">Modified</span>
+                            )}
+                          </div>
+                          <p className="text-xs text-[#92A2A5]">Is this vendor registered as a Micro, Small, or Medium Enterprise?</p>
+                        </div>
                       </div>
-                      <p className="text-[10px] text-[#92A2A5] mt-1">Format: UDYAM-XX-00-0000000 (auto-formatted)</p>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          name="isMSME"
+                          checked={formData.isMSME}
+                          onChange={handleChange}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-[#AEBFC3]/30 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#CE9F6B]"></div>
+                      </label>
                     </div>
-                  )}
+
+                    {formData.isMSME && (
+                      <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                        <label className="flex items-center gap-2 text-sm font-semibold text-[#5D6E73]">
+                          Udyam Registration Number <span className="text-[#E17F70]">*</span>
+                          {hasChanges('udyamRegNum') && (
+                            <span className="ml-auto text-xs text-[#CE9F6B] font-medium">Modified</span>
+                          )}
+                        </label>
+                        <div className="relative">
+                          <span className="absolute left-4 top-1/2 -translate-y-1/2 font-mono font-bold text-sm tracking-widest text-[#CE9F6B] pointer-events-none select-none">UDYAM-</span>
+                          <input
+                            type="text"
+                            name="udyamRegNum"
+                            value={formData.udyamRegNum}
+                            onChange={handleChange}
+                            placeholder="UDYAM-XX-00-0000000"
+                            maxLength={19}
+                            className={`w-full pl-[88px] pr-4 py-3.5 border rounded-xl text-[#546A7A] focus:outline-none focus:ring-2 focus:ring-[#CE9F6B]/20 transition-all font-mono ${hasChanges('udyamRegNum') ? 'bg-white border-[#CE9F6B]' : 'bg-white border-[#CE9F6B]/30'
+                              }`}
+                            required={formData.isMSME}
+                          />
+                        </div>
+                        <p className="text-[10px] text-[#92A2A5] mt-1">Format: UDYAM-XX-00-0000000 (auto-formatted)</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </CardContent>
+              </CardContent>
             </Card>
 
             {/* Bank Details Card */}
@@ -933,11 +1002,10 @@ export default function EditBankAccountPage() {
                               setFormData(prev => ({ ...prev, accountCategory: type.id, gstNumber: '', panNumber: '' }));
                             }
                           }}
-                          className={`relative p-3 rounded-xl border-2 transition-all text-left flex flex-col gap-2 group ${
-                            isSelected
-                              ? 'border-[#CE9F6B] bg-white shadow-lg shadow-[#CE9F6B]/10'
-                              : 'border-[#AEBFC3]/30 bg-[#F8FAFB] hover:border-[#CE9F6B]/30'
-                          }`}
+                          className={`relative p-3 rounded-xl border-2 transition-all text-left flex flex-col gap-2 group ${isSelected
+                            ? 'border-[#CE9F6B] bg-white shadow-lg shadow-[#CE9F6B]/10'
+                            : 'border-[#AEBFC3]/30 bg-[#F8FAFB] hover:border-[#CE9F6B]/30'
+                            }`}
                         >
                           <div className={`p-2 rounded-lg w-fit transition-colors ${isSelected ? 'bg-[#CE9F6B] text-white' : 'bg-white text-[#AEBFC3] group-hover:text-[#CE9F6B]'}`}>
                             <type.icon className="w-4 h-4" />
@@ -960,380 +1028,450 @@ export default function EditBankAccountPage() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div className={`space-y-2 ${hasChanges('currency') ? 'ring-2 ring-[#CE9F6B]/30 rounded-xl p-3 -m-3' : ''}`}>
-                  <label className="flex items-center gap-2 text-sm font-semibold text-[#5D6E73]">
-                    Currency <span className="text-[#E17F70]">*</span>
-                    {hasChanges('currency') && (
-                      <span className="ml-auto text-xs text-[#CE9F6B] font-medium">Modified</span>
-                    )}
-                  </label>
-                  <select
-                    name="currency"
-                    value={formData.currency}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3.5 bg-[#F8FAFB] border border-[#AEBFC3]/30 rounded-xl text-[#546A7A] focus:outline-none focus:border-[#CE9F6B]/50 focus:ring-2 focus:ring-[#CE9F6B]/20 focus:bg-white transition-all appearance-none cursor-pointer"
-                    required
-                  >
-                    <option value="INR">INR (Indian Rupee)</option>
-                    <option value="EUR">EUR (Euro)</option>
-                    <option value="USD">USD (US Dollar)</option>
-                    <option value="Other">Other (Specify...)</option>
-                  </select>
-                </div>
-
-                <div className={`space-y-2 ${hasChanges('accountType') ? 'ring-2 ring-[#CE9F6B]/30 rounded-xl p-3 -m-3' : ''}`}>
-                  <label className="flex items-center gap-2 text-sm font-semibold text-[#5D6E73]">
-                    Account Type <span className="text-[#E17F70]">*</span>
-                    {hasChanges('accountType') && (
-                      <span className="ml-auto text-xs text-[#CE9F6B] font-medium">Modified</span>
-                    )}
-                  </label>
-                  <select
-                    name="accountType"
-                    value={formData.accountType}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3.5 bg-[#F8FAFB] border border-[#AEBFC3]/30 rounded-xl text-[#546A7A] focus:outline-none focus:border-[#CE9F6B]/50 focus:ring-2 focus:ring-[#CE9F6B]/20 focus:bg-white transition-all appearance-none cursor-pointer"
-                    required
-                  >
-                    <option value="" disabled>Select Account Type</option>
-                    <option value="Current">Current Account</option>
-                    <option value="Savings">Savings Account</option>
-                  </select>
-                </div>
-
-                {(formData.currency === 'Other' || (originalAccount && !['INR', 'EUR', 'USD'].includes(originalAccount.currency))) && (
-                  <div className={`space-y-2 animate-in fade-in slide-in-from-top-1 duration-200 ${hasChanges('currency') ? 'ring-2 ring-[#CE9F6B]/30 rounded-xl p-3 -m-3' : ''}`}>
+                  <div className={`space-y-2 ${hasChanges('currency') ? 'ring-2 ring-[#CE9F6B]/30 rounded-xl p-3 -m-3' : ''}`}>
                     <label className="flex items-center gap-2 text-sm font-semibold text-[#5D6E73]">
-                      Specify Currency <span className="text-[#E17F70]">*</span>
-                      {hasChanges('currency') && formData.currency === 'Other' && (
+                      Currency <span className="text-[#E17F70]">*</span>
+                      {hasChanges('currency') && (
                         <span className="ml-auto text-xs text-[#CE9F6B] font-medium">Modified</span>
                       )}
                     </label>
-                    <input
-                      type="text"
-                      name="otherCurrency"
-                      value={formData.otherCurrency}
+                    <select
+                      name="currency"
+                      value={formData.currency}
                       onChange={handleChange}
-                      placeholder="e.g., GBP, JPY, CAD"
-                      maxLength={3}
-                      className={`w-full px-4 py-3.5 bg-white border rounded-xl text-[#546A7A] placeholder-[#92A2A5] focus:outline-none focus:ring-2 focus:ring-[#CE9F6B]/20 transition-all uppercase ${
-                        fieldErrors.otherCurrency ? 'border-[#E17F70] focus:border-[#E17F70]' : 'border-[#CE9F6B]/30 focus:border-[#CE9F6B]'
-                      }`}
-                      required={formData.currency === 'Other'}
-                    />
-                    {fieldErrors.otherCurrency && (
-                      <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
-                        <AlertCircle className="w-3 h-3" />
-                        {fieldErrors.otherCurrency}
-                      </p>
-                    )}
+                      className="w-full px-4 py-3.5 bg-[#F8FAFB] border border-[#AEBFC3]/30 rounded-xl text-[#546A7A] focus:outline-none focus:border-[#CE9F6B]/50 focus:ring-2 focus:ring-[#CE9F6B]/20 focus:bg-white transition-all appearance-none cursor-pointer"
+                      required
+                    >
+                      <option value="INR">INR (Indian Rupee)</option>
+                      <option value="EUR">EUR (Euro)</option>
+                      <option value="USD">USD (US Dollar)</option>
+                      <option value="Other">Other (Specify...)</option>
+                    </select>
                   </div>
-                )}
-              </div>
 
-              {/* GST/PAN - Only for DOMESTIC and EMPLOYEE */}
-              {formData.accountCategory !== 'INTERNATIONAL' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div className={`space-y-2 ${hasChanges('gstNumber') ? 'ring-2 ring-[#CE9F6B]/30 rounded-xl p-3 -m-3' : ''}`}>
-                  <div className="flex items-center justify-between mb-2">
+                  <div className={`space-y-2 ${hasChanges('accountType') ? 'ring-2 ring-[#CE9F6B]/30 rounded-xl p-3 -m-3' : ''}`}>
                     <label className="flex items-center gap-2 text-sm font-semibold text-[#5D6E73]">
-                      <Shield className="w-4 h-4 text-[#CE9F6B]" />
-                      GST Registered?
+                      Account Type <span className="text-[#E17F70]">*</span>
+                      {hasChanges('accountType') && (
+                        <span className="ml-auto text-xs text-[#CE9F6B] font-medium">Modified</span>
+                      )}
                     </label>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        name="isGstRegistered"
-                        checked={formData.isGstRegistered}
-                        onChange={handleChange}
-                        className="sr-only peer" 
-                      />
-                      <div 
-                        className="w-11 h-6 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"
-                        style={{ background: formData.isGstRegistered ? '#CE9F6B' : 'rgba(174,191,195,0.5)' }}
-                      />
-                    </label>
+                    <select
+                      name="accountType"
+                      value={formData.accountType}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3.5 bg-[#F8FAFB] border border-[#AEBFC3]/30 rounded-xl text-[#546A7A] focus:outline-none focus:border-[#CE9F6B]/50 focus:ring-2 focus:ring-[#CE9F6B]/20 focus:bg-white transition-all appearance-none cursor-pointer"
+                      required
+                    >
+                      <option value="" disabled>Select Account Type</option>
+                      <option value="Current">Current Account</option>
+                      <option value="Savings">Savings Account</option>
+                    </select>
                   </div>
 
-                  {formData.isGstRegistered ? (
-                    <>
+                  {(formData.currency === 'Other' || (originalAccount && !['INR', 'EUR', 'USD'].includes(originalAccount.currency))) && (
+                    <div className={`space-y-2 animate-in fade-in slide-in-from-top-1 duration-200 ${hasChanges('currency') ? 'ring-2 ring-[#CE9F6B]/30 rounded-xl p-3 -m-3' : ''}`}>
                       <label className="flex items-center gap-2 text-sm font-semibold text-[#5D6E73]">
-                        GST Number {formData.currency === 'INR' && <span className="text-[#E17F70]">*</span>}
-                        {hasChanges('gstNumber') && (
+                        Specify Currency <span className="text-[#E17F70]">*</span>
+                        {hasChanges('currency') && formData.currency === 'Other' && (
                           <span className="ml-auto text-xs text-[#CE9F6B] font-medium">Modified</span>
                         )}
                       </label>
                       <input
                         type="text"
-                        name="gstNumber"
-                        value={formData.gstNumber}
+                        name="otherCurrency"
+                        value={formData.otherCurrency}
                         onChange={handleChange}
-                        maxLength={15}
-                        className={`w-full px-4 py-3.5 bg-[#F8FAFB] border rounded-xl text-[#546A7A] focus:outline-none focus:ring-2 focus:ring-[#CE9F6B]/20 focus:bg-white transition-all uppercase ${
-                          fieldErrors.gstNumber ? 'border-[#E17F70] focus:border-[#E17F70]' : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B]/50'
-                        }`}
+                        placeholder="e.g., GBP, JPY, CAD"
+                        maxLength={3}
+                        className={`w-full px-4 py-3.5 bg-white border rounded-xl text-[#546A7A] placeholder-[#92A2A5] focus:outline-none focus:ring-2 focus:ring-[#CE9F6B]/20 transition-all uppercase ${fieldErrors.otherCurrency ? 'border-[#E17F70] focus:border-[#E17F70]' : 'border-[#CE9F6B]/30 focus:border-[#CE9F6B]'
+                          }`}
+                        required={formData.currency === 'Other'}
                       />
-                      <p className="text-[10px] text-[#92A2A5] mt-1">Format: 22AAAAA0000A1Z5 (Strict Character Rules)</p>
-                      {fieldErrors.gstNumber && (
+                      {fieldErrors.otherCurrency && (
                         <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
                           <AlertCircle className="w-3 h-3" />
-                          {fieldErrors.gstNumber}
+                          {fieldErrors.otherCurrency}
                         </p>
                       )}
-                    </>
-                  ) : (
-                    <div className="p-4 mt-2 rounded-2xl flex items-center gap-3 border border-[#CE9F6B]/20 bg-white shadow-sm">
-                      <Info className="w-5 h-5 text-[#CE9F6B]" />
-                      <div>
-                        <p className="text-sm font-bold text-[#546A7A]">Unregistered Vendor</p>
-                        <p className="text-[10px] font-medium text-[#92A2A5]">GST details are not required.</p>
-                      </div>
                     </div>
                   )}
                 </div>
 
-                <div className={`space-y-2 ${hasChanges('panNumber') ? 'ring-2 ring-[#CE9F6B]/30 rounded-xl p-3 -m-3' : ''}`}>
-                  <label className="flex items-center gap-2 text-sm font-semibold text-[#5D6E73]">
-                    PAN Number {formData.currency === 'INR' && <span className="text-[#E17F70]">*</span>}
-                    {hasChanges('panNumber') && (
-                      <span className="ml-auto text-xs text-[#CE9F6B] font-medium">Modified</span>
-                    )}
-                  </label>
-                  <input
-                    type="text"
-                    name="panNumber"
-                    value={formData.panNumber}
-                    onChange={handleChange}
-                    maxLength={10}
-                    className={`w-full px-4 py-3.5 bg-[#F8FAFB] border rounded-xl text-[#546A7A] focus:outline-none focus:ring-2 focus:ring-[#CE9F6B]/20 focus:bg-white transition-all uppercase ${
-                      fieldErrors.panNumber ? 'border-[#E17F70] focus:border-[#E17F70]' : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B]/50'
-                    }`}
-                  />
-                  <p className="text-[10px] text-[#92A2A5] mt-1">Format: ABCDE1234F (Smart Enforcement)</p>
-                  {fieldErrors.panNumber && (
-                    <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
-                      <AlertCircle className="w-3 h-3" />
-                      {fieldErrors.panNumber}
-                    </p>
-                  )}
-                </div>
-              </div>
-              )}
+                {/* GST/PAN - Only for DOMESTIC and EMPLOYEE */}
+                {formData.accountCategory !== 'INTERNATIONAL' && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div className={`space-y-2 ${hasChanges('gstNumber') ? 'ring-2 ring-[#CE9F6B]/30 rounded-xl p-3 -m-3' : ''}`}>
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="flex items-center gap-2 text-sm font-semibold text-[#5D6E73]">
+                          <Shield className="w-4 h-4 text-[#CE9F6B]" />
+                          GST Registered?
+                        </label>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            name="isGstRegistered"
+                            checked={formData.isGstRegistered}
+                            onChange={handleChange}
+                            className="sr-only peer"
+                          />
+                          <div
+                            className="w-11 h-6 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"
+                            style={{ background: formData.isGstRegistered ? '#CE9F6B' : 'rgba(174,191,195,0.5)' }}
+                          />
+                        </label>
+                      </div>
 
-              <div className={`space-y-2 ${hasChanges('beneficiaryBankName') ? 'ring-2 ring-[#CE9F6B]/30 rounded-xl p-3 -m-3' : ''}`}>
-                <label className="flex items-center gap-2 text-sm font-semibold text-[#5D6E73]">
-                  <Building2 className="w-4 h-4 text-[#CE9F6B]" />
-                  Beneficiary Bank Name <span className="text-[#E17F70]">*</span>
-                  {hasChanges('beneficiaryBankName') && (
-                    <span className="ml-auto text-xs text-[#CE9F6B] font-medium">Modified</span>
-                  )}
-                </label>
-                <input
-                  type="text"
-                  name="beneficiaryBankName"
-                  value={formData.beneficiaryBankName}
-                  onChange={handleChange}
-                  maxLength={50}
-                  className={`w-full px-4 py-3.5 bg-[#F8FAFB] border rounded-xl text-[#546A7A] focus:outline-none focus:ring-2 focus:ring-[#CE9F6B]/20 focus:bg-white transition-all ${
-                    fieldErrors.beneficiaryBankName ? 'border-[#E17F70] focus:border-[#E17F70]' : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B]/50'
-                  }`}
-                  required
-                />
-                {fieldErrors.beneficiaryBankName && (
-                  <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
-                    <AlertCircle className="w-3 h-3" />
-                    {fieldErrors.beneficiaryBankName}
-                  </p>
-                )}
-              </div>
+                      {formData.isGstRegistered ? (
+                        <>
+                          <label className="flex items-center gap-2 text-sm font-semibold text-[#5D6E73]">
+                            GST Number {formData.currency === 'INR' && <span className="text-[#E17F70]">*</span>}
+                            {hasChanges('gstNumber') && (
+                              <span className="ml-auto text-xs text-[#CE9F6B] font-medium">Modified</span>
+                            )}
+                          </label>
+                          <input
+                            type="text"
+                            name="gstNumber"
+                            value={formData.gstNumber}
+                            onChange={handleChange}
+                            maxLength={15}
+                            className={`w-full px-4 py-3.5 bg-[#F8FAFB] border rounded-xl text-[#546A7A] focus:outline-none focus:ring-2 focus:ring-[#CE9F6B]/20 focus:bg-white transition-all uppercase ${fieldErrors.gstNumber ? 'border-[#E17F70] focus:border-[#E17F70]' : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B]/50'
+                              }`}
+                          />
+                          <p className="text-[10px] text-[#92A2A5] mt-1">Format: 22AAAAA0000A1Z5 (Strict Character Rules)</p>
+                          {fieldErrors.gstNumber && (
+                            <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
+                              <AlertCircle className="w-3 h-3" />
+                              {fieldErrors.gstNumber}
+                            </p>
+                          )}
+                        </>
+                      ) : (
+                        <div className="p-4 mt-2 rounded-2xl flex items-center gap-3 border border-[#CE9F6B]/20 bg-white shadow-sm">
+                          <Info className="w-5 h-5 text-[#CE9F6B]" />
+                          <div>
+                            <p className="text-sm font-bold text-[#546A7A]">Unregistered Vendor</p>
+                            <p className="text-[10px] font-medium text-[#92A2A5]">GST details are not required.</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
 
-              <div className={`space-y-2 ${hasChanges('beneficiaryName') ? 'ring-2 ring-[#CE9F6B]/30 rounded-xl p-3 -m-3' : ''}`}>
-                <label className="flex items-center gap-2 text-sm font-semibold text-[#5D6E73]">
-                  <User className="w-4 h-4 text-[#CE9F6B]" />
-                  Beneficiary Name <span className="text-[#AEBFC3] font-normal text-xs ml-auto">(Defaults to Vendor Name)</span>
-                  {hasChanges('beneficiaryName') && (
-                    <span className="ml-auto text-xs text-[#CE9F6B] font-medium">Modified</span>
-                  )}
-                </label>
-                <input
-                  type="text"
-                  name="beneficiaryName"
-                  value={formData.beneficiaryName}
-                  onChange={handleChange}
-                  placeholder="Name as per bank records"
-                  maxLength={50}
-                  className={`w-full px-4 py-3.5 bg-[#F8FAFB] border rounded-xl text-[#546A7A] focus:outline-none focus:ring-2 focus:ring-[#CE9F6B]/20 focus:bg-white transition-all ${
-                    fieldErrors.beneficiaryName ? 'border-[#E17F70] focus:border-[#E17F70]' : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B]/50'
-                  }`}
-                />
-                {fieldErrors.beneficiaryName && (
-                  <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
-                    <AlertCircle className="w-3 h-3" />
-                    {fieldErrors.beneficiaryName}
-                  </p>
-                )}
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div className={`space-y-2 ${hasChanges('accountNumber') ? 'ring-2 ring-[#CE9F6B]/30 rounded-xl p-3 -m-3' : ''}`}>
-                  <label className="flex items-center gap-2 text-sm font-semibold text-[#5D6E73]">
-                    <CreditCard className="w-4 h-4 text-[#CE9F6B]" />
-                    Account Number <span className="text-[#E17F70]">*</span>
-                    {hasChanges('accountNumber') && (
-                      <span className="ml-auto text-xs text-[#CE9F6B] font-medium">Modified</span>
-                    )}
-                  </label>
-                  <input
-                    type="text"
-                    name="accountNumber"
-                    value={formData.accountNumber}
-                    onChange={handleChange}
-                    maxLength={18}
-                    inputMode="text"
-                    pattern=".*"
-                    className={`w-full px-4 py-3.5 bg-[#F8FAFB] border rounded-xl text-[#546A7A] focus:outline-none focus:ring-2 focus:ring-[#CE9F6B]/20 focus:bg-white transition-all font-mono ${
-                      fieldErrors.accountNumber ? 'border-[#E17F70] focus:border-[#E17F70]' : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B]/50'
-                    }`}
-                    required
-                  />
-                  {fieldErrors.accountNumber && (
-                    <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
-                      <AlertCircle className="w-3 h-3" />
-                      {fieldErrors.accountNumber}
-                    </p>
-                  )}
-                </div>
-
-                <div className={`space-y-2 ${hasChanges('ifscCode') ? 'ring-2 ring-[#CE9F6B]/30 rounded-xl p-3 -m-3' : ''}`}>
-                  <label className="flex items-center gap-2 text-sm font-semibold text-[#5D6E73]">
-                    <Hash className="w-4 h-4 text-[#CE9F6B]" />
-                    IFSC Code / SWIFT Code <span className="text-[#E17F70]">*</span>
-                    {hasChanges('ifscCode') && (
-                      <span className="ml-auto text-xs text-[#CE9F6B] font-medium">Modified</span>
-                    )}
-                  </label>
-                  <input
-                    type="text"
-                    name="ifscCode"
-                    value={formData.ifscCode}
-                    onChange={handleChange}
-                    maxLength={11}
-                    className={`w-full px-4 py-3.5 bg-[#F8FAFB] border rounded-xl text-[#546A7A] focus:outline-none focus:ring-2 focus:ring-[#CE9F6B]/20 focus:bg-white transition-all font-mono uppercase ${
-                      fieldErrors.ifscCode ? 'border-[#E17F70] focus:border-[#E17F70]' : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B]/50'
-                    }`}
-                    required
-                  />
-                  {fieldErrors.ifscCode && (
-                    <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
-                      <AlertCircle className="w-3 h-3" />
-                      {fieldErrors.ifscCode}
-                    </p>
-                  )}
-                </div>
-
-                <div className={`space-y-2 ${hasChanges('accountNumber') ? 'ring-2 ring-[#CE9F6B]/30 rounded-xl p-3 -m-3' : ''}`}>
-                  <label className="flex items-center gap-2 text-sm font-semibold text-[#5D6E73]">
-                    <CreditCard className="w-4 h-4 text-[#82A094]" />
-                    Confirm Account Number <span className="text-[#E17F70]">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="confirmAccountNumber"
-                    value={formData.confirmAccountNumber}
-                    onChange={handleChange}
-                    maxLength={18}
-                    inputMode="text"
-                    pattern=".*"
-                    className={`w-full px-4 py-3.5 bg-[#F8FAFB] border rounded-xl text-[#546A7A] focus:outline-none transition-all font-mono ${
-                      fieldErrors.confirmAccountNumber
-                        ? 'border-[#E17F70] ring-2 ring-[#E17F70]/10'
-                        : formData.accountNumber !== formData.confirmAccountNumber
-                        ? 'border-[#E17F70] ring-2 ring-[#E17F70]/10'
-                        : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B]/50 focus:ring-2 focus:ring-[#CE9F6B]/20 focus:bg-white'
-                    }`}
-                    required
-                  />
-                  {fieldErrors.confirmAccountNumber && (
-                    <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
-                      <AlertCircle className="w-3 h-3" />
-                      {fieldErrors.confirmAccountNumber}
-                    </p>
-                  )}
-                  {formData.accountNumber !== formData.confirmAccountNumber && (
-                    <p className="text-[10px] text-[#E17F70] font-medium flex items-center gap-1 mt-1">
-                      <AlertCircle className="w-3 h-3" />
-                      Account numbers do not match
-                    </p>
-                  )}
-                </div>
-
-                {/* Additional Account Numbers */}
-                <div className={`md:col-span-2 space-y-4 pt-4 border-t border-[#AEBFC3]/25 ${hasChanges('otherAccountNumbers') ? 'ring-2 ring-[#CE9F6B]/30 rounded-xl p-3 -m-3' : ''}`}>
-                  <label className="flex items-center gap-2 text-sm font-semibold text-[#5D6E73]">
-                    <Building2 className="w-4 h-4 text-[#CE9F6B]" />
-                    Additional Account Numbers
-                    {hasChanges('otherAccountNumbers') && (
-                      <span className="ml-auto text-xs text-[#CE9F6B] font-medium">Modified</span>
-                    )}
-                  </label>
-
-                  <div className="flex gap-3">
-                    <div className="relative flex-1">
+                    <div className={`space-y-2 ${hasChanges('panNumber') ? 'ring-2 ring-[#CE9F6B]/30 rounded-xl p-3 -m-3' : ''}`}>
+                      <label className="flex items-center gap-2 text-sm font-semibold text-[#5D6E73]">
+                        PAN Number {formData.currency === 'INR' && <span className="text-[#E17F70]">*</span>}
+                        {hasChanges('panNumber') && (
+                          <span className="ml-auto text-xs text-[#CE9F6B] font-medium">Modified</span>
+                        )}
+                      </label>
                       <input
                         type="text"
-                        value={newOtherAccountNum}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          if (val === '' || isNumericOnly(val)) {
-                            setNewOtherAccountNum(val);
-                            setOtherAccError('');
-                          }
-                        }}
-                        placeholder="Enter additional account number"
-                        maxLength={18}
-                        className={`w-full px-4 py-3 rounded-xl font-mono font-bold text-sm tracking-wider transition-all focus:outline-none border-2 text-[#546A7A] bg-white ${
-                          otherAccError ? 'border-[#E17F70]' : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B]/50'
-                        }`}
+                        name="panNumber"
+                        value={formData.panNumber}
+                        onChange={handleChange}
+                        maxLength={10}
+                        className={`w-full px-4 py-3.5 bg-[#F8FAFB] border rounded-xl text-[#546A7A] focus:outline-none focus:ring-2 focus:ring-[#CE9F6B]/20 focus:bg-white transition-all uppercase ${fieldErrors.panNumber ? 'border-[#E17F70] focus:border-[#E17F70]' : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B]/50'
+                          }`}
                       />
+                      <p className="text-[10px] text-[#92A2A5] mt-1">Format: ABCDE1234F (Smart Enforcement)</p>
+                      {fieldErrors.panNumber && (
+                        <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
+                          <AlertCircle className="w-3 h-3" />
+                          {fieldErrors.panNumber}
+                        </p>
+                      )}
                     </div>
-                    <Button
-                      type="button"
-                      onClick={handleAddOtherAccountNumber}
-                      className="px-6 h-12 rounded-xl font-bold bg-[#CE9F6B] text-white hover:bg-[#976E44] shadow-md shadow-[#CE9F6B]/20"
-                    >
-                      Add
-                    </Button>
                   </div>
+                )}
 
-                  {otherAccError && (
-                    <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1">
-                      <AlertCircle className="w-3.5 h-3.5" />
-                      {otherAccError}
+                <div className={`space-y-2 ${hasChanges('beneficiaryBankName') ? 'ring-2 ring-[#CE9F6B]/30 rounded-xl p-3 -m-3' : ''}`}>
+                  <label className="flex items-center gap-2 text-sm font-semibold text-[#5D6E73]">
+                    <Building2 className="w-4 h-4 text-[#CE9F6B]" />
+                    Beneficiary Bank Name <span className="text-[#E17F70]">*</span>
+                    {hasChanges('beneficiaryBankName') && (
+                      <span className="ml-auto text-xs text-[#CE9F6B] font-medium">Modified</span>
+                    )}
+                  </label>
+                  <input
+                    type="text"
+                    name="beneficiaryBankName"
+                    value={formData.beneficiaryBankName}
+                    onChange={handleChange}
+                    maxLength={50}
+                    className={`w-full px-4 py-3.5 bg-[#F8FAFB] border rounded-xl text-[#546A7A] focus:outline-none focus:ring-2 focus:ring-[#CE9F6B]/20 focus:bg-white transition-all ${fieldErrors.beneficiaryBankName ? 'border-[#E17F70] focus:border-[#E17F70]' : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B]/50'
+                      }`}
+                    required
+                  />
+                  {fieldErrors.beneficiaryBankName && (
+                    <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {fieldErrors.beneficiaryBankName}
                     </p>
                   )}
+                </div>
 
-                  {formData.otherAccountNumbers && formData.otherAccountNumbers.length > 0 && (
-                    <div className="flex flex-wrap gap-2 pt-2">
-                      {formData.otherAccountNumbers.map((num, idx) => (
-                        <div
-                          key={idx}
-                          className="flex items-center gap-2 px-3 py-1.5 rounded-xl font-mono font-bold text-xs bg-white border border-[#AEBFC3]/30 text-[#CE9F6B]"
-                        >
-                          <span>{num}</span>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveOtherAccountNumber(idx)}
-                            className="p-1 rounded-lg hover:bg-[#E17F70]/20 hover:text-[#E17F70] transition-colors"
-                            title="Remove account number"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
+                <div className={`space-y-2 ${hasChanges('beneficiaryName') ? 'ring-2 ring-[#CE9F6B]/30 rounded-xl p-3 -m-3' : ''}`}>
+                  <label className="flex items-center gap-2 text-sm font-semibold text-[#5D6E73]">
+                    <User className="w-4 h-4 text-[#CE9F6B]" />
+                    Beneficiary Name <span className="text-[#AEBFC3] font-normal text-xs ml-auto">(Defaults to Vendor Name)</span>
+                    {hasChanges('beneficiaryName') && (
+                      <span className="ml-auto text-xs text-[#CE9F6B] font-medium">Modified</span>
+                    )}
+                  </label>
+                  <input
+                    type="text"
+                    name="beneficiaryName"
+                    value={formData.beneficiaryName}
+                    onChange={handleChange}
+                    placeholder="Name as per bank records"
+                    maxLength={50}
+                    className={`w-full px-4 py-3.5 bg-[#F8FAFB] border rounded-xl text-[#546A7A] focus:outline-none focus:ring-2 focus:ring-[#CE9F6B]/20 focus:bg-white transition-all ${fieldErrors.beneficiaryName ? 'border-[#E17F70] focus:border-[#E17F70]' : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B]/50'
+                      }`}
+                  />
+                  {fieldErrors.beneficiaryName && (
+                    <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {fieldErrors.beneficiaryName}
+                    </p>
                   )}
                 </div>
-              </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div className={`space-y-2 ${hasChanges('accountNumber') ? 'ring-2 ring-[#CE9F6B]/30 rounded-xl p-3 -m-3' : ''}`}>
+                    <label className="flex items-center gap-2 text-sm font-semibold text-[#5D6E73]">
+                      <CreditCard className="w-4 h-4 text-[#CE9F6B]" />
+                      Account Number <span className="text-[#E17F70]">*</span>
+                      {hasChanges('accountNumber') && (
+                        <span className="ml-auto text-xs text-[#CE9F6B] font-medium">Modified</span>
+                      )}
+                    </label>
+                    <input
+                      type="text"
+                      name="accountNumber"
+                      value={formData.accountNumber}
+                      onChange={handleChange}
+                      maxLength={18}
+                      inputMode="text"
+                      pattern=".*"
+                      className={`w-full px-4 py-3.5 bg-[#F8FAFB] border rounded-xl text-[#546A7A] focus:outline-none focus:ring-2 focus:ring-[#CE9F6B]/20 focus:bg-white transition-all font-mono ${fieldErrors.accountNumber ? 'border-[#E17F70] focus:border-[#E17F70]' : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B]/50'
+                        }`}
+                      required
+                    />
+                    {fieldErrors.accountNumber && (
+                      <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
+                        <AlertCircle className="w-3 h-3" />
+                        {fieldErrors.accountNumber}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className={`space-y-2 ${hasChanges('ifscCode') ? 'ring-2 ring-[#CE9F6B]/30 rounded-xl p-3 -m-3' : ''}`}>
+                    <label className="flex items-center gap-2 text-sm font-semibold text-[#5D6E73]">
+                      <Hash className="w-4 h-4 text-[#CE9F6B]" />
+                      IFSC Code / SWIFT Code <span className="text-[#E17F70]">*</span>
+                      {hasChanges('ifscCode') && (
+                        <span className="ml-auto text-xs text-[#CE9F6B] font-medium">Modified</span>
+                      )}
+                    </label>
+                    <input
+                      type="text"
+                      name="ifscCode"
+                      value={formData.ifscCode}
+                      onChange={handleChange}
+                      maxLength={11}
+                      className={`w-full px-4 py-3.5 bg-[#F8FAFB] border rounded-xl text-[#546A7A] focus:outline-none focus:ring-2 focus:ring-[#CE9F6B]/20 focus:bg-white transition-all font-mono uppercase ${fieldErrors.ifscCode ? 'border-[#E17F70] focus:border-[#E17F70]' : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B]/50'
+                        }`}
+                      required
+                    />
+                    {fieldErrors.ifscCode && (
+                      <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
+                        <AlertCircle className="w-3 h-3" />
+                        {fieldErrors.ifscCode}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className={`space-y-2 ${hasChanges('accountNumber') ? 'ring-2 ring-[#CE9F6B]/30 rounded-xl p-3 -m-3' : ''}`}>
+                    <label className="flex items-center gap-2 text-sm font-semibold text-[#5D6E73]">
+                      <CreditCard className="w-4 h-4 text-[#82A094]" />
+                      Confirm Account Number <span className="text-[#E17F70]">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="confirmAccountNumber"
+                      value={formData.confirmAccountNumber}
+                      onChange={handleChange}
+                      maxLength={18}
+                      inputMode="text"
+                      pattern=".*"
+                      className={`w-full px-4 py-3.5 bg-[#F8FAFB] border rounded-xl text-[#546A7A] focus:outline-none transition-all font-mono ${fieldErrors.confirmAccountNumber
+                        ? 'border-[#E17F70] ring-2 ring-[#E17F70]/10'
+                        : formData.accountNumber !== formData.confirmAccountNumber
+                          ? 'border-[#E17F70] ring-2 ring-[#E17F70]/10'
+                          : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B]/50 focus:ring-2 focus:ring-[#CE9F6B]/20 focus:bg-white'
+                        }`}
+                      required
+                    />
+                    {fieldErrors.confirmAccountNumber && (
+                      <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1 mt-1">
+                        <AlertCircle className="w-3 h-3" />
+                        {fieldErrors.confirmAccountNumber}
+                      </p>
+                    )}
+                    {formData.accountNumber !== formData.confirmAccountNumber && (
+                      <p className="text-[10px] text-[#E17F70] font-medium flex items-center gap-1 mt-1">
+                        <AlertCircle className="w-3 h-3" />
+                        Account numbers do not match
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Another Bank Account Details */}
+                  <div className={`md:col-span-2 space-y-4 pt-4 border-t border-[#AEBFC3]/25 ${hasChanges('otherAccountNumbers') ? 'ring-2 ring-[#CE9F6B]/30 rounded-xl p-3 -m-3' : ''}`}>
+                    <label className="flex items-center gap-2 text-sm font-semibold text-[#5D6E73]">
+                      <Building2 className="w-4 h-4 text-[#CE9F6B]" />
+                      Another Bank Account Details
+                      {hasChanges('otherAccountNumbers') && (
+                        <span className="ml-auto text-xs text-[#CE9F6B] font-medium">Modified</span>
+                      )}
+                    </label>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold uppercase tracking-wider text-[#5D6E73]">Account Number</label>
+                        <input
+                          type="text"
+                          value={newOtherAccountNum}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === '' || isNumericOnly(val)) {
+                              setNewOtherAccountNum(val);
+                              setOtherAccError('');
+                            }
+                          }}
+                          placeholder="e.g. 1234567890"
+                          maxLength={18}
+                          className={`w-full px-4 py-2.5 rounded-xl font-mono font-bold text-sm tracking-wider transition-all focus:outline-none border-2 text-[#546A7A] bg-white ${otherAccError ? 'border-[#E17F70]' : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B]/50'
+                            }`}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold uppercase tracking-wider text-[#5D6E73]">Confirm Account Number</label>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            value={newOtherConfirmAccountNum}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === '' || isNumericOnly(val)) {
+                                setNewOtherConfirmAccountNum(val);
+                                setOtherAccError('');
+                              }
+                            }}
+                            placeholder="Re-type account number"
+                            maxLength={18}
+                            className={`w-full pl-4 pr-10 py-2.5 rounded-xl font-mono font-bold text-sm tracking-wider transition-all focus:outline-none border-2 text-[#546A7A] bg-white ${
+                              newOtherConfirmAccountNum && newOtherAccountNum !== newOtherConfirmAccountNum
+                                ? 'border-[#E17F70]'
+                                : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B]/50'
+                            }`}
+                          />
+                          {newOtherConfirmAccountNum && newOtherAccountNum === newOtherConfirmAccountNum && (
+                            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                              <CheckCircle2 className="w-4 h-4" style={{ color: '#82A094' }} />
+                            </div>
+                          )}
+                          {newOtherConfirmAccountNum && newOtherAccountNum !== newOtherConfirmAccountNum && (
+                            <div className="absolute right-3 top-1/2 -translate-y-1/2 animate-bounce">
+                              <AlertCircle className="w-4 h-4" style={{ color: '#E17F70' }} />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold uppercase tracking-wider text-[#5D6E73]">IFSC / SWIFT Code</label>
+                        <input
+                          type="text"
+                          value={newOtherAccountIFSC}
+                          onChange={(e) => {
+                            const val = e.target.value.toUpperCase();
+                            setNewOtherAccountIFSC(val);
+                            setOtherAccError('');
+                          }}
+                          placeholder="e.g. SBIN0001234"
+                          maxLength={11}
+                          className={`w-full px-4 py-2.5 rounded-xl font-mono font-bold text-sm tracking-widest transition-all focus:outline-none border-2 text-[#546A7A] bg-white ${otherAccError ? 'border-[#E17F70]' : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B]/50'
+                            }`}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold uppercase tracking-wider text-[#5D6E73]">Beneficiary Bank Name</label>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={newOtherAccountBank}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === '' || isLettersOnly(val)) {
+                                setNewOtherAccountBank(val);
+                                setOtherAccError('');
+                              }
+                            }}
+                            placeholder="e.g. State Bank of India"
+                            maxLength={50}
+                            className={`flex-1 px-4 py-2.5 rounded-xl font-bold text-sm transition-all focus:outline-none border-2 text-[#546A7A] bg-white ${otherAccError ? 'border-[#E17F70]' : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B]/50'
+                              }`}
+                          />
+                          <Button
+                            type="button"
+                            onClick={handleAddOtherAccountNumber}
+                            className="px-4 py-2.5 rounded-xl font-bold bg-[#CE9F6B] text-white hover:bg-[#976E44] shadow-md shadow-[#CE9F6B]/20 transition-all text-xs"
+                          >
+                            Add
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {otherAccError && (
+                      <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1">
+                        <AlertCircle className="w-3.5 h-3.5" />
+                        {otherAccError}
+                      </p>
+                    )}
+
+                    {formData.otherAccountNumbers && formData.otherAccountNumbers.length > 0 && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-3">
+                        {formData.otherAccountNumbers.map((item, idx) => {
+                          const [accNum, ifsc, bankName] = item.includes('|')
+                            ? item.split('|')
+                            : [item, '—', '—'];
+                          return (
+                            <div
+                              key={idx}
+                              className="flex items-center justify-between p-3.5 rounded-2xl bg-[#F8FAFB] border border-[#AEBFC3]/30 hover:border-[#CE9F6B]/40 hover:bg-white transition-all text-[#546A7A] text-xs"
+                            >
+                              <div className="space-y-1">
+                                <p className="font-black text-[#976E44] uppercase tracking-tight">{bankName}</p>
+                                <p className="font-mono text-[#546A7A]/80">A/C: <span className="font-bold">{accNum}</span></p>
+                                <p className="font-mono text-[#92A2A5] text-[10px]">IFSC: <span className="font-bold">{ifsc}</span></p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveOtherAccountNumber(idx)}
+                                className="p-2 rounded-xl bg-white hover:bg-[#E17F70]/20 text-[#92A2A5] hover:text-[#E17F70] transition-colors border border-[#AEBFC3]/20"
+                                title="Remove additional account"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
               </CardContent>
             </Card>
 
@@ -1344,8 +1482,8 @@ export default function EditBankAccountPage() {
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                   <div className="flex-1">
                     <CardTitle className="flex items-center gap-2 text-white text-lg sm:text-xl font-black uppercase tracking-tight">
-                       Verification Contexts
-                       <BadgeCheck className="w-5 h-5 text-[#CE9F6B]" />
+                      Verification Contexts
+                      <BadgeCheck className="w-5 h-5 text-[#CE9F6B]" />
                     </CardTitle>
                     <CardDescription className="text-white/80 text-sm mt-1">
                       Choose a category to manage its specialized documents
@@ -1369,11 +1507,10 @@ export default function EditBankAccountPage() {
                           if (isSelected) return; // Already selected
                           setSelectedDocContexts([type.id]);
                         }}
-                        className={`relative p-5 rounded-2xl border-2 transition-all text-left flex flex-col gap-3 group ${
-                          isSelected 
-                            ? 'border-[#CE9F6B] bg-white shadow-xl shadow-[#CE9F6B]/10' 
-                            : 'border-[#AEBFC3]/30 bg-[#F8FAFB] hover:border-[#CE9F6B]/30'
-                        }`}
+                        className={`relative p-5 rounded-2xl border-2 transition-all text-left flex flex-col gap-3 group ${isSelected
+                          ? 'border-[#CE9F6B] bg-white shadow-xl shadow-[#CE9F6B]/10'
+                          : 'border-[#AEBFC3]/30 bg-[#F8FAFB] hover:border-[#CE9F6B]/30'
+                          }`}
                       >
                         <div className={`p-3 rounded-xl w-fit transition-colors ${isSelected ? 'bg-[#CE9F6B] text-white' : 'bg-white text-[#AEBFC3] group-hover:text-[#CE9F6B]'}`}>
                           <type.icon className="w-6 h-6" />
@@ -1385,7 +1522,7 @@ export default function EditBankAccountPage() {
                           </p>
                           <p className="text-[10px] font-bold text-[#AEBFC3] mt-0.5 leading-tight">{type.desc}</p>
                         </div>
-                        
+
                         {isSelected && (
                           <div className="absolute top-4 right-4">
                             <CheckCircle2 className="w-5 h-5 text-[#82A094]" />
@@ -1404,7 +1541,7 @@ export default function EditBankAccountPage() {
                     { id: 'EMPLOYEE', label: 'Employee', icon: User, color: '#CE9F6B' }
                   ].find(t => t.id === typeId) || { id: 'DOMESTIC', label: 'Domestic', icon: Building2, color: '#82A094' };
                   const typeAttachments = attachments.filter(a => a.vendorType === type.id);
-                  
+
                   return (
                     <div key={type.id} className="space-y-4">
                       <div className="flex items-center justify-between">
@@ -1417,7 +1554,7 @@ export default function EditBankAccountPage() {
                             {typeAttachments.length} {typeAttachments.length === 1 ? 'File' : 'Files'}
                           </span>
                         </div>
-                        
+
                         {typeAttachments.length > 0 && (
                           <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-[#AEBFC3]/30 text-[#546A7A] text-[10px] font-bold uppercase tracking-wider cursor-pointer hover:border-[#CE9F6B]/50 hover:text-[#CE9F6B] transition-all shadow-sm">
                             <Upload className="w-3 h-3" />
@@ -1451,9 +1588,9 @@ export default function EditBankAccountPage() {
                       {typeAttachments.length === 0 ? (
                         <div className="p-8 rounded-[2rem] border-2 border-dashed border-[#AEBFC3]/30 bg-white/50 flex flex-col items-center justify-center text-center group hover:border-[#CE9F6B]/30 transition-all">
                           <p className="text-[#92A2A5] text-xs font-medium mb-1">
-                            {type.id === 'DOMESTIC' ? 'Bank Letter or Cancelled Cheque recommended' : 
-                             type.id === 'INTERNATIONAL' ? 'Bank Letter recommended' : 
-                             'One verification document recommended'}
+                            {type.id === 'DOMESTIC' ? 'Bank Letter or Cancelled Cheque recommended' :
+                              type.id === 'INTERNATIONAL' ? 'Bank Letter recommended' :
+                                'One verification document recommended'}
                           </p>
                           <p className="text-[#92A2A5] text-[10px] mb-4 opacity-70">No {type.label.toLowerCase()} documents uploaded yet</p>
                           <label className="flex items-center gap-2 px-5 py-2 rounded-xl bg-[#F8FAFB] border border-[#AEBFC3]/30 text-[#546A7A] text-[10px] font-bold uppercase tracking-wider cursor-pointer hover:bg-white hover:border-[#CE9F6B]/50 hover:text-[#CE9F6B] transition-all">
@@ -1484,28 +1621,28 @@ export default function EditBankAccountPage() {
                                   </p>
                                 </div>
                               </div>
-                              
-                                <div className="mt-4 flex items-center gap-2 pt-3 border-t border-[#AEBFC3]/10">
-                                  <button 
-                                    type="button"
-                                    onClick={() => {
-                                      setPreviewFile(file);
-                                      setShowPreview(true);
-                                    }}
-                                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#CE9F6B]/10 text-[#976E44] text-[10px] font-black uppercase tracking-wider hover:bg-[#CE9F6B] hover:text-white transition-all shadow-sm"
-                                  >
-                                    <Eye className="w-3.5 h-3.5" />
-                                    Preview
-                                  </button>
-                                  <button 
-                                    type="button"
-                                    onClick={() => handleDownload(file.id)}
-                                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#82A094]/10 text-[#4F6A64] text-[10px] font-black uppercase tracking-wider hover:bg-[#82A094] hover:text-white transition-all shadow-sm"
-                                  >
-                                    <Download className="w-3.5 h-3.5" />
-                                    Download
-                                  </button>
-                                <button 
+
+                              <div className="mt-4 flex items-center gap-2 pt-3 border-t border-[#AEBFC3]/10">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setPreviewFile(file);
+                                    setShowPreview(true);
+                                  }}
+                                  className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#CE9F6B]/10 text-[#976E44] text-[10px] font-black uppercase tracking-wider hover:bg-[#CE9F6B] hover:text-white transition-all shadow-sm"
+                                >
+                                  <Eye className="w-3.5 h-3.5" />
+                                  Preview
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDownload(file.id)}
+                                  className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#82A094]/10 text-[#4F6A64] text-[10px] font-black uppercase tracking-wider hover:bg-[#82A094] hover:text-white transition-all shadow-sm"
+                                >
+                                  <Download className="w-3.5 h-3.5" />
+                                  Download
+                                </button>
+                                <button
                                   type="button"
                                   onClick={() => handleDeleteAttachment(file.id)}
                                   className="p-2.5 rounded-xl bg-[#F8FAFB] text-[#92A2A5] hover:text-[#E17F70] hover:bg-[#E17F70]/10 transition-all border border-[#AEBFC3]/10"
@@ -1542,7 +1679,7 @@ export default function EditBankAccountPage() {
                   const changed = hasChanges(field);
                   // Don't show transient/frontend-computed fields in the preview
                   if (!changed || field === 'isGstRegistered') return null;
-                  
+
                   const labels: Record<string, string> = {
                     bpCode: 'BP Code',
                     vendorName: 'Vendor Name',
@@ -1677,18 +1814,17 @@ export default function EditBankAccountPage() {
               </h3>
               <p className="text-white/80 text-sm mt-1">Select vendor type for &quot;{pendingFile?.name}&quot;</p>
             </div>
-            
+
             <div className="p-6 space-y-4">
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-[#546A7A]">Vendor Type</label>
                 <div className="grid grid-cols-1 gap-2">
                   <button
                     onClick={() => setUploadVendorType('DOMESTIC')}
-                    className={`flex items-center justify-between p-3 rounded-xl border-2 transition-all ${
-                      uploadVendorType === 'DOMESTIC' 
-                        ? 'border-[#82A094] bg-[#82A094]/5 text-[#4F6A64]' 
-                        : 'border-[#AEBFC3]/20 text-[#5D6E73] hover:border-[#82A094]/40'
-                    }`}
+                    className={`flex items-center justify-between p-3 rounded-xl border-2 transition-all ${uploadVendorType === 'DOMESTIC'
+                      ? 'border-[#82A094] bg-[#82A094]/5 text-[#4F6A64]'
+                      : 'border-[#AEBFC3]/20 text-[#5D6E73] hover:border-[#82A094]/40'
+                      }`}
                   >
                     <div className="flex items-center gap-2 font-bold">
                       <div className="w-8 h-8 rounded-lg bg-[#82A094]/10 flex items-center justify-center">🏠</div>
@@ -1699,11 +1835,10 @@ export default function EditBankAccountPage() {
 
                   <button
                     onClick={() => setUploadVendorType('INTERNATIONAL')}
-                    className={`flex items-center justify-between p-3 rounded-xl border-2 transition-all ${
-                      uploadVendorType === 'INTERNATIONAL' 
-                        ? 'border-[#6F8A9D] bg-[#6F8A9D]/5 text-[#6F8A9D]' 
-                        : 'border-[#AEBFC3]/20 text-[#5D6E73] hover:border-[#6F8A9D]/40'
-                    }`}
+                    className={`flex items-center justify-between p-3 rounded-xl border-2 transition-all ${uploadVendorType === 'INTERNATIONAL'
+                      ? 'border-[#6F8A9D] bg-[#6F8A9D]/5 text-[#6F8A9D]'
+                      : 'border-[#AEBFC3]/20 text-[#5D6E73] hover:border-[#6F8A9D]/40'
+                      }`}
                   >
                     <div className="flex items-center gap-2 font-bold">
                       <div className="w-8 h-8 rounded-lg bg-[#6F8A9D]/10 flex items-center justify-center">🌐</div>
@@ -1714,11 +1849,10 @@ export default function EditBankAccountPage() {
 
                   <button
                     onClick={() => setUploadVendorType('EMPLOYEE')}
-                    className={`flex items-center justify-between p-3 rounded-xl border-2 transition-all ${
-                      uploadVendorType === 'EMPLOYEE' 
-                        ? 'border-[#CE9F6B] bg-[#CE9F6B]/5 text-[#976E44]' 
-                        : 'border-[#AEBFC3]/20 text-[#5D6E73] hover:border-[#CE9F6B]/40'
-                    }`}
+                    className={`flex items-center justify-between p-3 rounded-xl border-2 transition-all ${uploadVendorType === 'EMPLOYEE'
+                      ? 'border-[#CE9F6B] bg-[#CE9F6B]/5 text-[#976E44]'
+                      : 'border-[#AEBFC3]/20 text-[#5D6E73] hover:border-[#CE9F6B]/40'
+                      }`}
                   >
                     <div className="flex items-center gap-2 font-bold">
                       <div className="w-8 h-8 rounded-lg bg-[#CE9F6B]/10 flex items-center justify-center">👤</div>
@@ -1763,10 +1897,10 @@ export default function EditBankAccountPage() {
         </div>
       )}
 
-      <FilePreview 
-        isOpen={showPreview} 
-        onClose={() => setShowPreview(false)} 
-        file={previewFile} 
+      <FilePreview
+        isOpen={showPreview}
+        onClose={() => setShowPreview(false)}
+        file={previewFile}
       />
     </div>
   );

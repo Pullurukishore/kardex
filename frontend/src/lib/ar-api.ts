@@ -910,13 +910,18 @@ export const arApi = {
     // VENDOR ACCOUNTS
     // ═══════════════════════════════════════════════════════════════════════════
 
-    async getBankAccounts(params?: { search?: string; activeOnly?: boolean }) {
+    async getBankAccounts(params?: { search?: string; activeOnly?: boolean; isPrimary?: boolean }) {
         const res = await api.get('/ar/bank-accounts', { params });
         return res.data;
     },
 
     async getBankAccountById(id: string): Promise<BankAccount> {
         const res = await api.get(`/ar/bank-accounts/${id}`);
+        return res.data;
+    },
+
+    async getSecondaryAccounts(id: string): Promise<BankAccount[]> {
+        const res = await api.get(`/ar/bank-accounts/${id}/secondary`);
         return res.data;
     },
 
@@ -1221,13 +1226,19 @@ export interface BankAccount {
     accountType?: string;
     accountCategory?: string;
     otherAccountNumbers?: string[];
+    isPrimary: boolean;
+    parentAccountId?: string;
     createdById: number;
     updatedById: number;
     createdAt: string;
     updatedAt: string;
     attachments?: BankAccountAttachment[];
     changeRequests?: BankAccountChangeRequest[];
-    _count?: { changeRequests: number };
+    secondaryAccounts?: BankAccount[];
+    _count?: {
+        changeRequests: number;
+        secondaryAccounts?: number;
+    };
 }
 
 export interface BankAccountChangeRequest {

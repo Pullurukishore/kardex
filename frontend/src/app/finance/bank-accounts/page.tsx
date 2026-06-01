@@ -6,8 +6,8 @@ import Link from 'next/link';
 import { arApi, BankAccount, copyTextToClipboard } from '@/lib/ar-api';
 import { useAuth } from '@/contexts/AuthContext';
 import { FinanceRole } from '@/types/user.types';
-import { 
-  Plus, Building2, CreditCard, Check, X, 
+import {
+  Plus, Building2, CreditCard, Check, X,
   Search, Eye, Pencil, Trash2, Clock, Bell,
   FileSpreadsheet, Landmark, Copy, ChevronRight,
   Grid3x3, List, Power, EyeOff, Wallet,
@@ -18,49 +18,49 @@ import {
 // KARDEX BRAND BANK CARD COLOR GRADIENTS
 // ============================================================================
 const CARD_THEMES = [
-  { 
+  {
     // Kardex Brown - Primary Brand
     bg: 'linear-gradient(135deg, #B18E63 0%, #976E44 50%, #7A5A38 100%)',
     accent: '#CE9F6B',
     name: 'Kardex Gold'
   },
-  { 
+  {
     // Kardex Green - Secondary Brand
     bg: 'linear-gradient(135deg, #82A094 0%, #718E85 50%, #4F6A64 100%)',
     accent: '#A8B5A0',
     name: 'Kardex Sage'
   },
-  { 
+  {
     // Kardex Blue-Gray - Professional
     bg: 'linear-gradient(135deg, #6F8A9D 0%, #546A7A 50%, #3D4F5A 100%)',
     accent: '#7C9EB2',
     name: 'Kardex Steel'
   },
-  { 
+  {
     // Kardex Coral - Accent
     bg: 'linear-gradient(135deg, #E17F70 0%, #C45C4D 50%, #A84539 100%)',
     accent: '#F5A898',
     name: 'Kardex Coral'
   },
-  { 
+  {
     // Kardex Deep Brown
     bg: 'linear-gradient(135deg, #976E44 0%, #7A5A38 50%, #5D4329 100%)',
     accent: '#CE9F6B',
     name: 'Kardex Bronze'
   },
-  { 
+  {
     // Kardex Deep Green
     bg: 'linear-gradient(135deg, #4F6A64 0%, #3D524D 50%, #2B3A36 100%)',
     accent: '#82A094',
     name: 'Kardex Forest'
   },
-  { 
+  {
     // Kardex Slate
     bg: 'linear-gradient(135deg, #5D6E73 0%, #4A5A5F 50%, #374448 100%)',
     accent: '#AEBFC3',
     name: 'Kardex Slate'
   },
-  { 
+  {
     // Kardex Ocean
     bg: 'linear-gradient(135deg, #7C9EB2 0%, #5A7A8C 50%, #436270 100%)',
     accent: '#A8C8D8',
@@ -95,17 +95,17 @@ const formatAccountNumber = (num: string) => {
 // ============================================================================
 // STAT CARD COMPONENT
 // ============================================================================
-const StatCard = ({ 
-  icon: Icon, 
-  label, 
-  value, 
+const StatCard = ({
+  icon: Icon,
+  label,
+  value,
   loading,
   variant,
   href
-}: { 
-  icon: React.ElementType; 
-  label: string; 
-  value: number | string; 
+}: {
+  icon: React.ElementType;
+  label: string;
+  value: number | string;
   loading: boolean;
   variant: 'primary' | 'success' | 'secondary' | 'warning';
   href?: string;
@@ -143,7 +143,7 @@ const StatCard = ({
     <div className={`group relative rounded-xl p-4 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg ${v.card} ${href ? 'cursor-pointer' : ''}`}>
       {/* Subtle shine effect on hover */}
       <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-white/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-      
+
       <div className="relative flex items-center justify-between gap-4">
         <div className={`w-11 h-11 rounded-xl ${v.icon} flex items-center justify-center transition-transform duration-300 group-hover:scale-110`}>
           <Icon className="w-5 h-5" />
@@ -159,7 +159,7 @@ const StatCard = ({
           </p>
         </div>
       </div>
-      
+
       {/* Bottom accent line */}
       {href && (
         <div className="absolute bottom-0 left-4 right-4 h-0.5 bg-white/20 rounded-full scale-x-0 group-hover:scale-x-100 transition-transform duration-300" />
@@ -174,12 +174,12 @@ const StatCard = ({
 // ============================================================================
 // PROFESSIONAL BANK ACCOUNT CARD COMPONENT - WORLD CLASS DESIGN
 // ============================================================================
-const BankCard = ({ 
-  account, 
+const BankCard = ({
+  account,
   isAdmin,
   onToggleStatus,
-  onDelete 
-}: { 
+  onDelete
+}: {
   account: BankAccount;
   isAdmin: boolean;
   onToggleStatus: (account: BankAccount, e: React.MouseEvent) => void;
@@ -201,14 +201,14 @@ const BankCard = ({
   }, []);
 
   return (
-    <div 
+    <div
       onClick={() => router.push(`/finance/bank-accounts/${account.id}`)}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       className="group cursor-pointer perspective-1000"
     >
       {/* The Premium Card */}
-      <div 
+      <div
         className={`
           relative rounded-2xl overflow-hidden 
           shadow-[0_8px_30px_rgba(0,0,0,0.12)] 
@@ -217,13 +217,13 @@ const BankCard = ({
           hover:-translate-y-2 hover:rotate-x-[-2deg]
           transform-gpu
         `}
-        style={{ 
+        style={{
           background: theme.bg,
           aspectRatio: '1.586 / 1'
         }}
       >
         {/* Holographic Shine Overlay */}
-        <div 
+        <div
           className={`
             absolute inset-0 
             bg-gradient-to-br from-white/30 via-transparent via-50% to-white/10
@@ -232,14 +232,14 @@ const BankCard = ({
             pointer-events-none
           `}
           style={{
-            background: isHovered 
+            background: isHovered
               ? 'linear-gradient(135deg, rgba(255,255,255,0.4) 0%, transparent 40%, transparent 60%, rgba(255,255,255,0.2) 100%)'
               : 'none'
           }}
         />
 
         {/* Subtle Pattern Texture */}
-        <div 
+        <div
           className="absolute inset-0 opacity-[0.03] pointer-events-none"
           style={{
             backgroundImage: `repeating-linear-gradient(
@@ -279,9 +279,8 @@ const BankCard = ({
               </Link>
               <button
                 onClick={(e) => onToggleStatus(account, e)}
-                className={`p-2.5 rounded-xl bg-white/95 backdrop-blur-xl hover:bg-white hover:scale-110 transition-all duration-200 shadow-lg hover:shadow-xl ${
-                  account.isActive ? 'text-[#E17F70] hover:text-[#C45C4D]' : 'text-[#82A094] hover:text-[#4F6A64]'
-                }`}
+                className={`p-2.5 rounded-xl bg-white/95 backdrop-blur-xl hover:bg-white hover:scale-110 transition-all duration-200 shadow-lg hover:shadow-xl ${account.isActive ? 'text-[#E17F70] hover:text-[#C45C4D]' : 'text-[#82A094] hover:text-[#4F6A64]'
+                  }`}
                 title={account.isActive ? "Request Deactivation" : "Request Activation"}
               >
                 <Power className="w-4 h-4" />
@@ -292,9 +291,8 @@ const BankCard = ({
             <>
               <button
                 onClick={(e) => onToggleStatus(account, e)}
-                className={`p-2.5 rounded-xl bg-white/95 backdrop-blur-xl hover:bg-white hover:scale-110 transition-all duration-200 shadow-lg hover:shadow-xl ${
-                  account.isActive ? 'text-[#E17F70] hover:text-[#C45C4D]' : 'text-[#82A094] hover:text-[#4F6A64]'
-                }`}
+                className={`p-2.5 rounded-xl bg-white/95 backdrop-blur-xl hover:bg-white hover:scale-110 transition-all duration-200 shadow-lg hover:shadow-xl ${account.isActive ? 'text-[#E17F70] hover:text-[#C45C4D]' : 'text-[#82A094] hover:text-[#4F6A64]'
+                  }`}
                 title={account.isActive ? "Deactivate" : "Activate"}
               >
                 <Power className="w-4 h-4" />
@@ -338,7 +336,7 @@ const BankCard = ({
             <div className="flex flex-col items-end gap-2">
               {/* NFC Icon */}
               <Wifi className="w-5 h-5 text-white/40 rotate-90" />
-              
+
               {/* Status Indicator */}
               <div className="flex items-center gap-1.5">
                 <div className={`relative w-2.5 h-2.5 rounded-full ${account.isActive ? 'bg-emerald-400' : 'bg-slate-400'}`}>
@@ -363,7 +361,7 @@ const BankCard = ({
                 Account Number
               </p>
               <div className="flex items-center gap-2">
-                <p 
+                <p
                   className="text-white text-lg font-mono tracking-[0.15em] font-black"
                   style={{ textShadow: '0 2px 8px rgba(0,0,0,0.4)' }}
                 >
@@ -371,28 +369,32 @@ const BankCard = ({
                 </p>
                 <button
                   onClick={(e) => copyToClipboard(account.accountNumber, 'account', e)}
-                  className={`p-1 rounded-lg transition-all duration-200 ${
-                    copied === 'account' 
-                      ? 'bg-emerald-500/50 text-white scale-110' 
-                      : 'text-white/40 hover:text-white hover:bg-white/15 hover:scale-105'
-                  }`}
+                  className={`p-1 rounded-lg transition-all duration-200 ${copied === 'account'
+                    ? 'bg-emerald-500/50 text-white scale-110'
+                    : 'text-white/40 hover:text-white hover:bg-white/15 hover:scale-105'
+                    }`}
                 >
                   {copied === 'account' ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                 </button>
               </div>
               {account.otherAccountNumbers && account.otherAccountNumbers.length > 0 && (
                 <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
-                  {account.otherAccountNumbers.map((num, idx) => (
-                    <span key={idx} className="inline-flex items-center gap-1 text-white/70 text-[10px] font-mono font-bold bg-white/10 backdrop-blur-sm px-2 py-0.5 rounded-md tracking-wider">
-                      {num}
-                      <button
-                        onClick={(e) => copyToClipboard(num, `other-${idx}`, e)}
-                        className={`p-0.5 rounded transition-all duration-200 ${copied === `other-${idx}` ? 'text-emerald-300' : 'text-white/40 hover:text-white'}`}
-                      >
-                        {copied === `other-${idx}` ? <Check className="w-2.5 h-2.5" /> : <Copy className="w-2.5 h-2.5" />}
-                      </button>
-                    </span>
-                  ))}
+                  {account.otherAccountNumbers.map((num, idx) => {
+                    const [accNum, , bankName] = num.includes('|') ? num.split('|') : [num, '', ''];
+                    const displayVal = bankName ? `${accNum} (${bankName})` : accNum;
+                    const copyVal = accNum;
+                    return (
+                      <span key={idx} className="inline-flex items-center gap-1 text-white/70 text-[10px] font-mono font-bold bg-white/10 backdrop-blur-sm px-2 py-0.5 rounded-md tracking-wider">
+                        {displayVal}
+                        <button
+                          onClick={(e) => copyToClipboard(copyVal, `other-${idx}`, e)}
+                          className={`p-0.5 rounded transition-all duration-200 ${copied === `other-${idx}` ? 'text-emerald-300' : 'text-white/40 hover:text-white'}`}
+                        >
+                          {copied === `other-${idx}` ? <Check className="w-2.5 h-2.5" /> : <Copy className="w-2.5 h-2.5" />}
+                        </button>
+                      </span>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -404,7 +406,7 @@ const BankCard = ({
                   IFSC Code / SWIFT Code
                 </p>
                 <div className="flex items-center gap-2">
-                  <span 
+                  <span
                     className="text-white text-xs font-mono font-bold tracking-[0.2em]"
                     style={{ textShadow: '0 1px 4px rgba(0,0,0,0.3)' }}
                   >
@@ -412,9 +414,8 @@ const BankCard = ({
                   </span>
                   <button
                     onClick={(e) => copyToClipboard(account.ifscCode, 'ifsc', e)}
-                    className={`p-0.5 rounded-md transition-all ${
-                      copied === 'ifsc' ? 'text-emerald-300' : 'text-white/40 hover:text-white'
-                    }`}
+                    className={`p-0.5 rounded-md transition-all ${copied === 'ifsc' ? 'text-emerald-300' : 'text-white/40 hover:text-white'
+                      }`}
                   >
                     {copied === 'ifsc' ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
                   </button>
@@ -428,7 +429,7 @@ const BankCard = ({
             <div className="flex items-end justify-between">
               <div className="flex-1 min-w-0">
                 <p className="text-white/50 text-[8px] uppercase tracking-[0.2em] font-bold mb-1">Account Holder</p>
-                <p 
+                <p
                   className="text-white text-sm font-bold uppercase tracking-wide truncate"
                   style={{ textShadow: '0 1px 3px rgba(0,0,0,0.3)' }}
                   title={account.vendorName}
@@ -441,7 +442,7 @@ const BankCard = ({
                   </p>
                 )}
               </div>
-              
+
               {/* Security Badge */}
               <div className="flex items-center gap-1.5 text-white/30 ml-3">
                 <Shield className="w-4 h-4" />
@@ -452,7 +453,7 @@ const BankCard = ({
         </div>
 
         {/* Bottom Accent Line */}
-        <div 
+        <div
           className="absolute bottom-0 left-0 right-0 h-1"
           style={{ background: `linear-gradient(90deg, ${theme.accent}40, ${theme.accent}, ${theme.accent}40)` }}
         />
@@ -464,12 +465,12 @@ const BankCard = ({
 // ============================================================================
 // MOBILE VENDOR CARD - COMPACT FOR SMALL SCREENS
 // ============================================================================
-const MobileVendorCard = ({ 
-  account, 
+const MobileVendorCard = ({
+  account,
   isAdmin,
   onToggleStatus,
-  onDelete 
-}: { 
+  onDelete
+}: {
   account: BankAccount;
   isAdmin: boolean;
   onToggleStatus: (account: BankAccount, e: React.MouseEvent) => void;
@@ -491,13 +492,13 @@ const MobileVendorCard = ({
   }, []);
 
   return (
-    <div 
+    <div
       onClick={() => router.push(`/finance/bank-accounts/${account.id}`)}
       className="bg-white rounded-2xl p-4 shadow-sm border border-[#AEBFC3]/15 active:scale-[0.98] transition-all duration-200"
     >
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
-          <div 
+          <div
             className="h-10 w-10 rounded-xl flex items-center justify-center text-white font-bold text-xs shadow-sm flex-shrink-0"
             style={{ background: theme.bg }}
           >
@@ -533,9 +534,8 @@ const MobileVendorCard = ({
               </Link>
               <button
                 onClick={(e) => onToggleStatus(account, e)}
-                className={`p-2 rounded-lg transition-colors ${
-                  account.isActive ? 'text-[#E17F70] hover:bg-[#E17F70]/10' : 'text-[#82A094] hover:bg-[#82A094]/10'
-                }`}
+                className={`p-2 rounded-lg transition-colors ${account.isActive ? 'text-[#E17F70] hover:bg-[#E17F70]/10' : 'text-[#82A094] hover:bg-[#82A094]/10'
+                  }`}
                 title={account.isActive ? "Request Deactivation" : "Request Activation"}
               >
                 <Power className="w-3.5 h-3.5" />
@@ -560,28 +560,33 @@ const MobileVendorCard = ({
               <span className="text-sm font-mono font-bold text-[#546A7A] mt-0.5">{account.accountNumber}</span>
               {account.otherAccountNumbers && account.otherAccountNumbers.length > 0 && (
                 <div className="flex flex-wrap items-center gap-1 mt-1">
-                  {account.otherAccountNumbers.map((num, idx) => (
-                    <span key={idx} className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-[#CE9F6B] bg-[#CE9F6B]/10 px-1.5 py-0.5 rounded">
-                      {num}
-                      <button
-                        onClick={(e) => copyToClipboard(num, `other-acc-${idx}`, e)}
-                        className={`p-0.5 rounded transition-all ${copied === `other-acc-${idx}` ? 'text-[#82A094]' : 'text-[#AEBFC3] hover:text-[#CE9F6B]'}`}
-                      >
-                        {copied === `other-acc-${idx}` ? <Check className="w-2.5 h-2.5" /> : <Copy className="w-2.5 h-2.5" />}
-                      </button>
-                    </span>
-                  ))}
+                  {account.otherAccountNumbers.map((num, idx) => {
+                    const [accNum, , bankName] = num.includes('|') ? num.split('|') : [num, '', ''];
+                    const displayVal = bankName ? `${accNum} (${bankName})` : accNum;
+                    const copyVal = accNum;
+                    return (
+                      <span key={idx} className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-[#CE9F6B] bg-[#CE9F6B]/10 px-1.5 py-0.5 rounded">
+                        {displayVal}
+                        <button
+                          onClick={(e) => copyToClipboard(copyVal, `other-acc-${idx}`, e)}
+                          className={`p-0.5 rounded transition-all ${copied === `other-acc-${idx}` ? 'text-[#82A094]' : 'text-[#AEBFC3] hover:text-[#CE9F6B]'}`}
+                        >
+                          {copied === `other-acc-${idx}` ? <Check className="w-2.5 h-2.5" /> : <Copy className="w-2.5 h-2.5" />}
+                        </button>
+                      </span>
+                    );
+                  })}
                 </div>
               )}
             </div>
-            <button 
+            <button
               onClick={(e) => copyToClipboard(account.accountNumber, 'acc', e)}
               className={`p-1.5 rounded-lg transition-all ${copied === 'acc' ? 'bg-[#82A094] text-white' : 'text-[#AEBFC3] hover:text-[#546A7A]'}`}
             >
               {copied === 'acc' ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
             </button>
           </div>
-          
+
           <div className="h-px bg-[#AEBFC3]/10" />
 
           <div className="flex justify-between items-center">
@@ -599,11 +604,10 @@ const MobileVendorCard = ({
           <div className="flex items-center gap-2">
             <button
               onClick={(e) => onToggleStatus(account, e)}
-              className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold transition-all border ${
-                account.isActive 
-                  ? 'border-[#E17F70]/20 text-[#E17F70] hover:bg-[#E17F70]/5' 
-                  : 'border-[#82A094]/20 text-[#82A094] hover:bg-[#82A094]/5'
-              }`}
+              className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold transition-all border ${account.isActive
+                ? 'border-[#E17F70]/20 text-[#E17F70] hover:bg-[#E17F70]/5'
+                : 'border-[#82A094]/20 text-[#82A094] hover:bg-[#82A094]/5'
+                }`}
             >
               {account.isActive ? 'Deactivate Account' : 'Activate Account'}
             </button>
@@ -613,11 +617,10 @@ const MobileVendorCard = ({
           <div className="flex items-center gap-2">
             <button
               onClick={(e) => onToggleStatus(account, e)}
-              className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold transition-all border ${
-                account.isActive 
-                  ? 'border-[#E17F70]/20 text-[#E17F70] hover:bg-[#E17F70]/5' 
-                  : 'border-[#82A094]/20 text-[#82A094] hover:bg-[#82A094]/5'
-              }`}
+              className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold transition-all border ${account.isActive
+                ? 'border-[#E17F70]/20 text-[#E17F70] hover:bg-[#E17F70]/5'
+                : 'border-[#82A094]/20 text-[#82A094] hover:bg-[#82A094]/5'
+                }`}
             >
               {account.isActive ? 'Request Deactivation' : 'Request Activation'}
             </button>
@@ -631,12 +634,12 @@ const MobileVendorCard = ({
 // ============================================================================
 // TABLE VIEW COMPONENT
 // ============================================================================
-const VendorTable = ({ 
-  accounts, 
+const VendorTable = ({
+  accounts,
   isAdmin,
   onToggleStatus,
-  onDelete 
-}: { 
+  onDelete
+}: {
   accounts: BankAccount[];
   isAdmin: boolean;
   onToggleStatus: (account: BankAccount, e: React.MouseEvent) => void;
@@ -660,7 +663,7 @@ const VendorTable = ({
       {/* Mobile-only Card List */}
       <div className="lg:hidden space-y-3">
         {accounts.map(account => (
-          <MobileVendorCard 
+          <MobileVendorCard
             key={account.id}
             account={account}
             isAdmin={isAdmin}
@@ -673,271 +676,272 @@ const VendorTable = ({
       {/* Desktop-only Table */}
       <div className="hidden lg:block bg-white rounded-2xl border-0 shadow-2xl overflow-hidden">
         <table className="w-full">
-            <thead>
-              <tr className="bg-gradient-to-r from-[#B18E63] via-[#82A094] to-[#6F8A9D] text-white">
-                <th className="px-4 py-3.5 text-left text-xs font-bold uppercase tracking-wider w-16">
-                  <span className="sr-only">Avatar</span>
-                </th>
-                <th className="px-4 py-3.5 text-left text-xs font-bold uppercase tracking-wider">
-                  <div className="flex items-center gap-1.5">
-                    <Building2 className="h-3.5 w-3.5 text-white/70" />
-                    Vendor
-                  </div>
-                </th>
-                <th className="px-4 py-3.5 text-left text-xs font-bold uppercase tracking-wider">
-                  <div className="flex items-center gap-1.5">
-                    <Landmark className="h-3.5 w-3.5 text-white/70" />
-                    BP Code
-                  </div>
-                </th>
-                <th className="px-4 py-3.5 text-left text-xs font-bold uppercase tracking-wider">
-                  <div className="flex items-center gap-1.5">
-                    <Landmark className="h-3.5 w-3.5 text-white/70" />
-                    Vendor Bank Details
-                  </div>
-                </th>
-                <th className="px-4 py-3.5 text-left text-xs font-bold uppercase tracking-wider">
-                  <div className="flex items-center gap-1.5">
-                    <Wallet className="h-3.5 w-3.5 text-white/70" />
-                    Account Number
-                  </div>
-                </th>
-                <th className="px-4 py-3.5 text-center text-xs font-bold uppercase tracking-wider">
-                  <div className="flex items-center justify-center gap-1.5">
-                    <Globe className="h-3.5 w-3.5 text-white/70" />
-                    Currency
-                  </div>
-                </th>
-                <th className="px-4 py-3.5 text-center text-xs font-bold uppercase tracking-wider">
-                  <div className="flex items-center justify-center gap-1.5">
-                    <Shield className="h-3.5 w-3.5 text-white/70" />
-                    KYC
-                  </div>
-                </th>
-                <th className="px-4 py-3.5 text-center text-xs font-bold uppercase tracking-wider">
-                  <div className="flex items-center justify-center gap-1.5">
-                    <Shield className="h-3.5 w-3.5 text-white/70" />
-                    Status
-                  </div>
-                </th>
-                <th className="px-4 py-3.5 text-center text-xs font-bold uppercase tracking-wider w-32">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {accounts.map((account, index) => {
-                const theme = getCardTheme(account.vendorName);
-                const initials = getInitials(account.vendorName);
+          <thead>
+            <tr className="bg-gradient-to-r from-[#B18E63] via-[#82A094] to-[#6F8A9D] text-white">
+              <th className="px-4 py-3.5 text-left text-xs font-bold uppercase tracking-wider w-16">
+                <span className="sr-only">Avatar</span>
+              </th>
+              <th className="px-4 py-3.5 text-left text-xs font-bold uppercase tracking-wider">
+                <div className="flex items-center gap-1.5">
+                  <Building2 className="h-3.5 w-3.5 text-white/70" />
+                  Vendor
+                </div>
+              </th>
+              <th className="px-4 py-3.5 text-left text-xs font-bold uppercase tracking-wider">
+                <div className="flex items-center gap-1.5">
+                  <Landmark className="h-3.5 w-3.5 text-white/70" />
+                  BP Code
+                </div>
+              </th>
+              <th className="px-4 py-3.5 text-left text-xs font-bold uppercase tracking-wider">
+                <div className="flex items-center gap-1.5">
+                  <Landmark className="h-3.5 w-3.5 text-white/70" />
+                  Vendor Bank Details
+                </div>
+              </th>
+              <th className="px-4 py-3.5 text-left text-xs font-bold uppercase tracking-wider">
+                <div className="flex items-center gap-1.5">
+                  <Wallet className="h-3.5 w-3.5 text-white/70" />
+                  Account Number
+                </div>
+              </th>
+              <th className="px-4 py-3.5 text-center text-xs font-bold uppercase tracking-wider">
+                <div className="flex items-center justify-center gap-1.5">
+                  <Globe className="h-3.5 w-3.5 text-white/70" />
+                  Currency
+                </div>
+              </th>
+              <th className="px-4 py-3.5 text-center text-xs font-bold uppercase tracking-wider">
+                <div className="flex items-center justify-center gap-1.5">
+                  <Shield className="h-3.5 w-3.5 text-white/70" />
+                  KYC
+                </div>
+              </th>
+              <th className="px-4 py-3.5 text-center text-xs font-bold uppercase tracking-wider">
+                <div className="flex items-center justify-center gap-1.5">
+                  <Shield className="h-3.5 w-3.5 text-white/70" />
+                  Status
+                </div>
+              </th>
+              <th className="px-4 py-3.5 text-center text-xs font-bold uppercase tracking-wider w-32">
+                Actions
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {accounts.map((account, index) => {
+              const theme = getCardTheme(account.vendorName);
+              const initials = getInitials(account.vendorName);
 
-                return (
-                  <tr 
-                    key={account.id}
-                    onClick={() => router.push(`/finance/bank-accounts/${account.id}`)}
-                    className={`
+              return (
+                <tr
+                  key={account.id}
+                  onClick={() => router.push(`/finance/bank-accounts/${account.id}`)}
+                  className={`
                       ${index % 2 === 0 ? 'bg-white' : 'bg-[#AEBFC3]/5'}
                       hover:bg-gradient-to-r hover:from-[#CE9F6B]/10 hover:to-[#CE9F6B]/5
                       transition-all duration-200 cursor-pointer group
                     `}
-                  >
-                    {/* Avatar */}
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <div 
-                          className="h-9 w-9 rounded-lg flex items-center justify-center text-white font-bold text-xs shadow-sm flex-shrink-0"
-                          style={{ background: theme.bg }}
-                        >
-                          {initials}
-                        </div>
+                >
+                  {/* Avatar */}
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="h-9 w-9 rounded-lg flex items-center justify-center text-white font-bold text-xs shadow-sm flex-shrink-0"
+                        style={{ background: theme.bg }}
+                      >
+                        {initials}
                       </div>
-                    </td>
+                    </div>
+                  </td>
 
-                    {/* Vendor Info */}
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <p className="font-semibold text-[#546A7A] text-sm truncate max-w-[180px] group-hover:text-[#976E44] transition-colors">
-                              {account.vendorName}
-                            </p>
-                            {account.isMSME && (
-                              <span className="px-1.5 py-0.5 text-[10px] font-bold bg-[#CE9F6B]/20 text-[#976E44] rounded">
-                                MSME
-                              </span>
-                            )}
-                          </div>
-                          {account.nickName && (
-                            <p className="text-xs text-[#92A2A5] truncate max-w-[180px]">"{account.nickName}"</p>
+                  {/* Vendor Info */}
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold text-[#546A7A] text-sm truncate max-w-[180px] group-hover:text-[#976E44] transition-colors">
+                            {account.vendorName}
+                          </p>
+                          {account.isMSME && (
+                            <span className="px-1.5 py-0.5 text-[10px] font-bold bg-[#CE9F6B]/20 text-[#976E44] rounded">
+                              MSME
+                            </span>
                           )}
                         </div>
+                        {account.nickName && (
+                          <p className="text-xs text-[#92A2A5] truncate max-w-[180px]">"{account.nickName}"</p>
+                        )}
                       </div>
-                    </td>
+                    </div>
+                  </td>
 
-                    {/* BP Code */}
-                    <td className="px-4 py-3">
-                      <span className="inline-flex px-2 py-1 text-xs font-bold rounded-md bg-[#6F8A9D]/10 text-[#546A7A] font-mono uppercase tracking-wider">
-                        {account.bpCode || '—'}
-                      </span>
-                    </td>
+                  {/* BP Code */}
+                  <td className="px-4 py-3">
+                    <span className="inline-flex px-2 py-1 text-xs font-bold rounded-md bg-[#6F8A9D]/10 text-[#546A7A] font-mono uppercase tracking-wider">
+                      {account.bpCode || '—'}
+                    </span>
+                  </td>
 
-                    {/* Bank */}
-                    <td className="px-4 py-3">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-1.5">
-                          <div className="h-2 w-2 rounded-full bg-[#6F8A9D] flex-shrink-0"></div>
-                          <span className="text-[#5D6E73] text-sm font-medium">{account.beneficiaryBankName}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="inline-flex px-2 py-1 text-xs font-bold rounded-md bg-[#CE9F6B]/20 text-[#976E44] font-mono">
-                            {account.ifscCode}
-                          </span>
-                          <button 
-                            onClick={(e) => copyToClipboard(account.ifscCode, `ifsc-${account.id}`, e)}
-                            className={`p-1 rounded transition-all ${
-                              copied === `ifsc-${account.id}` 
-                                ? 'text-[#82A094]' 
-                                : 'text-[#AEBFC3] hover:text-[#CE9F6B]'
-                            }`}
-                          >
-                            {copied === `ifsc-${account.id}` ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                          </button>
-                        </div>
+                  {/* Bank */}
+                  <td className="px-4 py-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1.5">
+                        <div className="h-2 w-2 rounded-full bg-[#6F8A9D] flex-shrink-0"></div>
+                        <span className="text-[#5D6E73] text-sm font-medium">{account.beneficiaryBankName}</span>
                       </div>
-                    </td>
-
-                    {/* Account Number */}
-                    <td className="px-4 py-3">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono font-bold text-[#546A7A]">{account.accountNumber}</span>
-                          <button 
-                            onClick={(e) => copyToClipboard(account.accountNumber, `acc-${account.id}`, e)}
-                            className={`p-1 rounded transition-all ${
-                              copied === `acc-${account.id}` 
-                                ? 'text-[#82A094]' 
-                                : 'text-[#AEBFC3] hover:text-[#CE9F6B]'
+                      <div className="flex items-center gap-1.5">
+                        <span className="inline-flex px-2 py-1 text-xs font-bold rounded-md bg-[#CE9F6B]/20 text-[#976E44] font-mono">
+                          {account.ifscCode}
+                        </span>
+                        <button
+                          onClick={(e) => copyToClipboard(account.ifscCode, `ifsc-${account.id}`, e)}
+                          className={`p-1 rounded transition-all ${copied === `ifsc-${account.id}`
+                            ? 'text-[#82A094]'
+                            : 'text-[#AEBFC3] hover:text-[#CE9F6B]'
                             }`}
-                          >
-                            {copied === `acc-${account.id}` ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                          </button>
-                        </div>
-                        {account.otherAccountNumbers && account.otherAccountNumbers.length > 0 && (
-                          <div className="flex flex-wrap items-center gap-1">
-                            {account.otherAccountNumbers.map((num, idx) => (
+                        >
+                          {copied === `ifsc-${account.id}` ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                        </button>
+                      </div>
+                    </div>
+                  </td>
+
+                  {/* Account Number */}
+                  <td className="px-4 py-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-bold text-[#546A7A]">{account.accountNumber}</span>
+                        <button
+                          onClick={(e) => copyToClipboard(account.accountNumber, `acc-${account.id}`, e)}
+                          className={`p-1 rounded transition-all ${copied === `acc-${account.id}`
+                            ? 'text-[#82A094]'
+                            : 'text-[#AEBFC3] hover:text-[#CE9F6B]'
+                            }`}
+                        >
+                          {copied === `acc-${account.id}` ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                        </button>
+                      </div>
+                      {account.otherAccountNumbers && account.otherAccountNumbers.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-1">
+                          {account.otherAccountNumbers.map((num, idx) => {
+                            const [accNum, , bankName] = num.includes('|') ? num.split('|') : [num, '', ''];
+                            const displayVal = bankName ? `${accNum} (${bankName})` : accNum;
+                            const copyVal = accNum;
+                            return (
                               <span key={idx} className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-[#CE9F6B] bg-[#CE9F6B]/10 px-1.5 py-0.5 rounded">
-                                {num}
+                                {displayVal}
                                 <button
-                                  onClick={(e) => copyToClipboard(num, `other-${account.id}-${idx}`, e)}
+                                  onClick={(e) => copyToClipboard(copyVal, `other-${account.id}-${idx}`, e)}
                                   className={`p-0.5 rounded transition-all ${copied === `other-${account.id}-${idx}` ? 'text-[#82A094]' : 'text-[#AEBFC3] hover:text-[#CE9F6B]'}`}
                                 >
                                   {copied === `other-${account.id}-${idx}` ? <Check className="w-2.5 h-2.5" /> : <Copy className="w-2.5 h-2.5" />}
                                 </button>
                               </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </td>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </td>
 
-                    {/* Currency */}
-                    <td className="px-4 py-3 text-center">
-                      <span className={`
+                  {/* Currency */}
+                  <td className="px-4 py-3 text-center">
+                    <span className={`
                         inline-flex px-2 py-1 text-xs font-bold rounded-md
-                        ${account.currency === 'INR' 
-                          ? 'bg-[#82A094]/20 text-[#4F6A64]' 
-                          : account.currency === 'USD'
+                        ${account.currency === 'INR'
+                        ? 'bg-[#82A094]/20 text-[#4F6A64]'
+                        : account.currency === 'USD'
                           ? 'bg-[#6F8A9D]/20 text-[#546A7A]'
                           : account.currency === 'EUR'
-                          ? 'bg-[#CE9F6B]/20 text-[#976E44]'
-                          : 'bg-[#AEBFC3]/20 text-[#5D6E73]'
-                        }
+                            ? 'bg-[#CE9F6B]/20 text-[#976E44]'
+                            : 'bg-[#AEBFC3]/20 text-[#5D6E73]'
+                      }
                       `}>
-                        {account.currency}
+                      {account.currency}
+                    </span>
+                  </td>
+
+                  {/* KYC Status */}
+                  <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                    {account.attachments && account.attachments.length > 0 ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold rounded-md bg-emerald-50 text-emerald-600 uppercase tracking-widest border border-emerald-500/20 shadow-sm">
+                        Verified
                       </span>
-                    </td>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold rounded-md bg-red-50 text-red-500 uppercase tracking-widest border border-red-500/20 shadow-sm">
+                        Pending
+                      </span>
+                    )}
+                  </td>
 
-                    {/* KYC Status */}
-                    <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
-                      {account.attachments && account.attachments.length > 0 ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold rounded-md bg-emerald-50 text-emerald-600 uppercase tracking-widest border border-emerald-500/20 shadow-sm">
-                          Verified
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold rounded-md bg-red-50 text-red-500 uppercase tracking-widest border border-red-500/20 shadow-sm">
-                          Pending
-                        </span>
-                      )}
-                    </td>
-
-                    {/* Status */}
-                    <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
-                      <span className={`
+                  {/* Status */}
+                  <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                    <span className={`
                         inline-flex px-2.5 py-1 text-xs font-bold rounded-full shadow-sm
-                        ${account.isActive 
-                          ? 'bg-gradient-to-r from-[#82A094] to-[#4F6A64] text-white' 
-                          : 'bg-gradient-to-r from-[#AEBFC3] to-[#92A2A5] text-white'
-                        }
+                        ${account.isActive
+                        ? 'bg-gradient-to-r from-[#82A094] to-[#4F6A64] text-white'
+                        : 'bg-gradient-to-r from-[#AEBFC3] to-[#92A2A5] text-white'
+                      }
                       `}>
-                        {account.isActive ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
+                      {account.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                  </td>
 
-                    {/* Actions */}
-                    <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center justify-center gap-1">
-                        <Link
-                          href={`/finance/bank-accounts/${account.id}`}
-                          onClick={(e) => e.stopPropagation()}
-                          className="p-2 rounded-lg hover:bg-[#92A2A5]/20 text-[#5D6E73] transition-colors"
-                          title="View Details"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </Link>
-                        {!isAdmin && (
-                          <>
-                            <Link
-                              href={`/finance/bank-accounts/${account.id}/edit`}
-                              onClick={(e) => e.stopPropagation()}
-                              className="p-2 rounded-lg hover:bg-[#CE9F6B]/20 text-[#5D6E73] hover:text-[#CE9F6B] transition-colors"
-                              title="Edit Account"
-                            >
-                              <Pencil className="w-4 h-4" />
-                            </Link>
-                            <button
-                              onClick={(e) => onToggleStatus(account, e)}
-                              className={`p-2 rounded-lg transition-colors ${
-                                account.isActive 
-                                  ? 'hover:bg-[#E17F70]/20 text-[#5D6E73] hover:text-[#E17F70]' 
-                                  : 'hover:bg-[#82A094]/20 text-[#5D6E73] hover:text-[#82A094]'
+                  {/* Actions */}
+                  <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center justify-center gap-1">
+                      <Link
+                        href={`/finance/bank-accounts/${account.id}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="p-2 rounded-lg hover:bg-[#92A2A5]/20 text-[#5D6E73] transition-colors"
+                        title="View Details"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </Link>
+                      {!isAdmin && (
+                        <>
+                          <Link
+                            href={`/finance/bank-accounts/${account.id}/edit`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="p-2 rounded-lg hover:bg-[#CE9F6B]/20 text-[#5D6E73] hover:text-[#CE9F6B] transition-colors"
+                            title="Edit Account"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Link>
+                          <button
+                            onClick={(e) => onToggleStatus(account, e)}
+                            className={`p-2 rounded-lg transition-colors ${account.isActive
+                              ? 'hover:bg-[#E17F70]/20 text-[#5D6E73] hover:text-[#E17F70]'
+                              : 'hover:bg-[#82A094]/20 text-[#5D6E73] hover:text-[#82A094]'
                               }`}
-                              title={account.isActive ? "Request Deactivation" : "Request Activation"}
-                            >
-                              <Power className="w-4 h-4" />
-                            </button>
-                          </>
-                        )}
-                        {isAdmin && (
-                          <>
-                            <button
-                              onClick={(e) => onToggleStatus(account, e)}
-                              className={`p-2 rounded-lg transition-colors ${
-                                account.isActive 
-                                  ? 'hover:bg-[#E17F70]/20 text-[#5D6E73] hover:text-[#E17F70]' 
-                                  : 'hover:bg-[#82A094]/20 text-[#5D6E73] hover:text-[#82A094]'
+                            title={account.isActive ? "Request Deactivation" : "Request Activation"}
+                          >
+                            <Power className="w-4 h-4" />
+                          </button>
+                        </>
+                      )}
+                      {isAdmin && (
+                        <>
+                          <button
+                            onClick={(e) => onToggleStatus(account, e)}
+                            className={`p-2 rounded-lg transition-colors ${account.isActive
+                              ? 'hover:bg-[#E17F70]/20 text-[#5D6E73] hover:text-[#E17F70]'
+                              : 'hover:bg-[#82A094]/20 text-[#5D6E73] hover:text-[#82A094]'
                               }`}
-                              title={account.isActive ? "Deactivate" : "Activate"}
-                            >
-                              <Power className="w-4 h-4" />
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                            title={account.isActive ? "Deactivate" : "Activate"}
+                          >
+                            <Power className="w-4 h-4" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
     </>
   );
@@ -990,14 +994,14 @@ export default function BankAccountsPage() {
   const handleToggleStatus = useCallback(async (account: BankAccount, e: React.MouseEvent) => {
     e.stopPropagation();
     const newStatus = !account.isActive;
-    
+
     if (isAdmin) {
       if (!confirm(`Are you sure you want to ${newStatus ? 'activate' : 'deactivate'} this vendor account?`)) return;
-      
+
       try {
         await arApi.updateBankAccount(account.id, { isActive: newStatus });
         // Update locally first for instant feedback
-        setAccounts(prev => prev.map(a => 
+        setAccounts(prev => prev.map(a =>
           a.id === account.id ? { ...a, isActive: newStatus } : a
         ));
         // Then silently reload from server to ensure data consistency
@@ -1008,7 +1012,7 @@ export default function BankAccountsPage() {
       }
     } else {
       if (!confirm(`Are you sure you want to request ${newStatus ? 'activation' : 'deactivation'} for this vendor account?`)) return;
-      
+
       try {
         await arApi.createBankAccountRequest({
           bankAccountId: account.id,
@@ -1027,7 +1031,7 @@ export default function BankAccountsPage() {
   const handleDelete = useCallback(async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!confirm('Are you sure you want to delete this vendor bank account?')) return;
-    
+
     try {
       await arApi.deleteBankAccount(id);
       await loadBankAccounts();
@@ -1041,7 +1045,7 @@ export default function BankAccountsPage() {
   const filteredAccounts = useMemo(() => {
     if (!searchTerm) return accounts;
     const search = searchTerm.toLowerCase();
-    return accounts.filter(account => 
+    return accounts.filter(account =>
       account.vendorName.toLowerCase().includes(search) ||
       account.bpCode?.toLowerCase().includes(search) ||
       account.beneficiaryName?.toLowerCase().includes(search) ||
@@ -1068,7 +1072,7 @@ export default function BankAccountsPage() {
             <div className="relative group shrink-0">
               {/* Glow effect */}
               <div className="absolute -inset-1 bg-gradient-to-br from-[#CE9F6B]/30 to-[#82A094]/30 rounded-xl blur-lg opacity-0 group-hover:opacity-100 transition-all duration-500" />
-              <div 
+              <div
                 className="relative w-12 h-12 lg:w-14 lg:h-14 rounded-2xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300"
                 style={{ background: 'linear-gradient(135deg, #B18E63 0%, #7A5A38 100%)' }}
               >
@@ -1116,7 +1120,7 @@ export default function BankAccountsPage() {
                 <span className="sm:hidden">Pending</span>
               </Link>
               {!isAdmin && (
-                <Link 
+                <Link
                   href="/finance/bank-accounts/new"
                   className="flex items-center gap-2 px-4 py-2.5 lg:px-5 lg:py-3 rounded-xl text-white font-bold shadow-lg hover:shadow-xl transition-all text-sm hover:scale-[1.02] whitespace-nowrap"
                   style={{ background: 'linear-gradient(135deg, #82A094 0%, #4F6A64 100%)' }}
@@ -1131,28 +1135,28 @@ export default function BankAccountsPage() {
 
         {/* Stats Cards - Optimized Grid */}
         <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-5">
-          <StatCard 
+          <StatCard
             icon={CreditCard}
             label="Total"
             value={stats.total}
             loading={loading}
             variant="primary"
           />
-          <StatCard 
+          <StatCard
             icon={Check}
             label="Active"
             value={stats.active}
             loading={loading}
             variant="success"
           />
-          <StatCard 
+          <StatCard
             icon={Landmark}
             label="Banks"
             value={stats.banks}
             loading={loading}
             variant="secondary"
           />
-          <StatCard 
+          <StatCard
             icon={Clock}
             label="Requests"
             value={pendingCount}
@@ -1189,11 +1193,10 @@ export default function BankAccountsPage() {
             {canImport && (
               <button
                 onClick={() => setShowInactive(!showInactive)}
-                className={`flex items-center justify-center gap-2 px-5 py-3 rounded-xl border text-sm font-bold transition-all ${
-                  showInactive 
-                    ? 'bg-gradient-to-r from-[#AEBFC3]/20 to-[#AEBFC3]/10 border-[#AEBFC3]/40 text-[#546A7A] shadow-inner' 
-                    : 'bg-white border-[#AEBFC3]/20 text-[#92A2A5] hover:border-[#CE9F6B]/30 hover:text-[#5D6E73]'
-                }`}
+                className={`flex items-center justify-center gap-2 px-5 py-3 rounded-xl border text-sm font-bold transition-all ${showInactive
+                  ? 'bg-gradient-to-r from-[#AEBFC3]/20 to-[#AEBFC3]/10 border-[#AEBFC3]/40 text-[#546A7A] shadow-inner'
+                  : 'bg-white border-[#AEBFC3]/20 text-[#92A2A5] hover:border-[#CE9F6B]/30 hover:text-[#5D6E73]'
+                  }`}
               >
                 {showInactive ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                 <span>{showInactive ? 'All' : 'Inactive'}</span>
@@ -1221,22 +1224,20 @@ export default function BankAccountsPage() {
             <div className="flex items-center bg-[#F8FAFB] rounded-xl p-1 border border-[#AEBFC3]/20">
               <button
                 onClick={() => setViewMode('grid')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${
-                  viewMode === 'grid' 
-                    ? 'bg-white text-[#CE9F6B] shadow-sm ring-1 ring-[#AEBFC3]/10' 
-                    : 'text-[#92A2A5] hover:text-[#546A7A]'
-                }`}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${viewMode === 'grid'
+                  ? 'bg-white text-[#CE9F6B] shadow-sm ring-1 ring-[#AEBFC3]/10'
+                  : 'text-[#92A2A5] hover:text-[#546A7A]'
+                  }`}
               >
                 <Grid3x3 className="w-4 h-4" />
                 <span className="hidden sm:inline">Cards</span>
               </button>
               <button
                 onClick={() => setViewMode('table')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${
-                  viewMode === 'table' 
-                    ? 'bg-white text-[#CE9F6B] shadow-sm ring-1 ring-[#AEBFC3]/10' 
-                    : 'text-[#92A2A5] hover:text-[#546A7A]'
-                }`}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${viewMode === 'table'
+                  ? 'bg-white text-[#CE9F6B] shadow-sm ring-1 ring-[#AEBFC3]/10'
+                  : 'text-[#92A2A5] hover:text-[#546A7A]'
+                  }`}
               >
                 <List className="w-4 h-4" />
                 <span className="hidden sm:inline">Table</span>
@@ -1272,7 +1273,7 @@ export default function BankAccountsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
             {Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="animate-pulse">
-                <div 
+                <div
                   className="bg-gradient-to-br from-[#AEBFC3]/30 to-[#AEBFC3]/10 rounded-2xl"
                   style={{ aspectRatio: '1.586 / 1' }}
                 />
@@ -1294,11 +1295,11 @@ export default function BankAccountsPage() {
               <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-[#CE9F6B]/10 rounded-full blur-3xl" />
               <div className="absolute bottom-1/4 right-1/4 w-48 h-48 bg-[#82A094]/10 rounded-full blur-3xl" />
             </div>
-            
+
             <div className="relative">
               {/* Glow effect */}
               <div className="absolute -inset-4 bg-gradient-to-br from-[#CE9F6B]/20 to-[#82A094]/20 rounded-3xl blur-2xl" />
-              <div 
+              <div
                 className="relative w-24 h-24 rounded-2xl flex items-center justify-center mb-8 shadow-2xl"
                 style={{ background: 'linear-gradient(135deg, #B18E63 0%, #7A5A38 100%)' }}
               >
@@ -1309,11 +1310,11 @@ export default function BankAccountsPage() {
             <h3 className="text-xl font-bold text-[#546A7A] mb-3">
               {searchTerm ? 'No matching accounts found' : 'No vendor bank accounts yet'}
             </h3>
-              <p className="text-[#AEBFC3] text-sm md:text-base max-w-sm mx-auto leading-relaxed">
-                {searchTerm
+            <p className="text-[#AEBFC3] text-sm md:text-base max-w-sm mx-auto leading-relaxed">
+              {searchTerm
                 ? 'Try adjusting your search filters to find what you looking for.'
                 : 'Add your first vendor bank account to start managing vendor payment destinations securely.'}
-              </p>
+            </p>
 
             {!searchTerm && (
               <Link
@@ -1325,7 +1326,7 @@ export default function BankAccountsPage() {
                 Add Your First Account
               </Link>
             )}
-            
+
             {searchTerm && (
               <button
                 onClick={() => setSearchTerm('')}
