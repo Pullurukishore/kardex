@@ -269,15 +269,28 @@ export default function PaymentsPage() {
     };
 
     const updatePayment = (tempId: string, updates: Partial<PendingPayment>) => {
-        // If accountNumber is being updated and it's a pipe-separated secondary account, extract fields
-        if (updates.accountNumber && updates.accountNumber.includes('|')) {
-            const [accNum, ifsc, bankName] = updates.accountNumber.split('|');
-            updates = {
-                ...updates,
-                accountNumber: updates.accountNumber, // Keep the full encoded value for the Select component
-                ifscCode: ifsc || updates.ifscCode,
-                bankName: bankName || updates.bankName,
-            };
+        // If accountNumber is being updated, determine whether it's a secondary or primary account
+        if (updates.accountNumber) {
+            if (updates.accountNumber.includes('|')) {
+                // Secondary account: extract fields from the encoded value
+                const [accNum, ifsc, bankName] = updates.accountNumber.split('|');
+                updates = {
+                    ...updates,
+                    accountNumber: updates.accountNumber, // Keep the full encoded value for the Select component
+                    ifscCode: ifsc || updates.ifscCode,
+                    bankName: bankName || updates.bankName,
+                };
+            } else {
+                // Primary account selected: restore primary bank details
+                const payment = pendingPayments.find(p => p.tempId === tempId);
+                if (payment) {
+                    updates = {
+                        ...updates,
+                        ifscCode: payment.bankAccount.ifscCode,
+                        bankName: payment.bankAccount.beneficiaryBankName || '',
+                    };
+                }
+            }
         }
         setPendingPayments(prev => prev.map(p =>
             p.tempId === tempId ? { ...p, ...updates } : p

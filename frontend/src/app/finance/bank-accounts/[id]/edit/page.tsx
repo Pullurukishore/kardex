@@ -13,7 +13,7 @@ import {
   CheckCircle2, Mail, CreditCard, Hash, User, Loader2,
   Info, ArrowRight, FileSpreadsheet, Globe, Shield,
   Upload, FileText, FileIcon, Trash2, Download,
-  FileImage, File, Eye, X, BadgeCheck
+  FileImage, File, Eye, X, BadgeCheck, Pencil
 } from 'lucide-react';
 // Lazy-load FilePreview — it pulls in the heavy `xlsx` library (~1MB).
 // This keeps it out of the initial page bundle entirely.
@@ -67,6 +67,12 @@ export default function EditBankAccountPage() {
   const [newOtherAccountIFSC, setNewOtherAccountIFSC] = useState('');
   const [newOtherAccountBank, setNewOtherAccountBank] = useState('');
   const [otherAccError, setOtherAccError] = useState('');
+  const [editingSecIdx, setEditingSecIdx] = useState<number | null>(null);
+  const [editSecAccNum, setEditSecAccNum] = useState('');
+  const [editSecConfirmAccNum, setEditSecConfirmAccNum] = useState('');
+  const [editSecIFSC, setEditSecIFSC] = useState('');
+  const [editSecBank, setEditSecBank] = useState('');
+  const [editSecError, setEditSecError] = useState('');
 
   const isAdmin = user?.financeRole === FinanceRole.FINANCE_ADMIN;
 
@@ -114,7 +120,6 @@ export default function EditBankAccountPage() {
       const encodedSecondaries = (data.secondaryAccounts || []).map((sec: any) =>
         `${sec.accountNumber}|${sec.ifscCode}|${sec.beneficiaryBankName}`
       );
-      const rawSecondaries = (data.secondaryAccounts || []).map((sec: any) => sec.accountNumber);
 
       setFormData({
         bpCode: data.bpCode || '',
@@ -135,7 +140,7 @@ export default function EditBankAccountPage() {
         otherCurrency: ['INR', 'EUR', 'USD'].includes(data.currency) ? '' : data.currency,
         accountCategory: data.accountCategory || 'DOMESTIC',
         isGstRegistered: !!data.gstNumber && data.gstNumber !== 'UNREGISTERED',
-        otherAccountNumbers: [...rawSecondaries, ...encodedSecondaries]
+        otherAccountNumbers: encodedSecondaries
       });
       setSelectedDocContexts([data.accountCategory || 'DOMESTIC']);
     } catch (error) {
@@ -390,6 +395,78 @@ export default function EditBankAccountPage() {
       ...prev,
       otherAccountNumbers: (prev.otherAccountNumbers || []).filter((_, i) => i !== index)
     }));
+    if (editingSecIdx === index) {
+      setEditingSecIdx(null);
+    }
+  };
+
+  const handleStartEditSecondary = (index: number) => {
+    const item = formData.otherAccountNumbers[index];
+    if (item.includes('|')) {
+      const [accNum, ifsc, bankName] = item.split('|');
+      setEditSecAccNum(accNum);
+      setEditSecConfirmAccNum(accNum);
+      setEditSecIFSC(ifsc);
+      setEditSecBank(bankName);
+    } else {
+      setEditSecAccNum(item);
+      setEditSecConfirmAccNum(item);
+      setEditSecIFSC('');
+      setEditSecBank('');
+    }
+    setEditSecError('');
+    setEditingSecIdx(index);
+  };
+
+  const handleSaveEditSecondary = () => {
+    if (editingSecIdx === null) return;
+    const num = editSecAccNum.trim();
+    const confirmNum = editSecConfirmAccNum.trim();
+    const ifsc = editSecIFSC.trim().toUpperCase();
+    const bank = editSecBank.trim();
+
+    if (!num || !confirmNum || !ifsc || !bank) {
+      setEditSecError('Please fill in all fields');
+      return;
+    }
+    if (num !== confirmNum) {
+      setEditSecError('Account numbers do not match');
+      return;
+    }
+    if (!isNumericOnly(num)) {
+      setEditSecError('Account number must contain numbers only');
+      return;
+    }
+    if (num === formData.accountNumber) {
+      setEditSecError('Cannot be the same as the primary account number');
+      return;
+    }
+
+    // Check for duplicates (excluding the one being edited)
+    const isDuplicate = (formData.otherAccountNumbers || []).some((item, i) => {
+      if (i === editingSecIdx) return false;
+      const existingNum = item.includes('|') ? item.split('|')[0] : item;
+      return existingNum === num;
+    });
+    if (isDuplicate) {
+      setEditSecError('This account number already exists');
+      return;
+    }
+
+    const encoded = `${num}|${ifsc}|${bank}`;
+    setFormData(prev => ({
+      ...prev,
+      otherAccountNumbers: prev.otherAccountNumbers.map((item, i) =>
+        i === editingSecIdx ? encoded : item
+      )
+    }));
+    setEditingSecIdx(null);
+    setEditSecError('');
+  };
+
+  const handleCancelEditSecondary = () => {
+    setEditingSecIdx(null);
+    setEditSecError('');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -1371,11 +1448,10 @@ export default function EditBankAccountPage() {
                             }}
                             placeholder="Re-type account number"
                             maxLength={18}
-                            className={`w-full pl-4 pr-10 py-2.5 rounded-xl font-mono font-bold text-sm tracking-wider transition-all focus:outline-none border-2 text-[#546A7A] bg-white ${
-                              newOtherConfirmAccountNum && newOtherAccountNum !== newOtherConfirmAccountNum
+                            className={`w-full pl-4 pr-10 py-2.5 rounded-xl font-mono font-bold text-sm tracking-wider transition-all focus:outline-none border-2 text-[#546A7A] bg-white ${newOtherConfirmAccountNum && newOtherAccountNum !== newOtherConfirmAccountNum
                                 ? 'border-[#E17F70]'
                                 : 'border-[#AEBFC3]/30 focus:border-[#CE9F6B]/50'
-                            }`}
+                              }`}
                           />
                           {newOtherConfirmAccountNum && newOtherAccountNum === newOtherConfirmAccountNum && (
                             <div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -1442,11 +1518,131 @@ export default function EditBankAccountPage() {
                     )}
 
                     {formData.otherAccountNumbers && formData.otherAccountNumbers.length > 0 && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-3">
+                      <div className="grid grid-cols-1 gap-3 pt-3">
                         {formData.otherAccountNumbers.map((item, idx) => {
                           const [accNum, ifsc, bankName] = item.includes('|')
                             ? item.split('|')
                             : [item, '—', '—'];
+
+                          if (editingSecIdx === idx) {
+                            return (
+                              <div
+                                key={idx}
+                                className="p-4 rounded-2xl bg-white border-2 border-[#CE9F6B]/40 shadow-lg shadow-[#CE9F6B]/10 space-y-3 animate-in fade-in slide-in-from-top-1 duration-200"
+                              >
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="text-xs font-black uppercase tracking-wider text-[#CE9F6B] flex items-center gap-1.5">
+                                    <Pencil className="w-3 h-3" />
+                                    Editing Secondary Account #{idx + 1}
+                                  </span>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                  <div className="space-y-1.5">
+                                    <label className="text-[10px] font-bold uppercase tracking-wider text-[#5D6E73]">Account Number</label>
+                                    <input
+                                      type="text"
+                                      value={editSecAccNum}
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        if (val === '' || isNumericOnly(val)) {
+                                          setEditSecAccNum(val);
+                                          setEditSecError('');
+                                        }
+                                      }}
+                                      maxLength={18}
+                                      className="w-full px-4 py-2.5 rounded-xl font-mono font-bold text-sm tracking-wider transition-all focus:outline-none border-2 text-[#546A7A] bg-[#F8FAFB] border-[#CE9F6B]/30 focus:border-[#CE9F6B]/50 focus:bg-white"
+                                    />
+                                  </div>
+                                  <div className="space-y-1.5">
+                                    <label className="text-[10px] font-bold uppercase tracking-wider text-[#5D6E73]">Confirm Account Number</label>
+                                    <div className="relative">
+                                      <input
+                                        type="text"
+                                        value={editSecConfirmAccNum}
+                                        onChange={(e) => {
+                                          const val = e.target.value;
+                                          if (val === '' || isNumericOnly(val)) {
+                                            setEditSecConfirmAccNum(val);
+                                            setEditSecError('');
+                                          }
+                                        }}
+                                        maxLength={18}
+                                        className={`w-full pl-4 pr-10 py-2.5 rounded-xl font-mono font-bold text-sm tracking-wider transition-all focus:outline-none border-2 text-[#546A7A] bg-[#F8FAFB] ${
+                                          editSecConfirmAccNum && editSecAccNum !== editSecConfirmAccNum
+                                            ? 'border-[#E17F70]'
+                                            : 'border-[#CE9F6B]/30 focus:border-[#CE9F6B]/50 focus:bg-white'
+                                        }`}
+                                      />
+                                      {editSecConfirmAccNum && editSecAccNum === editSecConfirmAccNum && (
+                                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                          <CheckCircle2 className="w-4 h-4" style={{ color: '#82A094' }} />
+                                        </div>
+                                      )}
+                                      {editSecConfirmAccNum && editSecAccNum !== editSecConfirmAccNum && (
+                                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                          <AlertCircle className="w-4 h-4" style={{ color: '#E17F70' }} />
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="space-y-1.5">
+                                    <label className="text-[10px] font-bold uppercase tracking-wider text-[#5D6E73]">IFSC / SWIFT Code</label>
+                                    <input
+                                      type="text"
+                                      value={editSecIFSC}
+                                      onChange={(e) => {
+                                        setEditSecIFSC(e.target.value.toUpperCase());
+                                        setEditSecError('');
+                                      }}
+                                      maxLength={11}
+                                      className="w-full px-4 py-2.5 rounded-xl font-mono font-bold text-sm tracking-widest transition-all focus:outline-none border-2 text-[#546A7A] bg-[#F8FAFB] border-[#CE9F6B]/30 focus:border-[#CE9F6B]/50 focus:bg-white"
+                                    />
+                                  </div>
+                                  <div className="space-y-1.5">
+                                    <label className="text-[10px] font-bold uppercase tracking-wider text-[#5D6E73]">Beneficiary Bank Name</label>
+                                    <input
+                                      type="text"
+                                      value={editSecBank}
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        if (val === '' || isLettersOnly(val)) {
+                                          setEditSecBank(val);
+                                          setEditSecError('');
+                                        }
+                                      }}
+                                      maxLength={50}
+                                      className="w-full px-4 py-2.5 rounded-xl font-bold text-sm transition-all focus:outline-none border-2 text-[#546A7A] bg-[#F8FAFB] border-[#CE9F6B]/30 focus:border-[#CE9F6B]/50 focus:bg-white"
+                                    />
+                                  </div>
+                                </div>
+                                {editSecError && (
+                                  <p className="text-[11px] font-medium text-[#E17F70] flex items-center gap-1">
+                                    <AlertCircle className="w-3.5 h-3.5" />
+                                    {editSecError}
+                                  </p>
+                                )}
+                                <div className="flex items-center gap-2 pt-1">
+                                  <Button
+                                    type="button"
+                                    onClick={handleSaveEditSecondary}
+                                    className="px-4 py-2 rounded-xl font-bold bg-[#CE9F6B] text-white hover:bg-[#976E44] shadow-md shadow-[#CE9F6B]/20 transition-all text-xs flex items-center gap-1.5"
+                                  >
+                                    <Save className="w-3.5 h-3.5" />
+                                    Save Changes
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    onClick={handleCancelEditSecondary}
+                                    variant="outline"
+                                    className="px-4 py-2 rounded-xl font-bold text-xs border-[#AEBFC3]/30 hover:bg-[#F8FAFB] transition-all"
+                                  >
+                                    Cancel
+                                  </Button>
+                                </div>
+                              </div>
+                            );
+                          }
+
                           return (
                             <div
                               key={idx}
@@ -1457,14 +1653,24 @@ export default function EditBankAccountPage() {
                                 <p className="font-mono text-[#546A7A]/80">A/C: <span className="font-bold">{accNum}</span></p>
                                 <p className="font-mono text-[#92A2A5] text-[10px]">IFSC: <span className="font-bold">{ifsc}</span></p>
                               </div>
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveOtherAccountNumber(idx)}
-                                className="p-2 rounded-xl bg-white hover:bg-[#E17F70]/20 text-[#92A2A5] hover:text-[#E17F70] transition-colors border border-[#AEBFC3]/20"
-                                title="Remove additional account"
-                              >
-                                <X className="w-4 h-4" />
-                              </button>
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handleStartEditSecondary(idx)}
+                                  className="p-2 rounded-xl bg-white hover:bg-[#CE9F6B]/10 text-[#92A2A5] hover:text-[#CE9F6B] transition-colors border border-[#AEBFC3]/20"
+                                  title="Edit secondary account"
+                                >
+                                  <Pencil className="w-4 h-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveOtherAccountNumber(idx)}
+                                  className="p-2 rounded-xl bg-white hover:bg-[#E17F70]/20 text-[#92A2A5] hover:text-[#E17F70] transition-colors border border-[#AEBFC3]/20"
+                                  title="Remove additional account"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </div>
                             </div>
                           );
                         })}
