@@ -170,11 +170,15 @@ export default function NewBankAccountPage() {
     }
 
     if (name === 'accountNumber' || name === 'confirmAccountNumber') {
-      if (value !== '' && !isNumericOnly(value)) {
-        setFieldErrors(prev => ({ ...prev, [name]: 'Account Number must contain numbers only' }));
+      const upper = value.toUpperCase();
+      if (value !== '' && !isAlphanumeric(upper)) {
+        setFieldErrors(prev => ({ ...prev, [name]: 'Account Number must be alphanumeric' }));
         return;
       }
       setFieldErrors(prev => ({ ...prev, [name]: '' }));
+      setFormData(prev => ({ ...prev, [name]: upper }));
+      setError('');
+      return;
     }
 
     if (name === 'ifscCode') {
@@ -327,8 +331,8 @@ export default function NewBankAccountPage() {
       setOtherAccError('Account numbers do not match');
       return;
     }
-    if (!isNumericOnly(num)) {
-      setOtherAccError('Account number must contain numbers only');
+    if (!isAlphanumeric(num)) {
+      setOtherAccError('Account number must be alphanumeric');
       return;
     }
     if (num === formData.accountNumber) {
@@ -566,8 +570,8 @@ export default function NewBankAccountPage() {
       if (!formData.accountNumber) {
         return { valid: false, message: 'Account Number is required' };
       }
-      if (!isNumericOnly(formData.accountNumber)) {
-        return { valid: false, message: 'Account Number must contain numbers only' };
+      if (!isAlphanumeric(formData.accountNumber)) {
+        return { valid: false, message: 'Account Number must be alphanumeric' };
       }
       if (!formData.ifscCode) {
         return { valid: false, message: 'IFSC/SWIFT Code is required' };
@@ -1330,8 +1334,6 @@ export default function NewBankAccountPage() {
                             onChange={handleChange}
                             placeholder="Enter account number"
                             maxLength={18}
-                            inputMode="numeric"
-                            pattern="[0-9]*"
                             className={`w-full px-4 py-3 rounded-xl font-mono font-bold text-base tracking-wider transition-all focus:outline-none border-2 text-white ${fieldErrors.accountNumber ? 'bg-[#E17F70]/20 border-[#E17F70]' : 'bg-white/10 border-white/20 focus:border-white/40'
                               }`}
                             required
@@ -1379,8 +1381,6 @@ export default function NewBankAccountPage() {
                               onChange={handleChange}
                               placeholder="Re-type account number for verification"
                               maxLength={18}
-                              inputMode="numeric"
-                              pattern="[0-9]*"
                               className={`w-full px-4 py-3 rounded-xl font-mono font-bold text-base tracking-wider transition-all focus:outline-none border-2 ${fieldErrors.confirmAccountNumber
                                 ? 'bg-[#E17F70]/20 border-[#E17F70] text-[#EEC1BF]'
                                 : formData.confirmAccountNumber && formData.accountNumber !== formData.confirmAccountNumber
@@ -1431,8 +1431,8 @@ export default function NewBankAccountPage() {
                                 type="text"
                                 value={newOtherAccountNum}
                                 onChange={(e) => {
-                                  const val = e.target.value;
-                                  if (val === '' || isNumericOnly(val)) {
+                                  const val = e.target.value.toUpperCase();
+                                  if (val === '' || isAlphanumeric(val)) {
                                     setNewOtherAccountNum(val);
                                     setOtherAccError('');
                                   }
@@ -1450,8 +1450,8 @@ export default function NewBankAccountPage() {
                                   type="text"
                                   value={newOtherConfirmAccountNum}
                                   onChange={(e) => {
-                                    const val = e.target.value;
-                                    if (val === '' || isNumericOnly(val)) {
+                                    const val = e.target.value.toUpperCase();
+                                    if (val === '' || isAlphanumeric(val)) {
                                       setNewOtherConfirmAccountNum(val);
                                       setOtherAccError('');
                                     }

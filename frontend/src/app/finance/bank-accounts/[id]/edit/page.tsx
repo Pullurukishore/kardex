@@ -216,11 +216,15 @@ export default function EditBankAccountPage() {
     }
 
     if (name === 'accountNumber' || name === 'confirmAccountNumber') {
-      if (value !== '' && !isNumericOnly(value) && !value.startsWith('PENDING')) {
-        setFieldErrors(prev => ({ ...prev, [name]: 'Account Number usually contains numbers only' }));
-      } else {
-        setFieldErrors(prev => ({ ...prev, [name]: '' }));
+      const upper = value.toUpperCase();
+      if (value !== '' && !isAlphanumeric(upper) && !upper.startsWith('PENDING')) {
+        setFieldErrors(prev => ({ ...prev, [name]: 'Account Number must be alphanumeric' }));
+        return;
       }
+      setFieldErrors(prev => ({ ...prev, [name]: '' }));
+      setFormData(prev => ({ ...prev, [name]: upper }));
+      setError('');
+      return;
     }
 
     if (name === 'ifscCode') {
@@ -359,8 +363,8 @@ export default function EditBankAccountPage() {
       setOtherAccError('Account numbers do not match');
       return;
     }
-    if (!isNumericOnly(num)) {
-      setOtherAccError('Account number must contain numbers only');
+    if (!isAlphanumeric(num)) {
+      setOtherAccError('Account number must be alphanumeric');
       return;
     }
     if (num === formData.accountNumber) {
@@ -433,8 +437,8 @@ export default function EditBankAccountPage() {
       setEditSecError('Account numbers do not match');
       return;
     }
-    if (!isNumericOnly(num)) {
-      setEditSecError('Account number must contain numbers only');
+    if (!isAlphanumeric(num)) {
+      setEditSecError('Account number must be alphanumeric');
       return;
     }
     if (num === formData.accountNumber) {
@@ -534,8 +538,8 @@ export default function EditBankAccountPage() {
 
       }
 
-      if (!isNumericOnly(formData.accountNumber) && !formData.accountNumber.startsWith('PENDING')) {
-        setError('Account Number must contain numbers only');
+      if (!isAlphanumeric(formData.accountNumber) && !formData.accountNumber.startsWith('PENDING')) {
+        setError('Account Number must be alphanumeric');
         setSaving(false);
         return;
       }
@@ -1421,8 +1425,8 @@ export default function EditBankAccountPage() {
                           type="text"
                           value={newOtherAccountNum}
                           onChange={(e) => {
-                            const val = e.target.value;
-                            if (val === '' || isNumericOnly(val)) {
+                            const val = e.target.value.toUpperCase();
+                            if (val === '' || isAlphanumeric(val)) {
                               setNewOtherAccountNum(val);
                               setOtherAccError('');
                             }
@@ -1440,8 +1444,8 @@ export default function EditBankAccountPage() {
                             type="text"
                             value={newOtherConfirmAccountNum}
                             onChange={(e) => {
-                              const val = e.target.value;
-                              if (val === '' || isNumericOnly(val)) {
+                              const val = e.target.value.toUpperCase();
+                              if (val === '' || isAlphanumeric(val)) {
                                 setNewOtherConfirmAccountNum(val);
                                 setOtherAccError('');
                               }
@@ -1543,8 +1547,8 @@ export default function EditBankAccountPage() {
                                       type="text"
                                       value={editSecAccNum}
                                       onChange={(e) => {
-                                        const val = e.target.value;
-                                        if (val === '' || isNumericOnly(val)) {
+                                        const val = e.target.value.toUpperCase();
+                                        if (val === '' || isAlphanumeric(val)) {
                                           setEditSecAccNum(val);
                                           setEditSecError('');
                                         }
@@ -1560,8 +1564,8 @@ export default function EditBankAccountPage() {
                                         type="text"
                                         value={editSecConfirmAccNum}
                                         onChange={(e) => {
-                                          const val = e.target.value;
-                                          if (val === '' || isNumericOnly(val)) {
+                                          const val = e.target.value.toUpperCase();
+                                          if (val === '' || isAlphanumeric(val)) {
                                             setEditSecConfirmAccNum(val);
                                             setEditSecError('');
                                           }
