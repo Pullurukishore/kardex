@@ -5,6 +5,35 @@ import { prisma } from '../config/db';
 import { logger } from '../utils/logger';
 
 /**
+ * Helper to check if an Excel cell value is truthy (not empty, "no", "n", "false", "0", etc.)
+ */
+function isTruthyVal(val: string | null): boolean {
+    if (!val) return false;
+    const s = val.toLowerCase().trim();
+    return s !== '' && s !== 'no' && s !== 'n' && s !== 'false' && s !== '0' && s !== 'none';
+}
+
+/**
+ * Helper to check if a value corresponds to On-site service
+ */
+function isOnSiteValue(val: string | null): boolean {
+    if (!val) return false;
+    const s = val.toLowerCase().trim();
+    return s.includes('on-site') || s.includes('onsite') || s.includes('visit') ||
+        (isTruthyVal(val) && !s.includes('phone') && !s.includes('call') && !s.includes('remote') && !s.includes('offsite') && !s.includes('off-site'));
+}
+
+/**
+ * Helper to check if a value corresponds to Phone Call/Remote service
+ */
+function isPhoneCallValue(val: string | null): boolean {
+    if (!val) return false;
+    const s = val.toLowerCase().trim();
+    return s.includes('phone') || s.includes('call') || s.includes('remote') || s.includes('offsite') || s.includes('off-site') ||
+        (isTruthyVal(val) && !s.includes('on-site') && !s.includes('onsite'));
+}
+
+/**
  * Map Excel time values.
  * Excel stores time as fraction of a day (e.g., 0.75 = 18:00).
  */
@@ -76,6 +105,65 @@ function parseTimeToMinutes(timeStr: string | null): number | null {
         return total;
     }
     return null;
+}
+
+/**
+ * Determine if a ticket is ON_SITE or PHONE_CALL based on response columns, travel time, and remarks.
+ */
+function determineSupportMode(
+    responseOnSite: string | null,
+    responseOffSite: string | null,
+    response: string | null,
+    travelHour: string | null,
+    workHour: string | null,
+    remarks: string | null,
+    remarks2: string | null
+): 'ON_SITE' | 'PHONE_CALL' {
+    const rOn = String(responseOnSite || '').toLowerCase().trim();
+    const rOff = String(responseOffSite || '').toLowerCase().trim();
+    const r = String(response || '').toLowerCase().trim();
+    
+    const travelMinutes = parseTimeToMinutes(travelHour) || 0;
+    const workMinutes = parseTimeToMinutes(workHour) || 0;
+    const allRemarks = (String(remarks || '') + ' ' + String(remarks2 || '')).toLowerCase();
+
+    // 1. First priority: Check explicit support mode values in the "Response (On-site)" or "Response" column
+    if (rOn === 'phone call' || rOn.includes('phone') || rOn.includes('call') || rOn.includes('remote')) {
+        return 'PHONE_CALL';
+    }
+    if (rOn === 'on-site' || rOn === 'onsite' || rOn.includes('visit')) {
+        return 'ON_SITE';
+    }
+
+    if (r === 'phone call' || r.includes('phone') || r.includes('call') || r.includes('remote')) {
+        return 'PHONE_CALL';
+    }
+    if (r === 'on-site' || r === 'onsite' || r.includes('visit')) {
+        return 'ON_SITE';
+    }
+
+    // 2. Second priority: If travel time exists, they visited the customer site, so it's ON_SITE
+    if (travelMinutes > 0) {
+        return 'ON_SITE';
+    }
+
+    // 3. Third priority: Check for explicit response windows (like "Below 4 Hour", "Below 8 Hour" in Onsite Column)
+    if (rOn.includes('hour') || rOn.includes('below') || rOn.includes('above')) {
+        return 'ON_SITE';
+    }
+
+    // 4. Fourth priority: Check if remarks mention remote/phone resolution
+    if (allRemarks.includes('phone') || allRemarks.includes('call') || allRemarks.includes('remote') || allRemarks.includes('software') || allRemarks.includes('self resolved') || allRemarks.includes('desk') || allRemarks.includes('teamviewer') || allRemarks.includes('anydesk')) {
+        return 'PHONE_CALL';
+    }
+
+    // 5. Fifth priority: If no travel but work is registered, it's remote/phone call
+    if (workMinutes > 0 && travelMinutes === 0) {
+        return 'PHONE_CALL';
+    }
+
+    // Default fallback
+    return 'ON_SITE';
 }
 
 /**
@@ -159,6 +247,14 @@ function buildColumnIndices(headers: any[]) {
         });
     };
 
+    const getIdxExact = (keywords: string[]) => {
+        return headers.findIndex(h => {
+            if (h === null || h === undefined) return false;
+            const s = String(h).toLowerCase().trim();
+            return keywords.some(k => s === k.toLowerCase());
+        });
+    };
+
     return {
         companyName: getIdx(['Company Name', 'Company Nan']),
         place: getIdx(['Place']),
@@ -196,8 +292,9 @@ function buildColumnIndices(headers: any[]) {
         remarks2: getIdx(['Remarks2']),
         rowIdx: getIdx(['Row']),
         mdt: getIdx(['MDT']),
-        responseOffSite: getIdx(['Response Off-Site']),
-        responseOnSite: getIdx(['Response On-site']),
+        responseOffSite: getIdx(['Response Off-Site', 'Off-Site']),
+        responseOnSite: getIdx(['Response On-site', 'On-site']),
+        response: getIdxExact(['Response']),
         month: getIdx(['Month']),
         ticketReg: getIdx(['Ticket Reg']),
     };
@@ -292,6 +389,24 @@ export class TicketImportService {
             emptyStreak = 0;
             sampleCount++;
 
+            const responseOffSite = getCellStr(row, indices.responseOffSite);
+            const responseOnSite = getCellStr(row, indices.responseOnSite);
+            const response = getCellStr(row, indices.response);
+            const travelHourStr = excelTimeToString(indices.travelHour >= 0 ? row[indices.travelHour] : null);
+            const workHourStr = excelTimeToString(indices.workHour >= 0 ? row[indices.workHour] : null);
+            const remarksStr = getCellStr(row, indices.remarks);
+            const remarks2Str = getCellStr(row, indices.remarks2);
+
+            const supportMode = determineSupportMode(
+                responseOnSite,
+                responseOffSite,
+                response,
+                travelHourStr,
+                workHourStr,
+                remarksStr,
+                remarks2Str
+            );
+
             sampleRows.push({
                 ticketId: getCellStr(row, indices.ticketId),
                 company: getCellStr(row, indices.companyName),
@@ -307,6 +422,7 @@ export class TicketImportService {
                 workEnd: excelTimeToString(indices.workEnd >= 0 ? row[indices.workEnd] : null),
                 downtime: excelTimeToString(indices.downtime >= 0 ? row[indices.downtime] : null),
                 ticketReg: getCellStr(row, indices.ticketReg),
+                supportMode,
             });
         }
 
@@ -485,6 +601,7 @@ export class TicketImportService {
                         const ticketReg = getCellStr(row, indices.ticketReg);
                         const responseOffSite = getCellStr(row, indices.responseOffSite);
                         const responseOnSite = getCellStr(row, indices.responseOnSite);
+                        const response = getCellStr(row, indices.response);
 
                         // ── Date & time ──
                         const ticketDate = combineDateAndTime(
@@ -640,19 +757,18 @@ export class TicketImportService {
                             if (!name || typeof name !== 'string') return null;
 
                             const normalized = name.toLowerCase().trim().replace(/\s+/g, ' ').replace(/\./g, '');
-                            
+
                             // Check if the name looks like a note from the Excel file
                             const months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
                             const keywords = ['logged', 'resolved', 'before', 'after', 'hour', 'min', 'closed', 'call', 'ticket', 'work'];
-                            
-                            const isPotentialNote = 
+
+                            const isPotentialNote =
                                 name.length > 35 || // Real names are rarely this long
                                 /\d/.test(name) || // Contains digits (dates/times/years)
-                                months.some(m => normalized.includes(m)) ||
-                                keywords.some(k => normalized.includes(k));
+                                months.some(m => new RegExp(`\\b${m}\\b`).test(normalized)) ||
+                                keywords.some(k => new RegExp(`\\b${k}\\b`).test(normalized));
 
                             if (isPotentialNote) {
-                                logger.info(`Skipping user creation for suspected note/junk: "${name}"`);
                                 return null;
                             }
 
@@ -824,6 +940,20 @@ export class TicketImportService {
                         // ── Call type ──
                         const callType = mapCallType(callTypeRaw);
 
+                        const travelHour = excelTimeToString(indices.travelHour >= 0 ? row[indices.travelHour] : null);
+                        const workHour = excelTimeToString(indices.workHour >= 0 ? row[indices.workHour] : null);
+
+                        // ── Determine support mode ──
+                        const supportMode = determineSupportMode(
+                            responseOnSite,
+                            responseOffSite,
+                            response,
+                            travelHour,
+                            workHour,
+                            remarksVal,
+                            remarks2Val
+                        );
+
                         // ── Title ──
                         const title = errorDetails
                             ? `${companyName} - ${errorDetails.substring(0, 100)}`
@@ -846,8 +976,6 @@ export class TicketImportService {
                         if (remarks2Val) metadata.remarks2 = remarks2Val;
 
                         const reportedHour = excelTimeToString(indices.reportedHour >= 0 ? row[indices.reportedHour] : null);
-                        const travelHour = excelTimeToString(indices.travelHour >= 0 ? row[indices.travelHour] : null);
-                        const workHour = excelTimeToString(indices.workHour >= 0 ? row[indices.workHour] : null);
                         const downtimeVal = excelTimeToString(indices.downtime >= 0 ? row[indices.downtime] : null);
                         const respondTimeVal = excelTimeToString(indices.respondTime >= 0 ? row[indices.respondTime] : null);
                         if (reportedHour) metadata.reportedHour = reportedHour;
@@ -890,6 +1018,7 @@ export class TicketImportService {
                             status: status as any,
                             priority: 'MEDIUM' as any,
                             callType: callType as any,
+                            supportMode: supportMode as any,
                             customerId,
                             contactId,
                             assetId,

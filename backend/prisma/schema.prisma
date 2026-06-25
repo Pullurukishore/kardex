@@ -244,6 +244,7 @@ model Ticket {
   visitResolvedAt         DateTime?
   visitStartedAt          DateTime?
   callType                CallType?
+  supportMode             SupportMode?
   // Assignment Acceptance
   assignmentStatus        AssignmentStatus?     @default(PENDING)
   assignmentRespondedAt   DateTime?
@@ -879,6 +880,11 @@ enum Priority {
 enum CallType {
   UNDER_MAINTENANCE_CONTRACT
   NOT_UNDER_CONTRACT
+}
+
+enum SupportMode {
+  ON_SITE
+  PHONE_CALL
 }
 
 enum NotificationType {

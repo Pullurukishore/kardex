@@ -295,6 +295,23 @@ async function generateTicketAnalyticsPdf(
     })
     y += 40
 
+    // ── ROW 3 KPIs (Support Mode Specifics) ──
+    const totalPhoneCallTickets = summary.totalPhoneCallTickets || 0
+    const totalOnsiteTickets = summary.totalOnsiteTickets || 0
+    const avgPhoneCallResolution = fmtHoursMinutes(summary.averagePhoneCallResolutionTime || 0)
+
+    const kpis3 = [
+        { label: 'On-site Tickets', value: fmtNum(totalOnsiteTickets), sub: totalTickets > 0 ? `${((totalOnsiteTickets / totalTickets) * 100).toFixed(0)}% of tickets` : '0% of tickets', color: COLORS.sectionBlue },
+        { label: 'Phone Call Tickets', value: fmtNum(totalPhoneCallTickets), sub: totalTickets > 0 ? `${((totalPhoneCallTickets / totalTickets) * 100).toFixed(0)}% of tickets` : '0% of tickets', color: COLORS.warning },
+        { label: 'Avg Phone Res', value: avgPhoneCallResolution, sub: 'Remote resolution time', color: COLORS.positive },
+        { label: 'Escalated Tickets', value: fmtNum(summary.escalatedTickets || 0), sub: 'Requires intervention', color: COLORS.negative },
+    ]
+    const cardW3 = (pageW - 50) / 4
+    kpis3.forEach((kpi, i) => {
+        drawKPICard(doc, 20 + i * (cardW3 + 2.5), y, cardW3, 34, kpi.label, kpi.value, kpi.color, kpi.sub)
+    })
+    y += 40
+
     // ── CALL TYPE DISTRIBUTION TABLE ──
     const callTypeEntries = Object.entries(callTypeDistribution)
     if (callTypeEntries.length > 0) {

@@ -278,6 +278,7 @@ async function generateTicketSummaryReport(res: Response, whereClause: any, star
         visitCompletedDate: true,
         actualResolutionTime: true,
         relatedMachineIds: true,
+        supportMode: true,
         customerId: true,
         zoneId: true,
         assignedToId: true,
@@ -411,6 +412,9 @@ async function generateTicketSummaryReport(res: Response, whereClause: any, star
 
   // Calculate onsite resolution time (Work Hour)
   let avgOnsiteResolutionTime = 0;
+  // Calculate phone call resolution time (Total resolution time for remote support)
+  let avgPhoneCallResolutionTime = 0;
+
   const closedOrResolvedTickets = tickets.filter((t: any) => 
     ['CLOSED', 'RESOLVED', 'CLOSED_PENDING'].includes(t.status)
   );
@@ -418,20 +422,41 @@ async function generateTicketSummaryReport(res: Response, whereClause: any, star
     let totalOnsiteTime = 0;
     let validOnsiteTickets = 0;
 
-    for (const ticket of closedOrResolvedTickets) {
-      const onsiteMinutes = calculateOnsiteResolutionMinutes(
-        ticket.relatedMachineIds,
-        ticket.statusHistory
-      );
+    let totalPhoneCallTime = 0;
+    let validPhoneCallTickets = 0;
 
-      if (onsiteMinutes > 0 && onsiteMinutes <= 1440) { // Max 24 hours
-        totalOnsiteTime += onsiteMinutes;
-        validOnsiteTickets++;
+    for (const ticket of closedOrResolvedTickets) {
+      if (ticket.supportMode === 'PHONE_CALL') {
+        const resolutionMinutes = calculateTicketResolutionMinutes(
+          ticket.actualResolutionTime,
+          ticket.relatedMachineIds,
+          ticket.createdAt,
+          ticket.updatedAt,
+          ticket.visitCompletedDate
+        );
+        if (resolutionMinutes > 0) {
+          totalPhoneCallTime += resolutionMinutes;
+          validPhoneCallTickets++;
+        }
+      } else {
+        // ON_SITE or legacy/fallback (null)
+        const onsiteMinutes = calculateOnsiteResolutionMinutes(
+          ticket.relatedMachineIds,
+          ticket.statusHistory
+        );
+
+        if (onsiteMinutes > 0 && onsiteMinutes <= 1440) { // Max 24 hours
+          totalOnsiteTime += onsiteMinutes;
+          validOnsiteTickets++;
+        }
       }
     }
 
     if (validOnsiteTickets > 0) {
       avgOnsiteResolutionTime = Math.round(totalOnsiteTime / validOnsiteTickets);
+    }
+    if (validPhoneCallTickets > 0) {
+      avgPhoneCallResolutionTime = Math.round(totalPhoneCallTime / validPhoneCallTickets);
     }
   }
 
@@ -615,6 +640,9 @@ async function generateTicketSummaryReport(res: Response, whereClause: any, star
     let validTravelTickets = 0;
 
     for (const ticket of tickets) {
+      // Travel time is only applicable to On-site visits
+      if (ticket.supportMode === 'PHONE_CALL') continue;
+
       const travelMinutes = calculateTravelMinutes(
         ticket.relatedMachineIds,
         ticket.statusHistory,
@@ -682,7 +710,11 @@ async function generateTicketSummaryReport(res: Response, whereClause: any, star
         // Onsite visit metrics
         avgOnsiteTravelTime: avgOnsiteTravelTime,
         avgOnsiteTravelTimeHours: avgOnsiteTravelTimeHours,
-        totalOnsiteVisits: tickets.filter((t: any) => t.visitStartedAt && (t.visitReachedAt || t.visitInProgressAt)).length,
+        totalOnsiteVisits: tickets.filter((t: any) => t.supportMode !== 'PHONE_CALL' && t.visitStartedAt && (t.visitReachedAt || t.visitInProgressAt)).length,
+        totalOnsiteTickets: tickets.filter((t: any) => t.supportMode !== 'PHONE_CALL').length,
+        totalPhoneCallTickets: tickets.filter((t: any) => t.supportMode === 'PHONE_CALL').length,
+        averagePhoneCallResolutionTime: avgPhoneCallResolutionTime,
+        averagePhoneCallResolutionTimeHours: avgPhoneCallResolutionTime > 0 ? Math.round(avgPhoneCallResolutionTime / 60) : 0,
       },
 
       // Enhanced distributions with names
@@ -2103,6 +2135,7 @@ async function getTicketSummaryData(whereClause: any, startDate: Date, endDate: 
       assignedToId: true,
       isEscalated: true,
       callType: true,
+      supportMode: true,
       customer: { select: { id: true, companyName: true } },
       zone: { select: { id: true, name: true } },
       assignedTo: { select: { id: true, name: true } },
@@ -2288,9 +2321,56 @@ async function getTicketSummaryData(whereClause: any, startDate: Date, endDate: 
       machineDowntime,
       totalResponseHours,
       callType: ticket.callType, // Use the actual database callType field
+      supportMode: ticket.supportMode,
       reportsCount: ticket.reports ? ticket.reports.length : 0
     };
   });
+
+  // Calculate travel and onsite/phone resolution times for summary
+  let avgOnsiteTravelTime = 0;
+  let avgOnsiteResolutionTime = 0;
+  let avgPhoneCallResolutionTime = 0;
+
+  let totalTravelTime = 0;
+  let validTravelTickets = 0;
+  
+  let totalOnsiteTime = 0;
+  let validOnsiteTickets = 0;
+
+  let totalPhoneCallTime = 0;
+  let validPhoneCallTickets = 0;
+
+  for (const ticket of enhancedTickets) {
+    if (ticket.supportMode !== 'PHONE_CALL') {
+      if (ticket.travelTime > 0 && ticket.travelTime <= 480) {
+        totalTravelTime += ticket.travelTime;
+        validTravelTickets++;
+      }
+      if (['RESOLVED', 'CLOSED'].includes(ticket.status)) {
+        if (ticket.onsiteWorkingTime > 0 && ticket.onsiteWorkingTime <= 1440) {
+          totalOnsiteTime += ticket.onsiteWorkingTime;
+          validOnsiteTickets++;
+        }
+      }
+    } else {
+      if (['RESOLVED', 'CLOSED'].includes(ticket.status)) {
+        if (ticket.totalResolutionTime > 0) {
+          totalPhoneCallTime += ticket.totalResolutionTime;
+          validPhoneCallTickets++;
+        }
+      }
+    }
+  }
+
+  if (validTravelTickets > 0) {
+    avgOnsiteTravelTime = Math.round(totalTravelTime / validTravelTickets);
+  }
+  if (validOnsiteTickets > 0) {
+    avgOnsiteResolutionTime = Math.round(totalOnsiteTime / validOnsiteTickets);
+  }
+  if (validPhoneCallTickets > 0) {
+    avgPhoneCallResolutionTime = Math.round(totalPhoneCallTime / validPhoneCallTickets);
+  }
 
   // Create default empty distributions
   const emptyDistribution = {
@@ -2321,6 +2401,11 @@ async function getTicketSummaryData(whereClause: any, startDate: Date, endDate: 
         closedTickets: 0,
         averageResolutionTime: 0,
         escalatedTickets: 0,
+        totalOnsiteTickets: 0,
+        totalPhoneCallTickets: 0,
+        avgOnsiteTravelTime: 0,
+        averageOnsiteResolutionTime: 0,
+        averagePhoneCallResolutionTime: 0,
       },
       statusDistribution: emptyDistribution,
       priorityDistribution: emptyPriorityDistribution,
@@ -2344,6 +2429,11 @@ async function getTicketSummaryData(whereClause: any, startDate: Date, endDate: 
       closedTickets: tickets.filter((t: any) => t.status === 'CLOSED').length,
       averageResolutionTime: avgResolutionTime,
       escalatedTickets: tickets.filter((t: { isEscalated: boolean }) => t.isEscalated).length,
+      totalOnsiteTickets: tickets.filter((t: any) => t.supportMode !== 'PHONE_CALL').length,
+      totalPhoneCallTickets: tickets.filter((t: any) => t.supportMode === 'PHONE_CALL').length,
+      avgOnsiteTravelTime: avgOnsiteTravelTime,
+      averageOnsiteResolutionTime: avgOnsiteResolutionTime,
+      averagePhoneCallResolutionTime: avgPhoneCallResolutionTime,
     },
     statusDistribution: statusDistribution.length > 0
       ? statusDistribution.reduce((acc: Record<string, number>, curr: { status: string; _count: number }) => ({

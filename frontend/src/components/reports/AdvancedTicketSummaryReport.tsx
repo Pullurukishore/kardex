@@ -10,7 +10,7 @@ import {
 import { 
   TrendingUp, TrendingDown, AlertCircle, CheckCircle, Clock, 
   Users, Target, Award, Activity, Zap, Calendar, BarChart3,
-  MapPin, Wrench, Navigation
+  MapPin, Wrench, Navigation, Phone
 } from 'lucide-react';
 
 interface AdvancedTicketSummaryReportProps {
@@ -144,6 +144,7 @@ export function AdvancedTicketSummaryReport({ reportData }: AdvancedTicketSummar
   const avgFirstResponse = formatMinutesToHoursAndMinutes(summary.averageFirstResponseTime || 0);
   const avgTravelTime = formatMinutesToHoursAndMinutes(summary.avgOnsiteTravelTime || 0);
   const avgOnsiteResolution = formatMinutesToHoursAndMinutes(summary.averageOnsiteResolutionTime || 0);
+  const avgPhoneCallResolution = formatMinutesToHoursAndMinutes(summary.averagePhoneCallResolutionTime || 0);
   const totalOnsiteVisits = summary.totalOnsiteVisits || 0;
 
   // Prepare radar chart data for performance overview
@@ -205,7 +206,7 @@ export function AdvancedTicketSummaryReport({ reportData }: AdvancedTicketSummar
       color: '#CE9F6B'
     },
     {
-      name: 'Avg Travel',
+      name: 'Avg Travel Time',
       minutes: summary.avgOnsiteTravelTime || 0,
       formatted: avgTravelTime,
       color: '#6F8A9D'
@@ -215,6 +216,12 @@ export function AdvancedTicketSummaryReport({ reportData }: AdvancedTicketSummar
       minutes: summary.averageOnsiteResolutionTime || 0,
       formatted: avgOnsiteResolution,
       color: '#82A094'
+    },
+    {
+      name: 'Avg Phone support',
+      minutes: summary.averagePhoneCallResolutionTime || 0,
+      formatted: avgPhoneCallResolution,
+      color: '#CE9F6B'
     },
     {
       name: 'First Response',
@@ -289,54 +296,84 @@ export function AdvancedTicketSummaryReport({ reportData }: AdvancedTicketSummar
         </Card>
       </div>
 
-      {/* Executive Summary Cards - Row 2: Travel & Onsite Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="bg-gradient-to-br from-[#96AEC2] to-[#6F8A9D] text-white">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
+      {/* Service Channel Segregation Metrics */}
+      <div className="space-y-3">
+        <h3 className="text-xs font-bold text-[#546A7A] uppercase tracking-wider">Service Mode Performance (On-site vs. Phone/Remote)</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          {/* Card 1: On-site Visits Count */}
+          <Card className="bg-white border shadow-sm">
+            <CardContent className="p-5 flex flex-col justify-between h-full">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs text-[#546A7A] font-semibold uppercase tracking-wider">On-site Support</p>
+                <MapPin className="h-5 w-5 text-[#82A094]" />
+              </div>
               <div>
-                <p className="text-white/80 text-sm font-medium">Avg Travel Time</p>
-                <p className="text-3xl font-bold mt-2">{avgTravelTime}</p>
-                <p className="text-white/70 text-xs mt-1">Per onsite visit (real-time)</p>
-              </div>
-              <div className="bg-white/20 p-3 rounded-lg">
-                <Navigation className="h-8 w-8" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-[#A2B9AF] to-[#82A094] text-white">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-white/80 text-sm font-medium">Avg Onsite Resolution</p>
-                <p className="text-3xl font-bold mt-2">{avgOnsiteResolution}</p>
-                <p className="text-white/70 text-xs mt-1">Work time at customer site</p>
-              </div>
-              <div className="bg-white/20 p-3 rounded-lg">
-                <Wrench className="h-8 w-8" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-[#92A2A5] to-[#5D6E73] text-white">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-white/80 text-sm font-medium">Total Onsite Visits</p>
-                <p className="text-3xl font-bold mt-2">{totalOnsiteVisits}</p>
-                <p className="text-white/70 text-xs mt-1">
-                  {totalTickets > 0 ? `${((totalOnsiteVisits / totalTickets) * 100).toFixed(0)}% of tickets` : 'No tickets'}
+                <p className="text-2xl font-bold text-gray-800">{summary.totalOnsiteTickets || 0}</p>
+                <p className="text-xs text-[#546A7A]/70 mt-1">
+                  {totalTickets > 0 ? `${(((summary.totalOnsiteTickets || 0) / totalTickets) * 100).toFixed(0)}% of tickets` : '0%'}
                 </p>
               </div>
-              <div className="bg-white/20 p-3 rounded-lg">
-                <MapPin className="h-8 w-8" />
+            </CardContent>
+          </Card>
+
+          {/* Card 2: Avg Travel Time */}
+          <Card className="bg-white border shadow-sm">
+            <CardContent className="p-5 flex flex-col justify-between h-full">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs text-[#546A7A] font-semibold uppercase tracking-wider">Avg Travel Time</p>
+                <Navigation className="h-5 w-5 text-[#6F8A9D]" />
               </div>
-            </div>
-          </CardContent>
-        </Card>
+              <div>
+                <p className="text-2xl font-bold text-gray-800">{avgTravelTime}</p>
+                <p className="text-xs text-[#546A7A]/70 mt-1">Per onsite visit (real-time)</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Card 3: Avg Onsite Resolution */}
+          <Card className="bg-white border shadow-sm">
+            <CardContent className="p-5 flex flex-col justify-between h-full">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs text-[#546A7A] font-semibold uppercase tracking-wider">Avg Onsite Work</p>
+                <Wrench className="h-5 w-5 text-[#82A094]" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-gray-800">{avgOnsiteResolution}</p>
+                <p className="text-xs text-[#546A7A]/70 mt-1">Work time at customer site</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Card 4: Phone Support Count */}
+          <Card className="bg-white border shadow-sm">
+            <CardContent className="p-5 flex flex-col justify-between h-full">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs text-[#546A7A] font-semibold uppercase tracking-wider">Phone / Remote</p>
+                <Phone className="h-5 w-5 text-[#CE9F6B]" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-gray-800">{summary.totalPhoneCallTickets || 0}</p>
+                <p className="text-xs text-[#546A7A]/70 mt-1">
+                  {totalTickets > 0 ? `${(((summary.totalPhoneCallTickets || 0) / totalTickets) * 100).toFixed(0)}% of tickets` : '0%'}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Card 5: Phone Call Resolution Time */}
+          <Card className="bg-white border shadow-sm">
+            <CardContent className="p-5 flex flex-col justify-between h-full">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs text-[#546A7A] font-semibold uppercase tracking-wider">Avg Phone Res</p>
+                <Clock className="h-5 w-5 text-[#CE9F6B]" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-gray-800">{avgPhoneCallResolution}</p>
+                <p className="text-xs text-[#546A7A]/70 mt-1">Remote support resolution</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* Time Analytics Section */}
@@ -412,16 +449,29 @@ export function AdvancedTicketSummaryReport({ reportData }: AdvancedTicketSummar
               <Activity className="h-4 w-4" />
               Service Lifecycle Breakdown
             </h4>
-            <div className="flex flex-wrap items-center gap-2 text-xs">
-              <span className="px-3 py-1.5 bg-[#546A7A]/10 text-[#546A7A] rounded-full font-medium">🎫 Ticket Created</span>
-              <span className="text-[#92A2A5]">→</span>
-              <span className="px-3 py-1.5 bg-[#546A7A]/10 text-[#546A7A] rounded-full font-medium">⚡ First Response ({avgFirstResponse})</span>
-              <span className="text-[#92A2A5]">→</span>
-              <span className="px-3 py-1.5 bg-[#6F8A9D]/10 text-[#546A7A] rounded-full font-medium">🚗 Travel ({avgTravelTime})</span>
-              <span className="text-[#92A2A5]">→</span>
-              <span className="px-3 py-1.5 bg-[#A2B9AF]/10 text-[#4F6A64] rounded-full font-medium">🔧 Onsite Work ({avgOnsiteResolution})</span>
-              <span className="text-[#92A2A5]">→</span>
-              <span className="px-3 py-1.5 bg-[#82A094]/10 text-[#4F6A64] rounded-full font-medium">✅ Resolved</span>
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="font-semibold text-[#546A7A] min-w-[70px]">🚗 On-site:</span>
+                <span className="px-2 py-1 bg-[#546A7A]/10 text-[#546A7A] rounded-md">🎫 Created</span>
+                <span className="text-[#92A2A5]">→</span>
+                <span className="px-2 py-1 bg-[#546A7A]/10 text-[#546A7A] rounded-md">⚡ Response ({avgFirstResponse})</span>
+                <span className="text-[#92A2A5]">→</span>
+                <span className="px-2 py-1 bg-[#6F8A9D]/10 text-[#546A7A] rounded-md">🚗 Travel ({avgTravelTime})</span>
+                <span className="text-[#92A2A5]">→</span>
+                <span className="px-2 py-1 bg-[#A2B9AF]/10 text-[#4F6A64] rounded-md">🔧 Work ({avgOnsiteResolution})</span>
+                <span className="text-[#92A2A5]">→</span>
+                <span className="px-2 py-1 bg-[#82A094]/10 text-[#4F6A64] rounded-md">✅ Resolved</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="font-semibold text-[#546A7A] min-w-[70px]">📞 Phone:</span>
+                <span className="px-2 py-1 bg-[#546A7A]/10 text-[#546A7A] rounded-md">🎫 Created</span>
+                <span className="text-[#92A2A5]">→</span>
+                <span className="px-2 py-1 bg-[#546A7A]/10 text-[#546A7A] rounded-md">⚡ Response ({avgFirstResponse})</span>
+                <span className="text-[#92A2A5]">→</span>
+                <span className="px-2 py-1 bg-[#CE9F6B]/10 text-[#976E44] rounded-md">📞 Phone Support ({avgPhoneCallResolution})</span>
+                <span className="text-[#92A2A5]">→</span>
+                <span className="px-2 py-1 bg-[#82A094]/10 text-[#4F6A64] rounded-md">✅ Resolved</span>
+              </div>
             </div>
           </div>
         </CardContent>

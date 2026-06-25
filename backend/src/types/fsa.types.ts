@@ -68,6 +68,7 @@ type Ticket = {
   timeInStatus: number | null;
   totalTimeOpen: number | null;
   relatedMachineIds: string | null;
+  supportMode: 'ON_SITE' | 'PHONE_CALL' | null;
   errorDetails: string | null;
   proofImages: string | null;
   visitPlannedDate: Date | null;

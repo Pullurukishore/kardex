@@ -345,6 +345,32 @@ export const generatePdf = async (
                 summaryMetrics.push({ label: 'Avg Resolution', value: timeStr, color: COLORS.info });
             }
 
+            // Support Mode specific metrics
+            if (summaryData.totalOnsiteTickets !== undefined) {
+                summaryMetrics.push({ label: 'On-site Support', value: String(summaryData.totalOnsiteTickets), color: COLORS.brandPrimary });
+            }
+            if (summaryData.totalPhoneCallTickets !== undefined) {
+                summaryMetrics.push({ label: 'Phone / Remote', value: String(summaryData.totalPhoneCallTickets), color: COLORS.warning });
+            }
+            if (summaryData.avgOnsiteTravelTime !== undefined) {
+                const hours = Math.floor(summaryData.avgOnsiteTravelTime / 60);
+                const mins = Math.round(summaryData.avgOnsiteTravelTime % 60);
+                const timeStr = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+                summaryMetrics.push({ label: 'Avg Travel Time', value: timeStr, color: COLORS.info });
+            }
+            if (summaryData.averageOnsiteResolutionTime !== undefined) {
+                const hours = Math.floor(summaryData.averageOnsiteResolutionTime / 60);
+                const mins = Math.round(summaryData.averageOnsiteResolutionTime % 60);
+                const timeStr = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+                summaryMetrics.push({ label: 'Avg Onsite Work', value: timeStr, color: COLORS.success });
+            }
+            if (summaryData.averagePhoneCallResolutionTime !== undefined) {
+                const hours = Math.floor(summaryData.averagePhoneCallResolutionTime / 60);
+                const mins = Math.round(summaryData.averagePhoneCallResolutionTime % 60);
+                const timeStr = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+                summaryMetrics.push({ label: 'Avg Phone Res', value: timeStr, color: COLORS.warning });
+            }
+
             // Offer-specific metrics
             if (summaryData.totalOffers !== undefined) {
                 summaryMetrics.push({ label: 'Total Offers', value: String(summaryData.totalOffers), color: COLORS.brandPrimary });
@@ -366,34 +392,41 @@ export const generatePdf = async (
                 summaryMetrics.push({ label: 'Lost Offers', value: String(summaryData.lostOffers), color: COLORS.danger });
             }
 
-            // Draw metrics boxes (up to 6 per row)
-            const metricsPerRow = Math.min(summaryMetrics.length, 6);
-            const boxWidth = (contentWidth - 10) / metricsPerRow;
+            // Draw metrics boxes (dynamically wrapping to multiple rows of up to 6 per row)
             const boxHeight = 40;
-            let metricX = leftMargin;
+            const maxCols = 6;
+            
+            for (let i = 0; i < summaryMetrics.length; i += maxCols) {
+                const chunk = summaryMetrics.slice(i, i + maxCols);
+                const colCount = chunk.length;
+                const boxWidth = (contentWidth - 10) / colCount;
+                let metricX = leftMargin;
+                
+                chunk.forEach((metric) => {
+                    // Metric box background
+                    doc.save()
+                        .roundedRect(metricX, currentY, boxWidth - 5, boxHeight, 4)
+                        .fill('#F8FAFC')
+                        .restore();
 
-            summaryMetrics.slice(0, 6).forEach((metric, index) => {
-                // Metric box background
-                doc.save()
-                    .roundedRect(metricX, currentY, boxWidth - 5, boxHeight, 4)
-                    .fill('#F8FAFC')
-                    .restore();
+                    // Metric label
+                    doc.fillColor(COLORS.textMedium)
+                        .fontSize(7)
+                        .font('Helvetica')
+                        .text(metric.label, metricX + 3, currentY + 5, { width: boxWidth - 6, align: 'center', lineBreak: false });
 
-                // Metric label
-                doc.fillColor(COLORS.textMedium)
-                    .fontSize(7)
-                    .font('Helvetica')
-                    .text(metric.label, metricX + 3, currentY + 5, { width: boxWidth - 6, align: 'center', lineBreak: false });
+                    // Metric value
+                    doc.fillColor(metric.color)
+                        .fontSize(12)
+                        .font('Helvetica-Bold')
+                        .text(metric.value, metricX + 3, currentY + 18, { width: boxWidth - 6, align: 'center', lineBreak: false });
 
-                // Metric value
-                doc.fillColor(metric.color)
-                    .fontSize(12)
-                    .font('Helvetica-Bold')
-                    .text(metric.value, metricX + 3, currentY + 18, { width: boxWidth - 6, align: 'center', lineBreak: false });
-
-                metricX += boxWidth;
-            });
-            currentY += boxHeight + 10;
+                    metricX += boxWidth;
+                });
+                
+                currentY += boxHeight + 8;
+            }
+            currentY += 2; // Extra padding
         }
 
         // ==================================================

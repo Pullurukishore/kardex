@@ -38,6 +38,11 @@ export enum CallType {
   NOT_UNDER_CONTRACT = 'NOT_UNDER_CONTRACT'
 }
 
+export enum SupportMode {
+  ON_SITE = 'ON_SITE',
+  PHONE_CALL = 'PHONE_CALL'
+}
+
 export interface User {
   id: number;
   email: string;
@@ -98,6 +103,7 @@ export interface Ticket {
   errorDetails?: string;
   proofImages?: string[];
   relatedMachineIds?: number[];
+  supportMode?: SupportMode;
   sparePartsDetails?: any;
   poNumber?: string;
   poApprovedAt?: string;
