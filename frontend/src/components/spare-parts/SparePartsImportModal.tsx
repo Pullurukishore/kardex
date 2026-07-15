@@ -136,7 +136,20 @@ export default function SparePartsImportModal({
                       <p className="text-[10px] uppercase font-black text-slate-400">Valid Rows</p>
                       <p className="text-xl font-black text-green-600">{previewData.validRows || 0}</p>
                     </div>
+                    <div className="bg-white p-3 rounded-xl border border-slate-100">
+                      <p className="text-[10px] uppercase font-black text-slate-400">New Parts</p>
+                      <p className="text-xl font-black text-blue-600">{previewData.newCount || 0}</p>
+                    </div>
+                    <div className="bg-white p-3 rounded-xl border border-slate-100">
+                      <p className="text-[10px] uppercase font-black text-slate-400">Updates</p>
+                      <p className="text-xl font-black text-amber-600">{previewData.updateCount || 0}</p>
+                    </div>
                   </div>
+                  {(previewData.invalidRows > 0) && (
+                    <p className="text-xs text-red-500 mt-3 font-semibold">
+                      ⚠ {previewData.invalidRows} row(s) have errors and will be skipped
+                    </p>
+                  )}
                 </div>
               )}
             </>
@@ -146,7 +159,21 @@ export default function SparePartsImportModal({
                 <FileCheck className="w-10 h-10" />
               </div>
               <h3 className="text-2xl font-black text-slate-800">Import Successful!</h3>
-              <p className="text-slate-500">Successfully imported {result.importedCount} spare parts.</p>
+              <p className="text-slate-500">{result.message || `Import completed`}</p>
+              <div className="grid grid-cols-3 gap-3 mt-4">
+                <div className="bg-green-50 p-3 rounded-xl border border-green-100">
+                  <p className="text-[10px] uppercase font-black text-green-500">Created</p>
+                  <p className="text-xl font-black text-green-700">{result.created || 0}</p>
+                </div>
+                <div className="bg-blue-50 p-3 rounded-xl border border-blue-100">
+                  <p className="text-[10px] uppercase font-black text-blue-500">Updated</p>
+                  <p className="text-xl font-black text-blue-700">{result.updated || 0}</p>
+                </div>
+                <div className="bg-red-50 p-3 rounded-xl border border-red-100">
+                  <p className="text-[10px] uppercase font-black text-red-500">Failed</p>
+                  <p className="text-xl font-black text-red-700">{result.failed || 0}</p>
+                </div>
+              </div>
               <Button onClick={() => onOpenChange(false)} className="bg-slate-800 h-12 px-10 rounded-xl mt-6">Close</Button>
             </div>
           )}

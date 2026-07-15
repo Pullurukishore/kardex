@@ -377,7 +377,7 @@ export default function QuoteGenerationPage() {
         ? offerData.offerSpareParts.map((osp, index) => ({
             id: index + 1,
             partNo: osp.sparePart.partNumber,
-            description: osp.sparePart.description || osp.sparePart.name,
+            description: osp.sparePart.name || osp.sparePart.description || '',
             hsnCode: osp.sparePart.category || '',
             unitPrice: osp.unitPrice.toString(),
             quantity: osp.quantity,

@@ -386,7 +386,7 @@ export default function QuoteGenerationPage() {
         ? offerData.offerSpareParts.map((osp, index) => ({
             id: index + 1,
             partNo: osp.sparePart.partNumber,
-            description: osp.sparePart.description || osp.sparePart.name,
+            description: osp.sparePart.name || osp.sparePart.description || '',
             hsnCode: osp.sparePart.category || '',
             unitPrice: osp.unitPrice.toString(),
             quantity: osp.quantity,
@@ -624,7 +624,7 @@ export default function QuoteGenerationPage() {
         ? offer.offerSpareParts.map((osp, index) => ({
             id: index + 1,
             partNo: osp.sparePart.partNumber,
-            description: osp.sparePart.description || osp.sparePart.name,
+            description: osp.sparePart.name || osp.sparePart.description || '',
             hsnCode: osp.sparePart.category || '',
             unitPrice: osp.unitPrice.toString(),
             quantity: osp.quantity,
@@ -3809,6 +3809,12 @@ export default function QuoteGenerationPage() {
             flex-direction: column !important;
             box-sizing: border-box !important;
             page-break-after: always !important;
+          }
+
+          /* Prevent blank trailing page after the last page */
+          .page:last-child {
+            page-break-after: avoid !important;
+            break-after: avoid !important;
           }
 
           /* Ensure content uses full width within page */

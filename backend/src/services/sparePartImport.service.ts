@@ -164,12 +164,56 @@ async function extractImagesFromExcel(buffer: Buffer): Promise<Map<number, strin
 }
 
 /**
- * Get column value with flexible matching
+ * Column name aliases for flexible matching across different Excel formats
+ */
+const COLUMN_ALIASES: Record<string, string[]> = {
+    'product name': ['product name', 'part discriptions', 'part descriptions', 'description', 'name'],
+    'part id': ['part id', 'part number', 'partnumber', 'part no', 'part no.'],
+    'price': ['price', 'base price', 'unit price', 'cost'],
+    'price 2026': ['price 2026'],
+    'hsn code': ['hsn code', 'hsn', 'hsn no'],
+    'use/application': ['(use/application of product)', 'use/application', 'application', 'use'],
+    'model specification': ['model specification', 'model spec', 'model'],
+    'manufacturing unit': ['manufacturing unit', 'mfg unit', 'manufacturer'],
+    'technical sheet': ['ratings/technical sheet', 'technical sheet', 'ratings', 'specifications'],
+    'quantity': ['quantity', 'qty', 'quant'],
+};
+
+/**
+ * Get column value with flexible matching using aliases
  */
 function getColumnValue(row: any, columnName: string): string {
+    // Direct match first
     if (row[columnName]) return String(row[columnName]).trim();
-    const key = Object.keys(row).find(k => k.toLowerCase() === columnName.toLowerCase());
-    if (key && row[key]) return String(row[key]).trim();
+    
+    // Case-insensitive direct match
+    const directKey = Object.keys(row).find(k => k.toLowerCase() === columnName.toLowerCase());
+    if (directKey && row[directKey]) return String(row[directKey]).trim();
+    
+    // Try alias matching
+    const normalizedName = columnName.toLowerCase();
+    const aliases = COLUMN_ALIASES[normalizedName];
+    if (aliases) {
+        for (const alias of aliases) {
+            const key = Object.keys(row).find(k => k.toLowerCase().trim() === alias);
+            if (key && row[key] !== undefined && row[key] !== '') {
+                return String(row[key]).trim();
+            }
+        }
+    }
+    
+    // Reverse lookup: check if any alias group contains the columnName
+    for (const [, aliasList] of Object.entries(COLUMN_ALIASES)) {
+        if (aliasList.includes(normalizedName)) {
+            for (const alias of aliasList) {
+                const key = Object.keys(row).find(k => k.toLowerCase().trim() === alias);
+                if (key && row[key] !== undefined && row[key] !== '') {
+                    return String(row[key]).trim();
+                }
+            }
+        }
+    }
+    
     return '';
 }
 
@@ -191,18 +235,25 @@ export async function parseSparePartsExcel(buffer: Buffer): Promise<{
     // Read raw data to detect header row
     const rawData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
-    // Find the header row (the one with 'Product Name' and 'Part ID')
+    // Find the header row - supports multiple formats:
+    // Format 1: 'Product Name' + 'Part ID' (original template)
+    // Format 2: 'Part Number' + 'Part Discriptions' (alternate format)
+    const HEADER_KEYWORDS = ['product name', 'part id', 'part number', 'part discriptions', 'part descriptions'];
     let headerRowIndex = -1;
     for (let i = 0; i < Math.min(10, rawData.length); i++) {
         const row = rawData[i];
-        if (row && row.some((cell: any) => cell && String(cell).toLowerCase().includes('product name'))) {
+        if (row && row.some((cell: any) => {
+            if (!cell) return false;
+            const cellLower = String(cell).toLowerCase().trim();
+            return HEADER_KEYWORDS.some(kw => cellLower.includes(kw));
+        })) {
             headerRowIndex = i;
             break;
         }
     }
 
     if (headerRowIndex === -1) {
-        throw new Error('Could not find header row with "Product Name" column');
+        throw new Error('Could not find header row. Expected columns like "Product Name", "Part ID", "Part Number", or "Part Discriptions"');
     }
 
     // Extract headers from the header row
@@ -225,6 +276,9 @@ export async function parseSparePartsExcel(buffer: Buffer): Promise<{
         });
 
         // Extract data with flexible column matching
+        // Supports both formats:
+        //   Format 1: "Product Name" → name, "Part ID" → partNumber
+        //   Format 2: "Part Discriptions" → name, "Part Number" → partNumber
         const productName = getColumnValue(obj, 'Product Name');
         const partId = getColumnValue(obj, 'Part ID');
 
@@ -235,13 +289,18 @@ export async function parseSparePartsExcel(buffer: Buffer): Promise<{
         const excelRowIndex = headerRowIndex + 1 + i;
         const imageDataUrl = imageMap.get(excelRowIndex) || undefined;
 
+        // Try to get price - check 'Price 2026' first (preferred), then 'Price', then 'Base Price'
+        const price2026 = getColumnValue(obj, 'Price 2026');
+        const regularPrice = getColumnValue(obj, 'Price');
+        const priceStr = price2026 || regularPrice || '0';
+
         // Validate row
         const errors: { field: string; message: string }[] = [];
         if (!productName) {
-            errors.push({ field: 'Product Name', message: 'Product Name is required' });
+            errors.push({ field: 'Product Name', message: 'Product Name / Part Description is required' });
         }
         if (!partId) {
-            errors.push({ field: 'Part ID', message: 'Part ID is required' });
+            errors.push({ field: 'Part ID', message: 'Part ID / Part Number is required' });
         }
 
         rows.push({
@@ -253,7 +312,7 @@ export async function parseSparePartsExcel(buffer: Buffer): Promise<{
             modelSpec: getColumnValue(obj, 'Model Specification'),
             manufacturingUnit: getColumnValue(obj, 'Manufacturing Unit'),
             technicalSheet: getColumnValue(obj, 'Ratings/Technical sheet') || getColumnValue(obj, 'Technical Sheet'),
-            basePrice: parseFloat(getColumnValue(obj, 'Price') || getColumnValue(obj, 'Base Price') || '0'),
+            basePrice: parseFloat(priceStr.replace(/,/g, '') || '0'),
             imageDataUrl,
             _isValid: errors.length === 0,
             _errors: errors,
