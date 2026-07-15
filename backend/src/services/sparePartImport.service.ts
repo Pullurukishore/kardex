@@ -289,41 +289,29 @@ export async function parseSparePartsExcel(buffer: Buffer): Promise<{
         const excelRowIndex = headerRowIndex + 1 + i;
         const imageDataUrl = imageMap.get(excelRowIndex) || undefined;
 
-        // Try to get price - check 'Price 2026' first (preferred), then 'Price', then 'Base Price'
+        // Try to get price - check 'Price 2026' only
         const price2026 = getColumnValue(obj, 'Price 2026');
-        const regularPrice = getColumnValue(obj, 'Price');
 
-        // Helper to check if a value is a valid numeric price greater than 0
+        // Helper to check if a value is present (allows "Not Found" or 0, but rejects completely empty cells)
         const isValidPrice = (val: string) => {
-            if (!val) return false;
-            const cleaned = val.replace(/[^0-9.]/g, '').trim();
-            if (cleaned === '') return false;
-            const parsed = parseFloat(cleaned);
-            return !isNaN(parsed) && parsed > 0;
+            if (val === undefined || val === null) return false;
+            const trimmed = String(val).trim();
+            return trimmed !== '';
         };
-
-        let priceStr = '0';
-        if (isValidPrice(price2026)) {
-            priceStr = price2026;
-        } else if (isValidPrice(regularPrice)) {
-            priceStr = regularPrice;
-        } else {
-            // Fallback: if both are zero or invalid, try to use whatever numeric value is there
-            const p2026Clean = price2026.replace(/[^0-9.]/g, '');
-            const regClean = regularPrice.replace(/[^0-9.]/g, '');
-            const p2026Num = p2026Clean ? parseFloat(p2026Clean) : NaN;
-            const regNum = regClean ? parseFloat(regClean) : NaN;
-            if (!isNaN(p2026Num)) {
-                priceStr = String(p2026Num);
-            } else if (!isNaN(regNum)) {
-                priceStr = String(regNum);
-            } else {
-                priceStr = '0';
-            }
-        }
 
         // Validate row
         const errors: { field: string; message: string }[] = [];
+        let priceStr = '0';
+        
+        if (isValidPrice(price2026)) {
+            const cleaned = price2026.replace(/[^0-9.]/g, '').trim();
+            const parsed = parseFloat(cleaned);
+            priceStr = (!isNaN(parsed) && parsed >= 0) ? cleaned : '0';
+        } else {
+            // Default to '0' instead of raising an error/skipping the row
+            priceStr = '0';
+        }
+
         if (!productName) {
             errors.push({ field: 'Product Name', message: 'Product Name / Part Description is required' });
         }
