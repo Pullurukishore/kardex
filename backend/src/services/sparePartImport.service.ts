@@ -292,7 +292,35 @@ export async function parseSparePartsExcel(buffer: Buffer): Promise<{
         // Try to get price - check 'Price 2026' first (preferred), then 'Price', then 'Base Price'
         const price2026 = getColumnValue(obj, 'Price 2026');
         const regularPrice = getColumnValue(obj, 'Price');
-        const priceStr = price2026 || regularPrice || '0';
+
+        // Helper to check if a value is a valid numeric price greater than 0
+        const isValidPrice = (val: string) => {
+            if (!val) return false;
+            const cleaned = val.replace(/[^0-9.]/g, '').trim();
+            if (cleaned === '') return false;
+            const parsed = parseFloat(cleaned);
+            return !isNaN(parsed) && parsed > 0;
+        };
+
+        let priceStr = '0';
+        if (isValidPrice(price2026)) {
+            priceStr = price2026;
+        } else if (isValidPrice(regularPrice)) {
+            priceStr = regularPrice;
+        } else {
+            // Fallback: if both are zero or invalid, try to use whatever numeric value is there
+            const p2026Clean = price2026.replace(/[^0-9.]/g, '');
+            const regClean = regularPrice.replace(/[^0-9.]/g, '');
+            const p2026Num = p2026Clean ? parseFloat(p2026Clean) : NaN;
+            const regNum = regClean ? parseFloat(regClean) : NaN;
+            if (!isNaN(p2026Num)) {
+                priceStr = String(p2026Num);
+            } else if (!isNaN(regNum)) {
+                priceStr = String(regNum);
+            } else {
+                priceStr = '0';
+            }
+        }
 
         // Validate row
         const errors: { field: string; message: string }[] = [];
