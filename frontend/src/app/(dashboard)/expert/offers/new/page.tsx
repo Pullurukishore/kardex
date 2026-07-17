@@ -243,8 +243,8 @@ export default function NewOfferPage() {
         }
       )
       
-      // The API returns the created contact directly in response.data
-      const createdContact = response.data;
+      // Backend returns: { message: "...", data: { contact: {...}, user: null } }
+      const createdContact = response?.data?.contact || response?.contact || response;
       
       if (!createdContact || !createdContact.id) {
         console.error('Invalid contact creation response:', response);
@@ -260,7 +260,7 @@ export default function NewOfferPage() {
       toast.success('Contact created successfully')
     } catch (error: any) {
       console.error('Failed to create contact:', error)
-      toast.error(error.response?.data?.error || 'Failed to create contact')
+      toast.error(error.response?.data?.error || error.message || 'Failed to create contact')
     } finally {
       setIsCreatingContact(false)
     }
