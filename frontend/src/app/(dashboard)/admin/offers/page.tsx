@@ -232,8 +232,8 @@ function OfferManagementContent() {
   const filteredUserOptions = useMemo(() => {
     if (!userSearchTerm) return users
     const term = userSearchTerm.toLowerCase()
-    return users.filter(u => 
-      (u.name?.toLowerCase().includes(term)) || 
+    return users.filter(u =>
+      (u.name?.toLowerCase().includes(term)) ||
       (u.email?.toLowerCase().includes(term)) ||
       (u.serviceZones?.some((sz: any) => sz.serviceZone?.name?.toLowerCase().includes(term)))
     )
@@ -357,18 +357,18 @@ function OfferManagementContent() {
   const getPageNumbers = () => {
     const total = paginationMeta.pages
     if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
-    
+
     const pages: (number | 'ellipsis')[] = []
     pages.push(1)
-    
+
     if (currentPage > 3) pages.push('ellipsis')
-    
+
     const start = Math.max(2, currentPage - 1)
     const end = Math.min(total - 1, currentPage + 1)
     for (let i = start; i <= end; i++) pages.push(i)
-    
+
     if (currentPage < total - 2) pages.push('ellipsis')
-    
+
     if (total > 1) pages.push(total)
     return pages
   }
@@ -436,9 +436,9 @@ function OfferManagementContent() {
                   <MapPin className="h-4 w-4 text-[#976E44]" />
                   Zone
                 </Label>
-                <Select 
-                  value={selectedZone} 
-                  onValueChange={handleZoneChange} 
+                <Select
+                  value={selectedZone}
+                  onValueChange={handleZoneChange}
                   disabled={loading}
                 >
                   <SelectTrigger className="h-11 border-[#92A2A5] focus:border-orange-500 focus:ring-orange-500 disabled:opacity-50 disabled:cursor-not-allowed">
@@ -459,9 +459,9 @@ function OfferManagementContent() {
                   <TrendingUp className="h-4 w-4 text-[#546A7A]" />
                   Stage
                 </Label>
-                <Select 
-                  value={selectedStage} 
-                  onValueChange={handleStageChange} 
+                <Select
+                  value={selectedStage}
+                  onValueChange={handleStageChange}
                   disabled={loading}
                 >
                   <SelectTrigger className="h-11 border-[#92A2A5] focus:border-[#6F8A9D] focus:ring-[#6F8A9D] disabled:opacity-50 disabled:cursor-not-allowed">
@@ -481,9 +481,9 @@ function OfferManagementContent() {
                   <Users className="h-4 w-4 text-[#4F6A64]" />
                   Created By
                 </Label>
-                <Select 
-                  value={selectedUser} 
-                  onValueChange={handleUserChange} 
+                <Select
+                  value={selectedUser}
+                  onValueChange={handleUserChange}
                   disabled={loading}
                 >
                   <SelectTrigger className="h-11 border-[#92A2A5] focus:border-teal-500 focus:ring-teal-500 disabled:opacity-50 disabled:cursor-not-allowed">
@@ -542,9 +542,9 @@ function OfferManagementContent() {
                   <Package className="h-4 w-4 text-[#9E3B47]" />
                   Product Type
                 </Label>
-                <Select 
-                  value={selectedProductType} 
-                  onValueChange={handleProductTypeChange} 
+                <Select
+                  value={selectedProductType}
+                  onValueChange={handleProductTypeChange}
                   disabled={loading}
                 >
                   <SelectTrigger className="h-11 border-[#92A2A5] focus:border-pink-500 focus:ring-pink-500 disabled:opacity-50 disabled:cursor-not-allowed">
@@ -870,11 +870,10 @@ function OfferManagementContent() {
                         variant={currentPage === pageNum ? 'default' : 'outline'}
                         size="sm"
                         onClick={() => handlePageChange(pageNum)}
-                        className={`h-9 w-9 p-0 rounded-lg text-sm font-semibold transition-all ${
-                          currentPage === pageNum
+                        className={`h-9 w-9 p-0 rounded-lg text-sm font-semibold transition-all ${currentPage === pageNum
                             ? 'bg-gradient-to-br from-[#9E3B47] to-[#75242D] text-white shadow-md hover:from-[#75242D] hover:to-[#9E3B47] border-0'
                             : 'hover:bg-[#96AEC2]/15 hover:border-[#96AEC2] text-[#546A7A]'
-                        }`}
+                          }`}
                       >
                         {pageNum}
                       </Button>

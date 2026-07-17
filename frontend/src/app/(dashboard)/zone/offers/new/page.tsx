@@ -82,6 +82,7 @@ export default function NewOfferPage() {
     // Essential Information for Initial Stage
     productType: '',
     lead: '',
+    offerReferenceNumber: '',
     
     // Relations
     customerId: '',
@@ -128,6 +129,7 @@ export default function NewOfferPage() {
       }
     }
     initZone()
+    fetchSpareParts()
   }, [])
 
   useEffect(() => {
@@ -140,13 +142,6 @@ export default function NewOfferPage() {
       setFormData(prev => ({ ...prev, zoneId: String(zoneId) }))
     }
   }, [user])
-
-  // Fetch spare parts when product type changes to SPARE_PARTS
-  useEffect(() => {
-    if (formData.productType === 'SPARE_PARTS') {
-      fetchSpareParts()
-    }
-  }, [formData.productType])
 
   // Fetch customers when zone changes
   useEffect(() => {
@@ -369,7 +364,8 @@ export default function NewOfferPage() {
       return
     }
     
-    if (formData.productType === 'SPARE_PARTS') {
+    // Validate selected spare parts (if any are added) for any product type
+    if (formData.spareParts && formData.spareParts.length > 0) {
       for (const part of formData.spareParts) {
         if (!part.name.trim()) {
           toast.error('All spare parts must have a name')
@@ -393,6 +389,7 @@ export default function NewOfferPage() {
         contactId: parseInt(formData.contactId),
         assetIds: formData.assetIds.map(id => parseInt(id)),
         zoneId: parseInt(formData.zoneId),
+        offerReferenceNumber: formData.offerReferenceNumber || undefined,
         
         // Auto-generate title based on customer and product type
         title: `${PRODUCT_TYPE_LABELS[formData.productType] || formData.productType} - ${selectedCustomer?.companyName}`,
@@ -410,8 +407,8 @@ export default function NewOfferPage() {
             return asset?.machineSerialNumber || asset?.assetName;
           }).filter(Boolean).join(', ') : null,
           
-        // Include spare parts if SPARE_PARTS
-        ...(formData.productType === 'SPARE_PARTS' && {
+        // Include spare parts if there are any selected
+        ...(formData.spareParts && formData.spareParts.length > 0 && {
           spareParts: formData.spareParts.map(part => ({
             ...part,
             price: parseFloat(part.price)
@@ -869,12 +866,26 @@ export default function NewOfferPage() {
                   </SelectContent>
                 </Select>
               </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="offerReferenceNumber" className="text-[#5D6E73] flex items-center gap-1">
+                  Offer Reference Number 
+                  <span className="text-xs text-muted-foreground font-normal">(Optional - leave blank for auto-generation)</span>
+                </Label>
+                <Input
+                  id="offerReferenceNumber"
+                  value={formData.offerReferenceNumber}
+                  onChange={(e) => handleInputChange('offerReferenceNumber', e.target.value)}
+                  placeholder="Enter custom reference number (optional)"
+                  className="font-mono focus:ring-2 focus:ring-[#96AEC2]"
+                />
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Spare Parts Section - Only for SPARE_PARTS */}
-        {formData.productType === 'SPARE_PARTS' && (
+        {/* Spare Parts Section */}
+        {formData.productType && (
           <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm hover:shadow-xl transition-all duration-300">
             <CardHeader className="bg-gradient-to-r from-[#EEC1BF]/10 to-red-50 rounded-t-xl border-b border-[#EEC1BF]/20">
               <CardTitle className="flex items-center gap-3 text-xl">

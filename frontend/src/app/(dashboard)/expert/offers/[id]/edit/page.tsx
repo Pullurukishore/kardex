@@ -126,18 +126,14 @@ export default function EditOfferPage() {
     contactPersonName: '',
     contactNumber: '',
     email: '',
-    machineSerialNumber: ''
+    machineSerialNumber: '',
+    offerReferenceNumber: ''
   })
 
   useEffect(() => {
     fetchOffer()
+    fetchSpareParts()
   }, [offerId])
-
-  useEffect(() => {
-    if (formData.productType === 'SPARE_PARTS') {
-      fetchSpareParts()
-    }
-  }, [formData.productType])
 
   const fetchOffer = async () => {
     try {
@@ -170,7 +166,8 @@ export default function EditOfferPage() {
         contactPersonName: offerData.contactPersonName || offerData.contact?.contactPersonName || '',
         contactNumber: offerData.contactNumber || offerData.contact?.contactNumber || '',
         email: offerData.email || offerData.contact?.email || '',
-        machineSerialNumber: offerData.machineSerialNumber || ''
+        machineSerialNumber: offerData.machineSerialNumber || '',
+        offerReferenceNumber: offerData.offerReferenceNumber || ''
       })
 
       // Load existing spare parts
@@ -275,12 +272,13 @@ export default function EditOfferPage() {
         contactNumber: formData.contactNumber || null,
         email: formData.email || null,
         machineSerialNumber: formData.machineSerialNumber || null,
-        spareParts: formData.productType === 'SPARE_PARTS' ? selectedSpareParts.map(sp => ({
+        offerReferenceNumber: formData.offerReferenceNumber || null,
+        spareParts: selectedSpareParts.map(sp => ({
           sparePartId: sp.sparePartId,
           quantity: sp.quantity,
           unitPrice: sp.unitPrice,
           totalPrice: sp.totalPrice
-        })) : undefined
+        }))
       }
 
       await apiService.updateOffer(parseInt(offerId), updateData)
@@ -463,6 +461,20 @@ export default function EditOfferPage() {
             <CardContent className="pt-6 space-y-4 bg-gradient-to-b from-[#96AEC2]/10/30 to-white">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
+                  <Label htmlFor="offerReferenceNumber" className="text-sm font-medium text-[#5D6E73] flex items-center gap-1.5">
+                    <FileText className="h-3.5 w-3.5 text-[#6F8A9D]" />
+                    Offer Reference Number
+                  </Label>
+                  <Input
+                    id="offerReferenceNumber"
+                    value={formData.offerReferenceNumber}
+                    onChange={(e) => handleInputChange('offerReferenceNumber', e.target.value)}
+                    placeholder="Offer reference number"
+                    className="h-10 border-[#92A2A5] focus:border-[#6F8A9D] focus:ring-blue-400 font-mono"
+                  />
+                </div>
+
+                <div className="space-y-2">
                   <Label htmlFor="title" className="text-sm font-medium text-[#5D6E73] flex items-center gap-1.5">
                     <FileText className="h-3.5 w-3.5 text-[#6F8A9D]" />
                     Title
@@ -563,8 +575,8 @@ export default function EditOfferPage() {
             </CardContent>
           </Card>
 
-          {/* Spare Parts Section - Only for SPARE_PARTS */}
-          {formData.productType === 'SPARE_PARTS' && (
+          {/* Spare Parts Section */}
+          {formData.productType && (
             <Card className="border-0 shadow-lg overflow-hidden">
               <CardHeader className="bg-gradient-to-r from-[#CE9F6B] to-[#E17F70] text-white py-4">
                 <div className="flex items-center justify-between">

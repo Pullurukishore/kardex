@@ -33,11 +33,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { 
-  Search, 
-  MoreHorizontal, 
-  Pencil as Edit, 
-  Trash2, 
+import {
+  Search,
+  MoreHorizontal,
+  Pencil as Edit,
+  Trash2,
   Plus,
   RefreshCw,
   Loader2,
@@ -83,7 +83,7 @@ const productTypes = ['All Product Types', 'RELOCATION', 'CONTRACT', 'SPARE_PART
 export default function OfferManagement() {
   const router = useRouter()
   const { user, isAuthenticated, isLoading: authLoading } = useAuth()
-  
+
   // Initialize all state hooks BEFORE any conditional returns
   const [offers, setOffers] = useState<any[]>([])
   const [zones, setZones] = useState<any[]>([])
@@ -102,7 +102,7 @@ export default function OfferManagement() {
   const [selectedProductType, setSelectedProductType] = useState('All Product Types')
   const [sortField, setSortField] = useState<string>('')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
-  
+
   // Protect this page - EXPERT_HELPDESK and ADMIN can access
   useEffect(() => {
     if (!authLoading) {
@@ -136,11 +136,11 @@ export default function OfferManagement() {
   // Sort offers
   const sortedOffers = useMemo(() => {
     if (!sortField) return offers
-    
+
     return [...offers].sort((a, b) => {
       let aValue = a[sortField]
       let bValue = b[sortField]
-      
+
       // Handle nested properties
       if (sortField === 'customer') {
         aValue = a.customer?.companyName || a.company || ''
@@ -155,7 +155,7 @@ export default function OfferManagement() {
         aValue = Number(a.offerValue || 0)
         bValue = Number(b.offerValue || 0)
       }
-      
+
       if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1
       if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1
       return 0
@@ -196,13 +196,13 @@ export default function OfferManagement() {
       const response = await apiService.getUsers({ isActive: 'true', limit: 1000 })
       // Handle both response formats: { data: { users: [...] } } and direct array
       const usersData = response.data?.users || response.users || response.data || response || []
-      const filteredUsers = Array.isArray(usersData) 
-        ? usersData.filter((u: any) => 
-            u.role === UserRole.ZONE_USER || 
-            u.role === UserRole.ZONE_MANAGER || 
-            u.role === UserRole.ADMIN ||
-            u.role === UserRole.EXPERT_HELPDESK
-          )
+      const filteredUsers = Array.isArray(usersData)
+        ? usersData.filter((u: any) =>
+          u.role === UserRole.ZONE_USER ||
+          u.role === UserRole.ZONE_MANAGER ||
+          u.role === UserRole.ADMIN ||
+          u.role === UserRole.EXPERT_HELPDESK
+        )
         : []
       setUsers(filteredUsers)
     } catch (error: any) {
@@ -219,7 +219,7 @@ export default function OfferManagement() {
         page: pagination.page,
         limit: pagination.limit,
       }
-      
+
       if (searchTerm) params.search = searchTerm
       if (selectedZone !== 'All Zones') {
         const zid = parseInt(selectedZone)
@@ -310,8 +310,8 @@ export default function OfferManagement() {
         <DynamicOfferStats stats={stats} />
 
         {/* Filters */}
-        <Card className="border-0 shadow-lg bg-white" style={{backgroundColor: 'white'}}>
-          <CardHeader className="bg-white border-b border-[#92A2A5]" style={{backgroundColor: 'white'}}>
+        <Card className="border-0 shadow-lg bg-white" style={{ backgroundColor: 'white' }}>
+          <CardHeader className="bg-white border-b border-[#92A2A5]" style={{ backgroundColor: 'white' }}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Filter className="h-5 w-5 text-[#546A7A]" />
@@ -328,7 +328,7 @@ export default function OfferManagement() {
               )}
             </div>
           </CardHeader>
-          <CardContent className="pt-6 bg-white" style={{backgroundColor: 'white'}}>
+          <CardContent className="pt-6 bg-white" style={{ backgroundColor: 'white' }}>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
               {/* Search */}
               <div className="space-y-2">
@@ -548,139 +548,137 @@ export default function OfferManagement() {
                   </tr>
                 ) : (
                   sortedOffers.map((offer: any) => (
-                  <tr key={offer.id} className="border-b border-[#AEBFC3]/20 hover:bg-gradient-to-r hover:from-[#96AEC2]/10/50 hover:via-indigo-50/30 hover:to-[#96AEC2]/10/20 transition-all duration-200 group">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => router.push(`/expert/offers/${offer.id}`)}
-                          className="text-[#546A7A] hover:text-[#546A7A] font-semibold hover:underline transition-colors"
-                        >
-                          {offer.offerReferenceNumber}
-                        </button>
-                        {offer.stage === 'INITIAL' && (
-                          <Badge variant="secondary" className="bg-[#96AEC2]/20 text-[#546A7A] border-[#96AEC2]">
-                            Initial
-                          </Badge>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-[#82A094] via-[#82A094] to-cyan-600 flex items-center justify-center text-white font-bold text-sm shadow-md ring-2 ring-emerald-100 group-hover:scale-110 transition-transform">
-                          {(offer.customer?.companyName || offer.company || 'U')?.charAt(0).toUpperCase()}
-                        </div>
-                        <div>
-                          <p className="font-semibold text-[#546A7A]">{offer.customer?.companyName || offer.company}</p>
-                          <p className="text-xs text-[#AEBFC3]0">{offer.customer?.contactPerson || ''}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <Badge className={`${
-                        offer.productType === 'SPARE_PARTS' ? 'bg-gradient-to-r from-orange-100 to-[#EEC1BF]/10 text-[#976E44] border-[#CE9F6B] shadow-sm' :
-                        offer.productType === 'KARDEX_CONNECT' ? 'bg-gradient-to-r from-[#96AEC2]/20 to-[#96AEC2]/10 text-[#546A7A] border-[#96AEC2] shadow-sm' :
-                        offer.productType === 'CONTRACT' ? 'bg-gradient-to-r from-emerald-100 to-[#A2B9AF]/10 text-[#4F6A64] border-emerald-300 shadow-sm' :
-                        offer.productType === 'RELOCATION' ? 'bg-gradient-to-r from-[#96AEC2]/20 to-[#96AEC2]/10 text-[#546A7A] border-[#96AEC2] shadow-sm' :
-                        offer.productType === 'UPGRADE_KIT' ? 'bg-gradient-to-r from-[#96AEC2]/20 to-[#96AEC2]/10 text-[#546A7A] border-[#6F8A9D] shadow-sm' :
-                        offer.productType === 'SOFTWARE' ? 'bg-gradient-to-r from-[#96AEC2]/20 to-[#96AEC2]/10 text-[#546A7A] border-indigo-300 shadow-sm' :
-                        offer.productType === 'OTHERS' ? 'bg-gradient-to-r from-amber-100 to-[#EEC1BF]/10 text-[#976E44] border-amber-300 shadow-sm' :
-                        offer.productType === 'BD_SPARE' ? 'bg-gradient-to-r from-rose-100 to-[#EEC1BF]/10 text-[#75242D] border-rose-300 shadow-sm' :
-                        offer.productType === 'RETROFIT_KIT' ? 'bg-gradient-to-r from-teal-100 to-[#A2B9AF]/10 text-[#4F6A64] border-teal-300 shadow-sm' :
-                        'bg-gradient-to-r from-gray-100 to-gray-50 text-[#546A7A] border-[#92A2A5] shadow-sm'
-                      } font-semibold px-3 py-1`}>
-                        {PRODUCT_TYPE_LABELS[offer.productType] || offer.productType?.replace(/_/g, ' ')}
-                      </Badge>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <div className="h-2 w-2 rounded-full bg-[#96AEC2]/100"></div>
-                        <span className="text-[#546A7A] font-medium">{offer.zone?.name}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      {offer.offerValue ? (
+                    <tr key={offer.id} className="border-b border-[#AEBFC3]/20 hover:bg-gradient-to-r hover:from-[#96AEC2]/10/50 hover:via-indigo-50/30 hover:to-[#96AEC2]/10/20 transition-all duration-200 group">
+                      <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
-                          <div className="h-8 w-8 rounded-lg bg-[#82A094]/20 flex items-center justify-center">
-                            <IndianRupee className="h-4 w-4 text-[#4F6A64]" />
-                          </div>
-                          <span className="text-[#546A7A] font-bold text-lg">{formatCurrency(Number(offer.offerValue))}</span>
-                        </div>
-                      ) : (
-                        offer.stage === 'INITIAL' ? (
-                          <Badge variant="outline" className="text-[#AEBFC3]0 border-dashed">TBD</Badge>
-                        ) : (
-                          <span className="text-[#979796]">-</span>
-                        )
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      <Badge className={`${
-                        offer.stage === 'INITIAL' ? 'bg-gradient-to-r from-[#96AEC2]/20 to-[#96AEC2]/10 text-[#546A7A] border-[#96AEC2] shadow-sm' :
-                        offer.stage === 'WON' ? 'bg-gradient-to-r from-emerald-100 to-[#A2B9AF]/10 text-[#4F6A64] border-emerald-300 shadow-sm' :
-                        offer.stage === 'LOST' ? 'bg-gradient-to-r from-red-100 to-red-50 text-[#75242D] border-[#E17F70] shadow-sm' :
-                        offer.stage === 'PROPOSAL_SENT' ? 'bg-gradient-to-r from-[#96AEC2]/20 to-[#96AEC2]/10 text-[#546A7A] border-[#6F8A9D] shadow-sm' :
-                        offer.stage === 'NEGOTIATION' ? 'bg-gradient-to-r from-amber-100 to-[#EEC1BF]/10 text-[#976E44] border-amber-300 shadow-sm' :
-                        offer.stage === 'PO_RECEIVED' ? 'bg-gradient-to-r from-[#96AEC2]/20 to-[#96AEC2]/10 text-[#546A7A] border-indigo-300 shadow-sm' :
-                        'bg-gradient-to-r from-slate-100 to-[#AEBFC3]/10 text-[#546A7A] border-[#92A2A5] shadow-sm'
-                      } font-semibold px-3 py-1.5`}>
-                        {offer.stage?.replace(/_/g, ' ')}
-                      </Badge>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <div className="h-7 w-7 rounded-full bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center text-[#5D6E73] font-semibold text-xs">
-                          {offer.createdBy?.name?.charAt(0).toUpperCase() || 'U'}
-                        </div>
-                        <span className="text-[#5D6E73] font-medium">{offer.createdBy?.name}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2 text-[#5D6E73]">
-                        <Calendar className="h-4 w-4" />
-                        <span className="text-sm font-medium">{new Date(offer.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm" className="hover:bg-gradient-to-r hover:from-[#96AEC2]/10 hover:to-[#96AEC2]/10 transition-all rounded-xl">
-                            <MoreHorizontal className="h-4 w-4 text-[#5D6E73]" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48 rounded-xl shadow-xl border-[#92A2A5]">
-                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem 
+                          <button
                             onClick={() => router.push(`/expert/offers/${offer.id}`)}
-                            className="cursor-pointer rounded-lg hover:bg-[#96AEC2]/10"
+                            className="text-[#546A7A] hover:text-[#546A7A] font-semibold hover:underline transition-colors"
                           >
-                            <Eye className="h-4 w-4 mr-2 text-[#546A7A]" />
-                            View Details
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            onClick={() => router.push(`/expert/offers/${offer.id}/edit`)}
-                            className="cursor-pointer rounded-lg hover:bg-[#6F8A9D]/10"
-                          >
-                            <Edit className="h-4 w-4 mr-2 text-[#546A7A]" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            onClick={() => handleDeleteOffer(offer.id)}
-                            className="text-[#9E3B47] cursor-pointer rounded-lg hover:bg-[#E17F70]/10"
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </td>
-                  </tr>
-                ))
+                            {offer.offerReferenceNumber}
+                          </button>
+                          {offer.stage === 'INITIAL' && (
+                            <Badge variant="secondary" className="bg-[#96AEC2]/20 text-[#546A7A] border-[#96AEC2]">
+                              Initial
+                            </Badge>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-[#82A094] via-[#82A094] to-cyan-600 flex items-center justify-center text-white font-bold text-sm shadow-md ring-2 ring-emerald-100 group-hover:scale-110 transition-transform">
+                            {(offer.customer?.companyName || offer.company || 'U')?.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="font-semibold text-[#546A7A]">{offer.customer?.companyName || offer.company}</p>
+                            <p className="text-xs text-[#AEBFC3]0">{offer.customer?.contactPerson || ''}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <Badge className={`${offer.productType === 'SPARE_PARTS' ? 'bg-gradient-to-r from-orange-100 to-[#EEC1BF]/10 text-[#976E44] border-[#CE9F6B] shadow-sm' :
+                            offer.productType === 'KARDEX_CONNECT' ? 'bg-gradient-to-r from-[#96AEC2]/20 to-[#96AEC2]/10 text-[#546A7A] border-[#96AEC2] shadow-sm' :
+                              offer.productType === 'CONTRACT' ? 'bg-gradient-to-r from-emerald-100 to-[#A2B9AF]/10 text-[#4F6A64] border-emerald-300 shadow-sm' :
+                                offer.productType === 'RELOCATION' ? 'bg-gradient-to-r from-[#96AEC2]/20 to-[#96AEC2]/10 text-[#546A7A] border-[#96AEC2] shadow-sm' :
+                                  offer.productType === 'UPGRADE_KIT' ? 'bg-gradient-to-r from-[#96AEC2]/20 to-[#96AEC2]/10 text-[#546A7A] border-[#6F8A9D] shadow-sm' :
+                                    offer.productType === 'SOFTWARE' ? 'bg-gradient-to-r from-[#96AEC2]/20 to-[#96AEC2]/10 text-[#546A7A] border-indigo-300 shadow-sm' :
+                                      offer.productType === 'OTHERS' ? 'bg-gradient-to-r from-amber-100 to-[#EEC1BF]/10 text-[#976E44] border-amber-300 shadow-sm' :
+                                        offer.productType === 'BD_SPARE' ? 'bg-gradient-to-r from-rose-100 to-[#EEC1BF]/10 text-[#75242D] border-rose-300 shadow-sm' :
+                                          offer.productType === 'RETROFIT_KIT' ? 'bg-gradient-to-r from-teal-100 to-[#A2B9AF]/10 text-[#4F6A64] border-teal-300 shadow-sm' :
+                                            'bg-gradient-to-r from-gray-100 to-gray-50 text-[#546A7A] border-[#92A2A5] shadow-sm'
+                          } font-semibold px-3 py-1`}>
+                          {PRODUCT_TYPE_LABELS[offer.productType] || offer.productType?.replace(/_/g, ' ')}
+                        </Badge>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <div className="h-2 w-2 rounded-full bg-[#96AEC2]/100"></div>
+                          <span className="text-[#546A7A] font-medium">{offer.zone?.name}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        {offer.offerValue ? (
+                          <div className="flex items-center gap-2">
+                            <div className="h-8 w-8 rounded-lg bg-[#82A094]/20 flex items-center justify-center">
+                              <IndianRupee className="h-4 w-4 text-[#4F6A64]" />
+                            </div>
+                            <span className="text-[#546A7A] font-bold text-lg">{formatCurrency(Number(offer.offerValue))}</span>
+                          </div>
+                        ) : (
+                          offer.stage === 'INITIAL' ? (
+                            <Badge variant="outline" className="text-[#AEBFC3]0 border-dashed">TBD</Badge>
+                          ) : (
+                            <span className="text-[#979796]">-</span>
+                          )
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        <Badge className={`${offer.stage === 'INITIAL' ? 'bg-gradient-to-r from-[#96AEC2]/20 to-[#96AEC2]/10 text-[#546A7A] border-[#96AEC2] shadow-sm' :
+                            offer.stage === 'WON' ? 'bg-gradient-to-r from-emerald-100 to-[#A2B9AF]/10 text-[#4F6A64] border-emerald-300 shadow-sm' :
+                              offer.stage === 'LOST' ? 'bg-gradient-to-r from-red-100 to-red-50 text-[#75242D] border-[#E17F70] shadow-sm' :
+                                offer.stage === 'PROPOSAL_SENT' ? 'bg-gradient-to-r from-[#96AEC2]/20 to-[#96AEC2]/10 text-[#546A7A] border-[#6F8A9D] shadow-sm' :
+                                  offer.stage === 'NEGOTIATION' ? 'bg-gradient-to-r from-amber-100 to-[#EEC1BF]/10 text-[#976E44] border-amber-300 shadow-sm' :
+                                    offer.stage === 'PO_RECEIVED' ? 'bg-gradient-to-r from-[#96AEC2]/20 to-[#96AEC2]/10 text-[#546A7A] border-indigo-300 shadow-sm' :
+                                      'bg-gradient-to-r from-slate-100 to-[#AEBFC3]/10 text-[#546A7A] border-[#92A2A5] shadow-sm'
+                          } font-semibold px-3 py-1.5`}>
+                          {offer.stage?.replace(/_/g, ' ')}
+                        </Badge>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <div className="h-7 w-7 rounded-full bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center text-[#5D6E73] font-semibold text-xs">
+                            {offer.createdBy?.name?.charAt(0).toUpperCase() || 'U'}
+                          </div>
+                          <span className="text-[#5D6E73] font-medium">{offer.createdBy?.name}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2 text-[#5D6E73]">
+                          <Calendar className="h-4 w-4" />
+                          <span className="text-sm font-medium">{new Date(offer.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="hover:bg-gradient-to-r hover:from-[#96AEC2]/10 hover:to-[#96AEC2]/10 transition-all rounded-xl">
+                              <MoreHorizontal className="h-4 w-4 text-[#5D6E73]" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-48 rounded-xl shadow-xl border-[#92A2A5]">
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => router.push(`/expert/offers/${offer.id}`)}
+                              className="cursor-pointer rounded-lg hover:bg-[#96AEC2]/10"
+                            >
+                              <Eye className="h-4 w-4 mr-2 text-[#546A7A]" />
+                              View Details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => router.push(`/expert/offers/${offer.id}/edit`)}
+                              className="cursor-pointer rounded-lg hover:bg-[#6F8A9D]/10"
+                            >
+                              <Edit className="h-4 w-4 mr-2 text-[#546A7A]" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleDeleteOffer(offer.id)}
+                              className="text-[#9E3B47] cursor-pointer rounded-lg hover:bg-[#E17F70]/10"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </td>
+                    </tr>
+                  ))
                 )}
               </tbody>
             </table>
           </div>
-          
+
           {/* Pagination */}
           {!loading && offers.length > 0 && (
             <div className="bg-gradient-to-r from-[#AEBFC3]/10 via-blue-50 to-[#96AEC2]/10/30 px-6 py-4 border-t border-[#92A2A5]">
@@ -717,10 +715,10 @@ export default function OfferManagement() {
         </Card>
 
         {/* Edit Dialog */}
-        <DynamicEditOfferDialog 
-          open={showEditDialog} 
-          onOpenChange={setShowEditDialog} 
-          editingOffer={editingOffer} 
+        <DynamicEditOfferDialog
+          open={showEditDialog}
+          onOpenChange={setShowEditDialog}
+          editingOffer={editingOffer}
         />
       </div>
     </div>
