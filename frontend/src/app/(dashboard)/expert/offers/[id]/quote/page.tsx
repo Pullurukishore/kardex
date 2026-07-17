@@ -223,13 +223,14 @@ const KardexLogo = ({ className = 'h-7' }: LogoProps) => (
 interface PageFooterProps {
   pageNumber: number
   totalPages?: number
+  productType?: string
 }
 
-const PageFooter = ({ pageNumber, totalPages = 11 }: PageFooterProps) => (
+const PageFooter = ({ pageNumber, totalPages = 11, productType }: PageFooterProps) => (
   <div className="page-footer">
     <div className="footer-content">
       <span>{pageNumber} / {totalPages}</span>
-      <span>Service Care Contract</span>
+      <span>{productType ? (PRODUCT_TYPE_LABELS[productType] || productType.replace(/_/g, ' ')) : 'Service Care Contract'}</span>
       <span>{format(new Date(), 'dd/MM/yyyy')}</span>
     </div>
   </div>
@@ -911,7 +912,7 @@ export default function QuoteGenerationPage() {
             </div>
 
               {/* Page 1 Footer */}
-              <PageFooter pageNumber={1} />
+              <PageFooter productType={offer?.productType} pageNumber={1} />
             </div>
           </div>
 
@@ -1044,7 +1045,7 @@ export default function QuoteGenerationPage() {
             </div>
 
             {/* Page 2 Footer */}
-            <PageFooter pageNumber={2} />
+            <PageFooter productType={offer?.productType} pageNumber={2} />
           </div>
 
           {/* Page 3 - Service Products - ENHANCED */}
@@ -1123,7 +1124,7 @@ export default function QuoteGenerationPage() {
               </div>
             </div>
 
-            <PageFooter pageNumber={3} />
+            <PageFooter productType={offer?.productType} pageNumber={3} />
           </div>
 
           {/* Page 4 - Service Package - ENHANCED */}
@@ -1196,7 +1197,7 @@ export default function QuoteGenerationPage() {
               </div>
             </div>
 
-            <PageFooter pageNumber={4} />
+            <PageFooter productType={offer?.productType} pageNumber={4} />
           </div>
 
           {/* Page 5 - General Terms */}
@@ -1279,7 +1280,7 @@ export default function QuoteGenerationPage() {
             </div>
 
             {/* Page 5 Footer */}
-            <PageFooter pageNumber={5} />
+            <PageFooter productType={offer?.productType} pageNumber={5} />
           </div>
 
           {/* Page 6 - General Terms Continued */}
@@ -1331,7 +1332,7 @@ export default function QuoteGenerationPage() {
             </div>
 
             {/* Page 6 Footer */}
-            <PageFooter pageNumber={6} />
+            <PageFooter productType={offer?.productType} pageNumber={6} />
           </div>
 
           {/* Pages 7-11 - Terms Sections */}
@@ -1383,7 +1384,7 @@ export default function QuoteGenerationPage() {
             </div>
 
             {/* Page 7 Footer */}
-            <PageFooter pageNumber={7} />
+            <PageFooter productType={offer?.productType} pageNumber={7} />
           </div>
 
           {/* Page 8 - Part B Continued */}
@@ -1449,7 +1450,7 @@ export default function QuoteGenerationPage() {
             </div>
 
             {/* Page 8 Footer */}
-            <PageFooter pageNumber={8} />
+            <PageFooter productType={offer?.productType} pageNumber={8} />
           </div>
 
           {/* Page 9 - Part C */}
@@ -1505,7 +1506,7 @@ export default function QuoteGenerationPage() {
             </div>
 
             {/* Page 9 Footer */}
-            <PageFooter pageNumber={9} />
+            <PageFooter productType={offer?.productType} pageNumber={9} />
           </div>
 
           {/* Page 10 - C2 Continued */}
@@ -1571,7 +1572,7 @@ export default function QuoteGenerationPage() {
             </div>
 
             {/* Page 10 Footer */}
-            <PageFooter pageNumber={10} />
+            <PageFooter productType={offer?.productType} pageNumber={10} />
           </div>
 
           {/* Page 11 - C3 */}
@@ -1634,7 +1635,7 @@ export default function QuoteGenerationPage() {
             </div>
 
             {/* Page 11 Footer */}
-            <PageFooter pageNumber={11} />
+            <PageFooter productType={offer?.productType} pageNumber={11} />
           </div>
 
       {/* Modern PDF/Word-friendly Styles */}
