@@ -20,6 +20,19 @@ import { apiService } from '@/services/api'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
 
+// ==================== Constants ====================
+const PRODUCT_TYPE_LABELS: Record<string, string> = {
+  RELOCATION: 'Relocation',
+  CONTRACT: 'Contract',
+  SPARE_PARTS: 'Spare Parts',
+  KARDEX_CONNECT: 'Kardex Connect',
+  UPGRADE_KIT: 'Optilife Upgrade',
+  SOFTWARE: 'Software',
+  OTHERS: 'Repairs & Others',
+  BD_SPARE: 'BD Spare',
+  RETROFIT_KIT: 'Retrofit Kit'
+}
+
 // ==================== Types ====================
 interface Customer {
   companyName?: string
@@ -652,7 +665,7 @@ export default function QuoteGenerationPage() {
               <div className="page-title mt-8 mb-12">
                 <h1 className="text-center">
                   <span className="bg-[#4472C4] text-white px-8 py-3 rounded-sm shadow-md border-b-4 border-[#365ba3] uppercase tracking-widest text-lg font-bold">
-                    Spare Parts Quotation
+                    {offer?.productType ? `${PRODUCT_TYPE_LABELS[offer.productType] || offer.productType.replace(/_/g, ' ')} Quotation` : 'Quotation'}
                   </span>
                 </h1>
               </div>
