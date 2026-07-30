@@ -329,7 +329,15 @@ export default function OfferDetailPage() {
             <p className="text-[#5D6E73] mt-1 text-sm sm:text-base truncate">{offer.title || offer.customer?.companyName}</p>
           </div>
         </div>
-        <div className="flex items-center gap-3 w-full sm:w-auto">
+        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+          <Button 
+            onClick={() => router.push(`/admin/offers/${offer.id}/quote`)} 
+            variant="outline"
+            className="w-full sm:w-auto border-2 border-[#92A2A5] text-[#546A7A] hover:bg-[#AEBFC3]/10"
+          >
+            <FileText className="h-4 w-4 mr-2" />
+            Generate Quote
+          </Button>
           <Button onClick={() => router.push(`/admin/offers/${offer.id}/edit`)} className="w-full sm:w-auto">
             <Edit className="h-4 w-4 mr-2" />
             Edit Offer
@@ -1147,8 +1155,8 @@ export default function OfferDetailPage() {
             </Card>
           )}
           
-          {/* Legacy Remarks - Show if no stage remarks but has old remarks field */}
-          {(!offer.stageRemarks || offer.stageRemarks.length === 0) && offer.remarks && (
+          {/* Legacy Remarks - Show if no stage remarks but has old remarks field (excluding internal JSON quote configuration) */}
+          {(!offer.stageRemarks || offer.stageRemarks.length === 0) && offer.remarks && !offer.remarks.trim().startsWith('{') && (
             <Card className="shadow-lg">
               <CardHeader>
                 <CardTitle>Remarks & Notes</CardTitle>

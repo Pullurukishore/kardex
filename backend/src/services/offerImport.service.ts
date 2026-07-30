@@ -326,6 +326,10 @@ export class OfferImportService {
             if (a.serialNo) assetCache.set(a.serialNo, a.id);
         });
 
+        // Concurrency guards to prevent duplicate customer/contact creations when importing in parallel batches
+        const customerCreationPromises = new Map<string, Promise<number>>();
+        const contactCreationPromises = new Map<string, Promise<number>>();
+
         for (const sheetName of workbook.SheetNames) {
             const sheet = workbook.Sheets[sheetName];
             if (!sheet) continue;
@@ -389,50 +393,64 @@ export class OfferImportService {
                             ? String(row[indices.email] || '').trim() || null
                             : null;
 
-                        // 1. Customer - find or create
+                        // 1. Customer - find or create with concurrency guard
                         const customerKey = `${companyName}|${zoneId}`;
-                        let customerId = customerCache.get(customerKey);
-                        if (!customerId) {
-                            let customer = await prisma.customer.findFirst({
-                                where: { companyName, serviceZoneId: zoneId }
-                            });
-                            if (!customer) {
-                                customer = await prisma.customer.create({
-                                    data: {
-                                        companyName,
-                                        address: locationVal,
-                                        serviceZoneId: zoneId,
-                                        createdById: adminId,
-                                        updatedById: adminId
-                                    }
-                                });
-                            }
-                            customerId = customer.id;
-                            customerCache.set(customerKey, customerId);
-                        }
+                        let customerIdPromise = customerCreationPromises.get(customerKey);
+                        if (!customerIdPromise) {
+                            customerIdPromise = (async () => {
+                                let cachedId = customerCache.get(customerKey);
+                                if (cachedId) return cachedId;
 
-                        // 2. Contact - find or create
-                        const contactKey = `${customerId}|${contactNumber}`;
-                        let contactId = contactCache.get(contactKey);
-                        if (!contactId) {
-                            let contact = await prisma.contact.findFirst({
-                                where: { customerId, phone: contactNumber }
-                            });
-                            if (!contact) {
-                                contact = await prisma.contact.create({
-                                    data: {
-                                        name: contactName,
-                                        contactPersonName: contactName,
-                                        phone: contactNumber,
-                                        contactNumber: contactNumber,
-                                        email: emailVal,
-                                        customerId
-                                    }
+                                let customer = await prisma.customer.findFirst({
+                                    where: { companyName: { equals: companyName, mode: 'insensitive' }, serviceZoneId: zoneId }
                                 });
-                            }
-                            contactId = contact.id;
-                            contactCache.set(contactKey, contactId);
+                                if (!customer) {
+                                    customer = await prisma.customer.create({
+                                        data: {
+                                            companyName,
+                                            address: locationVal,
+                                            serviceZoneId: zoneId,
+                                            createdById: adminId,
+                                            updatedById: adminId
+                                        }
+                                    });
+                                }
+                                customerCache.set(customerKey, customer.id);
+                                return customer.id;
+                            })();
+                            customerCreationPromises.set(customerKey, customerIdPromise);
                         }
+                        const customerId = await customerIdPromise;
+
+                        // 2. Contact - find or create with concurrency guard
+                        const contactKey = `${customerId}|${contactNumber}`;
+                        let contactIdPromise = contactCreationPromises.get(contactKey);
+                        if (!contactIdPromise) {
+                            contactIdPromise = (async () => {
+                                let cachedId = contactCache.get(contactKey);
+                                if (cachedId) return cachedId;
+
+                                let contact = await prisma.contact.findFirst({
+                                    where: { customerId, phone: contactNumber }
+                                });
+                                if (!contact) {
+                                    contact = await prisma.contact.create({
+                                        data: {
+                                            name: contactName,
+                                            contactPersonName: contactName,
+                                            phone: contactNumber,
+                                            contactNumber: contactNumber,
+                                            email: emailVal,
+                                            customerId
+                                        }
+                                    });
+                                }
+                                contactCache.set(contactKey, contact.id);
+                                return contact.id;
+                            })();
+                            contactCreationPromises.set(contactKey, contactIdPromise);
+                        }
+                        const contactId = await contactIdPromise;
 
                         // 3. Prepare Offer Data
                         const productTypeRaw = indices.productType >= 0

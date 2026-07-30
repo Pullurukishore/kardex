@@ -5,7 +5,13 @@ import { useParams, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+} from '@/components/ui/select'
+import {
   ArrowLeft,
   Download,
   Printer,
@@ -14,7 +20,12 @@ import {
   Save,
   Upload,
   X,
-  FileText
+  FileText,
+  Search,
+  Plus,
+  Trash2,
+  Package,
+  Image as ImageIcon
 } from 'lucide-react'
 import { apiService } from '@/services/api'
 import { toast } from 'sonner'
@@ -54,6 +65,7 @@ interface OfferItem {
   unitPrice: string
   quantity: number
   total?: string
+  sparePartId?: number
 }
 
 interface OfferSparePart {
@@ -75,11 +87,13 @@ interface OfferAsset {
   id: number
   asset: {
     id: number
-    assetName: string
+    assetName?: string
     machineSerialNumber?: string
     model?: string
     manufacturer?: string
     location?: string
+    machineId?: string
+    serialNo?: string
     customer?: {
       companyName: string
     }
@@ -209,13 +223,15 @@ interface LogoProps {
 
 const KardexLogo = ({ className = 'h-7' }: LogoProps) => (
   <div className="flex justify-between items-start mb-4 border-b pb-2">
-    <img 
-      src="/kardex.png" 
-      alt="Kardex Remstar" 
+    <img
+      src="/kardex-only.png"
+      alt="Kardex"
       className={className}
-      onError={(e) => { 
-        e.currentTarget.style.display = 'none'
-        console.error('Logo not found')
+      onError={(e) => {
+        e.currentTarget.src = '/kardex.png'
+        e.currentTarget.style.objectFit = 'cover'
+        e.currentTarget.style.objectPosition = 'left'
+        e.currentTarget.style.width = '48%'
       }}
     />
   </div>
@@ -227,15 +243,32 @@ interface PageFooterProps {
   productType?: string
 }
 
-const PageFooter = ({ pageNumber, totalPages = 11, productType }: PageFooterProps) => (
-  <div className="page-footer">
-    <div className="footer-content">
-      <span>{pageNumber} / {totalPages}</span>
-      <span>{productType ? (PRODUCT_TYPE_LABELS[productType] || productType.replace(/_/g, ' ')) : 'Service Care Contract'}</span>
-      <span>{format(new Date(), 'dd/MM/yyyy')}</span>
+const PageFooter = ({ pageNumber, totalPages = 10, productType }: PageFooterProps) => {
+  const displayTotal = 10;
+  const displayPage = pageNumber + 1;
+
+  return (
+    <div className="page-footer">
+      <table style={{ width: '100%', borderCollapse: 'collapse', borderSpacing: 0, tableLayout: 'fixed' }}>
+        <tbody>
+          <tr>
+            <td style={{ width: '33%', textAlign: 'left', fontSize: '10px', color: '#6b7280', padding: 0, whiteSpace: 'nowrap' }}>
+              {displayPage} / {displayTotal}
+            </td>
+            <td style={{ width: '34%', textAlign: 'center', fontSize: '10px', color: '#6b7280', padding: 0, whiteSpace: 'nowrap' }}>
+              {productType === 'SPARE_PARTS'
+                ? 'Service Parts Trolley'
+                : (productType ? (PRODUCT_TYPE_LABELS[productType] || productType.replace(/_/g, ' ')) : 'Service Care Contract')}
+            </td>
+            <td suppressHydrationWarning style={{ width: '33%', textAlign: 'right', fontSize: '10px', color: '#6b7280', padding: 0, whiteSpace: 'nowrap' }}>
+              {format(new Date(), 'dd/MM/yyyy')}
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
-  </div>
-)
+  );
+}
 
 interface ItemRowProps {
   item: OfferItem
@@ -249,39 +282,39 @@ interface ItemRowProps {
 const ItemRow = ({ item, index, isEditMode, onUpdate, onRemove, canRemove }: ItemRowProps) => (
   <tr>
     <td className="text-center">{index + 1}</td>
-    <td>
+    <td className="text-center">
       {isEditMode ? (
         <Input
           value={item.partNo}
           onChange={(e) => onUpdate(item.id, 'partNo', e.target.value)}
           placeholder="Part No"
-          className="h-7 text-xs w-full"
+          className="h-7 text-xs w-full text-center"
           aria-label={`Part number for item ${index + 1}`}
         />
       ) : (
         item.partNo || '-'
       )}
     </td>
-    <td>
+    <td className="text-left">
       {isEditMode ? (
         <Input
           value={item.description}
           onChange={(e) => onUpdate(item.id, 'description', e.target.value)}
           placeholder="Description"
-          className="h-7 text-xs w-full"
+          className="h-7 text-xs w-full text-left"
           aria-label={`Description for item ${index + 1}`}
         />
       ) : (
         item.description || '-'
       )}
     </td>
-    <td>
+    <td className="text-center">
       {isEditMode ? (
         <Input
           value={item.hsnCode}
           onChange={(e) => onUpdate(item.id, 'hsnCode', e.target.value)}
           placeholder="HSN"
-          className="h-7 text-xs w-full"
+          className="h-7 text-xs w-full text-center"
           aria-label={`HSN code for item ${index + 1}`}
         />
       ) : (
@@ -302,7 +335,7 @@ const ItemRow = ({ item, index, isEditMode, onUpdate, onRemove, canRemove }: Ite
         item.unitPrice ? parseFloat(item.unitPrice).toLocaleString('en-IN') : '-'
       )}
     </td>
-    <td className="text-right">
+    <td className="text-center">
       {isEditMode ? (
         <Input
           type="number"
@@ -310,7 +343,7 @@ const ItemRow = ({ item, index, isEditMode, onUpdate, onRemove, canRemove }: Ite
           onChange={(e) => onUpdate(item.id, 'quantity', parseInt(e.target.value) || 1)}
           placeholder="1"
           min="1"
-          className="h-7 text-xs w-full text-right"
+          className="h-7 text-xs w-full text-center"
           aria-label={`Quantity for item ${index + 1}`}
         />
       ) : (
@@ -371,12 +404,24 @@ export default function QuoteGenerationPage() {
     customerState: ''
   })
 
+  // Spare parts catalog state (for searchable dropdown)
+  const [catalogSpareParts, setCatalogSpareParts] = useState<Array<{
+    id: number
+    name: string
+    partNumber: string
+    basePrice: number
+    imageUrl?: string
+    category?: string
+  }>>([])
+  const [loadingCatalog, setLoadingCatalog] = useState(false)
+  const [sparePartSearch, setSparePartSearch] = useState('')
+
   // ==================== Data Fetching ====================
   const fetchOffer = useCallback(async () => {
     try {
       setLoading(true)
       console.log('🔍 Fetching offer with ID:', offerId)
-      
+
       // Try admin endpoint first, fall back to zone endpoint if admin fails
       let response;
       try {
@@ -390,27 +435,28 @@ export default function QuoteGenerationPage() {
           throw error;
         }
       }
-      
+
       console.log('✅ Offer data received:', response)
       const offerData: Offer = response.offer
       setOffer(offerData)
-      
+
       // Map spare parts to items format
       const mappedItems: OfferItem[] = offerData.offerSpareParts && offerData.offerSpareParts.length > 0
         ? offerData.offerSpareParts.map((osp, index) => ({
-            id: index + 1,
-            partNo: osp.sparePart.partNumber,
-            description: osp.sparePart.name || osp.sparePart.description || '',
-            hsnCode: osp.sparePart.category || '',
-            unitPrice: osp.unitPrice.toString(),
-            quantity: osp.quantity,
-            total: osp.totalPrice.toString()
-          }))
+          id: index + 1,
+          partNo: osp.sparePart.partNumber,
+          description: osp.sparePart.name || osp.sparePart.description || '',
+          hsnCode: osp.sparePart.category || '',
+          unitPrice: osp.unitPrice.toString(),
+          quantity: osp.quantity,
+          total: osp.totalPrice.toString(),
+          sparePartId: osp.sparePart.id
+        }))
         : [DEFAULT_ITEM];
 
       // Get machine details from assets
-      const firstAsset = offerData.offerAssets && offerData.offerAssets.length > 0 
-        ? offerData.offerAssets[0].asset 
+      const firstAsset = offerData.offerAssets && offerData.offerAssets.length > 0
+        ? offerData.offerAssets[0].asset
         : null;
 
       // Determine machine owner (ACCOUNT_OWNER contact name)
@@ -442,50 +488,53 @@ export default function QuoteGenerationPage() {
         companyWebsite: storedQuoteData?.companyInfo?.companyWebsite || DEFAULT_COMPANY_INFO.companyWebsite,
         gstNumber: storedQuoteData?.gstNumber || DEFAULT_COMPANY_INFO.gstNumber,
         arnNumber: storedQuoteData?.arnNumber || DEFAULT_COMPANY_INFO.arnNumber,
-        
+
         // Offer fields
-        title: offerData.title || '',
+        title: offerData.productType === 'SPARE_PARTS' && (!offerData.title || offerData.title.toLowerCase().includes('optilife'))
+          ? 'Kardex - Spare Parts Trolley'
+          : (offerData.title || ''),
         description: offerData.description || '',
-        
+
         // Quote-specific fields from saved data
         subject: storedQuoteData?.subject || offerData.subject || '',
         introduction: storedQuoteData?.introduction || offerData.introduction || '',
-        
+
         offerValue: offerData.offerValue?.toString() || '',
         gstRate: storedQuoteData?.gstRate || DEFAULT_GST_RATE,
-        
+
         // Plain text remarks (only if not JSON)
         remarks: storedQuoteData ? '' : (offerData.remarks || ''),
-        
+
         // Contact details
         contactPersonName: offerData.contact?.contactPersonName || offerData.contactPersonName || '',
         contactPersonPhone: offerData.contact?.contactNumber || offerData.contactNumber || '',
         contactPersonEmail: offerData.contact?.email || offerData.email || '',
-        
+
         // Signature from saved data
         signatureImage: storedQuoteData?.signatureImage || null,
-        
+
         // Items: prioritize saved quote items over spare parts mapping
-        items: storedQuoteData?.quoteItems?.length > 0 
+        items: storedQuoteData?.quoteItems?.length > 0
           ? storedQuoteData.quoteItems.map((item: any, index: number) => ({
-              id: index + 1,
-              partNo: item.partNo || '',
-              description: item.description || '',
-              hsnCode: item.hsnCode || '',
-              unitPrice: item.unitPrice || '',
-              quantity: item.quantity || 1,
-              total: ''
-            }))
+            id: index + 1,
+            partNo: item.partNo || '',
+            description: item.description || '',
+            hsnCode: item.hsnCode || '',
+            unitPrice: item.unitPrice || '',
+            quantity: item.quantity || 1,
+            total: '',
+            sparePartId: item.sparePartId
+          }))
           : mappedItems,
-        
+
         // Machine details: prioritize saved data
         machineDetails: storedQuoteData?.machineDetails || {
           model: firstAsset?.model || '',
-          serialNumber: firstAsset?.machineSerialNumber || offerData.machineSerialNumber || '',
+          serialNumber: firstAsset?.serialNo || offerData.machineSerialNumber || '',
           owner: machineOwner,
           department: offerData.department || offerData.location || ''
         },
-        
+
         // Customer details: prioritize saved data over offer data
         customerName: storedQuoteData?.customerInfo?.customerName || offerData.customer?.companyName || offerData.company || '',
         customerAddress: storedQuoteData?.customerInfo?.customerAddress || offerData.customer?.address || '',
@@ -496,7 +545,7 @@ export default function QuoteGenerationPage() {
       console.error('❌ Failed to fetch offer:', error)
       console.error('❌ Error response:', error.response?.data)
       console.error('❌ Error status:', error.response?.status)
-      
+
       if (error.response?.status === 403) {
         toast.error('Access denied: You do not have permission to view this offer')
       } else if (error.response?.status === 404) {
@@ -519,6 +568,25 @@ export default function QuoteGenerationPage() {
     fetchOffer()
   }, [fetchOffer])
 
+  // Fetch spare parts catalog when entering edit mode on a spare parts offer
+  useEffect(() => {
+    if (isEditMode && offer?.productType === 'SPARE_PARTS' && catalogSpareParts.length === 0) {
+      const fetchCatalog = async () => {
+        try {
+          setLoadingCatalog(true)
+          const response = await apiService.getSpareParts({ status: 'ACTIVE', limit: 1000 })
+          setCatalogSpareParts(response.spareParts || [])
+        } catch (error) {
+          console.error('Failed to fetch spare parts catalog:', error)
+          toast.error('Failed to load spare parts catalog')
+        } finally {
+          setLoadingCatalog(false)
+        }
+      }
+      fetchCatalog()
+    }
+  }, [isEditMode, offer?.productType, catalogSpareParts.length])
+
   // ==================== Event Handlers ====================
   const handlePrint = useCallback(() => {
     window.print()
@@ -534,22 +602,22 @@ export default function QuoteGenerationPage() {
   // Save Quote Changes to Backend
   const saveQuoteChanges = useCallback(async () => {
     if (!offer) return false
-    
+
     try {
       setSaving(true)
-      
+
       // Calculate the total offer value from items
       const calculatedOfferValue = editableData.items.reduce((sum, item) => {
         return sum + calculateItemTotal(item.unitPrice, item.quantity)
       }, 0)
-      
+
       // Build the update payload with fields that exist in the Offer model
       // Note: subject and introduction are quote-specific, we'll combine them into description/remarks
       const updatePayload: any = {
         // Title and description from editable data
         title: editableData.title || offer.title || null,
         description: editableData.description || offer.description || null,
-        
+
         // Combine subject and introduction into a structured remarks format for quote context
         // Format: [QUOTE_DATA]subject|introduction|gstNumber|arnNumber|machineDetails[/QUOTE_DATA]
         remarks: JSON.stringify({
@@ -576,35 +644,53 @@ export default function QuoteGenerationPage() {
             },
             gstRate: editableData.gstRate,
             signatureImage: editableData.signatureImage,
-            // Store items as part of quote context since spare parts may not cover all scenarios
             quoteItems: editableData.items.map(item => ({
               partNo: item.partNo,
               description: item.description,
               hsnCode: item.hsnCode,
               unitPrice: item.unitPrice,
               quantity: item.quantity,
+              sparePartId: item.sparePartId
             })),
           }
         }),
-        
+
         // Update offer value from calculated items
         offerValue: calculatedOfferValue > 0 ? calculatedOfferValue : (parseFloat(editableData.offerValue) || null),
-        
+
         // Contact details
         contactPersonName: editableData.contactPersonName || null,
         contactNumber: editableData.contactPersonPhone || null,
         email: editableData.contactPersonEmail || null,
-        
+
         // Machine details
         machineSerialNumber: editableData.machineDetails.serialNumber || null,
         department: editableData.machineDetails.department || null,
       }
-      
+
+      // If product type is spare parts, construct the spareParts array to synchronize backend database tables
+      if (offer.productType === 'SPARE_PARTS') {
+        updatePayload.spareParts = editableData.items
+          .map(item => {
+            const resolvedId = item.sparePartId || catalogSpareParts.find(sp => sp.partNumber === item.partNo)?.id;
+            if (!resolvedId) return null;
+            
+            const price = parseFloat(item.unitPrice.replace(/,/g, '')) || 0;
+            return {
+              sparePartId: resolvedId,
+              quantity: item.quantity,
+              unitPrice: price,
+              totalPrice: price * item.quantity
+            };
+          })
+          .filter(Boolean);
+      }
+
       console.log('📝 Saving quote changes:', updatePayload)
-      
+
       // Call the API to update the offer
       await apiService.updateOffer(parseInt(offerId), updatePayload)
-      
+
       toast.success('Quote changes saved successfully!')
       return true
     } catch (error: any) {
@@ -614,7 +700,7 @@ export default function QuoteGenerationPage() {
     } finally {
       setSaving(false)
     }
-  }, [offer, offerId, editableData])
+  }, [offer, offerId, editableData, catalogSpareParts])
 
   const handleToggleEditMode = useCallback(async () => {
     if (isEditMode) {
@@ -622,13 +708,16 @@ export default function QuoteGenerationPage() {
       const saved = await saveQuoteChanges()
       if (saved) {
         setIsEditMode(false)
+        // Re-fetch offer to sync state with backend
+        hasFetchedOffer.current = false
+        await fetchOffer()
       }
       // If save failed, stay in edit mode so user can fix issues
     } else {
       // Entering edit mode
       setIsEditMode(true)
     }
-  }, [isEditMode, saveQuoteChanges])
+  }, [isEditMode, saveQuoteChanges, fetchOffer])
 
   // Cancel editing without saving
   const handleCancelEdit = useCallback(() => {
@@ -636,23 +725,24 @@ export default function QuoteGenerationPage() {
     if (offer) {
       const mappedItems: OfferItem[] = offer.offerSpareParts && offer.offerSpareParts.length > 0
         ? offer.offerSpareParts.map((osp, index) => ({
-            id: index + 1,
-            partNo: osp.sparePart.partNumber,
-            description: osp.sparePart.name || osp.sparePart.description || '',
-            hsnCode: osp.sparePart.category || '',
-            unitPrice: osp.unitPrice.toString(),
-            quantity: osp.quantity,
-            total: osp.totalPrice.toString()
-          }))
+          id: index + 1,
+          partNo: osp.sparePart.partNumber,
+          description: osp.sparePart.name || osp.sparePart.description || '',
+          hsnCode: osp.sparePart.category || '',
+          unitPrice: osp.unitPrice.toString(),
+          quantity: osp.quantity,
+          total: osp.totalPrice.toString(),
+          sparePartId: osp.sparePart.id
+        }))
         : [DEFAULT_ITEM]
-      
-      const firstAsset = offer.offerAssets && offer.offerAssets.length > 0 
-        ? offer.offerAssets[0].asset 
+
+      const firstAsset = offer.offerAssets && offer.offerAssets.length > 0
+        ? offer.offerAssets[0].asset
         : null
-      
+
       const accountOwner = offer.customer?.contacts?.find(c => c.role === 'ACCOUNT_OWNER')
       const machineOwner = accountOwner?.contactPersonName || ''
-      
+
       // Try to parse stored quote data from remarks
       let storedQuoteData: any = null
       if (offer.remarks) {
@@ -663,11 +753,13 @@ export default function QuoteGenerationPage() {
           // remarks is not JSON, ignore
         }
       }
-      
+
       setEditableData({
         ...DEFAULT_COMPANY_INFO,
         ...(storedQuoteData?.companyInfo || {}),
-        title: offer.title || '',
+        title: offer.productType === 'SPARE_PARTS' && (!offer.title || offer.title.toLowerCase().includes('optilife'))
+          ? 'Kardex - Spare Parts Trolley'
+          : (offer.title || ''),
         description: offer.description || '',
         subject: storedQuoteData?.subject || offer.subject || '',
         introduction: storedQuoteData?.introduction || offer.introduction || '',
@@ -680,15 +772,15 @@ export default function QuoteGenerationPage() {
         contactPersonPhone: offer.contact?.contactNumber || offer.contactNumber || '',
         contactPersonEmail: offer.contact?.email || offer.email || '',
         signatureImage: storedQuoteData?.signatureImage || null,
-        items: storedQuoteData?.quoteItems?.length > 0 
+        items: storedQuoteData?.quoteItems?.length > 0
           ? storedQuoteData.quoteItems.map((item: any, index: number) => ({
-              id: index + 1,
-              ...item
-            }))
+            id: index + 1,
+            ...item
+          }))
           : mappedItems,
         machineDetails: storedQuoteData?.machineDetails || {
           model: firstAsset?.model || '',
-          serialNumber: firstAsset?.machineSerialNumber || offer.machineSerialNumber || '',
+          serialNumber: firstAsset?.serialNo || offer.machineSerialNumber || '',
           owner: machineOwner,
           department: offer.department || offer.location || ''
         },
@@ -705,6 +797,9 @@ export default function QuoteGenerationPage() {
   // ==================== Computed Values ====================
   const quoteDate = useMemo(() => new Date(), [])
   const validUntil = useMemo(() => getValidUntilDate(), [])
+  const isOptilife = useMemo(() => offer?.productType === 'UPGRADE_KIT', [offer])
+  const isSpareParts = useMemo(() => offer?.productType === 'SPARE_PARTS', [offer])
+  const totalPages = 10
 
   // ==================== Calculations ====================
   const subtotal = useMemo(() => {
@@ -723,13 +818,13 @@ export default function QuoteGenerationPage() {
         toast.error('Please upload a valid image file (JPG, PNG, GIF)')
         return
       }
-      
+
       // Validate file size (max 2MB)
       if (file.size > 2 * 1024 * 1024) {
         toast.error('File size should be less than 2MB')
         return
       }
-      
+
       // Convert to base64 for preview
       const reader = new FileReader()
       reader.onload = (e) => {
@@ -785,6 +880,36 @@ export default function QuoteGenerationPage() {
     }))
   }, [])
 
+  // Spare parts catalog functions
+  const addSparePartFromCatalog = useCallback((sparePartId: string) => {
+    const sp = catalogSpareParts.find(s => s.id === parseInt(sparePartId))
+    if (!sp) return
+
+    // Check if already added
+    if (editableData.items.some(item => item.partNo === sp.partNumber)) {
+      toast.error('This spare part is already added')
+      return
+    }
+
+    setEditableData(prev => ({
+      ...prev,
+      items: [
+        ...prev.items.filter(item => item.partNo || item.description), // Remove empty rows
+        {
+          id: prev.items.length + 1,
+          partNo: sp.partNumber,
+          description: sp.name,
+          hsnCode: sp.category || '',
+          unitPrice: sp.basePrice.toString(),
+          quantity: 1,
+          total: sp.basePrice.toString()
+        }
+      ]
+    }))
+    setSparePartSearch('')
+    toast.success(`Added ${sp.name}`)
+  }, [catalogSpareParts, editableData.items])
+
   // ==================== Render Helpers ====================
   if (loading) {
     return (
@@ -839,7 +964,7 @@ export default function QuoteGenerationPage() {
 
           <div className="flex flex-wrap gap-3">
             {isEditMode && (
-              <Button 
+              <Button
                 onClick={handleCancelEdit}
                 variant="outline"
                 disabled={saving}
@@ -849,7 +974,7 @@ export default function QuoteGenerationPage() {
                 Cancel
               </Button>
             )}
-            <Button 
+            <Button
               onClick={handleToggleEditMode}
               variant={isEditMode ? "default" : "outline"}
               className={isEditMode ? "bg-[#4472C4] hover:bg-[#365ba3]" : "bg-white"}
@@ -888,1037 +1013,1093 @@ export default function QuoteGenerationPage() {
       <div className="max-w-[1200px] mx-auto pb-20 print:pb-0">
         <div ref={printRef} className="quotation-document">
           <div className="document-container">
-            {/* Page 1 - Main Quote */}
-            <div className="page page-1 shadow-2xl print:shadow-none mb-10 print:mb-0">
-            {/* Logo */}
-            <KardexLogo />
+            {/* Page 1 - Cover Page (Optilife Upgrade Only) */}
+            {/* Page 1 - Cover Page */}
+            <div className="page page-cover shadow-2xl print:shadow-none mb-10 print:mb-0">
+              {/* Logo */}
+              <KardexLogo />
 
-            <div className="page-content">
-              {/* Title - Elegant and Branded */}
-              <div className="page-title mt-8 mb-12">
-                <h1 className="text-center">
-                  <span className="bg-[#4472C4] text-white px-8 py-3 rounded-sm shadow-md border-b-4 border-[#365ba3] uppercase tracking-widest text-lg font-bold">
-                    {offer?.productType ? `${PRODUCT_TYPE_LABELS[offer.productType] || offer.productType.replace(/_/g, ' ')} Quotation` : 'Quotation'}
-                  </span>
-                </h1>
-              </div>
-
-              {/* Header Info - Reference and GST */}
-              <div className="quote-header-simple" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px'}}>
-                <div className="quote-ref-info" style={{textAlign: 'left'}}>
-                  <p><strong>Ref: {offer.offerReferenceNumber}</strong></p>
-                  <p>Dated: {format(quoteDate, 'dd/MM/yyyy')}</p>
+              <div className="page-content">
+                {/* Title - Centered and Underlined */}
+                <div className="page-title mt-8 mb-12">
+                  <h1 className="text-center">
+                    <span className="page-title-text w-full block">
+                      {isEditMode ? (
+                        <Input
+                          value={editableData.title || `Kardex - ${isSpareParts ? 'Spare Parts Trolley' : (offer?.productType ? (PRODUCT_TYPE_LABELS[offer.productType] || offer.productType.replace(/_/g, ' ')) : 'Spare Parts')}`}
+                          onChange={(e) => setEditableData({ ...editableData, title: e.target.value })}
+                          className="text-center font-bold text-2xl h-10 w-full max-w-lg mx-auto"
+                          placeholder="Quote Title"
+                        />
+                      ) : (
+                        editableData.title || `Kardex - ${isSpareParts ? 'Spare Parts Trolley' : (offer?.productType ? (PRODUCT_TYPE_LABELS[offer.productType] || offer.productType.replace(/_/g, ' ')) : 'Spare Parts')}`
+                      )}
+                    </span>
+                  </h1>
                 </div>
-                <div className="quote-gst-info" style={{textAlign: 'right'}}>
+
+                {/* Header Info - Reference and GST */}
+                <div className="quote-header-simple" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
+                  <div className="quote-ref-info" style={{ textAlign: 'left' }}>
+                    <p><strong>REF NO : {offer.offerReferenceNumber}</strong></p>
+                    <p suppressHydrationWarning>Date : {format(quoteDate, 'dd/MM/yyyy')}</p>
+                  </div>
+                  <div className="quote-gst-info" style={{ textAlign: 'right' }}>
+                    {isEditMode ? (
+                      <div className="space-y-1 print:hidden max-w-[200px] ml-auto">
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] font-semibold w-8">GST:</span>
+                          <Input
+                            value={editableData.gstNumber}
+                            onChange={(e) => setEditableData({ ...editableData, gstNumber: e.target.value })}
+                            className="h-6 text-[10px] text-right py-0.5 px-1.5"
+                            placeholder="GST"
+                          />
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] font-semibold w-8">ARN:</span>
+                          <Input
+                            value={editableData.arnNumber}
+                            onChange={(e) => setEditableData({ ...editableData, arnNumber: e.target.value })}
+                            className="h-6 text-[10px] text-right py-0.5 px-1.5"
+                            placeholder="ARN"
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <p>GST – {editableData.gstNumber}</p>
+                        <p>ARN – {editableData.arnNumber}</p>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Customer Details - Simple Format */}
+                <div className="customer-details-simple">
                   {isEditMode ? (
-                    <div className="space-y-1">
+                    <div className="space-y-1 max-w-md print:hidden mb-4 text-left">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold w-16 text-slate-500">Name:</span>
+                        <Input
+                          value={editableData.customerName}
+                          onChange={(e) => setEditableData({ ...editableData, customerName: e.target.value })}
+                          className="h-7 text-xs flex-1"
+                          placeholder="Customer Name"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold w-16 text-slate-500">Address:</span>
+                        <Input
+                          value={editableData.customerAddress}
+                          onChange={(e) => setEditableData({ ...editableData, customerAddress: e.target.value })}
+                          className="h-7 text-xs flex-1"
+                          placeholder="Address"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold w-16 text-slate-500">City:</span>
+                        <Input
+                          value={editableData.customerCity}
+                          onChange={(e) => setEditableData({ ...editableData, customerCity: e.target.value })}
+                          className="h-7 text-xs flex-1"
+                          placeholder="City"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold w-16 text-slate-500">State:</span>
+                        <Input
+                          value={editableData.customerState}
+                          onChange={(e) => setEditableData({ ...editableData, customerState: e.target.value })}
+                          className="h-7 text-xs flex-1"
+                          placeholder="State"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="customer-name"><strong>M/s {editableData.customerName.startsWith('M/s') ? editableData.customerName.replace(/^M\/s\s*/, '') : (editableData.customerName || offer?.customer?.companyName || offer?.company || '')}</strong></p>
+                      {(editableData.customerAddress || offer.customer?.address) && <p className="customer-address">{editableData.customerAddress || offer.customer?.address}</p>}
+                      {(editableData.customerCity || editableData.customerState || offer.customer?.city || offer.customer?.state) && (
+                        <p className="customer-location">
+                          {[editableData.customerCity || offer.customer?.city, editableData.customerState || offer.customer?.state].filter(Boolean).join(' - ')}.
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
+
+                {/* Kind Attention */}
+                <div className="kind-attention-section text-left">
+                  {isEditMode ? (
+                    <div className="flex items-center gap-2 max-w-md print:hidden mb-2">
+                      <span className="text-xs font-semibold text-[#1e5f8b] w-16">Kind Attn:</span>
                       <Input
-                        value={editableData.gstNumber}
-                        onChange={(e) => setEditableData({...editableData, gstNumber: e.target.value})}
-                        className="text-right text-xs h-7"
-                        placeholder="GST Number"
+                        value={editableData.contactPersonName}
+                        onChange={(e) => setEditableData({ ...editableData, contactPersonName: e.target.value })}
+                        className="h-7 text-xs flex-1 text-[#1e5f8b] font-bold"
+                        placeholder="Contact Person Name"
                       />
-                      <Input
-                        value={editableData.arnNumber}
-                        onChange={(e) => setEditableData({...editableData, arnNumber: e.target.value})}
-                        className="text-right text-xs h-7"
-                        placeholder="ARN Number"
+                    </div>
+                  ) : (
+                    <p className="kind-attention-text" style={{ color: '#1e5f8b' }}><strong>Kind Attn: {editableData.contactPersonName || offer.contactPersonName || '[Contact Person Name]'}.</strong></p>
+                  )}
+                </div>
+
+                {/* Subject */}
+                <div className="subject-section-simple my-4 text-left">
+                  {isEditMode ? (
+                    <div className="flex items-start gap-2 w-full print:hidden mb-2">
+                      <span className="text-xs font-semibold mt-1 w-16 text-slate-500">Subject:</span>
+                      <Textarea
+                        value={editableData.subject}
+                        onChange={(e) => setEditableData({ ...editableData, subject: e.target.value })}
+                        className="text-xs font-bold underline flex-1 min-h-[50px] py-1"
+                        placeholder={isSpareParts ? 'Quotation for Spare Parts Trolley of KARDEX' : isOptilife ? 'OPTI-LIFE UPGRADE (REFURBISHMENT) OF KARDEX UNITS' : 'QUOTATION FOR KARDEX UNITS'}
+                      />
+                    </div>
+                  ) : isSpareParts ? (
+                    <p className="font-bold underline text-sm" style={{ textTransform: 'none' }}>
+                      Sub : {editableData.subject || 'Quotation for Spare Parts Trolley of KARDEX'}
+                    </p>
+                  ) : (
+                    <p className="font-bold underline text-sm uppercase">
+                      SUB: {isOptilife
+                        ? 'OPTI-LIFE UPGRADE (REFURBISHMENT) OF KARDEX UNITS'
+                        : (editableData.subject ? editableData.subject.toUpperCase() : 'QUOTATION FOR KARDEX UNITS')}
+                    </p>
+                  )}
+                </div>
+
+                {/* Introduction */}
+                <div className="introduction-section-simple text-xs leading-relaxed text-[#4a5568] mb-6 text-left">
+                  {isEditMode ? (
+                    <div className="space-y-2 print:hidden">
+                      <span className="text-xs font-semibold text-slate-500">Introduction:</span>
+                      <Textarea
+                        value={editableData.introduction}
+                        onChange={(e) => setEditableData({ ...editableData, introduction: e.target.value })}
+                        className="text-xs w-full min-h-[100px]"
+                        placeholder={isOptilife ? "We are pleased to offer the Opti-Life Upgrade..." : isSpareParts ? "Kardex India Pvt Ltd (KIPL) is pleased to offer you the Spare Parts Trolley for the Kardex Systems installed at your premises. This includes commonly required critical components at a better price compared to purchasing parts individually." : `We are pleased to submit our quotation for Spare Parts for the Kardex systems installed at your premises.`}
                       />
                     </div>
                   ) : (
                     <>
-                      <p>GST – {editableData.gstNumber}</p>
-                      <p>ARN – {editableData.arnNumber}</p>
+                      <p style={{ textAlign: 'justify' }}>
+                        {isOptilife ? (
+                          "We are pleased to offer the Opti-Life Upgrade (Refurbishment) for the Kardex systems installed at your premises. This upgrade will help keep your systems running smoothly and extend their service life. It's your opportunity to improve system performance, reduce the total cost of maintenance, and boost productivity – all through a scheduled, condition-based upgrade carried out by Kardex-certified service experts."
+                        ) : isSpareParts ? (
+                          editableData.introduction || 'Kardex India Pvt Ltd (KIPL) is pleased to offer you the Spare Parts Trolley for the Kardex Systems installed at your premises.'
+                        ) : (
+                          editableData.introduction || `We are pleased to submit our quotation for ${PRODUCT_TYPE_LABELS[offer?.productType || ''] || 'Spare Parts'} for the Kardex systems installed at your premises.`
+                        )}
+                      </p>
+                      {isSpareParts && !editableData.introduction && (
+                        <p className="mt-3" style={{ textAlign: 'justify' }}>
+                          This includes commonly required critical components at a better price compared to purchasing parts individually.
+                        </p>
+                      )}
                     </>
                   )}
                 </div>
-              </div>
 
-              {/* Customer Details - Simple Format */}
-              <div className="customer-details-simple">
-                {isEditMode ? (
-                  <div className="space-y-2">
-                    <div className="flex items-center">
-                      <span className="font-bold mr-2">M/s</span>
-                      <Input
-                        value={editableData.customerName}
-                        onChange={(e) => setEditableData({...editableData, customerName: e.target.value})}
-                        placeholder="Customer/Company Name"
-                        className="flex-1"
-                      />
-                    </div>
-                    <Input
-                      value={editableData.customerAddress}
-                      onChange={(e) => setEditableData({...editableData, customerAddress: e.target.value})}
-                      placeholder="Customer Address"
-                    />
-                    <div className="flex gap-2">
-                      <Input
-                        value={editableData.customerCity}
-                        onChange={(e) => setEditableData({...editableData, customerCity: e.target.value})}
-                        placeholder="City"
-                        className="flex-1"
-                      />
-                      <Input
-                        value={editableData.customerState}
-                        onChange={(e) => setEditableData({...editableData, customerState: e.target.value})}
-                        placeholder="State"
-                        className="flex-1"
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <p className="customer-name"><strong>M/s {editableData.customerName.startsWith('M/s') ? editableData.customerName.replace(/^M\/s\s*/, '') : (editableData.customerName || offer?.customer?.companyName || offer?.company || '')}</strong></p>
-                    {(editableData.customerAddress || offer.customer?.address) && <p className="customer-address">{editableData.customerAddress || offer.customer?.address}</p>}
-                    {(editableData.customerCity || editableData.customerState || offer.customer?.city || offer.customer?.state) && (
-                      <p className="customer-location">
-                        {[editableData.customerCity || offer.customer?.city, editableData.customerState || offer.customer?.state].filter(Boolean).join(' - ')}.
-                      </p>
+                {/* Graphics section */}
+                <div className="optilife-graphic-container">
+                  <img
+                    src={isOptilife ? "/optilife.png" : isSpareParts ? "/spare.png" : "/Kardex_Shuttle.jpg"}
+                    alt={isOptilife ? "Optilife Upgrade" : isSpareParts ? "Spare Parts Trolley" : "Kardex Shuttle"}
+                    className="optilife-hero-img"
+                  />
+                </div>
+              </div>
+              <PageFooter productType={offer?.productType} pageNumber={0} />
+            </div>
+
+            {/* Page 1 (or Page 2 if isOptilife) - Tables and Details */}
+            <div className="page page-1 shadow-2xl print:shadow-none mb-10 print:mb-0">
+              {/* Logo */}
+              <KardexLogo />
+
+              <div className="page-content">
+                {/* Machine Details */}
+                <div className="machine-details-section">
+                  <p className="section-label"><strong>Machine Details:</strong></p>
+                  <table className="data-table machine-table">
+                    <thead>
+                      {isOptilife ? (
+                        <tr>
+                          <th style={{ width: '120px' }} className="text-center">S.N</th>
+                          <th className="text-center">MACHINE MODEL</th>
+                          <th className="text-center">MACHINE Sr.NO</th>
+                          <th className="text-center">CONTROL</th>
+                          <th className="text-center">YEAR OF MANUFACTURING</th>
+                        </tr>
+                      ) : (
+                        <tr>
+                          <th style={{ width: '60px' }} className="text-center">Sr. No</th>
+                          <th className="text-center">Machine Model</th>
+                          <th className="text-center">Machine Sr. No</th>
+                          <th className="text-center">Machine Owner</th>
+                          <th className="text-center">Department</th>
+                        </tr>
+                      )}
+                    </thead>
+                    <tbody>
+                      {isOptilife ? (
+                        offer?.offerAssets && offer.offerAssets.length > 0 ? (
+                          offer.offerAssets.map((oa, index) => {
+                            const asset = oa.asset;
+                            const letters = ['X', 'Y', 'Z'];
+                            const letterIndex = letters[index] || String.fromCharCode(65 + index);
+                            const model = asset?.model || '-';
+                            const serialNo = asset?.serialNo || '-';
+                            const control = (asset as any).control || '-';
+                            const year = (asset as any).yearOfManufacturing || '-';
+                            const machineName = (!asset?.machineId || asset.machineId.startsWith('MACHINE_'))
+                              ? `KARDEX-${letterIndex}`
+                              : asset.machineId;
+                            return (
+                              <tr key={oa.id || index}>
+                                <td className="font-semibold text-center">{machineName}</td>
+                                <td className="text-left">{model}</td>
+                                <td className="text-center">{serialNo}</td>
+                                <td className="text-center">{control}</td>
+                                <td className="text-center">{year}</td>
+                              </tr>
+                            );
+                          })
+                        ) : (
+                          <>
+                            <tr>
+                              <td className="font-semibold text-center">KARDEX-X</td>
+                              <td className="text-left">SHUTTLE-NT-500-2800X863</td>
+                              <td className="text-center">00.008461/001</td>
+                              <td className="text-center">C2000</td>
+                              <td className="text-center">2000</td>
+                            </tr>
+                            <tr>
+                              <td className="font-semibold text-center">KARDEX-Y</td>
+                              <td className="text-left">SHUTTLE-NT-500-2800X863</td>
+                              <td className="text-center">00.008462/001</td>
+                              <td className="text-center">C2000</td>
+                              <td className="text-center">2000</td>
+                            </tr>
+                            <tr>
+                              <td className="font-semibold text-center">KARDEX-Z</td>
+                              <td className="text-left">SHUTTLE-XP-500- 2850X864</td>
+                              <td className="text-center">06010093/001</td>
+                              <td className="text-center">C2000</td>
+                              <td className="text-center">2006</td>
+                            </tr>
+                          </>
+                        )
+                      ) : (
+                        <tr>
+                          <td className="text-center">1</td>
+                          <td className="text-left">
+                            {isEditMode ? (
+                              <Input
+                                value={editableData.machineDetails.model}
+                                onChange={(e) => setEditableData({ ...editableData, machineDetails: { ...editableData.machineDetails, model: e.target.value } })}
+                                placeholder="Machine Model"
+                                className="h-7 text-xs text-left"
+                              />
+                            ) : (
+                              editableData.machineDetails.model || '-'
+                            )}
+                          </td>
+                          <td className="text-center">
+                            {isEditMode ? (
+                              <Input
+                                value={editableData.machineDetails.serialNumber}
+                                onChange={(e) => setEditableData({ ...editableData, machineDetails: { ...editableData.machineDetails, serialNumber: e.target.value } })}
+                                placeholder="Serial Number"
+                                className="h-7 text-xs text-center"
+                              />
+                            ) : (
+                              editableData.machineDetails.serialNumber || '-'
+                            )}
+                          </td>
+                          <td className="text-center">
+                            {isEditMode ? (
+                              <Input
+                                value={editableData.machineDetails.owner}
+                                onChange={(e) => setEditableData({ ...editableData, machineDetails: { ...editableData.machineDetails, owner: e.target.value } })}
+                                placeholder="Owner"
+                                className="h-7 text-xs text-center"
+                              />
+                            ) : (
+                              editableData.machineDetails.owner || '-'
+                            )}
+                          </td>
+                          <td className="text-center">
+                            {isEditMode ? (
+                              <Input
+                                value={editableData.machineDetails.department}
+                                onChange={(e) => setEditableData({ ...editableData, machineDetails: { ...editableData.machineDetails, department: e.target.value } })}
+                                placeholder="Department"
+                                className="h-7 text-xs text-center"
+                              />
+                            ) : (
+                              editableData.machineDetails.department || '-'
+                            )}
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Parts/Items Table */}
+                <div className="items-section">
+                  <div className="section-header">
+                    <h3>{isOptilife ? 'E.O.L SPARE PARTS' : isSpareParts ? 'Spare Parts' : 'Emergency Parts'}</h3>
+                    {isEditMode && (
+                      <Button onClick={addNewItem} size="sm" variant="outline" className="print:hidden">
+                        + Add {isSpareParts ? 'Spare Part' : 'Item'}
+                      </Button>
                     )}
-                  </>
-                )}
-              </div>
-
-              {/* Kind Attention - Blue color like screenshot */}
-              <div className="kind-attention-section">
-                {isEditMode ? (
-                  <div className="flex items-center">
-                    <span className="font-bold mr-2" style={{color: '#1e5f8b'}}>Kind Attn:</span>
-                    <Input
-                      value={editableData.contactPersonName}
-                      onChange={(e) => setEditableData({...editableData, contactPersonName: e.target.value})}
-                      placeholder="Contact Person Name"
-                      className="flex-1"
-                    />
                   </div>
-                ) : (
-                  <p className="kind-attention-text" style={{color: '#1e5f8b'}}><strong>Kind Attn: {editableData.contactPersonName || offer.contactPersonName || '[Contact Person Name]'}.</strong></p>
-                )}
-              </div>
 
-              {/* Subject */}
-              <div className="subject-section-simple">
-                {isEditMode ? (
-                  <Input
-                    value={editableData.subject}
-                    onChange={(e) => setEditableData({...editableData, subject: e.target.value})}
-                    placeholder="Subject"
-                    className="font-semibold"
-                  />
-                ) : (
-                  editableData.subject && <p><strong>Sub: {editableData.subject}</strong></p>
-                )}
-              </div>
+                  {/* Spare Parts Catalog Dropdown - only in edit mode for spare parts */}
+                  {isEditMode && isSpareParts && (
+                    <div className="print:hidden mb-4 mt-2">
+                      <Select
+                        value=""
+                        onValueChange={addSparePartFromCatalog}
+                        disabled={loadingCatalog}
+                      >
+                        <SelectTrigger className="h-10 border-2 border-dashed border-[#4472C4]/40 bg-[#4472C4]/5 hover:border-[#4472C4] hover:bg-[#4472C4]/10 transition-colors">
+                          <div className="flex items-center gap-2 text-[#4472C4]">
+                            <Search className="h-4 w-4" />
+                            <span className="text-sm">{loadingCatalog ? 'Loading spare parts...' : 'Search & add spare part from catalog'}</span>
+                          </div>
+                        </SelectTrigger>
+                        <SelectContent className="max-h-[350px]">
+                          <div className="sticky top-0 bg-white border-b p-2 z-10">
+                            <div className="relative">
+                              <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 h-4 w-4" />
+                              <Input
+                                placeholder="Search by name, part number, or category..."
+                                value={sparePartSearch}
+                                onChange={(e) => setSparePartSearch(e.target.value)}
+                                className="pl-8 h-8 text-sm"
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                              {sparePartSearch && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); setSparePartSearch(''); }}
+                                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                                >
+                                  <X className="h-3 w-3" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                          <div className="max-h-[250px] overflow-y-auto">
+                            {catalogSpareParts
+                              .filter(sp => !editableData.items.some(item => item.partNo === sp.partNumber))
+                              .filter(sp => {
+                                if (!sparePartSearch) return true
+                                const search = sparePartSearch.toLowerCase()
+                                return sp.name.toLowerCase().includes(search) ||
+                                       sp.partNumber.toLowerCase().includes(search) ||
+                                       sp.category?.toLowerCase().includes(search)
+                              })
+                              .map(sp => (
+                                <SelectItem key={sp.id} value={sp.id.toString()}>
+                                  <div className="flex items-center gap-2">
+                                    {sp.imageUrl ? (
+                                      <img src={sp.imageUrl} alt="" className="w-6 h-6 rounded object-cover" />
+                                    ) : (
+                                      <div className="w-6 h-6 bg-[#4472C4]/10 rounded flex items-center justify-center">
+                                        <Package className="h-3 w-3 text-[#4472C4]" />
+                                      </div>
+                                    )}
+                                    <div className="flex-1">
+                                      <span className="font-medium text-sm">{sp.name}</span>
+                                      <span className="text-xs text-slate-400 ml-2">#{sp.partNumber}</span>
+                                    </div>
+                                    <span className="text-xs font-medium text-[#4472C4]">
+                                      ₹{formatCurrency(parseFloat(sp.basePrice.toString()))}
+                                    </span>
+                                  </div>
+                                </SelectItem>
+                              ))}
+                          </div>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
 
-              {/* Introduction */}
-              <div className="introduction-section-simple">
-                {isEditMode ? (
-                  <Textarea
-                    value={editableData.introduction}
-                    onChange={(e) => setEditableData({...editableData, introduction: e.target.value})}
-                    placeholder="Introduction paragraph"
-                    rows={3}
-                  />
-                ) : (
-                  editableData.introduction && <p><strong>Kardex India Pvt Ltd</strong> (hereby referred to as <strong>KIPL</strong>) {editableData.introduction}</p>
-                )}
-              </div>
-
-              {/* Machine Details */}
-              <div className="machine-details-section">
-                <p className="section-label"><strong>Machine Details:</strong></p>
-                <table className="data-table machine-table">
-                  <thead>
-                    <tr>
-                      <th style={{width: '60px'}}>Sr. No</th>
-                      <th>Machine Model</th>
-                      <th>Machine Sr. No</th>
-                      <th>Machine Owner</th>
-                      <th>Department</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td>1</td>
-                      <td>
-                        {isEditMode ? (
-                          <Input
-                            value={editableData.machineDetails.model}
-                            onChange={(e) => setEditableData({...editableData, machineDetails: {...editableData.machineDetails, model: e.target.value}})}
-                            placeholder="Machine Model"
-                            className="h-7 text-xs"
+                  <div className="table-container">
+                    <table className="data-table items-table">
+                      <thead>
+                        <tr>
+                          <th style={{ width: '40px' }} className="text-center">S.N</th>
+                          <th style={{ width: '100px' }} className="text-center">Part No</th>
+                          <th className="text-center">Description</th>
+                          <th style={{ width: '80px' }} className="text-center">HSN Code</th>
+                          <th style={{ width: '90px' }} className="text-right">Unit Price</th>
+                          <th style={{ width: '50px' }} className="text-center">Qty</th>
+                          <th style={{ width: '100px' }} className="text-right">Total Price</th>
+                          {isEditMode && <th style={{ width: '60px' }} className="print:hidden text-center">Action</th>}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {editableData.items.map((item, index) => (
+                          <ItemRow
+                            key={`${item.id}-${index}`}
+                            item={item}
+                            index={index}
+                            isEditMode={isEditMode}
+                            onUpdate={updateItem}
+                            onRemove={removeItem}
+                            canRemove={editableData.items.length > 1}
                           />
-                        ) : (
-                          editableData.machineDetails.model || '-'
-                        )}
-                      </td>
-                      <td>
-                        {isEditMode ? (
-                          <Input
-                            value={editableData.machineDetails.serialNumber}
-                            onChange={(e) => setEditableData({...editableData, machineDetails: {...editableData.machineDetails, serialNumber: e.target.value}})}
-                            placeholder="Serial Number"
-                            className="h-7 text-xs"
-                          />
-                        ) : (
-                          editableData.machineDetails.serialNumber || '-'
-                        )}
-                      </td>
-                      <td>
-                        {isEditMode ? (
-                          <Input
-                            value={editableData.machineDetails.owner}
-                            onChange={(e) => setEditableData({...editableData, machineDetails: {...editableData.machineDetails, owner: e.target.value}})}
-                            placeholder="Owner"
-                            className="h-7 text-xs"
-                          />
-                        ) : (
-                          editableData.machineDetails.owner || '-'
-                        )}
-                      </td>
-                      <td>
-                        {isEditMode ? (
-                          <Input
-                            value={editableData.machineDetails.department}
-                            onChange={(e) => setEditableData({...editableData, machineDetails: {...editableData.machineDetails, department: e.target.value}})}
-                            placeholder="Department"
-                            className="h-7 text-xs"
-                          />
-                        ) : (
-                          editableData.machineDetails.department || '-'
-                        )}
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Parts/Items Table */}
-              <div className="items-section">
-                <div className="section-header">
-                  <p className="section-label"><strong>Emergency Parts</strong></p>
-                  {isEditMode && (
-                    <Button onClick={addNewItem} size="sm" variant="outline" className="print:hidden">
-                      Add Item
-                    </Button>
+                        ))}
+                        <tr className="grand-total-row bg-[#4472C4]/5">
+                          <td colSpan={6} className="text-right font-bold text-[#4472C4] py-3">GRAND TOTAL</td>
+                          <td className="text-right font-bold text-[#4472C4] py-3">
+                            {formatCurrency(subtotal)}
+                          </td>
+                          {isEditMode && <td className="print:hidden"></td>}
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  {isOptilife && (
+                    <div className="mt-6 text-xs text-[#2d3748] pl-2 leading-relaxed">
+                      <p className="font-bold underline mb-2 uppercase text-[#546A7A]">
+                        SH XP CONTROL UPGRADE C2000 - C3000 CONSISTING OF:
+                      </p>
+                      <ul className="list-none space-y-1 text-slate-700">
+                        <li>- Unit control incl. control drawer</li>
+                        <li>- Energy chain</li>
+                        <li>- Shutter door controls</li>
+                        <li>- Wiring sets</li>
+                        <li>- Drive unit components</li>
+                        <li>- OP0/ OP Logicontrol HMI</li>
+                        <li>- Small parts, instructions etc.</li>
+                      </ul>
+                    </div>
                   )}
                 </div>
-                <div className="table-container">
-                <table className="data-table items-table">
-                  <thead>
-                    <tr>
-                      <th style={{width: '40px'}}>S.N</th>
-                      <th style={{width: '100px'}}>Part No</th>
-                      <th>Description</th>
-                      <th style={{width: '80px'}}>HSN Code</th>
-                      <th style={{width: '90px'}} className="text-right">Unit Price</th>
-                      <th style={{width: '50px'}} className="text-right">Qty</th>
-                      <th style={{width: '100px'}} className="text-right">Total Price</th>
-                      {isEditMode && <th style={{width: '60px'}} className="print:hidden">Action</th>}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {editableData.items.map((item, index) => (
-                      <ItemRow
-                        key={`${item.id}-${index}`}
-                        item={item}
-                        index={index}
-                        isEditMode={isEditMode}
-                        onUpdate={updateItem}
-                        onRemove={removeItem}
-                        canRemove={editableData.items.length > 1}
-                      />
-                    ))}
-                    <tr className="total-row">
-                      <td colSpan={6} className="text-right font-semibold">SUB TOTAL</td>
-                      <td className="text-right font-semibold">
-                        {formatCurrency(subtotal)}
-                      </td>
-                      {isEditMode && <td className="print:hidden"></td>}
-                    </tr>
-                    <tr className="tax-row-display">
-                      <td colSpan={6} className="text-right text-xs">GST ({editableData.gstRate}%)</td>
-                      <td className="text-right text-xs">
-                        {formatCurrency(subtotal * (editableData.gstRate / 100))}
-                      </td>
-                      {isEditMode && <td className="print:hidden"></td>}
-                    </tr>
-                    <tr className="grand-total-row bg-[#4472C4]/5">
-                      <td colSpan={6} className="text-right font-bold text-[#4472C4] py-3">GRAND TOTAL</td>
-                      <td className="text-right font-bold text-[#4472C4] py-3">
-                        {formatCurrency(subtotal * (1 + editableData.gstRate / 100))}
-                      </td>
-                      {isEditMode && <td className="print:hidden"></td>}
-                    </tr>
-                  </tbody>
-                </table>
+
+                {/* Page 1 Footer */}
+                <PageFooter productType={offer?.productType} pageNumber={1} />
               </div>
             </div>
 
-              {/* Page 1 Footer */}
-              <PageFooter productType={offer?.productType} pageNumber={1} />
-            </div>
-          </div>
+            {/* Page 2 - Terms and Conditions - ENHANCED */}
+            <div className="page page-2 shadow-2xl print:shadow-none mb-10 print:mb-0">
+              <KardexLogo />
 
-          {/* Page 2 - Terms and Conditions - ENHANCED */}
-          <div className="page page-2 shadow-2xl print:shadow-none mb-10 print:mb-0">
-            <KardexLogo />
-
-            <div className="page-content">
-              {/* TERMS AND CONDITIONS */}
-              <div className="page2-terms-section">
-                <h3 className="premium-section-header">
-                  <span className="header-icon text-[#4472C4]">📋</span>
-                  Terms and Conditions
-                </h3>
-                <div className="terms-card-premium">
-                  <ul className="terms-grid-premium">
-                    <li><span className="bullet">■</span> <strong>GST:</strong> {editableData.gstRate}% to be paid extra on all items.</li>
-                    <li><span className="bullet">■</span> <strong>Validity:</strong> Quotation validity is 30 days from the date of issue.</li>
-                    <li><span className="bullet">■</span> <strong>Delivery:</strong> Ex-Works Bangalore, within 14 to 18 weeks from PO date.</li>
-                    <li><span className="bullet">■</span> <strong>Warranty:</strong> 3 months for Electronic parts from the date of delivery.</li>
-                    <li><span className="bullet">■</span> <strong>Payment:</strong> N30 (Net 30 days) from the date of delivery.</li>
-                  </ul>
-                </div>
-              </div>
-
-              {/* OTHER TERMS & CONDITIONS */}
-              <div className="other-terms-highlight">
-                <p><strong>NOTE:</strong> OTHER TERMS & CONDITIONS AS PER THE ANNEXURE ATTACHED</p>
-              </div>
-
-              {/* Please Note Section */}
-              <div className="important-notes-section">
-                <h3 className="premium-section-header">
-                  <span className="header-icon text-[#d97706]">💡</span>
-                  Please Note
-                </h3>
-                <div className="notes-grid-premium">
-                  <div className="note-item-premium">
-                    <span className="note-num">1</span>
-                    <p>PO should contain Customer GST number of the place where delivery/services are requesting.</p>
-                  </div>
-                  <div className="note-item-premium text-slate-600">
-                    <span className="note-num">2</span>
-                    <p>If delivery address is different than the Invoice address, then we need Delivery address GST details.</p>
-                  </div>
-                  <div className="note-item-premium">
-                    <span className="note-num">3</span>
-                    <p>PO should be on address as mentioned in quotation and contain reference <strong>{offer.offerReferenceNumber}</strong>.</p>
-                  </div>
-                  <div className="note-item-premium">
-                    <span className="note-num">4</span>
-                    <p>PO should contain Kardex Ident Number and all line items as per the quotation.</p>
-                  </div>
-                   <div className="note-item-premium">
-                    <span className="note-num">5</span>
-                    <p>PO should contain delivery address, contact person's details, and company seal signature.</p>
+              <div className="page-content">
+                {/* TERMS AND CONDITIONS */}
+                <div className="page2-terms-section">
+                  <h3 className="premium-section-header">
+                    <span className="header-icon text-[#4472C4]">📋</span>
+                    Terms and Conditions
+                  </h3>
+                  <div className="terms-card-premium">
+                    <ul className="terms-grid-premium">
+                      <li><span className="bullet">■</span> <strong>GST:</strong> {editableData.gstRate}% to be paid extra on all items.</li>
+                      <li><span className="bullet">■</span> <strong>Validity:</strong> Quotation validity is 30 days from the date of issue.</li>
+                      <li><span className="bullet">■</span> <strong>Delivery:</strong> Ex-Works Bangalore, within 14 to 18 weeks from PO date.</li>
+                      <li><span className="bullet">■</span> <strong>Warranty:</strong> 3 months for Electronic parts from the date of delivery.</li>
+                      <li><span className="bullet">■</span> <strong>Payment:</strong> N30 (Net 30 days) from the date of delivery.</li>
+                    </ul>
                   </div>
                 </div>
-              </div>
 
-              {/* Company Assurance */}
-              <div className="assurance-card-premium">
-                <div className="assurance-icon">🤝</div>
-                <div className="assurance-text">
-                  <p>We assure you of our best services at all times and we shall not give you any room for complaint. We shall spare no effort to ensure a professional first-class after-sales service.</p>
+                {/* OTHER TERMS & CONDITIONS */}
+                <div className="other-terms-highlight">
+                  <p><strong>NOTE:</strong> OTHER TERMS & CONDITIONS AS PER THE ANNEXURE ATTACHED</p>
                 </div>
-              </div>
 
-              {/* Order Release Box */}
-              <div className="order-release-premium">
-                <p className="release-title">Kindly release the purchase order to:</p>
-                <div className="company-info-premium">
-                  <p className="company-name-large">M/s. {editableData.companyName.toUpperCase()}</p>
-                  <p className="company-address-text">{editableData.companyAddress}, {editableData.companyCity}</p>
-                  <div className="company-contact-row">
-                    <span><strong>Tel:</strong> {editableData.companyPhone}</span>
-                    {editableData.companyFax && <span><strong>Fax:</strong> {editableData.companyFax}</span>}
-                    <span><strong>Web:</strong> <a href={`https://${editableData.companyWebsite}`} className="text-[#4472C4]">{editableData.companyWebsite}</a></span>
+                {/* Please Note Section */}
+                <div className="important-notes-section">
+                  <h3 className="premium-section-header">
+                    <span className="header-icon text-[#d97706]">💡</span>
+                    Please Note
+                  </h3>
+                  <div className="notes-grid-premium">
+                    <div className="note-item-premium">
+                      <span className="note-num">1</span>
+                      <p>PO should contain Customer GST number of the place where delivery/services are requesting.</p>
+                    </div>
+                    <div className="note-item-premium text-slate-600">
+                      <span className="note-num">2</span>
+                      <p>If delivery address is different than the Invoice address, then we need Delivery address GST details.</p>
+                    </div>
+                    <div className="note-item-premium">
+                      <span className="note-num">3</span>
+                      <p>PO should be on address as mentioned in quotation and contain reference <strong>{offer.offerReferenceNumber}</strong>.</p>
+                    </div>
+                    <div className="note-item-premium">
+                      <span className="note-num">4</span>
+                      <p>PO should contain Kardex Ident Number and all line items as per the quotation.</p>
+                    </div>
+                    <div className="note-item-premium">
+                      <span className="note-num">5</span>
+                      <p>PO should contain delivery address, contact person's details, and company seal signature.</p>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Signature Section - Contact Person */}
-              <div className="signature-footer-premium">
-                <p className="undertime-text">If you need any clarifications, please contact the undersigned.</p>
-                <p className="faithfully-text">Yours faithfully,</p>
-                
-                {isEditMode ? (
-                  <div className="edit-signature-controls print:hidden mt-4">
-                     <div className="flex gap-4">
+                {/* Company Assurance */}
+                <div className="assurance-card-premium">
+                  <div className="assurance-icon">🤝</div>
+                  <div className="assurance-text">
+                    <p>We assure you of our best services at all times and we shall not give you any room for complaint. We shall spare no effort to ensure a professional first-class after-sales service.</p>
+                  </div>
+                </div>
+
+                {/* Order Release Box */}
+                <div className="order-release-premium">
+                  <p className="release-title">Kindly release the purchase order to:</p>
+                  <div className="company-info-premium">
+                    <p className="company-name-large">M/s. {editableData.companyName.toUpperCase()}</p>
+                    <p className="company-address-text">{editableData.companyAddress}, {editableData.companyCity}</p>
+                    <div className="company-contact-row">
+                      <span><strong>Tel:</strong> {editableData.companyPhone}</span>
+                      {editableData.companyFax && <span><strong>Fax:</strong> {editableData.companyFax}</span>}
+                      <span><strong>Web:</strong> <a href={`https://${editableData.companyWebsite}`} className="text-[#4472C4]">{editableData.companyWebsite}</a></span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Signature Section - Contact Person */}
+                <div className="signature-footer-premium">
+                  <p className="undertime-text">If you need any clarifications, please contact the undersigned.</p>
+                  <p className="faithfully-text">Yours faithfully,</p>
+
+                  {isEditMode ? (
+                    <div className="edit-signature-controls print:hidden mt-4">
+                      <div className="flex gap-4">
                         <div className="flex-1 space-y-2">
-                           <Input value={editableData.contactPersonName} onChange={(e) => setEditableData({...editableData, contactPersonName: e.target.value})} placeholder="Name" />
-                           <Input value={editableData.contactPersonPhone} onChange={(e) => setEditableData({...editableData, contactPersonPhone: e.target.value})} placeholder="Phone" />
-                           <Input value={editableData.contactPersonEmail} onChange={(e) => setEditableData({...editableData, contactPersonEmail: e.target.value})} placeholder="Email" />
+                          <Input value={editableData.contactPersonName} onChange={(e) => setEditableData({ ...editableData, contactPersonName: e.target.value })} placeholder="Name" />
+                          <Input value={editableData.contactPersonPhone} onChange={(e) => setEditableData({ ...editableData, contactPersonPhone: e.target.value })} placeholder="Phone" />
+                          <Input value={editableData.contactPersonEmail} onChange={(e) => setEditableData({ ...editableData, contactPersonEmail: e.target.value })} placeholder="Email" />
                         </div>
                         <div className="w-1/3">
-                           {editableData.signatureImage ? (
-                             <div className="relative border rounded p-2">
-                               <img src={editableData.signatureImage} className="h-20 object-contain mx-auto" />
-                               <Button onClick={removeSignature} variant="destructive" size="icon" className="absolute -top-2 -right-2 h-6 w-6"><X className="h-3 w-3"/></Button>
-                             </div>
-                           ) : (
-                             <div className="flex flex-col items-center justify-center border-2 border-dashed h-full rounded p-4 text-slate-400">
-                               <input type="file" id="sig-up" className="hidden" onChange={handleSignatureUpload} />
-                               <label htmlFor="sig-up" className="cursor-pointer text-center">
-                                 <Upload className="mx-auto h-6 w-6 mb-1" />
-                                 <span className="text-[10px]">Upload Sign</span>
-                               </label>
-                             </div>
-                           )}
+                          {editableData.signatureImage ? (
+                            <div className="relative border rounded p-2">
+                              <img src={editableData.signatureImage} className="h-20 object-contain mx-auto" />
+                              <Button onClick={removeSignature} variant="destructive" size="icon" className="absolute -top-2 -right-2 h-6 w-6"><X className="h-3 w-3" /></Button>
+                            </div>
+                          ) : (
+                            <div className="flex flex-col items-center justify-center border-2 border-dashed h-full rounded p-4 text-slate-400">
+                              <input type="file" id="sig-up" className="hidden" onChange={handleSignatureUpload} />
+                              <label htmlFor="sig-up" className="cursor-pointer text-center">
+                                <Upload className="mx-auto h-6 w-6 mb-1" />
+                                <span className="text-[10px]">Upload Sign</span>
+                              </label>
+                            </div>
+                          )}
                         </div>
-                     </div>
-                  </div>
-                ) : (
-                  <div className="signature-display-premium">
-                    <div className="sig-image-container">
-                      {editableData.signatureImage ? (
-                        <img src={editableData.signatureImage} alt="Signature" className="sig-img" />
-                      ) : (
-                        <div className="sig-placeholder">Please Sign Here</div>
-                      )}
+                      </div>
                     </div>
-                    <div className="sig-details">
-                      <p className="sig-name">{editableData.contactPersonName || '[Name]'}</p>
-                      <p className="sig-contact">{editableData.contactPersonPhone}</p>
-                      <p className="sig-email">{editableData.contactPersonEmail}</p>
+                  ) : (
+                    <div className="signature-display-premium">
+                      <div className="sig-image-container">
+                        {editableData.signatureImage ? (
+                          <img src={editableData.signatureImage} alt="Signature" className="sig-img" />
+                        ) : (
+                          <div className="sig-placeholder">Please Sign Here</div>
+                        )}
+                      </div>
+                      <div className="sig-details">
+                        <p className="sig-name">{editableData.contactPersonName || '[Name]'}</p>
+                        <p className="sig-contact">{editableData.contactPersonPhone}</p>
+                        <p className="sig-email">{editableData.contactPersonEmail}</p>
+                      </div>
                     </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Page 2 Footer */}
+              <PageFooter productType={offer?.productType} pageNumber={2} />
+            </div>
+
+
+
+            {/* Page 5 - General Terms */}
+            <div className="page page-5 shadow-2xl print:shadow-none mb-10 print:mb-0">
+              <KardexLogo />
+
+              <div className="page-content terms-page">
+                <h2 className="terms-main-title">
+                  <span className="terms-header-badge">General Terms and Conditions</span>
+                </h2>
+
+                <div className="terms-content">
+                  <p className="mb-4">These Terms and Conditions (T&C) are structured as follows:</p>
+                  <ul className="list-disc list-inside space-y-1 mb-4">
+                    <li>- <strong>Part A (general provisions)</strong> applies to all transactions, except where a provision of the applicable parts B and C contains deviating regulation (other than merely adding further details), which then takes precedence;</li>
+                    <li>- <strong>Parts B</strong> and <strong>C</strong> contain the applicable specific provisions for supply of products and software programming services with or without installation (Part B), and <strong>individual service orders</strong> and <strong>service contracts</strong> (Part C);</li>
+                  </ul>
+
+                  <p className="mb-4">
+                    These T&C are provided in German, English and other languages. Only the German and English texts are legally binding and authoritative.
+                    They are of equal status. Translations of these T&C into other languages are solely for convenience and are not legally binding.
+                  </p>
+
+                  {/* Part A: General Provisions */}
+                  <div className="terms-part-header part-a">
+                    <h3>PART A: GENERAL PROVISIONS</h3>
                   </div>
-                )}
-              </div>
-            </div>
 
-            {/* Page 2 Footer */}
-            <PageFooter productType={offer?.productType} pageNumber={2} />
-          </div>
+                  <div className="mb-4">
+                    <h4 className="font-semibold mb-2">1. Scope of the T&C</h4>
+                    <p className="mb-1"><strong>1.1.</strong> These T&C apply to all transactions between <strong>KARDEX INDIA STORAGE SOLUTIONS PRIVATE LIMITED</strong> and the customer, unless expressly otherwise agreed in writing.</p>
+                    <p className="mb-1"><strong>1.2.</strong> On placement of a purchase order by the customer, these T&C are deemed to be acknowledged, and will also apply for future transactions with the customer.</p>
+                    <p className="mb-1"><strong>1.3.</strong> Any deviating, contradictory or supplemental terms and conditions of the customer apply only if expressly accepted by KARDEX in writing.</p>
+                    <p className="mb-1"><strong>1.4.</strong> Any amendments of and additions to the contract must be made in writing. All agreements and legally binding declarations of the parties require written confirmation by KARDEX.</p>
+                    <p className="mb-1"><strong>1.5.</strong> KARDEX is entitled to amend the T&C at any time. The version current at the time of the purchase order applies. In the case of continuing contractual relationships, the draft of the amended T&C will be sent to the customer in writing no later than one month before the proposed date of their entry into force. The customer is deemed to have given its consent to the amendments if it has not rejected them by the planned date for entry into force. The amended T&C will then apply to any further transactions between the parties.</p>
+                    <p className="mb-1"><strong>1.6.</strong> The general provisions of these T&C (Part A) apply to all transactions and legal relations between the parties unless otherwise stated in the specific provisions (Parts B and C) or agreed in writing.</p>
+                    <p><strong>1.7.</strong> The term "<strong>Product(s)</strong>" used in Part A is individually defined for each of Parts B and C. The meaning of this term in Part A shall therefore have the meaning as defined in the applicable Part B and C.</p>
+                  </div>
 
-          {/* Page 3 - Service Products - ENHANCED */}
-          <div className="page page-3-premium shadow-2xl print:shadow-none mb-10 print:mb-0">
-            <KardexLogo />
+                  <div className="mb-4">
+                    <h4 className="font-semibold mb-2">2. Offers from KARDEX</h4>
+                    <p className="mb-1"><strong>2.1.</strong> Unless expressly otherwise agreed, offers from KARDEX are nonbinding; otherwise, the offers are valid for 60 days. A statement by the customer is deemed to be an acceptance only if it is fully consistent with the KARDEX offer.</p>
+                    <p className="mb-1"><strong>2.2.</strong> A contract is only validly concluded if KARDEX (i) confirms the order in writing or (ii) starts to perform the contract by delivering the Products or by rendering the service.</p>
+                    <p className="mb-1"><strong>2.3.</strong> Under no circumstances shall silence by KARDEX with respect to a counter-offer from the customer be construed as a declaration of acceptance.</p>
+                    <p><strong>2.4.</strong> The documents relating to offers and order confirmations, such as illustrations, drawings, and weight and measurement details, are binding only if this has been expressly agreed in writing. Unless otherwise agreed in writing, brochures and catalogues are not binding.</p>
+                  </div>
 
-            <div className="page-content">
-              <div className="premium-page-header mb-8">
-                <h2 className="premium-main-title">KARDEX Service Products</h2>
-                <div className="premium-title-underline"></div>
-              </div>
-            
-              <div className="service-products-container">
-                {/* 1) VLM Box */}
-                <div className="service-product-card-premium">
-                   <div className="service-card-image">
-                     <img 
-                       src="/Picture1.jpg" 
-                       alt="Kardex VLM Box" 
-                       onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                     />
-                     <div className="service-card-badge">Capacity +25%</div>
-                   </div>
-                   <div className="service-card-content">
-                      <h3 className="service-card-title">1) VLM Box</h3>
-                      <p className="service-card-intro">Increase your stock capacity by 20-25% while maintaining a tidy and organized environment.</p>
-                      <p className="service-card-description">
-                        Our Kardex VLM BOX is an adjustable bin system designed for the Vertical Lift Module Kardex Remstar XP. 
-                        It provides extreme flexibility in height, width, and depth to create over 300 location types from just one box.
-                      </p>
-                   </div>
-                </div>
+                  <div className="mb-4">
+                    <h4 className="font-semibold mb-2">3. Provided Documents</h4>
+                    <p>Each party retains all rights to plans and technical documents that it has provided to the other party. The receiving party acknowledges these rights, and shall not make such documents available, in full or in part, to any third party without the prior written consent of the other party, or use them outside of the scope of the purpose for which they were provided for. This also applies after termination of the business relationship as well as in the event that no contract is concluded between the parties.</p>
+                  </div>
 
-                {/* 2) Relocations, Upgrades & Retrofits */}
-                <div className="service-product-card-premium">
-                   <div className="service-card-image">
-                     <img 
-                       src="/Picture2.jpg" 
-                       alt="Relocations & Upgrades" 
-                       onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                     />
-                     <div className="service-card-badge">Expert Service</div>
-                   </div>
-                   <div className="service-card-content">
-                      <h3 className="service-card-title">2) Relocations, Upgrades & Retrofits</h3>
-                      <p className="service-card-intro">Modernize your systems to ensure they are always used optimally.</p>
-                      <div className="services-list-premium">
-                        <div className="service-list-item"><span>•</span> Height changes</div>
-                        <div className="service-list-item"><span>•</span> Improve storage capacity</div>
-                        <div className="service-list-item"><span>•</span> Security/Component upgrades</div>
-                        <div className="service-list-item"><span>•</span> Relocation of Kardex System</div>
-                        <div className="service-list-item"><span>•</span> Modernizations</div>
-                        <div className="service-list-item"><span>•</span> Picking device replacement</div>
-                      </div>
-                   </div>
-                </div>
+                  <div className="mb-4">
+                    <h4 className="font-semibold mb-2">4. Prices and Payment Conditions</h4>
+                    <p className="mb-1"><strong>4.1.</strong> All prices are excluding GST</p>
+                    <p className="mb-1"><strong>4.2.</strong> Unless otherwise agreed in writing or specified in the subsequent specific provisions, invoices from KARDEX are payable within 30 days net from the invoice date, without any deduction. Advance and prepayments are payable within 10 days from the invoice date without any deduction.</p>
+                    <p className="mb-1"><strong>4.3.</strong> A customer failing to pay by the due date is in default without a reminder, and KARDEX is entitled to charge monthly default interest in the amount of 1%, except where a different default interest rate has been specified in the contract or in the offer.</p>
+                    <p className="mb-1"><strong>4.4.</strong> In the event of customer default, KARDEX is entitled to withdraw from the contract and claim back any Products already supplied and/or enter the site and render Products unusable. In addition, KARDEX is also entitled to claim direct damages and/or provide outstanding deliveries or services only against advance payment or the provision of collateral, or suspend the provision of services under other orders or service agreements for which payment has already been made.</p>
+                    <p><strong>4.5.</strong> If KARDEX becomes aware of circumstances casting doubt on the solvency of the customer, KARDEX shall have the right to demand full payment in advance or the provision of collateral.</p>
+                  </div>
 
-                {/* 3) Remote Support */}
-                <div className="service-product-card-premium">
-                   <div className="service-card-image">
-                     <img 
-                       src="/Picture3.jpg" 
-                       alt="Remote Support" 
-                       onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                     />
-                     <div className="service-card-badge">24/7 Connectivity</div>
-                   </div>
-                   <div className="service-card-content">
-                      <h3 className="service-card-title">3) Remote Support</h3>
-                      <p className="service-card-intro">Don't let unplanned equipment downtime cost your company money.</p>
-                      <p className="service-card-description">
-                        Access machines and perform proactive maintenance or resolve breakdowns instantly. 
-                        Request technical help directly from the equipment panel for rapid resolution.
-                      </p>
-                   </div>
-                </div>
-              </div>
-            </div>
+                  <div className="mb-4">
+                    <h4 className="font-semibold mb-2">5. Set-off and Assignment</h4>
+                    <p className="mb-1"><strong>5.1.</strong> Set-off against any counterclaims of the customer is not permitted.</p>
+                    <p className="mb-1"><strong>5.2.</strong> Claims of the customer against KARDEX may be assigned only with consent from KARDEX.</p>
+                    <p><strong>5.3.</strong> The transfer of any rights and obligations under or in connection with a contract between the parties is permitted only with the other contracting party's written consent.</p>
+                  </div>
 
-            <PageFooter productType={offer?.productType} pageNumber={3} />
-          </div>
+                  <div className="mb-4">
+                    <h4 className="font-semibold mb-2">6. Liability</h4>
+                    <p className="mb-1"><strong>6.1.</strong> The contractual and non-contractual liability of KARDEX both for its own actions and for the actions of its auxiliary persons is limited, to the extent permitted by law, to immediate and direct damages and to a total of 20% of the contractually agreed remuneration per delivery or service concerned. In the case of continuing obligations (e.g. service contracts under Part C), liability is limited, to the extent legally permitted, per contract year, to immediate and direct damages and to the amount of 50% of the annual remuneration payable for the product or service affected by the damage. In case the liability cap in accordance with the above calculations is below EUR 10,000 in individual cases, a liability cap of EUR 10,000 applies.</p>
+                    <p className="mb-1"><strong>6.2.</strong> If KARDEX or its auxiliary persons unlawfully and culpably damage items owned by the customer, KARDEX's liability shall, in deviation from section A.6.1., be governed exclusively by the provisions of article 41 et seqq. of the Swiss Code of Obligations (CO) and shall be limited, to the extent permitted by law, to EUR 500,000 per claim. KARDEX's liability for damages to the product itself or to product accessories is exclusively governed by section A.6.1.</p>
+                    <p className="mb-1"><strong>6.3.</strong> Further claims not expressly mentioned in this provision and these T&C for any legal reason, in particular but not limited to claims for compensation of indirect and/or consequential damages not incurred on the product itself as well as damages due to loss of production, capacity and data including their consequences, loss of use, loss of orders, loss of profit, damage to reputation and punitive damages are excluded.</p>
+                    <p className="mb-1"><strong>6.4.</strong> The contractual and non-contractual liability of KARDEX is also excluded for damages which are due to (i) incorrect information about operational and technical conditions or about the chemical and physical conditions for the use of the products provided by the customer, auxiliary persons and/or its advisors, or (ii) other actions, omissions of the customer, his auxiliary persons, advisors or third parties or other circumstances within the responsibility of the customer.</p>
+                    <p className="mb-1"><strong>6.5.</strong> The above limitations and exclusions of liability do not apply (i) in cases of injury to life, body or health, (ii) in cases of intent or gross negligence on the part of KARDEX or its auxiliary persons, and (iii) for claims from product liability under product liability laws to the extent these laws are mandatory to the legal relationship between the parties.</p>
+                    <p><strong>6.6.</strong> If third parties are injured by the customer's actions or omissions or if objects of third parties are damaged or third parties are otherwise damaged</p>
+                  </div>
 
-          {/* Page 4 - Service Package - ENHANCED */}
-          <div className="page page-4-premium shadow-2xl print:shadow-none mb-10 print:mb-0">
-            <KardexLogo />
-
-            <div className="page-content">
-              <div className="premium-page-header mb-8">
-                <h2 className="premium-main-title">Service Package</h2>
-                <p className="premium-subtitle">Find the best service package for your requirements and ensure maximum efficiency.</p>
-                <div className="premium-title-underline"></div>
-              </div>
-
-              <div className="package-hero-section">
-                <div className="package-diagram-container">
-                   <div className="diagram-wrapper">
-                     <img 
-                       src="/Picture4.jpg" 
-                       alt="Service Package" 
-                       className="main-diagram-img"
-                       onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                     />
-                   </div>
-                </div>
-                <div className="package-highlights">
-                   <div className="highlight-item productivity">
-                      <span className="highlight-number">01</span>
-                      <div className="highlight-text-pkg">
-                        <span className="package-highlight-title">Productivity</span>
-                        <p className="package-highlight-desc">Optimize operations</p>
-                      </div>
-                   </div>
-                   <div className="highlight-item reliability">
-                      <span className="highlight-number">02</span>
-                      <div className="highlight-text-pkg">
-                        <span className="package-highlight-title">Reliability</span>
-                        <p className="package-highlight-desc">Maximum uptime</p>
-                      </div>
-                   </div>
-                   <div className="highlight-item sustainability">
-                      <span className="highlight-number">03</span>
-                      <div className="highlight-text-pkg">
-                        <span className="package-highlight-title">Sustainability</span>
-                        <p className="package-highlight-desc">Lifecycle extension</p>
-                      </div>
-                   </div>
                 </div>
               </div>
 
-              <div className="package-features-grid-premium">
-                <div className="feature-card-premium productivity">
-                  <div className="feature-icon-wrapper">🚀</div>
-                  <h4>Productivity</h4>
-                  <div className="card-divider"></div>
-                  <p>Maximize your operational throughput with optimized picking processes and reduced downtime.</p>
+              {/* Page 5 Footer */}
+              <PageFooter productType={offer?.productType} pageNumber={3} />
+            </div>
+
+            {/* Page 6 - General Terms Continued */}
+            <div className="page page-6 shadow-2xl print:shadow-none mb-10 print:mb-0">
+              <KardexLogo />
+
+              <div className="page-content terms-page">
+                <div className="terms-content">
+
+                  {/* Continuation from previous page */}
+                  <p className="mb-1">and KARDEX is held liable for this, KARDEX has a right of recourse to the customer.</p>
+
+                  <div className="mb-4">
+                    <h4 className="font-semibold mb-2">7. Intellectual Property</h4>
+                    <p className="mb-1"><strong>7.1.</strong> The customer may not use the intellectual property of KARDEX (in particular technical protective rights, brands and other signs, designs, knowhow, copyright to software and other works) for any purposes other than those expressly agreed between the parties.</p>
+                    <p className="mb-1"><strong>7.2.</strong> Without the express permission of KARDEX, the customer may not transfer or otherwise provide KARDEX Products to third parties without the attached brands.</p>
+                    <p><strong>7.3.</strong> Where KARDEX supplies software to the customer, the customer only acquires a simple, non-exclusive and non-transferrable right of use. The customer is not granted any right to edit the software.</p>
+                  </div>
+
+                  <div className="mb-4">
+                    <h4 className="font-semibold mb-2">8. Data Protection</h4>
+                    <p className="mb-1"><strong>8.1.</strong> The protection of personal data is an important priority for KARDEX. KARDEX and the customer undertake to comply at all times with the applicable legal provisions on data protection. In particular, the customer assures that KARDEX is permitted to use personal data provided to them by the customer in accordance with this section A.8., and indemnifies and holds KARDEX fully harmless from any claims by the persons affected.</p>
+                    <p className="mb-1"><strong>8.2.</strong> KARDEX collects, processes and uses the customer's personal data for the performance of the contract. The customer's data will further be used for the purposes of future customer service, in which context the customer has the right to object in writing at any time. In addition, the customer's machines and operational data may be used and evaluated in anonymised form and user information on the customer's employees may be used in pseudonymized form for diagnosis and analysis purposes, and in anonymized form for the further development of KARDEX products and services (e.g. preventive maintenance). All data deriving from such analysis and diagnosis shall belong to KARDEX and may be freely used by KARDEX.</p>
+                    <p className="mb-1"><strong>8.3.</strong> The personal data of the customer will only be passed on to other companies (e.g. the transport company entrusted with the delivery) within the scope of contract processing and the provision of information technology and other administrative support activities. Otherwise, personal data will not be passed on to third parties. KARDEX ensures that companies that process personal data on behalf of KARDEX comply with the applicable legal provisions on data protection and that a comparable level of data protection is guaranteed, especially in the case of transfer abroad.</p>
+                    <p className="mb-1"><strong>8.4.</strong> The customer may contact KARDEX free of charge with any queries regarding the collection, processing or use of its personal data.</p>
+                    <p><strong>8.5.</strong> When using web-based products of KARDEX (such as customer portal, remote portal) personal data will be recorded. The collection, processing and use of such data can, upon customer's request, be governed by a separate data processing agreement.</p>
+                  </div>
+
+                  <div className="mb-4">
+                    <h4 className="font-semibold mb-2">9. Confidentiality</h4>
+                    <p className="mb-1"><strong>9.1.</strong> Each of the parties undertakes to keep confidential all trade secrets and confidential information brought to their knowledge by the other party, in particular, all information on customer relationships and their details, other important information such as plans, service descriptions, product specifications, information on production processes and any other confidential information made available to it and/or otherwise disclosed by the other party in written or other form, and, in particular, not to make direct or indirect use thereof in business dealings and/or for competitive purposes, and/or pass it on to third parties in business dealings and/or for competitive purposes, and/or otherwise bring it directly or indirectly to the attention of third parties, either itself or through third parties.</p>
+                    <p className="mb-1"><strong>9.2.</strong> The confidentiality agreement does not apply where the information is publicly known, was already known to the other party when received, has been made available by third parties without any breach of a party's confidentiality obligation, or whose disclosure is mandatory under legal provisions, official orders or court orders, in particular judgments. The party wishing to invoke these exceptions bears the burden of proof in this regard.</p>
+                    <p><strong>9.3.</strong> The parties will place all persons whose services they use for providing services or who otherwise come into contact with confidential information as per section A.9.1 under a confidentiality obligation in accordance with sections A.9.1. and A.9.2.</p>
+                  </div>
+
+                  <div className="mb-4">
+                    <h4 className="font-semibold mb-2">10. Severability</h4>
+                    <p>If any provision of the contract, including these T&C, are or become fully or partially unenforceable or invalid under applicable law, such provision shall be ineffective only to the extent of such unenforceability or invalidity and the remaining provisions of the contract or the T&C, respectively, shall continue to be binding and in full force and effect. Such unenforceable or invalid provision shall be replaced by such a valid and enforceable provision, which the parties consider, in good faith, to match as closely as possible the invalid or unenforceable provision and attaining the same or a similar economic effect. The same applies in case a gap (<em>Lücke</em>) becomes evident.</p>
+                  </div>
+
+                  <div className="mb-4">
+                    <h4 className="font-semibold mb-2">11. Office Hours</h4>
+                    <p>Office hours are the usual working hours Monday - Friday, 9:00 a.m. - 6:00 p.m., with the exception of the public holidays at the registered office of KARDEX.</p>
+                  </div>
+
+                  <div className="mb-4">
+                    <h4 className="font-semibold mb-2">12. Governing Law and Jurisdiction</h4>
+                    <p className="mb-1"><strong>12.1.</strong> These T&C and the entire legal relationship between the parties shall be governed by, and construed in accordance with, Swiss law, with exclusion of the United Nations Convention on Contracts for the International Sale of Goods.</p>
+                    <p><strong>12.2.</strong> Any dispute, controversy or claim arising out or in connection with the contract between the parties and/or these T&C, including their conclusion, validity, binding effect, breach, termination or rescission, shall be resolved by arbitration in accordance with the Swiss Rules of International Arbitration of the Swiss Chambers' Arbitration Institution. Regarding the time for service of initiation pleadings, the current text of the Rules of International Arbitration applies. The venue of the arbitration procedure is the city of Zurich, Switzerland. The language of the arbitration procedure is English or German.</p>
+                  </div>
+
+                  {/* Part B */}
+                  <div className="terms-part-header part-b mt-6">
+                    <h3>PART B: SPECIFIC PROVISIONS FOR DELIVERIES</h3>
+                  </div>
+
+                  <div className="mb-4">
+                    <h4 className="font-semibold mb-2">1. Delivery</h4>
+                    <p className="mb-1"><strong>1.1.</strong> The subject-matter of delivery contracts is the delivery of systems, machines and/or software products and individually customised software in accordance with the specifications in the order confirmation handed over to the customer by KARDEX (each individually or collectively "<strong>Product(s)</strong>").</p>
+                    <p className="mb-1"><strong>1.2.</strong> Only the characteristics listed in the order confirmation are guaranteed features. Public statements, promotions and advertisements do not constitute guaranteed features of the Products. It is the customer's responsibility to assess whether or not the ordered Products are suitable for their intended purpose.</p>
+                    <p className="mb-1"><strong>1.3.</strong> Any quality guarantees in addition to features guaranteed in the order confirmation must be confirmed by KARDEX in writing.</p>
+                    <p><strong>1.4.</strong> KARDEX reserves the right to make design and/or shape changes to the Products if the Product thereafter deviates only insignificantly from the agreed quality and the changes are reasonable for the customer or if the customer agrees to the change of the agreed quality.</p>
+                  </div>
+
+                  <div className="mb-4">
+                    <h4 className="font-semibold mb-2">2. Delivery Time</h4>
+                    <p className="mb-1"><strong>2.1.</strong> Delivery times are non-binding unless expressly confirmed as binding by KARDEX in writing.</p>
+                    <p className="mb-1"><strong>2.2.</strong> Delivery periods start with the dispatch of the order confirmation or receipt of the order in case there is no order confirmation, but not before the receipt of any advance payment or collateral to be provided by the customer.</p>
+                    <p className="mb-1"><strong>2.3.</strong> If subsequent change requests by the customer are accepted, the delivery period and delivery date are extended and postponed at least by the time required for implementation of the requested changes.</p>
+                    <p><strong>2.4.</strong> Delivery periods and delivery dates are met if on their expiry the Product has left the factory or notification of readiness for dispatch has been given. In the case of installation of Products, the delivery period is met by timely handover or acceptance of the installed Product. Delays beyond the control of KARDEX (e.g. failure by the customer to provide ancillary services, such as the provision of documents, permits and/or clearances to be obtained by the customer, ensuring the availability of a suitable lifting platform or opening the building) will at least result in a corresponding extension of the delivery period. KARDEX has the right to charge incurred cost from such delays.</p>
+                  </div>
+
                 </div>
-                <div className="feature-card-premium reliability">
-                  <div className="feature-icon-wrapper">🛡️</div>
-                  <h4>Reliability & Safety</h4>
-                  <div className="card-divider"></div>
-                  <p>Ensure maximum uptime and safe operation of your equipment with regular professional maintenance and safety tests.</p>
+              </div>
+
+              {/* Page 6 Footer */}
+              <PageFooter productType={offer?.productType} pageNumber={4} />
+            </div>
+
+            {/* Pages 7-11 - Terms Sections */}
+            <div className="page page-7 shadow-2xl print:shadow-none mb-10 print:mb-0">
+              <KardexLogo />
+
+              <div className="page-content terms-page">
+                <div className="terms-content">
+                  {/* Part B Continued */}
+                  <div className="mb-4">
+                    <h4 className="font-semibold mb-2">2. Delivery Time (continued)</h4>
+                    <p className="mb-1"><strong>2.5.</strong> Force majeure, strikes, lockouts and other impediments beyond the control of KARDEX will extend and postpone agreed delivery periods and delivery dates by no more than the duration of the impediment, to the extent that such impediments can be proven to have a significant impact on completion or delivery of the Products or associated services. The same applies where the impediments to performance occur in the operations of KARDEX' upstream suppliers. KARDEX will further not be accountable for the above circumstances if they arise during an already existing delay. KARDEX will notify the customer without delay of the beginning and end of such impediments.</p>
+                    <p className="mb-1"><strong>2.6.</strong> If the dispatch of the Products is delayed at the customer's request, the customer will be invoiced as from one month after the notification of readiness for shipment issued by KARDEX for the resulting storage costs; in the case of storage in the factory, KARDEX may claim a storage fee in accordance with normal local rates. KARDEX is, however, entitled, after setting a reasonable deadline that has expired without effect, to use the Product otherwise, and to supply the customer with a similar product within a new delivery period.</p>
+                    <p><strong>2.7.</strong> Partial deliveries are permitted.</p>
+                  </div>
+
+                  <div className="mb-4">
+                    <h4 className="font-semibold mb-2">3. Late Delivery</h4>
+                    <p className="mb-1"><strong>3.1.</strong> The customer's entitlement to compensation for damages caused by delay is dependent on prior notification of the delay in writing by the customer to KARDEX, and provision of proof of damage incurred as a result of the delay. The damages caused by delay will in any case be limited to a maximum of 0.1% of the consideration per expired week of delay, and to a maximum of 5% of the total consideration. Further compensation claims by the customer due to delay are excluded; this does not apply in the case of willful misconduct or gross negligence by KARDEX.</p>
+                    <p className="mb-1"><strong>3.2.</strong> The customer can only waive delivery and withdraw from the contract if, after the agreed delivery date has passed or the agreed delivery period has expired, (i) the customer sets KARDEX in writing two grace periods of reasonable length, whereby each grace period shall at least be 10 weeks, (ii) these two grace periods expire without success, and (iii) the customer, immediately after expiry of the second grace period, declares in writing that it waives delivery or withdraws from the contract.</p>
+                    <p><strong>3.3.</strong> To the extent permitted by law, all further claims and rights of the customer due to or in relation with the delay, in particular with respect to any further damages, are excluded.</p>
+                  </div>
+
+                  <div className="mb-4">
+                    <h4 className="font-semibold mb-2">4. Place of Delivery; Transfer of Risk; Inspection Obligation</h4>
+                    <p className="mb-1"><strong>4.1.</strong> Unless expressly agreed otherwise, the Product will be delivered "FCA KARDEX factory" (Incoterms 2010).</p>
+                    <p className="mb-1"><strong>4.2.</strong> If an installation of the Product has been agreed, the Product will be delivered "DDP customer's factory" (Incoterms 2010), unless expressly agreed otherwise. In this case, the risk passes to the customer at the latest at the arrival of the Product at the customer's premises.</p>
+                    <p className="mb-1"><strong>4.3.</strong> If shipment is delayed in the situation according to section B.4.1. due to circumstances beyond the control of KARDEX, the use and risk of the Products will pass to the customer when the goods are ready for dispatch.</p>
+                    <p><strong>4.4.</strong> In the situation according to section B.4.2., the customer is required to inspect the Product for externally visible damage immediately upon its delivery and, if a transport damage is suspected, to provide a written and photographically documented report of the damage in due course so that the deadlines for making insurance claims can be met.</p>
+                  </div>
+
+                  <div className="mb-4">
+                    <h4 className="font-semibold mb-2">5. Inspection and Acceptance</h4>
+                    <p className="mb-1"><strong>5.1.</strong> The customer is required to inspect the quality and quantity of the Product supplied immediately upon receipt. Any defects or incorrect deliveries must be reported immediately, but in any event within 10 days from receipt of the Product (or from detection in case of hidden defects), in detail in writing and with photographic documentation. If the report is submitted late, the deliveries will be deemed accepted and no warranty will apply.</p>
+                    <p className="mb-1"><strong>5.2.</strong> If an installation of the Product has been agreed, the customer is obliged to carry out an inspection and acceptance procedure on the Product as soon as KARDEX notifies the customer that the Products are ready for inspection. Defects must be recorded in a written report (customer acceptance certificate). Immediately after the acceptance inspection, KARDEX is to be sent a copy of the customer acceptance certificate and KARDEX is to be notified about any defects in a detailed written report. If the customer fails to meet this complaint notification obligation, all warranty claims will lapse.</p>
+                    <p className="mb-1"><strong>5.3.</strong> If acceptance is delayed for reasons beyond the control of KARDEX, the Product is deemed to be accepted 14 days after the receipt of the Products or, if it is a delivery with installation, the notification that the Products are ready for inspection. The Product is further deemed to be accepted if it is in productive use by the customer.</p>
+                    <p className="mb-1"><strong>5.4.</strong> If the Product shows only minor defects in the acceptance inspection, the customer may not refuse acceptance; instead, in this case the Product is deemed to be accepted.</p>
+                    <p><strong>5.5.</strong> With acceptance, KARDEX is no longer liable for any defects which could have been discovered on normal inspection and which are not listed in the customer acceptance certificate.</p>
+                  </div>
+
+                  <div className="mb-4">
+                    <h4 className="font-semibold mb-2">6. Warranty</h4>
+                    <p className="mb-1"><strong>6.1.</strong> KARDEX warrants the delivery of Products free from defects. Products shall be deemed defective if (i) they are demonstrably afflicted with defects at the time of passing of risk which cancel or significantly reduce their value or (ii) guaranteed characteristics are not met.</p>
+                    <p className="mb-1"><strong>6.2.</strong> In the event of breach of warranty by KARDEX, KARDEX shall have the right and the duty to rectify the defect (<em>Nachbesserung</em>) within a reasonable deadline. If KARDEX's first attempt to rectify the defect is unsuccessful or if KARDEX does not take any action, the customer has to grant KARDEX a second reasonable deadline to rectify the defect. If the second attempt to rectify is unsuccessful or if KARDEX allows this second reasonable deadline to expire without taking any action, KARDEX, at its own discretion, shall offer the customer either replacement delivery or repair without charge.</p>
+                    <p className="mb-1"><strong>6.3.</strong> KARDEX is obliged to bear all costs necessary to rectify, repair or replace a defective Product, in particular costs for transport, labor and materials, unless such costs are increased due to the fact that the Product has been moved to a location other than the agreed place of delivery.</p>
+                    <p className="mb-1"><strong>6.4.</strong> If the rectification, replacement delivery or repair ultimately fails, the customer may claim a price reduction (<em>Minderung</em>). Only if the Product has physical defects that render it unsuitable for the intended purpose may the customer alternatively rescind the contract (<em>Wandelung</em>).</p>
+                    <p className="mb-1"><strong>6.5.</strong> If KARDEX has guaranteed a specified level of performance (throughput) or a specified availability of a device and, at the time of acceptance by the customer, the shortfall with respect to the guaranteed performance or availability is no more than 15%, the customer, to the extent permitted by law, shall not have the right to rescind the contract, request a replacement delivery or claim damages. As a remedy, KARDEX, at its own choice, shall offer the customer either rectification or a price reduction.</p>
+                    <p className="mb-1"><strong>6.6.</strong> If (a) KARDEX has guaranteed a specified level of performance (throughput) or availability of a device, (b) the customer subsequently changes the device specification or places additional orders, and (c) this reduces the performance or availability, the guaranteed values shall be deemed adjusted accordingly.</p>
+                    <p className="mb-1"><strong>6.7.</strong> The customer's warranty rights in case of supply of Products not in accordance with the contract become time-barred on the expiry of 12 months after delivery to the customer.</p>
+                    <p><strong>6.8.</strong> Warranty claims expire early if any attempted repairs or modification are carried out by untrained or uncertified personnel of the customer or untrained or uncertified third parties, if the Product is operated or maintained inappropriately or contrary to the manufacturer's instructions, or if the Product is moved by the customer to another location without the involvement of KARDEX.</p>
+                  </div>
+
+                  <div className="mb-4">
+                    <h4 className="font-semibold mb-2">7. Prices and Payment Conditions</h4>
+                    <p className="mb-1"><strong>7.1.</strong> If the legal or regulatory requirements for the Product change after conclusion of the contract and this makes it significantly more difficult for KARDEX to deliver the Products in accordance with the contract, KARDEX may charge a reasonable increase of the consideration. An agreed delivery period, where applicable, will be extended by the delay resulting from the change.</p>
+                    <p><strong>7.2.</strong> In deviation from section A.4.2., the purchase price will be due for payment as follows: if KARDEX has undertaken to install the Product, 50% is payable upon placement of the order, 40% upon delivery (or no later than 30 days after notification of delivery) and 10% within 30 days of acceptance. If KARDEX has not undertaken to install the Product, the full purchase price is payable 30 days after supply and invoicing, without deduction. Advance</p>
+                  </div>
+
                 </div>
-                <div className="feature-card-premium sustainability">
-                  <div className="feature-icon-wrapper">🌱</div>
-                  <h4>Sustainability</h4>
-                  <div className="card-divider"></div>
-                  <p>Extend the lifecycle of your storage systems and reduce energy consumption through modern upgrades and retrofits.</p>
+              </div>
+
+              {/* Page 7 Footer */}
+              <PageFooter productType={offer?.productType} pageNumber={5} />
+            </div>
+
+            {/* Page 8 - Part B Continued + Part C Start */}
+            <div className="page page-8 shadow-2xl print:shadow-none mb-10 print:mb-0">
+              <KardexLogo />
+
+              <div className="page-content terms-page">
+                <div className="terms-content">
+
+                  {/* Continuation from previous page */}
+                  <p className="mb-1">and prepayments are payable within 10 days from date of the invoice without deduction.</p>
+                  <p className="mb-1"><strong>7.3.</strong> If the purchase price is specified in a currency other than in Euro, KARDEX is entitled to additionally charge the customer for any currency effects occurring between the order confirmation and the final invoice.</p>
+
+                  <div className="mb-4">
+                    <h4 className="font-semibold mb-2">8. Spare Parts; Wear Parts; Maintenance Commitment</h4>
+                    <p className="mb-1"><strong>8.1.</strong> KARDEX gives the customer an assurance of the availability of non-electronic spare and wear parts ("Parts") for a period of 10 years, and electronic Parts for a period of 6 years, from the delivery of the Machine.</p>
+                    <p><strong>8.2.</strong> With respect to software, the maintenance commitment of KARDEX is subject to any maintenance contract concluded between KARDEX and the customer.</p>
+                  </div>
+
+                  <div className="mb-4">
+                    <h4 className="font-semibold mb-2">9. Technical Support by the Customer</h4>
+                    <p className="mb-1"><strong>9.1.</strong> If the installation of the Product has been agreed, the customer is obliged to provide technical support at its own expense. This includes in particular:</p>
+                    <p className="mb-1">a) Any necessary underpinning or plugging of the steel framework and laying of the underfloor (screed flooring) after installation. The customer is to provide the installation surface for the Product at the new location in well-swept condition.</p>
+                    <p className="mb-1">b) Provision of and, if and to the extent requested by KARDEX in each particular case, operation and maintenance of the necessary equipment and heavy tools (e.g. scissor lift) as agreed with KARDEX, and the required auxiliary items and materials (e.g. underrays, wedges, lubricants, fuel, etc.).</p>
+                    <p className="mb-1">c) Provision of heating, lighting, site energy supply, water, including the necessary connections.</p>
+                    <p className="mb-1">d) Provision of suitable, burglar-proof personnel rooms and work rooms with heating, lighting, washing facilities and sanitary facilities, and first aid for the installation personnel.</p>
+                    <p className="mb-1">e) Transport of installation parts to the installation location, protection of the installation location and installation materials from harmful effects of all kinds, cleaning of the installation location.</p>
+                    <p className="mb-1">f) Provision of materials and carrying out any other actions required for initial adjustment of the Product and carrying out testing as specified in the contract.</p>
+                    <p className="mb-1">g) Ensuring the floor load capacity at the installation location, and providing an installation surface that is robust, level on all sides and horizontal.</p>
+                    <p className="mb-1">h) Prior to the start of installation, provide at the location of the machine as per relevant regulations the required energy supply, internet and data connection in accordance with KARDEX specifications.</p>
+                    <p className="mb-1">i) Providing the structural prerequisites for correct, problem-free installation (for example, moving of ventilation ducts, batten light fittings, water pipes, if these obstruct the installation of the Product).</p>
+                    <p className="mb-1"><strong>9.2.</strong> The technical support provided by the customer must be such as to ensure that the work on the providing services can begin immediately on the arrival of the KARDEX technician and can be carried out without delay until acceptance by the customer. The technician should be able to work at optimum capacity between 7:00 a.m. and 6:00 p.m. If special plans or instructions from KARDEX are needed for the installation, KARDEX will supply these to the customer sufficiently in advance.</p>
+                    <p className="mb-1"><strong>9.3.</strong> The customer will provide, when needed, assistance to the KARDEX technician on site with its own personnel to the best of its ability; this applies in particular where work is to be carried out that a single person cannot reasonably be expected to perform, or that cannot be carried out safely by a single person. KARDEX cannot be charged for such assistance. The customer is to confirm the work carried out by the KARDEX technician by signing off the technician's work report.</p>
+                    <p><strong>9.4.</strong> If the customer fails to meet its obligations, KARDEX, after issuing a non-compliance notice, is entitled, but not obliged, to carry out the actions incumbent on the customer in the customer's place, and at customer's expense, or have them carried out by third parties. In addition, there can be no delay on the part of KARDEX to the extent and for as long as the customer has failed to meet its obligations.</p>
+                  </div>
+
+                  {/* Part C */}
+                  <div className="terms-part-header part-c mt-6">
+                    <h3>PART C: PROVISIONS FOR LIFE CYCLE SERVICES</h3>
+                  </div>
+
+                  <p className="mb-2">The terms and conditions for Life Cycle services are arranged in three major parts. Part C1 contains general definitions, Part C2 describes the terms and conditions for individual services and Part C3 outlines the terms and conditions for service contracts.</p>
+
+                  <h4 className="font-semibold mb-2 mt-4">C1: General Definitions</h4>
+
+                  <div className="mb-4">
+                    <h4 className="font-semibold mb-2">1. Individual Service Orders</h4>
+                    <p className="mb-1"><strong>1.1.</strong> Subject matter of individual service orders is the provision of individual services, such as repairs, installations and commissioning without delivery of a system, relocation of a system, maintenance, modifications, retrofits and upgrades of any Product as delivered under Part B (hereinafter referred to individually or collectively as "<strong>Individual Service(s)</strong>" or "<strong>Individual Order</strong>").</p>
+                    <p><strong>1.2.</strong> The scope of services is determined in the subsequent provisions as well as in the order confirmation, which specify (a) the services to be provided, (b) the system, machine and/or software (hereinafter referred to individually or collectively as "<strong>Product(s)</strong>") for which the services are to be provided, (c) place of delivery and delivery times, and (d) the remuneration owed therefor.</p>
+                  </div>
+
+                  <div className="mb-4">
+                    <h4 className="font-semibold mb-2">2. Service Contract</h4>
+                    <p className="mb-1"><strong>2.1.</strong> The subject matter of a service contract is the performance of maintenance, repair work or other services ("<strong>Maintenance</strong>" or "<strong>Service(s)</strong>") on Products over several years.</p>
+                    <p><strong>2.2.</strong> The scope of the services is determined by the service contract, specifying (a) the chosen service package (BASE, FLEX or FULL Care), (b) the Products for which Maintenance is to be provided, and (c) the remuneration payable as the annual fee.</p>
+                  </div>
+
+                  <div className="mb-4">
+                    <h4 className="font-semibold mb-2">3. Response Times</h4>
+                    <p>"<strong>Helpdesk Reaction Time</strong>" is defined as the time from when the customer's fault report is received by the KARDEX Central Call Desk ("CCD") to when KARDEX Remote Support or telephone-based service begins. "<strong>OnSite Reaction Time</strong>" is defined as the time from when the customer's fault report is received by the CCD to the service technician's arrival on site. Only the reaction time during normal office hours is relevant, with continuation on the next working day, where applicable. Times outside normal office hours will not be taken into account when calculating the response time, unless an extended "Onsite & Helpdesk support" is agreed upon in the corresponding service contract. KARDEX guarantees to the customer that it will meet response times as described in the service contract.</p>
+                  </div>
+
+                  <div className="mb-4">
+                    <h4 className="font-semibold mb-2">4. Fault Reports</h4>
+                    <p className="mb-1"><strong>4.1.</strong> All faults must be reported to KARDEX by telephone, online or using the Remote Help Request button, so that recording and classification of the fault can be undertaken within the Helpdesk Reaction Time, and so that the necessary arrangements can be initiated without delay.</p>
+                    <p className="mb-1"><strong>4.2.</strong> The elimination of the fault is carried out by telephone support, Remote Support (if agreed) or an on-site callout of a technician. The choice of the suitable measure(s) is at the sole discretion of KARDEX.</p>
+                    <p className="mb-1"><strong>4.3.</strong> If a customer submits fault reports outside the contractually agreed On-site & Helpdesk support hours, KARDEX is not obligated to initiate a service intervention such as telephone support, Remote Support or an on-site callout. If an on-site callout does, however, take place, the customer will be charged at double the applicable hourly rate of the KARDEX customer service.</p>
+                    <p className="mb-1"><strong>4.4.</strong> KARDEX is obliged to investigate a fault only if it has been properly reported by the customer, and if the fault at the client's location is reproducible or can be demonstrated by machine-generated outputs.</p>
+                    <p className="mb-1"><strong>4.5.</strong> For software fault special conditions apply. A software fault is present only if the use of core functions of the software is impossible or severely impaired, and/or</p>
+                    <ul className="list-disc pl-6 mb-1">
+                      <li>the software produces incorrect results, which cannot be attributed to operating errors by the customer; or</li>
+                      <li>there is an uncontrolled interruption of the running of the software that is not caused by a program interface; or</li>
+                      <li>use of the software is severely impaired or prevented in another manner contrary to correct functionality.</li>
+                    </ul>
+                  </div>
+
                 </div>
               </div>
+
+              {/* Page 8 Footer */}
+              <PageFooter productType={offer?.productType} pageNumber={6} />
             </div>
 
-            <PageFooter productType={offer?.productType} pageNumber={4} />
-          </div>
+            {/* Page 9 - C2 Individual Services */}
+            <div className="page page-9 shadow-2xl print:shadow-none mb-10 print:mb-0">
+              <KardexLogo />
 
-          {/* Page 5 - General Terms */}
-          <div className="page page-5 shadow-2xl print:shadow-none mb-10 print:mb-0">
-            <KardexLogo />
+              <div className="page-content terms-page">
+                <div className="terms-content">
 
-            <div className="page-content terms-page">
-              <h2 className="terms-main-title">
-                <span className="terms-header-badge">General Terms and Conditions</span>
-              </h2>
-              
-              <div className="terms-content">
-              <p className="mb-4">These Terms and Conditions (T&C) are structured as follows:</p>
-              <ul className="list-disc list-inside space-y-1 mb-4">
-                <li>- <strong>Part A (general provisions)</strong> applies to all transactions, except where a provision of the applicable parts B and C contains deviating regulation (other than merely adding further details), which then takes precedence;</li>
-                <li>- <strong>Parts B</strong> and <strong>C</strong> contain the applicable specific provisions for supply of products and software programming services with or without installation (Part B), and <strong>individual service orders</strong> and <strong>service contracts</strong> (Part C);</li>
-              </ul>
-              
-              <p className="mb-4">
-                These T&C are provided in German, English and other languages. Only the German and English texts are legally binding and authoritative. 
-                They are of equal status. Translations of these T&C into other languages are solely for convenience and are not legally binding.
-              </p>
+                  {/* Continuation from previous page */}
+                  <p className="mb-1"><strong>1.1.</strong> A software fault is not present in the case of problems for which the cause cannot be attributed to software supplied by KARDEX, but in particular rather to the software of other manufacturers, the customer's hardware or operating system, the database or a parameterisation error on the part of the customer.</p>
 
-              {/* Part A: General Provisions */}
-              <div className="terms-part-header part-a">
-                <h3>PART A: GENERAL PROVISIONS</h3>
-              </div>
-              
-              <div className="mb-4">
-                <h4 className="font-semibold mb-2">1. Scope of the T&C</h4>
-                <p className="mb-1"><strong>1.1.</strong> These T&C apply to all transactions between <strong>KARDEX INDIA STORAGE SOLUTIONS PRIVATE LIMITED</strong> and the customer, unless expressly otherwise agreed in writing.</p>
-                <p className="mb-1"><strong>1.2.</strong> On placement of a purchase order by the customer, these T&C are deemed to be acknowledged, and will also apply for future transactions with the customer.</p>
-                <p className="mb-1"><strong>1.3.</strong> Any deviating, contradictory or supplemental terms and conditions of the customer apply only if expressly accepted by KARDEX in writing.</p>
-                <p className="mb-1"><strong>1.4.</strong> Any amendments of and additions to the contract must be made in writing. All agreements and legally binding declarations of the parties require written confirmation by KARDEX.</p>
-                <p className="mb-1"><strong>1.5.</strong> KARDEX is entitled to amend the T&C at any time. The version current at the time of the purchase order applies. In the case of continuing contractual relationships, the draft of the amended T&C will be sent to the customer in writing no later than one month before the proposed date of their entry into force. The customer is deemed to have given its consent to the amendments if it has not rejected them by the planned date for entry into force. The amended T&C will then apply to any further transactions between the parties.</p>
-                <p className="mb-1"><strong>1.6.</strong> The general provisions of these T&C (Part A) apply to all transactions and legal relations between the parties unless otherwise stated in the specific provisions (Parts B and C) or agreed in writing.</p>
-                <p><strong>1.7.</strong> The term "<strong>Product(s)</strong>" used in Part A is individually defined for each of Parts B and C. The meaning of this term in Part A shall therefore have the meaning as defined in the applicable Part B and C.</p>
-              </div>
+                  <div className="mb-4">
+                    <h4 className="font-semibold mb-2">5. Timing / Agreement on Dates</h4>
+                    <p className="mb-1"><strong>5.1.</strong> If the customer cancels or postpones a service intervention arranged less than 48 hours before the start of the intervention, the customer is required to bear the costs associated therewith at the usual KARDEX rates.</p>
+                    <p><strong>5.2.</strong> KARDEX is entitled to invoice the costs for unnecessary travel to the customer's location or on-site waiting times in excess of 30 minutes separately at the usual KARDEX customer service hourly rates applicable at the time of the scheduled intervention.</p>
+                  </div>
 
-              <div className="mb-4">
-                <h4 className="font-semibold mb-2">2. Offers from KARDEX</h4>
-                <p className="mb-1"><strong>2.1.</strong> Unless expressly otherwise agreed, offers from KARDEX are nonbinding; otherwise, the offers are valid for 60 days. A statement by the customer is deemed to be an acceptance only if it is fully consistent with the KARDEX offer.</p>
-                <p className="mb-1"><strong>2.2.</strong> A contract is only validly concluded if KARDEX (i) confirms the order in writing or (ii) starts to perform the contract by delivering the Products or by rendering the service.</p>
-                <p className="mb-1"><strong>2.3.</strong> Under no circumstances shall silence by KARDEX with respect to a counter-offer from the customer be construed as a declaration of acceptance.</p>
-                <p><strong>2.4.</strong> The documents relating to offers and order confirmations, such as illustrations, drawings, and weight and measurement details, are binding only if this has been expressly agreed in writing. Unless otherwise agreed in writing, brochures and catalogues are not binding.</p>
-              </div>
+                  <div className="mb-4">
+                    <h4 className="font-semibold mb-2">6. Liability</h4>
+                    <p className="mb-1"><strong>6.1.</strong> To the extent permitted by law, KARDEX will not be liable for damage resulting from incorrect use of the Products, telephone or electronic transmission failures, faulty execution of support instructions by the customer, attempted repairs carried out by the customer itself or third parties, service parts not being available on site, untrained or unauthorised staff of the customer or third parties, or delay in reaching the on-duty service technician because of being engaged in another service intervention. Nor will KARDEX be liable for the consequences of any loss of data.</p>
+                    <p><strong>6.2.</strong> To the extent permitted by law, any liability for merchandise and goods stored in the Products is excluded.</p>
+                  </div>
 
-              <div className="mb-4">
-                <h4 className="font-semibold mb-2">3. Provided Documents</h4>
-                <p>Each party retains all rights to plans and technical documents that it has provided to the other party. The receiving party acknowledges these rights, and shall not make such documents available, in full or in part, to any third party without the prior written consent of the other party, or use them outside of the scope of the purpose for which they were provided for. This also applies after termination of the business relationship as well as in the event that no contract is concluded between the parties.</p>
-              </div>
+                  <div className="terms-part-header part-c-sub mt-4">
+                    <h3>C2: INDIVIDUAL SERVICES</h3>
+                  </div>
 
-              <div className="mb-4">
-                <h4 className="font-semibold mb-2">4. Prices and Payment Conditions</h4>
-                <p className="mb-1"><strong>4.1.</strong> All prices are excluding GST</p>
-                <p className="mb-1"><strong>4.2.</strong> Unless otherwise agreed in writing or specified in the subsequent specific provisions, invoices from KARDEX are payable within 30 days net from the invoice date, without any deduction. Advance and prepayments are payable within 10 days from the invoice date without any deduction.</p>
-                <p className="mb-1"><strong>4.3.</strong> A customer failing to pay by the due date is in default without a reminder, and KARDEX is entitled to charge monthly default interest in the amount of 1%, except where a different default interest rate has been specified in the contract or in the offer.</p>
-                <p className="mb-1"><strong>4.4.</strong> In the event of customer default, KARDEX is entitled to withdraw from the contract and claim back any Products already supplied and/or enter the site and render Products unusable. In addition, KARDEX is also entitled to claim direct damages and/or provide outstanding deliveries or services only against advance payment or the provision of collateral, or suspend the provision of services under other orders or service agreements for which payment has already been made.</p>
-                <p><strong>4.5.</strong> If KARDEX becomes aware of circumstances casting doubt on the solvency of the customer, KARDEX shall have the right to demand full payment in advance or the provision of collateral.</p>
-              </div>
+                  <div className="mb-4">
+                    <h4 className="font-semibold mb-2">1. Individual Services Contain the Following Services</h4>
+                    <p className="mb-1"><strong>1.1.</strong> Installation and Commissioning Service to install newly and/or rebuild the Product by skilled technicians. This may include operation and/or maintenance training of customer personnel.</p>
+                    <p className="mb-1"><strong>1.2.</strong> On-site support intervention for repair and recommissioning after a break down or loss of productivity. On-Site Services include the provision of labor by skilled technicians, materials such as spare parts, wear parts and consumables, travel costs and fees for daily allowance, as well as special fees for outside office hours call outs.</p>
+                    <p className="mb-1"><strong>1.3.</strong> Remote Support or telephone support interventions are designed to enable the customer to bring back its system to normal operation in a short period of time and to therefore increase the operating time. The continuous monitoring via Remote Support can even prevent downtimes.</p>
+                    <p className="mb-1"><strong>1.4.</strong> Relocation Service of KARDEX offers its customers the relocation and moving of the products manufactured by KARDEX, either within the same or to a different site, within domestic territory or abroad ("<strong>Relocation Service</strong>"). The Relocation Service comprises the dismantling of the Product at the old location, transport of the components from the old to the new location (if so agreed), interim storage of the components (if so agreed), installation at the new location, and commissioning of the Product. The relocation service does not include the rectification of defects and the replacement of wear parts, both of which require the placement of a separate order against a separate fee to be executed and handled independently from the relocation service. If the new location is in a different country than the old location, the customer is required to perform all the actions necessary for transportation to the other country and also the operation in the other country. The customer bears all the costs arising in this context (necessary modification of the Product, customs, clearance fees, etc.). Necessary modifications to the Product require a separate order for Individual Services (for a separate fee). The customer has to remove all the contents (goods in storage) from the Product, before relocation can take place.</p>
+                    <p className="mb-1"><strong>1.5.</strong> Training services are designed to empower the customer's staff to operate the system according to its intended use, to increase the adherence to safe working methods and to positively influence the system's overall availability and performance.</p>
+                    <p className="mb-1"><strong>1.6.</strong> Maintenance and Safety Tests are intended to maintain the system's reliability, to prevent unexpected break downs, to ensure the testing of safety equipment on a regular and professional basis as well as to reduce premature loss of the system's value.</p>
+                    <p className="mb-1"><strong>1.7.</strong> Modification services are intended to adapt the system to the changes implied by the customer's business operation in mechanics and software to ensure that it meets changed operational requirements.</p>
+                    <p className="mb-1"><strong>1.8.</strong> Upgrade and Retrofit Services are intended to bring the system up-to-date with the latest technology, with regards to mechanics and software.</p>
+                    <p><strong>1.9.</strong> The Spare Part Delivery Service is intended to enable the customer to purchase single parts to be fitted into the customer's systems or spare part packages with carefully selected assortments of parts which are stored at the customer's premises to ensure their availability in case of an on-site intervention.</p>
+                  </div>
 
-              <div className="mb-4">
-                <h4 className="font-semibold mb-2">5. Set-off and Assignment</h4>
-                <p className="mb-1"><strong>5.1.</strong> Set-off against any counterclaims of the customer is not permitted.</p>
-                <p className="mb-1"><strong>5.2.</strong> Claims of the customer against KARDEX may be assigned only with consent from KARDEX.</p>
-                <p><strong>5.3.</strong> The transfer of any rights and obligations under or in connection with a contract between the parties is permitted only with the other contracting party's written consent.</p>
-              </div>
+                  <div className="mb-4">
+                    <h4 className="font-semibold mb-2">2. Use of Third Party Sub-Contractors</h4>
+                    <p>In order to meet its obligations under Individual Services, KARDEX may make use of the services of third parties. KARDEX is not obliged to perform the Individual Service itself. If KARDEX makes use of a third party, KARDEX will by means of suitable contractual provisions with such party that the obligations of KARDEX under the Individual Service are fulfilled by the third party.</p>
+                  </div>
 
-              <div className="mb-4">
-                <h4 className="font-semibold mb-2">6. Liability</h4>
-                <p className="mb-1"><strong>6.1.</strong> The contractual and non-contractual liability of KARDEX both for its own actions and for the actions of its auxiliary persons is limited, to the extent permitted by law, to immediate and direct damages and to a total of 20% of the contractually agreed remuneration per delivery or service concerned. In the case of continuing obligations (e.g. service contracts under Part C), liability is limited, to the extent legally permitted, per contract year, to immediate and direct damages and to the amount of 50% of the annual remuneration payable for the product or service affected by the damage. In case the liability cap in accordance with the above calculations is below EUR 10,000 in individual cases, a liability cap of EUR 10,000 applies.</p>
-                <p className="mb-1"><strong>6.2.</strong> If KARDEX or its auxiliary persons unlawfully and culpably damage items owned by the customer, KARDEX's liability shall, in deviation from section A.6.1., be governed exclusively by the provisions of article 41 et seqq. of the Swiss Code of Obligations (CO) and shall be limited, to the extent permitted by law, to EUR 500,000 per claim. KARDEX's liability for damages to the product itself or to product accessories is exclusively governed by section A.6.1.</p>
-                <p className="mb-1"><strong>6.3.</strong> Further claims not expressly mentioned in this provision and these T&C for any legal reason, in particular but not limited to claims for compensation of indirect and/or consequential damages not incurred on the product itself as well as damages due to loss of production, capacity and data including their consequences, loss of use, loss of orders, loss of profit, damage to reputation and punitive damages are excluded.</p>
-                <p className="mb-1"><strong>6.4.</strong> The contractual and non-contractual liability of KARDEX is also excluded for damages which are due to (i) incorrect information about operational and technical conditions or about the chemical and physical conditions for the use of the products provided by the customer, auxiliary persons and/or its advisors, or (ii) other actions, omissions of the customer, his auxiliary persons, advisors or third parties or other circumstances within the responsibility of the customer.</p>
-                <p className="mb-1"><strong>6.5.</strong> The above limitations and exclusions of liability do not apply (i) in cases of injury to life, body or health, (ii) in cases of intent or gross negligence on the part of KARDEX or its auxiliary persons, and (iii) for claims from product liability under product liability laws to the extent these laws are mandatory to the legal relationship between the parties.</p>
-                <p><strong>6.6.</strong> If third parties are injured by the customer's actions or omissions or if objects of third parties are damaged or third parties are otherwise damaged</p>
+                  <div className="mb-4">
+                    <h4 className="font-semibold mb-2">3. Unauthorized Intervention in Kardex Systems</h4>
+                    <p>The customer is obliged to inform KARDEX before KARDEX commences its work about any external or internal work or renewal of parts carried out on the Product by the customer or third parties, whereby KARDEX is entitled to request a thorough chargeable inspection of such amended or renewed Product or decline to perform the Individual Service.</p>
+                  </div>
+
+                  <div className="mb-4">
+                    <h4 className="font-semibold mb-2">4. Technical Support by the Customer</h4>
+                    <p>The customer is obliged to provide technical support to KARDEX for the performance of the Individual Service at its own expense. Section B.10. applies accordingly in the case of an installation order or relocation order.</p>
+                  </div>
+
+                  <div className="mb-4">
+                    <h4 className="font-semibold mb-2">5. Acceptance</h4>
+                    <p className="mb-1"><strong>5.1.</strong> As soon as KARDEX notifies the customer of the completion of the Individual Service, the customer must carry out an acceptance inspection of the performed services and/or delivered products. The results of such acceptance inspection including a detailed report of any defects are to be recorded in writing in a customer acceptance certificate, a signed copy of which must be immediately handed over/sent to KARDEX. If the customer fails to meet this complaint notification obligation, the respective warranty claims will lapse.</p>
+                    <p className="mb-1"><strong>5.2.</strong> If acceptance is delayed for reasons beyond the control of KARDEX, the Products are deemed to be accepted 14 days after notification of completion by KARDEX. KARDEX is entitled to invoice the cost incurred from such delays.</p>
+                    <p className="mb-1"><strong>5.3.</strong> If only minor defects are found in the acceptance inspection, the customer may not refuse acceptance. In such case, the Individual Service shall be deemed accepted.</p>
+                    <p><strong>5.4.</strong> With acceptance, KARDEX is no longer liable for any defects which could have been discovered on normal inspection and which are not listed in the customer acceptance certificate.</p>
+                  </div>
+
+                  <div className="mb-4">
+                    <h4 className="font-semibold mb-2">6. Warranty</h4>
+                    <p className="mb-1"><strong>6.1.</strong> KARDEX warrants the faultless provision of the services in accordance with the legal regulations, the applicable norms and directives as well as the recognized rules of technology.</p>
+                    <p className="mb-1"><strong>6.2.</strong> In the event of breach of warranty by KARDEX, KARDEX shall have the right and the duty to rectify the defect (<em>Nachbesserung</em>) within a reasonable deadline. If KARDEX' first attempt to rectify the defect is unsuccessful or if KARDEX does not take any action, the customer has to grant KARDEX a second reasonable deadline to rectify the defect. If the second attempt to rectify is unsuccessful or if KARDEX allows this second reasonable deadline to expire without taking any action, the customer is entitled to claim a reduction of the remuneration (<em>Minderung</em>). The customer is also entitled to claim a reduction of the remuneration if KARDEX seriously and ultimately refuses to carry out the rectification from the outset. However, the customer may only withdraw from the contract if the services carried out by KARDEX repeatedly show serious defects and if KARDEX repeatedly fails to remedy breaches of warranty in accordance with this provision.</p>
+                    <p className="mb-1"><strong>6.3.</strong> The customer's warranty rights expire 6 months after acceptance.</p>
+                    <p><strong>6.4.</strong> Warranty is voided in case of: (a) improper or unintended use, (b) faulty installation or commissioning by the customer or a third party, (c)</p>
+                  </div>
+
+                </div>
               </div>
 
-              </div>
+              {/* Page 9 Footer */}
+              <PageFooter productType={offer?.productType} pageNumber={7} />
             </div>
 
-            {/* Page 5 Footer */}
-            <PageFooter productType={offer?.productType} pageNumber={5} />
-          </div>
+            {/* Page 10 - C2 Continued, C3 Service Contracts */}
+            <div className="page page-10 shadow-2xl print:shadow-none mb-10 print:mb-0">
+              <KardexLogo />
 
-          {/* Page 6 - General Terms Continued */}
-          <div className="page page-6 shadow-2xl print:shadow-none mb-10 print:mb-0">
-            <KardexLogo />
+              <div className="page-content terms-page">
+                <div className="terms-content">
 
-            <div className="page-content terms-page">
-              <div className="terms-content">
-              
-              {/* Continuation from previous page */}
-              <p className="mb-1">and KARDEX is held liable for this, KARDEX has a right of recourse to the customer.</p>
+                  {/* Continuation from previous page */}
+                  <p className="mb-1">modification, maintenance, repair or relocation of the Product by the customer or a third party, (d) excessive wear and tear due to circumstances within the customer's control, (e) faulty operation or negligent treatment of the Products, (f) use of inappropriate service fluids or replacement materials, (g) faulty construction or unsuitable soil on the customer's premises, (h) chemical or electronic effects, if these are not due to fault of KARDEX, (i) untrue indications by the customer or its advisors on the operational and technical conditions for the use of the products, and (j) cases of force majeure such as natural disasters, acts of war or acts of terrorism.</p>
 
-              <div className="mb-4">
-                <h4 className="font-semibold mb-2">7. Intellectual Property</h4>
-                <p className="mb-1"><strong>7.1.</strong> The customer may not use the intellectual property of KARDEX (in particular technical protective rights, brands and other signs, designs, knowhow, copyright to software and other works) for any purposes other than those expressly agreed between the parties.</p>
-                <p className="mb-1"><strong>7.2.</strong> Without the express permission of KARDEX, the customer may not transfer or otherwise provide KARDEX Products to third parties without the attached brands.</p>
-                <p><strong>7.3.</strong> Where KARDEX supplies software to the customer, the customer only acquires a simple, non-exclusive and non-transferrable right of use. The customer is not granted any right to edit the software.</p>
+                  <div className="mb-4">
+                    <h4 className="font-semibold mb-2">7. Remuneration</h4>
+                    <p className="mb-1"><strong>7.1.</strong> The remuneration for Individual Services will be charged on a time and material basis according to KARDEX's current price list, unless a lump sum fee has been expressly agreed.</p>
+                    <p className="mb-1"><strong>7.2.</strong> KARDEX has the right to charge the customer any costs for unnecessary travel to the customer or if the Individual Service could not be performed for reasons for which the customer is responsible.</p>
+                    <p><strong>7.3.</strong> Any waiting times caused by the customer's lack of support can be charged by KARDEX to the customer.</p>
+                  </div>
+
+                  <div className="terms-part-header part-c-sub mt-6">
+                    <h3>C3: SPECIFIC PROVISIONS FOR SERVICE CONTRACTS</h3>
+                  </div>
+
+                  <div className="mb-4">
+                    <h4 className="font-semibold mb-2">1. Service Packages</h4>
+                    <p className="mb-1"><strong>1.1.</strong> The services provided by KARDEX in the context of service contracts are determined by the product and service descriptions of the Service Contract, the technical requirements, the specified maintenance intervals as well as the defined software upgrades, service releases and software updates. Such services can include all products delivered under Part B. Unless otherwise specified, the scope of service does not include the performance of all work and the installation of spare parts required for restoration of normal operational readiness of the Product in accordance with a professional assessment and the recognised code of practice.</p>
+                    <p className="mb-1"><strong>1.2.</strong> In general, KARDEX will carry out maintenance work during normal office hours. To have access to services outside normal office hours, the customer can opt for the "FLEX Care" or "FULL Care" service packages, which must be ordered separately.</p>
+                    <p className="mb-1"><strong>1.3.</strong> Without prejudice to the warranty under delivery contracts, KARDEX does not provide any warranty that the Product will remain free of defects and/or will function without interruption during the term of the service contract. The warranty for services provided by KARDEX is based on section C3.4.</p>
+                    <p className="mb-1"><strong>1.4.</strong> The inclusion of a Product in a service contract requires that the Product and its components are in a technically perfect condition and that the customer has acquired a right to use the current version of the software. Products for which the warranty commencing on delivery has already expired will only be included in the service contract after they have been subjected to an inspection by KARDEX. The costs for the inspection and any expenses incurred for bringing the Product to be included back into a proper condition shall be borne by the customer, according to the applicable rates and price lists.</p>
+                    <p><strong>1.5.</strong> The KARDEX remote support portal ("<strong>KARDEX Remote Support</strong>") allows the condition of the product to be monitored by the assessment of technical data from the control unit. All personal data and customer related data exchanged in the context of the services will be used exclusively for the purposes defined in these terms of use. A connection to the KARDEX Remote Support does not guarantee that malfunctions can be diagnosed or eliminated by means of the KARDEX Remote Support. If the malfunction cannot be solved by means of KARDEX Remote Support, KARDEX will send a service technician to the concerned Product to eliminate the malfunction and will separately charge its services pursuant to the applicable rates and price lists.</p>
+                  </div>
+
+                  <div className="mb-4">
+                    <h4 className="font-semibold mb-2">2. Customer Obligations</h4>
+                    <p className="mb-1"><strong>2.1.</strong> The customer shall treat and use the Product in accordance with KARDEX operating recommendations. The customer shall enable KARDEX to eliminate malfunctions arising due to incorrect operation, at the customer's expense.</p>
+                    <p className="mb-1"><strong>2.2.</strong> Faults are to be reported solely by the customer authorised person commissioned with operating the machine in accordance with the KARDEX operator manual to the on-duty KARDEX service technician. The fault report must be submitted from the location of the Product concerned using a suitable means of communication, specifying the Product name, the model and series or license number and the best possible description of the fault. The disclosure of KARDEX contact details or premises access codes to any third parties is expressly prohibited in the interests of ease of access. The customer is obliged to keep his technical equipment available in such a way that the support by KARDEX via telephone or KARDEX Support Portal is possible. Connection costs shall be borne by the customer.</p>
+                    <p className="mb-1"><strong>2.3.</strong> With the conclusion of a KARDEX Remote Support contract, the customer undertakes to provide a functional data transmission device (remote connection for KARDEX Remote Support), sufficiently protected against unauthorized third-party access, to allow KARDEX appropriate access to the customer's system for support tasks. As a prerequisite for this, the customer must provide KARDEX the required authorisations. Remote support is carried out via a suitable separate remote service software application, such as the KARDEX Remote Support application, or in exceptional cases, TeamViewer. Any data transmission costs incurred and any other costs arising from remote service are borne by the customer. Further details on this may be provided in the support contract. If the customer does not have data transmission facilities as defined above available, the customer shall reimburse KARDEX for the resulting increased expense. KARDEX is relieved from its duty to perform remote service, if – for reasons for which KARDEX is not responsible – no connection can be established from the system.</p>
+                    <p className="mb-1"><strong>2.4.</strong> When required, the customer will support the KARDEX service technician on site with its own personnel to the best of its ability and to a reasonable extent; this applies in particular if the work to be carried out is beyond what a single person can reasonably be expected to do, or can do safely. There is no reimbursement claim against KARDEX for this. The customer will sign off the work done by the KARDEX service technical on the technician's work report, as the basis for invoicing.</p>
+                    <p className="mb-1"><strong>2.5.</strong> The customer must ensure that the Products are exclusively available at the agreed timeslot to the KARDEX service technician executing the service, and that they can be shut down from operation for this purpose.</p>
+                    <p className="mb-1"><strong>2.6.</strong> During the term of the service contract, the customer is obliged to have all maintenance and repairs on the Products carried out solely by KARDEX or an authorised subcontractor of KARDEX. Where applicable, it is to inform KARDEX of any prior work on the Products itself or parts replacements carried out by the customer itself or third parties, before the work starts. In such cases, KARDEX is entitled to require a thorough check of the Products in question or otherwise to decline to perform the service.</p>
+                    <p className="mb-1"><strong>2.7.</strong> The customer will not change the location of the Product without prior written notice to KARDEX. Upon request, and at the customer's expense, KARDEX will carry out or supervise the relocation. If the customer does not have the relocation carried out or supervised by KARDEX, KARDEX services under the service contract will be suspended during the relocation and KARDEX will perform a system audit to ensure the correct and safe functionality of the Products before reinstating the services. Such a system audit will be charged separately according to the applicable rates and price lists. Any damages caused by an improper relocation will not be covered by the service packages.</p>
+                    <p className="mb-1"><strong>2.8.</strong> The customer undertakes to actively accompany and support KARDEX in case of a maintenance issue in fault diagnosis and elimination conducted in the context of the KARDEX Remote Support. The customer notifies to KARDEX in writing qualified employees educated by KARDEX as contact persons authorized to perform and take all actions and decisions for the customer which are necessary in connection with the ordinary use. The contact person remains with the Product during the whole process of remote service ready to intervene, where appropriate, e.g. by operating the emergency shutdown. The customer is solely responsible for taking the necessary safety precautions to ensure that persons and property are not endangered during maintenance.</p>
+                    <p><strong>2.9.</strong> Employees of the customer require a password for the use of the KARDEX Remote Support. Every person, legitimating him or herself via password, is deemed to be authorized towards KARDEX, and all entries and instructions based on a formally error free legitimization will be attributed to the customer.</p>
+                  </div>
+
+                </div>
               </div>
 
-              <div className="mb-4">
-                <h4 className="font-semibold mb-2">8. Data Protection</h4>
-                <p className="mb-1"><strong>8.1.</strong> The protection of personal data is an important priority for KARDEX. KARDEX and the customer undertake to comply at all times with the applicable legal provisions on data protection. In particular, the customer assures that KARDEX is permitted to use personal data provided to them by the customer in accordance with this section A.8., and indemnifies and holds KARDEX fully harmless from any claims by the persons affected.</p>
-                <p className="mb-1"><strong>8.2.</strong> KARDEX collects, processes and uses the customer's personal data for the performance of the contract. The customer's data will further be used for the purposes of future customer service, in which context the customer has the right to object in writing at any time. In addition, the customer's machines and operational data may be used and evaluated in anonymised form and user information on the customer's employees may be used in pseudonymized form for diagnosis and analysis purposes, and in anonymized form for the further development of KARDEX products and services (e.g. preventive maintenance). All data deriving from such analysis and diagnosis shall belong to KARDEX and may be freely used by KARDEX.</p>
-                <p className="mb-1"><strong>8.3.</strong> The personal data of the customer will only be passed on to other companies (e.g. the transport company entrusted with the delivery) within the scope of contract processing and the provision of information technology and other administrative support activities. Otherwise, personal data will not be passed on to third parties. KARDEX ensures that companies that process personal data on behalf of KARDEX comply with the applicable legal provisions on data protection and that a comparable level of data protection is guaranteed, especially in the case of transfer abroad.</p>
-                <p className="mb-1"><strong>8.4.</strong> The customer may contact KARDEX free of charge with any queries regarding the collection, processing or use of its personal data.</p>
-                <p><strong>8.5.</strong> When using web-based products of KARDEX (such as customer portal, remote portal) personal data will be recorded. The collection, processing and use of such data can, upon customer's request, be governed by a separate data processing agreement.</p>
-              </div>
-
-              <div className="mb-4">
-                <h4 className="font-semibold mb-2">9. Confidentiality</h4>
-                <p className="mb-1"><strong>9.1.</strong> Each of the parties undertakes to keep confidential all trade secrets and confidential information brought to their knowledge by the other party, in particular, all information on customer relationships and their details, other important information such as plans, service descriptions, product specifications, information on production processes and any other confidential information made available to it and/or otherwise disclosed by the other party in written or other form, and, in particular, not to make direct or indirect use thereof in business dealings and/or for competitive purposes, and/or pass it on to third parties in business dealings and/or for competitive purposes, and/or otherwise bring it directly or indirectly to the attention of third parties, either itself or through third parties.</p>
-                <p className="mb-1"><strong>9.2.</strong> The confidentiality agreement does not apply where the information is publicly known, was already known to the other party when received, has been made available by third parties without any breach of a party's confidentiality obligation, or whose disclosure is mandatory under legal provisions, official orders or court orders, in particular judgments. The party wishing to invoke these exceptions bears the burden of proof in this regard.</p>
-                <p><strong>9.3.</strong> The parties will place all persons whose services they use for providing services or who otherwise come into contact with confidential information as per section A.9.1 under a confidentiality obligation in accordance with sections A.9.1. and A.9.2.</p>
-              </div>
-
-              <div className="mb-4">
-                <h4 className="font-semibold mb-2">10. Severability</h4>
-                <p>If any provision of the contract, including these T&C, are or become fully or partially unenforceable or invalid under applicable law, such provision shall be ineffective only to the extent of such unenforceability or invalidity and the remaining provisions of the contract or the T&C, respectively, shall continue to be binding and in full force and effect. Such unenforceable or invalid provision shall be replaced by such a valid and enforceable provision, which the parties consider, in good faith, to match as closely as possible the invalid or unenforceable provision and attaining the same or a similar economic effect. The same applies in case a gap (<em>Lücke</em>) becomes evident.</p>
-              </div>
-
-              <div className="mb-4">
-                <h4 className="font-semibold mb-2">11. Office Hours</h4>
-                <p>Office hours are the usual working hours Monday - Friday, 9:00 a.m. - 6:00 p.m., with the exception of the public holidays at the registered office of KARDEX.</p>
-              </div>
-
-              <div className="mb-4">
-                <h4 className="font-semibold mb-2">12. Governing Law and Jurisdiction</h4>
-                <p className="mb-1"><strong>12.1.</strong> These T&C and the entire legal relationship between the parties shall be governed by, and construed in accordance with, Swiss law, with exclusion of the United Nations Convention on Contracts for the International Sale of Goods.</p>
-                <p><strong>12.2.</strong> Any dispute, controversy or claim arising out or in connection with the contract between the parties and/or these T&C, including their conclusion, validity, binding effect, breach, termination or rescission, shall be resolved by arbitration in accordance with the Swiss Rules of International Arbitration of the Swiss Chambers' Arbitration Institution. Regarding the time for service of initiation pleadings, the current text of the Rules of International Arbitration applies. The venue of the arbitration procedure is the city of Zurich, Switzerland. The language of the arbitration procedure is English or German.</p>
-              </div>
-
-              {/* Part B */}
-              <div className="terms-part-header part-b mt-6">
-                <h3>PART B: SPECIFIC PROVISIONS FOR DELIVERIES</h3>
-              </div>
-              
-              <div className="mb-4">
-                <h4 className="font-semibold mb-2">1. Delivery</h4>
-                <p className="mb-1"><strong>1.1.</strong> The subject-matter of delivery contracts is the delivery of systems, machines and/or software products and individually customised software in accordance with the specifications in the order confirmation handed over to the customer by KARDEX (each individually or collectively "<strong>Product(s)</strong>").</p>
-                <p className="mb-1"><strong>1.2.</strong> Only the characteristics listed in the order confirmation are guaranteed features. Public statements, promotions and advertisements do not constitute guaranteed features of the Products. It is the customer's responsibility to assess whether or not the ordered Products are suitable for their intended purpose.</p>
-                <p className="mb-1"><strong>1.3.</strong> Any quality guarantees in addition to features guaranteed in the order confirmation must be confirmed by KARDEX in writing.</p>
-                <p><strong>1.4.</strong> KARDEX reserves the right to make design and/or shape changes to the Products if the Product thereafter deviates only insignificantly from the agreed quality and the changes are reasonable for the customer or if the customer agrees to the change of the agreed quality.</p>
-              </div>
-
-              <div className="mb-4">
-                <h4 className="font-semibold mb-2">2. Delivery Time</h4>
-                <p className="mb-1"><strong>2.1.</strong> Delivery times are non-binding unless expressly confirmed as binding by KARDEX in writing.</p>
-                <p className="mb-1"><strong>2.2.</strong> Delivery periods start with the dispatch of the order confirmation or receipt of the order in case there is no order confirmation, but not before the receipt of any advance payment or collateral to be provided by the customer.</p>
-                <p className="mb-1"><strong>2.3.</strong> If subsequent change requests by the customer are accepted, the delivery period and delivery date are extended and postponed at least by the time required for implementation of the requested changes.</p>
-                <p><strong>2.4.</strong> Delivery periods and delivery dates are met if on their expiry the Product has left the factory or notification of readiness for dispatch has been given. In the case of installation of Products, the delivery period is met by timely handover or acceptance of the installed Product. Delays beyond the control of KARDEX (e.g. failure by the customer to provide ancillary services, such as the provision of documents, permits and/or clearances to be obtained by the customer, ensuring the availability of a suitable lifting platform or opening the building) will at least result in a corresponding extension of the delivery period. KARDEX has the right to charge incurred cost from such delays.</p>
-              </div>
-
-              </div>
+              {/* Page 10 Footer */}
+              <PageFooter productType={offer?.productType} pageNumber={8} />
             </div>
 
-            {/* Page 6 Footer */}
-            <PageFooter productType={offer?.productType} pageNumber={6} />
-          </div>
+            {/* Page 11 - C3 Remuneration, Warranty, Termination */}
+            <div className="page page-11 shadow-2xl print:shadow-none mb-10 print:mb-0">
+              <KardexLogo />
 
-          {/* Pages 7-11 - Terms Sections */}
-          <div className="page page-7 shadow-2xl print:shadow-none mb-10 print:mb-0">
-            <KardexLogo />
+              <div className="page-content terms-page">
+                <div className="terms-content">
+                  <div className="mb-4">
+                    <h4 className="font-semibold mb-2">3. Remuneration for Service Contracts</h4>
+                    <p className="mb-1"><strong>3.1.</strong> An annual fee is charged for the services specified in the service contract, the amount of which depends on the selected service packages (BASE, FLEX, or FULL Care).</p>
+                    <p className="mb-1"><strong>3.2.</strong> The first annual fee is invoiced on the signing of the service contract, and thereafter before the start of each contract year.</p>
+                    <p className="mb-1"><strong>3.3.</strong> KARDEX reserves the right to increase or decrease the annual fee. If the increase is more than 5% of the agreed annual fee, the customer has an extraordinary right of termination for cause. The customer may then terminate the contract early, within one month of receiving the invoice for the increased annual fee, to take effect for the first contract year to which the increased annual fee applies.</p>
+                    <p className="mb-1"><strong>3.4.</strong> KARDEX is entitled to charge the customer for unnecessary travel to the customer's location or if the service or part of the service cannot be performed on site if the customer is responsible for the impediment. If the customer, according to the service contract, has undertaken to keep certain parts in stock or if the customer failed to order from KARDEX the parts necessary for the service as specified by KARDEX, the customer may be charged for any waiting times caused by the required service parts not being available on site.</p>
+                    <p><strong>3.5.</strong> Additional inspections following the repair of Products or the replacement of missing technical documents or service booklets are not included in the annual fee and will be invoiced separately at the hourly rates of KARDEX customer service applicable the time.</p>
+                  </div>
 
-            <div className="page-content terms-page">
-              <div className="terms-content">
-              {/* Part B Continued */}
-              <div className="mb-4">
-                <h4 className="font-semibold mb-2">2. Delivery Time (continued)</h4>
-                <p className="mb-1"><strong>2.5.</strong> Force majeure, strikes, lockouts and other impediments beyond the control of KARDEX will extend and postpone agreed delivery periods and delivery dates by no more than the duration of the impediment, to the extent that such impediments can be proven to have a significant impact on completion or delivery of the Products or associated services. The same applies where the impediments to performance occur in the operations of KARDEX' upstream suppliers. KARDEX will further not be accountable for the above circumstances if they arise during an already existing delay. KARDEX will notify the customer without delay of the beginning and end of such impediments.</p>
-                <p className="mb-1"><strong>2.6.</strong> If the dispatch of the Products is delayed at the customer's request, the customer will be invoiced as from one month after the notification of readiness for shipment issued by KARDEX for the resulting storage costs; in the case of storage in the factory, KARDEX may claim a storage fee in accordance with normal local rates. KARDEX is, however, entitled, after setting a reasonable deadline that has expired without effect, to use the Product otherwise, and to supply the customer with a similar product within a new delivery period.</p>
-                <p><strong>2.7.</strong> Partial deliveries are permitted.</p>
+                  <div className="mb-4">
+                    <h4 className="font-semibold mb-2">4. Warranty</h4>
+                    <p className="mb-1"><strong>4.1.</strong> KARDEX warrants the faultless provision of the Services in accordance with the relevant rules of law, the applicable norms and regulations and the recognised rules of technology.</p>
+                    <p className="mb-1"><strong>4.2.</strong> In the event of breach of warranty by KARDEX, KARDEX shall have the right and the duty to rectify the defect (<em>Nachbesserung</em>) within a reasonable deadline. If KARDEX's first attempt to rectify the defect is unsuccessful or if KARDEX does not take any action, the customer has to grant KARDEX a second reasonable deadline to rectify the defect. If the second attempt to rectify is unsuccessful or if KARDEX allows said reasonable deadlines to expire without taking any action, the customer is entitled to claim a reduction of the remuneration for the improperly rendered service (<em>Minderung</em>). The customer is also entitled to claim a reduction of the remuneration if KARDEX seriously and ultimately refuses to carry out the rectification from the outset. The customer has a right to withdraw from the contract only if the services carried out by KARDEX repeatedly show serious defects and if KARDEX repeatedly fails to remedy breaches of warranty in accordance with this provision.</p>
+                    <p className="mb-1"><strong>4.3.</strong> The warranty runs as from acceptance of the service. The customer is obliged to immediately inspect and accept any service performed for defects and to immediately notify KARDEX in writing of any defects. The customer's warranty claims are forfeited to the extent that it fails to meet this obligation to raise a complaint.</p>
+                    <p className="mb-1"><strong>4.4.</strong> The customer's warranty rights expire 6 months after acceptance.</p>
+                    <p className="mb-1"><strong>4.5.</strong> The warranty is excluded if work or attempted repairs are carried out on the Products by maintenance companies not approved by KARDEX, unless KARDEX has genuinely and definitively refused to remedy the defect.</p>
+                    <p><strong>4.6.</strong> Unless explicitly agreed otherwise, KARDEX does not warrant that maintenance and inspections will be carried out within a particular time frame. KARDEX further does not warrant that in the case of KARDEX Remote Support a third party does not gain unauthorized access to the Products.</p>
+                  </div>
+
+                  <div className="mb-4">
+                    <h4 className="font-semibold mb-2">5. Term and Termination of the Service Contract</h4>
+                    <p className="mb-1"><strong>5.1.</strong> The service contract enters into force at the time specified in the service contract and has an initial term of 2 years.</p>
+                    <p className="mb-1"><strong>5.2.</strong> It will be extended by further periods of one year in each case unless terminated in writing by either party, with at least 3 months' notice to the end of the respective contractual period.</p>
+                    <p className="mb-1"><strong>5.3.</strong> The service contract may be terminated in writing for cause by either party with immediate effect if one of the contracting parties has significantly breached its obligations under the service contract and fails to remedy the breach, in spite of a compliance notice from the other party giving it a deadline of 2 weeks to do so. Section C3.4 shall apply to breaches of duty in connection to warranty claims.</p>
+                    <p><strong>5.4.</strong> KARDEX may demand that individual Products be excluded from the service contract after a notice period of 3 months, if the Products concerned can no longer be properly maintained because of excessive wear and tear, excessive efforts and lack of availability of spare parts or obsolescence (section B.9.).</p>
+                  </div>
+
+                </div>
               </div>
 
-              <div className="mb-4">
-                <h4 className="font-semibold mb-2">3. Late Delivery</h4>
-                <p className="mb-1"><strong>3.1.</strong> The customer's entitlement to compensation for damages caused by delay is dependent on prior notification of the delay in writing by the customer to KARDEX, and provision of proof of damage incurred as a result of the delay. The damages caused by delay will in any case be limited to a maximum of 0.1% of the consideration per expired week of delay, and to a maximum of 5% of the total consideration. Further compensation claims by the customer due to delay are excluded; this does not apply in the case of willful misconduct or gross negligence by KARDEX.</p>
-                <p className="mb-1"><strong>3.2.</strong> The customer can only waive delivery and withdraw from the contract if, after the agreed delivery date has passed or the agreed delivery period has expired, (i) the customer sets KARDEX in writing two grace periods of reasonable length, whereby each grace period shall at least be 10 weeks, (ii) these two grace periods expire without success, and (iii) the customer, immediately after expiry of the second grace period, declares in writing that it waives delivery or withdraws from the contract.</p>
-                <p><strong>3.3.</strong> To the extent permitted by law, all further claims and rights of the customer due to or in relation with the delay, in particular with respect to any further damages, are excluded.</p>
-              </div>
-
-              <div className="mb-4">
-                <h4 className="font-semibold mb-2">4. Place of Delivery; Transfer of Risk; Inspection Obligation</h4>
-                <p className="mb-1"><strong>4.1.</strong> Unless expressly agreed otherwise, the Product will be delivered "FCA KARDEX factory" (Incoterms 2010).</p>
-                <p className="mb-1"><strong>4.2.</strong> If an installation of the Product has been agreed, the Product will be delivered "DDP customer's factory" (Incoterms 2010), unless expressly agreed otherwise. In this case, the risk passes to the customer at the latest at the arrival of the Product at the customer's premises.</p>
-                <p className="mb-1"><strong>4.3.</strong> If shipment is delayed in the situation according to section B.4.1. due to circumstances beyond the control of KARDEX, the use and risk of the Products will pass to the customer when the goods are ready for dispatch.</p>
-                <p><strong>4.4.</strong> In the situation according to section B.4.2., the customer is required to inspect the Product for externally visible damage immediately upon its delivery and, if a transport damage is suspected, to provide a written and photographically documented report of the damage in due course so that the deadlines for making insurance claims can be met.</p>
-              </div>
-
-              <div className="mb-4">
-                <h4 className="font-semibold mb-2">5. Inspection and Acceptance</h4>
-                <p className="mb-1"><strong>5.1.</strong> The customer is required to inspect the quality and quantity of the Product supplied immediately upon receipt. Any defects or incorrect deliveries must be reported immediately, but in any event within 10 days from receipt of the Product (or from detection in case of hidden defects), in detail in writing and with photographic documentation. If the report is submitted late, the deliveries will be deemed accepted and no warranty will apply.</p>
-                <p className="mb-1"><strong>5.2.</strong> If an installation of the Product has been agreed, the customer is obliged to carry out an inspection and acceptance procedure on the Product as soon as KARDEX notifies the customer that the Products are ready for inspection. Defects must be recorded in a written report (customer acceptance certificate). Immediately after the acceptance inspection, KARDEX is to be sent a copy of the customer acceptance certificate and KARDEX is to be notified about any defects in a detailed written report. If the customer fails to meet this complaint notification obligation, all warranty claims will lapse.</p>
-                <p className="mb-1"><strong>5.3.</strong> If acceptance is delayed for reasons beyond the control of KARDEX, the Product is deemed to be accepted 14 days after the receipt of the Products or, if it is a delivery with installation, the notification that the Products are ready for inspection. The Product is further deemed to be accepted if it is in productive use by the customer.</p>
-                <p className="mb-1"><strong>5.4.</strong> If the Product shows only minor defects in the acceptance inspection, the customer may not refuse acceptance; instead, in this case the Product is deemed to be accepted.</p>
-                <p><strong>5.5.</strong> With acceptance, KARDEX is no longer liable for any defects which could have been discovered on normal inspection and which are not listed in the customer acceptance certificate.</p>
-              </div>
-
-              <div className="mb-4">
-                <h4 className="font-semibold mb-2">6. Warranty</h4>
-                <p className="mb-1"><strong>6.1.</strong> KARDEX warrants the delivery of Products free from defects. Products shall be deemed defective if (i) they are demonstrably afflicted with defects at the time of passing of risk which cancel or significantly reduce their value or (ii) guaranteed characteristics are not met.</p>
-                <p className="mb-1"><strong>6.2.</strong> In the event of breach of warranty by KARDEX, KARDEX shall have the right and the duty to rectify the defect (<em>Nachbesserung</em>) within a reasonable deadline. If KARDEX's first attempt to rectify the defect is unsuccessful or if KARDEX does not take any action, the customer has to grant KARDEX a second reasonable deadline to rectify the defect. If the second attempt to rectify is unsuccessful or if KARDEX allows this second reasonable deadline to expire without taking any action, KARDEX, at its own discretion, shall offer the customer either replacement delivery or repair without charge.</p>
-                <p className="mb-1"><strong>6.3.</strong> KARDEX is obliged to bear all costs necessary to rectify, repair or replace a defective Product, in particular costs for transport, labor and materials, unless such costs are increased due to the fact that the Product has been moved to a location other than the agreed place of delivery.</p>
-                <p className="mb-1"><strong>6.4.</strong> If the rectification, replacement delivery or repair ultimately fails, the customer may claim a price reduction (<em>Minderung</em>). Only if the Product has physical defects that render it unsuitable for the intended purpose may the customer alternatively rescind the contract (<em>Wandelung</em>).</p>
-                <p className="mb-1"><strong>6.5.</strong> If KARDEX has guaranteed a specified level of performance (throughput) or a specified availability of a device and, at the time of acceptance by the customer, the shortfall with respect to the guaranteed performance or availability is no more than 15%, the customer, to the extent permitted by law, shall not have the right to rescind the contract, request a replacement delivery or claim damages. As a remedy, KARDEX, at its own choice, shall offer the customer either rectification or a price reduction.</p>
-                <p className="mb-1"><strong>6.6.</strong> If (a) KARDEX has guaranteed a specified level of performance (throughput) or availability of a device, (b) the customer subsequently changes the device specification or places additional orders, and (c) this reduces the performance or availability, the guaranteed values shall be deemed adjusted accordingly.</p>
-                <p className="mb-1"><strong>6.7.</strong> The customer's warranty rights in case of supply of Products not in accordance with the contract become time-barred on the expiry of 12 months after delivery to the customer.</p>
-                <p><strong>6.8.</strong> Warranty claims expire early if any attempted repairs or modification are carried out by untrained or uncertified personnel of the customer or untrained or uncertified third parties, if the Product is operated or maintained inappropriately or contrary to the manufacturer's instructions, or if the Product is moved by the customer to another location without the involvement of KARDEX.</p>
-              </div>
-
-              <div className="mb-4">
-                <h4 className="font-semibold mb-2">7. Prices and Payment Conditions</h4>
-                <p className="mb-1"><strong>7.1.</strong> If the legal or regulatory requirements for the Product change after conclusion of the contract and this makes it significantly more difficult for KARDEX to deliver the Products in accordance with the contract, KARDEX may charge a reasonable increase of the consideration. An agreed delivery period, where applicable, will be extended by the delay resulting from the change.</p>
-                <p><strong>7.2.</strong> In deviation from section A.4.2., the purchase price will be due for payment as follows: if KARDEX has undertaken to install the Product, 50% is payable upon placement of the order, 40% upon delivery (or no later than 30 days after notification of delivery) and 10% within 30 days of acceptance. If KARDEX has not undertaken to install the Product, the full purchase price is payable 30 days after supply and invoicing, without deduction. Advance</p>
-              </div>
-
-              </div>
+              {/* Page 11 Footer */}
+              <PageFooter productType={offer?.productType} pageNumber={9} />
             </div>
 
-            {/* Page 7 Footer */}
-            <PageFooter productType={offer?.productType} pageNumber={7} />
-          </div>
-
-          {/* Page 8 - Part B Continued + Part C Start */}
-          <div className="page page-8 shadow-2xl print:shadow-none mb-10 print:mb-0">
-            <KardexLogo />
-
-            <div className="page-content terms-page">
-              <div className="terms-content">
-              
-              {/* Continuation from previous page */}
-              <p className="mb-1">and prepayments are payable within 10 days from date of the invoice without deduction.</p>
-              <p className="mb-1"><strong>7.3.</strong> If the purchase price is specified in a currency other than in Euro, KARDEX is entitled to additionally charge the customer for any currency effects occurring between the order confirmation and the final invoice.</p>
-
-              <div className="mb-4">
-                <h4 className="font-semibold mb-2">8. Spare Parts; Wear Parts; Maintenance Commitment</h4>
-                <p className="mb-1"><strong>8.1.</strong> KARDEX gives the customer an assurance of the availability of non-electronic spare and wear parts ("Parts") for a period of 10 years, and electronic Parts for a period of 6 years, from the delivery of the Machine.</p>
-                <p><strong>8.2.</strong> With respect to software, the maintenance commitment of KARDEX is subject to any maintenance contract concluded between KARDEX and the customer.</p>
-              </div>
-
-              <div className="mb-4">
-                <h4 className="font-semibold mb-2">9. Technical Support by the Customer</h4>
-                <p className="mb-1"><strong>9.1.</strong> If the installation of the Product has been agreed, the customer is obliged to provide technical support at its own expense. This includes in particular:</p>
-                <p className="mb-1">a) Any necessary underpinning or plugging of the steel framework and laying of the underfloor (screed flooring) after installation. The customer is to provide the installation surface for the Product at the new location in well-swept condition.</p>
-                <p className="mb-1">b) Provision of and, if and to the extent requested by KARDEX in each particular case, operation and maintenance of the necessary equipment and heavy tools (e.g. scissor lift) as agreed with KARDEX, and the required auxiliary items and materials (e.g. underrays, wedges, lubricants, fuel, etc.).</p>
-                <p className="mb-1">c) Provision of heating, lighting, site energy supply, water, including the necessary connections.</p>
-                <p className="mb-1">d) Provision of suitable, burglar-proof personnel rooms and work rooms with heating, lighting, washing facilities and sanitary facilities, and first aid for the installation personnel.</p>
-                <p className="mb-1">e) Transport of installation parts to the installation location, protection of the installation location and installation materials from harmful effects of all kinds, cleaning of the installation location.</p>
-                <p className="mb-1">f) Provision of materials and carrying out any other actions required for initial adjustment of the Product and carrying out testing as specified in the contract.</p>
-                <p className="mb-1">g) Ensuring the floor load capacity at the installation location, and providing an installation surface that is robust, level on all sides and horizontal.</p>
-                <p className="mb-1">h) Prior to the start of installation, provide at the location of the machine as per relevant regulations the required energy supply, internet and data connection in accordance with KARDEX specifications.</p>
-                <p className="mb-1">i) Providing the structural prerequisites for correct, problem-free installation (for example, moving of ventilation ducts, batten light fittings, water pipes, if these obstruct the installation of the Product).</p>
-                <p className="mb-1"><strong>9.2.</strong> The technical support provided by the customer must be such as to ensure that the work on the providing services can begin immediately on the arrival of the KARDEX technician and can be carried out without delay until acceptance by the customer. The technician should be able to work at optimum capacity between 7:00 a.m. and 6:00 p.m. If special plans or instructions from KARDEX are needed for the installation, KARDEX will supply these to the customer sufficiently in advance.</p>
-                <p className="mb-1"><strong>9.3.</strong> The customer will provide, when needed, assistance to the KARDEX technician on site with its own personnel to the best of its ability; this applies in particular where work is to be carried out that a single person cannot reasonably be expected to perform, or that cannot be carried out safely by a single person. KARDEX cannot be charged for such assistance. The customer is to confirm the work carried out by the KARDEX technician by signing off the technician's work report.</p>
-                <p><strong>9.4.</strong> If the customer fails to meet its obligations, KARDEX, after issuing a non-compliance notice, is entitled, but not obliged, to carry out the actions incumbent on the customer in the customer's place, and at customer's expense, or have them carried out by third parties. In addition, there can be no delay on the part of KARDEX to the extent and for as long as the customer has failed to meet its obligations.</p>
-              </div>
-
-              {/* Part C */}
-              <div className="terms-part-header part-c mt-6">
-                <h3>PART C: PROVISIONS FOR LIFE CYCLE SERVICES</h3>
-              </div>
-              
-              <p className="mb-2">The terms and conditions for Life Cycle services are arranged in three major parts. Part C1 contains general definitions, Part C2 describes the terms and conditions for individual services and Part C3 outlines the terms and conditions for service contracts.</p>
-
-              <h4 className="font-semibold mb-2 mt-4">C1: General Definitions</h4>
-              
-              <div className="mb-4">
-                <h4 className="font-semibold mb-2">1. Individual Service Orders</h4>
-                <p className="mb-1"><strong>1.1.</strong> Subject matter of individual service orders is the provision of individual services, such as repairs, installations and commissioning without delivery of a system, relocation of a system, maintenance, modifications, retrofits and upgrades of any Product as delivered under Part B (hereinafter referred to individually or collectively as "<strong>Individual Service(s)</strong>" or "<strong>Individual Order</strong>").</p>
-                <p><strong>1.2.</strong> The scope of services is determined in the subsequent provisions as well as in the order confirmation, which specify (a) the services to be provided, (b) the system, machine and/or software (hereinafter referred to individually or collectively as "<strong>Product(s)</strong>") for which the services are to be provided, (c) place of delivery and delivery times, and (d) the remuneration owed therefor.</p>
-              </div>
-
-              <div className="mb-4">
-                <h4 className="font-semibold mb-2">2. Service Contract</h4>
-                <p className="mb-1"><strong>2.1.</strong> The subject matter of a service contract is the performance of maintenance, repair work or other services ("<strong>Maintenance</strong>" or "<strong>Service(s)</strong>") on Products over several years.</p>
-                <p><strong>2.2.</strong> The scope of the services is determined by the service contract, specifying (a) the chosen service package (BASE, FLEX or FULL Care), (b) the Products for which Maintenance is to be provided, and (c) the remuneration payable as the annual fee.</p>
-              </div>
-
-              <div className="mb-4">
-                <h4 className="font-semibold mb-2">3. Response Times</h4>
-                <p>"<strong>Helpdesk Reaction Time</strong>" is defined as the time from when the customer's fault report is received by the KARDEX Central Call Desk ("CCD") to when KARDEX Remote Support or telephone-based service begins. "<strong>OnSite Reaction Time</strong>" is defined as the time from when the customer's fault report is received by the CCD to the service technician's arrival on site. Only the reaction time during normal office hours is relevant, with continuation on the next working day, where applicable. Times outside normal office hours will not be taken into account when calculating the response time, unless an extended "Onsite & Helpdesk support" is agreed upon in the corresponding service contract. KARDEX guarantees to the customer that it will meet response times as described in the service contract.</p>
-              </div>
-
-              <div className="mb-4">
-                <h4 className="font-semibold mb-2">4. Fault Reports</h4>
-                <p className="mb-1"><strong>4.1.</strong> All faults must be reported to KARDEX by telephone, online or using the Remote Help Request button, so that recording and classification of the fault can be undertaken within the Helpdesk Reaction Time, and so that the necessary arrangements can be initiated without delay.</p>
-                <p className="mb-1"><strong>4.2.</strong> The elimination of the fault is carried out by telephone support, Remote Support (if agreed) or an on-site callout of a technician. The choice of the suitable measure(s) is at the sole discretion of KARDEX.</p>
-                <p className="mb-1"><strong>4.3.</strong> If a customer submits fault reports outside the contractually agreed On-site & Helpdesk support hours, KARDEX is not obligated to initiate a service intervention such as telephone support, Remote Support or an on-site callout. If an on-site callout does, however, take place, the customer will be charged at double the applicable hourly rate of the KARDEX customer service.</p>
-                <p className="mb-1"><strong>4.4.</strong> KARDEX is obliged to investigate a fault only if it has been properly reported by the customer, and if the fault at the client's location is reproducible or can be demonstrated by machine-generated outputs.</p>
-                <p className="mb-1"><strong>4.5.</strong> For software fault special conditions apply. A software fault is present only if the use of core functions of the software is impossible or severely impaired, and/or</p>
-                <ul className="list-disc pl-6 mb-1">
-                  <li>the software produces incorrect results, which cannot be attributed to operating errors by the customer; or</li>
-                  <li>there is an uncontrolled interruption of the running of the software that is not caused by a program interface; or</li>
-                  <li>use of the software is severely impaired or prevented in another manner contrary to correct functionality.</li>
-                </ul>
-              </div>
-
-              </div>
-            </div>
-
-            {/* Page 8 Footer */}
-            <PageFooter productType={offer?.productType} pageNumber={8} />
-          </div>
-
-          {/* Page 9 - C2 Individual Services */}
-          <div className="page page-9 shadow-2xl print:shadow-none mb-10 print:mb-0">
-            <KardexLogo />
-
-            <div className="page-content terms-page">
-              <div className="terms-content">
-              
-              {/* Continuation from previous page */}
-              <p className="mb-1"><strong>1.1.</strong> A software fault is not present in the case of problems for which the cause cannot be attributed to software supplied by KARDEX, but in particular rather to the software of other manufacturers, the customer's hardware or operating system, the database or a parameterisation error on the part of the customer.</p>
-
-              <div className="mb-4">
-                <h4 className="font-semibold mb-2">5. Timing / Agreement on Dates</h4>
-                <p className="mb-1"><strong>5.1.</strong> If the customer cancels or postpones a service intervention arranged less than 48 hours before the start of the intervention, the customer is required to bear the costs associated therewith at the usual KARDEX rates.</p>
-                <p><strong>5.2.</strong> KARDEX is entitled to invoice the costs for unnecessary travel to the customer's location or on-site waiting times in excess of 30 minutes separately at the usual KARDEX customer service hourly rates applicable at the time of the scheduled intervention.</p>
-              </div>
-
-              <div className="mb-4">
-                <h4 className="font-semibold mb-2">6. Liability</h4>
-                <p className="mb-1"><strong>6.1.</strong> To the extent permitted by law, KARDEX will not be liable for damage resulting from incorrect use of the Products, telephone or electronic transmission failures, faulty execution of support instructions by the customer, attempted repairs carried out by the customer itself or third parties, service parts not being available on site, untrained or unauthorised staff of the customer or third parties, or delay in reaching the on-duty service technician because of being engaged in another service intervention. Nor will KARDEX be liable for the consequences of any loss of data.</p>
-                <p><strong>6.2.</strong> To the extent permitted by law, any liability for merchandise and goods stored in the Products is excluded.</p>
-              </div>
-
-              <div className="terms-part-header part-c-sub mt-4">
-                <h3>C2: INDIVIDUAL SERVICES</h3>
-              </div>
-
-              <div className="mb-4">
-                <h4 className="font-semibold mb-2">1. Individual Services Contain the Following Services</h4>
-                <p className="mb-1"><strong>1.1.</strong> Installation and Commissioning Service to install newly and/or rebuild the Product by skilled technicians. This may include operation and/or maintenance training of customer personnel.</p>
-                <p className="mb-1"><strong>1.2.</strong> On-site support intervention for repair and recommissioning after a break down or loss of productivity. On-Site Services include the provision of labor by skilled technicians, materials such as spare parts, wear parts and consumables, travel costs and fees for daily allowance, as well as special fees for outside office hours call outs.</p>
-                <p className="mb-1"><strong>1.3.</strong> Remote Support or telephone support interventions are designed to enable the customer to bring back its system to normal operation in a short period of time and to therefore increase the operating time. The continuous monitoring via Remote Support can even prevent downtimes.</p>
-                <p className="mb-1"><strong>1.4.</strong> Relocation Service of KARDEX offers its customers the relocation and moving of the products manufactured by KARDEX, either within the same or to a different site, within domestic territory or abroad ("<strong>Relocation Service</strong>"). The Relocation Service comprises the dismantling of the Product at the old location, transport of the components from the old to the new location (if so agreed), interim storage of the components (if so agreed), installation at the new location, and commissioning of the Product. The relocation service does not include the rectification of defects and the replacement of wear parts, both of which require the placement of a separate order against a separate fee to be executed and handled independently from the relocation service. If the new location is in a different country than the old location, the customer is required to perform all the actions necessary for transportation to the other country and also the operation in the other country. The customer bears all the costs arising in this context (necessary modification of the Product, customs, clearance fees, etc.). Necessary modifications to the Product require a separate order for Individual Services (for a separate fee). The customer has to remove all the contents (goods in storage) from the Product, before relocation can take place.</p>
-                <p className="mb-1"><strong>1.5.</strong> Training services are designed to empower the customer's staff to operate the system according to its intended use, to increase the adherence to safe working methods and to positively influence the system's overall availability and performance.</p>
-                <p className="mb-1"><strong>1.6.</strong> Maintenance and Safety Tests are intended to maintain the system's reliability, to prevent unexpected break downs, to ensure the testing of safety equipment on a regular and professional basis as well as to reduce premature loss of the system's value.</p>
-                <p className="mb-1"><strong>1.7.</strong> Modification services are intended to adapt the system to the changes implied by the customer's business operation in mechanics and software to ensure that it meets changed operational requirements.</p>
-                <p className="mb-1"><strong>1.8.</strong> Upgrade and Retrofit Services are intended to bring the system up-to-date with the latest technology, with regards to mechanics and software.</p>
-                <p><strong>1.9.</strong> The Spare Part Delivery Service is intended to enable the customer to purchase single parts to be fitted into the customer's systems or spare part packages with carefully selected assortments of parts which are stored at the customer's premises to ensure their availability in case of an on-site intervention.</p>
-              </div>
-
-              <div className="mb-4">
-                <h4 className="font-semibold mb-2">2. Use of Third Party Sub-Contractors</h4>
-                <p>In order to meet its obligations under Individual Services, KARDEX may make use of the services of third parties. KARDEX is not obliged to perform the Individual Service itself. If KARDEX makes use of a third party, KARDEX will by means of suitable contractual provisions with such party that the obligations of KARDEX under the Individual Service are fulfilled by the third party.</p>
-              </div>
-
-              <div className="mb-4">
-                <h4 className="font-semibold mb-2">3. Unauthorized Intervention in Kardex Systems</h4>
-                <p>The customer is obliged to inform KARDEX before KARDEX commences its work about any external or internal work or renewal of parts carried out on the Product by the customer or third parties, whereby KARDEX is entitled to request a thorough chargeable inspection of such amended or renewed Product or decline to perform the Individual Service.</p>
-              </div>
-
-              <div className="mb-4">
-                <h4 className="font-semibold mb-2">4. Technical Support by the Customer</h4>
-                <p>The customer is obliged to provide technical support to KARDEX for the performance of the Individual Service at its own expense. Section B.10. applies accordingly in the case of an installation order or relocation order.</p>
-              </div>
-
-              <div className="mb-4">
-                <h4 className="font-semibold mb-2">5. Acceptance</h4>
-                <p className="mb-1"><strong>5.1.</strong> As soon as KARDEX notifies the customer of the completion of the Individual Service, the customer must carry out an acceptance inspection of the performed services and/or delivered products. The results of such acceptance inspection including a detailed report of any defects are to be recorded in writing in a customer acceptance certificate, a signed copy of which must be immediately handed over/sent to KARDEX. If the customer fails to meet this complaint notification obligation, the respective warranty claims will lapse.</p>
-                <p className="mb-1"><strong>5.2.</strong> If acceptance is delayed for reasons beyond the control of KARDEX, the Products are deemed to be accepted 14 days after notification of completion by KARDEX. KARDEX is entitled to invoice the cost incurred from such delays.</p>
-                <p className="mb-1"><strong>5.3.</strong> If only minor defects are found in the acceptance inspection, the customer may not refuse acceptance. In such case, the Individual Service shall be deemed accepted.</p>
-                <p><strong>5.4.</strong> With acceptance, KARDEX is no longer liable for any defects which could have been discovered on normal inspection and which are not listed in the customer acceptance certificate.</p>
-              </div>
-
-              <div className="mb-4">
-                <h4 className="font-semibold mb-2">6. Warranty</h4>
-                <p className="mb-1"><strong>6.1.</strong> KARDEX warrants the faultless provision of the services in accordance with the legal regulations, the applicable norms and directives as well as the recognized rules of technology.</p>
-                <p className="mb-1"><strong>6.2.</strong> In the event of breach of warranty by KARDEX, KARDEX shall have the right and the duty to rectify the defect (<em>Nachbesserung</em>) within a reasonable deadline. If KARDEX' first attempt to rectify the defect is unsuccessful or if KARDEX does not take any action, the customer has to grant KARDEX a second reasonable deadline to rectify the defect. If the second attempt to rectify is unsuccessful or if KARDEX allows this second reasonable deadline to expire without taking any action, the customer is entitled to claim a reduction of the remuneration (<em>Minderung</em>). The customer is also entitled to claim a reduction of the remuneration if KARDEX seriously and ultimately refuses to carry out the rectification from the outset. However, the customer may only withdraw from the contract if the services carried out by KARDEX repeatedly show serious defects and if KARDEX repeatedly fails to remedy breaches of warranty in accordance with this provision.</p>
-                <p className="mb-1"><strong>6.3.</strong> The customer's warranty rights expire 6 months after acceptance.</p>
-                <p><strong>6.4.</strong> Warranty is voided in case of: (a) improper or unintended use, (b) faulty installation or commissioning by the customer or a third party, (c)</p>
-              </div>
-
-              </div>
-            </div>
-
-            {/* Page 9 Footer */}
-            <PageFooter productType={offer?.productType} pageNumber={9} />
-          </div>
-
-          {/* Page 10 - C2 Continued, C3 Service Contracts */}
-          <div className="page page-10 shadow-2xl print:shadow-none mb-10 print:mb-0">
-            <KardexLogo />
-
-            <div className="page-content terms-page">
-              <div className="terms-content">
-              
-              {/* Continuation from previous page */}
-              <p className="mb-1">modification, maintenance, repair or relocation of the Product by the customer or a third party, (d) excessive wear and tear due to circumstances within the customer's control, (e) faulty operation or negligent treatment of the Products, (f) use of inappropriate service fluids or replacement materials, (g) faulty construction or unsuitable soil on the customer's premises, (h) chemical or electronic effects, if these are not due to fault of KARDEX, (i) untrue indications by the customer or its advisors on the operational and technical conditions for the use of the products, and (j) cases of force majeure such as natural disasters, acts of war or acts of terrorism.</p>
-
-              <div className="mb-4">
-                <h4 className="font-semibold mb-2">7. Remuneration</h4>
-                <p className="mb-1"><strong>7.1.</strong> The remuneration for Individual Services will be charged on a time and material basis according to KARDEX's current price list, unless a lump sum fee has been expressly agreed.</p>
-                <p className="mb-1"><strong>7.2.</strong> KARDEX has the right to charge the customer any costs for unnecessary travel to the customer or if the Individual Service could not be performed for reasons for which the customer is responsible.</p>
-                <p><strong>7.3.</strong> Any waiting times caused by the customer's lack of support can be charged by KARDEX to the customer.</p>
-              </div>
-
-              <div className="terms-part-header part-c-sub mt-6">
-                <h3>C3: SPECIFIC PROVISIONS FOR SERVICE CONTRACTS</h3>
-              </div>
-
-              <div className="mb-4">
-                <h4 className="font-semibold mb-2">1. Service Packages</h4>
-                <p className="mb-1"><strong>1.1.</strong> The services provided by KARDEX in the context of service contracts are determined by the product and service descriptions of the Service Contract, the technical requirements, the specified maintenance intervals as well as the defined software upgrades, service releases and software updates. Such services can include all products delivered under Part B. Unless otherwise specified, the scope of service does not include the performance of all work and the installation of spare parts required for restoration of normal operational readiness of the Product in accordance with a professional assessment and the recognised code of practice.</p>
-                <p className="mb-1"><strong>1.2.</strong> In general, KARDEX will carry out maintenance work during normal office hours. To have access to services outside normal office hours, the customer can opt for the "FLEX Care" or "FULL Care" service packages, which must be ordered separately.</p>
-                <p className="mb-1"><strong>1.3.</strong> Without prejudice to the warranty under delivery contracts, KARDEX does not provide any warranty that the Product will remain free of defects and/or will function without interruption during the term of the service contract. The warranty for services provided by KARDEX is based on section C3.4.</p>
-                <p className="mb-1"><strong>1.4.</strong> The inclusion of a Product in a service contract requires that the Product and its components are in a technically perfect condition and that the customer has acquired a right to use the current version of the software. Products for which the warranty commencing on delivery has already expired will only be included in the service contract after they have been subjected to an inspection by KARDEX. The costs for the inspection and any expenses incurred for bringing the Product to be included back into a proper condition shall be borne by the customer, according to the applicable rates and price lists.</p>
-                <p><strong>1.5.</strong> The KARDEX remote support portal ("<strong>KARDEX Remote Support</strong>") allows the condition of the product to be monitored by the assessment of technical data from the control unit. All personal data and customer related data exchanged in the context of the services will be used exclusively for the purposes defined in these terms of use. A connection to the KARDEX Remote Support does not guarantee that malfunctions can be diagnosed or eliminated by means of the KARDEX Remote Support. If the malfunction cannot be solved by means of KARDEX Remote Support, KARDEX will send a service technician to the concerned Product to eliminate the malfunction and will separately charge its services pursuant to the applicable rates and price lists.</p>
-              </div>
-
-              <div className="mb-4">
-                <h4 className="font-semibold mb-2">2. Customer Obligations</h4>
-                <p className="mb-1"><strong>2.1.</strong> The customer shall treat and use the Product in accordance with KARDEX operating recommendations. The customer shall enable KARDEX to eliminate malfunctions arising due to incorrect operation, at the customer's expense.</p>
-                <p className="mb-1"><strong>2.2.</strong> Faults are to be reported solely by the customer authorised person commissioned with operating the machine in accordance with the KARDEX operator manual to the on-duty KARDEX service technician. The fault report must be submitted from the location of the Product concerned using a suitable means of communication, specifying the Product name, the model and series or license number and the best possible description of the fault. The disclosure of KARDEX contact details or premises access codes to any third parties is expressly prohibited in the interests of ease of access. The customer is obliged to keep his technical equipment available in such a way that the support by KARDEX via telephone or KARDEX Support Portal is possible. Connection costs shall be borne by the customer.</p>
-                <p className="mb-1"><strong>2.3.</strong> With the conclusion of a KARDEX Remote Support contract, the customer undertakes to provide a functional data transmission device (remote connection for KARDEX Remote Support), sufficiently protected against unauthorized third-party access, to allow KARDEX appropriate access to the customer's system for support tasks. As a prerequisite for this, the customer must provide KARDEX the required authorisations. Remote support is carried out via a suitable separate remote service software application, such as the KARDEX Remote Support application, or in exceptional cases, TeamViewer. Any data transmission costs incurred and any other costs arising from remote service are borne by the customer. Further details on this may be provided in the support contract. If the customer does not have data transmission facilities as defined above available, the customer shall reimburse KARDEX for the resulting increased expense. KARDEX is relieved from its duty to perform remote service, if – for reasons for which KARDEX is not responsible – no connection can be established from the system.</p>
-                <p className="mb-1"><strong>2.4.</strong> When required, the customer will support the KARDEX service technician on site with its own personnel to the best of its ability and to a reasonable extent; this applies in particular if the work to be carried out is beyond what a single person can reasonably be expected to do, or can do safely. There is no reimbursement claim against KARDEX for this. The customer will sign off the work done by the KARDEX service technical on the technician's work report, as the basis for invoicing.</p>
-                <p className="mb-1"><strong>2.5.</strong> The customer must ensure that the Products are exclusively available at the agreed timeslot to the KARDEX service technician executing the service, and that they can be shut down from operation for this purpose.</p>
-                <p className="mb-1"><strong>2.6.</strong> During the term of the service contract, the customer is obliged to have all maintenance and repairs on the Products carried out solely by KARDEX or an authorised subcontractor of KARDEX. Where applicable, it is to inform KARDEX of any prior work on the Products itself or parts replacements carried out by the customer itself or third parties, before the work starts. In such cases, KARDEX is entitled to require a thorough check of the Products in question or otherwise to decline to perform the service.</p>
-                <p className="mb-1"><strong>2.7.</strong> The customer will not change the location of the Product without prior written notice to KARDEX. Upon request, and at the customer's expense, KARDEX will carry out or supervise the relocation. If the customer does not have the relocation carried out or supervised by KARDEX, KARDEX services under the service contract will be suspended during the relocation and KARDEX will perform a system audit to ensure the correct and safe functionality of the Products before reinstating the services. Such a system audit will be charged separately according to the applicable rates and price lists. Any damages caused by an improper relocation will not be covered by the service packages.</p>
-                <p className="mb-1"><strong>2.8.</strong> The customer undertakes to actively accompany and support KARDEX in case of a maintenance issue in fault diagnosis and elimination conducted in the context of the KARDEX Remote Support. The customer notifies to KARDEX in writing qualified employees educated by KARDEX as contact persons authorized to perform and take all actions and decisions for the customer which are necessary in connection with the ordinary use. The contact person remains with the Product during the whole process of remote service ready to intervene, where appropriate, e.g. by operating the emergency shutdown. The customer is solely responsible for taking the necessary safety precautions to ensure that persons and property are not endangered during maintenance.</p>
-                <p><strong>2.9.</strong> Employees of the customer require a password for the use of the KARDEX Remote Support. Every person, legitimating him or herself via password, is deemed to be authorized towards KARDEX, and all entries and instructions based on a formally error free legitimization will be attributed to the customer.</p>
-              </div>
-
-              </div>
-            </div>
-
-            {/* Page 10 Footer */}
-            <PageFooter productType={offer?.productType} pageNumber={10} />
-          </div>
-
-          {/* Page 11 - C3 Remuneration, Warranty, Termination */}
-          <div className="page page-11 shadow-2xl print:shadow-none mb-10 print:mb-0">
-            <KardexLogo />
-
-            <div className="page-content terms-page">
-              <div className="terms-content">
-              <div className="mb-4">
-                <h4 className="font-semibold mb-2">3. Remuneration for Service Contracts</h4>
-                <p className="mb-1"><strong>3.1.</strong> An annual fee is charged for the services specified in the service contract, the amount of which depends on the selected service packages (BASE, FLEX, or FULL Care).</p>
-                <p className="mb-1"><strong>3.2.</strong> The first annual fee is invoiced on the signing of the service contract, and thereafter before the start of each contract year.</p>
-                <p className="mb-1"><strong>3.3.</strong> KARDEX reserves the right to increase or decrease the annual fee. If the increase is more than 5% of the agreed annual fee, the customer has an extraordinary right of termination for cause. The customer may then terminate the contract early, within one month of receiving the invoice for the increased annual fee, to take effect for the first contract year to which the increased annual fee applies.</p>
-                <p className="mb-1"><strong>3.4.</strong> KARDEX is entitled to charge the customer for unnecessary travel to the customer's location or if the service or part of the service cannot be performed on site if the customer is responsible for the impediment. If the customer, according to the service contract, has undertaken to keep certain parts in stock or if the customer failed to order from KARDEX the parts necessary for the service as specified by KARDEX, the customer may be charged for any waiting times caused by the required service parts not being available on site.</p>
-                <p><strong>3.5.</strong> Additional inspections following the repair of Products or the replacement of missing technical documents or service booklets are not included in the annual fee and will be invoiced separately at the hourly rates of KARDEX customer service applicable the time.</p>
-              </div>
-
-              <div className="mb-4">
-                <h4 className="font-semibold mb-2">4. Warranty</h4>
-                <p className="mb-1"><strong>4.1.</strong> KARDEX warrants the faultless provision of the Services in accordance with the relevant rules of law, the applicable norms and regulations and the recognised rules of technology.</p>
-                <p className="mb-1"><strong>4.2.</strong> In the event of breach of warranty by KARDEX, KARDEX shall have the right and the duty to rectify the defect (<em>Nachbesserung</em>) within a reasonable deadline. If KARDEX's first attempt to rectify the defect is unsuccessful or if KARDEX does not take any action, the customer has to grant KARDEX a second reasonable deadline to rectify the defect. If the second attempt to rectify is unsuccessful or if KARDEX allows said reasonable deadlines to expire without taking any action, the customer is entitled to claim a reduction of the remuneration for the improperly rendered service (<em>Minderung</em>). The customer is also entitled to claim a reduction of the remuneration if KARDEX seriously and ultimately refuses to carry out the rectification from the outset. The customer has a right to withdraw from the contract only if the services carried out by KARDEX repeatedly show serious defects and if KARDEX repeatedly fails to remedy breaches of warranty in accordance with this provision.</p>
-                <p className="mb-1"><strong>4.3.</strong> The warranty runs as from acceptance of the service. The customer is obliged to immediately inspect and accept any service performed for defects and to immediately notify KARDEX in writing of any defects. The customer's warranty claims are forfeited to the extent that it fails to meet this obligation to raise a complaint.</p>
-                <p className="mb-1"><strong>4.4.</strong> The customer's warranty rights expire 6 months after acceptance.</p>
-                <p className="mb-1"><strong>4.5.</strong> The warranty is excluded if work or attempted repairs are carried out on the Products by maintenance companies not approved by KARDEX, unless KARDEX has genuinely and definitively refused to remedy the defect.</p>
-                <p><strong>4.6.</strong> Unless explicitly agreed otherwise, KARDEX does not warrant that maintenance and inspections will be carried out within a particular time frame. KARDEX further does not warrant that in the case of KARDEX Remote Support a third party does not gain unauthorized access to the Products.</p>
-              </div>
-
-              <div className="mb-4">
-                <h4 className="font-semibold mb-2">5. Term and Termination of the Service Contract</h4>
-                <p className="mb-1"><strong>5.1.</strong> The service contract enters into force at the time specified in the service contract and has an initial term of 2 years.</p>
-                <p className="mb-1"><strong>5.2.</strong> It will be extended by further periods of one year in each case unless terminated in writing by either party, with at least 3 months' notice to the end of the respective contractual period.</p>
-                <p className="mb-1"><strong>5.3.</strong> The service contract may be terminated in writing for cause by either party with immediate effect if one of the contracting parties has significantly breached its obligations under the service contract and fails to remedy the breach, in spite of a compliance notice from the other party giving it a deadline of 2 weeks to do so. Section C3.4 shall apply to breaches of duty in connection to warranty claims.</p>
-                <p><strong>5.4.</strong> KARDEX may demand that individual Products be excluded from the service contract after a notice period of 3 months, if the Products concerned can no longer be properly maintained because of excessive wear and tear, excessive efforts and lack of availability of spare parts or obsolescence (section B.9.).</p>
-              </div>
-
-              </div>
-            </div>
-
-            {/* Page 11 Footer */}
-            <PageFooter productType={offer?.productType} pageNumber={11} />
-          </div>
-
-      {/* Modern PDF/Word-friendly Styles */}
-      <style jsx global>{`
+            {/* Modern PDF/Word-friendly Styles */}
+            <style jsx global>{`
         /* ==================== DOCUMENT CONTAINER ==================== */
         .quotation-document {
           max-width: 100%;
@@ -2286,6 +2467,24 @@ export default function QuoteGenerationPage() {
           grid-template-columns: repeat(2, 1fr);
           gap: 12px;
           margin-bottom: 20px;
+        }
+
+        /* ==================== OPTILIFE COVER PAGE ==================== */
+        .optilife-graphic-container {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          margin-top: 30px;
+          width: 100%;
+        }
+
+        .optilife-hero-img {
+          max-width: 100%;
+          width: 100%;
+          height: auto;
+          border-radius: 8px;
+          box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+          display: block;
         }
 
         .note-item-premium {
@@ -2826,14 +3025,16 @@ export default function QuoteGenerationPage() {
         /* ==================== LEGACY HEADERS & TITLES ==================== */
         .page-title h1 {
           text-align: center;
-          font-size: 18px;
-          font-weight: normal;
-          color: #4a5568;
-          border-bottom: 2px solid #a0a0a0;
-          padding-bottom: 8px;
           margin: 20px 0 30px 0;
+        }
+
+        .page-title-text {
+          font-size: 22px;
+          font-weight: 700;
+          color: #546A7A;
+          border-bottom: 2px solid #546A7A;
+          padding-bottom: 4px;
           display: inline-block;
-          width: 100%;
         }
 
         .page-title-secondary {
@@ -2895,14 +3096,16 @@ export default function QuoteGenerationPage() {
         }
 
         .data-table th {
-          background-color: #4472C4 !important;
-          color: white !important;
-          font-weight: 600;
+          background-color: #D9E1F2 !important; /* Light Gray-Blue */
+          color: #000000 !important; /* Black text */
+          font-weight: 700;
           padding: 8px;
-          text-align: left;
-          border: 1px solid #374151;
+          text-align: center;
+          border: 1px solid #000000;
           -webkit-print-color-adjust: exact;
           print-color-adjust: exact;
+          text-transform: uppercase;
+          letter-spacing: 0.025em;
         }
 
         .data-table th.text-right {
@@ -2911,8 +3114,9 @@ export default function QuoteGenerationPage() {
 
         .data-table td {
           padding: 8px;
-          border: 1px solid #d1d5db;
+          border: 1px solid #000000;
           text-align: left;
+          color: #1e293b;
         }
 
         .data-table td.text-right {
@@ -3564,13 +3768,12 @@ export default function QuoteGenerationPage() {
           margin-bottom: 1px;
         }
 
-        /* Pages 10-11 specific - SINGLE COLUMN for long paragraphs */
+        /* Pages 10-11 specific */
         .page-10 .terms-content,
         .page-11 .terms-content {
           display: block !important;
-          column-count: 1 !important;
-          font-size: 7.5px !important;
-          line-height: 1.2 !important;
+          font-size: 8.2px !important;
+          line-height: 1.35 !important;
         }
 
         .page-10 .terms-content h4,
@@ -3591,7 +3794,7 @@ export default function QuoteGenerationPage() {
         }
 
         /* ==================== MOBILE RESPONSIVENESS ==================== */
-        @media (max-width: 768px) {
+        @media screen and (max-width: 768px) {
           .container {
             padding-left: 1rem !important;
             padding-right: 1rem !important;
@@ -3683,34 +3886,40 @@ export default function QuoteGenerationPage() {
         .page-footer {
           position: absolute;
           bottom: 12mm;
-          left: 20mm;
-          right: 20mm;
+          left: 0;
+          right: 0;
+          width: 100%;
+          box-sizing: border-box;
+          padding: 0 20mm;
           border-top: 1px solid #d1d5db;
           padding-top: 8px;
           z-index: 10;
         }
 
         .footer-content {
-          display: flex !important;
-          flex-direction: row !important;
-          justify-content: space-between !important;
-          align-items: center !important;
+          display: block !important;
           width: 100% !important;
           font-size: 10px;
           color: #6b7280;
         }
 
         .footer-content span {
-          flex: 1;
+          display: inline-block !important;
+          float: left !important;
+          width: 33% !important;
+          text-align: left !important;
+          box-sizing: border-box !important;
         }
 
         .footer-content span:nth-child(2) {
-          text-align: center;
-          flex: 2;
+          text-align: center !important;
+          width: 34% !important;
         }
 
         .footer-content span:last-child {
-          text-align: right;
+          text-align: right !important;
+          float: right !important;
+          width: 33% !important;
         }
 
         /* Page structure - global style */
@@ -3822,6 +4031,7 @@ export default function QuoteGenerationPage() {
             display: flex !important;
             flex-direction: column !important;
             box-sizing: border-box !important;
+            position: relative !important;
             page-break-after: always !important;
           }
 
@@ -4138,10 +4348,13 @@ export default function QuoteGenerationPage() {
           .page-footer {
             position: absolute !important;
             bottom: 12mm !important;
-            left: 20mm !important;
-            right: 20mm !important;
+            left: 0 !important;
+            right: 0 !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
+            padding-left: 15mm !important;
+            padding-right: 15mm !important;
             z-index: 100 !important;
-            display: flex !important;
             background: white !important;
             border-top: 1px solid #d1d5db !important;
             padding-top: 8px !important;
@@ -4187,9 +4400,9 @@ export default function QuoteGenerationPage() {
           }
         }
       `}</style>
+          </div>
         </div>
       </div>
     </div>
-  </div>
-)
+  )
 }
