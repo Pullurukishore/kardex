@@ -66,6 +66,7 @@ interface OfferItem {
   quantity: number
   total?: string
   sparePartId?: number
+  discount?: number
 }
 
 interface OfferSparePart {
@@ -103,8 +104,10 @@ interface OfferAsset {
 interface MachineDetails {
   model: string
   serialNumber: string
-  owner: string
-  department: string
+  owner?: string
+  department?: string
+  control?: string
+  yearOfManufacturing?: string
 }
 
 interface Offer {
@@ -135,6 +138,18 @@ interface Offer {
   machineDetails?: MachineDetails
   offerSpareParts?: OfferSparePart[]
   offerAssets?: OfferAsset[]
+  assignedTo?: {
+    id: number
+    name: string
+    email?: string
+    phone?: string
+  }
+  createdBy?: {
+    id: number
+    name: string
+    email?: string
+    phone?: string
+  }
 }
 
 interface EditableData {
@@ -170,7 +185,7 @@ interface EditableData {
 // ==================== Constants ====================
 const DEFAULT_COMPANY_INFO = {
   companyName: 'Kardex India Pvt Ltd',
-  companyAddress: 'Brigade Rubix, 602, 6th Floor, HMT Watch Factory Road',
+  companyAddress: 'Brigade Rubix, #604, 6th Floor, HMT Watch Factory Road',
   companyCity: 'Bengaluru, Karnataka – 560 022 (INDIA)',
   companyPhone: '+91 80 29724450',
   companyFax: '+91 80 29724460',
@@ -189,14 +204,17 @@ const DEFAULT_ITEM: OfferItem = {
   hsnCode: '',
   unitPrice: '',
   quantity: 1,
-  total: ''
+  total: '',
+  discount: 0
 }
 
 const DEFAULT_MACHINE_DETAILS: MachineDetails = {
   model: '',
   serialNumber: '',
   owner: '',
-  department: ''
+  department: '',
+  control: '',
+  yearOfManufacturing: ''
 }
 
 // ==================== Helper Functions ====================
@@ -274,102 +292,130 @@ interface ItemRowProps {
   item: OfferItem
   index: number
   isEditMode: boolean
+  isSpareParts: boolean
   onUpdate: (id: number, field: keyof OfferItem, value: string | number) => void
   onRemove: (id: number) => void
   canRemove: boolean
 }
 
-const ItemRow = ({ item, index, isEditMode, onUpdate, onRemove, canRemove }: ItemRowProps) => (
-  <tr>
-    <td className="text-center">{index + 1}</td>
-    <td className="text-center">
-      {isEditMode ? (
-        <Input
-          value={item.partNo}
-          onChange={(e) => onUpdate(item.id, 'partNo', e.target.value)}
-          placeholder="Part No"
-          className="h-7 text-xs w-full text-center"
-          aria-label={`Part number for item ${index + 1}`}
-        />
-      ) : (
-        item.partNo || '-'
-      )}
-    </td>
-    <td className="text-left">
-      {isEditMode ? (
-        <Input
-          value={item.description}
-          onChange={(e) => onUpdate(item.id, 'description', e.target.value)}
-          placeholder="Description"
-          className="h-7 text-xs w-full text-left"
-          aria-label={`Description for item ${index + 1}`}
-        />
-      ) : (
-        item.description || '-'
-      )}
-    </td>
-    <td className="text-center">
-      {isEditMode ? (
-        <Input
-          value={item.hsnCode}
-          onChange={(e) => onUpdate(item.id, 'hsnCode', e.target.value)}
-          placeholder="HSN"
-          className="h-7 text-xs w-full text-center"
-          aria-label={`HSN code for item ${index + 1}`}
-        />
-      ) : (
-        item.hsnCode || '-'
-      )}
-    </td>
-    <td className="text-right">
-      {isEditMode ? (
-        <Input
-          type="number"
-          value={item.unitPrice}
-          onChange={(e) => onUpdate(item.id, 'unitPrice', e.target.value)}
-          placeholder="0"
-          className="h-7 text-xs w-full text-right"
-          aria-label={`Unit price for item ${index + 1}`}
-        />
-      ) : (
-        item.unitPrice ? parseFloat(item.unitPrice).toLocaleString('en-IN') : '-'
-      )}
-    </td>
-    <td className="text-center">
-      {isEditMode ? (
-        <Input
-          type="number"
-          value={item.quantity}
-          onChange={(e) => onUpdate(item.id, 'quantity', parseInt(e.target.value) || 1)}
-          placeholder="1"
-          min="1"
-          className="h-7 text-xs w-full text-center"
-          aria-label={`Quantity for item ${index + 1}`}
-        />
-      ) : (
-        (item.partNo || item.description) ? item.quantity : '-'
-      )}
-    </td>
-    <td className="text-right font-medium">
-      {formatCurrency(calculateItemTotal(item.unitPrice, item.quantity))}
-    </td>
-    {isEditMode && (
-      <td className="text-center print:hidden">
-        <Button
-          onClick={() => onRemove(item.id)}
-          size="sm"
-          variant="ghost"
-          className="h-6 w-6 p-0 text-[#E17F70] hover:text-[#75242D] hover:bg-[#E17F70]/10"
-          disabled={!canRemove}
-          aria-label={`Remove item ${index + 1}`}
-          title={canRemove ? 'Remove item' : 'Cannot remove last item'}
-        >
-          ×
-        </Button>
+const ItemRow = ({ item, index, isEditMode, isSpareParts, onUpdate, onRemove, canRemove }: ItemRowProps) => {
+  const itemTotal = calculateItemTotal(item.unitPrice, item.quantity)
+  const discount = parseFloat(item.discount as any) || 0
+  const discountedPrice = itemTotal * (1 - discount / 100)
+
+  return (
+    <tr>
+      <td className="text-center">{index + 1}</td>
+      <td className="text-center">
+        {isEditMode ? (
+          <Input
+            value={item.partNo}
+            onChange={(e) => onUpdate(item.id, 'partNo', e.target.value)}
+            placeholder="Part No"
+            className="h-7 text-xs w-full text-center"
+            aria-label={`Part number for item ${index + 1}`}
+          />
+        ) : (
+          item.partNo || '-'
+        )}
       </td>
-    )}
-  </tr>
-)
+      <td className="text-left">
+        {isEditMode ? (
+          <Input
+            value={item.description}
+            onChange={(e) => onUpdate(item.id, 'description', e.target.value)}
+            placeholder="Description"
+            className="h-7 text-xs w-full text-left"
+            aria-label={`Description for item ${index + 1}`}
+          />
+        ) : (
+          item.description || '-'
+        )}
+      </td>
+      <td className="text-center">
+        {isEditMode ? (
+          <Input
+            value={item.hsnCode}
+            onChange={(e) => onUpdate(item.id, 'hsnCode', e.target.value)}
+            placeholder="HSN"
+            className="h-7 text-xs w-full text-center"
+            aria-label={`HSN code for item ${index + 1}`}
+          />
+        ) : (
+          item.hsnCode || '-'
+        )}
+      </td>
+      <td className="text-right">
+        {isEditMode ? (
+          <Input
+            type="number"
+            value={item.unitPrice}
+            onChange={(e) => onUpdate(item.id, 'unitPrice', e.target.value)}
+            placeholder="0"
+            className="h-7 text-xs w-full text-right"
+            aria-label={`Unit price for item ${index + 1}`}
+          />
+        ) : (
+          item.unitPrice ? parseFloat(item.unitPrice).toLocaleString('en-IN') : '-'
+        )}
+      </td>
+      <td className="text-center">
+        {isEditMode ? (
+          <Input
+            type="number"
+            value={item.quantity}
+            onChange={(e) => onUpdate(item.id, 'quantity', parseInt(e.target.value) || 1)}
+            placeholder="1"
+            min="1"
+            className="h-7 text-xs w-full text-center"
+            aria-label={`Quantity for item ${index + 1}`}
+          />
+        ) : (
+          (item.partNo || item.description) ? item.quantity : '-'
+        )}
+      </td>
+      <td className="text-right font-medium">
+        {formatCurrency(itemTotal)}
+      </td>
+      {isSpareParts && (
+        <>
+          {isEditMode && (
+            <td className="text-center print:hidden">
+              <Input
+                type="number"
+                value={item.discount !== undefined ? item.discount : ''}
+                onChange={(e) => onUpdate(item.id, 'discount', parseFloat(e.target.value) || 0)}
+                placeholder="0"
+                min="0"
+                max="100"
+                className="h-7 text-xs w-full text-center"
+                aria-label={`Discount for item ${index + 1}`}
+              />
+            </td>
+          )}
+          <td className="text-right font-medium">
+            {formatCurrency(discountedPrice)}
+          </td>
+        </>
+      )}
+      {isEditMode && (
+        <td className="text-center print:hidden">
+          <Button
+            onClick={() => onRemove(item.id)}
+            size="sm"
+            variant="ghost"
+            className="h-6 w-6 p-0 text-[#E17F70] hover:text-[#75242D] hover:bg-[#E17F70]/10"
+            disabled={!canRemove}
+            aria-label={`Remove item ${index + 1}`}
+            title={canRemove ? 'Remove item' : 'Cannot remove last item'}
+          >
+            ×
+          </Button>
+        </td>
+      )}
+    </tr>
+  )
+}
 
 // ==================== Main Component ====================
 export default function QuoteGenerationPage() {
@@ -450,7 +496,8 @@ export default function QuoteGenerationPage() {
           unitPrice: osp.unitPrice.toString(),
           quantity: osp.quantity,
           total: osp.totalPrice.toString(),
-          sparePartId: osp.sparePart.id
+          sparePartId: osp.sparePart.id,
+          discount: 0
         }))
         : [DEFAULT_ITEM];
 
@@ -480,7 +527,9 @@ export default function QuoteGenerationPage() {
       setEditableData({
         // Company info: use saved or default
         companyName: storedQuoteData?.companyInfo?.companyName || DEFAULT_COMPANY_INFO.companyName,
-        companyAddress: storedQuoteData?.companyInfo?.companyAddress || DEFAULT_COMPANY_INFO.companyAddress,
+        companyAddress: (storedQuoteData?.companyInfo?.companyAddress && storedQuoteData.companyInfo.companyAddress.includes('602'))
+          ? storedQuoteData.companyInfo.companyAddress.replace('602', '#604')
+          : (storedQuoteData?.companyInfo?.companyAddress || DEFAULT_COMPANY_INFO.companyAddress),
         companyCity: storedQuoteData?.companyInfo?.companyCity || DEFAULT_COMPANY_INFO.companyCity,
         companyPhone: storedQuoteData?.companyInfo?.companyPhone || DEFAULT_COMPANY_INFO.companyPhone,
         companyFax: storedQuoteData?.companyInfo?.companyFax || DEFAULT_COMPANY_INFO.companyFax,
@@ -505,10 +554,10 @@ export default function QuoteGenerationPage() {
         // Plain text remarks (only if not JSON)
         remarks: storedQuoteData ? '' : (offerData.remarks || ''),
 
-        // Contact details
-        contactPersonName: offerData.contact?.contactPersonName || offerData.contactPersonName || '',
-        contactPersonPhone: offerData.contact?.contactNumber || offerData.contactNumber || '',
-        contactPersonEmail: offerData.contact?.email || offerData.email || '',
+        // Contact details (salesperson / creator who added the offer, not the customer contact)
+        contactPersonName: offerData.assignedTo?.name || offerData.createdBy?.name || '',
+        contactPersonPhone: offerData.assignedTo?.phone || offerData.createdBy?.phone || '',
+        contactPersonEmail: offerData.assignedTo?.email || offerData.createdBy?.email || '',
 
         // Signature from saved data
         signatureImage: storedQuoteData?.signatureImage || null,
@@ -523,7 +572,8 @@ export default function QuoteGenerationPage() {
             unitPrice: item.unitPrice || '',
             quantity: item.quantity || 1,
             total: '',
-            sparePartId: item.sparePartId
+            sparePartId: item.sparePartId,
+            discount: item.discount !== undefined ? item.discount : 0
           }))
           : mappedItems,
 
@@ -532,7 +582,9 @@ export default function QuoteGenerationPage() {
           model: firstAsset?.model || '',
           serialNumber: firstAsset?.serialNo || offerData.machineSerialNumber || '',
           owner: machineOwner,
-          department: offerData.department || offerData.location || ''
+          department: offerData.department || offerData.location || '',
+          control: (firstAsset as any)?.control || '',
+          yearOfManufacturing: (firstAsset as any)?.yearOfManufacturing || ''
         },
 
         // Customer details: prioritize saved data over offer data
@@ -606,9 +658,11 @@ export default function QuoteGenerationPage() {
     try {
       setSaving(true)
 
-      // Calculate the total offer value from items
+      // Calculate the total offer value from items (taking discount into account)
       const calculatedOfferValue = editableData.items.reduce((sum, item) => {
-        return sum + calculateItemTotal(item.unitPrice, item.quantity)
+        const itemTotal = calculateItemTotal(item.unitPrice, item.quantity)
+        const discount = parseFloat(item.discount as any) || 0
+        return sum + (itemTotal * (1 - discount / 100))
       }, 0)
 
       // Build the update payload with fields that exist in the Offer model
@@ -650,7 +704,8 @@ export default function QuoteGenerationPage() {
               hsnCode: item.hsnCode,
               unitPrice: item.unitPrice,
               quantity: item.quantity,
-              sparePartId: item.sparePartId
+              sparePartId: item.sparePartId,
+              discount: item.discount || 0
             })),
           }
         }),
@@ -674,7 +729,7 @@ export default function QuoteGenerationPage() {
           .map(item => {
             const resolvedId = item.sparePartId || catalogSpareParts.find(sp => sp.partNumber === item.partNo)?.id;
             if (!resolvedId) return null;
-            
+
             const price = parseFloat(item.unitPrice.replace(/,/g, '')) || 0;
             return {
               sparePartId: resolvedId,
@@ -775,14 +830,23 @@ export default function QuoteGenerationPage() {
         items: storedQuoteData?.quoteItems?.length > 0
           ? storedQuoteData.quoteItems.map((item: any, index: number) => ({
             id: index + 1,
-            ...item
+            partNo: item.partNo || '',
+            description: item.description || '',
+            hsnCode: item.hsnCode || '',
+            unitPrice: item.unitPrice || '',
+            quantity: item.quantity || 1,
+            total: '',
+            sparePartId: item.sparePartId,
+            discount: item.discount !== undefined ? item.discount : 0
           }))
           : mappedItems,
         machineDetails: storedQuoteData?.machineDetails || {
           model: firstAsset?.model || '',
           serialNumber: firstAsset?.serialNo || offer.machineSerialNumber || '',
           owner: machineOwner,
-          department: offer.department || offer.location || ''
+          department: offer.department || offer.location || '',
+          control: (firstAsset as any)?.control || '',
+          yearOfManufacturing: (firstAsset as any)?.yearOfManufacturing || ''
         },
         customerName: storedQuoteData?.customerInfo?.customerName || offer.customer?.companyName || offer.company || '',
         customerAddress: storedQuoteData?.customerInfo?.customerAddress || offer.customer?.address || '',
@@ -805,6 +869,14 @@ export default function QuoteGenerationPage() {
   const subtotal = useMemo(() => {
     return editableData.items.reduce((sum, item) => {
       return sum + calculateItemTotal(item.unitPrice, item.quantity)
+    }, 0)
+  }, [editableData.items])
+
+  const discountedTotal = useMemo(() => {
+    return editableData.items.reduce((sum, item) => {
+      const total = calculateItemTotal(item.unitPrice, item.quantity)
+      const discount = parseFloat(item.discount as any) || 0
+      return sum + (total * (1 - discount / 100))
     }, 0)
   }, [editableData.items])
 
@@ -1226,11 +1298,11 @@ export default function QuoteGenerationPage() {
                   <p className="section-label"><strong>Machine Details:</strong></p>
                   <table className="data-table machine-table">
                     <thead>
-                      {isOptilife ? (
+                      {isOptilife || isSpareParts ? (
                         <tr>
                           <th style={{ width: '120px' }} className="text-center">S.N</th>
                           <th className="text-center">MACHINE MODEL</th>
-                          <th className="text-center">MACHINE Sr.NO</th>
+                          <th className="text-center">MACHINE Sr.No</th>
                           <th className="text-center">CONTROL</th>
                           <th className="text-center">YEAR OF MANUFACTURING</th>
                         </tr>
@@ -1293,6 +1365,58 @@ export default function QuoteGenerationPage() {
                             </tr>
                           </>
                         )
+                      ) : isSpareParts ? (
+                        <tr>
+                          <td className="font-semibold text-center">1</td>
+                          <td className="text-left">
+                            {isEditMode ? (
+                              <Input
+                                value={editableData.machineDetails.model}
+                                onChange={(e) => setEditableData({ ...editableData, machineDetails: { ...editableData.machineDetails, model: e.target.value } })}
+                                placeholder="Machine Model"
+                                className="h-7 text-xs text-left"
+                              />
+                            ) : (
+                              editableData.machineDetails.model || '-'
+                            )}
+                          </td>
+                          <td className="text-center">
+                            {isEditMode ? (
+                              <Input
+                                value={editableData.machineDetails.serialNumber}
+                                onChange={(e) => setEditableData({ ...editableData, machineDetails: { ...editableData.machineDetails, serialNumber: e.target.value } })}
+                                placeholder="Serial Number"
+                                className="h-7 text-xs text-center"
+                              />
+                            ) : (
+                              editableData.machineDetails.serialNumber || '-'
+                            )}
+                          </td>
+                          <td className="text-center">
+                            {isEditMode ? (
+                              <Input
+                                value={editableData.machineDetails.control}
+                                onChange={(e) => setEditableData({ ...editableData, machineDetails: { ...editableData.machineDetails, control: e.target.value } })}
+                                placeholder="Control (e.g., TIC)"
+                                className="h-7 text-xs text-center"
+                              />
+                            ) : (
+                              editableData.machineDetails.control || '-'
+                            )}
+                          </td>
+                          <td className="text-center">
+                            {isEditMode ? (
+                              <Input
+                                value={editableData.machineDetails.yearOfManufacturing}
+                                onChange={(e) => setEditableData({ ...editableData, machineDetails: { ...editableData.machineDetails, yearOfManufacturing: e.target.value } })}
+                                placeholder="Year of Manufacturing"
+                                className="h-7 text-xs text-center"
+                              />
+                            ) : (
+                              editableData.machineDetails.yearOfManufacturing || '-'
+                            )}
+                          </td>
+                        </tr>
                       ) : (
                         <tr>
                           <td className="text-center">1</td>
@@ -1404,8 +1528,8 @@ export default function QuoteGenerationPage() {
                                 if (!sparePartSearch) return true
                                 const search = sparePartSearch.toLowerCase()
                                 return sp.name.toLowerCase().includes(search) ||
-                                       sp.partNumber.toLowerCase().includes(search) ||
-                                       sp.category?.toLowerCase().includes(search)
+                                  sp.partNumber.toLowerCase().includes(search) ||
+                                  sp.category?.toLowerCase().includes(search)
                               })
                               .map(sp => (
                                 <SelectItem key={sp.id} value={sp.id.toString()}>
@@ -1437,14 +1561,20 @@ export default function QuoteGenerationPage() {
                     <table className="data-table items-table">
                       <thead>
                         <tr>
-                          <th style={{ width: '40px' }} className="text-center">S.N</th>
-                          <th style={{ width: '100px' }} className="text-center">Part No</th>
-                          <th className="text-center">Description</th>
-                          <th style={{ width: '80px' }} className="text-center">HSN Code</th>
-                          <th style={{ width: '90px' }} className="text-right">Unit Price</th>
-                          <th style={{ width: '50px' }} className="text-center">Qty</th>
-                          <th style={{ width: '100px' }} className="text-right">Total Price</th>
-                          {isEditMode && <th style={{ width: '60px' }} className="print:hidden text-center">Action</th>}
+                          <th style={{ width: '35px' }} className="text-center">S.N</th>
+                          <th style={{ width: '85px' }} className="text-center">Part No</th>
+                          <th className="text-center">{isSpareParts ? 'Part Description' : 'Description'}</th>
+                          <th style={{ width: '65px' }} className="text-center">HSN Code</th>
+                          <th style={{ width: '80px' }} className="text-right">Unit Price</th>
+                          <th style={{ width: '40px' }} className="text-center">Qty</th>
+                          <th style={{ width: '90px' }} className="text-right">Total Price</th>
+                          {isSpareParts && (
+                            <>
+                              {isEditMode && <th style={{ width: '70px' }} className="print:hidden text-center">Discount (%)</th>}
+                              <th style={{ width: '95px' }} className="text-right">Discounted Price</th>
+                            </>
+                          )}
+                          {isEditMode && <th style={{ width: '45px' }} className="print:hidden text-center">Action</th>}
                         </tr>
                       </thead>
                       <tbody>
@@ -1454,6 +1584,7 @@ export default function QuoteGenerationPage() {
                             item={item}
                             index={index}
                             isEditMode={isEditMode}
+                            isSpareParts={isSpareParts}
                             onUpdate={updateItem}
                             onRemove={removeItem}
                             canRemove={editableData.items.length > 1}
@@ -1462,8 +1593,16 @@ export default function QuoteGenerationPage() {
                         <tr className="grand-total-row bg-[#4472C4]/5">
                           <td colSpan={6} className="text-right font-bold text-[#4472C4] py-3">GRAND TOTAL</td>
                           <td className="text-right font-bold text-[#4472C4] py-3">
-                            {formatCurrency(subtotal)}
+                            {formatCurrency(subtotal)} INR
                           </td>
+                          {isSpareParts && (
+                            <>
+                              {isEditMode && <td className="print:hidden"></td>}
+                              <td className="text-right font-bold text-[#4472C4] py-3">
+                                {formatCurrency(discountedTotal)} INR
+                              </td>
+                            </>
+                          )}
                           {isEditMode && <td className="print:hidden"></td>}
                         </tr>
                       </tbody>
@@ -1492,92 +1631,69 @@ export default function QuoteGenerationPage() {
               </div>
             </div>
 
-            {/* Page 2 - Terms and Conditions - ENHANCED */}
+            {/* Page 2 - Terms and Conditions */}
             <div className="page page-2 shadow-2xl print:shadow-none mb-10 print:mb-0">
               <KardexLogo />
 
-              <div className="page-content">
+              <div className="page-content text-[12px] text-slate-800 leading-relaxed pl-4 pr-4 flex flex-col justify-between pb-8">
                 {/* TERMS AND CONDITIONS */}
-                <div className="page2-terms-section">
-                  <h3 className="premium-section-header">
-                    <span className="header-icon text-[#4472C4]">📋</span>
+                <div className="mb-3">
+                  <h3 className="text-[#4472C4] font-bold text-[12px] underline mb-1.5 uppercase tracking-wide">
                     Terms and Conditions
                   </h3>
-                  <div className="terms-card-premium">
-                    <ul className="terms-grid-premium">
-                      <li><span className="bullet">■</span> <strong>GST:</strong> {editableData.gstRate}% to be paid extra on all items.</li>
-                      <li><span className="bullet">■</span> <strong>Validity:</strong> Quotation validity is 30 days from the date of issue.</li>
-                      <li><span className="bullet">■</span> <strong>Delivery:</strong> Ex-Works Bangalore, within 14 to 18 weeks from PO date.</li>
-                      <li><span className="bullet">■</span> <strong>Warranty:</strong> 3 months for Electronic parts from the date of delivery.</li>
-                      <li><span className="bullet">■</span> <strong>Payment:</strong> N30 (Net 30 days) from the date of delivery.</li>
-                    </ul>
-                  </div>
+                  <ul className="list-disc pl-5 space-y-0.5 text-slate-700">
+                    <li>GST ({editableData.gstRate}%) to be paid extra</li>
+                    <li>Quotation validity up to 30 days</li>
+                    <li>Delivery - Ex-Works Bangalore, within 18 to 20 weeks from the date of Purchase Order, packing included.</li>
+                    <li>Warranty: 3 months from the date of delivery for Electronics parts only.</li>
+                    <li>Payment: 100% advance along with the purchase order.</li>
+                    <li>OTHER TERMS & CONDITIONS AS PER THE ANNEXURE ATTACHED</li>
+                  </ul>
                 </div>
 
-                {/* OTHER TERMS & CONDITIONS */}
-                <div className="other-terms-highlight">
-                  <p><strong>NOTE:</strong> OTHER TERMS & CONDITIONS AS PER THE ANNEXURE ATTACHED</p>
-                </div>
-
-                {/* Please Note Section */}
-                <div className="important-notes-section">
-                  <h3 className="premium-section-header">
-                    <span className="header-icon text-[#d97706]">💡</span>
-                    Please Note
+                {/* KINDLY INCLUDE THE FOLLOWING POINTS IN THE PO */}
+                <div className="mb-3">
+                  <h3 className="text-[#4472C4] font-bold text-[12px] underline mb-1.5 uppercase tracking-wide">
+                    Kindly include the following points in the PO: -
                   </h3>
-                  <div className="notes-grid-premium">
-                    <div className="note-item-premium">
-                      <span className="note-num">1</span>
-                      <p>PO should contain Customer GST number of the place where delivery/services are requesting.</p>
-                    </div>
-                    <div className="note-item-premium text-slate-600">
-                      <span className="note-num">2</span>
-                      <p>If delivery address is different than the Invoice address, then we need Delivery address GST details.</p>
-                    </div>
-                    <div className="note-item-premium">
-                      <span className="note-num">3</span>
-                      <p>PO should be on address as mentioned in quotation and contain reference <strong>{offer.offerReferenceNumber}</strong>.</p>
-                    </div>
-                    <div className="note-item-premium">
-                      <span className="note-num">4</span>
-                      <p>PO should contain Kardex Ident Number and all line items as per the quotation.</p>
-                    </div>
-                    <div className="note-item-premium">
-                      <span className="note-num">5</span>
-                      <p>PO should contain delivery address, contact person's details, and company seal signature.</p>
-                    </div>
+                  <ul className="list-none pl-5 space-y-0.5 text-slate-700">
+                    <li className="relative pl-4"><span className="absolute left-0">-</span> Quotation reference i.e. <strong>{offer.offerReferenceNumber}</strong></li>
+                    <li className="relative pl-4"><span className="absolute left-0">-</span> Customer GST number of the place where delivery/services are requested.</li>
+                    <li className="relative pl-4"><span className="absolute left-0">-</span> Kardex Ident Number as per the quotation</li>
+                    <li className="relative pl-4"><span className="absolute left-0">-</span> HSN codes</li>
+                    <li className="relative pl-4"><span className="absolute left-0">-</span> All line items mention in quotation, if more than one item.</li>
+                    <li className="relative pl-4"><span className="absolute left-0">-</span> Delivery address and contact person's details.</li>
+                    <li className="relative pl-4"><span className="absolute left-0">-</span> Kardex address as mentioned in quotation.</li>
+                    <li className="relative pl-4"><span className="absolute left-0">-</span> Company seal signature.</li>
+                  </ul>
+                </div>
+
+                {/* Assurance Paragraph */}
+                <p className="mb-3 text-slate-700">
+                  We assure you of our unwavering commitment to always providing the highest standards of service. We are dedicated to exceeding your expectations and leaving no room for any service-related concerns.
+                </p>
+
+                {/* Order Release Block */}
+                <div className="mb-3">
+                  <h3 className="text-[#4472C4] font-bold text-[12px] underline mb-1.5 uppercase tracking-wide">
+                    We therefore would request you to kindly release the order on-
+                  </h3>
+                  <div className="pl-5 space-y-0 text-slate-700">
+                    <p className="font-semibold text-slate-900">M/s, KARDEX INDIA PVT LTD</p>
+                    <p>{editableData.companyAddress},</p>
+                    <p>{editableData.companyCity}</p>
+                    <p>Tel : {editableData.companyPhone} {editableData.companyFax && `Fax : ${editableData.companyFax}`}</p>
+                    <p>Website : <a href={`https://${editableData.companyWebsite}`} className="text-[#4472C4] underline" target="_blank" rel="noopener noreferrer">{editableData.companyWebsite}</a></p>
                   </div>
                 </div>
 
-                {/* Company Assurance */}
-                <div className="assurance-card-premium">
-                  <div className="assurance-icon">🤝</div>
-                  <div className="assurance-text">
-                    <p>We assure you of our best services at all times and we shall not give you any room for complaint. We shall spare no effort to ensure a professional first-class after-sales service.</p>
-                  </div>
-                </div>
-
-                {/* Order Release Box */}
-                <div className="order-release-premium">
-                  <p className="release-title">Kindly release the purchase order to:</p>
-                  <div className="company-info-premium">
-                    <p className="company-name-large">M/s. {editableData.companyName.toUpperCase()}</p>
-                    <p className="company-address-text">{editableData.companyAddress}, {editableData.companyCity}</p>
-                    <div className="company-contact-row">
-                      <span><strong>Tel:</strong> {editableData.companyPhone}</span>
-                      {editableData.companyFax && <span><strong>Fax:</strong> {editableData.companyFax}</span>}
-                      <span><strong>Web:</strong> <a href={`https://${editableData.companyWebsite}`} className="text-[#4472C4]">{editableData.companyWebsite}</a></span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Signature Section - Contact Person */}
-                <div className="signature-footer-premium">
-                  <p className="undertime-text">If you need any clarifications, please contact the undersigned.</p>
-                  <p className="faithfully-text">Yours faithfully,</p>
+                {/* Signature footer */}
+                <div className="mt-3">
+                  <p className="mb-1 text-slate-700">If you need any clarifications/ information, please do contact the undersigned.</p>
+                  <p className="font-semibold text-slate-900 mb-2">Yours faithfully</p>
 
                   {isEditMode ? (
-                    <div className="edit-signature-controls print:hidden mt-4">
+                    <div className="edit-signature-controls print:hidden mt-2">
                       <div className="flex gap-4">
                         <div className="flex-1 space-y-2">
                           <Input value={editableData.contactPersonName} onChange={(e) => setEditableData({ ...editableData, contactPersonName: e.target.value })} placeholder="Name" />
@@ -1603,22 +1719,22 @@ export default function QuoteGenerationPage() {
                       </div>
                     </div>
                   ) : (
-                    <div className="signature-display-premium">
-                      <div className="sig-image-container">
+                    <div className="flex flex-col items-start gap-0.5">
+                      <div className="h-12 flex items-center justify-start pb-0.5 mb-1 w-48">
                         {editableData.signatureImage ? (
-                          <img src={editableData.signatureImage} alt="Signature" className="sig-img" />
+                          <img src={editableData.signatureImage} alt="Signature" className="max-h-full object-contain" />
                         ) : (
-                          <div className="sig-placeholder">Please Sign Here</div>
+                          <span className="text-[10px] text-slate-400 uppercase tracking-wider">Please Sign Here</span>
                         )}
                       </div>
-                      <div className="sig-details">
-                        <p className="sig-name">{editableData.contactPersonName || '[Name]'}</p>
-                        <p className="sig-contact">{editableData.contactPersonPhone}</p>
-                        <p className="sig-email">{editableData.contactPersonEmail}</p>
-                      </div>
+                      <p className="font-bold text-slate-900">{editableData.contactPersonName || 'Amrender Prakash'}</p>
+                      <p className="text-slate-600">LCC-India</p>
+                      {editableData.contactPersonPhone && <p className="text-slate-600">Mobile : {editableData.contactPersonPhone}</p>}
+                      {editableData.contactPersonEmail && <p className="text-slate-600"><a href={`mailto:${editableData.contactPersonEmail}`} className="text-[#4472C4] underline">{editableData.contactPersonEmail}</a></p>}
                     </div>
                   )}
                 </div>
+
               </div>
 
               {/* Page 2 Footer */}
@@ -3099,7 +3215,7 @@ export default function QuoteGenerationPage() {
           background-color: #D9E1F2 !important; /* Light Gray-Blue */
           color: #000000 !important; /* Black text */
           font-weight: 700;
-          padding: 8px;
+          padding: 6px 4px;
           text-align: center;
           border: 1px solid #000000;
           -webkit-print-color-adjust: exact;
@@ -3113,7 +3229,7 @@ export default function QuoteGenerationPage() {
         }
 
         .data-table td {
-          padding: 8px;
+          padding: 6px 4px;
           border: 1px solid #000000;
           text-align: left;
           color: #1e293b;
@@ -3121,6 +3237,25 @@ export default function QuoteGenerationPage() {
 
         .data-table td.text-right {
           text-align: right;
+        }
+
+        .data-table td input {
+          padding-left: 4px !important;
+          padding-right: 4px !important;
+          height: 26px !important;
+          font-size: 11px !important;
+        }
+
+        /* Hide spin-button for Chrome, Safari, Edge, Opera */
+        .data-table td input::-webkit-outer-spin-button,
+        .data-table td input::-webkit-inner-spin-button {
+          -webkit-appearance: none;
+          margin: 0;
+        }
+
+        /* Hide spin-button for Firefox */
+        .data-table td input[type=number] {
+          -moz-appearance: textfield;
         }
 
         .total-row {

@@ -1130,12 +1130,15 @@ export class OfferController {
               id: true,
               name: true,
               email: true,
+              phone: true,
             },
           },
           createdBy: {
             select: {
               id: true,
               name: true,
+              email: true,
+              phone: true,
             },
           },
           updatedBy: {
@@ -1231,12 +1234,15 @@ export class OfferController {
               id: true,
               name: true,
               email: true,
+              phone: true,
             },
           },
           createdBy: {
             select: {
               id: true,
               name: true,
+              email: true,
+              phone: true,
             },
           },
           updatedBy: {
