@@ -899,27 +899,34 @@ async function generateMachineAnalyticsPdf(
 
     autoTable(doc, {
         startY: y,
-        head: [['S.No', 'Model / Serial', 'Customer', 'Total Downtime', 'Incidents', 'Status']],
-        body: topMachines.map((m, i) => [
-            i + 1,
-            `${m.model || 'N/A'} (${m.serialNo || 'N/A'})`,
-            m.customer || 'Unknown',
-            fmtHoursMinutes(m.totalDowntimeMinutes),
-            String(m.incidents || 0),
-            m.openIncidents > 0 ? 'CRITICAL' : 'STABLE'
-        ]),
+        head: [['S.No', 'Model / Serial', 'Customer', 'Total Downtime', 'Incidents', 'MTTR', 'Status']],
+        body: topMachines.map((m, i) => {
+            const incidents = m.incidents || 0;
+            const downtimeMin = m.totalDowntimeMinutes || 0;
+            const mttrMin = incidents > 0 ? downtimeMin / incidents : 0;
+            return [
+                i + 1,
+                `${m.model || 'N/A'} (${m.serialNo || 'N/A'})`,
+                m.customer || 'Unknown',
+                fmtHoursMinutes(downtimeMin),
+                String(incidents),
+                fmtHoursMinutes(mttrMin),
+                incidents <= 1 ? 'GOOD' : 'NEED ATTENTION'
+            ];
+        }),
         theme: 'grid',
         headStyles: { fillColor: COLORS.headerBg, textColor: COLORS.white, fontSize: 7, fontStyle: 'bold', halign: 'center' },
         bodyStyles: { fontSize: 7, textColor: COLORS.textBody, halign: 'center' },
         columnStyles: {
             2: { halign: 'left', fontStyle: 'bold' },
             3: { halign: 'left' },
-            4: { textColor: COLORS.textDark, fontStyle: 'bold' }
+            4: { textColor: COLORS.textDark, fontStyle: 'bold' },
+            5: { halign: 'center' }
         },
         willDrawCell: (hookData: any) => {
-            if (hookData.section === 'body' && hookData.column.index === 5) {
+            if (hookData.section === 'body' && hookData.column.index === 6) {
                 const text = hookData.cell.text[0]
-                if (text === 'CRITICAL') hookData.cell.styles.textColor = COLORS.negative
+                if (text === 'NEED ATTENTION') hookData.cell.styles.textColor = COLORS.negative
                 else hookData.cell.styles.textColor = COLORS.positive
                 hookData.cell.styles.fontStyle = 'bold'
             }

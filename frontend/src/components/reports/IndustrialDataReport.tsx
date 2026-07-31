@@ -109,10 +109,11 @@ export function IndustrialDataReport({ reportData }: IndustrialDataReportProps) 
                                 <TableHead className="min-w-[100px]">Model</TableHead>
                                 <TableHead className="min-w-[120px]">Serial Number</TableHead>
                                 <TableHead className="min-w-[120px]">Total Downtime</TableHead>
-                                <TableHead className="min-w-[120px]">Avg Downtime</TableHead>
                                 <TableHead className="min-w-[80px]">Incidents</TableHead>
+                                <TableHead className="min-w-[120px]">MTTR</TableHead>
                                 <TableHead className="min-w-[80px]">Open</TableHead>
                                 <TableHead className="min-w-[80px]">Resolved</TableHead>
+                                <TableHead className="min-w-[100px]">Status</TableHead>
                               </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -137,6 +138,11 @@ export function IndustrialDataReport({ reportData }: IndustrialDataReportProps) 
                                     </div>
                                   </TableCell>
                                   <TableCell>
+                                    <Badge variant="outline" className="bg-[#AEBFC3]/10">
+                                      {machine.incidents || 0}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell>
                                     <div className="flex flex-col">
                                       <span className="font-medium text-[#976E44]">
                                         {machine.incidents > 0 ? ((machine.totalDowntimeMinutes / machine.incidents) / 60).toFixed(1) : '0.0'} hrs
@@ -147,11 +153,6 @@ export function IndustrialDataReport({ reportData }: IndustrialDataReportProps) 
                                     </div>
                                   </TableCell>
                                   <TableCell>
-                                    <Badge variant="outline" className="bg-[#AEBFC3]/10">
-                                      {machine.incidents || 0}
-                                    </Badge>
-                                  </TableCell>
-                                  <TableCell>
                                     <Badge variant="destructive" className={machine.openIncidents > 0 ? '' : 'bg-[#92A2A5]/30 text-[#5D6E73]'}>
                                       {machine.openIncidents || 0}
                                     </Badge>
@@ -160,6 +161,17 @@ export function IndustrialDataReport({ reportData }: IndustrialDataReportProps) 
                                     <Badge variant="default" className="bg-[#A2B9AF]/20 text-[#4F6A64]">
                                       {machine.resolvedIncidents || 0}
                                     </Badge>
+                                  </TableCell>
+                                  <TableCell>
+                                    {(machine.incidents || 0) <= 1 ? (
+                                      <Badge className="bg-[#A2B9AF]/20 text-[#4F6A64] border border-[#A2B9AF]/40">
+                                        GOOD
+                                      </Badge>
+                                    ) : (
+                                      <Badge className="bg-[#EEC1BF]/20 text-[#9E3B47] border border-[#EEC1BF]/40">
+                                        NEED ATTENTION
+                                      </Badge>
+                                    )}
                                   </TableCell>
                                 </TableRow>
                               ))}

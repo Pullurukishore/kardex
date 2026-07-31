@@ -50,7 +50,9 @@ const MemoizedNavItem = React.memo(({
   onSectionToggle: (href: string) => void;
   expandedSections: Record<string, boolean>;
 }) => {
-  const isActive = pathname?.startsWith(item.href) ?? false;
+  const isActive = item.href.endsWith('/dashboard')
+    ? pathname === item.href
+    : (pathname === item.href || (pathname?.startsWith(item.href + '/') && !pathname.includes('/dashboard')));
   const hasChildren = item.children && item.children.length > 0;
   const isExpanded = expandedSections[item.href] ?? false;
   const Icon = item.icon;
@@ -240,7 +242,7 @@ export function Sidebar({
       // Only update state if value actually changed
       if (stored !== lastStoredSubModule.current) {
         lastStoredSubModule.current = stored;
-        if (stored === 'tickets' || stored === 'offers') {
+        if (stored === 'tickets' || stored === 'offers' || stored === 'contracts') {
           setSubModule(stored);
         } else {
           setSubModule(null);
@@ -262,29 +264,27 @@ export function Sidebar({
     if (!pathname) return;
     
     // Define which paths belong to which module
-    const commonPaths = ['/customers', '/service-zones', '/zone-users', '/reports'];
-    const ticketPaths = ['/tickets', '/service-person', '/service-persons', '/activity-scheduling', '/attendance', '/attendence', '/dashboard', ...commonPaths];
-    const offerPaths = ['/offers', '/targets', '/spare-parts', '/forecast', ...commonPaths];
+    const isContractPath = pathname.includes('/contracts');
+    const isOfferPath = pathname.includes('/offers') || pathname.includes('/targets') || pathname.includes('/spare-parts') || pathname.includes('/forecast');
+    const isTicketPath = (pathname.includes('/tickets') || pathname.includes('/service-person') || pathname.includes('/service-persons') || pathname.includes('/activity-scheduling') || pathname.includes('/attendance') || pathname.includes('/attendence') || pathname.includes('/dashboard')) && !isContractPath && !isOfferPath;
     
-    // Check if current path matches a ticket module path
-    const isTicketPath = ticketPaths.some(path => pathname.includes(path));
-    // Check if current path matches an offer module path  
-    const isOfferPath = offerPaths.some(path => pathname.includes(path));
-    
-    // Only auto-switch if we can clearly determine the module from the path
-    // and there's a mismatch with the stored value
     const stored = localStorage.getItem('selectedSubModule');
     
-    if (isOfferPath && !isTicketPath) {
-      // Clear offer path match - switch to offers
+    if (isContractPath) {
+      if (stored !== 'contracts') {
+        localStorage.setItem('selectedSubModule', 'contracts');
+        setSubModule('contracts');
+      } else {
+        setSubModule('contracts');
+      }
+    } else if (isOfferPath) {
       if (stored !== 'offers') {
         localStorage.setItem('selectedSubModule', 'offers');
         setSubModule('offers');
       } else {
         setSubModule('offers');
       }
-    } else if (isTicketPath && !isOfferPath) {
-      // Clear ticket path match - switch to tickets
+    } else if (isTicketPath) {
       if (stored !== 'tickets') {
         localStorage.setItem('selectedSubModule', 'tickets');
         setSubModule('tickets');
@@ -292,9 +292,8 @@ export function Sidebar({
         setSubModule('tickets');
       }
     } else {
-      // Ambiguous or no match - use stored value
-      if (stored === 'tickets' || stored === 'offers') {
-        setSubModule(stored);
+      if (stored === 'tickets' || stored === 'offers' || stored === 'contracts') {
+        setSubModule(stored as SubModule);
       }
     }
   }, [pathname]);
@@ -464,7 +463,9 @@ export function Sidebar({
             <nav className="px-2 space-y-2">
               {filteredNavItems.map((item) => {
                 const Icon = item.icon;
-                const isActive = pathname?.startsWith(item.href);
+                const isActive = item.href.endsWith('/dashboard')
+                  ? pathname === item.href
+                  : (pathname === item.href || (pathname?.startsWith(item.href + '/') && !pathname.includes('/dashboard')));
                 return (
                   <button
                     key={item.href}

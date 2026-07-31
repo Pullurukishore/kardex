@@ -3,11 +3,11 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { Ticket, Package, ArrowLeft, ChevronRight, Sparkles } from 'lucide-react';
+import { Ticket, Package, ArrowLeft, ChevronRight, Sparkles, FileText } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface SubModuleCard {
-  id: 'tickets' | 'offers';
+  id: 'tickets' | 'offers' | 'contracts';
   title: string;
   description: string;
   icon: React.ReactNode;
@@ -38,6 +38,14 @@ export default function FSMSelectPage() {
       icon: <Package className="w-8 h-8" />,
       color: '#CE9F6B',
       features: ['Offers', 'Targets', 'Reports', 'Forecast'],
+    },
+    {
+      id: 'contracts',
+      title: 'Contracts',
+      description: 'Manage service contracts, SLA compliance, and recurring maintenance agreements',
+      icon: <FileText className="w-8 h-8" />,
+      color: '#82A094',
+      features: ['Contracts', 'SLAs', 'Renewals', 'Templates'],
     }
   ];
 
@@ -52,13 +60,21 @@ export default function FSMSelectPage() {
         case 'SERVICE_PERSON': return '/service-person/dashboard';
         default: return '/admin/dashboard';
       }
-    } else {
+    } else if (subModuleId === 'offers') {
       switch (role) {
         case 'ADMIN': return '/admin/offers';
         case 'ZONE_USER': return '/zone/offers';
         case 'ZONE_MANAGER': return '/zone-manager/offers';
         case 'EXPERT_HELPDESK': return '/expert/offers';
         default: return '/admin/offers';
+      }
+    } else {
+      switch (role) {
+        case 'ADMIN': return '/admin/contracts';
+        case 'ZONE_USER': return '/zone/contracts';
+        case 'ZONE_MANAGER': return '/zone-manager/contracts';
+        case 'EXPERT_HELPDESK': return '/expert/contracts';
+        default: return '/admin/contracts';
       }
     }
   };
@@ -119,7 +135,7 @@ export default function FSMSelectPage() {
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-[#E17F70]/50 to-transparent"></div>
       </div>
 
-      <div className="w-full max-w-xl relative z-10">
+      <div className="w-full max-w-5xl relative z-10">
         {/* Back Button */}
         <button onClick={handleBack} className="group flex items-center gap-3 text-white/50 hover:text-[#E17F70] mb-8 transition-colors">
           <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:border-[#E17F70]/50 transition-all">
@@ -129,18 +145,18 @@ export default function FSMSelectPage() {
         </button>
 
         {/* Header */}
-        <div className="text-center mb-10">
+        <div className="text-center mb-12">
           <Image src="/kardex.png" alt="Kardex" width={180} height={72} className="mx-auto mb-6 brightness-0 invert" priority />
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#E17F70]/10 border border-[#E17F70]/25 mb-4">
             <Sparkles className="w-4 h-4 text-[#E17F70]" />
             <span className="text-sm font-semibold text-[#E17F70]">Field Service Management</span>
           </div>
-          <h1 className="text-3xl font-bold text-white mb-2">Select Your Workspace</h1>
-          <p className="text-white/50">Choose your area of focus</p>
+          <h1 className="text-4xl font-extrabold text-white mb-2 tracking-tight">Select Your Workspace</h1>
+          <p className="text-white/50 text-base">Choose your area of focus to launch dashboard</p>
         </div>
 
-        {/* Cards */}
-        <div className="space-y-4">
+        {/* Cards - Responsive Grid Layout */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {subModules.map((module) => (
             <button
               key={module.id}
@@ -149,7 +165,7 @@ export default function FSMSelectPage() {
               onMouseLeave={() => setHoveredModule(null)}
               disabled={selectedModule !== null}
               className={`
-                relative w-full flex items-center gap-5 p-6 rounded-2xl
+                relative w-full flex flex-col justify-between p-6 rounded-2xl min-h-[300px]
                 bg-white/5 backdrop-blur-sm border border-white/10
                 transition-all duration-300 text-left
                 ${hoveredModule === module.id ? 'bg-white/10 scale-[1.02]' : ''}
@@ -161,39 +177,64 @@ export default function FSMSelectPage() {
                 boxShadow: hoveredModule === module.id ? `0 15px 50px ${module.color}25` : undefined
               }}
             >
-              {/* Left accent bar */}
-              <div className={`absolute left-0 top-4 bottom-4 w-1 rounded-full transition-opacity ${hoveredModule === module.id ? 'opacity-100' : 'opacity-0'}`} style={{ backgroundColor: module.color }} />
-              
-              {/* Icon */}
+              {/* Top Accent bar */}
               <div 
-                className={`w-16 h-16 rounded-xl flex items-center justify-center text-white transition-all ${hoveredModule === module.id ? 'scale-110' : ''}`}
-                style={{ background: `linear-gradient(135deg, ${module.color}, ${module.color}99)`, boxShadow: `0 8px 25px ${module.color}50` }}
-              >
-                {module.icon}
-              </div>
+                className={`absolute left-6 right-6 top-0 h-[3px] rounded-b-full transition-opacity ${hoveredModule === module.id ? 'opacity-100' : 'opacity-0'}`} 
+                style={{ backgroundColor: module.color }} 
+              />
+              
+              <div className="w-full space-y-5">
+                {/* Header elements inside card */}
+                <div className="flex justify-between items-center w-full">
+                  <div 
+                    className={`w-14 h-14 rounded-xl flex items-center justify-center text-white transition-all ${hoveredModule === module.id ? 'scale-110' : ''}`}
+                    style={{ 
+                      background: `linear-gradient(135deg, ${module.color}, ${module.color}99)`, 
+                      boxShadow: `0 8px 25px ${module.color}35` 
+                    }}
+                  >
+                    {module.icon}
+                  </div>
+                  
+                  <div 
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-all ${hoveredModule === module.id ? 'border-transparent' : 'border-white/10'}`}
+                    style={{ backgroundColor: hoveredModule === module.id ? module.color : 'transparent' }}
+                  >
+                    <ChevronRight className={`w-5 h-5 transition-all ${hoveredModule === module.id ? 'text-white translate-x-0.5' : 'text-white/40'}`} />
+                  </div>
+                </div>
 
-              {/* Content */}
-              <div className="flex-1">
-                <h2 className="text-xl font-bold text-white mb-1">{module.title}</h2>
-                <p className="text-sm text-white/50 mb-3">{module.description}</p>
-                <div className="flex flex-wrap gap-2">
-                  {module.features.map((f, i) => (
-                    <span key={i} className="px-3 py-1 rounded-lg text-xs font-medium" style={{ backgroundColor: `${module.color}20`, color: module.color }}>{f}</span>
-                  ))}
+                {/* Content */}
+                <div>
+                  <h2 className="text-2xl font-bold text-white mb-2 tracking-tight">{module.title}</h2>
+                  <p className="text-sm text-white/50 leading-relaxed min-h-[60px]">{module.description}</p>
                 </div>
               </div>
 
-              {/* Arrow */}
-              <div className={`w-12 h-12 rounded-xl flex items-center justify-center border transition-all ${hoveredModule === module.id ? 'border-transparent' : 'border-white/10'}`}
-                style={{ backgroundColor: hoveredModule === module.id ? module.color : 'transparent' }}>
-                <ChevronRight className={`w-6 h-6 transition-all ${hoveredModule === module.id ? 'text-white translate-x-0.5' : 'text-white/40'}`} />
+              {/* Badges */}
+              <div className="flex flex-wrap gap-1.5 pt-4 border-t border-white/5 w-full">
+                {module.features.map((f, i) => (
+                  <span 
+                    key={i} 
+                    className="px-2.5 py-1 rounded-lg text-xs font-semibold" 
+                    style={{ backgroundColor: `${module.color}15`, color: module.color }}
+                  >
+                    {f}
+                  </span>
+                ))}
               </div>
 
               {/* Loading */}
               {selectedModule === module.id && (
-                <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-[#1a1a2e]/80">
+                <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-[#1a1a2e]/85">
                   <div className="flex gap-2">
-                    {[0, 1, 2].map(i => <div key={i} className="w-3 h-3 rounded-full animate-bounce" style={{ backgroundColor: module.color, animationDelay: `${i * 0.15}s` }} />)}
+                    {[0, 1, 2].map(i => (
+                      <div 
+                        key={i} 
+                        className="w-2.5 h-2.5 rounded-full animate-bounce" 
+                        style={{ backgroundColor: module.color, animationDelay: `${i * 0.15}s` }} 
+                      />
+                    ))}
                   </div>
                 </div>
               )}
@@ -202,7 +243,7 @@ export default function FSMSelectPage() {
         </div>
 
         {/* Footer */}
-        <div className="text-center mt-10">
+        <div className="text-center mt-12">
           <p className="text-white/30 text-sm">© {new Date().getFullYear()} Kardex Remstar. All rights reserved.</p>
         </div>
       </div>

@@ -15,6 +15,7 @@ import {
   History,
   TrendingUp,
   Brain,
+  UploadCloud,
 } from "lucide-react";
 
 export type NavItem = {
@@ -570,8 +571,104 @@ export const expertHelpdeskNavigation: NavItem[] = [
   },
 ];
 
+// Admin Contracts Navigation (flattened - no submenus)
+export const adminContractsNavigation: NavItem[] = [
+  {
+    title: "Contracts Dashboard",
+    href: "/admin/contracts/dashboard",
+    icon: LayoutDashboard,
+    roles: [UserRole.ADMIN],
+    iconColor: "text-[#82A094]",
+    iconBgColor: "bg-[#82A094]/10"
+  },
+  {
+    title: "Contracts",
+    href: "/admin/contracts",
+    icon: FileText,
+    roles: [UserRole.ADMIN],
+    iconColor: "text-[#546A7A]",
+    iconBgColor: "bg-[#6F8A9D]/10"
+  },
+  {
+    title: "Bulk Import",
+    href: "/admin/contracts/import",
+    icon: UploadCloud,
+    roles: [UserRole.ADMIN],
+    iconColor: "text-[#E17F70]",
+    iconBgColor: "bg-[#E17F70]/10"
+  }
+];
+
+// Zone Manager Contracts Navigation (flattened)
+export const zoneManagerContractsNavigation: NavItem[] = [
+  {
+    title: "Contracts Dashboard",
+    href: "/zone-manager/contracts/dashboard",
+    icon: LayoutDashboard,
+    roles: [UserRole.ZONE_MANAGER],
+    iconColor: "text-[#82A094]",
+    iconBgColor: "bg-[#82A094]/10"
+  },
+  {
+    title: "Zone Contracts",
+    href: "/zone-manager/contracts",
+    icon: FileText,
+    roles: [UserRole.ZONE_MANAGER],
+    iconColor: "text-[#546A7A]",
+    iconBgColor: "bg-[#6F8A9D]/10"
+  },
+  {
+    title: "Bulk Import",
+    href: "/zone-manager/contracts/import",
+    icon: UploadCloud,
+    roles: [UserRole.ZONE_MANAGER],
+    iconColor: "text-[#E17F70]",
+    iconBgColor: "bg-[#E17F70]/10"
+  }
+];
+
+// Zone User Contracts Navigation (flattened)
+export const zoneUserContractsNavigation: NavItem[] = [
+  {
+    title: "Contracts Dashboard",
+    href: "/zone/contracts/dashboard",
+    icon: LayoutDashboard,
+    roles: [UserRole.ZONE_USER],
+    iconColor: "text-[#82A094]",
+    iconBgColor: "bg-[#82A094]/10"
+  },
+  {
+    title: "Zone Contracts",
+    href: "/zone/contracts",
+    icon: FileText,
+    roles: [UserRole.ZONE_USER],
+    iconColor: "text-[#546A7A]",
+    iconBgColor: "bg-[#6F8A9D]/10"
+  }
+];
+
+// Expert Helpdesk Contracts Navigation (flattened)
+export const expertHelpdeskContractsNavigation: NavItem[] = [
+  {
+    title: "Contracts Dashboard",
+    href: "/expert/contracts/dashboard",
+    icon: LayoutDashboard,
+    roles: [UserRole.EXPERT_HELPDESK],
+    iconColor: "text-[#82A094]",
+    iconBgColor: "bg-[#82A094]/10"
+  },
+  {
+    title: "Contracts",
+    href: "/expert/contracts",
+    icon: FileText,
+    roles: [UserRole.EXPERT_HELPDESK],
+    iconColor: "text-[#546A7A]",
+    iconBgColor: "bg-[#6F8A9D]/10"
+  }
+];
+
 // Sub-module type for FSM
-export type SubModule = 'tickets' | 'offers' | null;
+export type SubModule = 'tickets' | 'offers' | 'contracts' | null;
 
 // ============================================
 // TICKETS-FOCUSED NAVIGATION (Service & Activity)
@@ -1129,16 +1226,24 @@ export const getNavigationForRoleAndSubModule = (
 
   switch (role) {
     case UserRole.ADMIN:
-      return subModule === 'tickets' ? adminTicketsNavigation : adminOffersNavigation;
+      if (subModule === 'tickets') return adminTicketsNavigation;
+      if (subModule === 'offers') return adminOffersNavigation;
+      return adminContractsNavigation;
     case UserRole.SERVICE_PERSON:
       // Service person only deals with tickets
       return servicePersonNavigation;
     case UserRole.ZONE_MANAGER:
-      return subModule === 'tickets' ? zoneManagerTicketsNavigation : zoneManagerOffersNavigation;
+      if (subModule === 'tickets') return zoneManagerTicketsNavigation;
+      if (subModule === 'offers') return zoneManagerOffersNavigation;
+      return zoneManagerContractsNavigation;
     case UserRole.ZONE_USER:
-      return subModule === 'tickets' ? zoneUserTicketsNavigation : zoneUserOffersNavigation;
+      if (subModule === 'tickets') return zoneUserTicketsNavigation;
+      if (subModule === 'offers') return zoneUserOffersNavigation;
+      return zoneUserContractsNavigation;
     case UserRole.EXPERT_HELPDESK:
-      return subModule === 'tickets' ? expertHelpdeskTicketsNavigation : expertHelpdeskOffersNavigation;
+      if (subModule === 'tickets') return expertHelpdeskTicketsNavigation;
+      if (subModule === 'offers') return expertHelpdeskOffersNavigation;
+      return expertHelpdeskContractsNavigation;
     default:
       return [];
   }

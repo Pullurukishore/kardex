@@ -820,6 +820,42 @@ class ApiService {
     };
   }
 
+  // Contract methods
+  async getContracts(params?: any) {
+    const response = await api.get(`${this.baseURL}/contracts`, { params });
+    return response.data;
+  }
+
+  async getContract(id: number) {
+    const response = await api.get(`${this.baseURL}/contracts/${id}`);
+    return response.data;
+  }
+
+  async createContract(contractData: any) {
+    const response = await api.post(`${this.baseURL}/contracts`, contractData);
+    return response.data;
+  }
+
+  async updatePMSchedule(pmId: number, status: string) {
+    const response = await api.patch(`${this.baseURL}/contracts/0/pm/${pmId}`, { status });
+    return response.data;
+  }
+
+  async updateContract(id: number, contractData: any) {
+    const response = await api.put(`${this.baseURL}/contracts/${id}`, contractData);
+    return response.data;
+  }
+
+  async deleteContract(id: number) {
+    const response = await api.delete(`${this.baseURL}/contracts/${id}`);
+    return response.data;
+  }
+
+  async bulkImportContracts(contracts: any[]) {
+    const response = await api.post(`${this.baseURL}/contracts/bulk`, { contracts });
+    return response.data;
+  }
+
 }
 
 export const apiService = new ApiService();
@@ -830,3 +866,11 @@ export const getZoneManagerTargets = (params?: any) => apiService.getZoneManager
 export const previewSparePartImport = (file: File) => apiService.previewSparePartImport(file);
 export const bulkImportSpareParts = (file: File) => apiService.bulkImportSpareParts(file);
 export const downloadSparePartImportTemplate = () => apiService.downloadSparePartImportTemplate();
+
+export const getContracts = (params?: any) => apiService.getContracts(params);
+export const getContract = (id: number) => apiService.getContract(id);
+export const createContract = (contractData: any) => apiService.createContract(contractData);
+export const updatePMSchedule = (pmId: number, status: string) => apiService.updatePMSchedule(pmId, status);
+export const updateContract = (id: number, contractData: any) => apiService.updateContract(id, contractData);
+export const deleteContract = (id: number) => apiService.deleteContract(id);
+export const bulkImportContracts = (contracts: any[]) => apiService.bulkImportContracts(contracts);

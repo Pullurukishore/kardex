@@ -85,6 +85,8 @@ model User {
   createdSpareParts               SparePart[]              @relation("SparePartCreatedBy")
   updatedSpareParts               SparePart[]              @relation("SparePartUpdatedBy")
   userTargets                     UserTarget[]             @relation("UserTargets")
+  contractsCreated                Contract[]               @relation("ContractCreatedBy")
+  contractsAssigned               Contract[]               @relation("ContractAssignedTo")
   createdZoneTargets              ZoneTarget[]             @relation("ZoneTargetCreatedBy")
   updatedZoneTargets              ZoneTarget[]             @relation("ZoneTargetUpdatedBy")
   createdUserTargets              UserTarget[]             @relation("UserTargetCreatedBy")
@@ -128,6 +130,7 @@ model Customer {
   tickets       Ticket[]    @relation("CustomerTickets")
   users         User[]      @relation("UserCustomer")
   offers        Offer[]     @relation("CustomerOffers")
+  contracts     Contract[]  @relation("CustomerContracts")
   activitySchedules ActivitySchedule[] @relation("CustomerActivitySchedules")
 }
 
@@ -164,6 +167,7 @@ model ServiceZone {
   servicePersons ServicePersonZone[] @relation("ServiceZonePersons")
   tickets        Ticket[]            @relation("TicketZone")
   offers         Offer[]             @relation("OfferZone")
+  contracts      Contract[]          @relation("ContractZone")
   zoneTargets    ZoneTarget[]        @relation("ZoneTargets")
   activitySchedules ActivitySchedule[] @relation("ZoneActivitySchedules")
 }
@@ -1533,4 +1537,68 @@ model PaymentBatchItem {
   @@index([batchId])
   @@index([status])
   @@map("payment_batch_items")
+}
+
+// FSM Service Contracts
+model Contract {
+  id                    Int                  @id @default(autoincrement())
+  contractNumber        String               @unique
+  scheduledMonth        String?
+  customerName          String
+  place                 String
+  poNo                  String
+  poDate                DateTime?
+  mcType                String
+  noOfMachine           Int                  @default(1)
+  amount                Decimal              @db.Decimal(12, 2)
+  noOfVisits            Int                  @default(3)
+  startDate             DateTime
+  endDate               DateTime
+  status                String               @default("Active")
+  softwareSupport       Boolean              @default(false)
+  responsible           String
+  zoneName              String
+  bdCount               Int                  @default(0)
+  paymentTerms          String?
+  
+  // Relations
+  customerId            Int
+  customer              Customer             @relation("CustomerContracts", fields: [customerId], references: [id])
+  zoneId                Int
+  zone                  ServiceZone          @relation("ContractZone", fields: [zoneId], references: [id])
+  assignedToId          Int?
+  assignedTo            User?                @relation("ContractAssignedTo", fields: [assignedToId], references: [id])
+  createdById           Int
+  createdBy             User                 @relation("ContractCreatedBy", fields: [createdById], references: [id])
+  
+  // Sub-Schedules (PM visits)
+  pmSchedules           ContractPMSchedule[] @relation("ContractToPMSchedules")
+  
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+
+  @@index([customerId])
+  @@index([zoneId])
+  @@index([status])
+  @@index([assignedToId])
+  @@index([poNo])
+  @@index([startDate])
+  @@map("contracts")
+}
+
+// Preventive Maintenance Sub-Schedule
+model ContractPMSchedule {
+  id                    Int                  @id @default(autoincrement())
+  contractId            Int
+  contract              Contract             @relation("ContractToPMSchedules", fields: [contractId], references: [id], onDelete: Cascade)
+  pmNumber              Int
+  range                 String?
+  status                String               @default("Pending")
+  completedAt           DateTime?
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+
+  @@index([contractId])
+  @@index([status])
+  @@map("contract_pm_schedules")
 }

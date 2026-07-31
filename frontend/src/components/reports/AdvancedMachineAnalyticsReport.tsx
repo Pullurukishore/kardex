@@ -340,7 +340,9 @@ export function AdvancedMachineAnalyticsReport({ reportData }: AdvancedMachineAn
                             <tr className="bg-[#AEBFC3]/5 border-b border-[#AEBFC3]/10">
                               <th className="text-left py-3 px-4 text-xs font-semibold text-[#5D6E73] uppercase tracking-wider">Machine Model & S/N</th>
                               <th className="text-center py-3 px-4 text-xs font-semibold text-[#5D6E73] uppercase tracking-wider">Incidents</th>
-                              <th className="text-right py-3 px-4 text-xs font-semibold text-[#5D6E73] uppercase tracking-wider">Downtime (Hours)</th>
+                              <th className="text-center py-3 px-4 text-xs font-semibold text-[#5D6E73] uppercase tracking-wider">Downtime (Hours)</th>
+                              <th className="text-center py-3 px-4 text-xs font-semibold text-[#5D6E73] uppercase tracking-wider">MTTR</th>
+                              <th className="text-center py-3 px-4 text-xs font-semibold text-[#5D6E73] uppercase tracking-wider">Status</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-[#AEBFC3]/10">
@@ -362,8 +364,8 @@ export function AdvancedMachineAnalyticsReport({ reportData }: AdvancedMachineAn
                                     {m.incidents || 0}
                                   </span>
                                 </td>
-                                <td className="py-3 px-4 text-right">
-                                  <div className="flex flex-col items-end">
+                                <td className="py-3 px-4 text-center">
+                                  <div className="flex flex-col items-center">
                                     <span className="text-sm font-bold text-[#9E3B47]">{(m.totalDowntimeMinutes / 60).toFixed(1)}h</span>
                                     <div className="w-16 h-1.5 bg-gray-100 rounded-full mt-1 overflow-hidden">
                                       <div 
@@ -372,6 +374,27 @@ export function AdvancedMachineAnalyticsReport({ reportData }: AdvancedMachineAn
                                       />
                                     </div>
                                   </div>
+                                </td>
+                                <td className="py-3 px-4 text-center">
+                                  <div className="flex flex-col items-center">
+                                    <span className="text-sm font-bold text-[#976E44]">
+                                      {m.incidents > 0 ? ((m.totalDowntimeMinutes / m.incidents) / 60).toFixed(1) : '0.0'}h
+                                    </span>
+                                    <span className="text-[10px] text-[#AEBFC3]">
+                                      {m.incidents > 0 ? Math.round(m.totalDowntimeMinutes / m.incidents) : 0} min/ticket
+                                    </span>
+                                  </div>
+                                </td>
+                                <td className="py-3 px-4 text-center">
+                                  {(m.incidents || 0) <= 1 ? (
+                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                      GOOD
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                      NEED ATTENTION
+                                    </span>
+                                  )}
                                 </td>
                               </tr>
                             ))}
