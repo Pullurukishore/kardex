@@ -133,6 +133,7 @@ interface Offer {
     contactPersonName: string
     contactNumber?: string
     email?: string
+    name?: string
   }
   items?: OfferItem[]
   machineDetails?: MachineDetails
@@ -823,9 +824,9 @@ export default function QuoteGenerationPage() {
         gstNumber: storedQuoteData?.gstNumber || DEFAULT_COMPANY_INFO.gstNumber,
         arnNumber: storedQuoteData?.arnNumber || DEFAULT_COMPANY_INFO.arnNumber,
         remarks: typeof offer.remarks === 'string' && !offer.remarks.startsWith('{') ? offer.remarks : '',
-        contactPersonName: offer.contact?.contactPersonName || offer.contactPersonName || '',
-        contactPersonPhone: offer.contact?.contactNumber || offer.contactNumber || '',
-        contactPersonEmail: offer.contact?.email || offer.email || '',
+        contactPersonName: offer.assignedTo?.name || offer.createdBy?.name || '',
+        contactPersonPhone: offer.assignedTo?.phone || offer.createdBy?.phone || '',
+        contactPersonEmail: offer.assignedTo?.email || offer.createdBy?.email || '',
         signatureImage: storedQuoteData?.signatureImage || null,
         items: storedQuoteData?.quoteItems?.length > 0
           ? storedQuoteData.quoteItems.map((item: any, index: number) => ({
@@ -1203,18 +1204,10 @@ export default function QuoteGenerationPage() {
 
                 {/* Kind Attention */}
                 <div className="kind-attention-section text-left">
-                  {isEditMode ? (
-                    <div className="flex items-center gap-2 max-w-md print:hidden mb-2">
-                      <span className="text-xs font-semibold text-[#1e5f8b] w-16">Kind Attn:</span>
-                      <Input
-                        value={editableData.contactPersonName}
-                        onChange={(e) => setEditableData({ ...editableData, contactPersonName: e.target.value })}
-                        className="h-7 text-xs flex-1 text-[#1e5f8b] font-bold"
-                        placeholder="Contact Person Name"
-                      />
-                    </div>
-                  ) : (
-                    <p className="kind-attention-text" style={{ color: '#1e5f8b' }}><strong>Kind Attn: {editableData.contactPersonName || offer.contactPersonName || '[Contact Person Name]'}.</strong></p>
+                  {(offer.contact?.contactPersonName || offer.contact?.name || offer.contactPersonName) && (
+                    <p className="kind-attention-text" style={{ color: '#1e5f8b' }}>
+                      <strong>Kind Attn: {offer.contact?.contactPersonName || offer.contact?.name || offer.contactPersonName}.</strong>
+                    </p>
                   )}
                 </div>
 

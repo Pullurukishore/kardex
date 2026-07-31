@@ -122,6 +122,7 @@ interface Offer {
     contactPersonName: string
     contactNumber?: string
     email?: string
+    name?: string
   }
   items?: OfferItem[]
   machineDetails?: MachineDetails
@@ -815,9 +816,9 @@ export default function QuoteGenerationPage() {
                       {[offer.customer?.city, offer.customer?.state].filter(Boolean).join(' - ')}
                     </div>
                   )}
-                  {offer.contactPersonName && (
+                  {(offer.contact?.contactPersonName || offer.contact?.name || offer.contactPersonName) && (
                     <div className="text-[#5D6E73] mt-2">
-                      <span className="font-medium">Kind Attn:</span> {offer.contactPersonName}
+                      <span className="font-medium">Kind Attn:</span> {offer.contact?.contactPersonName || offer.contact?.name || offer.contactPersonName}
                     </div>
                   )}
                 </div>
