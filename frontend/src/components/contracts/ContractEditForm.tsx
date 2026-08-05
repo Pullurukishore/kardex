@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { 
-  ArrowLeft, FileText, CheckCircle, AlertTriangle, RefreshCw, Sparkles, Check 
+import {
+  ArrowLeft, FileText, CheckCircle, AlertTriangle, RefreshCw, Sparkles, Check
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiService } from '@/services/api';
@@ -16,14 +16,14 @@ interface ContractEditFormProps {
 
 export default function ContractEditForm({ id, role, backUrl }: ContractEditFormProps) {
   const router = useRouter();
-  
+
   // State
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [customers, setCustomers] = useState<any[]>([]);
   const [zones, setZones] = useState<any[]>([]);
   const [usersList, setUsersList] = useState<any[]>([]);
-  
+
   // Form State
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [editCustName, setEditCustName] = useState('');
@@ -56,11 +56,12 @@ export default function ContractEditForm({ id, role, backUrl }: ContractEditForm
           apiService.getUsers(),
           apiService.getContract(id)
         ]);
-        
+
+        const zonesArray = Array.isArray(zData) ? zData : (zData?.data || []);
         setCustomers(cData);
-        setZones(zData);
+        setZones(zonesArray);
         setUsersList(uData.users || uData || []);
-        
+
         if (contract) {
           setContractNumber(contract.contractNumber || '');
           setSelectedCustomerId(String(contract.customerId || ''));
@@ -74,7 +75,7 @@ export default function ContractEditForm({ id, role, backUrl }: ContractEditForm
           setEditMachines(String(contract.noOfMachine || 1));
           setEditValue(String(contract.amount || ''));
           setEditVisits(String(contract.noOfVisits || 3));
-          setEditBdCount(String(contract.bdCount || 0));
+          setEditBdCount(contract.bdCount === 999 ? 'Unlimited' : String(contract.bdCount || 0));
           setEditStartDate(contract.startDate ? contract.startDate.substring(0, 10) : '');
           setEditEndDate(contract.endDate ? contract.endDate.substring(0, 10) : '');
           setEditResponsible(contract.responsible || '');
@@ -89,7 +90,7 @@ export default function ContractEditForm({ id, role, backUrl }: ContractEditForm
         setLoading(false);
       }
     };
-    
+
     if (id) {
       loadData();
     }
@@ -102,7 +103,7 @@ export default function ContractEditForm({ id, role, backUrl }: ContractEditForm
     if (selectedCust) {
       setEditCustName(selectedCust.companyName);
       setEditPlace(selectedCust.address || 'India');
-      
+
       if (selectedCust.serviceZone) {
         setEditZoneName(selectedCust.serviceZone.name);
         setSelectedZoneId(String(selectedCust.serviceZoneId));
@@ -120,9 +121,10 @@ export default function ContractEditForm({ id, role, backUrl }: ContractEditForm
     const val = parseFloat(editValue);
     const machines = parseInt(editMachines);
     const visits = parseInt(editVisits);
-    const bds = parseInt(editBdCount);
+    const bdStr = String(editBdCount).trim().toLowerCase();
+    const bds = (bdStr === 'unlimited' || bdStr === 'ul') ? 999 : (parseInt(bdStr, 10) || 0);
 
-    if (isNaN(val) || isNaN(machines) || isNaN(visits) || isNaN(bds)) {
+    if (isNaN(val) || isNaN(machines) || isNaN(visits)) {
       toast.error('Please enter valid numerical values');
       return;
     }
@@ -170,15 +172,15 @@ export default function ContractEditForm({ id, role, backUrl }: ContractEditForm
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 font-medium text-slate-800">
-      
+
       {/* Header Banner */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0f0f23] via-[#1a1a2e] to-[#16213e] p-6 text-white shadow-xl">
         <div className="absolute top-0 right-0 -mt-10 -mr-10 w-40 h-40 bg-[#E17F70]/20 rounded-full blur-3xl" />
         <div className="absolute bottom-0 left-1/3 -mb-10 w-40 h-40 bg-[#82A094]/10 rounded-full blur-3xl" />
-        
+
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
           <div className="flex items-center gap-3">
-            <button 
+            <button
               onClick={() => router.push(backUrl)}
               className="p-3 bg-white/10 rounded-2xl hover:bg-white/20 active:scale-95 transition-all text-white"
             >
@@ -199,7 +201,7 @@ export default function ContractEditForm({ id, role, backUrl }: ContractEditForm
       {/* Main Editing Card */}
       <div className="bg-white rounded-3xl border border-slate-100 p-6 sm:p-8 shadow-sm">
         <form onSubmit={handleUpdateContract} className="space-y-6 text-xs font-semibold">
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-1.5">
               <label className="text-[10px] font-bold text-slate-400 uppercase">Select Customer *</label>
@@ -210,9 +212,14 @@ export default function ContractEditForm({ id, role, backUrl }: ContractEditForm
                 className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#82A094]/20 text-xs"
               >
                 <option value="">-- Select Customer --</option>
-                {customers.map(c => (
-                  <option key={c.id} value={c.id}>{c.companyName}</option>
-                ))}
+                {customers.map(c => {
+                  const zoneName = c.serviceZone?.name || zones.find((z: any) => Number(z.id) === Number(c.serviceZoneId))?.name;
+                  return (
+                    <option key={c.id} value={c.id}>
+                      {c.companyName}{zoneName ? ` (${zoneName} Zone)` : ''}
+                    </option>
+                  );
+                })}
               </select>
             </div>
 
@@ -311,18 +318,19 @@ export default function ContractEditForm({ id, role, backUrl }: ContractEditForm
                 onChange={(e) => setEditVisits(e.target.value)}
                 className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#82A094]/20 text-xs"
               >
-                <option value="1">1 PM Visit</option>
-                <option value="2">2 PM Visits</option>
-                <option value="3">3 PM Visits</option>
-                <option value="4">4 PM Visits</option>
+                {Array.from({ length: 12 }, (_, i) => i + 1).map((v) => (
+                  <option key={v} value={v}>
+                    {v} PM {v === 1 ? 'Visit' : 'Visits'} / Year
+                  </option>
+                ))}
               </select>
             </div>
 
             <div className="space-y-1.5">
               <label className="text-[10px] font-bold text-slate-400 uppercase">BDs Logged / Incidents</label>
               <input
-                type="number"
-                min="0"
+                type="text"
+                placeholder='Enter count or "Unlimited"'
                 value={editBdCount}
                 onChange={(e) => setEditBdCount(e.target.value)}
                 className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#82A094]/20 text-xs"
@@ -363,8 +371,19 @@ export default function ContractEditForm({ id, role, backUrl }: ContractEditForm
                 className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#82A094]/20 text-xs"
               >
                 <option value="">-- Select Responsible --</option>
-                {usersList.map((u: any) => (
-                  <option key={u.id} value={u.name || u.email}>{u.name || u.email}</option>
+                {(usersList.filter((u: any) => {
+                  const role = (u.role || '').toUpperCase();
+                  return role === 'ZONE_USER' || role === 'ZONE_MANAGER' || role.includes('ZONE');
+                }).length > 0
+                  ? usersList.filter((u: any) => {
+                    const role = (u.role || '').toUpperCase();
+                    return role === 'ZONE_USER' || role === 'ZONE_MANAGER' || role.includes('ZONE');
+                  })
+                  : usersList
+                ).map((u: any) => (
+                  <option key={u.id} value={u.name || u.email}>
+                    {u.name || u.email}{u.role ? ` (${u.role.replace('_', ' ')})` : ''}
+                  </option>
                 ))}
               </select>
             </div>

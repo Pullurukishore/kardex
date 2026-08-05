@@ -43,6 +43,7 @@ export async function getCustomers(zoneId?: string): Promise<Customer[]> {
   try {
     const params = new URLSearchParams();
     params.append('isActive', 'true');
+    params.append('hasAssets', 'true');
     params.append('limit', '2000');
     if (zoneId) {
       params.append('serviceZoneId', zoneId);

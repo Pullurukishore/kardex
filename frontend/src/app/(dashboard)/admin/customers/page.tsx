@@ -8,6 +8,7 @@ import Link from 'next/link';
 interface SearchParams {
   search?: string;
   status?: string;
+  hasAssets?: string;
   page?: string;
 }
 
@@ -21,11 +22,12 @@ export default async function CustomersPage({
   const resolvedSearchParams = await searchParams;
   const search = resolvedSearchParams.search || '';
   const status = resolvedSearchParams.status || 'all';
+  const hasAssets = resolvedSearchParams.hasAssets || 'true';
   const page = parseInt(resolvedSearchParams.page || '1');
 
   try {
     // Fetch data server-side
-    const allCustomers = await getCustomers({ search, status, page, limit: 25 });
+    const allCustomers = await getCustomers({ search, status, hasAssets, page, limit: 25 });
     const stats = await getCustomerStats(allCustomers);
 
     return (

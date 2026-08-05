@@ -60,8 +60,6 @@ export default function ContractsDashboard({ role, view = 'list' }: ContractsDas
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [zoneFilter, setZoneFilter] = useState<string>('all');
   const [techFilter, setTechFilter] = useState<string>('all');
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-
   const getBaseRoute = () => {
     if (role === 'Admin') return '/admin';
     if (role === 'Zone Manager') return '/zone-manager';
@@ -69,30 +67,6 @@ export default function ContractsDashboard({ role, view = 'list' }: ContractsDas
     if (role === 'Expert Helpdesk') return '/expert';
     return '/admin';
   };
-
-  // Form dependencies loaded from DB
-  const [customers, setCustomers] = useState<any[]>([]);
-  const [zones, setZones] = useState<any[]>([]);
-  const [usersList, setUsersList] = useState<any[]>([]);
-
-  // Form State
-  const [selectedCustomerId, setSelectedCustomerId] = useState('');
-  const [selectedZoneId, setSelectedZoneId] = useState('');
-  const [newCustName, setNewCustName] = useState('');
-  const [newPlace, setNewPlace] = useState('');
-  const [newPoNo, setNewPoNo] = useState('');
-  const [newPoDate, setNewPoDate] = useState('');
-  const [newMcType, setNewMcType] = useState('Flex Care');
-  const [newMachines, setNewMachines] = useState('1');
-  const [newValue, setNewValue] = useState('');
-  const [newVisits, setNewVisits] = useState('3');
-  const [newStartDate, setNewStartDate] = useState('');
-  const [newEndDate, setNewEndDate] = useState('');
-  const [newResponsible, setNewResponsible] = useState('Rahul');
-  const [newZoneName, setNewZoneName] = useState('West');
-  const [newBdCount, setNewBdCount] = useState('0');
-  const [newPaymentTerms, setNewPaymentTerms] = useState('30 Days Net');
-  const [newSoftwareSupport, setNewSoftwareSupport] = useState(false);
 
   // Fetch contracts
   const fetchContracts = async () => {
@@ -113,103 +87,10 @@ export default function ContractsDashboard({ role, view = 'list' }: ContractsDas
     }
   };
 
-  // Load dependencies on mount
-  useEffect(() => {
-    const loadDependencies = async () => {
-      try {
-        const [cData, zData, uData] = await Promise.all([
-          apiService.getCustomers({ limit: 1000 }),
-          apiService.getZones(),
-          apiService.getUsers()
-        ]);
-        setCustomers(cData);
-        setZones(zData);
-        setUsersList(uData.users || uData || []);
-      } catch (err) {
-        console.error('Failed to load form dependencies', err);
-      }
-    };
-    loadDependencies();
-  }, []);
-
   // Fetch contracts when filters change
   useEffect(() => {
     fetchContracts();
   }, [search, statusFilter, zoneFilter, techFilter]);
-
-  // Handle customer dropdown selection
-  const handleCustomerChange = (idStr: string) => {
-    setSelectedCustomerId(idStr);
-    const id = Number(idStr);
-    const selectedCust = customers.find(c => c.id === id);
-    if (selectedCust) {
-      setNewCustName(selectedCust.companyName);
-      setNewPlace(selectedCust.address || 'India');
-      
-      if (selectedCust.serviceZone) {
-        setNewZoneName(selectedCust.serviceZone.name);
-        setSelectedZoneId(String(selectedCust.serviceZoneId));
-      }
-    }
-  };
-
-  // Save new contract
-  const handleAddContract = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedCustomerId || !newPlace || !newPoNo || !newValue || !newStartDate || !newEndDate || !selectedZoneId) {
-      toast.error('Please fill in all mandatory fields');
-      return;
-    }
-
-    const val = parseFloat(newValue);
-    const machines = parseInt(newMachines);
-    const visits = parseInt(newVisits);
-    const bds = parseInt(newBdCount);
-
-    if (isNaN(val) || isNaN(machines) || isNaN(visits) || isNaN(bds)) {
-      toast.error('Please enter valid numerical values');
-      return;
-    }
-
-    try {
-      await apiService.createContract({
-        customerName: newCustName,
-        place: newPlace,
-        poNo: newPoNo,
-        poDate: newPoDate || newStartDate,
-        mcType: newMcType,
-        noOfMachine: machines,
-        amount: val,
-        noOfVisits: visits,
-        startDate: newStartDate,
-        endDate: newEndDate,
-        responsible: newResponsible,
-        zoneName: newZoneName,
-        bdCount: bds,
-        paymentTerms: newPaymentTerms,
-        softwareSupport: newSoftwareSupport,
-        customerId: Number(selectedCustomerId),
-        zoneId: Number(selectedZoneId)
-      });
-
-      setIsAddModalOpen(false);
-      toast.success('Service Agreement created successfully!');
-      
-      // Reset fields
-      setSelectedCustomerId('');
-      setNewCustName('');
-      setNewPlace('');
-      setNewPoNo('');
-      setNewPoDate('');
-      setNewValue('');
-      setNewSoftwareSupport(false);
-
-      fetchContracts();
-    } catch (err: any) {
-      console.error(err);
-      toast.error('Failed to save agreement on database');
-    }
-  };
 
   // Toggle PM Status
   const handleTogglePMStatus = async (pmId: number, currentStatus: string) => {
@@ -237,7 +118,7 @@ export default function ContractsDashboard({ role, view = 'list' }: ContractsDas
     const totalPMs = contracts.reduce((sum, c) => sum + c.pmSchedules.filter(p => p.status === 'Completed').length, 0);
     const totalExpectedPMs = contracts.reduce((sum, c) => sum + c.pmSchedules.filter(p => p.status !== 'Not Applicable').length, 0);
     const pmCompletionRate = totalExpectedPMs > 0 ? Math.round((totalPMs / totalExpectedPMs) * 100) : 0;
-    const totalBDs = contracts.reduce((sum, c) => sum + c.bdCount, 0);
+    const totalBDs = contracts.reduce((sum, c) => sum + (c.bdCount === 999 ? 0 : c.bdCount), 0);
     return {
       totalActive,
       totalAmount,
@@ -289,31 +170,31 @@ export default function ContractsDashboard({ role, view = 'list' }: ContractsDas
       });
     });
     return [
-      { name: 'Completed', value: completed, color: '#10B981' },
-      { name: 'Pending', value: pending, color: '#F59E0B' }
+      { name: 'Completed', value: completed, color: '#82A094' },
+      { name: 'Pending', value: pending, color: '#CE9F6B' }
     ];
   }, [contracts]);
 
   const getStatusBadge = (status: Contract['status']) => {
     switch (status) {
       case 'Active':
-        return 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20';
+        return 'bg-[#82A094]/15 text-[#4F6A64] border-[#82A094]/30';
       case 'Expiring Soon':
-        return 'bg-amber-500/10 text-amber-600 border-amber-500/20';
+        return 'bg-[#CE9F6B]/15 text-[#976E44] border-[#CE9F6B]/30';
       case 'Expired':
-        return 'bg-rose-500/10 text-rose-600 border-rose-500/20';
+        return 'bg-[#E17F70]/15 text-[#75242D] border-[#E17F70]/30';
       default:
-        return 'bg-slate-100 text-slate-600';
+        return 'bg-[#AEBFC3]/15 text-[#5D6E73] border-[#92A2A5]/30';
     }
   };
 
   const getSlaColor = (mcType: string) => {
     if (mcType.includes('Premium')) {
-      return 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-sm';
+      return 'bg-[#546A7A] text-white shadow-sm';
     } else if (mcType.includes('Active')) {
-      return 'bg-gradient-to-r from-[#CE9F6B] to-[#976E44] text-white shadow-sm';
+      return 'bg-[#CE9F6B] text-white shadow-sm';
     }
-    return 'bg-gradient-to-r from-slate-400 to-slate-600 text-white shadow-sm';
+    return 'bg-[#82A094] text-white shadow-sm';
   };
 
   // Format Date ISO helper
@@ -326,9 +207,9 @@ export default function ContractsDashboard({ role, view = 'list' }: ContractsDas
   return (
     <div className="space-y-6">
       {/* Header Banner */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0f0f23] via-[#1a1a2e] to-[#16213e] p-6 text-white shadow-xl">
-        <div className="absolute top-0 right-0 -mt-10 -mr-10 w-40 h-40 bg-[#82A094]/20 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 left-1/3 -mb-10 w-40 h-40 bg-[#E17F70]/10 rounded-full blur-3xl" />
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#546A7A] via-[#6F8A9D] to-[#3d4f5c] p-6 text-white shadow-xl">
+        <div className="absolute top-0 right-0 -mt-10 -mr-10 w-40 h-40 bg-[#82A094]/25 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 left-1/3 -mb-10 w-40 h-40 bg-[#CE9F6B]/20 rounded-full blur-3xl" />
         
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
           <div>
@@ -347,7 +228,7 @@ export default function ContractsDashboard({ role, view = 'list' }: ContractsDas
           </div>
           {view !== 'dashboard' && (
             <button 
-              onClick={() => setIsAddModalOpen(true)}
+              onClick={() => router.push(`${getBaseRoute()}/contracts/new`)}
               className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-gradient-to-r from-[#82A094] to-[#688579] hover:brightness-110 active:scale-[0.98] text-white font-semibold transition-all shadow-lg shadow-[#82A094]/25"
             >
               <Plus className="w-5 h-5" />
@@ -674,8 +555,8 @@ export default function ContractsDashboard({ role, view = 'list' }: ContractsDas
 
                           {/* PM Visit Cycles */}
                           <td className="p-4" onClick={(e) => e.stopPropagation()}>
-                            <div className="flex gap-1.5 items-center">
-                              {[1, 2, 3, 4].map(num => {
+                            <div className="flex flex-wrap gap-1.5 items-center max-w-[280px]">
+                              {Array.from({ length: c.noOfVisits || c.pmSchedules.length || 3 }, (_, idx) => idx + 1).map(num => {
                                 const pm = c.pmSchedules.find(p => p.pmNumber === num);
                                 if (!pm || pm.status === 'Not Applicable') {
                                   return (
@@ -711,7 +592,7 @@ export default function ContractsDashboard({ role, view = 'list' }: ContractsDas
 
                           {/* Incidents */}
                           <td className="p-4 text-center font-bold text-rose-600 text-sm">
-                            {c.bdCount}
+                            {c.bdCount === 999 ? 'Unlimited' : c.bdCount}
                           </td>
 
                           {/* Status */}
@@ -739,233 +620,6 @@ export default function ContractsDashboard({ role, view = 'list' }: ContractsDas
             </div>
           )}
         </>
-      )}
-
-      {/* Add New Contract Dialog (Modal) */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-3xl w-full max-w-xl shadow-2xl p-6 relative border border-slate-100 animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
-            {/* Modal Header */}
-            <div className="flex justify-between items-center mb-4 pb-3 border-b border-slate-100">
-              <h3 className="text-lg font-bold text-slate-800">Add Service Agreement</h3>
-              <button 
-                onClick={() => setIsAddModalOpen(false)}
-                className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center hover:bg-slate-200 text-slate-500"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Form */}
-            <form onSubmit={handleAddContract} className="space-y-4 text-xs">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">Select Customer *</label>
-                  <select
-                    required
-                    value={selectedCustomerId}
-                    onChange={(e) => handleCustomerChange(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white focus:outline-none"
-                  >
-                    <option value="">-- Select Customer --</option>
-                    {customers.map(c => (
-                      <option key={c.id} value={c.id}>{c.companyName}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">Place (Location) *</label>
-                  <input
-                    type="text"
-                    required
-                    readOnly
-                    placeholder="Auto-filled from Customer"
-                    value={newPlace}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">PO Number *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. PO-12345"
-                    value={newPoNo}
-                    onChange={(e) => setNewPoNo(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">PO Date</label>
-                  <input
-                    type="date"
-                    value={newPoDate}
-                    onChange={(e) => setNewPoDate(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">MC Contract Type</label>
-                  <select
-                    value={newMcType}
-                    onChange={(e) => setNewMcType(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white focus:outline-none"
-                  >
-                    <option value="Flex Care">Flex Care</option>
-                    <option value="Active Care">Active Care</option>
-                    <option value="Premium Care">Premium Care</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">Service Zone</label>
-                  <input
-                    type="text"
-                    readOnly
-                    value={newZoneName}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">Machines Covered</label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={newMachines}
-                    onChange={(e) => setNewMachines(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">Contract Value Amount (₹) *</label>
-                  <input
-                    type="number"
-                    required
-                    placeholder="e.g. 150000"
-                    value={newValue}
-                    onChange={(e) => setNewValue(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">Number of Visits</label>
-                  <select
-                    value={newVisits}
-                    onChange={(e) => setNewVisits(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white focus:outline-none"
-                  >
-                    <option value="1">1 PM Visit</option>
-                    <option value="2">2 PM Visits</option>
-                    <option value="3">3 PM Visits</option>
-                    <option value="4">4 PM Visits</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">BDs Logged / Incidents</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={newBdCount}
-                    onChange={(e) => setNewBdCount(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">Contract Start Date *</label>
-                  <input
-                    type="date"
-                    required
-                    value={newStartDate}
-                    onChange={(e) => setNewStartDate(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">Contract End Date *</label>
-                  <input
-                    type="date"
-                    required
-                    value={newEndDate}
-                    onChange={(e) => setNewEndDate(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">Responsible Eng</label>
-                  <select
-                    value={newResponsible}
-                    onChange={(e) => setNewResponsible(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white focus:outline-none"
-                  >
-                    {usersList.map((u: any) => (
-                      <option key={u.id} value={u.name || u.email}>{u.name || u.email}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">Payment Terms</label>
-                  <input
-                    type="text"
-                    value={newPaymentTerms}
-                    onChange={(e) => setNewPaymentTerms(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 pt-2">
-                <input
-                  type="checkbox"
-                  id="sw_support"
-                  checked={newSoftwareSupport}
-                  onChange={(e) => setNewSoftwareSupport(e.target.checked)}
-                  className="w-4 h-4 text-[#82A094] border-slate-300 rounded focus:ring-[#82A094]"
-                />
-                <label htmlFor="sw_support" className="text-slate-600 font-bold select-none cursor-pointer">Include Software Support License</label>
-              </div>
-
-              <div className="flex gap-2 pt-2 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setIsAddModalOpen(false)}
-                  className="flex-1 py-3 border border-slate-200 hover:bg-slate-50 rounded-xl font-bold text-slate-600 text-xs transition-all active:scale-[0.98]"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-3 bg-[#82A094] hover:bg-[#6e897e] rounded-xl font-bold text-white text-xs transition-all active:scale-[0.98]"
-                >
-                  Save Agreement
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
       )}
     </div>
   );

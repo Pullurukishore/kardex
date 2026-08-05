@@ -16,6 +16,7 @@ interface CustomerClientProps {
   searchParams: {
     search?: string;
     status?: string;
+    hasAssets?: string;
     page?: string;
   };
   readOnly?: boolean;
@@ -42,6 +43,10 @@ const CustomerClient = memo(function CustomerClient({
       const params = new URLSearchParams();
       if (searchParams.search) params.append('search', searchParams.search);
       if (searchParams.status && searchParams.status !== 'all') params.append('status', searchParams.status);
+      const currentHasAssets = searchParams.hasAssets !== undefined ? searchParams.hasAssets : 'true';
+      if (currentHasAssets && currentHasAssets !== 'all') {
+        params.append('hasAssets', currentHasAssets);
+      }
       if (searchParams.page) params.append('page', searchParams.page);
       params.append('limit', '25');
 
@@ -78,7 +83,7 @@ const CustomerClient = memo(function CustomerClient({
     
     // Update the last search params reference
     lastSearchParams.current = currentSearchParams;
-  }, [searchParams.search, searchParams.status, searchParams.page]);
+  }, [searchParams.search, searchParams.status, searchParams.hasAssets, searchParams.page]);
 
   const handleRefresh = useCallback(async () => {
     await fetchCustomerData();
@@ -181,6 +186,7 @@ const CustomerClient = memo(function CustomerClient({
       <CustomerFilters 
         search={searchParams.search}
         status={searchParams.status}
+        hasAssets={searchParams.hasAssets}
         totalResults={customerCount}
         filteredResults={customerCount}
       />

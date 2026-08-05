@@ -32,7 +32,7 @@ export const listCustomers = async (req: AuthenticatedRequest, res: Response) =>
   const startTime = Date.now();
 
   try {
-    const { search = '', include, serviceZoneId, zoneId, isActive } = req.query;
+    const { search = '', include, serviceZoneId, zoneId, isActive, hasAssets } = req.query;
     const where: any = {};
 
     // Add isActive filter if provided
@@ -40,6 +40,13 @@ export const listCustomers = async (req: AuthenticatedRequest, res: Response) =>
       where.isActive = true;
     } else if (isActive === 'false') {
       where.isActive = false;
+    }
+
+    // Add hasAssets filter if provided (true = customers with >= 1 asset, false = customers with 0 assets)
+    if (hasAssets === 'true') {
+      where.assets = { some: {} };
+    } else if (hasAssets === 'false') {
+      where.assets = { none: {} };
     }
 
     // Add serviceZoneId or zoneId filter if provided

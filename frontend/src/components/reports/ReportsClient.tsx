@@ -196,7 +196,7 @@ const ReportsClient: React.FC<ReportsClientProps> = ({
         isCustomersFetching.current = true;
         setIsLoadingCustomers(true);
         try {
-          const response = await apiService.getCustomers({ isActive: 'true', limit: 1000 });
+          const response = await apiService.getCustomers({ isActive: 'true', hasAssets: 'true', limit: 1000 });
           const customersData = Array.isArray(response) ? response : (response.data || response.customers || []);
           setCustomers(customersData);
         } catch (error) {
@@ -311,14 +311,14 @@ const ReportsClient: React.FC<ReportsClientProps> = ({
       
       if (!zoneId) {
         // Reset to all customers
-        const response = await apiService.getCustomers({ isActive: 'true', limit: 1000 });
+        const response = await apiService.getCustomers({ isActive: 'true', hasAssets: 'true', limit: 1000 });
         const customersData = Array.isArray(response) ? response : (response.data || response.customers || []);
         setCustomers(customersData);
         return;
       }
       
       setIsLoadingCustomers(true);
-      const response = await apiService.getCustomers({ isActive: 'true', zoneId, limit: 1000 });
+      const response = await apiService.getCustomers({ isActive: 'true', hasAssets: 'true', zoneId, limit: 1000 });
       const customersData = Array.isArray(response) ? response : (response.data || response.customers || []);
       setCustomers(customersData);
       // Clear customer filter when zone changes

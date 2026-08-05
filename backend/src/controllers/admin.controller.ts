@@ -9,9 +9,10 @@ import crypto from 'crypto';
 // Get all users with optional role filter
 export const getUsers = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    // Check if user is admin or expert helpdesk
-    if (req.user?.role !== 'ADMIN' && req.user?.role !== 'EXPERT_HELPDESK') {
-      return res.status(403).json({ message: 'Access denied. Admin or Expert Helpdesk role required.' });
+    // Check if user has an authorized role
+    const allowedRoles = ['ADMIN', 'EXPERT_HELPDESK', 'ZONE_USER', 'ZONE_MANAGER', 'SERVICE_PERSON'];
+    if (!req.user?.role || !allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({ message: 'Access denied. Authorized role required.' });
     }
 
     const { role, page = 1, limit = 50, search } = req.query;

@@ -7,6 +7,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5003/a
 interface CustomerFilters {
   search?: string;
   status?: string;
+  hasAssets?: string;
   page?: number;
   limit?: number;
 }
@@ -46,12 +47,13 @@ async function makeServerRequest(endpoint: string, method: 'GET' | 'POST' | 'PUT
 }
 
 export async function getCustomers(filters: CustomerFilters = {}): Promise<Customer[]> {
-  const { search = '', status = 'all', page = 1, limit = 10 } = filters;
+  const { search = '', status = 'all', hasAssets, page = 1, limit = 10 } = filters;
 
   const params = new URLSearchParams({
     page: page.toString(),
     limit: limit.toString(),
     ...(search && { search }),
+    ...(hasAssets && { hasAssets }),
   });
 
   try {

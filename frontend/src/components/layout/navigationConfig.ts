@@ -16,6 +16,7 @@ import {
   TrendingUp,
   Brain,
   UploadCloud,
+  Building2,
 } from "lucide-react";
 
 export type NavItem = {
@@ -596,6 +597,14 @@ export const adminContractsNavigation: NavItem[] = [
     roles: [UserRole.ADMIN],
     iconColor: "text-[#E17F70]",
     iconBgColor: "bg-[#E17F70]/10"
+  },
+  {
+    title: "Customer Tracking",
+    href: "/admin/contracts/tracking",
+    icon: Building2,
+    roles: [UserRole.ADMIN],
+    iconColor: "text-[#CE9F6B]",
+    iconBgColor: "bg-[#CE9F6B]/10"
   }
 ];
 
@@ -624,6 +633,14 @@ export const zoneManagerContractsNavigation: NavItem[] = [
     roles: [UserRole.ZONE_MANAGER],
     iconColor: "text-[#E17F70]",
     iconBgColor: "bg-[#E17F70]/10"
+  },
+  {
+    title: "Customer Tracking",
+    href: "/zone-manager/contracts/tracking",
+    icon: Building2,
+    roles: [UserRole.ZONE_MANAGER],
+    iconColor: "text-[#CE9F6B]",
+    iconBgColor: "bg-[#CE9F6B]/10"
   }
 ];
 
@@ -644,6 +661,14 @@ export const zoneUserContractsNavigation: NavItem[] = [
     roles: [UserRole.ZONE_USER],
     iconColor: "text-[#546A7A]",
     iconBgColor: "bg-[#6F8A9D]/10"
+  },
+  {
+    title: "Customer Tracking",
+    href: "/zone/contracts/tracking",
+    icon: Building2,
+    roles: [UserRole.ZONE_USER],
+    iconColor: "text-[#CE9F6B]",
+    iconBgColor: "bg-[#CE9F6B]/10"
   }
 ];
 
@@ -664,6 +689,14 @@ export const expertHelpdeskContractsNavigation: NavItem[] = [
     roles: [UserRole.EXPERT_HELPDESK],
     iconColor: "text-[#546A7A]",
     iconBgColor: "bg-[#6F8A9D]/10"
+  },
+  {
+    title: "Customer Tracking",
+    href: "/expert/contracts/tracking",
+    icon: Building2,
+    roles: [UserRole.EXPERT_HELPDESK],
+    iconColor: "text-[#CE9F6B]",
+    iconBgColor: "bg-[#CE9F6B]/10"
   }
 ];
 

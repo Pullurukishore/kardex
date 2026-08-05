@@ -31,6 +31,7 @@ router.get(
     query('limit').optional().isInt({ min: 1, max: 2000 }).toInt(),
     query('search').optional().trim(),
     query('isActive').optional().trim(),
+    query('hasAssets').optional().trim(),
     query('zoneId').optional().trim(),
     query('serviceZoneId').optional().trim(),
     validateRequest

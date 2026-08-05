@@ -48,22 +48,14 @@ export const createContract = async (req: any, res: Response) => {
     const segment = diff / noOfVisits;
     const pmSchedulesData: { pmNumber: number; range: string; status: string }[] = [];
 
-    for (let i = 1; i <= 4; i++) {
-      if (i <= noOfVisits) {
-        const cycleStart = new Date(start.getTime() + segment * (i - 1));
-        const cycleEnd = new Date(start.getTime() + segment * i);
-        pmSchedulesData.push({
-          pmNumber: i,
-          range: `${formatDateString(cycleStart)} TO ${formatDateString(cycleEnd)}`,
-          status: 'Pending'
-        });
-      } else {
-        pmSchedulesData.push({
-          pmNumber: i,
-          range: 'Not Scheduled',
-          status: 'Not Applicable'
-        });
-      }
+    for (let i = 1; i <= noOfVisits; i++) {
+      const cycleStart = new Date(start.getTime() + segment * (i - 1));
+      const cycleEnd = new Date(start.getTime() + segment * i);
+      pmSchedulesData.push({
+        pmNumber: i,
+        range: `${formatDateString(cycleStart)} TO ${formatDateString(cycleEnd)}`,
+        status: 'Pending'
+      });
     }
 
     const createdById = req.user?.id;
@@ -72,8 +64,27 @@ export const createContract = async (req: any, res: Response) => {
     }
 
     const currentYear = new Date().getFullYear();
-    const totalCount = await db.contract.count();
-    const contractNumber = `CON-${currentYear}-${String(totalCount + 1).padStart(3, '0')}`;
+    const existingContracts = await db.contract.findMany({
+      where: {
+        contractNumber: {
+          startsWith: `CON-${currentYear}-`
+        }
+      },
+      select: {
+        contractNumber: true
+      }
+    });
+    const existingNumbers = new Set(existingContracts.map((c: any) => c.contractNumber));
+    let nextIndex = 1;
+    let contractNumber = '';
+    while (true) {
+      const candidate = `CON-${currentYear}-${String(nextIndex).padStart(3, '0')}`;
+      if (!existingNumbers.has(candidate)) {
+        contractNumber = candidate;
+        break;
+      }
+      nextIndex++;
+    }
 
     const result = await db.$transaction(async (tx: any) => {
       const contract = await tx.contract.create({
@@ -92,7 +103,9 @@ export const createContract = async (req: any, res: Response) => {
           endDate: end,
           responsible,
           zoneName,
-          bdCount: Number(bdCount),
+          bdCount: bdCount !== undefined 
+            ? (String(bdCount).trim().toLowerCase() === 'unlimited' || String(bdCount).trim().toLowerCase() === 'ul' || String(bdCount).trim() === '999' ? 999 : (parseInt(String(bdCount), 10) || 0)) 
+            : 0,
           paymentTerms,
           softwareSupport: Boolean(softwareSupport),
           customerId: Number(customerId),
@@ -302,22 +315,14 @@ export const updateContract = async (req: any, res: Response) => {
     if (redistNeeded) {
       const diff = end.getTime() - start.getTime();
       const segment = diff / visitsCount;
-      for (let i = 1; i <= 4; i++) {
-        if (i <= visitsCount) {
-          const cycleStart = new Date(start.getTime() + segment * (i - 1));
-          const cycleEnd = new Date(start.getTime() + segment * i);
-          pmSchedulesData.push({
-            pmNumber: i,
-            range: `${formatDateString(cycleStart)} TO ${formatDateString(cycleEnd)}`,
-            status: 'Pending'
-          });
-        } else {
-          pmSchedulesData.push({
-            pmNumber: i,
-            range: 'Not Scheduled',
-            status: 'Not Applicable'
-          });
-        }
+      for (let i = 1; i <= visitsCount; i++) {
+        const cycleStart = new Date(start.getTime() + segment * (i - 1));
+        const cycleEnd = new Date(start.getTime() + segment * i);
+        pmSchedulesData.push({
+          pmNumber: i,
+          range: `${formatDateString(cycleStart)} TO ${formatDateString(cycleEnd)}`,
+          status: 'Pending'
+        });
       }
     }
 
@@ -339,7 +344,9 @@ export const updateContract = async (req: any, res: Response) => {
           endDate: end,
           responsible: responsible ?? existing.responsible,
           zoneName: zoneName ?? existing.zoneName,
-          bdCount: bdCount !== undefined ? Number(bdCount) : existing.bdCount,
+          bdCount: bdCount !== undefined 
+            ? (String(bdCount).trim().toLowerCase() === 'unlimited' || String(bdCount).trim().toLowerCase() === 'ul' || String(bdCount).trim() === '999' ? 999 : (parseInt(String(bdCount), 10) || 0)) 
+            : existing.bdCount,
           paymentTerms: paymentTerms ?? existing.paymentTerms,
           softwareSupport: softwareSupport !== undefined ? Boolean(softwareSupport) : existing.softwareSupport,
           status: status ?? existing.status,
@@ -400,7 +407,18 @@ export const bulkImportContracts = async (req: any, res: Response) => {
     }
 
     const currentYear = new Date().getFullYear();
-    let totalCount = await db.contract.count();
+    const existingContracts = await db.contract.findMany({
+      where: {
+        contractNumber: {
+          startsWith: `CON-${currentYear}-`
+        }
+      },
+      select: {
+        contractNumber: true
+      }
+    });
+    const existingNumbers = new Set(existingContracts.map((c: any) => c.contractNumber));
+    let nextIndex = 1;
 
     const results = await db.$transaction(async (tx: any) => {
       const imported: any[] = [];
@@ -423,10 +441,11 @@ export const bulkImportContracts = async (req: any, res: Response) => {
           paymentTerms,
           softwareSupport = false,
           customerId,
-          zoneId
+          zoneId,
+          pmSchedules
         } = item;
 
-        if (!customerName || !place || !poNo || !amount || !startDate || !endDate || !customerId || !zoneId) {
+        if (!customerName || !place || !startDate || !endDate || !zoneId || amount === undefined || amount === null || isNaN(Number(amount))) {
           throw new Error(`Missing required fields in item for customer ${customerName || 'Unknown'}`);
         }
 
@@ -434,31 +453,75 @@ export const bulkImportContracts = async (req: any, res: Response) => {
         const end = new Date(endDate);
         const scheduledMonth = start.toLocaleString('default', { month: 'long' });
 
-        // Distribute PM cycles
-        const diff = end.getTime() - start.getTime();
-        const segment = diff / noOfVisits;
-        const pmSchedulesData: { pmNumber: number; range: string; status: string }[] = [];
+        // Resolve or auto-create customer in backend
+        let finalCustomerId = customerId ? Number(customerId) : null;
+        if (!finalCustomerId) {
+          let existingCust = await tx.customer.findFirst({
+            where: { companyName: { equals: customerName, mode: 'insensitive' } }
+          });
+          
+          if (!existingCust) {
+            existingCust = await tx.customer.create({
+              data: {
+                companyName: customerName,
+                address: place || null,
+                serviceZoneId: Number(zoneId),
+                createdById: Number(createdById),
+                updatedById: Number(createdById)
+              }
+            });
+          }
+          finalCustomerId = existingCust.id;
+        }
 
-        for (let i = 1; i <= 4; i++) {
-          if (i <= noOfVisits) {
+        // Parse custom PM schedules if available, otherwise auto-generate
+        const pmSchedulesData: { pmNumber: number; range: string; status: string; completedAt: Date | null }[] = [];
+        
+        if (Array.isArray(pmSchedules) && pmSchedules.length > 0) {
+          pmSchedules.forEach((pm: any) => {
+            pmSchedulesData.push({
+              pmNumber: Number(pm.pmNum || pm.pmNumber),
+              range: pm.range || '',
+              status: pm.completedAt ? 'Completed' : 'Pending',
+              completedAt: pm.completedAt ? new Date(pm.completedAt) : null
+            });
+          });
+        } else {
+          // Distribute PM cycles
+          const diff = end.getTime() - start.getTime();
+          const segment = diff / noOfVisits;
+          for (let i = 1; i <= noOfVisits; i++) {
             const cycleStart = new Date(start.getTime() + segment * (i - 1));
             const cycleEnd = new Date(start.getTime() + segment * i);
             pmSchedulesData.push({
               pmNumber: i,
               range: `${formatDateString(cycleStart)} TO ${formatDateString(cycleEnd)}`,
-              status: 'Pending'
-            });
-          } else {
-            pmSchedulesData.push({
-              pmNumber: i,
-              range: 'Not Scheduled',
-              status: 'Not Applicable'
+              status: 'Pending',
+              completedAt: null
             });
           }
         }
 
-        totalCount++;
-        const contractNumber = `CON-${currentYear}-${String(totalCount).padStart(3, '0')}`;
+        let contractNumber = '';
+        while (true) {
+          const candidate = `CON-${currentYear}-${String(nextIndex).padStart(3, '0')}`;
+          if (!existingNumbers.has(candidate)) {
+            contractNumber = candidate;
+            existingNumbers.add(candidate);
+            break;
+          }
+          nextIndex++;
+        }
+
+        let parsedBdCount = 0;
+        if (bdCount !== undefined && bdCount !== null) {
+          const bdStr = String(bdCount).trim().toLowerCase();
+          if (bdStr === 'unlimited' || bdStr === 'ul' || bdStr === '999') {
+            parsedBdCount = 999;
+          } else {
+            parsedBdCount = parseInt(bdStr, 10) || 0;
+          }
+        }
 
         const contract = await tx.contract.create({
           data: {
@@ -476,10 +539,10 @@ export const bulkImportContracts = async (req: any, res: Response) => {
             endDate: end,
             responsible,
             zoneName,
-            bdCount: Number(bdCount),
+            bdCount: parsedBdCount,
             paymentTerms,
             softwareSupport: Boolean(softwareSupport),
-            customerId: Number(customerId),
+            customerId: Number(finalCustomerId),
             zoneId: Number(zoneId),
             createdById: Number(createdById)
           }
@@ -492,7 +555,8 @@ export const bulkImportContracts = async (req: any, res: Response) => {
                 contractId: contract.id,
                 pmNumber: pm.pmNumber,
                 range: pm.range,
-                status: pm.status
+                status: pm.status,
+                completedAt: pm.completedAt
               }
             })
           )

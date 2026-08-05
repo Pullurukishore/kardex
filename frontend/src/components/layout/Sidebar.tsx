@@ -50,9 +50,17 @@ const MemoizedNavItem = React.memo(({
   onSectionToggle: (href: string) => void;
   expandedSections: Record<string, boolean>;
 }) => {
+  // Determine if a sub-route is active, ignoring sibling routes that have their own sidebar items
+  const isSubRouteActive = React.useMemo(() => {
+    if (!pathname || !pathname.startsWith(item.href + '/')) return false;
+    const remaining = pathname.substring(item.href.length + 1);
+    const siblingSubRoutes = ['tracking', 'import', 'dashboard'];
+    return !siblingSubRoutes.some(route => remaining === route || remaining.startsWith(route + '/'));
+  }, [pathname, item.href]);
+
   const isActive = item.href.endsWith('/dashboard')
     ? pathname === item.href
-    : (pathname === item.href || (pathname?.startsWith(item.href + '/') && !pathname.includes('/dashboard')));
+    : (pathname === item.href || (isSubRouteActive && !pathname?.includes('/dashboard')));
   const hasChildren = item.children && item.children.length > 0;
   const isExpanded = expandedSections[item.href] ?? false;
   const Icon = item.icon;

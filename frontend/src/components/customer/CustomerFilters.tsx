@@ -8,6 +8,7 @@ import { useState, useEffect, useCallback } from 'react';
 interface CustomerFiltersProps {
   search?: string;
   status?: string;
+  hasAssets?: string;
   totalResults: number;
   filteredResults: number;
 }
@@ -15,6 +16,7 @@ interface CustomerFiltersProps {
 export default function CustomerFilters({
   search = '',
   status = 'all',
+  hasAssets = 'true',
   totalResults,
   filteredResults
 }: CustomerFiltersProps) {
@@ -22,6 +24,7 @@ export default function CustomerFilters({
   const searchParams = useSearchParams();
   const [searchValue, setSearchValue] = useState(search);
   const [statusValue, setStatusValue] = useState(status);
+  const [hasAssetsValue, setHasAssetsValue] = useState(hasAssets || searchParams.get('hasAssets') || 'true');
 
   // Custom debounce hook
   const useDebounce = (callback: Function, delay: number) => {
@@ -41,7 +44,7 @@ export default function CustomerFilters({
   };
 
   // Function to update URL parameters
-  const updateFilters = useCallback((newSearch: string, newStatus: string) => {
+  const updateFilters = useCallback((newSearch: string, newStatus: string, newHasAssets: string) => {
     const params = new URLSearchParams(searchParams.toString());
     
     // Update search parameter
@@ -57,18 +60,26 @@ export default function CustomerFilters({
     } else {
       params.delete('status');
     }
+
+    // Update hasAssets parameter
+    if (newHasAssets && newHasAssets !== 'all') {
+      params.set('hasAssets', newHasAssets);
+    } else {
+      params.delete('hasAssets');
+    }
     
     // Reset to page 1 when filters change
     params.delete('page');
     
     // Navigate with new parameters
     const newUrl = params.toString() ? `?${params.toString()}` : '';
-    router.push(`/admin/customers${newUrl}`, { scroll: false });
+    const pathname = window.location.pathname;
+    router.push(`${pathname}${newUrl}`, { scroll: false });
   }, [router, searchParams]);
 
   // Debounced search function
   const debouncedSearch = useDebounce((searchTerm: string) => {
-    updateFilters(searchTerm, statusValue);
+    updateFilters(searchTerm, statusValue, hasAssetsValue);
   }, 500);
 
   // Handle search input change
@@ -82,14 +93,22 @@ export default function CustomerFilters({
   const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;
     setStatusValue(value);
-    updateFilters(searchValue, value);
+    updateFilters(searchValue, value, hasAssetsValue);
+  };
+
+  // Handle hasAssets change (immediate)
+  const handleHasAssetsChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value;
+    setHasAssetsValue(value);
+    updateFilters(searchValue, statusValue, value);
   };
 
   // Update local state when props change (for browser back/forward)
   useEffect(() => {
     setSearchValue(search);
     setStatusValue(status);
-  }, [search, status]);
+    setHasAssetsValue(searchParams.get('hasAssets') || hasAssets || 'true');
+  }, [search, status, hasAssets, searchParams]);
 
   return (
     <Card className="shadow-lg">
@@ -109,11 +128,21 @@ export default function CustomerFilters({
                 className="w-full pl-10 pr-4 py-2 border border-[#92A2A5] rounded-md focus:ring-2 focus:ring-[#96AEC2] focus:border-[#6F8A9D]"
               />
             </div>
+
+            <select
+              value={hasAssetsValue}
+              onChange={handleHasAssetsChange}
+              className="w-full sm:w-[180px] px-3 py-2 border border-[#92A2A5] rounded-md focus:ring-2 focus:ring-[#96AEC2] focus:border-[#6F8A9D] font-medium text-xs text-[#546A7A]"
+            >
+              <option value="true">With Assets (Hide Dummy)</option>
+              <option value="all">All Customers</option>
+              <option value="false">0 Assets (Dummy Only)</option>
+            </select>
             
             <select
               value={statusValue}
               onChange={handleStatusChange}
-              className="w-full sm:w-[140px] px-3 py-2 border border-[#92A2A5] rounded-md focus:ring-2 focus:ring-[#96AEC2] focus:border-[#6F8A9D]"
+              className="w-full sm:w-[140px] px-3 py-2 border border-[#92A2A5] rounded-md focus:ring-2 focus:ring-[#96AEC2] focus:border-[#6F8A9D] text-xs text-[#546A7A]"
             >
               <option value="all">All Status</option>
               <option value="active">Active</option>

@@ -160,6 +160,7 @@ export default function NewOfferPage() {
       const customers = await apiService.getCustomers({ 
         zoneId, 
         limit: 100,
+        hasAssets: 'true',
         include: 'contacts,assets'
       })
       
@@ -579,14 +580,18 @@ export default function NewOfferPage() {
                     </div>
                     <div className="max-h-64 overflow-y-auto p-1 custom-scrollbar">
                       {filteredCustomers.length > 0 ? (
-                        filteredCustomers.map((customer) => (
-                          <SelectItem key={customer.id} value={customer.id.toString()} className="rounded-lg mb-1 focus:bg-[#A2B9AF]/10 transition-colors">
-                            <div className="flex items-center space-x-3 py-1">
-                              <div className="h-9 w-9 rounded-lg bg-[#A2B9AF]/20 flex items-center justify-center flex-shrink-0">
-                                <Building2 className="h-5 w-5 text-[#4F6A64]" />
-                              </div>
-                              <div className="flex flex-col min-w-0">
-                                <span className="font-semibold text-[#546A7A] truncate">{customer.companyName}</span>
+                        filteredCustomers.map((customer) => {
+                          const zName = customer.serviceZone?.name || customer.zone?.name || zones.find((z: any) => z.id === customer.serviceZoneId)?.name;
+                          return (
+                            <SelectItem key={customer.id} value={customer.id.toString()} className="rounded-lg mb-1 focus:bg-[#A2B9AF]/10 transition-colors">
+                              <div className="flex items-center space-x-3 py-1">
+                                <div className="h-9 w-9 rounded-lg bg-[#A2B9AF]/20 flex items-center justify-center flex-shrink-0">
+                                  <Building2 className="h-5 w-5 text-[#4F6A64]" />
+                                </div>
+                                <div className="flex flex-col min-w-0">
+                                  <span className="font-semibold text-[#546A7A] truncate">
+                                    {customer.companyName}{zName ? ` (${zName} Zone)` : ''}
+                                  </span>
                                 <div className="flex items-center gap-2 text-xs text-[#AEBFC3]0">
                                   {customer.location && (
                                     <span className="flex items-center gap-1">
@@ -603,7 +608,8 @@ export default function NewOfferPage() {
                               </div>
                             </div>
                           </SelectItem>
-                        ))
+                        );
+                      })
                       ) : (
                         <div className="p-8 text-center bg-[#AEBFC3]/10/50 rounded-xl m-2">
                           <Building2 className="h-8 w-8 text-[#92A2A5] mx-auto mb-2" />

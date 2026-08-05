@@ -464,8 +464,17 @@ class ApiService {
 
   // User methods
   async getUsers(params?: any) {
-    const response = await api.get(`${this.baseURL}/admin/users`, { params });
-    return response.data;
+    try {
+      const response = await api.get(`${this.baseURL}/admin/users`, { params });
+      return response.data;
+    } catch (err) {
+      try {
+        const fallbackRes = await api.get(`${this.baseURL}/zone-users/zone-users`);
+        return fallbackRes.data?.data || fallbackRes.data || [];
+      } catch (fallbackErr) {
+        throw err;
+      }
+    }
   }
 
   async getUser(id: number) {

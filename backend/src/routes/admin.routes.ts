@@ -134,7 +134,7 @@ router.get('/zone-users', authMiddleware(['ADMIN']), async (req, res) => {
 // User Management Routes (Admin only)
 // IMPORTANT: Put specific routes before parameterized routes to avoid conflicts
 // Get users with optional role filter - this must come before /:id route
-router.get('/users', authenticate, requireRole(['ADMIN', 'EXPERT_HELPDESK']), (req, res, next) => {
+router.get('/users', authenticate, requireRole(['ADMIN', 'EXPERT_HELPDESK', 'ZONE_USER', 'ZONE_MANAGER', 'SERVICE_PERSON']), (req, res, next) => {
   const authReq = req as any;
   return getUsers(authReq, res).catch(next);
 });

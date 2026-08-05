@@ -192,6 +192,7 @@ export default function NewOfferPage() {
       const response = await apiService.getCustomers({ 
         zoneId, 
         limit: 1000, // High limit to get all customers
+        hasAssets: 'true',
         include: 'contacts,assets' // Request full data
       })
       
@@ -582,22 +583,25 @@ export default function NewOfferPage() {
                     </div>
                     <div className="max-h-60 overflow-y-auto">
                       {filteredCustomers.length > 0 ? (
-                        filteredCustomers.map((customer) => (
-                          <SelectItem key={customer.id} value={customer.id.toString()}>
-                            <div className="flex items-center space-x-2">
-                              <Building2 className="h-3 w-3 text-[#82A094]" />
-                              <div className="flex flex-col">
-                                <span className="font-medium">{customer.companyName}</span>
-                                {customer.location && (
-                                  <span className="text-xs text-[#AEBFC3]0 flex items-center gap-1">
-                                    <MapPin className="h-3 w-3" />
-                                    {customer.location}
-                                  </span>
-                                )}
+                        filteredCustomers.map((customer) => {
+                          const zName = customer.serviceZone?.name || customer.zone?.name;
+                          return (
+                            <SelectItem key={customer.id} value={customer.id.toString()}>
+                              <div className="flex items-center space-x-2">
+                                <Building2 className="h-3 w-3 text-[#82A094]" />
+                                <div className="flex flex-col">
+                                  <span className="font-medium">{customer.companyName}{zName ? ` (${zName} Zone)` : ''}</span>
+                                  {customer.location && (
+                                    <span className="text-xs text-[#AEBFC3]0 flex items-center gap-1">
+                                      <MapPin className="h-3 w-3" />
+                                      {customer.location}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          </SelectItem>
-                        ))
+                            </SelectItem>
+                          );
+                        })
                       ) : (
                         <div className="p-2 text-sm text-[#AEBFC3]0 text-center">
                           {customerSearch ? 'No customers found matching your search' : 'No customers available'}

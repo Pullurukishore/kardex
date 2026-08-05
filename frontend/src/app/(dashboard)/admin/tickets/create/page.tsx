@@ -169,11 +169,11 @@ export default function CreateTicketPage() {
         
         let customersRes;
         if (zoneId === 'all') {
-          // Fetch all customers but WITHOUT heavy sub-entities (contacts/assets)
-          customersRes = await api.get('/customers');
+          // Fetch all customers with assets
+          customersRes = await api.get('/customers?hasAssets=true');
         } else {
-          // Use the customers endpoint with zone filter, lean fetch
-          customersRes = await api.get(`/customers?serviceZoneId=${zoneId}`);
+          // Use the customers endpoint with zone filter and hasAssets=true
+          customersRes = await api.get(`/customers?serviceZoneId=${zoneId}&hasAssets=true`);
         }
         
         const leanCustomers = customersRes.data.map((customer: any) => ({

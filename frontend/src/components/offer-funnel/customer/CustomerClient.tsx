@@ -37,6 +37,7 @@ interface CustomerClientProps {
   searchParams: {
     search?: string;
     status?: string;
+    hasAssets?: string;
   };
   readOnly?: boolean;
   viewBasePath?: string;
@@ -67,12 +68,16 @@ const CustomerClient = memo(function CustomerClient({
 
       if (searchParams.search) params.search = searchParams.search;
       if (searchParams.status && searchParams.status !== 'all') params.status = searchParams.status;
+      const currentHasAssets = searchParams.hasAssets !== undefined ? searchParams.hasAssets : 'true';
+      if (currentHasAssets && currentHasAssets !== 'all') {
+        params.hasAssets = currentHasAssets;
+      }
 
       console.log('CustomerClient - Fetching customers with params:', params);
       const response = await apiService.getCustomers(params);
       console.log('CustomerClient - API response:', response);
       
-      const customerData = response.customers || response.data || [];
+      const customerData = Array.isArray(response) ? response : (response.customers || response.data || []);
       console.log('CustomerClient - Customer data:', customerData);
       
       setCustomers(customerData);
@@ -114,7 +119,7 @@ const CustomerClient = memo(function CustomerClient({
     }
     
     lastSearchParams.current = currentSearchParams;
-  }, [searchParams.search, searchParams.status, fetchCustomerData]);
+  }, [searchParams.search, searchParams.status, searchParams.hasAssets, fetchCustomerData]);
 
   const handleRefresh = useCallback(async () => {
     await fetchCustomerData();
@@ -244,6 +249,7 @@ const CustomerClient = memo(function CustomerClient({
       <CustomerFilters 
         search={searchParams.search}
         status={searchParams.status}
+        hasAssets={searchParams.hasAssets}
         totalResults={customerCount}
         filteredResults={customerCount}
       />

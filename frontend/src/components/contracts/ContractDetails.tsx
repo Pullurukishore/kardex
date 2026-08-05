@@ -416,7 +416,7 @@ export default function ContractDetails({ id, role, backUrl }: ContractDetailsPr
             <div className="absolute top-0 right-0 -mt-8 -mr-8 w-24 h-24 bg-rose-500/5 rounded-full blur-2xl" />
             <div className="space-y-1 relative z-10">
               <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Breakdown Incidents</span>
-              <h3 className="text-3xl font-extrabold text-rose-600 tracking-tight mt-1">{contract.bdCount} Visits</h3>
+              <h3 className="text-3xl font-extrabold text-rose-600 tracking-tight mt-1">{contract.bdCount === 999 ? 'Unlimited' : contract.bdCount} Visits</h3>
             </div>
             <div className="flex items-center gap-1.5 text-xs text-rose-600 font-bold bg-rose-500/10 w-fit px-2.5 py-1 rounded-lg mt-4">
               <Activity className="w-3.5 h-3.5" />
