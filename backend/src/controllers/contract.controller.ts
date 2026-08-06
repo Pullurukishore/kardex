@@ -12,6 +12,24 @@ const formatDateString = (date: Date) => {
   return `${day}/${month}/${year}`;
 };
 
+// Helper to compute contract status dynamically based on end date
+const computeContractStatus = (endDate: Date | null | string): string => {
+  if (!endDate) return 'Active';
+  const now = new Date();
+  const end = new Date(endDate);
+  
+  if (end < now) {
+    return 'Expired';
+  }
+  
+  const thirtyDaysLater = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+  if (end <= thirtyDaysLater) {
+    return 'Expiring Soon';
+  }
+  
+  return 'Active';
+};
+
 // Create a new contract and distribute PM visits
 export const createContract = async (req: any, res: Response) => {
   try {
@@ -87,6 +105,23 @@ export const createContract = async (req: any, res: Response) => {
     }
 
     const result = await db.$transaction(async (tx: any) => {
+      let assignedToId: number | null = null;
+      if (responsible) {
+        const names = responsible.split(/[\/,]+/).map((n: string) => n.trim()).filter(Boolean);
+        const primaryName = names[0] || responsible;
+        const user = await tx.user.findFirst({
+          where: {
+            OR: [
+              { name: { equals: primaryName, mode: 'insensitive' } },
+              { email: { startsWith: primaryName.toLowerCase() } }
+            ]
+          }
+        });
+        if (user) {
+          assignedToId = user.id;
+        }
+      }
+
       const contract = await tx.contract.create({
         data: {
           contractNumber,
@@ -107,10 +142,12 @@ export const createContract = async (req: any, res: Response) => {
             ? (String(bdCount).trim().toLowerCase() === 'unlimited' || String(bdCount).trim().toLowerCase() === 'ul' || String(bdCount).trim() === '999' ? 999 : (parseInt(String(bdCount), 10) || 0)) 
             : 0,
           paymentTerms,
+          status: computeContractStatus(end),
           softwareSupport: Boolean(softwareSupport),
           customerId: Number(customerId),
           zoneId: Number(zoneId),
-          createdById: Number(createdById)
+          createdById: Number(createdById),
+          assignedToId
         }
       });
 
@@ -153,7 +190,18 @@ export const listContracts = async (req: any, res: Response) => {
     }
 
     if (status && status !== 'all') {
-      where.status = status as string;
+      const now = new Date();
+      if (status === 'Expired') {
+        where.endDate = { lt: now };
+      } else if (status === 'Expiring Soon') {
+        const thirtyDaysLater = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+        where.endDate = { gte: now, lte: thirtyDaysLater };
+      } else if (status === 'Active') {
+        const thirtyDaysLater = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+        where.endDate = { gt: thirtyDaysLater };
+      } else {
+        where.status = status as string;
+      }
     }
 
     if (zone && zone !== 'all') {
@@ -191,7 +239,13 @@ export const listContracts = async (req: any, res: Response) => {
       }
     });
 
-    return res.status(200).json(contracts);
+    const now = new Date();
+    const mappedContracts = contracts.map((c: any) => ({
+      ...c,
+      status: computeContractStatus(c.endDate)
+    }));
+
+    return res.status(200).json(mappedContracts);
   } catch (error: any) {
     console.error('Failed to list contracts:', error);
     return res.status(500).json({ error: 'Failed to retrieve contracts', details: error.message });
@@ -215,7 +269,12 @@ export const getContractById = async (req: any, res: Response) => {
       return res.status(404).json({ error: 'Contract not found' });
     }
 
-    return res.status(200).json(contract);
+    const mappedContract = {
+      ...contract,
+      status: computeContractStatus(contract.endDate)
+    };
+
+    return res.status(200).json(mappedContract);
   } catch (error: any) {
     console.error('Failed to get contract:', error);
     return res.status(500).json({ error: 'Failed to retrieve contract', details: error.message });
@@ -327,6 +386,24 @@ export const updateContract = async (req: any, res: Response) => {
     }
 
     const result = await db.$transaction(async (tx: any) => {
+      let assignedToId: number | null | undefined = undefined;
+      const respName = responsible !== undefined ? responsible : existing.responsible;
+      if (respName) {
+        const names = respName.split(/[\/,]+/).map((n: string) => n.trim()).filter(Boolean);
+        const primaryName = names[0] || respName;
+        const user = await tx.user.findFirst({
+          where: {
+            OR: [
+              { name: { equals: primaryName, mode: 'insensitive' } },
+              { email: { startsWith: primaryName.toLowerCase() } }
+            ]
+          }
+        });
+        if (user) {
+          assignedToId = user.id;
+        }
+      }
+
       // Update contract metadata
       const contract = await tx.contract.update({
         where: { id: contractId },
@@ -349,9 +426,10 @@ export const updateContract = async (req: any, res: Response) => {
             : existing.bdCount,
           paymentTerms: paymentTerms ?? existing.paymentTerms,
           softwareSupport: softwareSupport !== undefined ? Boolean(softwareSupport) : existing.softwareSupport,
-          status: status ?? existing.status,
+          status: status !== undefined ? status : computeContractStatus(end),
           customerId: customerId !== undefined ? Number(customerId) : existing.customerId,
-          zoneId: zoneId !== undefined ? Number(zoneId) : existing.zoneId
+          zoneId: zoneId !== undefined ? Number(zoneId) : existing.zoneId,
+          assignedToId
         }
       });
 
@@ -425,6 +503,7 @@ export const bulkImportContracts = async (req: any, res: Response) => {
       
       for (const item of contracts) {
         const {
+          contractNumber,
           customerName,
           place,
           poNo,
@@ -451,20 +530,56 @@ export const bulkImportContracts = async (req: any, res: Response) => {
 
         const start = new Date(startDate);
         const end = new Date(endDate);
+
+        if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+          throw new Error(`Invalid start or end date for customer ${customerName || 'Unknown'}`);
+        }
+
         const scheduledMonth = start.toLocaleString('default', { month: 'long' });
 
-        // Resolve or auto-create customer in backend
-        let finalCustomerId = customerId ? Number(customerId) : null;
+        const safePoNo = poNo !== undefined && poNo !== null ? String(poNo).trim() : '';
+        const safeMcType = mcType !== undefined && mcType !== null ? String(mcType).trim() : '';
+        const safeResponsible = responsible !== undefined && responsible !== null ? String(responsible).trim() : '';
+        const safeZoneName = zoneName !== undefined && zoneName !== null ? String(zoneName).trim() : '';
+        const safePoDate = poDate && !isNaN(new Date(poDate).getTime()) ? new Date(poDate) : start;
+
+        // Resolve or auto-create customer in backend (location-aware)
+        let finalCustomerId: number | null = null;
+        const normPlace = place ? String(place).trim() : null;
+
+        if (customerId) {
+          const givenCust = await tx.customer.findUnique({
+            where: { id: Number(customerId) }
+          });
+          if (givenCust) {
+            const givenAddr = (givenCust.address || '').trim().toLowerCase();
+            const targetPlace = (normPlace || '').toLowerCase();
+            if (!normPlace || !givenCust.address || givenAddr === targetPlace || givenAddr.includes(targetPlace) || targetPlace.includes(givenAddr)) {
+              finalCustomerId = givenCust.id;
+            }
+          }
+        }
+
         if (!finalCustomerId) {
+          const custWhere: any = { 
+            companyName: { equals: String(customerName).trim(), mode: 'insensitive' },
+            serviceZoneId: Number(zoneId)
+          };
+          if (normPlace) {
+            custWhere.address = { equals: normPlace, mode: 'insensitive' };
+          } else {
+            custWhere.address = null;
+          }
+
           let existingCust = await tx.customer.findFirst({
-            where: { companyName: { equals: customerName, mode: 'insensitive' } }
+            where: custWhere
           });
           
           if (!existingCust) {
             existingCust = await tx.customer.create({
               data: {
-                companyName: customerName,
-                address: place || null,
+                companyName: String(customerName).trim(),
+                address: normPlace,
                 serviceZoneId: Number(zoneId),
                 createdById: Number(createdById),
                 updatedById: Number(createdById)
@@ -479,11 +594,12 @@ export const bulkImportContracts = async (req: any, res: Response) => {
         
         if (Array.isArray(pmSchedules) && pmSchedules.length > 0) {
           pmSchedules.forEach((pm: any) => {
+            const pmDate = pm.completedAt && !isNaN(new Date(pm.completedAt).getTime()) ? new Date(pm.completedAt) : null;
             pmSchedulesData.push({
               pmNumber: Number(pm.pmNum || pm.pmNumber),
               range: pm.range || '',
-              status: pm.completedAt ? 'Completed' : 'Pending',
-              completedAt: pm.completedAt ? new Date(pm.completedAt) : null
+              status: pmDate ? 'Completed' : 'Pending',
+              completedAt: pmDate
             });
           });
         } else {
@@ -502,17 +618,6 @@ export const bulkImportContracts = async (req: any, res: Response) => {
           }
         }
 
-        let contractNumber = '';
-        while (true) {
-          const candidate = `CON-${currentYear}-${String(nextIndex).padStart(3, '0')}`;
-          if (!existingNumbers.has(candidate)) {
-            contractNumber = candidate;
-            existingNumbers.add(candidate);
-            break;
-          }
-          nextIndex++;
-        }
-
         let parsedBdCount = 0;
         if (bdCount !== undefined && bdCount !== null) {
           const bdStr = String(bdCount).trim().toLowerCase();
@@ -523,44 +628,152 @@ export const bulkImportContracts = async (req: any, res: Response) => {
           }
         }
 
-        const contract = await tx.contract.create({
-          data: {
-            contractNumber,
-            scheduledMonth,
-            customerName,
-            place,
-            poNo,
-            poDate: poDate ? new Date(poDate) : start,
-            mcType,
-            noOfMachine: Number(noOfMachine),
-            amount: Number(amount),
-            noOfVisits: Number(noOfVisits),
-            startDate: start,
-            endDate: end,
-            responsible,
-            zoneName,
-            bdCount: parsedBdCount,
-            paymentTerms,
-            softwareSupport: Boolean(softwareSupport),
-            customerId: Number(finalCustomerId),
-            zoneId: Number(zoneId),
-            createdById: Number(createdById)
-          }
-        });
-
-        const schedules = await Promise.all(
-          pmSchedulesData.map(pm => 
-            tx.contractPMSchedule.create({
-              data: {
-                contractId: contract.id,
-                pmNumber: pm.pmNumber,
-                range: pm.range,
-                status: pm.status,
-                completedAt: pm.completedAt
+        // Look up existing contract by contractNumber to update.
+        const existingContract = (contractNumber && String(contractNumber).trim() !== "")
+          ? await tx.contract.findFirst({
+              where: {
+                contractNumber: String(contractNumber).trim()
+              },
+              include: {
+                pmSchedules: true
               }
             })
-          )
-        );
+          : null;
+
+        let assignedToId: number | null = null;
+        if (safeResponsible) {
+          const names = safeResponsible.split(/[\/,]+/).map((n: string) => n.trim()).filter(Boolean);
+          const primaryName = names[0] || safeResponsible;
+          const user = await tx.user.findFirst({
+            where: {
+              OR: [
+                { name: { equals: primaryName, mode: 'insensitive' } },
+                { email: { startsWith: primaryName.toLowerCase() } }
+              ]
+            }
+          });
+          if (user) {
+            assignedToId = user.id;
+          }
+        }
+
+        let contract: any;
+        let schedules: any;
+
+        if (existingContract) {
+          contract = await tx.contract.update({
+            where: { id: existingContract.id },
+            data: {
+              scheduledMonth,
+              customerName: String(customerName).trim(),
+              place: String(place).trim(),
+              poNo: safePoNo || existingContract.poNo,
+              poDate: safePoDate,
+              mcType: safeMcType || existingContract.mcType,
+              noOfMachine: Number(noOfMachine || 1),
+              amount: Number(amount || 0),
+              noOfVisits: Number(noOfVisits || 3),
+              startDate: start,
+              endDate: end,
+              responsible: safeResponsible || existingContract.responsible,
+              zoneName: safeZoneName || existingContract.zoneName,
+              bdCount: parsedBdCount,
+              paymentTerms: paymentTerms ? String(paymentTerms).trim() : null,
+              status: computeContractStatus(end),
+              softwareSupport: Boolean(softwareSupport),
+              zoneId: Number(zoneId),
+              assignedToId
+            }
+          });
+
+          // Sync PM schedules: Update existing, create new, delete obsolete
+          schedules = await Promise.all(
+            pmSchedulesData.map(async (pm) => {
+              const existingPM = existingContract.pmSchedules.find((p: any) => p.pmNumber === pm.pmNumber);
+              if (existingPM) {
+                return tx.contractPMSchedule.update({
+                  where: { id: existingPM.id },
+                  data: {
+                    range: pm.range,
+                    status: pm.status === 'Completed' ? 'Completed' : existingPM.status,
+                    completedAt: pm.status === 'Completed' ? (pm.completedAt || new Date()) : existingPM.completedAt
+                  }
+                });
+              } else {
+                return tx.contractPMSchedule.create({
+                  data: {
+                    contractId: existingContract.id,
+                    pmNumber: pm.pmNumber,
+                    range: pm.range,
+                    status: pm.status,
+                    completedAt: pm.completedAt
+                  }
+                });
+              }
+            })
+          );
+
+          // Clean up excess PM schedules if the number of visits was decreased
+          await tx.contractPMSchedule.deleteMany({
+            where: {
+              contractId: existingContract.id,
+              pmNumber: { gt: pmSchedulesData.length }
+            }
+          });
+        } else {
+          // Generate unique contract number for new contract
+          let genContractNumber = '';
+          while (true) {
+            const candidate = `CON-${currentYear}-${String(nextIndex).padStart(3, '0')}`;
+            if (!existingNumbers.has(candidate)) {
+              genContractNumber = candidate;
+              existingNumbers.add(candidate);
+              break;
+            }
+            nextIndex++;
+          }
+
+          contract = await tx.contract.create({
+            data: {
+              contractNumber: genContractNumber,
+              scheduledMonth,
+              customerName: String(customerName).trim(),
+              place: String(place).trim(),
+              poNo: safePoNo,
+              poDate: safePoDate,
+              mcType: safeMcType,
+              noOfMachine: Number(noOfMachine || 1),
+              amount: Number(amount || 0),
+              noOfVisits: Number(noOfVisits || 3),
+              startDate: start,
+              endDate: end,
+              responsible: safeResponsible,
+              zoneName: safeZoneName,
+              bdCount: parsedBdCount,
+              paymentTerms: paymentTerms ? String(paymentTerms).trim() : null,
+              status: computeContractStatus(end),
+              softwareSupport: Boolean(softwareSupport),
+              customerId: Number(finalCustomerId),
+              zoneId: Number(zoneId),
+              createdById: Number(createdById),
+              assignedToId
+            }
+          });
+
+          schedules = await Promise.all(
+            pmSchedulesData.map(pm => 
+              tx.contractPMSchedule.create({
+                data: {
+                  contractId: contract.id,
+                  pmNumber: pm.pmNumber,
+                  range: pm.range,
+                  status: pm.status,
+                  completedAt: pm.completedAt
+                }
+              })
+            )
+          );
+        }
 
         imported.push({ ...contract, pmSchedules: schedules });
       }

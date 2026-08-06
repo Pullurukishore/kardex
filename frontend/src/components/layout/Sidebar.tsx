@@ -54,7 +54,7 @@ const MemoizedNavItem = React.memo(({
   const isSubRouteActive = React.useMemo(() => {
     if (!pathname || !pathname.startsWith(item.href + '/')) return false;
     const remaining = pathname.substring(item.href.length + 1);
-    const siblingSubRoutes = ['tracking', 'import', 'dashboard'];
+    const siblingSubRoutes = ['tracking', 'import', 'dashboard', 'reports'];
     return !siblingSubRoutes.some(route => remaining === route || remaining.startsWith(route + '/'));
   }, [pathname, item.href]);
 

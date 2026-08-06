@@ -33,7 +33,11 @@ export const listCustomers = async (req: AuthenticatedRequest, res: Response) =>
 
   try {
     const { search = '', include, serviceZoneId, zoneId, isActive, hasAssets } = req.query;
-    const where: any = {};
+    const where: any = {
+      companyName: {
+        notIn: ['', '*']
+      }
+    };
 
     // Add isActive filter if provided
     if (isActive === 'true') {
@@ -309,13 +313,24 @@ export const createCustomer = async (req: AuthenticatedRequest, res: Response) =
       return res.status(401).json({ message: 'User not authenticated' });
     }
 
-    // Check if company name already exists
+    // Check if customer with same company name, address, and service zone already exists
+    const normAddress = address ? address.trim() : null;
+    const custCheckWhere: any = {
+      companyName: { equals: companyName.trim(), mode: 'insensitive' }
+    };
+    if (serviceZoneId) {
+      custCheckWhere.serviceZoneId = Number(serviceZoneId);
+    }
+    if (normAddress) {
+      custCheckWhere.address = { equals: normAddress, mode: 'insensitive' };
+    }
+
     const existingCustomer = await prisma.customer.findFirst({
-      where: { companyName }
+      where: custCheckWhere
     });
 
     if (existingCustomer) {
-      return res.status(400).json({ error: 'A customer with this company name already exists' });
+      return res.status(400).json({ error: 'A customer entry with this company name, location, and zone already exists' });
     }
 
     // Create customer and contact in a single transaction

@@ -15,34 +15,34 @@ export interface ColumnDefinition {
 // Professional color scheme matching Kardex Remstar branding
 const COLORS = {
     // Primary brand colors
-    brandPrimary: '1E3A8A',    // Deep blue
-    brandSecondary: '3B82F6',  // Bright blue
-    brandAccent: 'DC2626',     // Red accent (Kardex red)
+    brandPrimary: '546A7A',    // Slate Blue
+    brandSecondary: '82A094',  // Muted Sage Green
+    brandAccent: 'CE9F6B',     // Sand / Gold
 
     // UI colors
-    headerBg: '1E3A8A',
+    headerBg: '546A7A',
     headerText: 'FFFFFF',
-    titleBg: 'EFF6FF',
-    titleText: '1E40AF',
+    titleBg: 'F1F5F9',
+    titleText: '546A7A',
 
     // Table colors
-    tableHeader: '1E40AF',
+    tableHeader: '546A7A',
     tableHeaderText: 'FFFFFF',
     rowEven: 'F8FAFC',
     rowOdd: 'FFFFFF',
-    borderLight: 'E2E8F0',
+    borderLight: 'F1F5F9',
     borderDark: 'CBD5E1',
 
     // Text colors
     textDark: '1E293B',
     textMedium: '475569',
-    textLight: '64748B',
+    textLight: '94A3B8',
 
     // Status colors
-    success: '059669',
-    warning: 'D97706',
-    danger: 'DC2626',
-    info: '0284C7',
+    success: '10B981',
+    warning: 'F59E0B',
+    danger: 'EF4444',
+    info: '3B82F6',
 };
 
 // Status color mapping for conditional formatting in the Status column

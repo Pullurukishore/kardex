@@ -172,7 +172,8 @@ async function upsertServiceZone(zoneName) {
  * Upsert Customer - create if doesn't exist, reuse if exists
  */
 async function upsertCustomer(customerName, place, serviceZoneId) {
-  const customerKey = `${customerName.toLowerCase()}_${serviceZoneId}`;
+  const normalizedPlace = (place || '').toString().trim();
+  const customerKey = `${customerName.trim().toLowerCase()}_${normalizedPlace.toLowerCase()}_${serviceZoneId}`;
 
   // Check cache first
   if (cache.customers.has(customerKey)) {
@@ -181,19 +182,31 @@ async function upsertCustomer(customerName, place, serviceZoneId) {
   }
 
   try {
+    // Build search condition matching companyName, address (place), and zone
+    const whereCondition = {
+      companyName: {
+        equals: customerName.trim(),
+        mode: 'insensitive'
+      },
+      serviceZoneId: serviceZoneId
+    };
+
+    if (normalizedPlace) {
+      whereCondition.address = {
+        equals: normalizedPlace,
+        mode: 'insensitive'
+      };
+    } else {
+      whereCondition.address = null;
+    }
+
     // Try to find existing customer
     let customer = await prisma.customer.findFirst({
-      where: {
-        companyName: {
-          equals: customerName,
-          mode: 'insensitive'
-        },
-        serviceZoneId: serviceZoneId
-      }
+      where: whereCondition
     });
 
     if (customer) {
-      log.info(`Reusing existing Customer: ${customerName}`);
+      log.info(`Reusing existing Customer: ${customerName} (${normalizedPlace || 'No Place'})`);
       cache.customers.set(customerKey, customer);
       stats.customersReused++;
       return customer;
@@ -202,8 +215,8 @@ async function upsertCustomer(customerName, place, serviceZoneId) {
     // Create new customer if not found
     customer = await prisma.customer.create({
       data: {
-        companyName: customerName,
-        address: place || null,
+        companyName: customerName.trim(),
+        address: normalizedPlace || null,
         industry: null, // Not provided in Excel
         timezone: 'UTC',
         serviceZoneId: serviceZoneId,
@@ -213,7 +226,7 @@ async function upsertCustomer(customerName, place, serviceZoneId) {
       }
     });
 
-    log.success(`Created new Customer: ${customerName}`);
+    log.success(`Created new Customer: ${customerName} (${normalizedPlace || 'No Place'})`);
     cache.customers.set(customerKey, customer);
     stats.customersCreated++;
     return customer;
@@ -247,7 +260,15 @@ async function createAsset(serialNumber, department, customerId) {
     });
 
     if (existingAsset) {
-      log.warn(`Asset with serial number '${finalSerialNumber}' already exists. Skipping.`);
+      if (existingAsset.customerId !== customerId) {
+        await prisma.asset.update({
+          where: { id: existingAsset.id },
+          data: { customerId: customerId }
+        });
+        log.info(`Updated Asset '${finalSerialNumber}' customer link to ID ${customerId}`);
+      } else {
+        log.warn(`Asset with serial number '${finalSerialNumber}' already exists. Skipping.`);
+      }
       return existingAsset;
     }
 

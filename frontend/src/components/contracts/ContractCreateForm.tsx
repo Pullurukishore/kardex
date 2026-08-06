@@ -43,7 +43,9 @@ export default function ContractCreateForm({ role, backUrl }: ContractCreateForm
   const [newStartDate, setNewStartDate] = useState('');
   const [newEndDate, setNewEndDate] = useState('');
   const [newResponsible, setNewResponsible] = useState('');
-  const [newPaymentTerms, setNewPaymentTerms] = useState('30 Days Net');
+  const [selectedEngineers, setSelectedEngineers] = useState<string[]>([]);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [newPaymentTerms, setNewPaymentTerms] = useState('');
   const [newSoftwareSupport, setNewSoftwareSupport] = useState(false);
 
   // Load dependencies
@@ -54,7 +56,7 @@ export default function ContractCreateForm({ role, backUrl }: ContractCreateForm
         const [cData, zData, uData] = await Promise.all([
           apiService.getCustomers({ limit: 1000 }),
           apiService.getZones(),
-          apiService.getUsers()
+          apiService.getUsers({ limit: 1000 })
         ]);
 
         const zonesArray = Array.isArray(zData) ? zData : (zData?.data || []);
@@ -69,7 +71,11 @@ export default function ContractCreateForm({ role, backUrl }: ContractCreateForm
         });
         const availableEngineers = engineers.length > 0 ? engineers : users;
         if (availableEngineers.length > 0) {
-          setNewResponsible(availableEngineers[0].name || availableEngineers[0].email || 'Rahul');
+          const defaultEng = availableEngineers[0].name || availableEngineers[0].email || '';
+          if (defaultEng) {
+            setNewResponsible(defaultEng);
+            setSelectedEngineers([defaultEng]);
+          }
         }
         // Do not auto-default to zonesArray[0], let it be populated via selected customer
       } catch (err) {
@@ -82,13 +88,25 @@ export default function ContractCreateForm({ role, backUrl }: ContractCreateForm
     loadData();
   }, []);
 
+  const handleToggleEngineer = (engName: string) => {
+    if (selectedEngineers.includes(engName)) {
+      const updated = selectedEngineers.filter(name => name !== engName);
+      setSelectedEngineers(updated);
+      setNewResponsible(updated.join(' / '));
+    } else {
+      const updated = [...selectedEngineers, engName];
+      setSelectedEngineers(updated);
+      setNewResponsible(updated.join(' / '));
+    }
+  };
+
   const handleCustomerChange = (idStr: string) => {
     setSelectedCustomerId(idStr);
     const idNum = Number(idStr);
     const selectedCust = customers.find(c => c.id === idNum);
     if (selectedCust) {
       setNewCustName(selectedCust.companyName);
-      setNewPlace(selectedCust.address || 'India');
+      setNewPlace(selectedCust.address || '');
 
       if (selectedCust.serviceZone) {
         setNewZoneName(selectedCust.serviceZone.name);
@@ -269,14 +287,30 @@ export default function ContractCreateForm({ role, backUrl }: ContractCreateForm
                   className="w-full px-4 py-3 rounded-2xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 text-xs font-semibold shadow-sm transition-all text-[#546A7A]"
                 >
                   <option value="">-- Choose Customer --</option>
-                  {customers.map(c => {
-                    const zoneName = c.serviceZone?.name || zones.find((z: any) => Number(z.id) === Number(c.serviceZoneId))?.name;
-                    return (
-                      <option key={c.id} value={c.id}>
-                        {c.companyName}{zoneName ? ` (${zoneName} Zone)` : ''}
-                      </option>
-                    );
-                  })}
+                  {(() => {
+                    const seenLabels = new Set<string>();
+                    return customers
+                      .filter(c => {
+                        const name = (c.companyName || '').trim();
+                        return name && name !== '*';
+                      })
+                      .map(c => {
+                        const zoneName = c.serviceZone?.name || zones.find((z: any) => Number(z.id) === Number(c.serviceZoneId))?.name;
+                        const addressStr = (c.address || '').trim();
+                        const label = `${c.companyName}${addressStr ? ` - ${addressStr}` : ''}${zoneName ? ` (${zoneName} Zone)` : ''}`;
+                        return { id: c.id, label };
+                      })
+                      .filter(item => {
+                        if (seenLabels.has(item.label)) return false;
+                        seenLabels.add(item.label);
+                        return true;
+                      })
+                      .map(item => (
+                        <option key={item.id} value={item.id}>
+                          {item.label}
+                        </option>
+                      ));
+                  })()}
                 </select>
               </div>
 
@@ -315,26 +349,85 @@ export default function ContractCreateForm({ role, backUrl }: ContractCreateForm
                   <UserCheck className="w-3.5 h-3.5 text-[#6F8A9D]" />
                   <span>Lead Service Engineer</span>
                 </label>
-                <select
-                  value={newResponsible}
-                  onChange={(e) => setNewResponsible(e.target.value)}
-                  className="w-full px-4 py-3 rounded-2xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 text-xs font-semibold shadow-sm transition-all text-[#546A7A]"
-                >
-                  {(usersList.filter((u: any) => {
-                    const role = (u.role || '').toUpperCase();
-                    return role === 'ZONE_USER' || role === 'ZONE_MANAGER' || role.includes('ZONE');
-                  }).length > 0
-                    ? usersList.filter((u: any) => {
-                      const role = (u.role || '').toUpperCase();
-                      return role === 'ZONE_USER' || role === 'ZONE_MANAGER' || role.includes('ZONE');
-                    })
-                    : usersList
-                  ).map((u: any) => (
-                    <option key={u.id} value={u.name || u.email}>
-                      {u.name || u.email}{u.role ? ` (${u.role.replace('_', ' ')})` : ''}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                    className="w-full min-h-[46px] px-4 py-2.5 rounded-2xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 text-xs font-semibold shadow-sm transition-all text-[#546A7A] flex flex-wrap items-center gap-1.5 justify-between text-left"
+                  >
+                    <div className="flex flex-wrap gap-1.5 max-w-[90%]">
+                      {selectedEngineers.length === 0 ? (
+                        <span className="text-slate-400">-- Choose Lead Service Engineers --</span>
+                      ) : (
+                        selectedEngineers.map((eng) => (
+                          <span
+                            key={eng}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#82A094]/15 text-[#4F6A64] text-[10px] font-bold border border-[#82A094]/35 animate-in zoom-in-95 duration-100"
+                          >
+                            {eng}
+                            <span
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleToggleEngineer(eng);
+                              }}
+                              className="hover:bg-[#82A094]/30 rounded p-0.5 cursor-pointer text-[#82A094] leading-none"
+                            >
+                              ×
+                            </span>
+                          </span>
+                        ))
+                      )}
+                    </div>
+                    <span className="text-slate-400">▼</span>
+                  </button>
+
+                  {isDropdownOpen && (
+                    <>
+                      <div className="fixed inset-0 z-10" onClick={() => setIsDropdownOpen(false)} />
+                      <div className="absolute z-20 mt-2 w-full max-h-60 overflow-y-auto rounded-2xl border border-slate-100 bg-white p-2.5 shadow-xl animate-in fade-in slide-in-from-top-1 duration-100 custom-scrollbar">
+                        {(() => {
+                          const filtered = usersList.filter((u: any) => {
+                            const role = (u.role || '').toUpperCase();
+                            return role === 'ZONE_USER' || role === 'ZONE_MANAGER' || role.includes('ZONE');
+                          });
+                          const listToUse = filtered.length > 0 ? filtered : usersList;
+                          
+                          const seen = new Set<string>();
+                          const uniqueList = listToUse.filter((u: any) => {
+                            const nameStr = (u.name || u.email || '').trim();
+                            if (!nameStr) return false;
+                            const firstWord = nameStr.split(/\s+/)[0].toLowerCase();
+                            let normalized = firstWord;
+                            if (normalized === 'asharf') normalized = 'ashraf';
+                            
+                            if (seen.has(normalized)) return false;
+                            seen.add(normalized);
+                            return true;
+                          });
+                          
+                          return uniqueList.map((u: any) => {
+                            const nameVal = u.name || u.email;
+                            const isChecked = selectedEngineers.includes(nameVal);
+                            return (
+                              <label
+                                key={u.id}
+                                className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl cursor-pointer text-xs font-semibold transition-all hover:bg-slate-50 ${isChecked ? 'bg-[#82A094]/5 text-[#4F6A64]' : 'text-[#546A7A]'}`}
+                              >
+                                <span>{nameVal}</span>
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={() => handleToggleEngineer(nameVal)}
+                                  className="w-4 h-4 rounded border-slate-300 text-[#82A094] focus:ring-[#82A094]/30 cursor-pointer"
+                                />
+                              </label>
+                            );
+                          });
+                        })()}
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -385,7 +478,7 @@ export default function ContractCreateForm({ role, backUrl }: ContractCreateForm
                 <input
                   type="text"
                   required
-                  placeholder="e.g. PO-2026-8849"
+                  placeholder="PO Number"
                   value={newPoNo}
                   onChange={(e) => setNewPoNo(e.target.value)}
                   className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 text-xs font-semibold shadow-sm transition-all text-[#546A7A]"
@@ -414,7 +507,7 @@ export default function ContractCreateForm({ role, backUrl }: ContractCreateForm
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. 30 Days Net / Advance"
+                  placeholder="Payment Terms"
                   value={newPaymentTerms}
                   onChange={(e) => setNewPaymentTerms(e.target.value)}
                   className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 text-xs font-semibold shadow-sm transition-all text-[#546A7A]"
@@ -446,7 +539,7 @@ export default function ContractCreateForm({ role, backUrl }: ContractCreateForm
                   <input
                     type="number"
                     required
-                    placeholder="150000"
+                    placeholder="Contract Value"
                     value={newValue}
                     onChange={(e) => setNewValue(e.target.value)}
                     className="w-full pl-8 pr-4 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 text-xs font-bold text-[#546A7A] shadow-sm transition-all"
@@ -493,7 +586,7 @@ export default function ContractCreateForm({ role, backUrl }: ContractCreateForm
                 </label>
                 <input
                   type="text"
-                  placeholder='Enter count or "Unlimited"'
+                  placeholder="Enter initial breakdown count or 'Unlimited'"
                   value={newBdCount}
                   onChange={(e) => setNewBdCount(e.target.value)}
                   className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 text-xs font-semibold shadow-sm transition-all text-[#546A7A]"

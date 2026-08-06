@@ -599,9 +599,9 @@ export const adminContractsNavigation: NavItem[] = [
     iconBgColor: "bg-[#E17F70]/10"
   },
   {
-    title: "Customer Tracking",
-    href: "/admin/contracts/tracking",
-    icon: Building2,
+    title: "Reports",
+    href: "/admin/contracts/reports",
+    icon: BarChart2,
     roles: [UserRole.ADMIN],
     iconColor: "text-[#CE9F6B]",
     iconBgColor: "bg-[#CE9F6B]/10"
@@ -619,7 +619,7 @@ export const zoneManagerContractsNavigation: NavItem[] = [
     iconBgColor: "bg-[#82A094]/10"
   },
   {
-    title: "Zone Contracts",
+    title: "Contracts",
     href: "/zone-manager/contracts",
     icon: FileText,
     roles: [UserRole.ZONE_MANAGER],
@@ -635,9 +635,9 @@ export const zoneManagerContractsNavigation: NavItem[] = [
     iconBgColor: "bg-[#E17F70]/10"
   },
   {
-    title: "Customer Tracking",
-    href: "/zone-manager/contracts/tracking",
-    icon: Building2,
+    title: "Reports",
+    href: "/zone-manager/contracts/reports",
+    icon: BarChart2,
     roles: [UserRole.ZONE_MANAGER],
     iconColor: "text-[#CE9F6B]",
     iconBgColor: "bg-[#CE9F6B]/10"
@@ -655,7 +655,7 @@ export const zoneUserContractsNavigation: NavItem[] = [
     iconBgColor: "bg-[#82A094]/10"
   },
   {
-    title: "Zone Contracts",
+    title: "Contracts",
     href: "/zone/contracts",
     icon: FileText,
     roles: [UserRole.ZONE_USER],
@@ -663,9 +663,9 @@ export const zoneUserContractsNavigation: NavItem[] = [
     iconBgColor: "bg-[#6F8A9D]/10"
   },
   {
-    title: "Customer Tracking",
-    href: "/zone/contracts/tracking",
-    icon: Building2,
+    title: "Reports",
+    href: "/zone/contracts/reports",
+    icon: BarChart2,
     roles: [UserRole.ZONE_USER],
     iconColor: "text-[#CE9F6B]",
     iconBgColor: "bg-[#CE9F6B]/10"
@@ -691,9 +691,9 @@ export const expertHelpdeskContractsNavigation: NavItem[] = [
     iconBgColor: "bg-[#6F8A9D]/10"
   },
   {
-    title: "Customer Tracking",
-    href: "/expert/contracts/tracking",
-    icon: Building2,
+    title: "Reports",
+    href: "/expert/contracts/reports",
+    icon: BarChart2,
     roles: [UserRole.EXPERT_HELPDESK],
     iconColor: "text-[#CE9F6B]",
     iconBgColor: "bg-[#CE9F6B]/10"

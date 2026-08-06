@@ -332,19 +332,28 @@ async function main() {
                 const contactNumber = contactNumberIndex >= 0 ? String(row[contactNumberIndex] || '0000000000').trim() : '0000000000';
                 const emailVal = emailIndex >= 0 ? String(row[emailIndex] || '').trim() : null;
 
-                // 1. Customer Cache/Fetch
-                const customerKey = `${companyName}|${userData.zoneId}`;
+                // 1. Customer Cache/Fetch (location-aware)
+                const normLocation = locationVal ? String(locationVal).trim() : null;
+                const customerKey = `${companyName.trim().toLowerCase()}|${(normLocation || '').toLowerCase()}|${userData.zoneId}`;
                 let customerId = customerCache.get(customerKey);
 
                 if (!customerId) {
-                    let customer = await prisma.customer.findFirst({
-                        where: { companyName, serviceZoneId: userData.zoneId }
-                    });
+                    const custWhere = {
+                        companyName: { equals: companyName.trim(), mode: 'insensitive' },
+                        serviceZoneId: userData.zoneId
+                    };
+                    if (normLocation) {
+                        custWhere.address = { equals: normLocation, mode: 'insensitive' };
+                    } else {
+                        custWhere.address = null;
+                    }
+
+                    let customer = await prisma.customer.findFirst({ where: custWhere });
                     if (!customer) {
                         customer = await prisma.customer.create({
                             data: {
-                                companyName,
-                                address: locationVal,
+                                companyName: companyName.trim(),
+                                address: normLocation,
                                 serviceZoneId: userData.zoneId,
                                 createdById: adminId,
                                 updatedById: adminId
@@ -355,21 +364,29 @@ async function main() {
                     customerCache.set(customerKey, customerId);
                 }
 
-                // 2. Contact Cache/Fetch
-                const contactKey = `${customerId}|${contactNumber}`;
+                // 2. Contact Cache/Fetch (name & phone aware)
+                const normContactName = contactName ? String(contactName).trim() : 'Unknown Contact';
+                const normContactPhone = contactNumber ? String(contactNumber).trim() : '0000000000';
+                const contactKey = `${customerId}|${normContactName.toLowerCase()}|${normContactPhone}`;
                 let contactId = contactCache.get(contactKey);
 
                 if (!contactId) {
-                    let contact = await prisma.contact.findFirst({
-                        where: { customerId, phone: contactNumber }
-                    });
+                    const contWhere = {
+                        customerId,
+                        name: { equals: normContactName, mode: 'insensitive' }
+                    };
+                    if (normContactPhone && normContactPhone !== '0000000000') {
+                        contWhere.phone = normContactPhone;
+                    }
+
+                    let contact = await prisma.contact.findFirst({ where: contWhere });
                     if (!contact) {
                         contact = await prisma.contact.create({
                             data: {
-                                name: contactName,
-                                contactPersonName: contactName,
-                                phone: contactNumber,
-                                contactNumber: contactNumber,
+                                name: normContactName,
+                                contactPersonName: normContactName,
+                                phone: normContactPhone,
+                                contactNumber: normContactPhone,
                                 email: emailVal,
                                 customerId
                             }

@@ -393,22 +393,33 @@ export class OfferImportService {
                             ? String(row[indices.email] || '').trim() || null
                             : null;
 
-                        // 1. Customer - find or create with concurrency guard
-                        const customerKey = `${companyName}|${zoneId}`;
+                        // 1. Customer - find or create with concurrency guard (location-aware)
+                        const normLocation = locationVal ? String(locationVal).trim() : null;
+                        const customerKey = `${companyName.trim().toLowerCase()}|${(normLocation || '').toLowerCase()}|${zoneId}`;
                         let customerIdPromise = customerCreationPromises.get(customerKey);
                         if (!customerIdPromise) {
                             customerIdPromise = (async () => {
                                 let cachedId = customerCache.get(customerKey);
                                 if (cachedId) return cachedId;
 
+                                const custWhere: any = {
+                                    companyName: { equals: companyName.trim(), mode: 'insensitive' },
+                                    serviceZoneId: zoneId
+                                };
+                                if (normLocation) {
+                                    custWhere.address = { equals: normLocation, mode: 'insensitive' };
+                                } else {
+                                    custWhere.address = null;
+                                }
+
                                 let customer = await prisma.customer.findFirst({
-                                    where: { companyName: { equals: companyName, mode: 'insensitive' }, serviceZoneId: zoneId }
+                                    where: custWhere
                                 });
                                 if (!customer) {
                                     customer = await prisma.customer.create({
                                         data: {
-                                            companyName,
-                                            address: locationVal,
+                                            companyName: companyName.trim(),
+                                            address: normLocation,
                                             serviceZoneId: zoneId,
                                             createdById: adminId,
                                             updatedById: adminId
@@ -422,24 +433,34 @@ export class OfferImportService {
                         }
                         const customerId = await customerIdPromise;
 
-                        // 2. Contact - find or create with concurrency guard
-                        const contactKey = `${customerId}|${contactNumber}`;
+                        // 2. Contact - find or create with concurrency guard (name & phone aware)
+                        const normContactName = contactName ? String(contactName).trim() : 'Unknown Contact';
+                        const normContactPhone = contactNumber ? String(contactNumber).trim() : '0000000000';
+                        const contactKey = `${customerId}|${normContactName.toLowerCase()}|${normContactPhone}`;
                         let contactIdPromise = contactCreationPromises.get(contactKey);
                         if (!contactIdPromise) {
                             contactIdPromise = (async () => {
                                 let cachedId = contactCache.get(contactKey);
                                 if (cachedId) return cachedId;
 
+                                const contWhere: any = {
+                                    customerId,
+                                    name: { equals: normContactName, mode: 'insensitive' }
+                                };
+                                if (normContactPhone && normContactPhone !== '0000000000') {
+                                    contWhere.phone = normContactPhone;
+                                }
+
                                 let contact = await prisma.contact.findFirst({
-                                    where: { customerId, phone: contactNumber }
+                                    where: contWhere
                                 });
                                 if (!contact) {
                                     contact = await prisma.contact.create({
                                         data: {
-                                            name: contactName,
-                                            contactPersonName: contactName,
-                                            phone: contactNumber,
-                                            contactNumber: contactNumber,
+                                            name: normContactName,
+                                            contactPersonName: normContactName,
+                                            phone: normContactPhone,
+                                            contactNumber: normContactPhone,
                                             email: emailVal,
                                             customerId
                                         }

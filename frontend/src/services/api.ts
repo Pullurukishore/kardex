@@ -865,6 +865,40 @@ class ApiService {
     return response.data;
   }
 
+  // Contract reports methods
+  async getPMScheduleOverview(params?: any) {
+    const response = await api.get(`${this.baseURL}/contract-reports/pm-overview`, { params });
+    return response.data;
+  }
+
+  async getExpiringContractsReport(params?: any) {
+    const response = await api.get(`${this.baseURL}/contract-reports/expiring-contracts`, { params });
+    return response.data;
+  }
+
+  async getZoneContractSummary(params?: any) {
+    const response = await api.get(`${this.baseURL}/contract-reports/zone-summary`, { params });
+    return response.data;
+  }
+
+  async getTechnicianPMReport(params?: any) {
+    const response = await api.get(`${this.baseURL}/contract-reports/technician-pm`, { params });
+    return response.data;
+  }
+
+  async getCustomerPortfolioReport(params?: any) {
+    const response = await api.get(`${this.baseURL}/contract-reports/customer-portfolio`, { params });
+    return response.data;
+  }
+
+  async exportContractReport(params?: any) {
+    const response = await api.get(`${this.baseURL}/contract-reports/export`, {
+      params,
+      responseType: 'blob'
+    });
+    return response.data;
+  }
+
 }
 
 export const apiService = new ApiService();
@@ -883,3 +917,10 @@ export const updatePMSchedule = (pmId: number, status: string) => apiService.upd
 export const updateContract = (id: number, contractData: any) => apiService.updateContract(id, contractData);
 export const deleteContract = (id: number) => apiService.deleteContract(id);
 export const bulkImportContracts = (contracts: any[]) => apiService.bulkImportContracts(contracts);
+
+export const getPMScheduleOverview = (params?: any) => apiService.getPMScheduleOverview(params);
+export const getExpiringContractsReport = (params?: any) => apiService.getExpiringContractsReport(params);
+export const getZoneContractSummary = (params?: any) => apiService.getZoneContractSummary(params);
+export const getTechnicianPMReport = (params?: any) => apiService.getTechnicianPMReport(params);
+export const getCustomerPortfolioReport = (params?: any) => apiService.getCustomerPortfolioReport(params);
+export const exportContractReport = (params?: any) => apiService.exportContractReport(params);

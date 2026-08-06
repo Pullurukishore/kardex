@@ -44,6 +44,7 @@ import sparePartRoutes from './routes/sparePart.routes';
 import imageManagementRoutes from './routes/image-management.routes';
 import forecastRoutes from './routes/forecast.routes';
 import contractRoutes from './routes/contract.routes';
+import contractReportsRoutes from './routes/contractReports.routes';
 
 const app = express();
 const server = http.createServer(app);
@@ -220,6 +221,7 @@ app.use('/api/spare-parts', sparePartRoutes);
 app.use('/api/image-management', imageManagementRoutes);
 app.use('/api/forecast', forecastRoutes);
 app.use('/api/contracts', contractRoutes);
+app.use('/api/contract-reports', contractReportsRoutes);
 
 // AR (Accounts Receivable) Routes - Finance Module
 import arRoutes from './routes/ar';

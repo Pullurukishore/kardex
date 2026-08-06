@@ -40,6 +40,8 @@ export default function ContractEditForm({ id, role, backUrl }: ContractEditForm
   const [editStartDate, setEditStartDate] = useState('');
   const [editEndDate, setEditEndDate] = useState('');
   const [editResponsible, setEditResponsible] = useState('');
+  const [selectedEngineers, setSelectedEngineers] = useState<string[]>([]);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [editPaymentTerms, setEditPaymentTerms] = useState('');
   const [editSoftwareSupport, setEditSoftwareSupport] = useState(false);
   const [editStatus, setEditStatus] = useState('Active');
@@ -53,7 +55,7 @@ export default function ContractEditForm({ id, role, backUrl }: ContractEditForm
         const [cData, zData, uData, contract] = await Promise.all([
           apiService.getCustomers({ limit: 1000 }),
           apiService.getZones(),
-          apiService.getUsers(),
+          apiService.getUsers({ limit: 1000 }),
           apiService.getContract(id)
         ]);
 
@@ -78,7 +80,9 @@ export default function ContractEditForm({ id, role, backUrl }: ContractEditForm
           setEditBdCount(contract.bdCount === 999 ? 'Unlimited' : String(contract.bdCount || 0));
           setEditStartDate(contract.startDate ? contract.startDate.substring(0, 10) : '');
           setEditEndDate(contract.endDate ? contract.endDate.substring(0, 10) : '');
-          setEditResponsible(contract.responsible || '');
+          const resp = contract.responsible || '';
+          setEditResponsible(resp);
+          setSelectedEngineers(resp.split(/[\/,]+/).map((s: string) => s.trim()).filter(Boolean));
           setEditPaymentTerms(contract.paymentTerms || '');
           setEditSoftwareSupport(contract.softwareSupport || false);
           setEditStatus(contract.status || 'Active');
@@ -95,6 +99,15 @@ export default function ContractEditForm({ id, role, backUrl }: ContractEditForm
       loadData();
     }
   }, [id]);
+
+  const handleToggleEngineer = (engName: string) => {
+    setSelectedEngineers(prev => {
+      const isChecked = prev.includes(engName);
+      const updated = isChecked ? prev.filter(name => name !== engName) : [...prev, engName];
+      setEditResponsible(updated.join(' / '));
+      return updated;
+    });
+  };
 
   const handleCustomerChange = (idStr: string) => {
     setSelectedCustomerId(idStr);
@@ -212,14 +225,30 @@ export default function ContractEditForm({ id, role, backUrl }: ContractEditForm
                 className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#82A094]/20 text-xs"
               >
                 <option value="">-- Select Customer --</option>
-                {customers.map(c => {
-                  const zoneName = c.serviceZone?.name || zones.find((z: any) => Number(z.id) === Number(c.serviceZoneId))?.name;
-                  return (
-                    <option key={c.id} value={c.id}>
-                      {c.companyName}{zoneName ? ` (${zoneName} Zone)` : ''}
-                    </option>
-                  );
-                })}
+                {(() => {
+                  const seenLabels = new Set<string>();
+                  return customers
+                    .filter(c => {
+                      const name = (c.companyName || '').trim();
+                      return name && name !== '*';
+                    })
+                    .map(c => {
+                      const zoneName = c.serviceZone?.name || zones.find((z: any) => Number(z.id) === Number(c.serviceZoneId))?.name;
+                      const addressStr = (c.address || '').trim();
+                      const label = `${c.companyName}${addressStr ? ` - ${addressStr}` : ''}${zoneName ? ` (${zoneName} Zone)` : ''}`;
+                      return { id: c.id, label };
+                    })
+                    .filter(item => {
+                      if (seenLabels.has(item.label)) return false;
+                      seenLabels.add(item.label);
+                      return true;
+                    })
+                    .map(item => (
+                      <option key={item.id} value={item.id}>
+                        {item.label}
+                      </option>
+                    ));
+                })()}
               </select>
             </div>
 
@@ -365,27 +394,85 @@ export default function ContractEditForm({ id, role, backUrl }: ContractEditForm
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-1.5">
               <label className="text-[10px] font-bold text-slate-400 uppercase">Responsible Eng</label>
-              <select
-                value={editResponsible}
-                onChange={(e) => setEditResponsible(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#82A094]/20 text-xs"
-              >
-                <option value="">-- Select Responsible --</option>
-                {(usersList.filter((u: any) => {
-                  const role = (u.role || '').toUpperCase();
-                  return role === 'ZONE_USER' || role === 'ZONE_MANAGER' || role.includes('ZONE');
-                }).length > 0
-                  ? usersList.filter((u: any) => {
-                    const role = (u.role || '').toUpperCase();
-                    return role === 'ZONE_USER' || role === 'ZONE_MANAGER' || role.includes('ZONE');
-                  })
-                  : usersList
-                ).map((u: any) => (
-                  <option key={u.id} value={u.name || u.email}>
-                    {u.name || u.email}{u.role ? ` (${u.role.replace('_', ' ')})` : ''}
-                  </option>
-                ))}
-              </select>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                  className="w-full min-h-[38px] px-3 py-2 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#82A094]/20 text-xs font-semibold shadow-sm transition-all text-[#546A7A] flex flex-wrap items-center gap-1.5 justify-between text-left"
+                >
+                  <div className="flex flex-wrap gap-1.5 max-w-[90%]">
+                    {selectedEngineers.length === 0 ? (
+                      <span className="text-slate-400">-- Choose Engineers --</span>
+                    ) : (
+                      selectedEngineers.map((eng) => (
+                        <span
+                          key={eng}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#82A094]/15 text-[#4F6A64] text-[10px] font-bold border border-[#82A094]/30 animate-in zoom-in-95 duration-100"
+                        >
+                          {eng}
+                          <span
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleEngineer(eng);
+                            }}
+                            className="hover:bg-[#82A094]/30 rounded px-0.5 cursor-pointer text-[#82A094] leading-none"
+                          >
+                            ×
+                          </span>
+                        </span>
+                      ))
+                    )}
+                  </div>
+                  <span className="text-slate-400">▼</span>
+                </button>
+
+                {isDropdownOpen && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setIsDropdownOpen(false)} />
+                    <div className="absolute z-20 mt-1 w-full max-h-60 overflow-y-auto rounded-xl border border-slate-100 bg-white p-2 shadow-xl animate-in fade-in slide-in-from-top-1 duration-100 custom-scrollbar">
+                      {(() => {
+                        const filtered = usersList.filter((u: any) => {
+                          const role = (u.role || '').toUpperCase();
+                          return role === 'ZONE_USER' || role === 'ZONE_MANAGER' || role.includes('ZONE');
+                        });
+                        const listToUse = filtered.length > 0 ? filtered : usersList;
+                        
+                        const seen = new Set<string>();
+                        const uniqueList = listToUse.filter((u: any) => {
+                          const nameStr = (u.name || u.email || '').trim();
+                          if (!nameStr) return false;
+                          const firstWord = nameStr.split(/\s+/)[0].toLowerCase();
+                          let normalized = firstWord;
+                          if (normalized === 'asharf') normalized = 'ashraf';
+                          
+                          if (seen.has(normalized)) return false;
+                          seen.add(normalized);
+                          return true;
+                        });
+                        
+                        return uniqueList.map((u: any) => {
+                          const nameVal = u.name || u.email;
+                          const isChecked = selectedEngineers.includes(nameVal);
+                          return (
+                            <label
+                              key={u.id}
+                              className={`flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer text-xs font-semibold transition-all hover:bg-slate-50 ${isChecked ? 'bg-[#82A094]/5 text-[#4F6A64]' : 'text-[#546A7A]'}`}
+                            >
+                              <span>{nameVal}</span>
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => handleToggleEngineer(nameVal)}
+                                className="w-4 h-4 rounded border-slate-300 text-[#82A094] focus:ring-[#82A094]/20 cursor-pointer"
+                              />
+                            </label>
+                          );
+                        });
+                      })()}
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
 
             <div className="space-y-1.5">

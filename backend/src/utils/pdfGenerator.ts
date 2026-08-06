@@ -395,13 +395,13 @@ export const generatePdf = async (
             // Draw metrics boxes (dynamically wrapping to multiple rows of up to 6 per row)
             const boxHeight = 40;
             const maxCols = 6;
-            
+
             for (let i = 0; i < summaryMetrics.length; i += maxCols) {
                 const chunk = summaryMetrics.slice(i, i + maxCols);
                 const colCount = chunk.length;
                 const boxWidth = (contentWidth - 10) / colCount;
                 let metricX = leftMargin;
-                
+
                 chunk.forEach((metric) => {
                     // Metric box background
                     doc.save()
@@ -423,7 +423,7 @@ export const generatePdf = async (
 
                     metricX += boxWidth;
                 });
-                
+
                 currentY += boxHeight + 8;
             }
             currentY += 2; // Extra padding
@@ -588,6 +588,381 @@ export const generatePdf = async (
     }
 };
 
+// Combined PDF generation function
+export const generateCombinedPdf = async (
+    res: Response,
+    sections: Array<{
+        title: string;
+        reportType: string;
+        data: any[];
+        summaryData?: any;
+    }>,
+    filters: { [key: string]: any }
+): Promise<void> => {
+    try {
+        const doc = new PDFDocument({
+            margin: 40,
+            size: 'A4',
+            layout: 'landscape',
+            bufferPages: true,
+            info: {
+                Title: `Contract Reports Package - KardexCare`,
+                Author: 'KardexCare System',
+                Subject: 'Combined Reports Package',
+                Creator: 'KardexCare Reports v2.0',
+                Producer: 'PDFKit',
+                CreationDate: new Date()
+            }
+        });
+
+        const pageWidth = doc.page.width;
+        const pageHeight = doc.page.height;
+        const contentWidth = pageWidth - 80;
+        const leftMargin = 40;
+        const rightMargin = pageWidth - 40;
+
+        res.setHeader('Content-Type', 'application/pdf');
+        const filename = `KardexCare-Combined-Contract-Reports-${format(new Date(), 'yyyyMMdd-HHmm')}.pdf`;
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+
+        doc.pipe(res);
+
+        for (let sIdx = 0; sIdx < sections.length; sIdx++) {
+            const section = sections[sIdx];
+            if (sIdx > 0) {
+                doc.addPage();
+            }
+
+            // Draw header background
+            doc.save()
+                .rect(0, 0, pageWidth, 70)
+                .fill(COLORS.headerBg)
+                .restore();
+
+            const logoPath = path.join(__dirname, '..', 'assets', 'kardex-logo.png');
+            const frontendLogoPath = path.join(__dirname, '..', '..', '..', 'frontend', 'public', 'kardex.png');
+
+            let logoAdded = false;
+            for (const logoFile of [logoPath, frontendLogoPath]) {
+                if (fs.existsSync(logoFile)) {
+                    try {
+                        doc.image(logoFile, leftMargin, 15, { height: 40 });
+                        logoAdded = true;
+                        break;
+                    } catch (e) { }
+                }
+            }
+
+            if (!logoAdded) {
+                doc.fillColor(COLORS.headerText)
+                    .fontSize(20)
+                    .font('Helvetica-Bold')
+                    .text('KARDEX REMSTAR', leftMargin, 12, { width: contentWidth, align: 'left', lineBreak: false });
+
+                doc.fillColor('#94A3B8')
+                    .fontSize(8)
+                    .font('Helvetica')
+                    .text('Service Management System', leftMargin, 36, { lineBreak: false });
+            } else {
+                doc.fillColor('#94A3B8')
+                    .fontSize(8)
+                    .font('Helvetica')
+                    .text('Service Management System', leftMargin, 48, { lineBreak: false });
+            }
+
+            // Section title
+            doc.fillColor(COLORS.headerText)
+                .fontSize(12)
+                .font('Helvetica-Bold')
+                .text(section.title.toUpperCase(), pageWidth / 3, 20, { width: pageWidth / 2, align: 'center', lineBreak: false });
+
+            // Timestamp
+            doc.fillColor('#94A3B8')
+                .fontSize(8)
+                .font('Helvetica')
+                .text(`Generated: ${format(new Date(), 'dd MMM yyyy, HH:mm')}`, rightMargin - 180, 45, { width: 170, align: 'right', lineBreak: false });
+
+            let currentY = 80;
+
+            const hasFilters = filters.zoneName || filters.zone || filters.responsible || filters.search;
+            if (hasFilters) {
+                doc.save()
+                    .roundedRect(leftMargin, currentY, contentWidth, 35, 5)
+                    .fill(COLORS.titleBg)
+                    .restore();
+
+                let filterX = leftMargin + 15;
+                const filterY = currentY + 8;
+
+                if (filters.zoneName || filters.zone) {
+                    doc.fillColor(COLORS.textMedium)
+                        .fontSize(9)
+                        .font('Helvetica-Bold')
+                        .text('Zone:', filterX, filterY, { lineBreak: false });
+                    filterX += 35;
+                    doc.fillColor(COLORS.brandPrimary)
+                        .fontSize(9)
+                        .font('Helvetica')
+                        .text(filters.zoneName || filters.zone, filterX, filterY, { lineBreak: false });
+                    filterX += 100;
+                }
+
+                if (filters.responsible) {
+                    doc.fillColor(COLORS.textMedium)
+                        .fontSize(9)
+                        .font('Helvetica-Bold')
+                        .text('Responsible:', filterX, filterY, { lineBreak: false });
+                    filterX += 70;
+                    doc.fillColor(COLORS.brandPrimary)
+                        .fontSize(9)
+                        .font('Helvetica')
+                        .text(filters.responsible, filterX, filterY, { lineBreak: false });
+                    filterX += 120;
+                }
+
+                if (filters.search) {
+                    doc.fillColor(COLORS.textMedium)
+                        .fontSize(9)
+                        .font('Helvetica-Bold')
+                        .text('Search:', filterX, filterY, { lineBreak: false });
+                    filterX += 45;
+                    doc.fillColor(COLORS.brandPrimary)
+                        .fontSize(9)
+                        .font('Helvetica')
+                        .text(filters.search, filterX, filterY, { lineBreak: false });
+                }
+
+                currentY += 45;
+            }
+
+            // Draw KPI boxes
+            const summaryData = section.summaryData;
+            if (summaryData && Object.keys(summaryData).length > 0) {
+                doc.save()
+                    .rect(leftMargin, currentY, contentWidth, 18)
+                    .fill(COLORS.titleBg)
+                    .restore();
+
+                doc.fillColor(COLORS.titleText)
+                    .fontSize(9)
+                    .font('Helvetica-Bold')
+                    .text('Summary Statistics', leftMargin + 10, currentY + 4, { lineBreak: false });
+                currentY += 22;
+
+                const summaryMetrics: Array<{ label: string; value: string; color: string }> = [];
+
+                if (section.reportType === 'customer-portfolio') {
+                    summaryMetrics.push({ label: 'Customers', value: String(summaryData.totalCustomers), color: COLORS.brandPrimary });
+                    summaryMetrics.push({ label: 'Total Agreements', value: String(summaryData.totalContracts), color: COLORS.brandPrimary });
+                    summaryMetrics.push({ label: 'Active', value: String(summaryData.activeContracts), color: COLORS.success });
+                    summaryMetrics.push({ label: 'Expired', value: String(summaryData.expiredContracts), color: COLORS.danger });
+                    summaryMetrics.push({ label: 'Machines', value: String(summaryData.totalMachines), color: COLORS.info });
+                    summaryMetrics.push({ label: 'PM Done %', value: `${summaryData.pmPercentage}%`, color: COLORS.success });
+
+                    const val = summaryData.totalValue || 0;
+                    const fmtVal = val >= 10000000 ? `Rs. ${(val / 10000000).toFixed(2)} Cr` : val >= 100000 ? `Rs. ${(val / 100000).toFixed(2)} L` : `Rs. ${val.toLocaleString('en-IN')}`;
+                    summaryMetrics.push({ label: 'Portfolio Value', value: fmtVal, color: COLORS.warning });
+                } else if (section.reportType === 'pm-overview') {
+                    summaryMetrics.push({ label: 'Scheduled PMs', value: String(summaryData.totalPMs), color: COLORS.brandPrimary });
+                    summaryMetrics.push({ label: 'Completed Visits', value: String(summaryData.completedPMs), color: COLORS.success });
+                    summaryMetrics.push({ label: 'Pending Visits', value: String(summaryData.pendingPMs), color: COLORS.warning });
+                    summaryMetrics.push({ label: 'Overdue Visits', value: String(summaryData.overduePMs), color: COLORS.danger });
+                    summaryMetrics.push({ label: 'PM Progress %', value: `${summaryData.completionPercentage}%`, color: COLORS.success });
+                    summaryMetrics.push({ label: 'Contracts Cover', value: String(summaryData.totalContracts), color: COLORS.info });
+                } else if (section.reportType === 'expiring-contracts') {
+                    summaryMetrics.push({ label: 'Expiring Contracts', value: String(summaryData.totalExpiring), color: COLORS.brandPrimary });
+                    summaryMetrics.push({ label: 'Critical (≤30 Days)', value: String(summaryData.critical), color: COLORS.danger });
+                    summaryMetrics.push({ label: 'Warning (31-60 Days)', value: String(summaryData.warning), color: COLORS.warning });
+                    summaryMetrics.push({ label: 'Notice (61-90 Days)', value: String(summaryData.notice), color: COLORS.info });
+
+                    const val = summaryData.totalValue || 0;
+                    const fmtVal = val >= 10000000 ? `Rs. ${(val / 10000000).toFixed(2)} Cr` : val >= 100000 ? `Rs. ${(val / 100000).toFixed(2)} L` : `Rs. ${val.toLocaleString('en-IN')}`;
+                    summaryMetrics.push({ label: 'Expiring Value', value: fmtVal, color: COLORS.warning });
+                } else if (section.reportType === 'zone-summary') {
+                    summaryMetrics.push({ label: 'Total Zones', value: String(summaryData.totalZones), color: COLORS.brandPrimary });
+                    summaryMetrics.push({ label: 'Contracts Count', value: String(summaryData.totalContracts), color: COLORS.brandPrimary });
+                    summaryMetrics.push({ label: 'Machines Count', value: String(summaryData.totalMachines), color: COLORS.info });
+                    summaryMetrics.push({ label: 'PM Complete %', value: `${summaryData.pmPercentage}%`, color: COLORS.success });
+
+                    const val = summaryData.totalValue || 0;
+                    const fmtVal = val >= 10000000 ? `Rs. ${(val / 10000000).toFixed(2)} Cr` : val >= 100000 ? `Rs. ${(val / 100000).toFixed(2)} L` : `Rs. ${val.toLocaleString('en-IN')}`;
+                    summaryMetrics.push({ label: 'Portfolio Value', value: fmtVal, color: COLORS.warning });
+                } else if (section.reportType === 'technician-pm') {
+                    summaryMetrics.push({ label: 'Technicians', value: String(summaryData.totalTechnicians), color: COLORS.brandPrimary });
+                    summaryMetrics.push({ label: 'Visits Assigned', value: String(summaryData.totalPMs), color: COLORS.brandPrimary });
+                    summaryMetrics.push({ label: 'Completed Visits', value: String(summaryData.completedPMs), color: COLORS.success });
+                    summaryMetrics.push({ label: 'Pending Visits', value: String(summaryData.pendingPMs), color: COLORS.warning });
+                    summaryMetrics.push({ label: 'Overdue Visits', value: String(summaryData.overduePMs), color: COLORS.danger });
+                    summaryMetrics.push({ label: 'Avg Completion %', value: `${summaryData.avgCompletion}%`, color: COLORS.success });
+                }
+
+                const boxHeight = 35;
+                const maxCols = 7;
+                const boxWidth = (contentWidth - 10) / Math.min(summaryMetrics.length, maxCols);
+                let metricX = leftMargin;
+
+                summaryMetrics.forEach((metric) => {
+                    doc.save()
+                        .roundedRect(metricX, currentY, boxWidth - 4, boxHeight, 4)
+                        .fill('#F8FAFC')
+                        .restore();
+
+                    doc.fillColor(COLORS.textMedium)
+                        .fontSize(6.5)
+                        .font('Helvetica')
+                        .text(metric.label, metricX + 2, currentY + 4, { width: boxWidth - 8, align: 'center', lineBreak: false });
+
+                    doc.fillColor(metric.color)
+                        .fontSize(10.5)
+                        .font('Helvetica-Bold')
+                        .text(metric.value, metricX + 2, currentY + 16, { width: boxWidth - 8, align: 'center', lineBreak: false });
+
+                    metricX += boxWidth;
+                });
+
+                currentY += boxHeight + 10;
+            }
+
+            // Draw Table Title Bar
+            doc.save()
+                .rect(leftMargin, currentY, contentWidth, 18)
+                .fill(COLORS.brandSecondary)
+                .restore();
+
+            doc.fillColor(COLORS.headerText)
+                .fontSize(9)
+                .font('Helvetica-Bold')
+                .text(`Report Data: ${section.title} (${section.data.length} items)`, leftMargin + 8, currentY + 4, { lineBreak: false });
+            currentY += 23;
+
+            // Draw Table Header
+            const validColumns = getPdfColumns(section.reportType);
+            const totalRequestedWidth = validColumns.reduce((sum, col) => sum + (col.width || 100), 0);
+            const scaleFactor = contentWidth / totalRequestedWidth;
+            const colWidths = validColumns.map(col => (col.width || 100) * scaleFactor);
+
+            const drawSectionTableHeader = (y: number): number => {
+                doc.save()
+                    .rect(leftMargin, y, contentWidth, 18)
+                    .fill(COLORS.tableHeader)
+                    .restore();
+
+                let xPos = leftMargin;
+                validColumns.forEach((column, index) => {
+                    doc.fillColor(COLORS.tableHeaderText)
+                        .fontSize(7.5)
+                        .font('Helvetica-Bold')
+                        .text(column.header, xPos + 2, y + 5, {
+                            width: colWidths[index] - 4,
+                            align: 'center',
+                            lineBreak: false
+                        });
+                    xPos += colWidths[index];
+                });
+
+                return y + 18;
+            };
+
+            currentY = drawSectionTableHeader(currentY);
+
+            // Table Rows
+            const rowHeight = 15;
+            const maxY = pageHeight - 45;
+
+            if (section.data.length === 0) {
+                doc.save()
+                    .rect(leftMargin, currentY, contentWidth, 25)
+                    .fill(COLORS.rowEven)
+                    .stroke(COLORS.borderLight)
+                    .restore();
+
+                doc.fillColor(COLORS.textMedium)
+                    .fontSize(9)
+                    .font('Helvetica-Oblique')
+                    .text('No records found for this section.', leftMargin, currentY + 8, {
+                        width: contentWidth,
+                        align: 'center',
+                        lineBreak: false
+                    });
+                currentY += 25;
+            } else {
+                section.data.forEach((item, rowIndex) => {
+                    if (currentY + rowHeight > maxY) {
+                        addPageFooter(doc, pageWidth, pageHeight);
+                        doc.addPage();
+
+                        doc.save()
+                            .rect(0, 0, pageWidth, 40)
+                            .fill(COLORS.headerBg)
+                            .restore();
+
+                        doc.fillColor(COLORS.headerText)
+                            .fontSize(10)
+                            .font('Helvetica-Bold')
+                            .text(`${section.title.toUpperCase()} (Continued)`, leftMargin, 15, { lineBreak: false });
+
+                        currentY = 50;
+                        currentY = drawSectionTableHeader(currentY);
+                    }
+
+                    const bgColor = rowIndex % 2 === 0 ? COLORS.rowEven : COLORS.rowOdd;
+                    doc.save()
+                        .rect(leftMargin, currentY, contentWidth, rowHeight)
+                        .fill(bgColor)
+                        .stroke(COLORS.borderLight)
+                        .restore();
+
+                    let xPos = leftMargin;
+                    validColumns.forEach((column, index) => {
+                        const rawValue = getNestedValue(item, column.key);
+                        const formattedValue = formatPdfValue(rawValue, column, item);
+
+                        let textColor = COLORS.textDark;
+                        if (column.key === 'status' || column.key === 'stage' || column.key === 'pmStatus' || column.key === 'urgency') {
+                            const lowerValue = formattedValue.toLowerCase();
+                            if (lowerValue.includes('won') || lowerValue.includes('resolved') || lowerValue.includes('closed') || lowerValue.includes('success') || lowerValue === 'completed' || lowerValue === 'active' || lowerValue.includes('done')) {
+                                textColor = COLORS.success;
+                            } else if (lowerValue.includes('lost') || lowerValue.includes('cancelled') || lowerValue.includes('failed') || lowerValue === 'expired' || lowerValue === 'critical' || lowerValue === 'overdue') {
+                                textColor = COLORS.danger;
+                            } else if (lowerValue.includes('progress') || lowerValue.includes('negotiation') || lowerValue === 'pending' || lowerValue === 'warning' || lowerValue === 'expiring soon') {
+                                textColor = COLORS.warning;
+                            } else if (lowerValue === 'notice') {
+                                textColor = COLORS.info;
+                            }
+                        }
+
+                        doc.fillColor(textColor)
+                            .fontSize(7)
+                            .font('Helvetica')
+                            .text(formattedValue, xPos + 2, currentY + 4, {
+                                width: colWidths[index] - 4,
+                                align: column.align || 'left',
+                                lineBreak: false
+                            });
+
+                        xPos += colWidths[index];
+                    });
+
+                    currentY += rowHeight;
+                });
+            }
+        }
+
+        const pageCount = doc.bufferedPageRange().count;
+        for (let i = 0; i < pageCount; i++) {
+            doc.switchToPage(i);
+            addPageFooter(doc, pageWidth, pageHeight, i + 1, pageCount);
+        }
+
+        doc.end();
+    } catch (error) {
+        console.error('PDF Generation Error:', error);
+        if (!res.headersSent) {
+            res.status(500).json({ error: 'Failed to generate PDF report package' });
+        }
+    }
+};
+
 // Helper function to add footer to a page
 function addPageFooter(doc: PDFKit.PDFDocument, pageWidth: number, pageHeight: number, currentPage?: number, totalPages?: number) {
     const footerY = pageHeight - 35;
@@ -715,6 +1090,65 @@ export const getPdfColumns = (reportType: string): ColumnDefinition[] => {
             { key: 'poCount', header: 'POs', width: 60, dataType: 'number', align: 'center' },
             { key: 'totalPOValue', header: 'PO Value', width: 100, dataType: 'currency', align: 'right' },
             { key: 'conversionRate', header: 'Conv %', width: 70, dataType: 'percentage', align: 'center' },
+        ],
+        'pm-overview': [
+            { key: 'contractNumber', header: 'Contract No', width: 70, align: 'center' },
+            { key: 'customerName', header: 'Customer', width: 110, align: 'left' },
+            { key: 'place', header: 'Place', width: 70, align: 'left' },
+            { key: 'pmNumber', header: 'PM Visit', width: 50, dataType: 'number', align: 'center', format: (v: any) => `PM ${v}` },
+            { key: 'range', header: 'Scheduled Window', width: 95, align: 'center' },
+            { key: 'pmStatus', header: 'Status', width: 65, align: 'center' },
+            { key: 'completedAt', header: 'Completed At', width: 70, dataType: 'date', align: 'center' },
+            { key: 'responsible', header: 'Responsible', width: 85, align: 'left' },
+            { key: 'mcType', header: 'MC Type', width: 65, align: 'center' },
+            { key: 'amount', header: 'Value (INR)', width: 75, dataType: 'currency', align: 'right' }
+        ],
+        'expiring-contracts': [
+            { key: 'contractNumber', header: 'Contract No', width: 80, align: 'center' },
+            { key: 'customerName', header: 'Customer Name', width: 130, align: 'left' },
+            { key: 'place', header: 'Place', width: 80, align: 'left' },
+            { key: 'zoneName', header: 'Zone', width: 60, align: 'center' },
+            { key: 'endDate', header: 'Expiry Date', width: 80, dataType: 'date', align: 'center' },
+            { key: 'daysRemaining', header: 'Days Left', width: 65, dataType: 'number', align: 'center', format: (v: any) => v < 0 ? `Overdue ${Math.abs(v)}d` : `${v} days` },
+            { key: 'urgency', header: 'Urgency', width: 70, align: 'center' },
+            { key: 'pmPercentage', header: 'PM Done %', width: 70, dataType: 'percentage', align: 'center' },
+            { key: 'amount', header: 'Value (INR)', width: 85, dataType: 'currency', align: 'right' },
+            { key: 'responsible', header: 'Responsible', width: 85, align: 'left' }
+        ],
+        'zone-summary': [
+            { key: 'zoneName', header: 'Zone Name', width: 90, align: 'left' },
+            { key: 'totalContracts', header: 'Total Contracts', width: 90, dataType: 'number', align: 'center' },
+            { key: 'activeContracts', header: 'Active', width: 70, dataType: 'number', align: 'center' },
+            { key: 'expiringContracts', header: 'Expiring', width: 70, dataType: 'number', align: 'center' },
+            { key: 'expiredContracts', header: 'Expired', width: 70, dataType: 'number', align: 'center' },
+            { key: 'totalValue', header: 'Total Value (INR)', width: 110, dataType: 'currency', align: 'right' },
+            { key: 'totalMachines', header: 'Machines', width: 80, dataType: 'number', align: 'center' },
+            { key: 'pmPercentage', header: 'PM Progress %', width: 90, dataType: 'percentage', align: 'center' },
+            { key: 'technicianCount', header: 'Technicians', width: 90, dataType: 'number', align: 'center' }
+        ],
+        'technician-pm': [
+            { key: 'technician', header: 'Technician Name', width: 120, align: 'left' },
+            { key: 'assignedContracts', header: 'Contracts', width: 65, dataType: 'number', align: 'center' },
+            { key: 'totalPMs', header: 'Total PMs', width: 65, dataType: 'number', align: 'center' },
+            { key: 'completedPMs', header: 'Completed', width: 65, dataType: 'number', align: 'center' },
+            { key: 'pendingPMs', header: 'Pending', width: 60, dataType: 'number', align: 'center' },
+            { key: 'overduePMs', header: 'Overdue', width: 60, dataType: 'number', align: 'center' },
+            { key: 'completionPercentage', header: 'Completion %', width: 80, dataType: 'percentage', align: 'center' },
+            { key: 'totalMachines', header: 'Machines', width: 65, dataType: 'number', align: 'center' },
+            { key: 'totalValue', header: 'Value (INR)', width: 90, dataType: 'currency', align: 'right' },
+            { key: 'zones', header: 'Zones Serviced', width: 85, align: 'left', format: (v: any) => Array.isArray(v) ? v.join(', ') : String(v || '—') }
+        ],
+        'customer-portfolio': [
+            { key: 'customerName', header: 'Customer', width: 130, align: 'left' },
+            { key: 'place', header: 'Place', width: 75, align: 'left' },
+            { key: 'zoneName', header: 'Zone', width: 50, align: 'center' },
+            { key: 'totalContracts', header: 'Contracts', width: 60, dataType: 'number', align: 'center' },
+            { key: 'activeContracts', header: 'Active', width: 50, dataType: 'number', align: 'center' },
+            { key: 'expiredContracts', header: 'Expired', width: 55, dataType: 'number', align: 'center' },
+            { key: 'totalValue', header: 'Portfolio Value (INR)', width: 95, dataType: 'currency', align: 'right' },
+            { key: 'totalMachines', header: 'Machines', width: 55, dataType: 'number', align: 'center' },
+            { key: 'pmPercentage', header: 'PM Done %', width: 75, dataType: 'percentage', align: 'center' },
+            { key: 'hasSoftwareSupport', header: 'SW Support', width: 60, align: 'center', format: (v: any) => v ? 'Yes' : 'No' }
         ],
         'default': [
             { key: 'id', header: 'ID', width: 60, align: 'center' },

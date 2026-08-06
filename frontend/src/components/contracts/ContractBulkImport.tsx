@@ -45,6 +45,7 @@ interface ParsedContract {
   softwareSupport: boolean;
   bdCount: number;
   pmSchedules?: any[];
+  contractNumber?: string;
 
   // Resolution mappings
   customerId?: number;
@@ -110,6 +111,7 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
   // Generate and download a sample Excel file
   const handleDownloadTemplate = () => {
     const headers = [
+      'Contract No',
       'Customer Name',
       'Place',
       'MC Type',
@@ -120,46 +122,36 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
       'End',
       'PO No',
       'PO Date',
+      'Payment Terms',
       'Responsible',
       'Zone',
       'Software Support',
-      'BD'
+      'BD',
+      '1st PM',
+      '1st PM Date',
+      '2nd PM',
+      '2nd PM Date',
+      '3rd PM',
+      '3rd PM Date',
+      '4th PM',
+      '4th PM Date',
+      '5th PM',
+      '5th PM Date',
+      '6th PM',
+      '6th PM Date',
+      '7th PM',
+      '7th PM Date',
+      '8th PM',
+      '8th PM Date',
+      '9th PM',
+      '9th PM Date',
+      '10th PM',
+      '10th PM Date',
+      '11th PM',
+      '12th PM'
     ];
 
-    const sampleRows = [
-      {
-        'Customer Name': dbCustomers[0]?.companyName || 'Example Customer Ltd',
-        'Place': 'Mumbai',
-        'MC Type': 'Flex Care',
-        'No of Machine': 2,
-        'Amount': 150000,
-        'No of Visits': 3,
-        'Start ': '01/08/2026',
-        'End': '31/07/2027',
-        'PO No': 'PO-88271',
-        'PO Date': '25/07/2026',
-        'Responsible': dbUsers[0]?.name || 'Rahul',
-        'Zone': dbZones[0]?.name || 'West',
-        'Software Support': 'Yes',
-        'BD': 'Unlimited'
-      },
-      {
-        'Customer Name': dbCustomers[1]?.companyName || 'Second Customer Pvt',
-        'Place': 'Chennai',
-        'MC Type': 'Full Care',
-        'No of Machine': 1,
-        'Amount': 320000,
-        'No of Visits': 4,
-        'Start ': '15/08/2026',
-        'End': '14/08/2027',
-        'PO No': 'PO-99281',
-        'PO Date': '10/08/2026',
-        'Responsible': dbUsers[1]?.name || 'Sanjay',
-        'Zone': dbZones[1]?.name || 'South',
-        'Software Support': 'No',
-        'BD': '2'
-      }
-    ];
+    const sampleRows: any[] = [];
 
     const worksheet = XLSX.utils.json_to_sheet(sampleRows, { header: headers });
     const workbook = XLSX.utils.book_new();
@@ -412,23 +404,41 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
         const swCol = getColIndex(['software support', 'softwaresupport', 'sw support']);
         const bdCol = getColIndex(['bd', 'bd count', 'bdcount', 'buffer days', 'breakdown visits']);
         const pm1Col = getColIndex(['1st pm', 'pm1', 'pm 1']);
+        const contractNoCol = getColIndex(['contract no', 'contract number', 'contract_no', 'contractnumber', 'agreement no', 'agreement number']);
+        const paymentCol = getColIndex(['payment terms', 'paymentterms', 'payment term', 'paymentterm', 'payment']);
 
         const dataRows = rows.slice(headerRowIndex + 1);
 
         const parsedRows = dataRows.map((row, index) => {
           const rawCustName = custCol !== -1 && custCol < row.length ? String(row[custCol] || '').trim() : '';
+          const rawContractNo = contractNoCol !== -1 && contractNoCol < row.length ? String(row[contractNoCol] || '').trim() : '';
+          const rawPaymentTerms = paymentCol !== -1 && paymentCol < row.length ? String(row[paymentCol] || '').trim() : '';
           const rawZoneName = zoneCol !== -1 && zoneCol < row.length ? String(row[zoneCol] || '').trim() : '';
-          const rawMcType = mcCol !== -1 && mcCol < row.length ? String(row[mcCol] || 'Flex Care').trim() : 'Flex Care';
+          const rawMcType = mcCol !== -1 && mcCol < row.length ? String(row[mcCol] || '').trim() : '';
           const rawSoftware = swCol !== -1 && swCol < row.length ? String(row[swCol] || '').trim().toLowerCase() : '';
-
-          // Match database Customer
-          const matchedCust = dbCustomers && Array.isArray(dbCustomers)
-            ? dbCustomers.find(c => c?.companyName && isFuzzyMatch(c.companyName, rawCustName))
-            : undefined;
 
           // Match database Zone
           const matchedZone = dbZones && Array.isArray(dbZones)
             ? dbZones.find(z => z?.name && String(z.name).toLowerCase() === rawZoneName.toLowerCase())
+            : undefined;
+
+          // Match database Customer (filter by zone and place/address if resolved)
+          const rawPlaceStr = placeCol !== -1 && placeCol < row.length ? String(row[placeCol] || '').trim().toLowerCase() : '';
+          const matchedCust = dbCustomers && Array.isArray(dbCustomers)
+            ? dbCustomers.find(c => {
+                if (!c?.companyName) return false;
+                if (!isFuzzyMatch(c.companyName, rawCustName)) return false;
+                if (matchedZone && c.serviceZoneId !== matchedZone.id) return false;
+
+                // Match address/place if provided in both Excel and DB
+                if (rawPlaceStr && c.address) {
+                  const custAddressStr = String(c.address).trim().toLowerCase();
+                  if (custAddressStr !== rawPlaceStr && !custAddressStr.includes(rawPlaceStr) && !rawPlaceStr.includes(custAddressStr)) {
+                    return false;
+                  }
+                }
+                return true;
+              })
             : undefined;
 
           const startDateParsed = startCol !== -1 && startCol < row.length ? parseExcelDate(row[startCol]) : '';
@@ -498,14 +508,15 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
             endDate: endDateParsed,
             poNo: poCol !== -1 && poCol < row.length ? String(row[poCol] || '').trim() : '',
             poDate: poDateParsed || startDateParsed,
-            responsible: respCol !== -1 && respCol < row.length ? String(row[respCol] || 'Rahul').trim() : 'Rahul',
+            responsible: respCol !== -1 && respCol < row.length ? String(row[respCol] || '').trim() : '',
             zoneName: matchedZone?.name || rawZoneName || '',
-            paymentTerms: '30 Days Net',
+            paymentTerms: rawPaymentTerms || undefined,
             softwareSupport: rawSoftware === 'yes' || rawSoftware === 'true' || rawSoftware === '1',
             bdCount: parsedBdCount,
             pmSchedules: pmSchedules,
             customerId: matchedCust?.id,
-            zoneId: matchedZone?.id
+            zoneId: matchedZone?.id,
+            contractNumber: rawContractNo || undefined
           };
 
           contractItem.errors = validateContract(contractItem);
@@ -652,7 +663,8 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
       }
     } catch (err: any) {
       console.error('Failed bulk importing:', err);
-      toast.error(err.response?.data?.error || err.message || 'Server error importing contracts');
+      const errorMsg = err.response?.data?.details || err.response?.data?.error || err.message || 'Server error importing contracts';
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -896,9 +908,10 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
                               <option value="">-- Unresolved (Select Customer) --</option>
                               {dbCustomers.map(cust => {
                                 const zName = cust.serviceZone?.name || dbZones.find((z: any) => Number(z.id) === Number(cust.serviceZoneId))?.name;
+                                const placeStr = cust.address ? ` - ${cust.address}` : '';
                                 return (
                                   <option key={cust.id} value={cust.id}>
-                                    {cust.companyName || cust.name}{zName ? ` (${zName} Zone)` : ''}
+                                    {cust.companyName || cust.name}{placeStr}{zName ? ` (${zName} Zone)` : ''}
                                   </option>
                                 );
                               })}

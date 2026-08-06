@@ -1,7 +1,11 @@
 'use client';
 
-import ContractsDashboard from '@/components/contracts/ContractsDashboard';
+import CustomerContractTracking from '@/components/contracts/CustomerContractTracking';
 
 export default function ZoneManagerContractsPage() {
-  return <ContractsDashboard role="Zone Manager" />;
+  return (
+    <div className="w-full p-4 sm:p-6 lg:p-8 animate-in fade-in duration-200">
+      <CustomerContractTracking role="Zone Manager" />
+    </div>
+  );
 }

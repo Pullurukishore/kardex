@@ -7,7 +7,7 @@ import {
   ArrowLeft, CheckCircle, AlertTriangle, Activity, Clock,
   Shield, Calendar, IndianRupee, User, Sparkles, Eye,
   TrendingUp, ShieldCheck, Info, RefreshCw, Printer, X,
-  ChevronDown, ChevronUp, Layers, BarChart3
+  ChevronDown, ChevronUp, Layers, BarChart3, Plus
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiService } from '@/services/api';
@@ -73,6 +73,7 @@ export default function CustomerContractTracking({ role }: CustomerContractTrack
   const [search, setSearch] = useState('');
   const [zoneFilter, setZoneFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [techFilter, setTechFilter] = useState('all');
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerSummary | null>(null);
   const [expandedContractId, setExpandedContractId] = useState<number | null>(null);
 
@@ -84,13 +85,29 @@ export default function CustomerContractTracking({ role }: CustomerContractTrack
     return '/admin';
   };
 
+  const getBDValueLabel = (csContracts: Contract[]) => {
+    const hasUnlimited = csContracts.some(c => c.bdCount === 999);
+    const finiteBDs = csContracts
+      .filter(c => c.bdCount !== 999)
+      .reduce((sum, c) => sum + (c.bdCount || 0), 0);
+
+    if (hasUnlimited && finiteBDs > 0) {
+      return `Unlimited + ${finiteBDs}`;
+    }
+    if (hasUnlimited) {
+      return 'Unlimited';
+    }
+    return String(finiteBDs);
+  };
+
   // Fetch contracts
   const fetchContracts = async () => {
     setLoading(true);
     try {
       const data = await apiService.getContracts({
         zone: zoneFilter,
-        status: statusFilter
+        status: statusFilter,
+        tech: techFilter
       });
       setContracts(data);
     } catch (err: any) {
@@ -103,7 +120,13 @@ export default function CustomerContractTracking({ role }: CustomerContractTrack
 
   useEffect(() => {
     fetchContracts();
-  }, [zoneFilter, statusFilter]);
+  }, [zoneFilter, statusFilter, techFilter]);
+
+  // List of unique technicians for filter
+  const uniqueTechnicians = useMemo(() => {
+    const list = new Set(contracts.map(c => c.responsible).filter(Boolean));
+    return Array.from(list);
+  }, [contracts]);
 
   // Toggle PM Status
   const handleTogglePMStatus = async (pmId: number, currentStatus: string) => {
@@ -123,7 +146,7 @@ export default function CustomerContractTracking({ role }: CustomerContractTrack
     const grouped: Record<string, CustomerSummary> = {};
 
     contracts.forEach(c => {
-      const key = c.customerName;
+      const key = c.customerId ? String(c.customerId) : c.customerName;
       if (!grouped[key]) {
         grouped[key] = {
           customerId: c.customerId || 0,
@@ -283,7 +306,6 @@ export default function CustomerContractTracking({ role }: CustomerContractTrack
             { label: 'Expired', value: cs.expiredContracts, icon: AlertTriangle, color: 'text-rose-600', bg: 'bg-rose-500/10' },
             { label: 'Portfolio Value', value: `₹${cs.totalValue.toLocaleString('en-IN')}`, icon: IndianRupee, color: 'text-amber-600', bg: 'bg-amber-500/10' },
             { label: 'Machines', value: cs.totalMachines, icon: Layers, color: 'text-indigo-600', bg: 'bg-indigo-500/10' },
-            { label: 'Breakdowns', value: cs.contracts.some(c => c.bdCount === 999) ? 'Unlimited' : `${cs.totalBDs} BD`, icon: Activity, color: 'text-rose-600', bg: 'bg-rose-500/10' },
           ].map((kpi, idx) => (
             <div key={idx} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
               <div className={`w-10 h-10 rounded-xl ${kpi.bg} flex items-center justify-center ${kpi.color}`}>
@@ -329,7 +351,7 @@ export default function CustomerContractTracking({ role }: CustomerContractTrack
             <span>All Contracts ({cs.contracts.length})</span>
           </h2>
 
-          {cs.contracts.map(contract => {
+          {cs.contracts.map((contract, index) => {
             const isExpanded = expandedContractId === contract.id;
             const totalPMs = contract.pmSchedules.filter(p => p.status !== 'Not Applicable').length;
             const completedPMs = contract.pmSchedules.filter(p => p.status === 'Completed').length;
@@ -347,11 +369,16 @@ export default function CustomerContractTracking({ role }: CustomerContractTrack
                 >
                   <div className="flex items-center gap-4 min-w-0">
                     <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#546A7A] to-[#6F8A9D] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                      {contract.contractNumber.split('-').pop()}
+                      {cs.contracts.length - index}
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-extrabold text-slate-800 text-sm">{contract.contractNumber}</span>
+                        <span className="font-extrabold text-slate-800 text-sm">
+                          PO: {contract.poNo || '—'}
+                        </span>
+                        <span className="text-xs font-semibold text-slate-400">
+                          ({contract.contractNumber})
+                        </span>
                         <span className={`px-2 py-0.5 rounded-full border text-[10px] font-bold ${getStatusBadge(contract.status)}`}>
                           {contract.status}
                         </span>
@@ -389,11 +416,10 @@ export default function CustomerContractTracking({ role }: CustomerContractTrack
                         return (
                           <span
                             key={num}
-                            className={`w-6 h-6 rounded-lg flex items-center justify-center text-[9px] font-bold border ${
-                              done
+                            className={`w-6 h-6 rounded-lg flex items-center justify-center text-[9px] font-bold border ${done
                                 ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'
                                 : 'bg-amber-500/10 text-amber-700 border-amber-500/20'
-                            }`}
+                              }`}
                             title={`PM ${num}: ${pm.status}`}
                           >
                             {done ? '✓' : '•'}
@@ -479,11 +505,10 @@ export default function CustomerContractTracking({ role }: CustomerContractTrack
                           return (
                             <div
                               key={idx}
-                              className={`p-3 rounded-xl border flex justify-between items-center text-xs transition-all ${
-                                isCompleted
+                              className={`p-3 rounded-xl border flex justify-between items-center text-xs transition-all ${isCompleted
                                   ? 'bg-emerald-500/5 border-emerald-500/20'
                                   : 'bg-white border-slate-100 hover:border-slate-200'
-                              }`}
+                                }`}
                             >
                               <div className="space-y-0.5">
                                 <span className={`font-bold block text-[10px] uppercase tracking-wider ${isCompleted ? 'text-emerald-700' : 'text-slate-400'}`}>
@@ -494,11 +519,10 @@ export default function CustomerContractTracking({ role }: CustomerContractTrack
                               <button
                                 type="button"
                                 onClick={() => handleTogglePMStatus(pm.id, pm.status)}
-                                className={`px-2.5 py-1 rounded-lg font-bold text-[10px] uppercase tracking-wider transition-all border ${
-                                  isCompleted
+                                className={`px-2.5 py-1 rounded-lg font-bold text-[10px] uppercase tracking-wider transition-all border ${isCompleted
                                     ? 'bg-emerald-500 text-white border-emerald-600 hover:bg-emerald-600'
                                     : 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 border-amber-500/20'
-                                }`}
+                                  }`}
                               >
                                 {isCompleted ? '✓ Done' : '• Pending'}
                               </button>
@@ -508,17 +532,8 @@ export default function CustomerContractTracking({ role }: CustomerContractTrack
                       </div>
                     </div>
 
-                    {/* Bottom row: Breakdown + Software */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="bg-white rounded-xl border border-slate-100 p-4 flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-rose-500/10 flex items-center justify-center text-rose-600">
-                          <Activity className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Breakdown Incidents</p>
-                          <p className="text-lg font-extrabold text-rose-600">{contract.bdCount === 999 ? 'Unlimited' : contract.bdCount} BD Visits</p>
-                        </div>
-                      </div>
+                    {/* Bottom row: Software Support */}
+                    <div className="grid grid-cols-1 gap-4">
                       <div className="bg-white rounded-xl border border-slate-100 p-4 flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-600">
                           <ShieldCheck className="w-5 h-5" />
@@ -565,21 +580,23 @@ export default function CustomerContractTracking({ role }: CustomerContractTrack
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#82A094]/15 border border-[#82A094]/30 mb-3">
               <BarChart3 className="w-4 h-4 text-[#82A094]" />
-              <span className="text-xs font-semibold text-[#82A094] tracking-wider uppercase">{role} • Contract Tracking</span>
+              <span className="text-xs font-semibold text-[#82A094] tracking-wider uppercase">{role} • FSM Service Contracts</span>
             </div>
             <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">
-              Customer-wise Contract Tracking
+              Service Contracts
             </h1>
             <p className="text-white/60 text-sm mt-1">
-              Full tracking view of all service contracts grouped by customer. Click "View" to see complete details.
+              Manage, track, and monitor all service contracts grouped by customer. Click &quot;View&quot; to see complete details.
             </p>
           </div>
-          <div className="flex items-center gap-2 text-white/80 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5">
-            <Building2 className="w-5 h-5 text-[#82A094]" />
-            <div>
-              <span className="text-2xl font-extrabold">{customerSummaries.length}</span>
-              <span className="text-xs ml-1.5 text-white/50">Customers</span>
-            </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => router.push(`${getBaseRoute()}/contracts/new`)}
+              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-gradient-to-r from-[#82A094] to-[#688579] hover:brightness-110 active:scale-[0.98] text-white font-semibold transition-all shadow-lg shadow-[#82A094]/25"
+            >
+              <Plus className="w-5 h-5" />
+              <span>Add Agreement</span>
+            </button>
           </div>
         </div>
       </div>
@@ -620,6 +637,16 @@ export default function CustomerContractTracking({ role }: CustomerContractTrack
             <option value="South">South Zone</option>
             <option value="East">East Zone</option>
             <option value="West">West Zone</option>
+          </select>
+          <select
+            value={techFilter}
+            onChange={(e) => setTechFilter(e.target.value)}
+            className="px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none"
+          >
+            <option value="all">All Responsible</option>
+            {uniqueTechnicians.map(tech => (
+              <option key={tech} value={tech}>{tech}</option>
+            ))}
           </select>
         </div>
       </div>
@@ -701,16 +728,7 @@ export default function CustomerContractTracking({ role }: CustomerContractTrack
                     </div>
                   </div>
 
-                  {/* Breakdowns */}
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-50 border border-slate-100">
-                    <Activity className="w-3.5 h-3.5 text-rose-500" />
-                    <div>
-                      <span className="text-[9px] font-bold text-slate-400 uppercase block leading-none">BD</span>
-                      <span className={`text-sm font-extrabold ${cs.totalBDs > 0 ? 'text-rose-600' : 'text-slate-800'}`}>
-                        {cs.contracts.some(c => c.bdCount === 999) ? 'Unlimited' : cs.totalBDs}
-                      </span>
-                    </div>
-                  </div>
+
 
                   {/* View Button */}
                   <button
