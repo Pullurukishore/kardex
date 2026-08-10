@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiService } from '@/services/api';
+import { getCustomerColorClass } from '@/lib/utils';
 
 interface PMSchedule {
   id: number;
@@ -672,7 +673,7 @@ export default function CustomerContractTracking({ role }: CustomerContractTrack
               <div className="p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                 {/* Customer Info */}
                 <div className="flex items-center gap-4 min-w-0 flex-1">
-                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#82A094] to-[#6e897e] flex items-center justify-center text-white text-base font-extrabold flex-shrink-0 shadow-sm">
+                  <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${getCustomerColorClass(cs.customerName)} flex items-center justify-center text-white text-base font-extrabold flex-shrink-0 shadow-sm`}>
                     {cs.customerName.charAt(0).toUpperCase()}
                   </div>
                   <div className="min-w-0">

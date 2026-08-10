@@ -15,6 +15,7 @@ interface PMSchedule {
   pmNumber: 1 | 2 | 3 | 4;
   range: string;
   status: 'Completed' | 'Pending' | 'Not Applicable';
+  completedAt?: string;
 }
 
 interface Contract {
@@ -55,6 +56,10 @@ export default function ContractDetails({ id, role, backUrl }: ContractDetailsPr
 
 
 
+  const [dateModalOpen, setDateModalOpen] = useState(false);
+  const [selectedPmId, setSelectedPmId] = useState<number | null>(null);
+  const [completedDate, setCompletedDate] = useState(new Date().toISOString().split('T')[0]);
+
   // Fetch contract details
   const fetchContractDetails = async () => {
     setLoading(true);
@@ -79,16 +84,44 @@ export default function ContractDetails({ id, role, backUrl }: ContractDetailsPr
 
   // Toggle PM Status
   const handleTogglePMStatus = async (pmId: number, currentStatus: string) => {
-    const newStatus = currentStatus === 'Completed' ? 'Pending' : 'Completed';
+    if (currentStatus === 'Pending') {
+      setSelectedPmId(pmId);
+      setCompletedDate(new Date().toISOString().split('T')[0]);
+      setDateModalOpen(true);
+    } else {
+      if (!confirm('Are you sure you want to change this PM visit status back to Pending? This will clear the completion date.')) {
+        return;
+      }
+      // Toggle back to Pending
+      try {
+        await apiService.updatePMSchedule(pmId, 'Pending');
+        toast.success('PM Visit status set to Pending!');
+        if (contract) {
+          const updatedSchedules = contract.pmSchedules.map(pm => 
+            pm.id === pmId ? { ...pm, status: 'Pending' as any, completedAt: undefined } : pm
+          );
+          setContract({ ...contract, pmSchedules: updatedSchedules });
+        }
+      } catch (err: any) {
+        console.error(err);
+        toast.error('Failed to update PM schedule status');
+      }
+    }
+  };
+
+  const handleConfirmCompletion = async () => {
+    if (!selectedPmId) return;
     try {
-      await apiService.updatePMSchedule(pmId, newStatus);
-      toast.success('PM Visit status updated!');
+      await apiService.updatePMSchedule(selectedPmId, 'Completed', completedDate);
+      toast.success('PM Visit marked as Completed!');
       if (contract) {
         const updatedSchedules = contract.pmSchedules.map(pm => 
-          pm.id === pmId ? { ...pm, status: newStatus as any } : pm
+          pm.id === selectedPmId ? { ...pm, status: 'Completed' as any, completedAt: completedDate } : pm
         );
         setContract({ ...contract, pmSchedules: updatedSchedules });
       }
+      setDateModalOpen(false);
+      setSelectedPmId(null);
     } catch (err: any) {
       console.error(err);
       toast.error('Failed to update PM schedule status');
@@ -368,7 +401,12 @@ export default function ContractDetails({ id, role, backUrl }: ContractDetailsPr
                       <span className={`font-bold block text-[10px] uppercase tracking-wider ${isCompleted ? 'text-emerald-700' : 'text-slate-400'}`}>
                         Visit {pm.pmNumber}
                       </span>
-                      <span className="font-mono font-semibold text-slate-700">{pm.range}</span>
+                      <span className="font-mono font-semibold text-slate-700 block">{pm.range}</span>
+                      {isCompleted && pm.completedAt && (
+                        <span className="text-[10px] font-bold text-emerald-600 block">
+                          Done: {formatDateLabel(pm.completedAt)}
+                        </span>
+                      )}
                     </div>
 
                     <button
@@ -458,6 +496,53 @@ export default function ContractDetails({ id, role, backUrl }: ContractDetailsPr
 
       </div>
 
+      {/* Premium Date Completion Modal */}
+      {dateModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl p-6 w-full max-w-sm mx-4 space-y-4 animate-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center border-b border-slate-150 pb-3">
+              <h3 className="font-extrabold text-slate-800 text-sm flex items-center gap-2">
+                <CheckCircle className="w-5 h-5 text-emerald-600" />
+                <span>Mark PM Visit Completed</span>
+              </h3>
+              <button 
+                onClick={() => setDateModalOpen(false)}
+                className="w-7 h-7 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Date Completed</label>
+              <input
+                type="date"
+                value={completedDate}
+                max={new Date().toISOString().split('T')[0]}
+                onChange={(e) => setCompletedDate(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 text-slate-800"
+              />
+            </div>
+
+            <div className="flex gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setDateModalOpen(false)}
+                className="flex-1 px-4 py-2 border border-slate-200 text-slate-600 font-bold text-xs rounded-xl hover:bg-slate-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmCompletion}
+                className="flex-1 px-4 py-2 bg-[#82A094] hover:bg-[#6e897e] text-white font-bold text-xs rounded-xl shadow-sm transition-colors"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

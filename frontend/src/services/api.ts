@@ -845,8 +845,8 @@ class ApiService {
     return response.data;
   }
 
-  async updatePMSchedule(pmId: number, status: string) {
-    const response = await api.patch(`${this.baseURL}/contracts/0/pm/${pmId}`, { status });
+  async updatePMSchedule(pmId: number, status: string, completedAt?: string) {
+    const response = await api.patch(`${this.baseURL}/contracts/0/pm/${pmId}`, { status, completedAt });
     return response.data;
   }
 
@@ -913,7 +913,7 @@ export const downloadSparePartImportTemplate = () => apiService.downloadSparePar
 export const getContracts = (params?: any) => apiService.getContracts(params);
 export const getContract = (id: number) => apiService.getContract(id);
 export const createContract = (contractData: any) => apiService.createContract(contractData);
-export const updatePMSchedule = (pmId: number, status: string) => apiService.updatePMSchedule(pmId, status);
+export const updatePMSchedule = (pmId: number, status: string, completedAt?: string) => apiService.updatePMSchedule(pmId, status, completedAt);
 export const updateContract = (id: number, contractData: any) => apiService.updateContract(id, contractData);
 export const deleteContract = (id: number) => apiService.deleteContract(id);
 export const bulkImportContracts = (contracts: any[]) => apiService.bulkImportContracts(contracts);

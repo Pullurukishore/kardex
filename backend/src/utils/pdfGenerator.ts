@@ -392,6 +392,25 @@ export const generatePdf = async (
                 summaryMetrics.push({ label: 'Lost Offers', value: String(summaryData.lostOffers), color: COLORS.danger });
             }
 
+            if (summaryData.totalCustomers !== undefined) {
+                summaryMetrics.push({ label: 'Total Customers', value: String(summaryData.totalCustomers), color: COLORS.brandPrimary });
+            }
+            if (summaryData.totalContracts !== undefined) {
+                summaryMetrics.push({ label: 'Total Agreements', value: String(summaryData.totalContracts), color: COLORS.brandPrimary });
+            }
+            if (summaryData.activeContracts !== undefined) {
+                summaryMetrics.push({ label: 'Active Agreements', value: String(summaryData.activeContracts), color: COLORS.success });
+            }
+            if (summaryData.expiredContracts !== undefined) {
+                summaryMetrics.push({ label: 'Expired Agreements', value: String(summaryData.expiredContracts), color: COLORS.danger });
+            }
+            if (summaryData.totalMachines !== undefined) {
+                summaryMetrics.push({ label: 'Total Machines', value: String(summaryData.totalMachines), color: COLORS.info });
+            }
+            if (summaryData.pmPercentage !== undefined && summaryData.totalTickets === undefined) {
+                summaryMetrics.push({ label: 'PM Done %', value: `${summaryData.pmPercentage}%`, color: COLORS.success });
+            }
+
             // Draw metrics boxes (dynamically wrapping to multiple rows of up to 6 per row)
             const boxHeight = 40;
             const maxCols = 6;
@@ -1139,16 +1158,19 @@ export const getPdfColumns = (reportType: string): ColumnDefinition[] => {
             { key: 'zones', header: 'Zones Serviced', width: 85, align: 'left', format: (v: any) => Array.isArray(v) ? v.join(', ') : String(v || '—') }
         ],
         'customer-portfolio': [
-            { key: 'customerName', header: 'Customer', width: 130, align: 'left' },
-            { key: 'place', header: 'Place', width: 75, align: 'left' },
-            { key: 'zoneName', header: 'Zone', width: 50, align: 'center' },
-            { key: 'totalContracts', header: 'Contracts', width: 60, dataType: 'number', align: 'center' },
-            { key: 'activeContracts', header: 'Active', width: 50, dataType: 'number', align: 'center' },
-            { key: 'expiredContracts', header: 'Expired', width: 55, dataType: 'number', align: 'center' },
-            { key: 'totalValue', header: 'Portfolio Value (INR)', width: 95, dataType: 'currency', align: 'right' },
-            { key: 'totalMachines', header: 'Machines', width: 55, dataType: 'number', align: 'center' },
-            { key: 'pmPercentage', header: 'PM Done %', width: 75, dataType: 'percentage', align: 'center' },
-            { key: 'hasSoftwareSupport', header: 'SW Support', width: 60, align: 'center', format: (v: any) => v ? 'Yes' : 'No' }
+            { key: 'customerName', header: 'Customer', width: 95, align: 'left' },
+            { key: 'place', header: 'Place', width: 65, align: 'left' },
+            { key: 'zoneName', header: 'Zone', width: 35, align: 'center' },
+            { key: 'totalContracts', header: 'Contracts', width: 45, dataType: 'number', align: 'center' },
+            { key: 'activeContracts', header: 'Active', width: 35, dataType: 'number', align: 'center' },
+            { key: 'expiringContracts', header: 'Expiring', width: 45, dataType: 'number', align: 'center' },
+            { key: 'expiredContracts', header: 'Expired', width: 35, dataType: 'number', align: 'center' },
+            { key: 'totalValue', header: 'Portfolio Value (INR)', width: 75, dataType: 'currency', align: 'right' },
+            { key: 'totalMachines', header: 'Machines', width: 45, dataType: 'number', align: 'center' },
+            { key: 'pmPercentage', header: 'PM Done %', width: 50, dataType: 'percentage', align: 'center' },
+            { key: 'hasSoftwareSupport', header: 'SW Support', width: 45, align: 'center', format: (v: any) => v ? 'Yes' : 'No' },
+            { key: 'mcTypes', header: 'MC Types', width: 75, align: 'left', format: (v: any, item: any) => item.contracts ? Array.from(new Set(item.contracts.map((c: any) => c.mcType).filter(Boolean))).join(', ') : '—' },
+            { key: 'responsible', header: 'Responsible', width: 75, align: 'left', format: (v: any, item: any) => item.contracts ? Array.from(new Set(item.contracts.map((c: any) => c.responsible).filter(Boolean))).join(', ') : '—' }
         ],
         'default': [
             { key: 'id', header: 'ID', width: 60, align: 'center' },

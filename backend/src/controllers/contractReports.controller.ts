@@ -747,69 +747,276 @@ export const exportContractReport = async (req: any, res: Response) => {
       workbook.creator = 'Kardex Remstar FSM';
       workbook.created = new Date();
 
-      const sheet = workbook.addWorksheet('Contract Report');
-      const HEADER_BG = '546A7A';
-      const HEADER_TEXT = 'FFFFFF';
-      const ROW_EVEN = 'F1F5F9';
-      const ROW_ODD = 'FFFFFF';
-
-      const titleRow = sheet.addRow([`Contract Report — ${getReportTitle(reportType as string)}`]);
-      titleRow.font = { size: 16, bold: true, color: { argb: HEADER_BG } };
-      sheet.addRow([`Generated: ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`]);
-      sheet.addRow([]);
-
-      if (reportData.summary) {
-        const summaryKeys = Object.keys(reportData.summary);
-        const summaryRow = sheet.addRow(summaryKeys.map(k => formatLabel(k)));
-        summaryRow.font = { bold: true, size: 10 };
-        summaryRow.eachCell((cell: any) => {
-          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '82A094' } };
-          cell.font = { bold: true, color: { argb: HEADER_TEXT }, size: 10 };
-          cell.border = { bottom: { style: 'thin', color: { argb: '94A3B8' } } };
+      if (reportType === 'customer-portfolio') {
+        const sheet = workbook.addWorksheet('Customer Portfolio', {
+          properties: { tabColor: { argb: 'FF1E3A8A' } }
         });
 
-        const summaryValRow = sheet.addRow(summaryKeys.map(k => {
-          const val = reportData.summary[k];
-          if (typeof val === 'number' && (k.toLowerCase().includes('value') || k.toLowerCase().includes('amount'))) {
-            return `₹${val.toLocaleString('en-IN')}`;
+        let currentRow = 1;
+
+        // 1. Title Block
+        sheet.mergeCells(`A${currentRow}:M${currentRow}`);
+        const titleCell = sheet.getCell(`A${currentRow}`);
+        titleCell.value = 'CUSTOMER CONTRACT PORTFOLIO REPORT';
+        titleCell.font = { size: 16, bold: true, color: { argb: 'FFFFFFFF' } };
+        titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A8A' } };
+        titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+        sheet.getRow(currentRow).height = 32;
+        currentRow++;
+
+        // 2. Subtitle Block
+        sheet.mergeCells(`A${currentRow}:M${currentRow}`);
+        const subCell = sheet.getCell(`A${currentRow}`);
+        const zoneFilter = req.query.zone || 'All';
+        const statusFilter = req.query.status || 'All';
+        const techFilter = req.query.responsible || 'All';
+        subCell.value = `Zone: ${zoneFilter}  |  Status: ${statusFilter}  |  Responsible: ${techFilter}  |  Generated: ${new Date().toLocaleString('en-IN')}`;
+        subCell.font = { size: 10, italic: true, color: { argb: 'FF1E3A8A' } };
+        subCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
+        subCell.alignment = { horizontal: 'center', vertical: 'middle' };
+        sheet.getRow(currentRow).height = 22;
+        currentRow += 2; // leave a blank row
+
+        // 3. KPI Cards
+        const summary = reportData.summary || {};
+        const kpis = [
+          { label: 'Total Customers', value: summary.totalCustomers || 0, sub: 'Active customers', accent: 'FF3B82F6' },
+          { label: 'Total Agreements', value: summary.totalContracts || 0, sub: `${summary.activeContracts || 0} active | ${summary.expiredContracts || 0} expired`, accent: 'FF6B7280' },
+          { label: 'Portfolio Value', value: summary.totalValue || 0, sub: 'Total contract value', accent: 'FFF59E0B', isCurrency: true },
+          { label: 'Machines Count', value: summary.totalMachines || 0, sub: 'Under agreement', accent: 'FF06B6D4' },
+          { label: 'PM Done %', value: (summary.pmPercentage || 0) / 100, sub: `${summary.pmCompleted || 0} completed | ${summary.pmOverdue || 0} overdue`, accent: 'FF10B981', isPercent: true }
+        ];
+
+        // Write KPI headers
+        kpis.forEach((kpi, idx) => {
+          const colStart = idx * 2 + 1;
+          const colEnd = colStart + 1;
+          sheet.mergeCells(currentRow, colStart, currentRow, colEnd);
+          const cell = sheet.getCell(currentRow, colStart);
+          cell.value = kpi.label.toUpperCase();
+          cell.font = { bold: true, size: 9, color: { argb: 'FFFFFFFF' } };
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: kpi.accent } };
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        });
+        sheet.getRow(currentRow).height = 20;
+        currentRow++;
+
+        // Write KPI values
+        kpis.forEach((kpi, idx) => {
+          const colStart = idx * 2 + 1;
+          const colEnd = colStart + 1;
+          sheet.mergeCells(currentRow, colStart, currentRow, colEnd);
+          const cell = sheet.getCell(currentRow, colStart);
+          cell.value = kpi.value;
+          cell.font = { bold: true, size: 16, color: { argb: 'FF1E293B' } };
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+            left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+            bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+            right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+          };
+          if (kpi.isCurrency) {
+            cell.numFmt = '[$₹-en-IN]#,##0';
+          } else if (kpi.isPercent) {
+            cell.numFmt = '0.0%';
+          } else {
+            cell.numFmt = '#,##0';
           }
-          return val;
-        }));
-        summaryValRow.font = { size: 10 };
-        sheet.addRow([]);
-      }
+        });
+        sheet.getRow(currentRow).height = 30;
+        currentRow++;
 
-      if (reportData.data && reportData.data.length > 0) {
+        // Write KPI subtitles
+        kpis.forEach((kpi, idx) => {
+          const colStart = idx * 2 + 1;
+          const colEnd = colStart + 1;
+          sheet.mergeCells(currentRow, colStart, currentRow, colEnd);
+          const cell = sheet.getCell(currentRow, colStart);
+          cell.value = kpi.sub;
+          cell.font = { size: 8, italic: true, color: { argb: 'FF475569' } };
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+            left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+            bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+            right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+          };
+        });
+        sheet.getRow(currentRow).height = 18;
+        currentRow += 2; // leave gap before table
+
+        // 4. Write Data Table
         const columns = getExportColumns(reportType as string);
-        const headerRow = sheet.addRow(columns.map((c: any) => c.header));
-        headerRow.eachCell((cell: any) => {
-          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: HEADER_BG } };
-          cell.font = { bold: true, color: { argb: HEADER_TEXT }, size: 10 };
-          cell.alignment = { horizontal: 'center' };
-          cell.border = { bottom: { style: 'thin', color: { argb: '94A3B8' } } };
+
+        // Write table headers
+        columns.forEach((col: any, idx: number) => {
+          const cell = sheet.getCell(currentRow, idx + 1);
+          cell.value = col.header;
+          cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 };
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A8A' } };
+          cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FF1E3A8A' } },
+            left: { style: 'thin', color: { argb: 'FF1E3A8A' } },
+            bottom: { style: 'thin', color: { argb: 'FF1E3A8A' } },
+            right: { style: 'thin', color: { argb: 'FF1E3A8A' } }
+          };
         });
+        sheet.getRow(currentRow).height = 24;
+        currentRow++;
 
-        reportData.data.forEach((item: any, idx: number) => {
-          const row = sheet.addRow(columns.map((c: any) => {
-            const val = item[c.key];
-            if (c.format) return c.format(val, item);
-            if (Array.isArray(val)) return val.join(', ');
-            return val ?? '';
-          }));
+        // Write table rows
+        const startDataRow = currentRow;
+        reportData.data.forEach((item: any, rowIdx: number) => {
+          const bgColor = rowIdx % 2 === 0 ? 'FFF8FAFC' : 'FFFFFFFF';
+          columns.forEach((col: any, colIdx: number) => {
+            const cell = sheet.getCell(currentRow, colIdx + 1);
+            const rawValue = getNestedValue(item, col.key);
+            cell.value = col.format ? col.format(rawValue, item) : (rawValue ?? '—');
 
-          row.eachCell((cell: any) => {
-            cell.fill = {
-              type: 'pattern', pattern: 'solid',
-              fgColor: { argb: idx % 2 === 0 ? ROW_EVEN : ROW_ODD }
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgColor } };
+            cell.border = {
+              top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+              left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+              bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+              right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
             };
-            cell.font = { size: 9 };
-            cell.border = { bottom: { style: 'hair', color: { argb: 'E2E8F0' } } };
+
+            // formatting
+            if (col.key === 'totalValue') {
+              cell.value = Number(rawValue) || 0;
+              cell.numFmt = '[$₹-en-IN]#,##0';
+              cell.alignment = { horizontal: 'right', vertical: 'middle' };
+            } else if (col.key === 'pmPercentage') {
+              cell.value = (Number(rawValue) || 0) / 100;
+              cell.numFmt = '0.0%';
+              cell.alignment = { horizontal: 'right', vertical: 'middle' };
+            } else if (typeof cell.value === 'number') {
+              cell.alignment = { horizontal: 'right', vertical: 'middle' };
+            } else {
+              cell.alignment = { horizontal: 'left', vertical: 'middle' };
+            }
           });
+          currentRow++;
         });
+
+        // 5. Totals Row
+        const totalRowIndex = currentRow;
+        columns.forEach((col: any, colIdx: number) => {
+          const cell = sheet.getCell(totalRowIndex, colIdx + 1);
+          cell.font = { bold: true, color: { argb: 'FF1E3A8A' }, size: 10 };
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
+          cell.border = {
+            top: { style: 'medium', color: { argb: 'FF1E3A8A' } },
+            left: { style: 'thin', color: { argb: 'FF1E3A8A' } },
+            bottom: { style: 'medium', color: { argb: 'FF1E3A8A' } },
+            right: { style: 'thin', color: { argb: 'FF1E3A8A' } }
+          };
+
+          if (colIdx === 0) {
+            cell.value = 'TOTAL';
+            cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          } else if (col.key === 'totalContracts') {
+            cell.value = { formula: `SUM(D${startDataRow}:D${totalRowIndex - 1})` };
+            cell.alignment = { horizontal: 'right', vertical: 'middle' };
+          } else if (col.key === 'activeContracts') {
+            cell.value = { formula: `SUM(E${startDataRow}:E${totalRowIndex - 1})` };
+            cell.alignment = { horizontal: 'right', vertical: 'middle' };
+          } else if (col.key === 'expiringContracts') {
+            cell.value = { formula: `SUM(F${startDataRow}:F${totalRowIndex - 1})` };
+            cell.alignment = { horizontal: 'right', vertical: 'middle' };
+          } else if (col.key === 'expiredContracts') {
+            cell.value = { formula: `SUM(G${startDataRow}:G${totalRowIndex - 1})` };
+            cell.alignment = { horizontal: 'right', vertical: 'middle' };
+          } else if (col.key === 'totalValue') {
+            cell.value = { formula: `SUM(H${startDataRow}:H${totalRowIndex - 1})` };
+            cell.numFmt = '[$₹-en-IN]#,##0';
+            cell.alignment = { horizontal: 'right', vertical: 'middle' };
+          } else if (col.key === 'totalMachines') {
+            cell.value = { formula: `SUM(I${startDataRow}:I${totalRowIndex - 1})` };
+            cell.alignment = { horizontal: 'right', vertical: 'middle' };
+          } else if (col.key === 'pmPercentage') {
+            cell.value = (summary.pmPercentage || 0) / 100;
+            cell.numFmt = '0.0%';
+            cell.alignment = { horizontal: 'right', vertical: 'middle' };
+          } else {
+            cell.value = '—';
+            cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          }
+        });
+        sheet.getRow(totalRowIndex).height = 24;
 
         columns.forEach((_: any, i: number) => {
           sheet.getColumn(i + 1).width = Math.max(12, columns[i].header.length + 4);
         });
+      } else {
+        const sheet = workbook.addWorksheet('Contract Report');
+        const HEADER_BG = '546A7A';
+        const HEADER_TEXT = 'FFFFFF';
+        const ROW_EVEN = 'F1F5F9';
+        const ROW_ODD = 'FFFFFF';
+
+        const titleRow = sheet.addRow([`Contract Report — ${getReportTitle(reportType as string)}`]);
+        titleRow.font = { size: 16, bold: true, color: { argb: HEADER_BG } };
+        sheet.addRow([`Generated: ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`]);
+        sheet.addRow([]);
+
+        if (reportData.summary) {
+          const summaryKeys = Object.keys(reportData.summary);
+          const summaryRow = sheet.addRow(summaryKeys.map(k => formatLabel(k)));
+          summaryRow.font = { bold: true, size: 10 };
+          summaryRow.eachCell((cell: any) => {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '82A094' } };
+            cell.font = { bold: true, color: { argb: HEADER_TEXT }, size: 10 };
+            cell.border = { bottom: { style: 'thin', color: { argb: '94A3B8' } } };
+          });
+
+          const summaryValRow = sheet.addRow(summaryKeys.map(k => {
+            const val = reportData.summary[k];
+            if (typeof val === 'number' && (k.toLowerCase().includes('value') || k.toLowerCase().includes('amount'))) {
+              return `₹${val.toLocaleString('en-IN')}`;
+            }
+            return val;
+          }));
+          summaryValRow.font = { size: 10 };
+          sheet.addRow([]);
+        }
+
+        if (reportData.data && reportData.data.length > 0) {
+          const columns = getExportColumns(reportType as string);
+          const headerRow = sheet.addRow(columns.map((c: any) => c.header));
+          headerRow.eachCell((cell: any) => {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: HEADER_BG } };
+            cell.font = { bold: true, color: { argb: HEADER_TEXT }, size: 10 };
+            cell.alignment = { horizontal: 'center' };
+            cell.border = { bottom: { style: 'thin', color: { argb: '94A3B8' } } };
+          });
+
+          reportData.data.forEach((item: any, idx: number) => {
+            const row = sheet.addRow(columns.map((c: any) => {
+              const val = item[c.key];
+              if (c.format) return c.format(val, item);
+              if (Array.isArray(val)) return val.join(', ');
+              return val ?? '';
+            }));
+
+            row.eachCell((cell: any) => {
+              cell.fill = {
+                type: 'pattern', pattern: 'solid',
+                fgColor: { argb: idx % 2 === 0 ? ROW_EVEN : ROW_ODD }
+              };
+              cell.font = { size: 9 };
+              cell.border = { bottom: { style: 'hair', color: { argb: 'E2E8F0' } } };
+            });
+          });
+
+          columns.forEach((_: any, i: number) => {
+            sheet.getColumn(i + 1).width = Math.max(12, columns[i].header.length + 4);
+          });
+        }
       }
 
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -842,6 +1049,16 @@ export const exportContractReport = async (req: any, res: Response) => {
 };
 
 // ─── HELPERS ─────────────────────────────────────────────
+
+function getNestedValue(obj: any, path: string): any {
+  if (!obj || !path) return '';
+  return path.split('.').reduce((current, key) => {
+    if (current && typeof current === 'object' && key in current) {
+      return current[key];
+    }
+    return '';
+  }, obj);
+}
 
 function getReportTitle(reportType: string): string {
   switch (reportType) {
@@ -920,13 +1137,16 @@ function getExportColumns(reportType: string) {
         { key: 'customerName', header: 'Customer' },
         { key: 'place', header: 'Place' },
         { key: 'zoneName', header: 'Zone' },
-        { key: 'totalContracts', header: 'Contracts' },
+        { key: 'totalContracts', header: 'Total Contracts' },
         { key: 'activeContracts', header: 'Active' },
+        { key: 'expiringContracts', header: 'Expiring Soon' },
         { key: 'expiredContracts', header: 'Expired' },
         { key: 'totalValue', header: 'Portfolio Value (₹)', format: (v: any) => Number(v).toLocaleString('en-IN') },
         { key: 'totalMachines', header: 'Machines' },
-        { key: 'pmPercentage', header: 'PM %' },
-        { key: 'hasSoftwareSupport', header: 'SW Support', format: (v: any) => v ? 'Yes' : 'No' }
+        { key: 'pmPercentage', header: 'PM Done %' },
+        { key: 'hasSoftwareSupport', header: 'SW Support', format: (v: any) => v ? 'Yes' : 'No' },
+        { key: 'mcTypes', header: 'MC Types', format: (v: any, item: any) => item.contracts ? Array.from(new Set(item.contracts.map((c: any) => c.mcType).filter(Boolean))).join(', ') : '—' },
+        { key: 'responsible', header: 'Responsible', format: (v: any, item: any) => item.contracts ? Array.from(new Set(item.contracts.map((c: any) => c.responsible).filter(Boolean))).join(', ') : '—' }
       ];
     default:
       return [];

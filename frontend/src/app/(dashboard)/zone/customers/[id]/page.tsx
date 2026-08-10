@@ -6,15 +6,15 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { 
-  ArrowLeft, 
-  Building2, 
-  MapPin, 
-  Phone, 
-  Mail, 
-  Users, 
-  Ticket, 
-  HardDrive, 
+import {
+  ArrowLeft,
+  Building2,
+  MapPin,
+  Phone,
+  Mail,
+  Users,
+  Ticket,
+  HardDrive,
   Calendar,
   AlertCircle,
   Loader2,
@@ -28,18 +28,18 @@ import { useToast } from '@/components/ui/use-toast';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { Customer, Contact } from '@/types/customer';
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
 } from '@/components/ui/table';
 
 const getStatusBadgeStyles = (isActive: boolean) => {
-  return isActive 
-    ? 'bg-[#A2B9AF]/20 text-[#4F6A64] hover:bg-[#82A094]/30' 
+  return isActive
+    ? 'bg-[#A2B9AF]/20 text-[#4F6A64] hover:bg-[#82A094]/30'
     : 'bg-[#AEBFC3]/20 text-[#546A7A] hover:bg-[#92A2A5]/30';
 };
 
@@ -99,9 +99,9 @@ export default function ZoneCustomerDetailPage() {
     <div className="space-y-6">
       <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
         <div className="flex items-center space-x-4">
-          <Button 
-            variant="ghost" 
-            onClick={() => router.push('/zone/customers')} 
+          <Button
+            variant="ghost"
+            onClick={() => router.push('/zone/customers')}
             className="p-2"
             title="Back to Customers"
           >
@@ -131,7 +131,7 @@ export default function ZoneCustomerDetailPage() {
               </p>
             </div>
           </div>
-          <Badge 
+          <Badge
             className={`${customer.isActive ? 'bg-[#A2B9AF]/20 text-[#4F6A64]' : 'bg-[#AEBFC3]/20 text-[#546A7A]'} font-medium`}
             variant="outline"
           >
@@ -174,7 +174,7 @@ export default function ZoneCustomerDetailPage() {
                       <p>{customer.country}</p>
                     </div>
                   </div>
-                  
+
                   <div className="bg-[#96AEC2]/10 rounded-lg p-4">
                     <h3 className="text-sm font-semibold text-[#5D6E73] mb-3 flex items-center">
                       <Phone className="h-4 w-4 mr-2 text-[#546A7A]" />
@@ -183,8 +183,8 @@ export default function ZoneCustomerDetailPage() {
                     <div className="space-y-3">
                       <div className="flex items-center space-x-2">
                         <Phone className="h-4 w-4 text-[#979796]" />
-                        <a 
-                          href={`tel:${customer.phone}`} 
+                        <a
+                          href={`tel:${customer.phone}`}
                           className="text-sm text-[#546A7A] hover:text-[#546A7A] hover:underline font-medium"
                         >
                           {customer.phone || 'N/A'}
@@ -192,8 +192,8 @@ export default function ZoneCustomerDetailPage() {
                       </div>
                       <div className="flex items-center space-x-2">
                         <Mail className="h-4 w-4 text-[#979796]" />
-                        <a 
-                          href={`mailto:${customer.email}`} 
+                        <a
+                          href={`mailto:${customer.email}`}
                           className="text-sm text-[#546A7A] hover:text-[#546A7A] hover:underline font-medium"
                         >
                           {customer.email}
@@ -202,9 +202,9 @@ export default function ZoneCustomerDetailPage() {
                       {customer.website && (
                         <div className="flex items-center space-x-2">
                           <Globe className="h-4 w-4 text-[#979796]" />
-                          <a 
-                            href={customer.website.startsWith('http') ? customer.website : `https://${customer.website}`} 
-                            target="_blank" 
+                          <a
+                            href={customer.website.startsWith('http') ? customer.website : `https://${customer.website}`}
+                            target="_blank"
                             rel="noopener noreferrer"
                             className="text-sm text-[#546A7A] hover:text-[#546A7A] hover:underline font-medium flex items-center"
                           >
@@ -306,7 +306,7 @@ export default function ZoneCustomerDetailPage() {
                         <TableCell className="font-medium">{contact.name}</TableCell>
                         <TableCell>
                           {contact.phone ? (
-                            <a 
+                            <a
                               href={`tel:${contact.phone}`}
                               className="hover:underline hover:text-primary"
                             >
@@ -363,7 +363,7 @@ export default function ZoneCustomerDetailPage() {
                   </Badge>
                 </div>
               </div>
-              
+
               <div className="bg-[#CE9F6B]/10 rounded-lg p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
@@ -380,7 +380,7 @@ export default function ZoneCustomerDetailPage() {
                   </Badge>
                 </div>
               </div>
-              
+
               <div className="bg-[#A2B9AF]/10 rounded-lg p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
@@ -417,8 +417,8 @@ export default function ZoneCustomerDetailPage() {
               {customer.assets && customer.assets.length > 0 ? (
                 <div className="space-y-4">
                   {customer.assets.slice(0, 3).map((asset: any) => (
-                    <Link 
-                      key={asset.id} 
+                    <Link
+                      key={asset.id}
                       href={`/zone/customers/${customer.id}/assets`}
                       className="block border border-[#92A2A5] rounded-lg p-6 hover:bg-[#96AEC2]/10 hover:border-[#96AEC2] transition-all duration-200 shadow-sm"
                     >
@@ -449,12 +449,11 @@ export default function ZoneCustomerDetailPage() {
                           </div>
                         </div>
                         <div className="flex flex-col items-end space-y-2 ml-4">
-                          <Badge className={`${
-                            asset.status === 'ACTIVE' ? 'bg-[#A2B9AF]/20 text-[#4F6A64]' :
-                            asset.status === 'INACTIVE' ? 'bg-[#AEBFC3]/20 text-[#546A7A]' :
-                            asset.status === 'MAINTENANCE' ? 'bg-[#CE9F6B]/20 text-[#976E44]' :
-                            'bg-[#E17F70]/20 text-[#75242D]'
-                          }`}>
+                          <Badge className={`${asset.status === 'ACTIVE' ? 'bg-[#A2B9AF]/20 text-[#4F6A64]' :
+                              asset.status === 'INACTIVE' ? 'bg-[#AEBFC3]/20 text-[#546A7A]' :
+                                asset.status === 'MAINTENANCE' ? 'bg-[#CE9F6B]/20 text-[#976E44]' :
+                                  'bg-[#E17F70]/20 text-[#75242D]'
+                            }`}>
                             {asset.status}
                           </Badge>
                           {asset.warrantyEnd && (
@@ -468,8 +467,8 @@ export default function ZoneCustomerDetailPage() {
                     </Link>
                   ))}
                   {customer.assets.length > 3 && (
-                    <Button 
-                      variant="ghost" 
+                    <Button
+                      variant="ghost"
                       className="w-full mt-2"
                       onClick={() => router.push(`/zone/customers/${customer.id}/assets`)}
                     >

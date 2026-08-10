@@ -86,3 +86,25 @@ export function formatLargeNumber(v: number): string {
   
   return `${sign}₹${parseFloat(val)}${unit}`;
 }
+
+export function getCustomerColorClass(customerName: string): string {
+  if (!customerName) return 'from-[#82A094] to-[#4F6A64]';
+  
+  // Simple hashing algorithm to get a stable index
+  let hash = 0;
+  for (let i = 0; i < customerName.length; i++) {
+    hash = customerName.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  
+  const colors = [
+    'from-[#6F8A9D] to-[#546A7A]', // kardex-blue
+    'from-[#82A094] to-[#4F6A64]', // kardex-green
+    'from-[#92A2A5] to-[#5D6E73]', // kardex-grey
+    'from-[#979796] to-[#757777]', // kardex-silver
+    'from-[#E17F70] to-[#9E3B47]', // kardex-red
+    'from-[#CE9F6B] to-[#976E44]', // kardex-sand
+  ];
+  
+  const index = Math.abs(hash) % colors.length;
+  return colors[index];
+}

@@ -285,7 +285,7 @@ export const getContractById = async (req: any, res: Response) => {
 export const updatePMSchedule = async (req: any, res: Response) => {
   try {
     const { pmId } = req.params;
-    const { status } = req.body;
+    const { status, completedAt } = req.body;
 
     if (!status || !['Completed', 'Pending'].includes(status)) {
       return res.status(400).json({ error: 'Invalid status value' });
@@ -295,7 +295,9 @@ export const updatePMSchedule = async (req: any, res: Response) => {
       where: { id: Number(pmId) },
       data: {
         status,
-        completedAt: status === 'Completed' ? new Date() : null
+        completedAt: status === 'Completed' 
+          ? (completedAt ? new Date(completedAt) : new Date()) 
+          : null
       }
     });
 

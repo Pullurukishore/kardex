@@ -11,6 +11,8 @@ import {
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { apiService } from '@/services/api';
+import { getCustomerColorClass } from '@/lib/utils';
+import { generateContractReportPdf } from '@/lib/contract-report-pdf';
 
 interface PMSchedule {
   id: number;
@@ -78,8 +80,7 @@ export default function ContractReports({ role }: ContractReportsProps) {
   const [exporting, setExporting] = useState(false);
   const [expandedCustomerId, setExpandedCustomerId] = useState<string | number | null>(null);
 
-  // Active Report Type Selector
-  const [reportType, setReportType] = useState<'customer-portfolio' | 'pm-overview' | 'expiring-contracts' | 'zone-summary' | 'technician-pm'>('customer-portfolio');
+  const reportType = 'customer-portfolio';
 
   // Filters
   const [search, setSearch] = useState('');
@@ -322,411 +323,76 @@ export default function ContractReports({ role }: ContractReportsProps) {
     return result;
   }, [contracts, search, zoneFilter, statusFilter, techFilter, mcTypeFilter, swFilter, expiryFilter, pmFilter, sortKey, sortDir]);
 
-  // 2. PM VISIT SCHEDULE DATA
-  const pmOverviewRows = useMemo(() => {
-    let filteredContracts = [...contracts];
-    if (search) {
-      const s = search.toLowerCase();
-      filteredContracts = filteredContracts.filter(c =>
-        (c.customerName || '').toLowerCase().includes(s) ||
-        (c.place || '').toLowerCase().includes(s) ||
-        (c.contractNumber || '').toLowerCase().includes(s) ||
-        (c.poNo || '').toLowerCase().includes(s) ||
-        (c.responsible || '').toLowerCase().includes(s)
-      );
-    }
-    if (zoneFilter !== 'all') filteredContracts = filteredContracts.filter(c => c.zoneName === zoneFilter);
-    if (statusFilter !== 'all') filteredContracts = filteredContracts.filter(c => c.status === statusFilter);
-    if (techFilter !== 'all') filteredContracts = filteredContracts.filter(c => c.responsible === techFilter);
-    if (mcTypeFilter !== 'all') filteredContracts = filteredContracts.filter(c => c.mcType === mcTypeFilter);
-    if (swFilter === 'yes') filteredContracts = filteredContracts.filter(c => c.softwareSupport);
-    if (swFilter === 'no') filteredContracts = filteredContracts.filter(c => !c.softwareSupport);
 
-    if (expiryFilter !== 'all') {
-      const days = Number(expiryFilter);
-      filteredContracts = filteredContracts.filter(c => {
-        const rem = getDaysRemaining(c.endDate);
-        return rem >= 0 && rem <= days;
-      });
-    }
-
-    const rows: any[] = [];
-    filteredContracts.forEach(c => {
-      c.pmSchedules.forEach(pm => {
-        if (pm.status === 'Not Applicable') return;
-        const done = pm.status === 'Completed';
-        const overdue = !done && pm.range && isRangeOverdue(pm.range);
-        const pmStatus = done ? 'Completed' : overdue ? 'Overdue' : 'Pending';
-
-        if (pmFilter === 'completed' && pmStatus !== 'Completed') return;
-        if (pmFilter === 'overdue' && pmStatus !== 'Overdue') return;
-        if (pmFilter === 'not-started' && pmStatus !== 'Pending') return;
-
-        rows.push({
-          id: pm.id,
-          contractNumber: c.contractNumber,
-          contractId: c.id,
-          customerName: c.customerName,
-          place: c.place,
-          zoneName: c.zoneName,
-          pmNumber: pm.pmNumber,
-          range: pm.range,
-          pmStatus,
-          completedAt: pm.completedAt,
-          responsible: c.responsible,
-          mcType: c.mcType,
-          amount: c.amount
-        });
-      });
-    });
-
-    rows.sort((a, b) => {
-      const statusWeight = (s: string) => s === 'Overdue' ? 0 : s === 'Pending' ? 1 : 2;
-      return statusWeight(a.pmStatus) - statusWeight(b.pmStatus);
-    });
-
-    return rows;
-  }, [contracts, search, zoneFilter, statusFilter, techFilter, mcTypeFilter, swFilter, expiryFilter, pmFilter]);
-
-  // 3. EXPIRING CONTRACTS DATA
-  const expiringContractsRows = useMemo(() => {
-    let filteredContracts = [...contracts];
-    if (search) {
-      const s = search.toLowerCase();
-      filteredContracts = filteredContracts.filter(c =>
-        (c.customerName || '').toLowerCase().includes(s) ||
-        (c.place || '').toLowerCase().includes(s) ||
-        (c.contractNumber || '').toLowerCase().includes(s) ||
-        (c.poNo || '').toLowerCase().includes(s) ||
-        (c.responsible || '').toLowerCase().includes(s)
-      );
-    }
-    if (zoneFilter !== 'all') filteredContracts = filteredContracts.filter(c => c.zoneName === zoneFilter);
-    if (statusFilter !== 'all') filteredContracts = filteredContracts.filter(c => c.status === statusFilter);
-    if (techFilter !== 'all') filteredContracts = filteredContracts.filter(c => c.responsible === techFilter);
-    if (mcTypeFilter !== 'all') filteredContracts = filteredContracts.filter(c => c.mcType === mcTypeFilter);
-    if (swFilter === 'yes') filteredContracts = filteredContracts.filter(c => c.softwareSupport);
-    if (swFilter === 'no') filteredContracts = filteredContracts.filter(c => !c.softwareSupport);
-
-    if (pmFilter !== 'all') {
-      filteredContracts = filteredContracts.filter(c => {
-        const { pct, overdue } = getPMStats(c.pmSchedules);
-        if (pmFilter === 'completed') return pct === 100;
-        if (pmFilter === 'overdue') return overdue > 0;
-        if (pmFilter === 'not-started') return pct === 0;
-        return true;
-      });
-    }
-
-    const rows = filteredContracts.map(c => {
-      const daysRemaining = getDaysRemaining(c.endDate);
-      const urgency = daysRemaining <= 0 ? 'Expired' : daysRemaining <= 30 ? 'Critical' : daysRemaining <= 60 ? 'Warning' : 'Notice';
-      const pmStats = getPMStats(c.pmSchedules);
-
-      return {
-        id: c.id,
-        contractNumber: c.contractNumber,
-        customerName: c.customerName,
-        place: c.place,
-        zoneName: c.zoneName,
-        endDate: c.endDate,
-        daysRemaining,
-        urgency,
-        pmPercentage: pmStats.pct,
-        amount: c.amount,
-        responsible: c.responsible
-      };
-    }).filter(row => row.daysRemaining <= 90);
-
-    rows.sort((a, b) => a.daysRemaining - b.daysRemaining);
-    return rows;
-  }, [contracts, search, zoneFilter, statusFilter, techFilter, mcTypeFilter, swFilter, pmFilter]);
-
-  // 4. ZONE CONTRACT SUMMARY
-  const zoneSummaryRows = useMemo(() => {
-    let filteredContracts = [...contracts];
-    if (search) {
-      const s = search.toLowerCase();
-      filteredContracts = filteredContracts.filter(c =>
-        (c.customerName || '').toLowerCase().includes(s) ||
-        (c.place || '').toLowerCase().includes(s) ||
-        (c.contractNumber || '').toLowerCase().includes(s) ||
-        (c.poNo || '').toLowerCase().includes(s) ||
-        (c.responsible || '').toLowerCase().includes(s)
-      );
-    }
-    if (statusFilter !== 'all') filteredContracts = filteredContracts.filter(c => c.status === statusFilter);
-    if (techFilter !== 'all') filteredContracts = filteredContracts.filter(c => c.responsible === techFilter);
-    if (mcTypeFilter !== 'all') filteredContracts = filteredContracts.filter(c => c.mcType === mcTypeFilter);
-    if (swFilter === 'yes') filteredContracts = filteredContracts.filter(c => c.softwareSupport);
-    if (swFilter === 'no') filteredContracts = filteredContracts.filter(c => !c.softwareSupport);
-
-    if (expiryFilter !== 'all') {
-      const days = Number(expiryFilter);
-      filteredContracts = filteredContracts.filter(c => {
-        const rem = getDaysRemaining(c.endDate);
-        return rem >= 0 && rem <= days;
-      });
-    }
-
-    const zonesMap: Record<string, any> = {};
-    filteredContracts.forEach(c => {
-      const zone = c.zoneName || 'Unassigned';
-      if (!zonesMap[zone]) {
-        zonesMap[zone] = {
-          zoneName: zone,
-          totalContracts: 0,
-          activeContracts: 0,
-          expiringContracts: 0,
-          expiredContracts: 0,
-          totalValue: 0,
-          totalMachines: 0,
-          pmCompleted: 0,
-          pmTotal: 0,
-          technicians: new Set<string>()
-        };
-      }
-
-      zonesMap[zone].totalContracts++;
-      if (c.status === 'Active') zonesMap[zone].activeContracts++;
-      else if (c.status === 'Expiring Soon') zonesMap[zone].expiringContracts++;
-      else if (c.status === 'Expired') zonesMap[zone].expiredContracts++;
-
-      zonesMap[zone].totalValue += Number(c.amount);
-      zonesMap[zone].totalMachines += c.noOfMachine;
-      if (c.responsible) zonesMap[zone].technicians.add(c.responsible);
-
-      const pmStats = getPMStats(c.pmSchedules);
-      zonesMap[zone].pmCompleted += pmStats.completed;
-      zonesMap[zone].pmTotal += pmStats.total;
-    });
-
-    const rows = Object.values(zonesMap).map((z: any) => ({
-      ...z,
-      pmPercentage: z.pmTotal > 0 ? Math.round((z.pmCompleted / z.pmTotal) * 100) : 0,
-      technicianCount: z.technicians.size
-    }));
-
-    if (zoneFilter !== 'all') {
-      return rows.filter(z => z.zoneName === zoneFilter);
-    }
-
-    rows.sort((a, b) => b.totalValue - a.totalValue);
-    return rows;
-  }, [contracts, search, zoneFilter, statusFilter, techFilter, mcTypeFilter, swFilter, expiryFilter]);
-
-  // 5. TECHNICIAN PERFORMANCE DATA
-  const technicianPmRows = useMemo(() => {
-    let filteredContracts = [...contracts];
-    if (search) {
-      const s = search.toLowerCase();
-      filteredContracts = filteredContracts.filter(c =>
-        (c.customerName || '').toLowerCase().includes(s) ||
-        (c.place || '').toLowerCase().includes(s) ||
-        (c.contractNumber || '').toLowerCase().includes(s) ||
-        (c.poNo || '').toLowerCase().includes(s) ||
-        (c.responsible || '').toLowerCase().includes(s)
-      );
-    }
-    if (zoneFilter !== 'all') filteredContracts = filteredContracts.filter(c => c.zoneName === zoneFilter);
-    if (statusFilter !== 'all') filteredContracts = filteredContracts.filter(c => c.status === statusFilter);
-    if (mcTypeFilter !== 'all') filteredContracts = filteredContracts.filter(c => c.mcType === mcTypeFilter);
-    if (swFilter === 'yes') filteredContracts = filteredContracts.filter(c => c.softwareSupport);
-    if (swFilter === 'no') filteredContracts = filteredContracts.filter(c => !c.softwareSupport);
-
-    if (expiryFilter !== 'all') {
-      const days = Number(expiryFilter);
-      filteredContracts = filteredContracts.filter(c => {
-        const rem = getDaysRemaining(c.endDate);
-        return rem >= 0 && rem <= days;
-      });
-    }
-
-    const techMap: Record<string, any> = {};
-    filteredContracts.forEach(c => {
-      const tech = c.responsible || 'Unassigned';
-      if (!techMap[tech]) {
-        techMap[tech] = {
-          technician: tech,
-          assignedContracts: 0,
-          totalPMs: 0,
-          completedPMs: 0,
-          pendingPMs: 0,
-          overduePMs: 0,
-          totalMachines: 0,
-          totalValue: 0,
-          zones: new Set<string>()
-        };
-      }
-
-      techMap[tech].assignedContracts++;
-      techMap[tech].totalMachines += c.noOfMachine;
-      techMap[tech].totalValue += Number(c.amount);
-      if (c.zoneName) techMap[tech].zones.add(c.zoneName);
-
-      c.pmSchedules.forEach(pm => {
-        if (pm.status === 'Not Applicable') return;
-        techMap[tech].totalPMs++;
-        if (pm.status === 'Completed') {
-          techMap[tech].completedPMs++;
-        } else {
-          const overdue = pm.range && isRangeOverdue(pm.range);
-          if (overdue) techMap[tech].overduePMs++;
-          else techMap[tech].pendingPMs++;
-        }
-      });
-    });
-
-    const rows = Object.values(techMap).map((t: any) => ({
-      ...t,
-      completionPercentage: t.totalPMs > 0 ? Math.round((t.completedPMs / t.totalPMs) * 100) : 0,
-      zones: Array.from(t.zones)
-    }));
-
-    if (techFilter !== 'all') {
-      return rows.filter(t => t.technician === techFilter);
-    }
-
-    rows.sort((a, b) => b.completionPercentage - a.completionPercentage);
-    return rows;
-  }, [contracts, search, zoneFilter, statusFilter, techFilter, mcTypeFilter, swFilter, expiryFilter]);
 
   // Overall KPI summaries
   const selectedSummary = useMemo(() => {
-    if (reportType === 'customer-portfolio') {
-      let totalValue = 0, totalMachines = 0, totalContracts = 0;
-      let active = 0, expired = 0, expiring = 0;
-      let pmCompleted = 0, pmTotal = 0, pmOverdue = 0;
+    let totalValue = 0, totalMachines = 0, totalContracts = 0;
+    let active = 0, expired = 0, expiring = 0;
+    let pmCompleted = 0, pmTotal = 0, pmOverdue = 0;
 
-      customerSummaries.forEach(cs => {
-        totalValue += cs.totalValue;
-        totalMachines += cs.totalMachines;
-        totalContracts += cs.totalContracts;
-        active += cs.activeContracts;
-        expired += cs.expiredContracts;
-        expiring += cs.expiringSoonContracts;
-        pmCompleted += cs.pmCompleted;
-        pmTotal += cs.pmTotal;
-        pmOverdue += cs.pmOverdue;
-      });
+    customerSummaries.forEach(cs => {
+      totalValue += cs.totalValue;
+      totalMachines += cs.totalMachines;
+      totalContracts += cs.totalContracts;
+      active += cs.activeContracts;
+      expired += cs.expiredContracts;
+      expiring += cs.expiringSoonContracts;
+      pmCompleted += cs.pmCompleted;
+      pmTotal += cs.pmTotal;
+      pmOverdue += cs.pmOverdue;
+    });
 
-      const pmPct = pmTotal > 0 ? Math.round((pmCompleted / pmTotal) * 100) : 0;
+    const pmPct = pmTotal > 0 ? Math.round((pmCompleted / pmTotal) * 100) : 0;
 
-      return {
-        totalCustomers: customerSummaries.length,
-        totalContracts,
-        active,
-        expired,
-        expiring,
-        totalValue,
-        totalMachines,
-        pmCompleted,
-        pmTotal,
-        pmOverdue,
-        pmPct
-      };
-    }
+    return {
+      totalCustomers: customerSummaries.length,
+      totalContracts,
+      active,
+      expired,
+      expiring,
+      totalValue,
+      totalMachines,
+      pmCompleted,
+      pmTotal,
+      pmOverdue,
+      pmPct
+    };
+  }, [customerSummaries]);
 
-    if (reportType === 'pm-overview') {
-      const totalPMs = pmOverviewRows.length;
-      const completedPMs = pmOverviewRows.filter(r => r.pmStatus === 'Completed').length;
-      const overduePMs = pmOverviewRows.filter(r => r.pmStatus === 'Overdue').length;
-      const pendingPMs = totalPMs - completedPMs;
-      const completionPercentage = totalPMs > 0 ? Math.round((completedPMs / totalPMs) * 100) : 0;
-      const totalContracts = new Set(pmOverviewRows.map(r => r.contractNumber)).size;
-
-      return {
-        totalPMs,
-        completedPMs,
-        overduePMs,
-        pendingPMs,
-        completionPercentage,
-        totalContracts
-      };
-    }
-
-    if (reportType === 'expiring-contracts') {
-      const totalExpiring = expiringContractsRows.length;
-      const critical = expiringContractsRows.filter(r => r.urgency === 'Critical' || r.urgency === 'Expired').length;
-      const warning = expiringContractsRows.filter(r => r.urgency === 'Warning').length;
-      const notice = expiringContractsRows.filter(r => r.urgency === 'Notice').length;
-      const totalValue = expiringContractsRows.reduce((sum, r) => sum + Number(r.amount), 0);
-
-      return {
-        totalExpiring,
-        critical,
-        warning,
-        notice,
-        totalValue
-      };
-    }
-
-    if (reportType === 'zone-summary') {
-      const totalZones = zoneSummaryRows.length;
-      const totalContracts = zoneSummaryRows.reduce((sum, r) => sum + r.totalContracts, 0);
-      const totalValue = zoneSummaryRows.reduce((sum, r) => sum + r.totalValue, 0);
-      const totalMachines = zoneSummaryRows.reduce((sum, r) => sum + r.totalMachines, 0);
-      const pmCompleted = zoneSummaryRows.reduce((sum, r) => sum + r.pmCompleted, 0);
-      const pmTotal = zoneSummaryRows.reduce((sum, r) => sum + r.pmTotal, 0);
-      const pmPercentage = pmTotal > 0 ? Math.round((pmCompleted / pmTotal) * 100) : 0;
-
-      return {
-        totalZones,
-        totalContracts,
-        totalValue,
-        totalMachines,
-        pmCompleted,
-        pmTotal,
-        pmPercentage
-      };
-    }
-
-    if (reportType === 'technician-pm') {
-      const totalTechnicians = technicianPmRows.length;
-      const totalPMs = technicianPmRows.reduce((sum, r) => sum + r.totalPMs, 0);
-      const completedPMs = technicianPmRows.reduce((sum, r) => sum + r.completedPMs, 0);
-      const pendingPMs = technicianPmRows.reduce((sum, r) => sum + r.pendingPMs, 0);
-      const overduePMs = technicianPmRows.reduce((sum, r) => sum + r.overduePMs, 0);
-      const avgCompletion = totalTechnicians > 0
-        ? Math.round(technicianPmRows.reduce((sum, r) => sum + r.completionPercentage, 0) / totalTechnicians)
-        : 0;
-
-      return {
-        totalTechnicians,
-        totalPMs,
-        completedPMs,
-        pendingPMs,
-        overduePMs,
-        avgCompletion
-      };
-    }
-
-    return {};
-  }, [reportType, customerSummaries, pmOverviewRows, expiringContractsRows, zoneSummaryRows, technicianPmRows]);
-
-  // Export combined reports
   const handleExport = async (format: 'excel' | 'pdf') => {
     setExporting(true);
     try {
-      const params: any = { reportType: 'all', format };
+      if (format === 'pdf') {
+        const filters = {
+          zone: zoneFilter !== 'all' ? zoneFilter : 'All',
+          status: statusFilter !== 'all' ? statusFilter : 'All',
+          responsible: techFilter !== 'all' ? techFilter : 'All'
+        };
+        await generateContractReportPdf(customerSummaries, selectedSummary, filters);
+        toast.success('Customer Portfolio PDF Report exported successfully!');
+        return;
+      }
+
+      const params: any = { reportType: 'customer-portfolio', format };
       if (zoneFilter !== 'all') params.zone = zoneFilter;
       if (statusFilter !== 'all') params.status = statusFilter;
       if (techFilter !== 'all') params.responsible = techFilter;
       if (search) params.search = search;
 
       const blob = await apiService.exportContractReport(params);
-      const mimeType = format === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-      const fileExt = format === 'pdf' ? 'pdf' : 'xlsx';
+      const mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      const fileExt = 'xlsx';
 
       const url = window.URL.createObjectURL(new Blob([blob], { type: mimeType }));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `KardexCare-Combined-Contract-Reports-${Date.now()}.${fileExt}`);
+      link.setAttribute('download', `KardexCare-Customer-Portfolio-Report-${Date.now()}.${fileExt}`);
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
-      toast.success(`${format === 'pdf' ? 'Combined PDF Package' : 'Combined Excel Workbook'} exported successfully!`);
+      toast.success('Customer Portfolio Excel Report exported successfully!');
     } catch (err: any) {
       console.error('Export failed:', err);
       toast.error(`Failed to export ${format} report`);
@@ -735,20 +401,8 @@ export default function ContractReports({ role }: ContractReportsProps) {
     }
   };
 
-  const reportTypes = [
-    { id: 'customer-portfolio', label: 'Customer Portfolio', icon: Building2 },
-    { id: 'pm-overview', label: 'PM Visit Schedule', icon: Calendar },
-    { id: 'expiring-contracts', label: 'Expiring Contracts', icon: Clock },
-    { id: 'zone-summary', label: 'Zone Summary', icon: MapPin },
-    { id: 'technician-pm', label: 'Technician PM', icon: User }
-  ];
-
   const getFilterHeaderCount = () => {
-    if (reportType === 'customer-portfolio') return `${customerSummaries.length} customers`;
-    if (reportType === 'pm-overview') return `${pmOverviewRows.length} PM visits`;
-    if (reportType === 'expiring-contracts') return `${expiringContractsRows.length} contracts`;
-    if (reportType === 'zone-summary') return `${zoneSummaryRows.length} zones`;
-    return `${technicianPmRows.length} technicians`;
+    return `${customerSummaries.length} customers`;
   };
 
   return (
@@ -798,30 +452,7 @@ export default function ContractReports({ role }: ContractReportsProps) {
         </div>
       </div>
 
-      {/* ═══ REPORT TYPE TABS ═══ */}
-      <div className="flex flex-wrap gap-1.5 p-1 bg-slate-100 rounded-2xl w-fit print:hidden">
-        {reportTypes.map((tab) => {
-          const Icon = tab.icon;
-          const active = reportType === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => {
-                setReportType(tab.id as any);
-                setExpandedCustomerId(null);
-              }}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                active
-                  ? "bg-[#546A7A] text-white shadow-md shadow-[#546A7A]/25"
-                  : "text-slate-500 hover:text-slate-800 hover:bg-slate-55"
-              }`}
-            >
-              <Icon className="w-3.5 h-3.5" />
-              <span>{tab.label}</span>
-            </button>
-          );
-        })}
-      </div>
+
 
       {/* ═══ DYNAMIC SUMMARY KPI CARDS ═══ */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -867,212 +498,42 @@ export default function ContractReports({ role }: ContractReportsProps) {
             </div>
           </>
         )}
-
-        {reportType === 'pm-overview' && (
-          <>
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#546A7A]/10 flex items-center justify-center text-[#546A7A] flex-shrink-0">
-                <Calendar className="w-5 h-5" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Total Scheduled PMs</p>
-                <p className="text-lg font-extrabold text-slate-800">{selectedSummary.totalPMs}</p>
-              </div>
-            </div>
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-650 flex-shrink-0">
-                <CheckCircle className="w-5 h-5" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Completed Visits</p>
-                <p className="text-lg font-extrabold text-emerald-600">{selectedSummary.completedPMs}</p>
-                <span className="text-[10px] text-slate-400 font-medium block">{selectedSummary.pendingPMs} Pending</span>
-              </div>
-            </div>
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-rose-500/10 flex items-center justify-center text-rose-650 flex-shrink-0">
-                <AlertTriangle className="w-5 h-5" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Overdue Visits</p>
-                <p className="text-lg font-extrabold text-rose-600">{selectedSummary.overduePMs}</p>
-              </div>
-            </div>
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-650 flex-shrink-0">
-                <TrendingUp className="w-5 h-5" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">PM Progress</p>
-                <p className="text-lg font-extrabold text-slate-800">{selectedSummary.completionPercentage}%</p>
-              </div>
-            </div>
-          </>
-        )}
-
-        {reportType === 'expiring-contracts' && (
-          <>
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#546A7A]/10 flex items-center justify-center text-[#546A7A] flex-shrink-0">
-                <Clock className="w-5 h-5" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Expiring Contracts</p>
-                <p className="text-lg font-extrabold text-slate-800">{selectedSummary.totalExpiring}</p>
-                <span className="text-[10px] text-slate-400 font-medium block">Within 90 Days</span>
-              </div>
-            </div>
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-rose-500/10 flex items-center justify-center text-rose-650 flex-shrink-0">
-                <AlertTriangle className="w-5 h-5" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Critical (≤30 Days)</p>
-                <p className="text-lg font-extrabold text-rose-600">{selectedSummary.critical}</p>
-                <span className="text-[10px] text-slate-400 font-medium block">Includes Expired</span>
-              </div>
-            </div>
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-650 flex-shrink-0">
-                <AlertTriangle className="w-5 h-5" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Warnings (31-60 Days)</p>
-                <p className="text-lg font-extrabold text-amber-600">{selectedSummary.warning}</p>
-                <span className="text-[10px] text-slate-400 font-medium block">{selectedSummary.notice} Notice (61-90)</span>
-              </div>
-            </div>
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-650 flex-shrink-0">
-                <IndianRupee className="w-5 h-5" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Expiring Value</p>
-                <p className="text-lg font-extrabold text-slate-800">{formatCurrency(selectedSummary.totalValue || 0)}</p>
-              </div>
-            </div>
-          </>
-        )}
-
-        {reportType === 'zone-summary' && (
-          <>
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#82A094]/10 flex items-center justify-center text-[#82A094] flex-shrink-0">
-                <MapPin className="w-5 h-5" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Service Zones</p>
-                <p className="text-lg font-extrabold text-slate-800">{selectedSummary.totalZones}</p>
-              </div>
-            </div>
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#546A7A]/10 flex items-center justify-center text-[#546A7A] flex-shrink-0">
-                <FileText className="w-5 h-5" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Active Contracts</p>
-                <p className="text-lg font-extrabold text-slate-800">{selectedSummary.totalContracts}</p>
-              </div>
-            </div>
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-650 flex-shrink-0">
-                <IndianRupee className="w-5 h-5" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Total Portfolio Value</p>
-                <p className="text-lg font-extrabold text-slate-800">{formatCurrency(selectedSummary.totalValue || 0)}</p>
-              </div>
-            </div>
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-650 flex-shrink-0">
-                <TrendingUp className="w-5 h-5" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">PM Completion Rate</p>
-                <p className="text-lg font-extrabold text-slate-800">{selectedSummary.pmPercentage}%</p>
-              </div>
-            </div>
-          </>
-        )}
-
-        {reportType === 'technician-pm' && (
-          <>
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#82A094]/10 flex items-center justify-center text-[#82A094] flex-shrink-0">
-                <User className="w-5 h-5" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Active Technicians</p>
-                <p className="text-lg font-extrabold text-slate-800">{selectedSummary.totalTechnicians}</p>
-              </div>
-            </div>
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#546A7A]/10 flex items-center justify-center text-[#546A7A] flex-shrink-0">
-                <Calendar className="w-5 h-5" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Assigned PM Visits</p>
-                <p className="text-lg font-extrabold text-slate-800">{selectedSummary.totalPMs}</p>
-              </div>
-            </div>
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-rose-500/10 flex items-center justify-center text-rose-650 flex-shrink-0">
-                <AlertTriangle className="w-5 h-5" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Overdue Visits</p>
-                <p className="text-lg font-extrabold text-rose-605">{selectedSummary.overduePMs}</p>
-              </div>
-            </div>
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-650 flex-shrink-0">
-                <TrendingUp className="w-5 h-5" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Avg Completion %</p>
-                <p className="text-lg font-extrabold text-slate-800">{selectedSummary.avgCompletion}%</p>
-              </div>
-            </div>
-          </>
-        )}
       </div>
 
       {/* ═══ PM COMPLETION OVERVIEW BAR ═══ */}
-      {(reportType === 'customer-portfolio' || reportType === 'pm-overview' || reportType === 'zone-summary') && (
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex flex-col sm:flex-row items-center gap-4">
-          <div className="flex items-center gap-3 flex-shrink-0">
-            <div className="relative w-14 h-14 flex items-center justify-center">
-              <svg className="w-14 h-14 transform -rotate-90" viewBox="0 0 64 64">
-                <circle cx="32" cy="32" r="26" fill="none" stroke="#e2e8f0" strokeWidth="5" />
-                <circle
-                  cx="32" cy="32" r="26" fill="none"
-                  stroke={Number(selectedSummary.pmPercentage || selectedSummary.pmPct || 0) >= 75 ? '#10b981' : Number(selectedSummary.pmPercentage || selectedSummary.pmPct || 0) >= 40 ? '#f59e0b' : '#ef4444'}
-                  strokeWidth="5" strokeLinecap="round"
-                  strokeDasharray={2 * Math.PI * 26}
-                  strokeDashoffset={2 * Math.PI * 26 - (Number(selectedSummary.pmPercentage || selectedSummary.pmPct || 0) / 100) * 2 * Math.PI * 26}
-                  className="transition-all duration-700 ease-out"
-                />
-              </svg>
-              <span className="absolute text-xs font-extrabold text-slate-700">{selectedSummary.pmPercentage || selectedSummary.pmPct || 0}%</span>
-            </div>
-          </div>
-          <div className="flex-1 min-w-0">
-            <h3 className="text-sm font-bold text-slate-800">Preventive Maintenance Overview</h3>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Across all filtered records: {selectedSummary.pmCompleted || selectedSummary.completedPMs || 0} of {selectedSummary.pmTotal || selectedSummary.totalPMs || 0} PM visits completed • {selectedSummary.pmOverdue || selectedSummary.overduePMs || 0} overdue
-            </p>
-            <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden mt-2">
-              <div
-                className="h-full rounded-full transition-all duration-700 ease-out"
-                style={{
-                  width: `${selectedSummary.pmPercentage || selectedSummary.pmPct || 0}%`,
-                  background: Number(selectedSummary.pmPercentage || selectedSummary.pmPct || 0) >= 75 ? '#10b981' : Number(selectedSummary.pmPercentage || selectedSummary.pmPct || 0) >= 40 ? '#f59e0b' : '#ef4444',
-                }}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex flex-col sm:flex-row items-center gap-4">
+        <div className="flex items-center gap-3 flex-shrink-0">
+          <div className="relative w-14 h-14 flex items-center justify-center">
+            <svg className="w-14 h-14 transform -rotate-90" viewBox="0 0 64 64">
+              <circle cx="32" cy="32" r="26" fill="none" stroke="#e2e8f0" strokeWidth="5" />
+              <circle
+                cx="32" cy="32" r="26" fill="none"
+                stroke={Number(selectedSummary.pmPct || 0) >= 75 ? '#10b981' : Number(selectedSummary.pmPct || 0) >= 40 ? '#f59e0b' : '#ef4444'}
+                strokeWidth="5" strokeLinecap="round"
+                strokeDasharray={2 * Math.PI * 26}
+                strokeDashoffset={2 * Math.PI * 26 - (Number(selectedSummary.pmPct || 0) / 100) * 2 * Math.PI * 26}
+                className="transition-all duration-700 ease-out"
               />
-            </div>
+            </svg>
+            <span className="absolute text-xs font-extrabold text-slate-700">{selectedSummary.pmPct || 0}%</span>
           </div>
         </div>
-      )}
+        <div className="flex-1 min-w-0">
+          <h3 className="text-sm font-bold text-slate-800">Preventive Maintenance Overview</h3>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Across all filtered records: {selectedSummary.pmCompleted || 0} of {selectedSummary.pmTotal || 0} PM visits completed • {selectedSummary.pmOverdue || 0} overdue
+          </p>
+          <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden mt-2">
+            <div
+              className="h-full rounded-full transition-all duration-700 ease-out"
+              style={{
+                width: `${selectedSummary.pmPct || 0}%`,
+                background: Number(selectedSummary.pmPct || 0) >= 75 ? '#10b981' : Number(selectedSummary.pmPct || 0) >= 40 ? '#f59e0b' : '#ef4444',
+              }}
+            />
+          </div>
+        </div>
+      </div>
 
       {/* ═══ FILTERS BAR ═══ */}
       <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm space-y-3 print:hidden">
@@ -1104,15 +565,13 @@ export default function ContractReports({ role }: ContractReportsProps) {
           </select>
 
           {/* Status */}
-          {reportType !== 'zone-summary' && reportType !== 'technician-pm' && (
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none font-medium">
-              <option value="all">All Status</option>
-              <option value="Active">Active</option>
-              <option value="Expiring Soon">Expiring Soon</option>
-              <option value="Expired">Expired</option>
-            </select>
-          )}
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
+            className="px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none font-medium">
+            <option value="all">All Status</option>
+            <option value="Active">Active</option>
+            <option value="Expiring Soon">Expiring Soon</option>
+            <option value="Expired">Expired</option>
+          </select>
 
           {/* Responsible */}
           <select value={techFilter} onChange={(e) => setTechFilter(e.target.value)}
@@ -1122,47 +581,39 @@ export default function ContractReports({ role }: ContractReportsProps) {
           </select>
 
           {/* MC Type */}
-          {reportType !== 'zone-summary' && reportType !== 'technician-pm' && (
-            <select value={mcTypeFilter} onChange={(e) => setMcTypeFilter(e.target.value)}
-              className="px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none font-medium">
-              <option value="all">All MC Types</option>
-              {uniqueMcTypes.map(m => <option key={m} value={m}>{m}</option>)}
-            </select>
-          )}
+          <select value={mcTypeFilter} onChange={(e) => setMcTypeFilter(e.target.value)}
+            className="px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none font-medium">
+            <option value="all">All MC Types</option>
+            {uniqueMcTypes.map(m => <option key={m} value={m}>{m}</option>)}
+          </select>
 
           {/* PM Progress */}
-          {(reportType === 'customer-portfolio' || reportType === 'pm-overview') && (
-            <select value={pmFilter} onChange={(e) => setPmFilter(e.target.value)}
-              className="px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none font-medium">
-              <option value="all">All PM Status</option>
-              <option value="completed">100% Completed</option>
-              <option value="on-track">On Track (≥50%)</option>
-              <option value="behind">Behind (&lt;50%)</option>
-              <option value="overdue">Has Overdue PMs</option>
-              <option value="not-started">Not Started (0%)</option>
-            </select>
-          )}
+          <select value={pmFilter} onChange={(e) => setPmFilter(e.target.value)}
+            className="px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none font-medium">
+            <option value="all">All PM Status</option>
+            <option value="completed">100% Completed</option>
+            <option value="on-track">On Track (≥50%)</option>
+            <option value="behind">Behind (&lt;50%)</option>
+            <option value="overdue">Has Overdue PMs</option>
+            <option value="not-started">Not Started (0%)</option>
+          </select>
 
           {/* Expiry Window */}
-          {reportType !== 'expiring-contracts' && (
-            <select value={expiryFilter} onChange={(e) => setExpiryFilter(e.target.value)}
-              className="px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none font-medium">
-              <option value="all">All Expiry</option>
-              <option value="30">Expiring in 30 Days</option>
-              <option value="60">Expiring in 60 Days</option>
-              <option value="90">Expiring in 90 Days</option>
-            </select>
-          )}
+          <select value={expiryFilter} onChange={(e) => setExpiryFilter(e.target.value)}
+            className="px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none font-medium">
+            <option value="all">All Expiry</option>
+            <option value="30">Expiring in 30 Days</option>
+            <option value="60">Expiring in 60 Days</option>
+            <option value="90">Expiring in 90 Days</option>
+          </select>
 
           {/* SW Support */}
-          {reportType !== 'zone-summary' && reportType !== 'technician-pm' && (
-            <select value={swFilter} onChange={(e) => setSwFilter(e.target.value)}
-              className="px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none font-medium">
-              <option value="all">SW Support</option>
-              <option value="yes">With SW</option>
-              <option value="no">Without SW</option>
-            </select>
-          )}
+          <select value={swFilter} onChange={(e) => setSwFilter(e.target.value)}
+            className="px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none font-medium">
+            <option value="all">SW Support</option>
+            <option value="yes">With SW</option>
+            <option value="no">Without SW</option>
+          </select>
         </div>
       </div>
 
@@ -1172,30 +623,10 @@ export default function ContractReports({ role }: ContractReportsProps) {
           <div className="w-10 h-10 border-4 border-[#82A094] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
           <p className="text-slate-400 text-sm">Loading reports data...</p>
         </div>
-      ) : reportType === 'customer-portfolio' && customerSummaries.length === 0 ? (
+      ) : customerSummaries.length === 0 ? (
         <div className="bg-white rounded-2xl border border-slate-100 p-16 text-center shadow-sm space-y-3">
           <Building2 className="w-12 h-12 text-slate-300 mx-auto" />
           <p className="text-slate-400 text-sm font-medium">No customers match the current filter criteria.</p>
-        </div>
-      ) : reportType === 'pm-overview' && pmOverviewRows.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-slate-100 p-16 text-center shadow-sm space-y-3">
-          <Calendar className="w-12 h-12 text-slate-300 mx-auto" />
-          <p className="text-slate-400 text-sm font-medium">No PM visits match the current filter criteria.</p>
-        </div>
-      ) : reportType === 'expiring-contracts' && expiringContractsRows.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-slate-100 p-16 text-center shadow-sm space-y-3">
-          <Clock className="w-12 h-12 text-slate-300 mx-auto" />
-          <p className="text-slate-400 text-sm font-medium">No expiring contracts match the current filter criteria.</p>
-        </div>
-      ) : reportType === 'zone-summary' && zoneSummaryRows.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-slate-100 p-16 text-center shadow-sm space-y-3">
-          <MapPin className="w-12 h-12 text-slate-300 mx-auto" />
-          <p className="text-slate-400 text-sm font-medium">No zone summaries match the current filter criteria.</p>
-        </div>
-      ) : reportType === 'technician-pm' && technicianPmRows.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-slate-100 p-16 text-center shadow-sm space-y-3">
-          <User className="w-12 h-12 text-slate-300 mx-auto" />
-          <p className="text-slate-400 text-sm font-medium">No technician summaries match the current filter criteria.</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -1237,7 +668,7 @@ export default function ContractReports({ role }: ContractReportsProps) {
                       onClick={() => setExpandedCustomerId(isExpanded ? null : (cs.customerId || cs.customerName))}
                     >
                       <div className="flex items-center gap-4 min-w-0 flex-1">
-                        <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#82A094] to-[#6e897e] flex items-center justify-center text-white text-sm font-extrabold flex-shrink-0 shadow-sm">
+                        <div className={`w-11 h-11 rounded-2xl bg-gradient-to-br ${getCustomerColorClass(cs.customerName)} flex items-center justify-center text-white text-sm font-extrabold flex-shrink-0 shadow-sm`}>
                           {(cs.customerName || 'C').charAt(0).toUpperCase()}
                         </div>
                         <div className="min-w-0">
@@ -1441,6 +872,11 @@ export default function ContractReports({ role }: ContractReportsProps) {
                                             PM Cycle {p.pmNumber}
                                           </span>
                                           <span className="font-mono text-slate-500 text-[10px] truncate block">{p.range}</span>
+                                          {done && p.completedAt && (
+                                            <span className="text-[9px] font-bold text-emerald-600 block mt-0.5">
+                                              Done: {formatDate(p.completedAt)}
+                                            </span>
+                                          )}
                                         </div>
                                         <span className={`px-2 py-0.5 rounded text-[9px] font-bold whitespace-nowrap ${
                                           done
@@ -1466,332 +902,13 @@ export default function ContractReports({ role }: ContractReportsProps) {
               })}
             </>
           )}
-
-          {/* 2. PM VISIT SCHEDULE LAYOUT */}
-          {reportType === 'pm-overview' && (
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="bg-[#546A7A] text-white font-bold select-none">
-                      <th className="p-4 text-center">Contract No</th>
-                      <th className="p-4">Customer Details</th>
-                      <th className="p-4 text-center">PM Visit</th>
-                      <th className="p-4 text-center">Scheduled Window</th>
-                      <th className="p-4 text-center">Status</th>
-                      <th className="p-4 text-center">Completed</th>
-                      <th className="p-4">Responsible</th>
-                      <th className="p-4 text-center">MC Type</th>
-                      <th className="p-4 text-right">Value</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 font-medium">
-                    {pmOverviewRows.map((row) => (
-                      <tr key={row.id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="p-4 text-center font-extrabold text-slate-700">
-                          <button
-                            onClick={() => router.push(`${getBaseRoute()}/contracts/${row.contractId}`)}
-                            className="hover:underline text-[#546A7A]"
-                          >
-                            {row.contractNumber}
-                          </button>
-                        </td>
-                        <td className="p-4 min-w-[180px]">
-                          <span className="font-extrabold block text-slate-800">{row.customerName}</span>
-                          <span className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
-                            <MapPin className="w-3 h-3" /> {row.place || '—'} • {row.zoneName}
-                          </span>
-                        </td>
-                        <td className="p-4 text-center">
-                          <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-bold text-[10px]">
-                            PM {row.pmNumber}
-                          </span>
-                        </td>
-                        <td className="p-4 text-center font-mono text-slate-500 text-[10px]">
-                          {row.range || '—'}
-                        </td>
-                        <td className="p-4 text-center">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                            row.pmStatus === 'Completed'
-                              ? 'bg-emerald-500/10 text-emerald-700'
-                              : row.pmStatus === 'Overdue'
-                              ? 'bg-rose-500/10 text-rose-700'
-                              : 'bg-amber-500/10 text-amber-700'
-                          }`}>
-                            {row.pmStatus === 'Completed' ? '✓ Completed' : row.pmStatus === 'Overdue' ? '! Overdue' : 'Pending'}
-                          </span>
-                        </td>
-                        <td className="p-4 text-center text-slate-500">
-                          {formatDate(row.completedAt)}
-                        </td>
-                        <td className="p-4 text-slate-700 font-semibold">
-                          {row.responsible || '—'}
-                        </td>
-                        <td className="p-4 text-center">
-                          <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${getSlaColor(row.mcType)}`}>
-                            {row.mcType || 'Standard'}
-                          </span>
-                        </td>
-                        <td className="p-4 text-right text-slate-800 font-extrabold">
-                          {formatCurrency(row.amount)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* 3. EXPIRING CONTRACTS LAYOUT */}
-          {reportType === 'expiring-contracts' && (
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="bg-[#546A7A] text-white font-bold select-none">
-                      <th className="p-4 text-center">Contract No</th>
-                      <th className="p-4">Customer Details</th>
-                      <th className="p-4 text-center">Expiry Date</th>
-                      <th className="p-4 text-center">Days Left</th>
-                      <th className="p-4 text-center">Urgency</th>
-                      <th className="p-4 text-center">PM Done %</th>
-                      <th className="p-4 text-right">Value</th>
-                      <th className="p-4">Responsible</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 font-medium">
-                    {expiringContractsRows.map((row) => (
-                      <tr key={row.id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="p-4 text-center font-extrabold text-slate-700">
-                          <button
-                            onClick={() => router.push(`${getBaseRoute()}/contracts/${row.id}`)}
-                            className="hover:underline text-[#546A7A]"
-                          >
-                            {row.contractNumber}
-                          </button>
-                        </td>
-                        <td className="p-4 min-w-[180px]">
-                          <span className="font-extrabold block text-slate-800">{row.customerName}</span>
-                          <span className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
-                            <MapPin className="w-3 h-3" /> {row.place || '—'} • {row.zoneName}
-                          </span>
-                        </td>
-                        <td className="p-4 text-center font-semibold text-slate-700">
-                          {formatDate(row.endDate)}
-                        </td>
-                        <td className="p-4 text-center font-extrabold">
-                          <span className={row.daysRemaining <= 0 ? 'text-rose-600' : row.daysRemaining <= 30 ? 'text-amber-600 font-bold' : 'text-slate-500'}>
-                            {row.daysRemaining < 0 ? `Overdue by ${Math.abs(row.daysRemaining)} Days` : `${row.daysRemaining} Days`}
-                          </span>
-                        </td>
-                        <td className="p-4 text-center">
-                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                            row.urgency === 'Expired' || row.urgency === 'Critical'
-                              ? 'bg-rose-500/10 text-rose-700'
-                              : row.urgency === 'Warning'
-                              ? 'bg-amber-500/10 text-amber-700'
-                              : 'bg-[#546A7A]/10 text-[#546A7A]'
-                          }`}>
-                            {row.urgency}
-                          </span>
-                        </td>
-                        <td className="p-4">
-                          <div className="flex items-center gap-2 justify-center">
-                            <span className="font-bold text-slate-700">{row.pmPercentage}%</span>
-                            <div className="w-12 bg-slate-200 h-1 rounded-full overflow-hidden">
-                              <div
-                                className="h-full rounded-full"
-                                style={{
-                                  width: `${row.pmPercentage}%`,
-                                  background: row.pmPercentage >= 75 ? '#10b981' : row.pmPercentage >= 40 ? '#f59e0b' : '#ef4444',
-                                }}
-                              />
-                            </div>
-                          </div>
-                        </td>
-                        <td className="p-4 text-right text-slate-800 font-extrabold">
-                          {formatCurrency(row.amount)}
-                        </td>
-                        <td className="p-4 text-slate-700 font-semibold">
-                          {row.responsible || '—'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* 4. ZONE SUMMARY LAYOUT */}
-          {reportType === 'zone-summary' && (
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="bg-[#546A7A] text-white font-bold select-none">
-                      <th className="p-4">Zone Name</th>
-                      <th className="p-4 text-center">Total Contracts</th>
-                      <th className="p-4 text-center">Active</th>
-                      <th className="p-4 text-center">Expiring</th>
-                      <th className="p-4 text-center">Expired</th>
-                      <th className="p-4 text-right">Total Value</th>
-                      <th className="p-4 text-center">Total Machines</th>
-                      <th className="p-4 text-center">PM Progress %</th>
-                      <th className="p-4 text-center">Technicians Count</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 font-medium">
-                    {zoneSummaryRows.map((row, idx) => (
-                      <tr key={`z-${idx}`} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="p-4">
-                          <span className="px-2.5 py-1 rounded-lg bg-[#82A094]/15 text-[#546A7A] font-extrabold text-[11px]">
-                            {row.zoneName}
-                          </span>
-                        </td>
-                        <td className="p-4 text-center text-slate-800 font-bold">
-                          {row.totalContracts}
-                        </td>
-                        <td className="p-4 text-center text-emerald-600 font-bold">
-                          {row.activeContracts}
-                        </td>
-                        <td className="p-4 text-center text-amber-600 font-bold">
-                          {row.expiringContracts}
-                        </td>
-                        <td className="p-4 text-center text-rose-600 font-bold">
-                          {row.expiredContracts}
-                        </td>
-                        <td className="p-4 text-right text-slate-800 font-extrabold">
-                          {formatCurrency(row.totalValue)}
-                        </td>
-                        <td className="p-4 text-center text-slate-500 font-semibold">
-                          {row.totalMachines}
-                        </td>
-                        <td className="p-4">
-                          <div className="flex items-center gap-2 justify-center">
-                            <span className="font-bold text-slate-700">{row.pmPercentage}%</span>
-                            <div className="w-12 bg-slate-200 h-1 rounded-full overflow-hidden">
-                              <div
-                                className="h-full rounded-full"
-                                style={{
-                                  width: `${row.pmPercentage}%`,
-                                  background: row.pmPercentage >= 75 ? '#10b981' : row.pmPercentage >= 40 ? '#f59e0b' : '#ef4444',
-                                }}
-                              />
-                            </div>
-                          </div>
-                        </td>
-                        <td className="p-4 text-center text-slate-500 font-semibold">
-                          {row.technicianCount}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* 5. TECHNICIAN PM PERFORMANCE LAYOUT */}
-          {reportType === 'technician-pm' && (
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="bg-[#546A7A] text-white font-bold select-none">
-                      <th className="p-4">Technician Name</th>
-                      <th className="p-4 text-center">Assigned Contracts</th>
-                      <th className="p-4 text-center">Total PMs</th>
-                      <th className="p-4 text-center">Completed</th>
-                      <th className="p-4 text-center">Pending</th>
-                      <th className="p-4 text-center">Overdue</th>
-                      <th className="p-4 text-center">Completion %</th>
-                      <th className="p-4 text-center">Machines</th>
-                      <th className="p-4 text-right">Value Portfolio</th>
-                      <th className="p-4">Zones Serviced</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 font-medium">
-                    {technicianPmRows.map((row, idx) => (
-                      <tr key={`t-${idx}`} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="p-4 font-extrabold text-slate-800">
-                          {row.technician}
-                        </td>
-                        <td className="p-4 text-center text-slate-700 font-semibold">
-                          {row.assignedContracts}
-                        </td>
-                        <td className="p-4 text-center text-slate-500">
-                          {row.totalPMs}
-                        </td>
-                        <td className="p-4 text-center text-emerald-600 font-bold">
-                          {row.completedPMs}
-                        </td>
-                        <td className="p-4 text-center text-amber-600 font-semibold">
-                          {row.pendingPMs}
-                        </td>
-                        <td className="p-4 text-center text-rose-600 font-bold">
-                          {row.overduePMs}
-                        </td>
-                        <td className="p-4">
-                          <div className="flex items-center gap-2 justify-center">
-                            <span className={`font-extrabold ${row.completionPercentage >= 75 ? 'text-emerald-650' : row.completionPercentage >= 40 ? 'text-amber-650' : 'text-rose-655'}`}>
-                              {row.completionPercentage}%
-                            </span>
-                            <div className="w-12 bg-slate-200 h-1.5 rounded-full overflow-hidden">
-                              <div
-                                className="h-full rounded-full"
-                                style={{
-                                  width: `${row.completionPercentage}%`,
-                                  background: row.completionPercentage >= 75 ? '#10b981' : row.completionPercentage >= 40 ? '#f59e0b' : '#ef4444',
-                                }}
-                              />
-                            </div>
-                          </div>
-                        </td>
-                        <td className="p-4 text-center text-slate-500 font-semibold">
-                          {row.totalMachines}
-                        </td>
-                        <td className="p-4 text-right text-slate-800 font-extrabold">
-                          {formatCurrency(row.totalValue)}
-                        </td>
-                        <td className="p-4 min-w-[150px]">
-                          <div className="flex flex-wrap gap-1">
-                            {row.zones.map((z: string) => (
-                              <span key={z} className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-bold text-[9px]">
-                                {z}
-                              </span>
-                            ))}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
         </div>
       )}
 
       {/* ═══ FOOTER INFO ═══ */}
       <div className="p-3 bg-blue-50/40 rounded-xl border border-blue-100/50 flex gap-2 items-center text-xs text-slate-500 print:hidden">
         <Info className="w-4 h-4 text-blue-600 flex-shrink-0" />
-        {reportType === 'customer-portfolio' && (
-          <p>This report groups contracts by customer. Click any customer row to expand and view individual agreements and detailed PM schedules.</p>
-        )}
-        {reportType === 'pm-overview' && (
-          <p>This schedule layout shows a flat list of individual Preventive Maintenance cycles. Click any Contract No to inspect the detailed agreement record.</p>
-        )}
-        {reportType === 'expiring-contracts' && (
-          <p>This dashboard highlights contracts expiring within the next 90 days. Check the urgency column to identify immediate critical renewals.</p>
-        )}
-        {reportType === 'zone-summary' && (
-          <p>This zone sheet aggregates key contract volumes, value distribution, and PM schedule tracking across the active servicing zones.</p>
-        )}
-        {reportType === 'technician-pm' && (
-          <p>This layout shows Preventive Maintenance visit stats assigned per technician. Check completion percentages and overdue cycles to monitor workflow balance.</p>
-        )}
+        <p>This report groups contracts by customer. Click any customer row to expand and view individual agreements and detailed PM schedules.</p>
       </div>
     </div>
   );
