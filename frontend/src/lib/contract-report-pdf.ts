@@ -170,6 +170,17 @@ function drawKPICard(doc: any, x: number, y: number, w: number, h: number, label
     }
 }
 
+// ============ Date/Formatting Helpers for PDF ============
+const fmtDatePdf = (iso: string): string => {
+    if (!iso) return '—'
+    return new Date(iso).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
+const getDaysRemainingPdf = (endDate: string): number => {
+    if (!endDate) return 0
+    return Math.ceil((new Date(endDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
+}
+
 // ============ Main PDF Generator ============
 export async function generateContractReportPdf(
     data: any[],
@@ -183,9 +194,14 @@ export async function generateContractReportPdf(
     const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' }) as any
     const logoBase64 = await loadLogoBase64()
     const pageW = doc.internal.pageSize.getWidth()
+    const pageH = doc.internal.pageSize.getHeight()
     const pageNum = { val: 1 }
 
     let y = drawHeader(doc, filters, logoBase64)
+
+    // ══════════════════════════════════════════════════════════
+    // PAGE 1: PORTFOLIO SUMMARY + CUSTOMER TABLE
+    // ══════════════════════════════════════════════════════════
 
     // ── overall summary kpi cards ──
     y = drawSectionTitle(doc, y, 'PORTFOLIO SUMMARY')
@@ -203,77 +219,233 @@ export async function generateContractReportPdf(
     })
     y += 40
 
-    // ── customer portfolio records table ──
-    y = drawSectionTitle(doc, y, 'CUSTOMER PORTFOLIO DATA')
+    // ── contract detail records (ALL fields) ──
+    y = drawSectionTitle(doc, y, 'CONTRACT DETAIL RECORDS — ALL FIELDS')
 
-    autoTable(doc, {
-        startY: y,
-        head: [['Customer', 'Place', 'Zone', 'Contracts', 'Active', 'Expired', 'Portfolio Value', 'Machines', 'PM %', 'SW Support', 'MC Types', 'Responsible']],
-        body: [
-            ...data.map(item => [
-                item.customerName || '—',
-                item.place || '—',
-                item.zoneName || '—',
-                String(item.totalContracts || 0),
-                String(item.activeContracts || 0),
-                String(item.expiredContracts || 0),
-                fmtCurrency(item.totalValue || 0),
-                String(item.totalMachines || 0),
-                `${item.pmPercentage || 0}%`,
-                item.hasSoftwareSupport ? 'Yes' : 'No',
-                item.contracts ? Array.from(new Set(item.contracts.map((c: any) => c.mcType).filter(Boolean))).join(', ') : '—',
-                item.contracts ? Array.from(new Set(item.contracts.map((c: any) => c.responsible).filter(Boolean))).join(', ') : '—',
-            ]),
-            // Grand totals row
-            [
-                'TOTAL',
-                '—',
-                '—',
-                String(summary.totalContracts || 0),
-                String(summary.active || 0),
-                String(summary.expired || 0),
-                fmtCurrency(summary.totalValue || 0),
-                String(summary.totalMachines || 0),
-                `${summary.pmPct || 0}%`,
-                '—',
-                '—',
-                '—',
-            ]
-        ],
-        theme: 'grid',
-        headStyles: {
-            fillColor: COLORS.headerBg,
-            textColor: COLORS.white,
-            fontSize: 7,
-            fontStyle: 'bold',
-            halign: 'center',
-        },
-        bodyStyles: {
-            fontSize: 6.5,
-            textColor: COLORS.textBody,
-            halign: 'center',
-        },
-        columnStyles: {
-            0: { halign: 'left', fontStyle: 'bold', textColor: COLORS.textDark, cellWidth: 35 },
-            1: { halign: 'left', cellWidth: 25 },
-            2: { cellWidth: 15 },
-            6: { halign: 'right', fontStyle: 'bold' },
-            10: { halign: 'left', cellWidth: 30 },
-            11: { halign: 'left', cellWidth: 30 },
-        },
-        willDrawCell: (hookData: any) => {
-            // Bold totals row
-            if (hookData.section === 'body' && hookData.row.index === data.length) {
-                hookData.cell.styles.fontStyle = 'bold'
-                hookData.cell.styles.textColor = COLORS.textDark
-                hookData.cell.styles.fillColor = COLORS.lightGray
-            }
-        },
-        margin: { left: 15, right: 15 },
+    // Flatten all contracts from all customers
+    const allContracts: any[] = []
+    data.forEach(cust => {
+        (cust.contracts || []).forEach((c: any) => {
+            allContracts.push({
+                ...c,
+                customerName: cust.customerName || '—',
+                place: cust.place || '—',
+                zoneName: cust.zoneName || '—',
+            })
+        })
     })
 
-    // Draw footer
-    drawFooter(doc, pageNum.val)
+    if (allContracts.length > 0) {
+        const detailHeaders = [
+            'S.No', 'Contract #', 'Customer', 'Place', 'PO No',
+            'MC Type', 'Machines', 'Amount', 'Start', 'End',
+            'Status', 'Days Left', 'SW', 'Responsible', 'Zone',
+            'BD', 'Visits', 'Payment Terms', 'Sch. Month'
+        ]
+
+        const detailBody = allContracts.map((c, idx) => {
+            const daysLeft = getDaysRemainingPdf(c.endDate)
+            return [
+                String(idx + 1),
+                c.contractNumber || '—',
+                c.customerName,
+                c.place,
+                c.poNo || '—',
+                c.mcType || '—',
+                String(c.noOfMachine || 0),
+                fmtCurrency(Number(c.amount) || 0),
+                fmtDatePdf(c.startDate),
+                fmtDatePdf(c.endDate),
+                c.status || '—',
+                daysLeft < 0 ? `${Math.abs(daysLeft)}d OD` : `${daysLeft}d`,
+                c.softwareSupport ? 'Yes' : 'No',
+                c.responsible || '—',
+                c.zoneName,
+                String(c.bdCount ?? 0),
+                String(c.noOfVisits || 0),
+                c.paymentTerms || '—',
+                c.scheduledMonth || '—',
+            ]
+        })
+
+        autoTable(doc, {
+            startY: y,
+            head: [detailHeaders],
+            body: detailBody,
+            theme: 'grid',
+            headStyles: {
+                fillColor: COLORS.headerBg,
+                textColor: COLORS.white,
+                fontSize: 5.5,
+                fontStyle: 'bold',
+                halign: 'center',
+            },
+            bodyStyles: {
+                fontSize: 5.5,
+                textColor: COLORS.textBody,
+                halign: 'center',
+            },
+            columnStyles: {
+                0: { cellWidth: 8, halign: 'center' },        // S.No
+                1: { cellWidth: 18, halign: 'left' },         // Contract #
+                2: { cellWidth: 28, halign: 'left', fontStyle: 'bold', textColor: COLORS.textDark },  // Customer
+                3: { cellWidth: 16, halign: 'left' },         // Place
+                4: { cellWidth: 18, halign: 'left' },         // PO No
+                5: { cellWidth: 14 },                         // MC Type
+                6: { cellWidth: 10, halign: 'right' },        // Machines
+                7: { cellWidth: 16, halign: 'right', fontStyle: 'bold' }, // Amount
+                8: { cellWidth: 16 },                         // Start
+                9: { cellWidth: 16 },                         // End
+                10: { cellWidth: 14 },                        // Status
+                11: { cellWidth: 12, halign: 'right' },       // Days Left
+                12: { cellWidth: 8 },                         // SW
+                13: { cellWidth: 16, halign: 'left' },        // Responsible
+                14: { cellWidth: 10 },                        // Zone
+                15: { cellWidth: 7 },                         // BD
+                16: { cellWidth: 8 },                         // Visits
+                17: { cellWidth: 16, halign: 'left' },        // Payment Terms
+                18: { cellWidth: 12 },                        // Sch. Month
+            },
+            willDrawCell: (hookData: any) => {
+                // Status color coding
+                if (hookData.section === 'body' && hookData.column.index === 10) {
+                    const val = hookData.cell.raw
+                    if (val === 'Expired') {
+                        hookData.cell.styles.textColor = hexToRgb(kardexRed[1])
+                        hookData.cell.styles.fontStyle = 'bold'
+                    } else if (val === 'Expiring Soon') {
+                        hookData.cell.styles.textColor = hexToRgb(kardexSand[2])
+                        hookData.cell.styles.fontStyle = 'bold'
+                    } else if (val === 'Active') {
+                        hookData.cell.styles.textColor = hexToRgb(kardexGreen[2])
+                        hookData.cell.styles.fontStyle = 'bold'
+                    }
+                }
+                // Days Left color coding
+                if (hookData.section === 'body' && hookData.column.index === 11) {
+                    const val = hookData.cell.raw
+                    if (typeof val === 'string' && val.includes('OD')) {
+                        hookData.cell.styles.textColor = hexToRgb(kardexRed[1])
+                        hookData.cell.styles.fontStyle = 'bold'
+                    }
+                }
+            },
+            didDrawPage: () => {
+                drawFooter(doc, pageNum.val)
+                pageNum.val++
+            },
+            margin: { left: 10, right: 10, bottom: 15 },
+        })
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // PAGE 3+: PM SCHEDULE DETAILS (per customer)
+    // ══════════════════════════════════════════════════════════
+
+    // Collect customers that have PM schedule data
+    const customersWithPMs = data.filter(cust =>
+        cust.contracts && cust.contracts.some((c: any) =>
+            c.pmSchedules && c.pmSchedules.some((pm: any) => pm.status !== 'Not Applicable')
+        )
+    )
+
+    if (customersWithPMs.length > 0) {
+        doc.addPage()
+        pageNum.val++
+        y = drawHeader(doc, filters, logoBase64)
+        y = drawSectionTitle(doc, y, 'PM SCHEDULE DETAILS BY CUSTOMER')
+
+        customersWithPMs.forEach((cust, custIdx) => {
+            // Check if we need a new page
+            if (y > pageH - 50) {
+                drawFooter(doc, pageNum.val)
+                doc.addPage()
+                pageNum.val++
+                y = drawHeader(doc, filters, logoBase64)
+                y = drawSectionTitle(doc, y, 'PM SCHEDULE DETAILS BY CUSTOMER (continued)')
+            }
+
+            // Customer sub-header
+            doc.setFillColor(...COLORS.headerLight)
+            doc.roundedRect(15, y, pageW - 30, 8, 1.5, 1.5, 'F')
+            doc.setFont('helvetica', 'bold')
+            doc.setFontSize(8)
+            doc.setTextColor(...COLORS.white)
+            doc.text(`${custIdx + 1}. ${cust.customerName} — ${cust.place} (${cust.zoneName || '—'})`, 20, y + 5.5)
+            y += 11
+
+            // Build PM table for this customer
+            const pmRows: any[] = []
+            ;(cust.contracts || []).forEach((contract: any) => {
+                const applicablePMs = (contract.pmSchedules || []).filter((pm: any) => pm.status !== 'Not Applicable')
+                if (applicablePMs.length === 0) return
+
+                applicablePMs.forEach((pm: any) => {
+                    pmRows.push([
+                        contract.contractNumber || '—',
+                        contract.mcType || '—',
+                        `PM ${pm.pmNumber}`,
+                        pm.range || '—',
+                        pm.status || '—',
+                        pm.completedAt ? fmtDatePdf(pm.completedAt) : '—',
+                        contract.responsible || '—',
+                    ])
+                })
+            })
+
+            if (pmRows.length > 0) {
+                autoTable(doc, {
+                    startY: y,
+                    head: [['Contract #', 'MC Type', 'PM Visit', 'Date Range', 'Status', 'Completed', 'Responsible']],
+                    body: pmRows,
+                    theme: 'grid',
+                    headStyles: {
+                        fillColor: COLORS.kardexGreen,
+                        textColor: COLORS.white,
+                        fontSize: 6,
+                        fontStyle: 'bold',
+                        halign: 'center',
+                    },
+                    bodyStyles: {
+                        fontSize: 6,
+                        textColor: COLORS.textBody,
+                        halign: 'center',
+                    },
+                    columnStyles: {
+                        0: { cellWidth: 25, halign: 'left' },
+                        1: { cellWidth: 22 },
+                        2: { cellWidth: 15 },
+                        3: { cellWidth: 45, halign: 'left', fontSize: 5.5 },
+                        4: { cellWidth: 18 },
+                        5: { cellWidth: 22 },
+                        6: { cellWidth: 25, halign: 'left' },
+                    },
+                    willDrawCell: (hookData: any) => {
+                        if (hookData.section === 'body' && hookData.column.index === 4) {
+                            const val = hookData.cell.raw
+                            if (val === 'Completed') {
+                                hookData.cell.styles.textColor = hexToRgb(kardexGreen[2])
+                                hookData.cell.styles.fontStyle = 'bold'
+                            } else if (val === 'Pending') {
+                                hookData.cell.styles.textColor = hexToRgb(kardexSand[2])
+                                hookData.cell.styles.fontStyle = 'bold'
+                            }
+                        }
+                    },
+                    didDrawPage: () => {
+                        drawFooter(doc, pageNum.val)
+                        pageNum.val++
+                    },
+                    margin: { left: 20, right: 20, bottom: 15 },
+                })
+
+                y = (doc as any).lastAutoTable?.finalY + 6 || y + 30
+            }
+        })
+
+        // Draw footer on the last PM page
+        drawFooter(doc, pageNum.val)
+    }
 
     // Save PDF
     doc.save(`KardexCare-Customer-Portfolio-Report-${Date.now()}.pdf`)

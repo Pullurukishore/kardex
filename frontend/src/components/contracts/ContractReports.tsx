@@ -6,7 +6,7 @@ import {
   CheckCircle, AlertTriangle, Clock, MapPin,
   User, Building2, IndianRupee, ShieldCheck,
   TrendingUp, RefreshCw, ChevronDown, ChevronUp, Info,
-  ArrowUpDown, ExternalLink
+  ArrowUpDown, ExternalLink, Save, Trash2, Zap, CalendarClock, BookmarkPlus, X
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -87,10 +87,124 @@ export default function ContractReports({ role }: ContractReportsProps) {
   const [zoneFilter, setZoneFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [techFilter, setTechFilter] = useState('all');
-  const [pmFilter, setPmFilter] = useState('all'); // all | completed | on-track | behind | overdue
+  const [pmFilter, setPmFilter] = useState('all');
   const [mcTypeFilter, setMcTypeFilter] = useState('all');
-  const [swFilter, setSwFilter] = useState('all'); // all | yes | no
-  const [expiryFilter, setExpiryFilter] = useState('all'); // all | 30 | 60 | 90
+  const [swFilter, setSwFilter] = useState('all');
+  const [expiryFilter, setExpiryFilter] = useState('all');
+
+  // Filter Presets
+  interface FilterPreset {
+    id: string;
+    name: string;
+    filters: {
+      zone: string; status: string; tech: string; pm: string;
+      mcType: string; sw: string; expiry: string; search: string;
+    };
+    createdAt: string;
+  }
+  const [filterPresets, setFilterPresets] = useState<FilterPreset[]>([]);
+  const [presetName, setPresetName] = useState('');
+  const [showPresetSave, setShowPresetSave] = useState(false);
+
+  // Schedule banner
+  const [scheduleDismissed, setScheduleDismissed] = useState(false);
+  const today = new Date();
+  const dayOfMonth = today.getDate();
+  const isScheduleDay = dayOfMonth === 1 || dayOfMonth === 15;
+  const isScheduleWindow = dayOfMonth <= 3 || (dayOfMonth >= 15 && dayOfMonth <= 17);
+  const scheduleLabel = dayOfMonth <= 3 ? '1st of Month' : '15th of Month';
+
+  // Load presets from localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('kardex-report-filter-presets');
+      if (saved) setFilterPresets(JSON.parse(saved));
+      const dismissed = localStorage.getItem('kardex-schedule-dismissed-date');
+      if (dismissed === today.toISOString().slice(0, 10)) setScheduleDismissed(true);
+    } catch { /* ignore */ }
+  }, []);
+
+  const savePreset = () => {
+    if (!presetName.trim()) { toast.error('Enter a preset name'); return; }
+    const preset: FilterPreset = {
+      id: `preset-${Date.now()}`,
+      name: presetName.trim(),
+      filters: {
+        zone: zoneFilter, status: statusFilter, tech: techFilter,
+        pm: pmFilter, mcType: mcTypeFilter, sw: swFilter,
+        expiry: expiryFilter, search,
+      },
+      createdAt: new Date().toISOString(),
+    };
+    const updated = [...filterPresets, preset];
+    setFilterPresets(updated);
+    localStorage.setItem('kardex-report-filter-presets', JSON.stringify(updated));
+    setPresetName('');
+    setShowPresetSave(false);
+    toast.success(`Filter preset "${preset.name}" saved!`);
+  };
+
+  const loadPreset = (preset: FilterPreset) => {
+    setZoneFilter(preset.filters.zone);
+    setStatusFilter(preset.filters.status);
+    setTechFilter(preset.filters.tech);
+    setPmFilter(preset.filters.pm);
+    setMcTypeFilter(preset.filters.mcType);
+    setSwFilter(preset.filters.sw);
+    setExpiryFilter(preset.filters.expiry);
+    setSearch(preset.filters.search);
+    toast.success(`Loaded preset "${preset.name}"`);
+  };
+
+  const deletePreset = (id: string) => {
+    const updated = filterPresets.filter(p => p.id !== id);
+    setFilterPresets(updated);
+    localStorage.setItem('kardex-report-filter-presets', JSON.stringify(updated));
+    toast.success('Preset deleted');
+  };
+
+  const dismissSchedule = () => {
+    setScheduleDismissed(true);
+    localStorage.setItem('kardex-schedule-dismissed-date', today.toISOString().slice(0, 10));
+  };
+
+  const handleExportBoth = async () => {
+    setExporting(true);
+    try {
+      // Export Excel
+      const params: any = { reportType: 'customer-portfolio', format: 'excel' };
+      if (zoneFilter !== 'all') params.zone = zoneFilter;
+      if (statusFilter !== 'all') params.status = statusFilter;
+      if (techFilter !== 'all') params.responsible = techFilter;
+      if (search) params.search = search;
+
+      const blob = await apiService.exportContractReport(params);
+      const url = window.URL.createObjectURL(new Blob([blob], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `KardexCare-Customer-Portfolio-Report-${Date.now()}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      // Export PDF (slight delay to avoid browser blocking)
+      await new Promise(r => setTimeout(r, 500));
+      const pdfFilters = {
+        zone: zoneFilter !== 'all' ? zoneFilter : 'All',
+        status: statusFilter !== 'all' ? statusFilter : 'All',
+        responsible: techFilter !== 'all' ? techFilter : 'All'
+      };
+      await generateContractReportPdf(customerSummaries, selectedSummary, pdfFilters);
+
+      toast.success('Both Excel & PDF reports exported successfully!');
+    } catch (err: any) {
+      console.error('Export both failed:', err);
+      toast.error('Failed to export reports');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   // Sorting for Customers
   const [sortKey, setSortKey] = useState<SortKey>('customerName');
@@ -407,6 +521,48 @@ export default function ContractReports({ role }: ContractReportsProps) {
 
   return (
     <div className="space-y-5 print:space-y-3">
+      {/* ═══ BI-MONTHLY SCHEDULE REMINDER BANNER ═══ */}
+      {isScheduleWindow && !scheduleDismissed && (
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-200 p-4 animate-in slide-in-from-top-3 duration-300">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/15 flex items-center justify-center flex-shrink-0">
+                <CalendarClock className="w-5 h-5 text-amber-600" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-amber-800 flex items-center gap-2">
+                  <Zap className="w-3.5 h-3.5" />
+                  {isScheduleDay ? 'Report Day!' : 'Scheduled Report Window'} — {scheduleLabel} Report
+                </h3>
+                <p className="text-xs text-amber-600/80 mt-0.5">
+                  {isScheduleDay
+                    ? 'Today is your scheduled report day. Apply your filters (Status, Responsible) and export detailed Excel + PDF reports for planning.'
+                    : `You're within the bi-monthly report window. Generate your reports for the ${scheduleLabel} cycle.`
+                  }
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button
+                onClick={handleExportBoth}
+                disabled={exporting || loading}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-all shadow-sm disabled:opacity-50"
+              >
+                <Zap className="w-3.5 h-3.5" />
+                Generate Now
+              </button>
+              <button
+                onClick={dismissSchedule}
+                className="p-1.5 rounded-lg hover:bg-amber-100 text-amber-400 hover:text-amber-600 transition-colors"
+                title="Dismiss for today"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ═══ HEADER BANNER ═══ */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#546A7A] via-[#6F8A9D] to-[#3d4f5c] p-6 text-white shadow-xl print:rounded-none print:shadow-none print:p-4">
         <div className="absolute top-0 right-0 -mt-10 -mr-10 w-40 h-40 bg-[#82A094]/25 rounded-full blur-3xl" />
@@ -423,7 +579,7 @@ export default function ContractReports({ role }: ContractReportsProps) {
               Access comprehensive dashboards, expiring warnings, PM visits status, service zones, and technician summaries.
             </p>
           </div>
-          <div className="flex items-center gap-3 print:hidden">
+          <div className="flex items-center gap-2 flex-wrap print:hidden">
             <button
               onClick={fetchContracts}
               disabled={loading}
@@ -435,18 +591,26 @@ export default function ContractReports({ role }: ContractReportsProps) {
             <button
               onClick={() => handleExport('excel')}
               disabled={exporting || loading}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-r from-[#82A094] to-[#688579] hover:brightness-110 active:scale-[0.98] text-white font-semibold transition-all shadow-lg shadow-[#82A094]/25 disabled:opacity-50 text-xs"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-gradient-to-r from-[#82A094] to-[#688579] hover:brightness-110 active:scale-[0.98] text-white font-semibold transition-all shadow-lg shadow-[#82A094]/25 disabled:opacity-50 text-xs"
             >
               <Download className={`w-4 h-4 ${exporting ? 'animate-bounce' : ''}`} />
-              <span>Export Excel</span>
+              <span>Excel</span>
             </button>
             <button
               onClick={() => handleExport('pdf')}
               disabled={exporting || loading}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-r from-[#546A7A] to-[#6F8A9D] hover:brightness-110 active:scale-[0.98] text-white font-semibold transition-all shadow-lg shadow-[#546A7A]/25 disabled:opacity-50 text-xs"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-gradient-to-r from-[#546A7A] to-[#6F8A9D] hover:brightness-110 active:scale-[0.98] text-white font-semibold transition-all shadow-lg shadow-[#546A7A]/25 disabled:opacity-50 text-xs"
             >
               <FileText className="w-4 h-4" />
-              <span>Export PDF</span>
+              <span>PDF</span>
+            </button>
+            <button
+              onClick={handleExportBoth}
+              disabled={exporting || loading}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-gradient-to-r from-[#CE9F6B] to-[#B88A57] hover:brightness-110 active:scale-[0.98] text-white font-semibold transition-all shadow-lg shadow-[#CE9F6B]/25 disabled:opacity-50 text-xs"
+            >
+              <Zap className={`w-4 h-4 ${exporting ? 'animate-pulse' : ''}`} />
+              <span>Both</span>
             </button>
           </div>
         </div>
@@ -614,7 +778,70 @@ export default function ContractReports({ role }: ContractReportsProps) {
             <option value="yes">With SW</option>
             <option value="no">Without SW</option>
           </select>
+
+          {/* Save Preset */}
+          <button
+            onClick={() => setShowPresetSave(!showPresetSave)}
+            className="px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white hover:bg-slate-50 font-medium text-slate-600 flex items-center gap-1.5 transition-colors"
+            title="Save current filters as a preset"
+          >
+            <BookmarkPlus className="w-3.5 h-3.5" />
+            Save Preset
+          </button>
         </div>
+
+        {/* Filter Preset Save Form */}
+        {showPresetSave && (
+          <div className="flex items-center gap-2 mt-2 pt-2 border-t border-slate-100 animate-in slide-in-from-top-2 duration-150">
+            <Save className="w-4 h-4 text-[#82A094] flex-shrink-0" />
+            <input
+              type="text"
+              placeholder="Enter preset name (e.g. 'Active East Zone')"
+              value={presetName}
+              onChange={e => setPresetName(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && savePreset()}
+              className="flex-1 px-3 py-1.5 rounded-lg border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-[#82A094]/30"
+            />
+            <button
+              onClick={savePreset}
+              className="px-3 py-1.5 rounded-lg bg-[#82A094] text-white text-xs font-bold hover:bg-[#6d9181] transition-colors"
+            >
+              Save
+            </button>
+            <button
+              onClick={() => { setShowPresetSave(false); setPresetName(''); }}
+              className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs text-slate-500 hover:bg-slate-50 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
+
+        {/* Saved Presets */}
+        {filterPresets.length > 0 && (
+          <div className="flex items-center gap-2 mt-2 pt-2 border-t border-slate-100 flex-wrap">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Saved Presets:</span>
+            {filterPresets.map(preset => (
+              <div key={preset.id} className="inline-flex items-center gap-1 group">
+                <button
+                  onClick={() => loadPreset(preset)}
+                  className="px-2.5 py-1 rounded-lg bg-[#546A7A]/10 hover:bg-[#546A7A]/20 text-[10px] font-bold text-[#546A7A] transition-colors flex items-center gap-1"
+                  title={`Zone: ${preset.filters.zone} | Status: ${preset.filters.status} | Responsible: ${preset.filters.tech}`}
+                >
+                  <Zap className="w-2.5 h-2.5" />
+                  {preset.name}
+                </button>
+                <button
+                  onClick={() => deletePreset(preset.id)}
+                  className="p-0.5 rounded text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"
+                  title="Delete preset"
+                >
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* ═══ TABLE / LIST CONTAINER ═══ */}

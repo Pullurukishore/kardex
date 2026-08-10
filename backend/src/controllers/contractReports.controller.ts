@@ -510,13 +510,28 @@ export const getCustomerPortfolioReport = async (req: any, res: Response) => {
       const applicablePMs = c.pmSchedules.filter((p: any) => p.status !== 'Not Applicable');
       const completedPMs = applicablePMs.filter((p: any) => p.status === 'Completed').length;
 
+      // Count overdue PMs
+      const now = new Date();
+      const overduePMs = applicablePMs.filter((p: any) => {
+        if (p.status === 'Completed') return false;
+        if (!p.range) return false;
+        const rangeParts = p.range.split(' TO ');
+        if (rangeParts.length !== 2) return false;
+        const rangeEndStr = rangeParts[1].trim();
+        const [day, month, year] = rangeEndStr.split('/').map(Number);
+        return new Date(year, month - 1, day) < now;
+      }).length;
+
       customerMap[key].pmTotal += applicablePMs.length;
       customerMap[key].pmCompleted += completedPMs;
+      customerMap[key].pmOverdue = (customerMap[key].pmOverdue || 0) + overduePMs;
 
       customerMap[key].contracts.push({
         id: c.id,
         contractNumber: c.contractNumber,
+        scheduledMonth: c.scheduledMonth,
         poNo: c.poNo,
+        poDate: c.poDate,
         mcType: c.mcType,
         status,
         startDate: c.startDate,
@@ -527,6 +542,7 @@ export const getCustomerPortfolioReport = async (req: any, res: Response) => {
         responsible: c.responsible,
         softwareSupport: c.softwareSupport,
         bdCount: c.bdCount,
+        paymentTerms: c.paymentTerms,
         pmSchedules: c.pmSchedules.map((pm: any) => ({
           pmNumber: pm.pmNumber,
           range: pm.range,
@@ -546,11 +562,13 @@ export const getCustomerPortfolioReport = async (req: any, res: Response) => {
       totalCustomers: data.length,
       totalContracts: data.reduce((s: number, c: any) => s + c.totalContracts, 0),
       activeContracts: data.reduce((s: number, c: any) => s + c.activeContracts, 0),
+      expiringContracts: data.reduce((s: number, c: any) => s + c.expiringContracts, 0),
       expiredContracts: data.reduce((s: number, c: any) => s + c.expiredContracts, 0),
       totalValue: data.reduce((s: number, c: any) => s + c.totalValue, 0),
       totalMachines: data.reduce((s: number, c: any) => s + c.totalMachines, 0),
       pmCompleted: data.reduce((s: number, c: any) => s + c.pmCompleted, 0),
       pmTotal: data.reduce((s: number, c: any) => s + c.pmTotal, 0),
+      pmOverdue: data.reduce((s: number, c: any) => s + (c.pmOverdue || 0), 0),
       pmPercentage: 0
     };
     grandTotal.pmPercentage = grandTotal.pmTotal > 0
@@ -748,6 +766,9 @@ export const exportContractReport = async (req: any, res: Response) => {
       workbook.created = new Date();
 
       if (reportType === 'customer-portfolio') {
+        // ─────────────────────────────────────────────────────────────
+        // SHEET 1: Customer Portfolio Summary
+        // ─────────────────────────────────────────────────────────────
         const sheet = workbook.addWorksheet('Customer Portfolio', {
           properties: { tabColor: { argb: 'FF1E3A8A' } }
         });
@@ -755,7 +776,7 @@ export const exportContractReport = async (req: any, res: Response) => {
         let currentRow = 1;
 
         // 1. Title Block
-        sheet.mergeCells(`A${currentRow}:M${currentRow}`);
+        sheet.mergeCells(`A${currentRow}:O${currentRow}`);
         const titleCell = sheet.getCell(`A${currentRow}`);
         titleCell.value = 'CUSTOMER CONTRACT PORTFOLIO REPORT';
         titleCell.font = { size: 16, bold: true, color: { argb: 'FFFFFFFF' } };
@@ -765,7 +786,7 @@ export const exportContractReport = async (req: any, res: Response) => {
         currentRow++;
 
         // 2. Subtitle Block
-        sheet.mergeCells(`A${currentRow}:M${currentRow}`);
+        sheet.mergeCells(`A${currentRow}:O${currentRow}`);
         const subCell = sheet.getCell(`A${currentRow}`);
         const zoneFilter = req.query.zone || 'All';
         const statusFilter = req.query.status || 'All';
@@ -952,6 +973,202 @@ export const exportContractReport = async (req: any, res: Response) => {
         columns.forEach((_: any, i: number) => {
           sheet.getColumn(i + 1).width = Math.max(12, columns[i].header.length + 4);
         });
+
+        // ─────────────────────────────────────────────────────────────
+        // SHEET 2: Contract Details (ALL fields, one row per contract)
+        // ─────────────────────────────────────────────────────────────
+        const detailSheet = workbook.addWorksheet('Contract Details', {
+          properties: { tabColor: { argb: 'FF546A7A' } }
+        });
+
+        const DETAIL_HEADER_BG = 'FF546A7A';
+        const DETAIL_HEADER_TEXT = 'FFFFFFFF';
+        const DETAIL_SECTION_BG = 'FF82A094';
+        const fmtDate = (d: any) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+        const computeDaysRemaining = (endDate: any) => {
+          if (!endDate) return 0;
+          return Math.ceil((new Date(endDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+        };
+
+        // Find max PM count across all contracts
+        let maxPMs = 0;
+        reportData.data.forEach((cust: any) => {
+          (cust.contracts || []).forEach((c: any) => {
+            const applicable = (c.pmSchedules || []).filter((p: any) => p.status !== 'Not Applicable');
+            if (applicable.length > maxPMs) maxPMs = applicable.length;
+          });
+        });
+        if (maxPMs < 1) maxPMs = 1;
+        if (maxPMs > 12) maxPMs = 12;
+
+        let dRow = 1;
+
+        // Title
+        const totalDetailCols = 20 + (maxPMs * 3);
+        detailSheet.mergeCells(dRow, 1, dRow, totalDetailCols);
+        const dTitleCell = detailSheet.getCell(dRow, 1);
+        dTitleCell.value = 'CONTRACT DETAILS — ALL FIELDS';
+        dTitleCell.font = { size: 16, bold: true, color: { argb: 'FFFFFFFF' } };
+        dTitleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: DETAIL_HEADER_BG } };
+        dTitleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+        detailSheet.getRow(dRow).height = 32;
+        dRow++;
+
+        // Subtitle
+        detailSheet.mergeCells(dRow, 1, dRow, totalDetailCols);
+        const dSubCell = detailSheet.getCell(dRow, 1);
+        dSubCell.value = `Zone: ${zoneFilter}  |  Status: ${statusFilter}  |  Responsible: ${techFilter}  |  Generated: ${new Date().toLocaleString('en-IN')}`;
+        dSubCell.font = { size: 10, italic: true, color: { argb: 'FF1E3A8A' } };
+        dSubCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
+        dSubCell.alignment = { horizontal: 'center', vertical: 'middle' };
+        detailSheet.getRow(dRow).height = 22;
+        dRow += 2;
+
+        // Build detail column headers
+        const baseHeaders = [
+          'S.No', 'Contract #', 'Scheduled Month', 'Customer Name', 'Place',
+          'PO No', 'PO Date', 'MC Type', 'No of Machines', 'Amount (₹)',
+          'No of Visits', 'Start Date', 'End Date', 'Status', 'Days Remaining',
+          'Software Support', 'Responsible', 'Zone', 'BD Count', 'Payment Terms'
+        ];
+
+        // Add PM column headers dynamically
+        const pmHeaders: string[] = [];
+        for (let p = 1; p <= maxPMs; p++) {
+          pmHeaders.push(`PM ${p} Range`, `PM ${p} Status`, `PM ${p} Done Date`);
+        }
+
+        const allHeaders = [...baseHeaders, ...pmHeaders];
+
+        // Write detail headers
+        allHeaders.forEach((hdr, idx) => {
+          const cell = detailSheet.getCell(dRow, idx + 1);
+          cell.value = hdr;
+          cell.font = { bold: true, color: { argb: DETAIL_HEADER_TEXT }, size: 9 };
+
+          // PM columns get a different header color
+          const isPmCol = idx >= baseHeaders.length;
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isPmCol ? DETAIL_SECTION_BG : DETAIL_HEADER_BG } };
+          cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FF1E3A8A' } },
+            left: { style: 'thin', color: { argb: 'FF1E3A8A' } },
+            bottom: { style: 'thin', color: { argb: 'FF1E3A8A' } },
+            right: { style: 'thin', color: { argb: 'FF1E3A8A' } }
+          };
+        });
+        detailSheet.getRow(dRow).height = 28;
+        dRow++;
+
+        // Flatten all contracts and write rows
+        let serialNo = 0;
+        reportData.data.forEach((cust: any) => {
+          (cust.contracts || []).forEach((c: any) => {
+            serialNo++;
+            const daysLeft = computeDaysRemaining(c.endDate);
+            const bgColor = serialNo % 2 === 0 ? 'FFF8FAFC' : 'FFFFFFFF';
+
+            const baseValues: any[] = [
+              serialNo,
+              c.contractNumber || '—',
+              c.scheduledMonth || '—',
+              cust.customerName || '—',
+              cust.place || '—',
+              c.poNo || '—',
+              fmtDate(c.poDate),
+              c.mcType || '—',
+              c.noOfMachine || 0,
+              Number(c.amount) || 0,
+              c.noOfVisits || 0,
+              fmtDate(c.startDate),
+              fmtDate(c.endDate),
+              c.status || '—',
+              daysLeft,
+              c.softwareSupport ? 'Yes' : 'No',
+              c.responsible || '—',
+              cust.zoneName || '—',
+              c.bdCount ?? 0,
+              c.paymentTerms || '—'
+            ];
+
+            // Add PM data
+            const applicablePMs = (c.pmSchedules || []).filter((p: any) => p.status !== 'Not Applicable');
+            for (let p = 0; p < maxPMs; p++) {
+              const pm = applicablePMs[p];
+              if (pm) {
+                baseValues.push(pm.range || '—');
+                baseValues.push(pm.status || '—');
+                baseValues.push(pm.completedAt ? fmtDate(pm.completedAt) : '—');
+              } else {
+                baseValues.push('N/A', 'N/A', 'N/A');
+              }
+            }
+
+            baseValues.forEach((val: any, colIdx: number) => {
+              const cell = detailSheet.getCell(dRow, colIdx + 1);
+              cell.value = val;
+              cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgColor } };
+              cell.border = {
+                top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+              };
+              cell.font = { size: 9 };
+
+              // Column-specific formatting
+              if (colIdx === 9) { // Amount
+                cell.numFmt = '[$₹-en-IN]#,##0';
+                cell.alignment = { horizontal: 'right', vertical: 'middle' };
+              } else if (colIdx === 14) { // Days Remaining
+                cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                if (typeof val === 'number' && val < 0) {
+                  cell.font = { size: 9, bold: true, color: { argb: 'FFDC2626' } };
+                } else if (typeof val === 'number' && val <= 30) {
+                  cell.font = { size: 9, bold: true, color: { argb: 'FFD97706' } };
+                }
+              } else if (colIdx === 13) { // Status
+                cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                if (val === 'Expired') {
+                  cell.font = { size: 9, bold: true, color: { argb: 'FFDC2626' } };
+                } else if (val === 'Expiring Soon') {
+                  cell.font = { size: 9, bold: true, color: { argb: 'FFD97706' } };
+                } else if (val === 'Active') {
+                  cell.font = { size: 9, bold: true, color: { argb: 'FF059669' } };
+                }
+              } else if (typeof val === 'number') {
+                cell.alignment = { horizontal: 'right', vertical: 'middle' };
+              } else {
+                cell.alignment = { horizontal: 'left', vertical: 'middle' };
+              }
+
+              // PM Status column color coding
+              const pmColOffset = colIdx - baseHeaders.length;
+              if (pmColOffset >= 0 && pmColOffset % 3 === 1) { // Status columns
+                if (val === 'Completed') {
+                  cell.font = { size: 9, bold: true, color: { argb: 'FF059669' } };
+                } else if (val === 'Pending') {
+                  cell.font = { size: 9, bold: true, color: { argb: 'FFD97706' } };
+                }
+              }
+            });
+
+            dRow++;
+          });
+        });
+
+        // Auto-size detail columns
+        allHeaders.forEach((_: any, i: number) => {
+          detailSheet.getColumn(i + 1).width = Math.max(12, allHeaders[i].length + 3);
+        });
+        // Wider columns for specific fields
+        detailSheet.getColumn(2).width = 18; // Contract #
+        detailSheet.getColumn(4).width = 30; // Customer Name
+        detailSheet.getColumn(5).width = 18; // Place
+        detailSheet.getColumn(6).width = 22; // PO No
+        detailSheet.getColumn(10).width = 16; // Amount
+        detailSheet.getColumn(17).width = 16; // Responsible
+        detailSheet.getColumn(20).width = 18; // Payment Terms
       } else {
         const sheet = workbook.addWorksheet('Contract Report');
         const HEADER_BG = '546A7A';
@@ -1144,9 +1361,12 @@ function getExportColumns(reportType: string) {
         { key: 'totalValue', header: 'Portfolio Value (₹)', format: (v: any) => Number(v).toLocaleString('en-IN') },
         { key: 'totalMachines', header: 'Machines' },
         { key: 'pmPercentage', header: 'PM Done %' },
+        { key: 'pmOverdue', header: 'PM Overdue' },
         { key: 'hasSoftwareSupport', header: 'SW Support', format: (v: any) => v ? 'Yes' : 'No' },
         { key: 'mcTypes', header: 'MC Types', format: (v: any, item: any) => item.contracts ? Array.from(new Set(item.contracts.map((c: any) => c.mcType).filter(Boolean))).join(', ') : '—' },
-        { key: 'responsible', header: 'Responsible', format: (v: any, item: any) => item.contracts ? Array.from(new Set(item.contracts.map((c: any) => c.responsible).filter(Boolean))).join(', ') : '—' }
+        { key: 'responsible', header: 'Responsible', format: (v: any, item: any) => item.contracts ? Array.from(new Set(item.contracts.map((c: any) => c.responsible).filter(Boolean))).join(', ') : '—' },
+        { key: 'bdCount', header: 'BD Count', format: (v: any, item: any) => item.contracts ? item.contracts.reduce((s: number, c: any) => s + (c.bdCount || 0), 0) : 0 },
+        { key: 'noOfVisits', header: 'Total Visits', format: (v: any, item: any) => item.contracts ? item.contracts.reduce((s: number, c: any) => s + (c.noOfVisits || 0), 0) : 0 }
       ];
     default:
       return [];
