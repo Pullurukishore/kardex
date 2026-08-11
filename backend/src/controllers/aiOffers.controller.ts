@@ -9,7 +9,7 @@ function toNum(val: any): number {
   if (val === null || val === undefined) return 0;
   return Number(val);
 }
-
+ 
 // Format value in Lakhs/Crores for readability (INR)
 function fmtVal(val: number): string {
   if (val === 0) return '₹0';
