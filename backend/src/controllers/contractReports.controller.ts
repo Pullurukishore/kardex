@@ -529,6 +529,7 @@ export const getCustomerPortfolioReport = async (req: any, res: Response) => {
       customerMap[key].contracts.push({
         id: c.id,
         contractNumber: c.contractNumber,
+        customerName: c.customerName,
         scheduledMonth: c.scheduledMonth,
         poNo: c.poNo,
         poDate: c.poDate,
@@ -1004,7 +1005,7 @@ export const exportContractReport = async (req: any, res: Response) => {
         let dRow = 1;
 
         // Title
-        const totalDetailCols = 20 + (maxPMs * 3);
+        const totalDetailCols = 21 + (maxPMs * 3);
         detailSheet.mergeCells(dRow, 1, dRow, totalDetailCols);
         const dTitleCell = detailSheet.getCell(dRow, 1);
         dTitleCell.value = 'CONTRACT DETAILS — ALL FIELDS';
@@ -1026,7 +1027,7 @@ export const exportContractReport = async (req: any, res: Response) => {
 
         // Build detail column headers
         const baseHeaders = [
-          'S.No', 'Contract #', 'Scheduled Month', 'Customer Name', 'Place',
+          'S.No', 'Contract #', 'Scheduled Month', 'Customer Name', 'Department / Plant Site', 'Place',
           'PO No', 'PO Date', 'MC Type', 'No of Machines', 'Amount (₹)',
           'No of Visits', 'Start Date', 'End Date', 'Status', 'Days Remaining',
           'Software Support', 'Responsible', 'Zone', 'BD Count', 'Payment Terms'
@@ -1073,6 +1074,7 @@ export const exportContractReport = async (req: any, res: Response) => {
               c.contractNumber || '—',
               c.scheduledMonth || '—',
               cust.customerName || '—',
+              (c.customerName && c.customerName !== cust.customerName) ? c.customerName : '—',
               cust.place || '—',
               c.poNo || '—',
               fmtDate(c.poDate),
@@ -1117,17 +1119,17 @@ export const exportContractReport = async (req: any, res: Response) => {
               cell.font = { size: 9 };
 
               // Column-specific formatting
-              if (colIdx === 9) { // Amount
+              if (colIdx === 10) { // Amount
                 cell.numFmt = '[$₹-en-IN]#,##0';
                 cell.alignment = { horizontal: 'right', vertical: 'middle' };
-              } else if (colIdx === 14) { // Days Remaining
+              } else if (colIdx === 15) { // Days Remaining
                 cell.alignment = { horizontal: 'center', vertical: 'middle' };
                 if (typeof val === 'number' && val < 0) {
                   cell.font = { size: 9, bold: true, color: { argb: 'FFDC2626' } };
                 } else if (typeof val === 'number' && val <= 30) {
                   cell.font = { size: 9, bold: true, color: { argb: 'FFD97706' } };
                 }
-              } else if (colIdx === 13) { // Status
+              } else if (colIdx === 14) { // Status
                 cell.alignment = { horizontal: 'center', vertical: 'middle' };
                 if (val === 'Expired') {
                   cell.font = { size: 9, bold: true, color: { argb: 'FFDC2626' } };

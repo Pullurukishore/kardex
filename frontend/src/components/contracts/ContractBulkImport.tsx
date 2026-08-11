@@ -282,6 +282,69 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
     return dp[m][n];
   };
 
+  const normalizePlaceForComparison = (place: string): string => {
+    const norm = place.trim().toLowerCase();
+    
+    // Bangalore synonyms
+    if (norm === 'bangalore' || norm === 'bengaluru' || norm === 'bng' || norm === 'blr' || norm.includes('bangalore') || norm.includes('bengaluru')) {
+      return 'bengaluru';
+    }
+    
+    // Belgaum synonyms
+    if (norm === 'belgum' || norm === 'belgam' || norm === 'belgaum') {
+      return 'belgaum';
+    }
+    
+    // Kolkata synonyms
+    if (norm === 'kolkota' || norm === 'kolkata') {
+      return 'kolkata';
+    }
+    
+    // Nashik synonyms
+    if (norm === 'nasik' || norm === 'nashik') {
+      return 'nashik';
+    }
+    
+    // Akurdi synonyms
+    if (norm === 'akrudi' || norm === 'akurdi') {
+      return 'akurdi';
+    }
+    
+    // Hoshiarpur synonyms
+    if (norm === 'hosiarpur-punjab' || norm === 'hoshiarpur- punjab' || norm === 'hoshiarpur' || norm.includes('hoshiarpur') || norm.includes('hosiarpur')) {
+      return 'hoshiarpur';
+    }
+    
+    // Dapodi synonyms
+    if (norm === 'dapodi' || norm === 'dapodi pune' || norm === 'dapodi, pune' || norm === 'dapodi-pune') {
+      return 'dapodi';
+    }
+    
+    // Chinchwad synonyms
+    if (norm === 'chinchwad pune' || norm === 'chinhwad - pune' || norm === 'chinchwad-pune' || norm.includes('chinchwad') || norm.includes('chinhwad')) {
+      return 'chinchwad';
+    }
+    
+    // Bidadi synonyms
+    if (norm === 'bidaddi' || norm === 'bidadi') {
+      return 'bidadi';
+    }
+    
+    // Kothrud/Pune
+    if (norm === 'kothrud') {
+      return 'pune';
+    }
+
+    return norm;
+  };
+
+  const isPlaceMatch = (p1: string, p2: string): boolean => {
+    if (!p1 || !p2) return true;
+    const n1 = normalizePlaceForComparison(p1);
+    const n2 = normalizePlaceForComparison(p2);
+    return n1 === n2 || n1.includes(n2) || n2.includes(n1);
+  };
+
   const isFuzzyMatch = (dbName: string, excelName: string): boolean => {
     if (!dbName || !excelName) return false;
 
@@ -432,10 +495,7 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
 
                 // Match address/place if provided in both Excel and DB
                 if (rawPlaceStr && c.address) {
-                  const custAddressStr = String(c.address).trim().toLowerCase();
-                  if (custAddressStr !== rawPlaceStr && !custAddressStr.includes(rawPlaceStr) && !rawPlaceStr.includes(custAddressStr)) {
-                    return false;
-                  }
+                  return isPlaceMatch(rawPlaceStr, c.address);
                 }
                 return true;
               })

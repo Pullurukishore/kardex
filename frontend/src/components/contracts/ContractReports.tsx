@@ -1014,9 +1014,14 @@ export default function ContractReports({ role }: ContractReportsProps) {
                                     <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#546A7A] to-[#6F8A9D] flex items-center justify-center text-white text-xs font-bold">
                                       {cIdx + 1}
                                     </div>
-                                    <div>
+                                    <div className="flex flex-col">
                                       <div className="flex items-center gap-2 flex-wrap">
                                         <span className="font-extrabold text-slate-800 text-xs">{contract.contractNumber}</span>
+                                        {contract.customerName && contract.customerName !== cs.customerName && (
+                                          <span className="px-2 py-0.5 rounded bg-slate-50 border border-slate-100 text-slate-600 text-[9px] font-extrabold shadow-inner" title="Department / Plant Site">
+                                            {contract.customerName}
+                                          </span>
+                                        )}
                                         {contract.poNo && <span className="text-[10px] font-semibold text-slate-400">(PO: {contract.poNo})</span>}
                                         <span className={`px-2 py-0.5 rounded-full border text-[9px] font-bold ${getStatusBadge(contract.status)}`}>
                                           {contract.status}

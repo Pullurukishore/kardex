@@ -15,9 +15,10 @@ import { getCustomerColorClass } from '@/lib/utils';
 
 interface PMSchedule {
   id: number;
-  pmNumber: 1 | 2 | 3 | 4;
+  pmNumber: number;
   range: string;
   status: 'Completed' | 'Pending' | 'Not Applicable';
+  completedAt?: string;
 }
 
 interface Contract {
@@ -377,6 +378,11 @@ export default function CustomerContractTracking({ role }: CustomerContractTrack
                         <span className="font-extrabold text-slate-800 text-sm">
                           PO: {contract.poNo || '—'}
                         </span>
+                        {contract.customerName && contract.customerName !== cs.customerName && (
+                          <span className="px-2 py-0.5 rounded bg-slate-50 border border-slate-100 text-slate-600 text-[10px] font-extrabold shadow-inner" title="Department / Plant Site">
+                            {contract.customerName}
+                          </span>
+                        )}
                         <span className="text-xs font-semibold text-slate-400">
                           ({contract.contractNumber})
                         </span>
@@ -515,7 +521,12 @@ export default function CustomerContractTracking({ role }: CustomerContractTrack
                                 <span className={`font-bold block text-[10px] uppercase tracking-wider ${isCompleted ? 'text-emerald-700' : 'text-slate-400'}`}>
                                   Visit {pm.pmNumber}
                                 </span>
-                                <span className="font-mono font-semibold text-slate-600 text-[10px]">{pm.range}</span>
+                                <span className="font-mono font-semibold text-slate-600 text-[10px] block">{pm.range}</span>
+                                {isCompleted && pm.completedAt && (
+                                  <span className="block text-[9px] text-emerald-600 font-semibold mt-0.5 animate-in fade-in duration-200">
+                                    Done: {formatDateLabel(pm.completedAt)}
+                                  </span>
+                                )}
                               </div>
                               <button
                                 type="button"

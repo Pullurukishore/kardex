@@ -228,7 +228,8 @@ export async function generateContractReportPdf(
         (cust.contracts || []).forEach((c: any) => {
             allContracts.push({
                 ...c,
-                customerName: cust.customerName || '—',
+                parentCustomerName: cust.customerName || '—',
+                contractCustomerName: c.customerName || '—',
                 place: cust.place || '—',
                 zoneName: cust.zoneName || '—',
             })
@@ -245,10 +246,15 @@ export async function generateContractReportPdf(
 
         const detailBody = allContracts.map((c, idx) => {
             const daysLeft = getDaysRemainingPdf(c.endDate)
+            const hasDept = c.contractCustomerName && c.contractCustomerName !== c.parentCustomerName
+            const customerText = hasDept 
+                ? `${c.parentCustomerName}\n(${c.contractCustomerName})` 
+                : c.parentCustomerName
+
             return [
                 String(idx + 1),
                 c.contractNumber || '—',
-                c.customerName,
+                customerText,
                 c.place,
                 c.poNo || '—',
                 c.mcType || '—',
@@ -381,8 +387,12 @@ export async function generateContractReportPdf(
                 if (applicablePMs.length === 0) return
 
                 applicablePMs.forEach((pm: any) => {
+                    const hasDept = contract.customerName && contract.customerName !== cust.customerName
+                    const contractColText = hasDept
+                        ? `${contract.contractNumber || '—'}\n(${contract.customerName})`
+                        : (contract.contractNumber || '—')
                     pmRows.push([
-                        contract.contractNumber || '—',
+                        contractColText,
                         contract.mcType || '—',
                         `PM ${pm.pmNumber}`,
                         pm.range || '—',
