@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "nodemon --exec \"ts-node --transpile-only src/server.ts\"",
     "dev:fast": "nodemon --exec \"ts-node --transpile-only --swc src/server.ts\"",
-    "build": "tsc && xcopy /E /I /Y src\\templates dist\\templates",
+    "build": "tsc && node -e \"const fs = require('fs'); fs.cpSync('src/templates', 'dist/templates', { recursive: true, force: true });\"",
     "start": "node dist/server.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
