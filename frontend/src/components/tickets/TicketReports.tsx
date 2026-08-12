@@ -188,7 +188,8 @@ export function TicketReports({ ticketId }: TicketReportsProps) {
       }
       
       // Create blob URL for viewing with proper MIME type from headers
-      const contentType = response.headers['content-type'] || 'application/octet-stream';
+      const contentTypeHeader = response.headers['content-type'];
+      const contentType = typeof contentTypeHeader === 'string' ? contentTypeHeader : 'application/octet-stream';
       const blob = new Blob([response.data], { type: contentType });
       const url = window.URL.createObjectURL(blob);
       
@@ -232,7 +233,8 @@ export function TicketReports({ ticketId }: TicketReportsProps) {
       }
       
       // Create download link with proper content type
-      const contentType = response.headers['content-type'] || 'application/octet-stream';
+      const contentTypeHeader = response.headers['content-type'];
+      const contentType = typeof contentTypeHeader === 'string' ? contentTypeHeader : 'application/octet-stream';
       const blob = new Blob([response.data], { type: contentType });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');

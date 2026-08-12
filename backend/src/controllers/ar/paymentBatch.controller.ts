@@ -105,7 +105,7 @@ export const submitBatch = async (req: Request, res: Response) => {
             for (const approver of approvers) {
                 await sendEmail({
                     to: approver.email,
-                    subject: `[Action Required] Payment Batch ${batchNumber} Submitted for Approval`,
+                    subject: `Kardex: Batch ${batchNumber} Submitted for Review`,
                     template: 'payment-batch-submitted',
                     context: {
                         approverName: approver.name || 'Admin',
@@ -373,7 +373,7 @@ export const reviewBatch = async (req: Request, res: Response) => {
             const isRejected = result.status === 'REJECTED';
             await sendEmail({
                 to: requester.email,
-                subject: `Payment Batch ${result.batchNumber} Review Complete`,
+                subject: `Kardex: Batch ${result.batchNumber} Review Complete`,
                 template: 'payment-batch-reviewed',
                 context: {
                     requesterName: requester.name || 'User',
@@ -565,7 +565,7 @@ export const resubmitRejectedItems = async (req: Request, res: Response) => {
             for (const approver of approvers) {
                 await sendEmail({
                     to: approver.email,
-                    subject: `[Re-Submitted] Payment Batch ${result.batchNumber} — ${rejectedItems.length} Item(s) Re-Requested`,
+                    subject: `Kardex: Batch ${result.batchNumber} Re-Submitted`,
                     template: 'payment-batch-submitted',
                     context: {
                         approverName: approver.name || 'Admin',

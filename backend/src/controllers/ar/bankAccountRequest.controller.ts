@@ -169,7 +169,7 @@ export const createChangeRequest = async (req: Request, res: Response) => {
             for (const admin of admins) {
                 await sendEmail({
                     to: admin.email,
-                    subject: `[Action Required] Vendor ${typeLabel} Request – ${vendorName}`,
+                    subject: `Kardex: Vendor ${typeLabel} Request – ${vendorName}`,
                     template: 'vendor-request',
                     context: {
                         adminName: admin.name || 'Admin',
@@ -543,7 +543,7 @@ export const approveRequest = async (req: Request, res: Response) => {
             if (requester?.email) {
                 await sendEmail({
                     to: requester.email,
-                    subject: `Your Vendor Request has been APPROVED`,
+                    subject: `Kardex: Vendor Request Approved`,
                     template: 'vendor-request-status',
                     context: {
                         requesterName: requester.name || 'User',
@@ -634,7 +634,7 @@ export const rejectRequest = async (req: Request, res: Response) => {
             if (requester?.email) {
                 await sendEmail({
                     to: requester.email,
-                    subject: `Your Vendor Request has been REJECTED`,
+                    subject: `Kardex: Vendor Request Rejected`,
                     template: 'vendor-request-status',
                     context: {
                         requesterName: requester.name || 'User',
