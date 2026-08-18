@@ -1,0 +1,589 @@
+import { Request, Response } from 'express';
+import prisma from '../config/db';
+
+// Safely cast prisma to bypass typescript client stale cache
+const db = prisma as any;
+
+// ============================
+// Helpers
+// ============================
+
+/** Compute MC expiry status & days remaining accurately based on calendar dates */
+const computeExpiryStatus = (endDate: Date | string | null | undefined) => {
+  if (!endDate) return { status: 'N/A', daysLeft: null, bucket: 'na' };
+  const d = new Date(endDate);
+  if (isNaN(d.getTime())) return { status: 'N/A', daysLeft: null, bucket: 'na' };
+
+  // Calculate calendar days difference (ignoring current hour/minute/second)
+  const today = new Date();
+  const todayUTC = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+  const targetUTC = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+
+  const daysLeft = Math.round((targetUTC - todayUTC) / (1000 * 60 * 60 * 24));
+
+  if (daysLeft < 0) return { status: 'Expired', daysLeft, bucket: 'expired' };
+  if (daysLeft <= 30) return { status: 'Expiring ≤30d', daysLeft, bucket: 'critical' };
+  if (daysLeft <= 60) return { status: 'Expiring 31-60d', daysLeft, bucket: 'warning' };
+  if (daysLeft <= 90) return { status: 'Expiring 61-90d', daysLeft, bucket: 'attention' };
+  return { status: 'Active', daysLeft, bucket: 'healthy' };
+};
+
+/** Parse Excel serial date to JS Date */
+const excelDateToJS = (serial: number): Date => {
+  const utcDays = Math.floor(serial - 25569);
+  return new Date(utcDays * 86400 * 1000);
+};
+
+/** Try to parse a date value from various formats into exact UTC midnight Date */
+const parseDate = (val: any): Date | null => {
+  if (!val) return null;
+  if (val instanceof Date) return val;
+
+  // Excel serial number
+  if (typeof val === 'number' && val > 25000 && val < 60000) {
+    const utcDays = Math.floor(val - 25569);
+    return new Date(utcDays * 86400 * 1000);
+  }
+
+  const str = String(val).trim();
+  const parts = str.split(/[\/\-\.]/);
+  if (parts.length === 3) {
+    // YYYY-MM-DD
+    if (parts[0].length === 4) {
+      const y = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10) - 1;
+      const d = parseInt(parts[2], 10);
+      return new Date(Date.UTC(y, m, d));
+    }
+    // MM/DD/YYYY
+    if (parts[2].length === 4) {
+      const y = parseInt(parts[2], 10);
+      const m = parseInt(parts[0], 10) - 1;
+      const d = parseInt(parts[1], 10);
+      return new Date(Date.UTC(y, m, d));
+    }
+  }
+
+  const d = new Date(str);
+  if (!isNaN(d.getTime())) {
+    return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  }
+
+  return null;
+};
+
+/** Parse numeric value (removes commas etc.) */
+const parseNumeric = (val: any): number | null => {
+  if (val === null || val === undefined || val === '') return null;
+  if (typeof val === 'number') return val;
+  const cleaned = String(val).replace(/,/g, '').trim();
+  const n = Number(cleaned);
+  return isNaN(n) ? null : n;
+};
+
+// ============================
+// LIST with filters & search
+// ============================
+export const listDetailedContracts = async (req: Request, res: Response) => {
+  try {
+    const {
+      search, zone, customerClass, contractType, expiryBucket,
+      page = '1', limit = '50', sortBy = 'customerName', sortOrder = 'asc'
+    } = req.query;
+
+    const pageNum = parseInt(page as string, 10) || 1;
+    const pageSize = Math.min(parseInt(limit as string, 10) || 50, 200);
+    const skip = (pageNum - 1) * pageSize;
+
+    // Build where clause
+    const where: any = {};
+
+    if (search) {
+      where.OR = [
+        { customerName: { contains: search as string, mode: 'insensitive' } },
+        { serialNumber: { contains: search as string, mode: 'insensitive' } },
+        { engineerName: { contains: search as string, mode: 'insensitive' } },
+        { place: { contains: search as string, mode: 'insensitive' } },
+        { unitType: { contains: search as string, mode: 'insensitive' } },
+        { mcPoNumber: { contains: search as string, mode: 'insensitive' } },
+      ];
+    }
+
+    if (zone && zone !== 'all') {
+      where.zoneName = { equals: zone as string, mode: 'insensitive' };
+    }
+    if (customerClass && customerClass !== 'all') {
+      where.customerClass = customerClass as string;
+    }
+    if (contractType && contractType !== 'all') {
+      where.contractType = { equals: contractType as string, mode: 'insensitive' };
+    }
+
+    // Expiry bucket filter requires post-query filtering
+    const [records, total] = await Promise.all([
+      db.detailedContract.findMany({
+        where,
+        orderBy: { [sortBy as string]: sortOrder === 'desc' ? 'desc' : 'asc' },
+        skip,
+        take: pageSize,
+      }),
+      db.detailedContract.count({ where }),
+    ]);
+
+    // Enrich with computed expiry info
+    let enriched = records.map((r: any) => {
+      const mc = computeExpiryStatus(r.mcEndDate);
+      const warranty = computeExpiryStatus(r.warrantyEndDate);
+      const software = computeExpiryStatus(r.softwareEndDate);
+      const remote = computeExpiryStatus(r.remoteSupportEndDate);
+      return {
+        ...r,
+        mcValue: r.mcValue ? Number(r.mcValue) : null,
+        mcExpiry: mc,
+        warrantyExpiry: warranty,
+        softwareExpiry: software,
+        remoteSupportExpiry: remote,
+      };
+    });
+
+    // Filter by expiry bucket if requested
+    if (expiryBucket && expiryBucket !== 'all') {
+      enriched = enriched.filter((r: any) => r.mcExpiry.bucket === expiryBucket);
+    }
+
+    res.json({
+      data: enriched,
+      pagination: {
+        page: pageNum,
+        limit: pageSize,
+        total,
+        totalPages: Math.ceil(total / pageSize),
+      },
+    });
+  } catch (error) {
+    console.error('Failed to list detailed contracts:', error);
+    res.status(500).json({ error: 'Failed to list detailed contracts' });
+  }
+};
+
+// ============================
+// STATS / KPI
+// ============================
+export const getDetailedContractStats = async (req: Request, res: Response) => {
+  try {
+    const { zone, customerClass } = req.query;
+    const where: any = {};
+    if (zone && zone !== 'all') where.zoneName = { equals: zone as string, mode: 'insensitive' };
+    if (customerClass && customerClass !== 'all') where.customerClass = customerClass as string;
+
+    const records = await db.detailedContract.findMany({ where });
+    const now = new Date();
+
+    let totalMachines = records.length;
+    let totalMCValue = 0;
+    let expiring30 = 0;
+    let expiring60 = 0;
+    let expiring90 = 0;
+    let expired = 0;
+    let active = 0;
+    let warrantyExpiring30 = 0;
+    let classA = 0;
+    let classB = 0;
+    let classC = 0;
+    const uniqueCustomers = new Set<string>();
+
+    records.forEach((r: any) => {
+      if (r.mcValue) totalMCValue += Number(r.mcValue);
+      const mc = computeExpiryStatus(r.mcEndDate);
+      if (mc.bucket === 'expired') expired++;
+      else if (mc.bucket === 'critical') expiring30++;
+      else if (mc.bucket === 'warning') expiring60++;
+      else if (mc.bucket === 'attention') expiring90++;
+      else active++;
+
+      const w = computeExpiryStatus(r.warrantyEndDate);
+      if (w.bucket === 'critical') warrantyExpiring30++;
+
+      if (r.customerClass === 'A') classA++;
+      else if (r.customerClass === 'B') classB++;
+      else if (r.customerClass === 'C') classC++;
+
+      uniqueCustomers.add(r.customerName?.trim().toLowerCase());
+    });
+
+    res.json({
+      totalMachines,
+      totalCustomers: uniqueCustomers.size,
+      totalMCValue,
+      expiring30,
+      expiring60,
+      expiring90,
+      expired,
+      active,
+      warrantyExpiring30,
+      classA,
+      classB,
+      classC,
+    });
+  } catch (error) {
+    console.error('Failed to get detailed contract stats:', error);
+    res.status(500).json({ error: 'Failed to get stats' });
+  }
+};
+
+// ============================
+// CUSTOMER-GROUPED VIEW
+// ============================
+export const getCustomerGroupedContracts = async (req: Request, res: Response) => {
+  try {
+    const { search, zone, customerClass, expiryBucket } = req.query;
+    const where: any = {};
+
+    if (search) {
+      where.OR = [
+        { customerName: { contains: search as string, mode: 'insensitive' } },
+        { serialNumber: { contains: search as string, mode: 'insensitive' } },
+        { place: { contains: search as string, mode: 'insensitive' } },
+      ];
+    }
+    if (zone && zone !== 'all') where.zoneName = { equals: zone as string, mode: 'insensitive' };
+    if (customerClass && customerClass !== 'all') where.customerClass = customerClass as string;
+
+    const records = await db.detailedContract.findMany({
+      where,
+      orderBy: [{ customerName: 'asc' }, { slNo: 'asc' }],
+    });
+
+    // Group by customer name (case-insensitive)
+    const customerMap: Record<string, any> = {};
+
+    records.forEach((r: any) => {
+      const key = r.customerName?.trim().toLowerCase() || 'unknown';
+      if (!customerMap[key]) {
+        customerMap[key] = {
+          customerName: r.customerName?.trim() || 'Unknown',
+          customerId: r.customerId,
+          customerClass: r.customerClass,
+          place: r.place,
+          zoneName: r.zoneName,
+          engineerName: r.engineerName,
+          totalMachines: 0,
+          totalMCValue: 0,
+          totalPMVisits: 0,
+          totalBDVisits: 0,
+          machines: [],
+          earliestMCExpiry: null as Date | null,
+          expiryStatus: 'Active',
+        };
+      }
+
+      const mc = computeExpiryStatus(r.mcEndDate);
+      const warranty = computeExpiryStatus(r.warrantyEndDate);
+
+      const machine = {
+        ...r,
+        mcValue: r.mcValue ? Number(r.mcValue) : null,
+        mcExpiry: mc,
+        warrantyExpiry: warranty,
+        softwareExpiry: computeExpiryStatus(r.softwareEndDate),
+        remoteSupportExpiry: computeExpiryStatus(r.remoteSupportEndDate),
+      };
+
+      customerMap[key].totalMachines++;
+      if (r.mcValue) customerMap[key].totalMCValue += Number(r.mcValue);
+      customerMap[key].totalPMVisits += r.pmVisitsCount || 0;
+      customerMap[key].totalBDVisits += r.bdVisitsCount || 0;
+      customerMap[key].machines.push(machine);
+
+      // Track earliest MC expiry
+      if (r.mcEndDate) {
+        const endD = new Date(r.mcEndDate);
+        if (!customerMap[key].earliestMCExpiry || endD < customerMap[key].earliestMCExpiry) {
+          customerMap[key].earliestMCExpiry = endD;
+        }
+      }
+    });
+
+    // Compute overall status per customer
+    let customers = Object.values(customerMap).map((c: any) => {
+      const earliest = computeExpiryStatus(c.earliestMCExpiry);
+      c.expiryStatus = earliest.status;
+      c.expiryBucket = earliest.bucket;
+      c.daysToEarliestExpiry = earliest.daysLeft;
+      return c;
+    });
+
+    // Filter by expiry bucket
+    if (expiryBucket && expiryBucket !== 'all') {
+      customers = customers.filter((c: any) => c.expiryBucket === expiryBucket);
+    }
+
+    // Sort by urgency (earliest expiry first)
+    customers.sort((a: any, b: any) => {
+      const aD = a.daysToEarliestExpiry ?? 99999;
+      const bD = b.daysToEarliestExpiry ?? 99999;
+      return aD - bD;
+    });
+
+    res.json({ data: customers });
+  } catch (error) {
+    console.error('Failed to get customer grouped contracts:', error);
+    res.status(500).json({ error: 'Failed to get customer grouped contracts' });
+  }
+};
+
+// ============================
+// GET BY ID
+// ============================
+export const getDetailedContractById = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const record = await db.detailedContract.findUnique({ where: { id: Number(id) } });
+    if (!record) return res.status(404).json({ error: 'Detailed contract not found' });
+
+    const mc = computeExpiryStatus(record.mcEndDate);
+    const warranty = computeExpiryStatus(record.warrantyEndDate);
+
+    res.json({
+      ...record,
+      mcValue: record.mcValue ? Number(record.mcValue) : null,
+      mcExpiry: mc,
+      warrantyExpiry: warranty,
+      softwareExpiry: computeExpiryStatus(record.softwareEndDate),
+      remoteSupportExpiry: computeExpiryStatus(record.remoteSupportEndDate),
+    });
+  } catch (error) {
+    console.error('Failed to get detailed contract:', error);
+    res.status(500).json({ error: 'Failed to get detailed contract' });
+  }
+};
+
+// ============================
+// CREATE
+// ============================
+export const createDetailedContract = async (req: Request, res: Response) => {
+  try {
+    const { customerId, zoneId, ...data } = req.body;
+    const userId = (req as any).user?.id;
+
+    if (!data.customerName || !data.serialNumber || !data.zoneName) {
+      return res.status(400).json({ error: 'customerName, serialNumber, and zoneName are required' });
+    }
+
+    const record = await db.detailedContract.create({
+      data: {
+        ...data,
+        mcValue: data.mcValue ? parseFloat(String(data.mcValue)) : null,
+        poDate: data.poDate ? new Date(data.poDate) : null,
+        mcStartDate: data.mcStartDate ? new Date(data.mcStartDate) : null,
+        mcEndDate: data.mcEndDate ? new Date(data.mcEndDate) : null,
+        warrantyStartDate: data.warrantyStartDate ? new Date(data.warrantyStartDate) : null,
+        warrantyEndDate: data.warrantyEndDate ? new Date(data.warrantyEndDate) : null,
+        softwareStartDate: data.softwareStartDate ? new Date(data.softwareStartDate) : null,
+        softwareEndDate: data.softwareEndDate ? new Date(data.softwareEndDate) : null,
+        remoteSupportStartDate: data.remoteSupportStartDate ? new Date(data.remoteSupportStartDate) : null,
+        remoteSupportEndDate: data.remoteSupportEndDate ? new Date(data.remoteSupportEndDate) : null,
+        pmVisitsCount: parseInt(data.pmVisitsCount) || 0,
+        bdVisitsCount: parseInt(data.bdVisitsCount) || 0,
+        customer: customerId ? { connect: { id: Number(customerId) } } : undefined,
+        zone: zoneId ? { connect: { id: Number(zoneId) } } : undefined,
+        createdBy: userId ? { connect: { id: Number(userId) } } : undefined,
+      },
+    });
+
+    res.status(201).json(record);
+  } catch (error) {
+    console.error('Failed to create detailed contract:', error);
+    res.status(500).json({ error: 'Failed to create detailed contract' });
+  }
+};
+
+// ============================
+// UPDATE
+// ============================
+export const updateDetailedContract = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { customerId, zoneId, ...data } = req.body;
+
+    const existing = await db.detailedContract.findUnique({ where: { id: Number(id) } });
+    if (!existing) return res.status(404).json({ error: 'Detailed contract not found' });
+
+    const record = await db.detailedContract.update({
+      where: { id: Number(id) },
+      data: {
+        ...data,
+        mcValue: data.mcValue !== undefined ? (data.mcValue ? parseFloat(String(data.mcValue)) : null) : undefined,
+        poDate: data.poDate !== undefined ? (data.poDate ? new Date(data.poDate) : null) : undefined,
+        mcStartDate: data.mcStartDate !== undefined ? (data.mcStartDate ? new Date(data.mcStartDate) : null) : undefined,
+        mcEndDate: data.mcEndDate !== undefined ? (data.mcEndDate ? new Date(data.mcEndDate) : null) : undefined,
+        warrantyStartDate: data.warrantyStartDate !== undefined ? (data.warrantyStartDate ? new Date(data.warrantyStartDate) : null) : undefined,
+        warrantyEndDate: data.warrantyEndDate !== undefined ? (data.warrantyEndDate ? new Date(data.warrantyEndDate) : null) : undefined,
+        softwareStartDate: data.softwareStartDate !== undefined ? (data.softwareStartDate ? new Date(data.softwareStartDate) : null) : undefined,
+        softwareEndDate: data.softwareEndDate !== undefined ? (data.softwareEndDate ? new Date(data.softwareEndDate) : null) : undefined,
+        remoteSupportStartDate: data.remoteSupportStartDate !== undefined ? (data.remoteSupportStartDate ? new Date(data.remoteSupportStartDate) : null) : undefined,
+        remoteSupportEndDate: data.remoteSupportEndDate !== undefined ? (data.remoteSupportEndDate ? new Date(data.remoteSupportEndDate) : null) : undefined,
+        customer: customerId !== undefined ? (customerId ? { connect: { id: Number(customerId) } } : { disconnect: true }) : undefined,
+        zone: zoneId !== undefined ? (zoneId ? { connect: { id: Number(zoneId) } } : { disconnect: true }) : undefined,
+      },
+    });
+
+    res.json(record);
+  } catch (error) {
+    console.error('Failed to update detailed contract:', error);
+    res.status(500).json({ error: 'Failed to update detailed contract' });
+  }
+};
+
+// ============================
+// DELETE
+// ============================
+export const deleteDetailedContract = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    await db.detailedContract.delete({ where: { id: Number(id) } });
+    res.json({ message: 'Detailed contract deleted successfully' });
+  } catch (error) {
+    console.error('Failed to delete detailed contract:', error);
+    res.status(500).json({ error: 'Failed to delete detailed contract' });
+  }
+};
+
+// ============================
+// BULK IMPORT (Sheet 2 format - Upsert by Serial Number)
+// ============================
+export const bulkImportDetailedContracts = async (req: Request, res: Response) => {
+  try {
+    const { records: importRecords } = req.body;
+    const userId = (req as any).user?.id;
+
+    if (!importRecords || !Array.isArray(importRecords) || importRecords.length === 0) {
+      return res.status(400).json({ error: 'No records provided for import' });
+    }
+
+    const results = { created: 0, updated: 0, success: 0, failed: 0, errors: [] as any[] };
+
+    for (let i = 0; i < importRecords.length; i++) {
+      const row = importRecords[i];
+      try {
+        if (!row.customerName || !row.serialNumber) {
+          results.errors.push({ row: i + 1, error: 'Missing customerName or serialNumber' });
+          results.failed++;
+          continue;
+        }
+
+        const serialNumber = String(row.serialNumber).trim();
+
+        // Try to auto-link customer
+        let customerId = row.customerId || null;
+        if (!customerId && row.customerName) {
+          const customer = await db.customer.findFirst({
+            where: { companyName: { contains: row.customerName.trim(), mode: 'insensitive' } },
+          });
+          if (customer) customerId = customer.id;
+        }
+
+        // Try to auto-link zone
+        let zoneId = row.zoneId || null;
+        if (!zoneId && row.zoneName) {
+          const zone = await db.serviceZone.findFirst({
+            where: { name: { contains: row.zoneName.trim(), mode: 'insensitive' } },
+          });
+          if (zone) zoneId = zone.id;
+        }
+
+        const payload = {
+          slNo: row.slNo ? parseInt(row.slNo) : null,
+          customerName: row.customerName.trim(),
+          customerClass: row.customerClass || null,
+          place: row.place || null,
+          department: row.department || null,
+          zoneName: row.zoneName || 'Unknown',
+          engineerName: row.engineerName || null,
+          unitType: row.unitType || row.modelNumber || null,
+          controlType: row.controlType || null,
+          serialNumber,
+          softwareName: row.softwareName || null,
+          installationYear: row.installationYear ? String(row.installationYear) : null,
+          contractType: row.contractType || null,
+          mcPoNumber: row.mcPoNumber ? String(row.mcPoNumber) : null,
+          poDate: parseDate(row.poDate),
+          mcStartDate: parseDate(row.mcStartDate),
+          mcEndDate: parseDate(row.mcEndDate),
+          warrantyStartDate: parseDate(row.warrantyStartDate),
+          warrantyEndDate: parseDate(row.warrantyEndDate),
+          softwarePoNo: row.softwarePoNo ? String(row.softwarePoNo) : null,
+          softwareStartDate: parseDate(row.softwareStartDate),
+          softwareEndDate: parseDate(row.softwareEndDate),
+          remoteSupportStartDate: parseDate(row.remoteSupportStartDate),
+          remoteSupportEndDate: parseDate(row.remoteSupportEndDate),
+          pmVisitsCount: parseInt(row.pmVisitsCount) || 0,
+          bdVisitsCount: parseInt(row.bdVisitsCount) || 0,
+          mcValue: parseNumeric(row.mcValue),
+          customer: customerId ? { connect: { id: customerId } } : undefined,
+          zone: zoneId ? { connect: { id: zoneId } } : undefined,
+          createdBy: userId ? { connect: { id: userId } } : undefined,
+        };
+
+        // Check if a contract for this machine serial number already exists
+        const existing = await db.detailedContract.findFirst({
+          where: { serialNumber },
+        });
+
+        if (existing) {
+          await db.detailedContract.update({
+            where: { id: existing.id },
+            data: payload,
+          });
+          results.updated++;
+        } else {
+          await db.detailedContract.create({
+            data: payload,
+          });
+          results.created++;
+        }
+
+        results.success++;
+      } catch (err: any) {
+        results.errors.push({ row: i + 1, error: err.message || 'Unknown error' });
+        results.failed++;
+      }
+    }
+
+    res.json({
+      message: `Import complete: ${results.created} created, ${results.updated} updated, ${results.failed} failed`,
+      ...results,
+    });
+  } catch (error) {
+    console.error('Failed to bulk import detailed contracts:', error);
+    res.status(500).json({ error: 'Failed to bulk import detailed contracts' });
+  }
+};
+
+// ============================
+// EXPORT (download template or data)
+// ============================
+export const exportDetailedContracts = async (req: Request, res: Response) => {
+  try {
+    const { format = 'json' } = req.query;
+    const records = await db.detailedContract.findMany({
+      orderBy: [{ customerName: 'asc' }, { slNo: 'asc' }],
+    });
+
+    if (format === 'json') {
+      const enriched = records.map((r: any) => ({
+        ...r,
+        mcValue: r.mcValue ? Number(r.mcValue) : null,
+        mcExpiry: computeExpiryStatus(r.mcEndDate),
+        warrantyExpiry: computeExpiryStatus(r.warrantyEndDate),
+      }));
+      return res.json({ data: enriched });
+    }
+
+    // Default JSON export
+    res.json({ data: records });
+  } catch (error) {
+    console.error('Failed to export detailed contracts:', error);
+    res.status(500).json({ error: 'Failed to export detailed contracts' });
+  }
+};

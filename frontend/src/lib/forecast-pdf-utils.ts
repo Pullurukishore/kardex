@@ -231,7 +231,7 @@ function drawGradientHeader(doc: any, pageW: number) {
 // Load Kardex logo as base64 for embedding in PDF
 async function loadLogoBase64(): Promise<string | null> {
     try {
-        const response = await fetch('/kardex.png')
+        const response = await fetch('/kardex-only.png')
         const blob = await response.blob()
         return new Promise((resolve) => {
             const reader = new FileReader()
@@ -261,7 +261,7 @@ function drawHeader(doc: any, year: number, filterLabel: string, zoneName?: stri
     if (logoBase64) {
         try {
             // Position logo centered inside the white rectangle
-            doc.addImage(logoBase64, 'PNG', logoX + 5, logoY + 3, logoRectW - 10, logoRectH - 6)
+            doc.addImage(logoBase64, 'PNG', logoX + 5.5, logoY + 3.75, 37, 8.5)
         } catch {
             doc.setFont('helvetica', 'bold')
             doc.setFontSize(10)
@@ -361,7 +361,7 @@ function drawFooter(doc: any, pageNum: number) {
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(6)
     doc.setTextColor(...COLORS.accentCyan)
-    doc.text('Kardex Remstar  |  Offer Funnel Analytics Report  |  Confidential', 15, pageH - 4)
+    doc.text('Kardex  |  Offer Funnel Analytics Report  |  Confidential', 15, pageH - 4)
     doc.setTextColor(...COLORS.white)
     doc.text(`Page ${pageNum}`, pageW - 25, pageH - 4)
 }

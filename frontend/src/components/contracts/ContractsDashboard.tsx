@@ -106,19 +106,26 @@ export default function ContractsDashboard({ role, view = 'list' }: ContractsDas
     }
   };
 
-  // List of unique technicians for filter
   const uniqueTechnicians = useMemo(() => {
-    const list = new Set(contracts.map(c => c.responsible).filter(Boolean));
-    return Array.from(list);
+    const list = new Set<string>();
+    contracts.forEach(c => {
+      if (c.responsible) {
+        c.responsible.split(/[\/,]+/).forEach(r => {
+          const name = r.trim();
+          if (name) list.add(name);
+        });
+      }
+    });
+    return Array.from(list).sort();
   }, [contracts]);
 
   // KPI calculations
   const stats = useMemo(() => {
     const totalCount = contracts.length;
-    const totalActive = contracts.filter(c => c.status === 'Active').length;
+    const totalActive = contracts.filter(c => c.status === 'Active' || c.status === 'Expiring Soon').length;
     const totalExpired = contracts.filter(c => c.status === 'Expired').length;
     const totalExpiringSoon = contracts.filter(c => c.status === 'Expiring Soon').length;
-    const totalAmount = contracts.reduce((sum, c) => c.status === 'Active' ? sum + Number(c.amount) : sum, 0);
+    const totalAmount = contracts.reduce((sum, c) => (c.status === 'Active' || c.status === 'Expiring Soon') ? sum + Number(c.amount) : sum, 0);
     const totalPMs = contracts.reduce((sum, c) => sum + c.pmSchedules.filter(p => p.status === 'Completed').length, 0);
     const totalExpectedPMs = contracts.reduce((sum, c) => sum + c.pmSchedules.filter(p => p.status !== 'Not Applicable').length, 0);
     const pmCompletionRate = totalExpectedPMs > 0 ? Math.round((totalPMs / totalExpectedPMs) * 100) : 0;
@@ -155,7 +162,7 @@ export default function ContractsDashboard({ role, view = 'list' }: ContractsDas
   const zoneValueData = useMemo(() => {
     const amounts: Record<string, number> = { North: 0, South: 0, East: 0, West: 0 };
     contracts.forEach(c => {
-      if (c.status === 'Active' && amounts[c.zoneName] !== undefined) {
+      if ((c.status === 'Active' || c.status === 'Expiring Soon') && amounts[c.zoneName] !== undefined) {
         amounts[c.zoneName] += Number(c.amount);
       }
     });
@@ -165,8 +172,16 @@ export default function ContractsDashboard({ role, view = 'list' }: ContractsDas
   const engineerWorkload = useMemo(() => {
     const counts: Record<string, number> = {};
     contracts.forEach(c => {
-      const name = c.responsible || 'Unassigned';
-      counts[name] = (counts[name] || 0) + 1;
+      if (c.responsible) {
+        c.responsible.split(/[\/,]+/).forEach(r => {
+          const name = r.trim();
+          if (name) {
+            counts[name] = (counts[name] || 0) + 1;
+          }
+        });
+      } else {
+        counts['Unassigned'] = (counts['Unassigned'] || 0) + 1;
+      }
     });
     return Object.entries(counts)
       .map(([name, value]) => ({ name, value }))
@@ -194,9 +209,9 @@ export default function ContractsDashboard({ role, view = 'list' }: ContractsDas
     const zones = ['North', 'South', 'East', 'West'];
     return zones.map(zone => {
       const zoneContracts = contracts.filter(c => c.zoneName.toLowerCase() === zone.toLowerCase());
-      const activeContracts = zoneContracts.filter(c => c.status === 'Active').length;
+      const activeContracts = zoneContracts.filter(c => c.status === 'Active' || c.status === 'Expiring Soon').length;
       const totalVal = zoneContracts.reduce((sum, c) => sum + Number(c.amount), 0);
-      const activeVal = zoneContracts.reduce((sum, c) => c.status === 'Active' ? sum + Number(c.amount) : sum, 0);
+      const activeVal = zoneContracts.reduce((sum, c) => (c.status === 'Active' || c.status === 'Expiring Soon') ? sum + Number(c.amount) : sum, 0);
       const totalMachines = zoneContracts.reduce((sum, c) => sum + (c.noOfMachine || 0), 0);
       const totalBDs = zoneContracts.reduce((sum, c) => sum + (c.bdCount === 999 ? 0 : c.bdCount), 0);
       

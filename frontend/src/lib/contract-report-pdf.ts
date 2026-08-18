@@ -1,14 +1,14 @@
 /**
  * Contract Reports PDF Generation Utility — Kardex Brand Design
- * Generates premium contracts analytics PDF using jsPDF + autoTable
- * Matches the design language and template of growth-report-pdf.ts
+ * Generates straightforward, schedule-focused PDF using jsPDF + autoTable
+ * Tailored for PM planning, technician assignments, and visit execution
  */
-import { 
-    kardexBlue, 
-    kardexGreen, 
-    kardexGrey, 
-    kardexSilver, 
-    kardexRed, 
+import {
+    kardexBlue,
+    kardexGreen,
+    kardexGrey,
+    kardexSilver,
+    kardexRed,
     kardexSand
 } from './kardex-colors'
 
@@ -43,26 +43,138 @@ const COLORS = {
     textMuted: hexToRgb(kardexGrey[3]),
 }
 
-// ============ Formatting Helpers ============
-const fmtVal = (v: number): string => {
-    if (v === 0) return '0'
-    const abs = Math.abs(v)
-    const sign = v < 0 ? '-' : ''
-    if (abs >= 10000000) return `${sign}${(abs / 10000000).toFixed(2)} Cr`
-    if (abs >= 100000) return `${sign}${(abs / 100000).toFixed(2)} L`
-    if (abs >= 1000) return `${sign}${(abs / 1000).toFixed(1)} K`
-    return `${sign}${abs.toFixed(0)}`
+// ============ Date / Formatting Helpers ============
+const fmtDatePdf = (iso: string): string => {
+    if (!iso) return '—'
+    return new Date(iso).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
+const parseRangeDates = (range: string | null | undefined): { startDate: string; endDate: string } => {
+    if (!range) return { startDate: '—', endDate: '—' }
+    const parts = range.split(/\s+(?:TO|to|-)\s+/)
+    if (parts.length >= 2) {
+        return {
+            startDate: parts[0]?.trim() || '—',
+            endDate: parts[parts.length - 1]?.trim() || '—'
+        }
+    }
+    return { startDate: range.trim(), endDate: '—' }
+}
+
+const fmtDateBadge = (dStr?: string) => {
+    if (!dStr) return ''
+    const d = new Date(dStr)
+    if (isNaN(d.getTime())) return dStr
+    return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
+const months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
+
+const parseDateObj = (str: string): Date | null => {
+    if (!str) return null
+    str = str.trim()
+
+    // Check DD/MM/YYYY or DD.MM.YYYY
+    const slashDot = str.match(/^(\d{1,2})[\/\.](\d{1,2})[\/\.](\d{2,4})$/)
+    if (slashDot) {
+        const d = parseInt(slashDot[1], 10)
+        const m = parseInt(slashDot[2], 10) - 1
+        let y = parseInt(slashDot[3], 10)
+        if (y < 100) y += 2000
+        return new Date(y, m, d)
+    }
+
+    // Check YYYY-MM-DD
+    const isoMatch = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/)
+    if (isoMatch) {
+        return new Date(parseInt(isoMatch[1], 10), parseInt(isoMatch[2], 10) - 1, parseInt(isoMatch[3], 10))
+    }
+
+    // Check DD-MM-YYYY
+    const dmyMatch = str.match(/^(\d{1,2})-(\d{1,2})-(\d{2,4})$/)
+    if (dmyMatch) {
+        let y = parseInt(dmyMatch[3], 10)
+        if (y < 100) y += 2000
+        return new Date(y, parseInt(dmyMatch[2], 10) - 1, parseInt(dmyMatch[1], 10))
+    }
+
+    // Check DD-MMM-YYYY or DD MMM YYYY (e.g. 15-Oct-2026, 15 Oct 2026)
+    const wordMatch = str.match(/^(\d{1,2})[-\s]+([A-Za-z]+)[-\s]+(\d{2,4})$/)
+    if (wordMatch) {
+        const d = parseInt(wordMatch[1], 10)
+        const mStr = wordMatch[2].toLowerCase().slice(0, 3)
+        const m = months.indexOf(mStr)
+        let y = parseInt(wordMatch[3], 10)
+        if (y < 100) y += 2000
+        if (m >= 0) return new Date(y, m, d)
+    }
+
+    // Check 'Month YYYY' (e.g. October 2026)
+    const monthYearMatch = str.match(/^([A-Za-z]+)[-\s]+(\d{2,4})$/)
+    if (monthYearMatch) {
+        const mStr = monthYearMatch[1].toLowerCase().slice(0, 3)
+        const m = months.indexOf(mStr)
+        let y = parseInt(monthYearMatch[2], 10)
+        if (y < 100) y += 2000
+        if (m >= 0) return new Date(y, m, 1)
+    }
+
+    const fallback = new Date(str)
+    return isNaN(fallback.getTime()) ? null : fallback
+}
+
+const isPMInRange = (pmRange: string | null | undefined, dateFrom?: string, dateTo?: string, status?: string): boolean => {
+    if (!dateFrom && !dateTo) return true
+    if (!pmRange) return true
+
+    const parts = pmRange.split(/\s+(?:TO|to|-)\s+/)
+    const startObj = parseDateObj(parts[0])
+    const endObj = parts.length >= 2 ? parseDateObj(parts[parts.length - 1]) : startObj
+
+    // If dateTo is provided: Any PM scheduled AFTER dateTo must be EXCLUDED!
+    if (dateTo) {
+        const toObj = new Date(dateTo)
+        toObj.setHours(23, 59, 59, 999)
+        if (startObj && startObj > toObj) return false
+        if (!startObj && endObj && endObj > toObj) return false
+    }
+
+    // If dateFrom is provided: Completed PMs done before dateFrom are excluded.
+    // Active / Pending / Overdue PMs due up to dateTo are kept.
+    if (dateFrom && status === 'Completed') {
+        const fromObj = new Date(dateFrom)
+        fromObj.setHours(0, 0, 0, 0)
+        if (endObj && endObj < fromObj) return false
+    }
+
+    return true
+}
+
+const isRangeOverdue = (range: string): boolean => {
+    try {
+        const parts = range.split(/\s+(?:TO|to|-)\s+/)
+        const endStr = parts[parts.length - 1]?.trim()
+        if (!endStr) return false
+        const now = new Date()
+        const endDateObj = parseDateObj(endStr)
+        return endDateObj ? endDateObj < now : false
+    } catch { return false }
+}
+
+const getDaysRemainingPdf = (endDate: string): number => {
+    if (!endDate) return 0
+    return Math.ceil((new Date(endDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
 }
 
 const fmtCurrency = (v: number): string => {
-    if (v === 0) return 'Rs. 0'
-    return `Rs. ${fmtVal(v)}`
+    if (v === 0) return '₹0'
+    return `₹${Number(v).toLocaleString('en-IN')}`
 }
 
-// ============ PDF Drawing Helpers ============
+// ============ PDF Header / Footer Drawing Helpers ============
 async function loadLogoBase64(): Promise<string | null> {
     try {
-        const response = await fetch('/kardex.png')
+        const response = await fetch('/kardex-only.png')
         const blob = await response.blob()
         return new Promise((resolve) => {
             const reader = new FileReader()
@@ -77,13 +189,11 @@ async function loadLogoBase64(): Promise<string | null> {
 
 function drawGradientHeader(doc: any, pageW: number) {
     doc.setFillColor(...COLORS.headerBg)
-    doc.rect(0, 0, pageW, 28, 'F')
+    doc.rect(0, 0, pageW, 26, 'F')
     doc.setFillColor(...COLORS.headerLight)
-    doc.rect(0, 24, pageW, 4, 'F')
+    doc.rect(0, 22, pageW, 3, 'F')
     doc.setFillColor(...COLORS.accentCyan)
-    doc.rect(0, 28, pageW, 1.5, 'F')
-    doc.setFillColor(...COLORS.cardBorder)
-    doc.rect(0, 29.5, pageW, 0.5, 'F')
+    doc.rect(0, 25, pageW, 1, 'F')
 }
 
 function drawHeader(doc: any, filters: any, logoBase64: string | null): number {
@@ -91,12 +201,12 @@ function drawHeader(doc: any, filters: any, logoBase64: string | null): number {
     drawGradientHeader(doc, pageW)
 
     // Logo
-    const logoRectW = 48, logoRectH = 16, logoX = 10, logoY = 5
+    const logoRectW = 45, logoRectH = 15, logoX = 10, logoY = 5
     doc.setFillColor(...COLORS.white)
     doc.roundedRect(logoX, logoY, logoRectW, logoRectH, 1.5, 1.5, 'F')
     if (logoBase64) {
         try {
-            doc.addImage(logoBase64, 'PNG', logoX + 5, logoY + 3, logoRectW - 10, logoRectH - 6)
+            doc.addImage(logoBase64, 'PNG', logoX + 5, logoY + 3.5, 35, 8)
         } catch {
             doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(...COLORS.textDark)
             doc.text('KARDEX', logoX + logoRectW / 2, logoY + logoRectH / 2 + 1, { align: 'center' })
@@ -107,81 +217,69 @@ function drawHeader(doc: any, filters: any, logoBase64: string | null): number {
     }
 
     // Title
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(14); doc.setTextColor(...COLORS.white)
-    doc.text('Customer Contract Portfolio', 62, 13)
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(...COLORS.white)
+    doc.text('PREVENTIVE MAINTENANCE & CONTRACT SCHEDULE REPORT', 60, 12)
 
-    // Subtitle
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...COLORS.accentCyan)
-    const subtitle = `Zone: ${filters.zone || 'All'}  |  Status: ${filters.status || 'All'}  |  Responsible: ${filters.responsible || 'All'}`
-    doc.text(subtitle, 62, 21)
+    // Subtitle / Filters
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(...COLORS.accentCyan)
+    const filterParts: string[] = []
+    if (filters.responsible && filters.responsible !== 'All') filterParts.push(`Responsible: ${filters.responsible}`)
+    if (filters.zone && filters.zone !== 'All') filterParts.push(`Zone: ${filters.zone}`)
+    if (filters.status && filters.status !== 'All') filterParts.push(`Status: ${filters.status}`)
+    if (filters.mcType && filters.mcType !== 'All') filterParts.push(`MC Type: ${filters.mcType}`)
+    if (filters.dateFrom || filters.dateTo) {
+        filterParts.push(`Date Filter: ${fmtDateBadge(filters.dateFrom)} to ${fmtDateBadge(filters.dateTo)}`)
+    }
+    const subtitle = filterParts.length > 0 ? filterParts.join('  |  ') : 'All Contracts & PM Visits'
+    doc.text(subtitle, 60, 19)
 
-    // Date badge
-    const badgeW = 55, badgeX = pageW - 65, badgeH = 16, badgeY = 5
+    // Date badge on top right
+    const badgeW = 62, badgeX = pageW - 72, badgeH = 16, badgeY = 5
     doc.setFillColor(...COLORS.headerLight)
     doc.roundedRect(badgeX, badgeY, badgeW, badgeH, 2, 2, 'F')
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(...COLORS.white)
-    const genDate = `Generated: ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`
-    doc.text(genDate, badgeX + badgeW / 2, badgeY + 7, { align: 'center' })
-    doc.setFontSize(6)
-    doc.text(`Run at: ${new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`, badgeX + badgeW / 2, badgeY + 13, { align: 'center' })
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(7); doc.setTextColor(...COLORS.white)
+    if (filters.dateFrom && filters.dateTo) {
+        doc.text(`${fmtDateBadge(filters.dateFrom)} – ${fmtDateBadge(filters.dateTo)}`, badgeX + badgeW / 2, badgeY + 6, { align: 'center' })
+    } else {
+        doc.text(`Date: ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`, badgeX + badgeW / 2, badgeY + 6, { align: 'center' })
+    }
+    doc.setFontSize(6); doc.setTextColor(...COLORS.accentCyan)
+    doc.text(`Generated: ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}, ${new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`, badgeX + badgeW / 2, badgeY + 12, { align: 'center' })
 
-    return 34
+    return 30
 }
 
 function drawFooter(doc: any, pageNum: number) {
     const pageW = doc.internal.pageSize.getWidth()
     const pageH = doc.internal.pageSize.getHeight()
     doc.setFillColor(...COLORS.headerBg)
-    doc.rect(0, pageH - 10, pageW, 10, 'F')
+    doc.rect(0, pageH - 8, pageW, 8, 'F')
     doc.setFillColor(...COLORS.accentCyan)
-    doc.rect(0, pageH - 10, pageW, 0.4, 'F')
+    doc.rect(0, pageH - 8, pageW, 0.4, 'F')
     doc.setFont('helvetica', 'normal'); doc.setFontSize(6); doc.setTextColor(...COLORS.accentCyan)
-    doc.text('Kardex Remstar  |  Customer Contract Portfolio Report  |  Confidential', 15, pageH - 4)
+    doc.text('Kardex  |  Preventive Maintenance & Scheduling Report  |  Confidential', 12, pageH - 3)
     doc.setTextColor(...COLORS.white)
-    doc.text(`Page ${pageNum}`, pageW - 25, pageH - 4)
-}
-
-function drawSectionTitle(doc: any, y: number, title: string, color?: [number, number, number]): number {
-    const pageW = doc.internal.pageSize.getWidth()
-    const c = color || COLORS.headerBg
-    doc.setFillColor(...c)
-    doc.roundedRect(15, y, pageW - 30, 10, 2, 2, 'F')
-    doc.setFillColor(...COLORS.accentCyan)
-    doc.rect(15, y, 3, 10, 'F')
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); doc.setTextColor(...COLORS.white)
-    doc.text(title, 23, y + 7)
-    return y + 14
+    doc.text(`Page ${pageNum}`, pageW - 20, pageH - 3)
 }
 
 function drawKPICard(doc: any, x: number, y: number, w: number, h: number, label: string, value: string, accentColor: [number, number, number], subLabel?: string) {
     doc.setFillColor(...COLORS.cardBg)
-    doc.roundedRect(x, y, w, h, 3, 3, 'F')
+    doc.roundedRect(x, y, w, h, 2, 2, 'F')
     doc.setDrawColor(...COLORS.cardBorder); doc.setLineWidth(0.3)
-    doc.roundedRect(x, y, w, h, 3, 3, 'S')
+    doc.roundedRect(x, y, w, h, 2, 2, 'S')
     doc.setFillColor(...accentColor)
-    doc.rect(x, y, w, 3, 'F')
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(6.5); doc.setTextColor(...COLORS.textMuted)
-    doc.text(label.toUpperCase(), x + 5, y + 11)
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(17); doc.setTextColor(...COLORS.textDark)
-    doc.text(value, x + 5, y + 23)
+    doc.rect(x, y, w, 2.5, 'F')
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(6); doc.setTextColor(...COLORS.textMuted)
+    doc.text(label.toUpperCase(), x + 4, y + 8.5)
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(...COLORS.textDark)
+    doc.text(value, x + 4, y + 17.5)
     if (subLabel) {
-        doc.setFont('helvetica', 'normal'); doc.setFontSize(6.5); doc.setTextColor(...accentColor)
-        doc.text(subLabel, x + 5, y + 30)
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(5.5); doc.setTextColor(...accentColor)
+        doc.text(subLabel, x + 4, y + 22.5)
     }
 }
 
-// ============ Date/Formatting Helpers for PDF ============
-const fmtDatePdf = (iso: string): string => {
-    if (!iso) return '—'
-    return new Date(iso).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
-}
-
-const getDaysRemainingPdf = (endDate: string): number => {
-    if (!endDate) return 0
-    return Math.ceil((new Date(endDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
-}
-
-// ============ Main PDF Generator ============
+// ============ Main Scheduling PDF Generator ============
 export async function generateContractReportPdf(
     data: any[],
     summary: any,
@@ -194,144 +292,151 @@ export async function generateContractReportPdf(
     const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' }) as any
     const logoBase64 = await loadLogoBase64()
     const pageW = doc.internal.pageSize.getWidth()
-    const pageH = doc.internal.pageSize.getHeight()
     const pageNum = { val: 1 }
 
     let y = drawHeader(doc, filters, logoBase64)
 
-    // ══════════════════════════════════════════════════════════
-    // PAGE 1: PORTFOLIO SUMMARY + CUSTOMER TABLE
-    // ══════════════════════════════════════════════════════════
+    // ── Calculate Scheduling KPIs from Filtered Data ──
+    let totalPMs = 0
+    let completedPMs = 0
+    let pendingPMs = 0
+    let overduePMs = 0
+    let totalContractsCount = 0
+    let totalMachinesCount = 0
 
-    // ── overall summary kpi cards ──
-    y = drawSectionTitle(doc, y, 'PORTFOLIO SUMMARY')
-    const cardW = (pageW - 50) / 5
-    const kpis = [
-        { label: 'Total Customers', value: String(summary.totalCustomers || 0), sub: 'With contracts', color: COLORS.headerBg },
-        { label: 'Agreements', value: String(summary.totalContracts || 0), sub: `${summary.active || 0} active | ${summary.expired || 0} expired`, color: COLORS.accentCyan },
-        { label: 'Portfolio Value', value: fmtCurrency(summary.totalValue || 0), sub: 'Total value', color: COLORS.warning },
-        { label: 'Machines', value: String(summary.totalMachines || 0), sub: 'Under SLA', color: COLORS.kardexGreen },
-        { label: 'PM Done %', value: `${summary.pmPct || 0}%`, sub: `${summary.pmOverdue || 0} overdue`, color: COLORS.positive }
-    ]
+    // Flatten all PM schedules from filtered data
+    const pmScheduleRows: any[] = []
 
-    kpis.forEach((kpi, i) => {
-        drawKPICard(doc, 20 + i * (cardW + 2.5), y, cardW, 34, kpi.label, kpi.value, kpi.color, kpi.sub)
-    })
-    y += 40
-
-    // ── contract detail records (ALL fields) ──
-    y = drawSectionTitle(doc, y, 'CONTRACT DETAIL RECORDS — ALL FIELDS')
-
-    // Flatten all contracts from all customers
-    const allContracts: any[] = []
     data.forEach(cust => {
         (cust.contracts || []).forEach((c: any) => {
-            allContracts.push({
-                ...c,
-                parentCustomerName: cust.customerName || '—',
-                contractCustomerName: c.customerName || '—',
-                place: cust.place || '—',
-                zoneName: cust.zoneName || '—',
+            const applicablePMs = (c.pmSchedules || []).filter((p: any) => p.status !== 'Not Applicable')
+
+            // Filter PMs by date range if dateFrom/dateTo is provided
+            const matchingPMs = applicablePMs.filter((pm: any) => isPMInRange(pm.range, filters.dateFrom, filters.dateTo, pm.status))
+            if (matchingPMs.length === 0) return
+
+            totalContractsCount++
+            totalMachinesCount += (c.noOfMachine || 1)
+
+            matchingPMs.forEach((pm: any) => {
+                totalPMs++
+                const isDone = pm.status === 'Completed'
+                const isOverdue = !isDone && pm.range && isRangeOverdue(pm.range)
+
+                if (isDone) completedPMs++
+                else if (isOverdue) overduePMs++
+                else pendingPMs++
+
+                const { startDate: pmStart, endDate: pmEnd } = parseRangeDates(pm.range)
+                const hasDept = c.customerName && c.customerName !== cust.customerName
+                const customerDisplay = hasDept ? `${cust.customerName} (${c.customerName})` : cust.customerName
+
+                pmScheduleRows.push({
+                    customerName: customerDisplay,
+                    place: cust.place || c.place || '—',
+                    zoneName: cust.zoneName || c.zoneName || '—',
+                    contractNumber: c.contractNumber || '—',
+                    mcType: c.mcType || '—',
+                    pmNumber: `PM ${pm.pmNumber}`,
+                    pmStartDate: pmStart,
+                    pmEndDate: pmEnd,
+                    range: pm.range || '—',
+                    status: isDone ? 'Completed' : isOverdue ? 'Overdue' : 'Pending',
+                    completedAt: pm.completedAt ? fmtDatePdf(pm.completedAt) : '—',
+                    responsible: c.responsible || '—',
+                    endDate: fmtDatePdf(c.endDate),
+                    daysLeft: getDaysRemainingPdf(c.endDate)
+                })
             })
         })
     })
 
-    if (allContracts.length > 0) {
-        const detailHeaders = [
-            'S.No', 'Contract #', 'Customer', 'Place', 'PO No',
-            'MC Type', 'Machines', 'Amount', 'Start', 'End',
-            'Status', 'Days Left', 'SW', 'Responsible', 'Zone',
-            'BD', 'Visits', 'Payment Terms', 'Sch. Month'
+    // ── Draw 5 Clean KPI Cards ──
+    const cardW = (pageW - 40) / 5
+    const kpis = [
+        { label: 'Total PM Visits', value: String(totalPMs), sub: `${totalContractsCount} contracts (${totalMachinesCount} machines)`, color: COLORS.headerBg },
+        { label: 'Completed PMs', value: String(completedPMs), sub: totalPMs > 0 ? `${Math.round((completedPMs / totalPMs) * 100)}% execution` : '0%', color: COLORS.positive },
+        { label: 'Pending PMs', value: String(pendingPMs), sub: 'Scheduled & upcoming', color: COLORS.warning },
+        { label: 'Overdue PMs', value: String(overduePMs), sub: overduePMs > 0 ? 'Requires attention!' : 'On schedule', color: overduePMs > 0 ? COLORS.negative : COLORS.positive },
+        { label: 'Portfolio Value', value: fmtCurrency(summary?.totalValue || 0), sub: `${data.length} customers in view`, color: COLORS.accentCyan }
+    ]
+
+    kpis.forEach((kpi, i) => {
+        drawKPICard(doc, 10 + i * (cardW + 5), y, cardW, 25, kpi.label, kpi.value, kpi.color, kpi.sub)
+    })
+    y += 29
+
+    // ── Master PM Scheduling Table ──
+    if (pmScheduleRows.length > 0) {
+        const tableHeaders = [
+            'S.No', 'Customer Name', 'Place', 'Zone',
+            'MC Type', 'PM Visit', 'PM Start Date', 'PM End Date', 'Status',
+            'Responsible', 'Contract Expiry'
         ]
 
-        const detailBody = allContracts.map((c, idx) => {
-            const daysLeft = getDaysRemainingPdf(c.endDate)
-            const hasDept = c.contractCustomerName && c.contractCustomerName !== c.parentCustomerName
-            const customerText = hasDept 
-                ? `${c.parentCustomerName}\n(${c.contractCustomerName})` 
-                : c.parentCustomerName
-
+        const tableBody = pmScheduleRows.map((row, idx) => {
             return [
                 String(idx + 1),
-                c.contractNumber || '—',
-                customerText,
-                c.place,
-                c.poNo || '—',
-                c.mcType || '—',
-                String(c.noOfMachine || 0),
-                fmtCurrency(Number(c.amount) || 0),
-                fmtDatePdf(c.startDate),
-                fmtDatePdf(c.endDate),
-                c.status || '—',
-                daysLeft < 0 ? `${Math.abs(daysLeft)}d OD` : `${daysLeft}d`,
-                c.softwareSupport ? 'Yes' : 'No',
-                c.responsible || '—',
-                c.zoneName,
-                String(c.bdCount ?? 0),
-                String(c.noOfVisits || 0),
-                c.paymentTerms || '—',
-                c.scheduledMonth || '—',
+                row.customerName,
+                row.place,
+                row.zoneName,
+                row.mcType,
+                row.pmNumber,
+                row.pmStartDate,
+                row.pmEndDate,
+                row.status,
+                row.responsible,
+                row.endDate
             ]
         })
 
         autoTable(doc, {
             startY: y,
-            head: [detailHeaders],
-            body: detailBody,
+            head: [tableHeaders],
+            body: tableBody,
             theme: 'grid',
             headStyles: {
                 fillColor: COLORS.headerBg,
                 textColor: COLORS.white,
-                fontSize: 5.5,
+                fontSize: 7,
                 fontStyle: 'bold',
                 halign: 'center',
+                cellPadding: 2,
+            },
+            alternateRowStyles: {
+                fillColor: [248, 250, 252],
             },
             bodyStyles: {
-                fontSize: 5.5,
+                fontSize: 6.8,
                 textColor: COLORS.textBody,
                 halign: 'center',
+                cellPadding: 2,
             },
             columnStyles: {
-                0: { cellWidth: 8, halign: 'center' },        // S.No
-                1: { cellWidth: 18, halign: 'left' },         // Contract #
-                2: { cellWidth: 28, halign: 'left', fontStyle: 'bold', textColor: COLORS.textDark },  // Customer
-                3: { cellWidth: 16, halign: 'left' },         // Place
-                4: { cellWidth: 18, halign: 'left' },         // PO No
-                5: { cellWidth: 14 },                         // MC Type
-                6: { cellWidth: 10, halign: 'right' },        // Machines
-                7: { cellWidth: 16, halign: 'right', fontStyle: 'bold' }, // Amount
-                8: { cellWidth: 16 },                         // Start
-                9: { cellWidth: 16 },                         // End
-                10: { cellWidth: 14 },                        // Status
-                11: { cellWidth: 12, halign: 'right' },       // Days Left
-                12: { cellWidth: 8 },                         // SW
-                13: { cellWidth: 16, halign: 'left' },        // Responsible
-                14: { cellWidth: 10 },                        // Zone
-                15: { cellWidth: 7 },                         // BD
-                16: { cellWidth: 8 },                         // Visits
-                17: { cellWidth: 16, halign: 'left' },        // Payment Terms
-                18: { cellWidth: 12 },                        // Sch. Month
+                0: { cellWidth: 10, halign: 'center' },                               // S.No
+                1: { cellWidth: 52, halign: 'left', fontStyle: 'bold', textColor: COLORS.textDark }, // Customer Name
+                2: { cellWidth: 25, halign: 'left' },                                 // Place
+                3: { cellWidth: 16, halign: 'center' },                               // Zone
+                4: { cellWidth: 22, halign: 'center' },                               // MC Type
+                5: { cellWidth: 18, halign: 'center', fontStyle: 'bold' },            // PM Visit
+                6: { cellWidth: 26, halign: 'center' },                               // PM Start Date
+                7: { cellWidth: 26, halign: 'center' },                               // PM End Date
+                8: { cellWidth: 22, halign: 'center', fontStyle: 'bold' },            // Status
+                9: { cellWidth: 34, halign: 'left' },                                 // Responsible
+                10: { cellWidth: 26, halign: 'center' },                              // Contract Expiry
             },
             willDrawCell: (hookData: any) => {
-                // Status color coding
-                if (hookData.section === 'body' && hookData.column.index === 10) {
+                // Highlight Status Column (Index 8)
+                if (hookData.section === 'body' && hookData.column.index === 8) {
                     const val = hookData.cell.raw
-                    if (val === 'Expired') {
-                        hookData.cell.styles.textColor = hexToRgb(kardexRed[1])
-                        hookData.cell.styles.fontStyle = 'bold'
-                    } else if (val === 'Expiring Soon') {
-                        hookData.cell.styles.textColor = hexToRgb(kardexSand[2])
-                        hookData.cell.styles.fontStyle = 'bold'
-                    } else if (val === 'Active') {
+                    if (val === 'Completed') {
                         hookData.cell.styles.textColor = hexToRgb(kardexGreen[2])
                         hookData.cell.styles.fontStyle = 'bold'
-                    }
-                }
-                // Days Left color coding
-                if (hookData.section === 'body' && hookData.column.index === 11) {
-                    const val = hookData.cell.raw
-                    if (typeof val === 'string' && val.includes('OD')) {
+                    } else if (val === 'Overdue') {
                         hookData.cell.styles.textColor = hexToRgb(kardexRed[1])
+                        hookData.cell.styles.fontStyle = 'bold'
+                    } else if (val === 'Pending') {
+                        hookData.cell.styles.textColor = hexToRgb(kardexSand[2])
                         hookData.cell.styles.fontStyle = 'bold'
                     }
                 }
@@ -340,123 +445,15 @@ export async function generateContractReportPdf(
                 drawFooter(doc, pageNum.val)
                 pageNum.val++
             },
-            margin: { left: 10, right: 10, bottom: 15 },
+            margin: { left: 10, right: 10, bottom: 12 },
         })
-    }
-
-    // ══════════════════════════════════════════════════════════
-    // PAGE 3+: PM SCHEDULE DETAILS (per customer)
-    // ══════════════════════════════════════════════════════════
-
-    // Collect customers that have PM schedule data
-    const customersWithPMs = data.filter(cust =>
-        cust.contracts && cust.contracts.some((c: any) =>
-            c.pmSchedules && c.pmSchedules.some((pm: any) => pm.status !== 'Not Applicable')
-        )
-    )
-
-    if (customersWithPMs.length > 0) {
-        doc.addPage()
-        pageNum.val++
-        y = drawHeader(doc, filters, logoBase64)
-        y = drawSectionTitle(doc, y, 'PM SCHEDULE DETAILS BY CUSTOMER')
-
-        customersWithPMs.forEach((cust, custIdx) => {
-            // Check if we need a new page
-            if (y > pageH - 50) {
-                drawFooter(doc, pageNum.val)
-                doc.addPage()
-                pageNum.val++
-                y = drawHeader(doc, filters, logoBase64)
-                y = drawSectionTitle(doc, y, 'PM SCHEDULE DETAILS BY CUSTOMER (continued)')
-            }
-
-            // Customer sub-header
-            doc.setFillColor(...COLORS.headerLight)
-            doc.roundedRect(15, y, pageW - 30, 8, 1.5, 1.5, 'F')
-            doc.setFont('helvetica', 'bold')
-            doc.setFontSize(8)
-            doc.setTextColor(...COLORS.white)
-            doc.text(`${custIdx + 1}. ${cust.customerName} — ${cust.place} (${cust.zoneName || '—'})`, 20, y + 5.5)
-            y += 11
-
-            // Build PM table for this customer
-            const pmRows: any[] = []
-            ;(cust.contracts || []).forEach((contract: any) => {
-                const applicablePMs = (contract.pmSchedules || []).filter((pm: any) => pm.status !== 'Not Applicable')
-                if (applicablePMs.length === 0) return
-
-                applicablePMs.forEach((pm: any) => {
-                    const hasDept = contract.customerName && contract.customerName !== cust.customerName
-                    const contractColText = hasDept
-                        ? `${contract.contractNumber || '—'}\n(${contract.customerName})`
-                        : (contract.contractNumber || '—')
-                    pmRows.push([
-                        contractColText,
-                        contract.mcType || '—',
-                        `PM ${pm.pmNumber}`,
-                        pm.range || '—',
-                        pm.status || '—',
-                        pm.completedAt ? fmtDatePdf(pm.completedAt) : '—',
-                        contract.responsible || '—',
-                    ])
-                })
-            })
-
-            if (pmRows.length > 0) {
-                autoTable(doc, {
-                    startY: y,
-                    head: [['Contract #', 'MC Type', 'PM Visit', 'Date Range', 'Status', 'Completed', 'Responsible']],
-                    body: pmRows,
-                    theme: 'grid',
-                    headStyles: {
-                        fillColor: COLORS.kardexGreen,
-                        textColor: COLORS.white,
-                        fontSize: 6,
-                        fontStyle: 'bold',
-                        halign: 'center',
-                    },
-                    bodyStyles: {
-                        fontSize: 6,
-                        textColor: COLORS.textBody,
-                        halign: 'center',
-                    },
-                    columnStyles: {
-                        0: { cellWidth: 25, halign: 'left' },
-                        1: { cellWidth: 22 },
-                        2: { cellWidth: 15 },
-                        3: { cellWidth: 45, halign: 'left', fontSize: 5.5 },
-                        4: { cellWidth: 18 },
-                        5: { cellWidth: 22 },
-                        6: { cellWidth: 25, halign: 'left' },
-                    },
-                    willDrawCell: (hookData: any) => {
-                        if (hookData.section === 'body' && hookData.column.index === 4) {
-                            const val = hookData.cell.raw
-                            if (val === 'Completed') {
-                                hookData.cell.styles.textColor = hexToRgb(kardexGreen[2])
-                                hookData.cell.styles.fontStyle = 'bold'
-                            } else if (val === 'Pending') {
-                                hookData.cell.styles.textColor = hexToRgb(kardexSand[2])
-                                hookData.cell.styles.fontStyle = 'bold'
-                            }
-                        }
-                    },
-                    didDrawPage: () => {
-                        drawFooter(doc, pageNum.val)
-                        pageNum.val++
-                    },
-                    margin: { left: 20, right: 20, bottom: 15 },
-                })
-
-                y = (doc as any).lastAutoTable?.finalY + 6 || y + 30
-            }
-        })
-
-        // Draw footer on the last PM page
+    } else {
+        // Empty state message
+        doc.setFont('helvetica', 'italic'); doc.setFontSize(10); doc.setTextColor(...COLORS.textMuted)
+        doc.text('No PM schedules found matching the selected filters.', pageW / 2, y + 20, { align: 'center' })
         drawFooter(doc, pageNum.val)
     }
 
-    // Save PDF
-    doc.save(`KardexCare-Customer-Portfolio-Report-${Date.now()}.pdf`)
+    // Save PDF with clean short filename
+    doc.save('Contract_Schedule_Report.pdf')
 }

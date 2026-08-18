@@ -90,7 +90,16 @@ export default function ContractReports({ role }: ContractReportsProps) {
   const [pmFilter, setPmFilter] = useState('all');
   const [mcTypeFilter, setMcTypeFilter] = useState('all');
   const [swFilter, setSwFilter] = useState('all');
-  const [expiryFilter, setExpiryFilter] = useState('all');
+
+  // Date range filter (default: today → today + 4 weeks)
+  const [dateFrom, setDateFrom] = useState(() => {
+    return new Date().toISOString().slice(0, 10);
+  });
+  const [dateTo, setDateTo] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 28);
+    return d.toISOString().slice(0, 10);
+  });
 
   // Filter Presets
   interface FilterPreset {
@@ -98,7 +107,8 @@ export default function ContractReports({ role }: ContractReportsProps) {
     name: string;
     filters: {
       zone: string; status: string; tech: string; pm: string;
-      mcType: string; sw: string; expiry: string; search: string;
+      mcType: string; sw: string; search: string;
+      dateFrom: string; dateTo: string;
     };
     createdAt: string;
   }
@@ -132,7 +142,7 @@ export default function ContractReports({ role }: ContractReportsProps) {
       filters: {
         zone: zoneFilter, status: statusFilter, tech: techFilter,
         pm: pmFilter, mcType: mcTypeFilter, sw: swFilter,
-        expiry: expiryFilter, search,
+        search, dateFrom, dateTo,
       },
       createdAt: new Date().toISOString(),
     };
@@ -151,8 +161,9 @@ export default function ContractReports({ role }: ContractReportsProps) {
     setPmFilter(preset.filters.pm);
     setMcTypeFilter(preset.filters.mcType);
     setSwFilter(preset.filters.sw);
-    setExpiryFilter(preset.filters.expiry);
     setSearch(preset.filters.search);
+    if (preset.filters.dateFrom !== undefined) setDateFrom(preset.filters.dateFrom);
+    if (preset.filters.dateTo !== undefined) setDateTo(preset.filters.dateTo);
     toast.success(`Loaded preset "${preset.name}"`);
   };
 
@@ -176,13 +187,17 @@ export default function ContractReports({ role }: ContractReportsProps) {
       if (zoneFilter !== 'all') params.zone = zoneFilter;
       if (statusFilter !== 'all') params.status = statusFilter;
       if (techFilter !== 'all') params.responsible = techFilter;
+      if (mcTypeFilter !== 'all') params.mcType = mcTypeFilter;
+      if (swFilter !== 'all') params.softwareSupport = swFilter;
       if (search) params.search = search;
+      if (dateFrom) params.dateFrom = dateFrom;
+      if (dateTo) params.dateTo = dateTo;
 
       const blob = await apiService.exportContractReport(params);
       const url = window.URL.createObjectURL(new Blob([blob], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `KardexCare-Customer-Portfolio-Report-${Date.now()}.xlsx`);
+      link.setAttribute('download', 'Contract_Report.xlsx');
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -214,7 +229,10 @@ export default function ContractReports({ role }: ContractReportsProps) {
   const fetchContracts = async () => {
     setLoading(true);
     try {
-      const data = await apiService.getContracts();
+      const params: any = {};
+      if (dateFrom) params.dateFrom = dateFrom;
+      if (dateTo) params.dateTo = dateTo;
+      const data = await apiService.getContracts(params);
       setContracts(data);
     } catch (err: any) {
       console.error('Failed to fetch contracts', err);
@@ -240,12 +258,90 @@ export default function ContractReports({ role }: ContractReportsProps) {
 
   const isRangeOverdue = (range: string): boolean => {
     try {
-      const parts = range.split(' TO ');
-      if (parts.length !== 2) return false;
-      const endStr = parts[1].trim();
-      const [day, month, year] = endStr.split('/').map(Number);
-      return new Date(year, month - 1, day) < now;
+      const parts = range.split(/\s+(?:TO|to|-)\s+/);
+      const endStr = parts[parts.length - 1]?.trim();
+      if (!endStr) return false;
+      let endDateObj: Date | null = null;
+      if (endStr.includes('/')) {
+        const [day, month, year] = endStr.split('/').map(Number);
+        if (day && month && year) endDateObj = new Date(year, month - 1, day);
+      } else if (endStr.includes('-')) {
+        endDateObj = new Date(endStr);
+      }
+      return endDateObj ? endDateObj < now : false;
     } catch { return false; }
+  };
+
+  const parseDateObj = (str: string): Date | null => {
+    if (!str) return null;
+    str = str.trim();
+
+    // Check DD/MM/YYYY or DD.MM.YYYY
+    const slashDot = str.match(/^(\d{1,2})[\/\.](\d{1,2})[\/\.](\d{2,4})$/);
+    if (slashDot) {
+      const d = parseInt(slashDot[1], 10);
+      const m = parseInt(slashDot[2], 10) - 1;
+      let y = parseInt(slashDot[3], 10);
+      if (y < 100) y += 2000;
+      return new Date(y, m, d);
+    }
+
+    // Check YYYY-MM-DD
+    const isoMatch = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if (isoMatch) {
+      return new Date(parseInt(isoMatch[1], 10), parseInt(isoMatch[2], 10) - 1, parseInt(isoMatch[3], 10));
+    }
+
+    // Check DD-MM-YYYY
+    const dmyMatch = str.match(/^(\d{1,2})-(\d{1,2})-(\d{2,4})$/);
+    if (dmyMatch) {
+      let y = parseInt(dmyMatch[3], 10);
+      if (y < 100) y += 2000;
+      return new Date(y, parseInt(dmyMatch[2], 10) - 1, parseInt(dmyMatch[1], 10));
+    }
+
+    const fallback = new Date(str);
+    return isNaN(fallback.getTime()) ? null : fallback;
+  };
+
+  const isPMInDateRange = (pmRange: string | null | undefined, dateFrom?: string, dateTo?: string): boolean => {
+    if (!dateFrom && !dateTo) return true;
+    if (!pmRange) return true;
+
+    const parts = pmRange.split(/\s+(?:TO|to|-)\s+/);
+    const startObj = parseDateObj(parts[0]);
+    const endObj = parts.length >= 2 ? parseDateObj(parts[parts.length - 1]) : startObj;
+
+    if (!startObj && !endObj) return true;
+
+    const pmStart = startObj || endObj;
+    const pmEnd = endObj || startObj;
+
+    if (dateFrom) {
+      const fromObj = new Date(dateFrom);
+      fromObj.setHours(0, 0, 0, 0);
+      if (pmEnd && pmEnd < fromObj) return false;
+    }
+
+    if (dateTo) {
+      const toObj = new Date(dateTo);
+      toObj.setHours(23, 59, 59, 999);
+      if (pmStart && pmStart > toObj) return false;
+    }
+
+    return true;
+  };
+
+  const parseRangeDates = (range: string | null | undefined): { startDate: string; endDate: string } => {
+    if (!range) return { startDate: '—', endDate: '—' };
+    const parts = range.split(/\s+(?:TO|to|-)\s+/);
+    if (parts.length >= 2) {
+      return {
+        startDate: parts[0]?.trim() || '—',
+        endDate: parts[parts.length - 1]?.trim() || '—'
+      };
+    }
+    return { startDate: range.trim(), endDate: '—' };
   };
 
   const getPMStats = (pmSchedules: PMSchedule[]) => {
@@ -293,7 +389,15 @@ export default function ContractReports({ role }: ContractReportsProps) {
   }, [contracts]);
 
   const uniqueTechnicians = useMemo(() => {
-    const set = new Set(contracts.map(c => c.responsible).filter(Boolean));
+    const set = new Set<string>();
+    contracts.forEach(c => {
+      if (c.responsible) {
+        c.responsible.split(/[\/,]+/).forEach(r => {
+          const name = r.trim();
+          if (name) set.add(name);
+        });
+      }
+    });
     return Array.from(set).sort();
   }, [contracts]);
 
@@ -319,6 +423,22 @@ export default function ContractReports({ role }: ContractReportsProps) {
   const customerSummaries = useMemo(() => {
     let filtered = [...contracts];
 
+    // Date range filter on PM schedule dates OR contract endDate
+    if (dateFrom || dateTo) {
+      filtered = filtered.filter(c => {
+        const applicablePMs = (c.pmSchedules || []).filter(p => p.status !== 'Not Applicable');
+        if (applicablePMs.length > 0) {
+          return applicablePMs.some(p => isPMInDateRange(p.range, dateFrom, dateTo));
+        }
+        const end = c.endDate ? new Date(c.endDate) : null;
+        const from = dateFrom ? new Date(dateFrom) : null;
+        if (from) from.setHours(0, 0, 0, 0);
+        const to = dateTo ? new Date(dateTo) : null;
+        if (to) to.setHours(23, 59, 59, 999);
+        return end ? (!from || end >= from) && (!to || end <= to) : false;
+      });
+    }
+
     if (search) {
       const s = search.toLowerCase();
       filtered = filtered.filter(c =>
@@ -331,18 +451,14 @@ export default function ContractReports({ role }: ContractReportsProps) {
     }
     if (zoneFilter !== 'all') filtered = filtered.filter(c => c.zoneName === zoneFilter);
     if (statusFilter !== 'all') filtered = filtered.filter(c => c.status === statusFilter);
-    if (techFilter !== 'all') filtered = filtered.filter(c => c.responsible === techFilter);
+    if (techFilter !== 'all') {
+      filtered = filtered.filter(c =>
+        c.responsible && c.responsible.split(/[\/,]+/).map(r => r.trim().toLowerCase()).includes(techFilter.toLowerCase())
+      );
+    }
     if (mcTypeFilter !== 'all') filtered = filtered.filter(c => c.mcType === mcTypeFilter);
     if (swFilter === 'yes') filtered = filtered.filter(c => c.softwareSupport);
     if (swFilter === 'no') filtered = filtered.filter(c => !c.softwareSupport);
-
-    if (expiryFilter !== 'all') {
-      const days = Number(expiryFilter);
-      filtered = filtered.filter(c => {
-        const rem = getDaysRemaining(c.endDate);
-        return rem >= 0 && rem <= days;
-      });
-    }
 
     if (pmFilter !== 'all') {
       filtered = filtered.filter(c => {
@@ -435,7 +551,7 @@ export default function ContractReports({ role }: ContractReportsProps) {
     });
 
     return result;
-  }, [contracts, search, zoneFilter, statusFilter, techFilter, mcTypeFilter, swFilter, expiryFilter, pmFilter, sortKey, sortDir]);
+  }, [contracts, search, zoneFilter, statusFilter, techFilter, mcTypeFilter, swFilter, pmFilter, sortKey, sortDir, dateFrom, dateTo]);
 
 
 
@@ -481,10 +597,13 @@ export default function ContractReports({ role }: ContractReportsProps) {
         const filters = {
           zone: zoneFilter !== 'all' ? zoneFilter : 'All',
           status: statusFilter !== 'all' ? statusFilter : 'All',
-          responsible: techFilter !== 'all' ? techFilter : 'All'
+          responsible: techFilter !== 'all' ? techFilter : 'All',
+          mcType: mcTypeFilter !== 'all' ? mcTypeFilter : 'All',
+          dateFrom,
+          dateTo
         };
         await generateContractReportPdf(customerSummaries, selectedSummary, filters);
-        toast.success('Customer Portfolio PDF Report exported successfully!');
+        toast.success('Contract Schedule PDF Report exported successfully!');
         return;
       }
 
@@ -492,16 +611,19 @@ export default function ContractReports({ role }: ContractReportsProps) {
       if (zoneFilter !== 'all') params.zone = zoneFilter;
       if (statusFilter !== 'all') params.status = statusFilter;
       if (techFilter !== 'all') params.responsible = techFilter;
+      if (mcTypeFilter !== 'all') params.mcType = mcTypeFilter;
+      if (swFilter !== 'all') params.softwareSupport = swFilter;
       if (search) params.search = search;
+      if (dateFrom) params.dateFrom = dateFrom;
+      if (dateTo) params.dateTo = dateTo;
 
       const blob = await apiService.exportContractReport(params);
       const mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-      const fileExt = 'xlsx';
 
       const url = window.URL.createObjectURL(new Blob([blob], { type: mimeType }));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `KardexCare-Customer-Portfolio-Report-${Date.now()}.${fileExt}`);
+      link.setAttribute('download', 'Contract_Report.xlsx');
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -563,60 +685,254 @@ export default function ContractReports({ role }: ContractReportsProps) {
         </div>
       )}
 
-      {/* ═══ HEADER BANNER ═══ */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#546A7A] via-[#6F8A9D] to-[#3d4f5c] p-6 text-white shadow-xl print:rounded-none print:shadow-none print:p-4">
-        <div className="absolute top-0 right-0 -mt-10 -mr-10 w-40 h-40 bg-[#82A094]/25 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 left-1/3 -mb-10 w-40 h-40 bg-[#CE9F6B]/20 rounded-full blur-3xl" />
-
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
+      {/* ═══ PAGE HEADER — Same as Ticket Reports ═══ */}
+      <div className="mb-6 sm:mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#82A094]/15 border border-[#82A094]/30 mb-3">
-              <BarChart3 className="w-4 h-4 text-[#82A094]" />
-              <span className="text-xs font-semibold text-[#82A094] tracking-wider uppercase">{role} • Contract Reports</span>
-            </div>
-            <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">Contract & PM Schedule Reports</h1>
-            <p className="text-white/60 text-sm mt-1">
-              Access comprehensive dashboards, expiring warnings, PM visits status, service zones, and technician summaries.
+            <h1 className="text-2xl sm:text-3xl font-bold text-[#546A7A] mb-2">Contract & PM Reports</h1>
+            <p className="text-sm sm:text-base text-[#5D6E73]">
+              Generate and view comprehensive contract portfolios, PM schedules, and expiry analytics
             </p>
           </div>
-          <div className="flex items-center gap-2 flex-wrap print:hidden">
-            <button
-              onClick={fetchContracts}
-              disabled={loading}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/10 text-sm font-semibold transition-all disabled:opacity-50"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              <span>Refresh</span>
-            </button>
-            <button
-              onClick={() => handleExport('excel')}
-              disabled={exporting || loading}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-gradient-to-r from-[#82A094] to-[#688579] hover:brightness-110 active:scale-[0.98] text-white font-semibold transition-all shadow-lg shadow-[#82A094]/25 disabled:opacity-50 text-xs"
-            >
-              <Download className={`w-4 h-4 ${exporting ? 'animate-bounce' : ''}`} />
-              <span>Excel</span>
-            </button>
-            <button
-              onClick={() => handleExport('pdf')}
-              disabled={exporting || loading}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-gradient-to-r from-[#546A7A] to-[#6F8A9D] hover:brightness-110 active:scale-[0.98] text-white font-semibold transition-all shadow-lg shadow-[#546A7A]/25 disabled:opacity-50 text-xs"
-            >
-              <FileText className="w-4 h-4" />
-              <span>PDF</span>
-            </button>
-            <button
-              onClick={handleExportBoth}
-              disabled={exporting || loading}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-gradient-to-r from-[#CE9F6B] to-[#B88A57] hover:brightness-110 active:scale-[0.98] text-white font-semibold transition-all shadow-lg shadow-[#CE9F6B]/25 disabled:opacity-50 text-xs"
-            >
-              <Zap className={`w-4 h-4 ${exporting ? 'animate-pulse' : ''}`} />
-              <span>Both</span>
-            </button>
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+            <div className="text-xs sm:text-sm text-[#5D6E73] bg-[#AEBFC3]/20 px-3 py-2 rounded-lg">
+              Report Type: <span className="font-medium">Customer Portfolio</span>
+            </div>
+            {contracts.length > 0 && (
+              <div className="text-xs sm:text-sm text-[#4F6A64] bg-[#A2B9AF]/10 px-3 py-2 rounded-lg">
+                ✓ {customerSummaries.length} Customers
+              </div>
+            )}
           </div>
         </div>
       </div>
 
+      {/* ═══ REPORT GENERATION CONTROLS — Card Layout like Ticket Reports ═══ */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden print:hidden">
+        {/* Card Header — Title + Generate + Export Buttons */}
+        <div className="px-6 py-5 border-b border-slate-100">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h2 className="text-lg sm:text-xl font-bold text-slate-800">Report Filters</h2>
+              <p className="text-sm text-slate-500 mt-1">Configure your report parameters and generate</p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+              <button
+                onClick={fetchContracts}
+                disabled={loading}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-[#6F8A9D] hover:bg-[#546A7A] text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-all duration-200 hover:shadow-xl hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
+              >
+                <BarChart3 className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+                {loading ? 'Generating...' : 'Generate Report'}
+              </button>
+              <div className="flex gap-2 sm:gap-3">
+                <button
+                  onClick={() => handleExport('excel')}
+                  disabled={exporting || loading || customerSummaries.length === 0}
+                  className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 border-[#4F6A64] text-[#4F6A64] hover:bg-[#A2B9AF]/10 font-semibold text-sm transition-all min-h-[44px] disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Download className={`w-4 h-4 ${exporting ? 'animate-bounce' : ''}`} />
+                  Export Excel
+                </button>
+                <button
+                  onClick={() => handleExport('pdf')}
+                  disabled={exporting || loading || customerSummaries.length === 0}
+                  className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 border-[#9E3B47] text-[#9E3B47] hover:bg-[#E17F70]/10 font-semibold text-sm transition-all min-h-[44px] disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <FileText className="w-4 h-4" />
+                  Export PDF
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
 
+        {/* Card Content — Filters */}
+        <div className="px-6 py-5 space-y-4">
+          {/* Date Range Row */}
+          <div className="space-y-2">
+            <label className="text-xs font-semibold text-slate-600 uppercase tracking-wider flex items-center gap-2">
+              <Calendar className="w-3.5 h-3.5" />
+              Date Range (Contract Expiry)
+            </label>
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="space-y-1">
+                <span className="text-[10px] font-medium text-slate-400">From</span>
+                <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  className="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 bg-white font-medium w-[160px]"
+                />
+              </div>
+              <div className="space-y-1">
+                <span className="text-[10px] font-medium text-slate-400">To</span>
+                <input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  className="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 bg-white font-medium w-[160px]"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Divider */}
+          <div className="border-t border-slate-100" />
+
+          {/* Filter Grid — matching ticket report grid layout */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Search */}
+            <div className="space-y-1 sm:col-span-2 lg:col-span-1">
+              <label className="text-xs font-semibold text-slate-600">Search</label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                <input
+                  type="text"
+                  placeholder="Customer, contract, PO..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#82A094]/30"
+                />
+              </div>
+            </div>
+
+            {/* Zone */}
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-600">Zone</label>
+              <select value={zoneFilter} onChange={(e) => setZoneFilter(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 font-medium">
+                <option value="all">All Zones</option>
+                {uniqueZones.map(z => <option key={z} value={z}>{z} Zone</option>)}
+              </select>
+            </div>
+
+            {/* Status */}
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-600">Status</label>
+              <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 font-medium">
+                <option value="all">All Status</option>
+                <option value="Active">Active</option>
+                <option value="Expiring Soon">Expiring Soon</option>
+                <option value="Expired">Expired</option>
+              </select>
+            </div>
+
+            {/* Responsible */}
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-600">Responsible</label>
+              <select value={techFilter} onChange={(e) => setTechFilter(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 font-medium">
+                <option value="all">All Responsible</option>
+                {uniqueTechnicians.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+
+            {/* MC Type */}
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-600">MC Type</label>
+              <select value={mcTypeFilter} onChange={(e) => setMcTypeFilter(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 font-medium">
+                <option value="all">All MC Types</option>
+                {uniqueMcTypes.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </div>
+
+            {/* PM Progress */}
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-600">PM Status</label>
+              <select value={pmFilter} onChange={(e) => setPmFilter(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 font-medium">
+                <option value="all">All PM Status</option>
+                <option value="completed">100% Completed</option>
+                <option value="on-track">On Track (≥50%)</option>
+                <option value="behind">Behind (&lt;50%)</option>
+                <option value="overdue">Has Overdue PMs</option>
+                <option value="not-started">Not Started (0%)</option>
+              </select>
+            </div>
+
+
+
+            {/* SW Support */}
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-600">SW Support</label>
+              <select value={swFilter} onChange={(e) => setSwFilter(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 font-medium">
+                <option value="all">All</option>
+                <option value="yes">With SW</option>
+                <option value="no">Without SW</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Report Type Info Banner */}
+          <div className="mt-2 p-4 bg-[#96AEC2]/10 rounded-lg border border-[#96AEC2]">
+            <h4 className="font-medium text-[#546A7A]">Customer Portfolio Report</h4>
+            <p className="text-sm text-[#546A7A] mt-1">Comprehensive view of all customers with their contracts, PM schedules, expiry status, and portfolio value grouped by customer.</p>
+          </div>
+
+          {/* Preset Row */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={() => setShowPresetSave(!showPresetSave)}
+              className="px-3 py-2 rounded-lg border border-slate-200 text-xs bg-white hover:bg-slate-50 font-medium text-slate-600 flex items-center gap-1.5 transition-colors"
+              title="Save current filters as a preset"
+            >
+              <BookmarkPlus className="w-3.5 h-3.5" />
+              Save Preset
+            </button>
+
+            {filterPresets.map(preset => (
+              <div key={preset.id} className="inline-flex items-center gap-1 group">
+                <button
+                  onClick={() => loadPreset(preset)}
+                  className="px-2.5 py-1.5 rounded-lg bg-[#546A7A]/10 hover:bg-[#546A7A]/20 text-[10px] font-bold text-[#546A7A] transition-colors flex items-center gap-1"
+                  title={`Zone: ${preset.filters.zone} | Status: ${preset.filters.status} | Responsible: ${preset.filters.tech}`}
+                >
+                  <Zap className="w-2.5 h-2.5" />
+                  {preset.name}
+                </button>
+                <button
+                  onClick={() => deletePreset(preset.id)}
+                  className="p-0.5 rounded text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"
+                  title="Delete preset"
+                >
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {/* Filter Preset Save Form */}
+          {showPresetSave && (
+            <div className="flex items-center gap-2 mt-2 pt-2 border-t border-slate-100 animate-in slide-in-from-top-2 duration-150">
+              <Save className="w-4 h-4 text-[#82A094] flex-shrink-0" />
+              <input
+                type="text"
+                placeholder="Enter preset name (e.g. 'Active East Zone')"
+                value={presetName}
+                onChange={e => setPresetName(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && savePreset()}
+                className="flex-1 px-3 py-1.5 rounded-lg border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-[#82A094]/30"
+              />
+              <button
+                onClick={savePreset}
+                className="px-3 py-1.5 rounded-lg bg-[#82A094] text-white text-xs font-bold hover:bg-[#6d9181] transition-colors"
+              >
+                Save
+              </button>
+              <button
+                onClick={() => { setShowPresetSave(false); setPresetName(''); }}
+                className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs text-slate-500 hover:bg-slate-50 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* ═══ DYNAMIC SUMMARY KPI CARDS ═══ */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -697,151 +1013,6 @@ export default function ContractReports({ role }: ContractReportsProps) {
             />
           </div>
         </div>
-      </div>
-
-      {/* ═══ FILTERS BAR ═══ */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm space-y-3 print:hidden">
-        <div className="flex items-center gap-2 mb-1">
-          <Filter className="w-4 h-4 text-slate-500" />
-          <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Filters</h3>
-          <span className="ml-auto text-[10px] text-slate-400 font-bold bg-slate-100 px-2 py-0.5 rounded">
-            Showing {getFilterHeaderCount()}
-          </span>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {/* Search */}
-          <div className="relative w-full sm:max-w-[240px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-            <input
-              type="text"
-              placeholder="Search customer, contract, PO, place..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-[#82A094]/30"
-            />
-          </div>
-
-          {/* Zone */}
-          <select value={zoneFilter} onChange={(e) => setZoneFilter(e.target.value)}
-            className="px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none font-medium">
-            <option value="all">All Zones</option>
-            {uniqueZones.map(z => <option key={z} value={z}>{z} Zone</option>)}
-          </select>
-
-          {/* Status */}
-          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none font-medium">
-            <option value="all">All Status</option>
-            <option value="Active">Active</option>
-            <option value="Expiring Soon">Expiring Soon</option>
-            <option value="Expired">Expired</option>
-          </select>
-
-          {/* Responsible */}
-          <select value={techFilter} onChange={(e) => setTechFilter(e.target.value)}
-            className="px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none font-medium">
-            <option value="all">All Responsible</option>
-            {uniqueTechnicians.map(t => <option key={t} value={t}>{t}</option>)}
-          </select>
-
-          {/* MC Type */}
-          <select value={mcTypeFilter} onChange={(e) => setMcTypeFilter(e.target.value)}
-            className="px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none font-medium">
-            <option value="all">All MC Types</option>
-            {uniqueMcTypes.map(m => <option key={m} value={m}>{m}</option>)}
-          </select>
-
-          {/* PM Progress */}
-          <select value={pmFilter} onChange={(e) => setPmFilter(e.target.value)}
-            className="px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none font-medium">
-            <option value="all">All PM Status</option>
-            <option value="completed">100% Completed</option>
-            <option value="on-track">On Track (≥50%)</option>
-            <option value="behind">Behind (&lt;50%)</option>
-            <option value="overdue">Has Overdue PMs</option>
-            <option value="not-started">Not Started (0%)</option>
-          </select>
-
-          {/* Expiry Window */}
-          <select value={expiryFilter} onChange={(e) => setExpiryFilter(e.target.value)}
-            className="px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none font-medium">
-            <option value="all">All Expiry</option>
-            <option value="30">Expiring in 30 Days</option>
-            <option value="60">Expiring in 60 Days</option>
-            <option value="90">Expiring in 90 Days</option>
-          </select>
-
-          {/* SW Support */}
-          <select value={swFilter} onChange={(e) => setSwFilter(e.target.value)}
-            className="px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none font-medium">
-            <option value="all">SW Support</option>
-            <option value="yes">With SW</option>
-            <option value="no">Without SW</option>
-          </select>
-
-          {/* Save Preset */}
-          <button
-            onClick={() => setShowPresetSave(!showPresetSave)}
-            className="px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white hover:bg-slate-50 font-medium text-slate-600 flex items-center gap-1.5 transition-colors"
-            title="Save current filters as a preset"
-          >
-            <BookmarkPlus className="w-3.5 h-3.5" />
-            Save Preset
-          </button>
-        </div>
-
-        {/* Filter Preset Save Form */}
-        {showPresetSave && (
-          <div className="flex items-center gap-2 mt-2 pt-2 border-t border-slate-100 animate-in slide-in-from-top-2 duration-150">
-            <Save className="w-4 h-4 text-[#82A094] flex-shrink-0" />
-            <input
-              type="text"
-              placeholder="Enter preset name (e.g. 'Active East Zone')"
-              value={presetName}
-              onChange={e => setPresetName(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && savePreset()}
-              className="flex-1 px-3 py-1.5 rounded-lg border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-[#82A094]/30"
-            />
-            <button
-              onClick={savePreset}
-              className="px-3 py-1.5 rounded-lg bg-[#82A094] text-white text-xs font-bold hover:bg-[#6d9181] transition-colors"
-            >
-              Save
-            </button>
-            <button
-              onClick={() => { setShowPresetSave(false); setPresetName(''); }}
-              className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs text-slate-500 hover:bg-slate-50 transition-colors"
-            >
-              Cancel
-            </button>
-          </div>
-        )}
-
-        {/* Saved Presets */}
-        {filterPresets.length > 0 && (
-          <div className="flex items-center gap-2 mt-2 pt-2 border-t border-slate-100 flex-wrap">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Saved Presets:</span>
-            {filterPresets.map(preset => (
-              <div key={preset.id} className="inline-flex items-center gap-1 group">
-                <button
-                  onClick={() => loadPreset(preset)}
-                  className="px-2.5 py-1 rounded-lg bg-[#546A7A]/10 hover:bg-[#546A7A]/20 text-[10px] font-bold text-[#546A7A] transition-colors flex items-center gap-1"
-                  title={`Zone: ${preset.filters.zone} | Status: ${preset.filters.status} | Responsible: ${preset.filters.tech}`}
-                >
-                  <Zap className="w-2.5 h-2.5" />
-                  {preset.name}
-                </button>
-                <button
-                  onClick={() => deletePreset(preset.id)}
-                  className="p-0.5 rounded text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"
-                  title="Delete preset"
-                >
-                  <Trash2 className="w-3 h-3" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* ═══ TABLE / LIST CONTAINER ═══ */}
@@ -1051,13 +1222,12 @@ export default function ContractReports({ role }: ContractReportsProps) {
                                         return (
                                           <div
                                             key={pidx}
-                                            className={`w-6 h-6 rounded-lg flex items-center justify-center text-[9px] font-bold border transition-all ${
-                                              done
+                                            className={`w-6 h-6 rounded-lg flex items-center justify-center text-[9px] font-bold border transition-all ${done
                                                 ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'
                                                 : overdue
-                                                ? 'bg-rose-500/10 text-rose-700 border-rose-500/20'
-                                                : 'bg-amber-500/10 text-amber-700 border-amber-500/20'
-                                            }`}
+                                                  ? 'bg-rose-500/10 text-rose-700 border-rose-500/20'
+                                                  : 'bg-amber-500/10 text-amber-700 border-amber-500/20'
+                                              }`}
                                             title={`PM Visit ${p.pmNumber}: ${p.status}\nRange: ${p.range}`}
                                           >
                                             {done ? '✓' : overdue ? '!' : p.pmNumber}
@@ -1082,46 +1252,64 @@ export default function ContractReports({ role }: ContractReportsProps) {
                                 </div>
 
                                 <div className="mt-3 pt-3 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                                  {contract.pmSchedules.map((p, pidx) => {
-                                    if (p.status === 'Not Applicable') return null;
-                                    const done = p.status === 'Completed';
-                                    const overdue = !done && p.range && isRangeOverdue(p.range);
-                                    return (
-                                      <div
-                                        key={pidx}
-                                        className={`px-3 py-2 rounded-xl border flex justify-between items-center text-[11px] ${
-                                          done
-                                            ? 'bg-emerald-500/5 border-emerald-500/15'
-                                            : overdue
-                                            ? 'bg-rose-500/5 border-rose-500/15'
-                                            : 'bg-slate-50/50 border-slate-100'
-                                        }`}
-                                      >
-                                        <div className="min-w-0">
-                                          <span className={`font-bold block text-[9px] uppercase tracking-wider ${
-                                            done ? 'text-emerald-700' : overdue ? 'text-rose-700' : 'text-slate-400'
-                                          }`}>
-                                            PM Cycle {p.pmNumber}
-                                          </span>
-                                          <span className="font-mono text-slate-500 text-[10px] truncate block">{p.range}</span>
-                                          {done && p.completedAt && (
-                                            <span className="text-[9px] font-bold text-emerald-600 block mt-0.5">
-                                              Done: {formatDate(p.completedAt)}
-                                            </span>
-                                          )}
+                                  {(() => {
+                                    const activePMs = (contract.pmSchedules || []).filter(p => {
+                                      if (p.status === 'Not Applicable') return false;
+                                      if (dateFrom || dateTo) return isPMInDateRange(p.range, dateFrom, dateTo);
+                                      return true;
+                                    });
+
+                                    if (activePMs.length === 0) {
+                                      return (
+                                        <div className="col-span-full py-2 text-center text-slate-400 text-[11px] italic">
+                                          No PM visits scheduled in this period.
                                         </div>
-                                        <span className={`px-2 py-0.5 rounded text-[9px] font-bold whitespace-nowrap ${
-                                          done
-                                            ? 'bg-emerald-500/10 text-emerald-700'
-                                            : overdue
-                                            ? 'bg-rose-500/10 text-rose-700'
-                                            : 'bg-amber-500/10 text-amber-700'
-                                        }`}>
-                                          {done ? '✓ Done' : overdue ? '! Overdue' : 'Pending'}
-                                        </span>
-                                      </div>
-                                    );
-                                  })}
+                                      );
+                                    }
+
+                                    return activePMs.map((p, pidx) => {
+                                      const done = p.status === 'Completed';
+                                      const overdue = !done && p.range && isRangeOverdue(p.range);
+                                      return (
+                                        <div
+                                          key={pidx}
+                                          className={`px-3 py-2 rounded-xl border flex justify-between items-center text-[11px] ${done
+                                              ? 'bg-emerald-500/5 border-emerald-500/15'
+                                              : overdue
+                                                ? 'bg-rose-500/5 border-rose-500/15'
+                                                : 'bg-slate-50/50 border-slate-100'
+                                            }`}
+                                        >
+                                          <div className="min-w-0">
+                                            <span className={`font-bold block text-[9px] uppercase tracking-wider ${done ? 'text-emerald-700' : overdue ? 'text-rose-700' : 'text-slate-400'
+                                              }`}>
+                                              PM Cycle {p.pmNumber}
+                                            </span>
+                                            {p.range && (
+                                              <div className="text-[10px] text-slate-600 font-medium">
+                                                <span>Start: <strong className="text-slate-700">{parseRangeDates(p.range).startDate}</strong></span>
+                                                <span className="mx-1 text-slate-300">•</span>
+                                                <span>End: <strong className="text-slate-700">{parseRangeDates(p.range).endDate}</strong></span>
+                                              </div>
+                                            )}
+                                            {done && p.completedAt && (
+                                              <span className="text-[9px] font-bold text-emerald-600 block mt-0.5">
+                                                Done: {formatDate(p.completedAt)}
+                                              </span>
+                                            )}
+                                          </div>
+                                          <span className={`px-2 py-0.5 rounded text-[9px] font-bold whitespace-nowrap ${done
+                                              ? 'bg-emerald-500/10 text-emerald-700'
+                                              : overdue
+                                                ? 'bg-rose-500/10 text-rose-700'
+                                                : 'bg-amber-500/10 text-amber-700'
+                                            }`}>
+                                            {done ? '✓ Done' : overdue ? '! Overdue' : 'Pending'}
+                                          </span>
+                                        </div>
+                                      );
+                                    });
+                                  })()}
                                 </div>
                               </div>
                             );

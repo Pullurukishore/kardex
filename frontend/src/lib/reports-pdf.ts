@@ -85,7 +85,7 @@ const fmtDate = (d: Date | string | null | undefined): string => {
 // ============ PDF Drawing Helpers ============
 async function loadLogoBase64(): Promise<string | null> {
     try {
-        const response = await fetch('/kardex.png')
+        const response = await fetch('/kardex-only.png')
         const blob = await response.blob()
         return new Promise((resolve) => {
             const reader = new FileReader()
@@ -119,7 +119,7 @@ function drawHeader(doc: any, title: string, subtitle: string, logoBase64: strin
     doc.roundedRect(logoX, logoY, logoRectW, logoRectH, 1.5, 1.5, 'F')
     if (logoBase64) {
         try {
-            doc.addImage(logoBase64, 'PNG', logoX + 5, logoY + 3, logoRectW - 10, logoRectH - 6)
+            doc.addImage(logoBase64, 'PNG', logoX + 5.5, logoY + 3.75, 37, 8.5)
         } catch {
             doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(...COLORS.textDark)
             doc.text('KARDEX', logoX + logoRectW / 2, logoY + logoRectH / 2 + 1, { align: 'center' })
@@ -158,7 +158,7 @@ function drawFooter(doc: any, pageNum: number, reportTitle: string) {
     doc.setFillColor(...COLORS.accentCyan)
     doc.rect(0, pageH - 10, pageW, 0.4, 'F')
     doc.setFont('helvetica', 'normal'); doc.setFontSize(6); doc.setTextColor(...COLORS.accentCyan)
-    doc.text(`Kardex Remstar  |  ${cleanText(reportTitle)}  |  Confidential`, 15, pageH - 4)
+    doc.text(`Kardex  |  ${cleanText(reportTitle)}  |  Confidential`, 15, pageH - 4)
     doc.setTextColor(...COLORS.white)
     doc.text(`Page ${pageNum}`, pageW - 25, pageH - 4)
 }

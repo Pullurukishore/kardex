@@ -19,6 +19,7 @@
     "delete:service-persons": "ts-node scripts/deleteServicePersons.ts",
     "delete:customers": "ts-node scripts/deleteAllCustomers.ts",
     "delete:contracts": "ts-node scripts/deleteAllContracts.ts",
+    "delete:detailed-contracts": "ts-node scripts/deleteAllDetailedContracts.ts",
     "deactivate:customers": "ts-node scripts/deactivateAllCustomers.ts",
     "activate:customers": "ts-node scripts/activateAllCustomers.ts"
   },

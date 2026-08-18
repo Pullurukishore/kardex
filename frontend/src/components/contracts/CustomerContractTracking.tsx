@@ -124,10 +124,17 @@ export default function CustomerContractTracking({ role }: CustomerContractTrack
     fetchContracts();
   }, [zoneFilter, statusFilter, techFilter]);
 
-  // List of unique technicians for filter
   const uniqueTechnicians = useMemo(() => {
-    const list = new Set(contracts.map(c => c.responsible).filter(Boolean));
-    return Array.from(list);
+    const list = new Set<string>();
+    contracts.forEach(c => {
+      if (c.responsible) {
+        c.responsible.split(/[\/,]+/).forEach(r => {
+          const name = r.trim();
+          if (name) list.add(name);
+        });
+      }
+    });
+    return Array.from(list).sort();
   }, [contracts]);
 
   // Toggle PM Status
@@ -169,7 +176,7 @@ export default function CustomerContractTracking({ role }: CustomerContractTrack
         };
       }
       grouped[key].totalContracts++;
-      if (c.status === 'Active') grouped[key].activeContracts++;
+      if (c.status === 'Active' || c.status === 'Expiring Soon') grouped[key].activeContracts++;
       if (c.status === 'Expired') grouped[key].expiredContracts++;
       grouped[key].totalValue += Number(c.amount);
       grouped[key].totalMachines += c.noOfMachine;

@@ -46,7 +46,7 @@ export async function generateDetailedPersonExcel(res: Response, data: ReportDat
 
   // Add logo if available
   try {
-    const logoPath = path.join(__dirname, '../../../frontend/public/kardex.png');
+    const logoPath = path.join(__dirname, '../../../frontend/public/kardex-only.png');
     if (fs.existsSync(logoPath)) {
       const logoImageId = workbook.addImage({
         filename: logoPath,
@@ -223,7 +223,7 @@ export async function generateDetailedPersonPdf(res: Response, data: ReportData)
 
   // Add logo if available
   try {
-    const logoPath = path.join(__dirname, '../../../frontend/public/kardex.png');
+    const logoPath = path.join(__dirname, '../../../frontend/public/kardex-only.png');
     if (fs.existsSync(logoPath)) {
       doc.image(logoPath, 50, 45, { width: 100 });
     }

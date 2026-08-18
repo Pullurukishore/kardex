@@ -899,6 +899,54 @@ class ApiService {
     return response.data;
   }
 
+  // ============================
+  // Detailed Contract methods
+  // ============================
+  async getDetailedContracts(params?: any) {
+    const response = await api.get(`${this.baseURL}/detailed-contracts`, { params });
+    return response.data;
+  }
+
+  async getDetailedContractStats(params?: any) {
+    const response = await api.get(`${this.baseURL}/detailed-contracts/stats`, { params });
+    return response.data;
+  }
+
+  async getDetailedContractsCustomerGrouped(params?: any) {
+    const response = await api.get(`${this.baseURL}/detailed-contracts/customer-grouped`, { params });
+    return response.data;
+  }
+
+  async getDetailedContract(id: number) {
+    const response = await api.get(`${this.baseURL}/detailed-contracts/${id}`);
+    return response.data;
+  }
+
+  async createDetailedContract(data: any) {
+    const response = await api.post(`${this.baseURL}/detailed-contracts`, data);
+    return response.data;
+  }
+
+  async updateDetailedContract(id: number, data: any) {
+    const response = await api.put(`${this.baseURL}/detailed-contracts/${id}`, data);
+    return response.data;
+  }
+
+  async deleteDetailedContract(id: number) {
+    const response = await api.delete(`${this.baseURL}/detailed-contracts/${id}`);
+    return response.data;
+  }
+
+  async bulkImportDetailedContracts(records: any[]) {
+    const response = await api.post(`${this.baseURL}/detailed-contracts/bulk-import`, { records });
+    return response.data;
+  }
+
+  async exportDetailedContracts(params?: any) {
+    const response = await api.get(`${this.baseURL}/detailed-contracts/export`, { params });
+    return response.data;
+  }
+
 }
 
 export const apiService = new ApiService();
@@ -924,3 +972,13 @@ export const getZoneContractSummary = (params?: any) => apiService.getZoneContra
 export const getTechnicianPMReport = (params?: any) => apiService.getTechnicianPMReport(params);
 export const getCustomerPortfolioReport = (params?: any) => apiService.getCustomerPortfolioReport(params);
 export const exportContractReport = (params?: any) => apiService.exportContractReport(params);
+
+export const getDetailedContracts = (params?: any) => apiService.getDetailedContracts(params);
+export const getDetailedContractStats = (params?: any) => apiService.getDetailedContractStats(params);
+export const getDetailedContractsCustomerGrouped = (params?: any) => apiService.getDetailedContractsCustomerGrouped(params);
+export const getDetailedContract = (id: number) => apiService.getDetailedContract(id);
+export const createDetailedContract = (data: any) => apiService.createDetailedContract(data);
+export const updateDetailedContract = (id: number, data: any) => apiService.updateDetailedContract(id, data);
+export const deleteDetailedContract = (id: number) => apiService.deleteDetailedContract(id);
+export const bulkImportDetailedContracts = (records: any[]) => apiService.bulkImportDetailedContracts(records);
+export const exportDetailedContracts = (params?: any) => apiService.exportDetailedContracts(params);

@@ -310,8 +310,8 @@ async function generateStandardExcel(
     // ==================================================
     // HEADER SECTION - Logo and Company Info
     // ==================================================
-    const logoPath = path.join(__dirname, '..', 'assets', 'kardex-logo.png');
-    const frontendLogoPath = path.join(__dirname, '..', '..', '..', 'frontend', 'public', 'kardex.png');
+    const logoPath = path.join(__dirname, '..', 'assets', 'kardex-only.png');
+    const frontendLogoPath = path.join(__dirname, '..', '..', '..', 'frontend', 'public', 'kardex-only.png');
 
     let logoAdded = false;
     for (const logoFile of [logoPath, frontendLogoPath]) {
@@ -335,7 +335,7 @@ async function generateStandardExcel(
     worksheet.mergeCells(`A${currentRow}:${lastColLetter}${currentRow}`);
     const companyCell = worksheet.getCell(`A${currentRow}`);
     if (!logoAdded) {
-        companyCell.value = 'KARDEX REMSTAR';
+        companyCell.value = 'KARDEX';
         companyCell.font = { size: 20, bold: true, color: { argb: COLORS.brandPrimary } };
     }
     companyCell.alignment = { horizontal: 'center', vertical: 'middle' };
@@ -618,7 +618,7 @@ async function generateStandardExcel(
     currentRow++;
     worksheet.mergeCells(`A${currentRow}:${lastColLetter}${currentRow}`);
     const footerCell = worksheet.getCell(`A${currentRow}`);
-    footerCell.value = `© ${new Date().getFullYear()} Kardex Remstar India Pvt. Ltd. | This report is confidential.`;
+    footerCell.value = `© ${new Date().getFullYear()} Kardex India Pvt. Ltd. | This report is confidential.`;
     footerCell.font = { size: 8, color: { argb: COLORS.textLight }, italic: true };
     footerCell.alignment = { horizontal: 'center', vertical: 'middle' };
 

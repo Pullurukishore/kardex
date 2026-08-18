@@ -17,6 +17,7 @@ import {
   Brain,
   UploadCloud,
   Building2,
+  Layers,
 } from "lucide-react";
 
 export type NavItem = {
@@ -605,6 +606,22 @@ export const adminContractsNavigation: NavItem[] = [
     roles: [UserRole.ADMIN],
     iconColor: "text-[#CE9F6B]",
     iconBgColor: "bg-[#CE9F6B]/10"
+  },
+  {
+    title: "Annual Contracts",
+    href: "/admin/contracts/detailed",
+    icon: Layers,
+    roles: [UserRole.ADMIN],
+    iconColor: "text-[#7CA5C4]",
+    iconBgColor: "bg-[#7CA5C4]/10"
+  },
+  {
+    title: "Import Annual",
+    href: "/admin/contracts/detailed-import",
+    icon: UploadCloud,
+    roles: [UserRole.ADMIN],
+    iconColor: "text-[#A884C9]",
+    iconBgColor: "bg-[#A884C9]/10"
   }
 ];
 
@@ -641,6 +658,22 @@ export const zoneManagerContractsNavigation: NavItem[] = [
     roles: [UserRole.ZONE_MANAGER],
     iconColor: "text-[#CE9F6B]",
     iconBgColor: "bg-[#CE9F6B]/10"
+  },
+  {
+    title: "Annual Contracts",
+    href: "/zone-manager/contracts/detailed",
+    icon: Layers,
+    roles: [UserRole.ZONE_MANAGER],
+    iconColor: "text-[#7CA5C4]",
+    iconBgColor: "bg-[#7CA5C4]/10"
+  },
+  {
+    title: "Import Annual",
+    href: "/zone-manager/contracts/detailed-import",
+    icon: UploadCloud,
+    roles: [UserRole.ZONE_MANAGER],
+    iconColor: "text-[#A884C9]",
+    iconBgColor: "bg-[#A884C9]/10"
   }
 ];
 
@@ -669,6 +702,14 @@ export const zoneUserContractsNavigation: NavItem[] = [
     roles: [UserRole.ZONE_USER],
     iconColor: "text-[#CE9F6B]",
     iconBgColor: "bg-[#CE9F6B]/10"
+  },
+  {
+    title: "Annual Contracts",
+    href: "/zone/contracts/detailed",
+    icon: Layers,
+    roles: [UserRole.ZONE_USER],
+    iconColor: "text-[#7CA5C4]",
+    iconBgColor: "bg-[#7CA5C4]/10"
   }
 ];
 
@@ -697,6 +738,14 @@ export const expertHelpdeskContractsNavigation: NavItem[] = [
     roles: [UserRole.EXPERT_HELPDESK],
     iconColor: "text-[#CE9F6B]",
     iconBgColor: "bg-[#CE9F6B]/10"
+  },
+  {
+    title: "Annual Contracts",
+    href: "/expert/contracts/detailed",
+    icon: Layers,
+    roles: [UserRole.EXPERT_HELPDESK],
+    iconColor: "text-[#7CA5C4]",
+    iconBgColor: "bg-[#7CA5C4]/10"
   }
 ];
 

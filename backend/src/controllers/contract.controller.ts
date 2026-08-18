@@ -30,6 +30,18 @@ const computeContractStatus = (endDate: Date | null | string): string => {
   return 'Active';
 };
 
+// Helper to normalize MC Type casing
+const normalizeMcType = (mcType: string | null | undefined): string => {
+  if (!mcType) return '';
+  const trimmed = mcType.trim();
+  const lower = trimmed.toLowerCase();
+  if (lower === 'flex care') return 'Flex Care';
+  if (lower === 'full care') return 'Full Care';
+  if (lower === 'premium care') return 'Premium Care';
+  if (lower === 'active care') return 'Active Care';
+  return trimmed.replace(/\b\w/g, (l: string) => l.toUpperCase());
+};
+
 // Create a new contract and distribute PM visits
 export const createContract = async (req: any, res: Response) => {
   try {
@@ -130,7 +142,7 @@ export const createContract = async (req: any, res: Response) => {
           place,
           poNo,
           poDate: poDate ? new Date(poDate) : start,
-          mcType,
+          mcType: normalizeMcType(mcType),
           noOfMachine: Number(noOfMachine),
           amount: Number(amount),
           noOfVisits: Number(noOfVisits),
@@ -197,8 +209,7 @@ export const listContracts = async (req: any, res: Response) => {
         const thirtyDaysLater = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
         where.endDate = { gte: now, lte: thirtyDaysLater };
       } else if (status === 'Active') {
-        const thirtyDaysLater = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-        where.endDate = { gt: thirtyDaysLater };
+        where.endDate = { gte: now };
       } else {
         where.status = status as string;
       }
@@ -415,7 +426,7 @@ export const updateContract = async (req: any, res: Response) => {
           place: place ?? existing.place,
           poNo: poNo ?? existing.poNo,
           poDate: poDate ? new Date(poDate) : (poNo ? start : existing.poDate),
-          mcType: mcType ?? existing.mcType,
+          mcType: normalizeMcType(mcType ?? existing.mcType),
           noOfMachine: noOfMachine !== undefined ? Number(noOfMachine) : existing.noOfMachine,
           amount: amount !== undefined ? Number(amount) : existing.amount,
           noOfVisits: visitsCount,
@@ -741,7 +752,7 @@ export const bulkImportContracts = async (req: any, res: Response) => {
 
       const scheduledMonth = start.toLocaleString('default', { month: 'long' });
       const safePoNo = poNo ? String(poNo).trim() : '';
-      const safeMcType = mcType ? String(mcType).trim() : '';
+      const safeMcType = mcType ? normalizeMcType(String(mcType)) : '';
       const safeResponsible = responsible ? String(responsible).trim() : '';
       const safeZoneName = zoneName ? String(zoneName).trim() : '';
       const safePoDate = poDate && !isNaN(new Date(poDate).getTime()) ? new Date(poDate) : start;

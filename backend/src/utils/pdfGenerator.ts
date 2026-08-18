@@ -160,8 +160,8 @@ export const generatePdf = async (
             .restore();
 
         // Try to add logo
-        const logoPath = path.join(__dirname, '..', 'assets', 'kardex-logo.png');
-        const frontendLogoPath = path.join(__dirname, '..', '..', '..', 'frontend', 'public', 'kardex.png');
+        const logoPath = path.join(__dirname, '..', 'assets', 'kardex-only.png');
+        const frontendLogoPath = path.join(__dirname, '..', '..', '..', 'frontend', 'public', 'kardex-only.png');
 
         let logoAdded = false;
         for (const logoFile of [logoPath, frontendLogoPath]) {
@@ -181,7 +181,7 @@ export const generatePdf = async (
             doc.fillColor(COLORS.headerText)
                 .fontSize(20)
                 .font('Helvetica-Bold')
-                .text('KARDEX REMSTAR', leftMargin, 12, { width: contentWidth, align: 'left', lineBreak: false });
+                .text('KARDEX', leftMargin, 12, { width: contentWidth, align: 'left', lineBreak: false });
 
             doc.fillColor('#94A3B8')
                 .fontSize(8)
@@ -658,8 +658,8 @@ export const generateCombinedPdf = async (
                 .fill(COLORS.headerBg)
                 .restore();
 
-            const logoPath = path.join(__dirname, '..', 'assets', 'kardex-logo.png');
-            const frontendLogoPath = path.join(__dirname, '..', '..', '..', 'frontend', 'public', 'kardex.png');
+            const logoPath = path.join(__dirname, '..', 'assets', 'kardex-only.png');
+            const frontendLogoPath = path.join(__dirname, '..', '..', '..', 'frontend', 'public', 'kardex-only.png');
 
             let logoAdded = false;
             for (const logoFile of [logoPath, frontendLogoPath]) {
@@ -676,7 +676,7 @@ export const generateCombinedPdf = async (
                 doc.fillColor(COLORS.headerText)
                     .fontSize(20)
                     .font('Helvetica-Bold')
-                    .text('KARDEX REMSTAR', leftMargin, 12, { width: contentWidth, align: 'left', lineBreak: false });
+                    .text('KARDEX', leftMargin, 12, { width: contentWidth, align: 'left', lineBreak: false });
 
                 doc.fillColor('#94A3B8')
                     .fontSize(8)
@@ -997,7 +997,7 @@ function addPageFooter(doc: PDFKit.PDFDocument, pageWidth: number, pageHeight: n
     doc.fillColor(COLORS.textLight)
         .fontSize(7)
         .font('Helvetica')
-        .text(`© ${new Date().getFullYear()} Kardex Remstar India Pvt. Ltd. | Confidential`, 40, footerY + 8, { lineBreak: false });
+        .text(`© ${new Date().getFullYear()} Kardex India Pvt. Ltd. | Confidential`, 40, footerY + 8, { lineBreak: false });
 
     // Right side - page number
     if (currentPage !== undefined && totalPages !== undefined) {
