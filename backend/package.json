@@ -38,7 +38,7 @@
     "@types/nodemailer": "^6.4.17",
     "@types/winston": "^2.4.4",
     "@types/ws": "^8.18.1",
-    "adm-zip": "^0.5.16",
+    "adm-zip": "^0.6.0",
     "archiver": "^7.0.1",
     "axios": "^1.13.5",
     "bcrypt": "^6.0.0",
@@ -65,20 +65,22 @@
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.0.2",
     "node-cron": "^4.2.1",
-    "nodemailer": "^7.0.5",
+    "nodemailer": "^9.0.5",
     "pdfkit": "^0.17.2",
     "pg": "^8.16.3",
     "resend": "^6.9.2",
-    "sharp": "^0.34.5",
+    "sharp": "^0.35.3",
     "twilio": "^5.9.0",
-    "uuid": "^11.1.0",
+    "uuid": "^11.1.1",
     "winston": "^3.17.0",
     "ws": "^8.18.3",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "xml2js": "^0.6.2"
   },
   "overrides": {
-    "qs": "6.15.0"
+    "qs": "^6.15.3",
+    "deepmerge-ts": "^8.0.1",
+    "uuid": "^11.1.1"
   },
   "devDependencies": {
     "@faker-js/faker": "^10.1.0",
