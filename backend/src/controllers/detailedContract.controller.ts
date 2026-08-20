@@ -39,37 +39,99 @@ const parseDate = (val: any): Date | null => {
   if (!val) return null;
   if (val instanceof Date) return val;
 
-  // Excel serial number
-  if (typeof val === 'number' && val > 25000 && val < 60000) {
-    const utcDays = Math.floor(val - 25569);
+  // Excel serial number (number or 5-digit numeric string like 45453)
+  const numVal = typeof val === 'number' ? val : (typeof val === 'string' && /^\d{5}$/.test(val.trim()) ? Number(val.trim()) : NaN);
+  if (!isNaN(numVal) && numVal > 25000 && numVal < 60000) {
+    const utcDays = Math.floor(numVal - 25569);
     return new Date(utcDays * 86400 * 1000);
   }
 
   const str = String(val).trim();
   const parts = str.split(/[\/\-\.]/);
   if (parts.length === 3) {
-    // YYYY-MM-DD
+    // YYYY-MM-DD or YYYY-DD-MM
     if (parts[0].length === 4) {
       const y = parseInt(parts[0], 10);
-      const m = parseInt(parts[1], 10) - 1;
-      const d = parseInt(parts[2], 10);
-      return new Date(Date.UTC(y, m, d));
+      const p1 = parseInt(parts[1], 10);
+      const p2 = parseInt(parts[2], 10);
+      if (y >= 1970 && y <= 2100) {
+        if (p1 > 12) {
+          return new Date(Date.UTC(y, p2 - 1, p1));
+        }
+        return new Date(Date.UTC(y, p1 - 1, p2));
+      }
     }
-    // MM/DD/YYYY
+    // MM-DD-YYYY, MM/DD/YYYY or DD-MM-YYYY
     if (parts[2].length === 4) {
       const y = parseInt(parts[2], 10);
-      const m = parseInt(parts[0], 10) - 1;
-      const d = parseInt(parts[1], 10);
-      return new Date(Date.UTC(y, m, d));
+      const p1 = parseInt(parts[0], 10);
+      const p2 = parseInt(parts[1], 10);
+      if (y >= 1970 && y <= 2100) {
+        if (p1 > 12 && p2 <= 12) {
+          return new Date(Date.UTC(y, p2 - 1, p1));
+        }
+        return new Date(Date.UTC(y, p1 - 1, p2));
+      }
     }
   }
 
   const d = new Date(str);
   if (!isNaN(d.getTime())) {
-    return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    const y = d.getFullYear();
+    if (y >= 1970 && y <= 2100) {
+      return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    }
   }
 
   return null;
+};
+
+const ANNUAL_CONTRACT_DAYS = [
+  360, 361, 362, 363, 364, 365, 366, 367, 368, 369, 370,
+  725, 726, 727, 728, 729, 730, 731, 732, 733, 734, 735,
+  1090, 1091, 1092, 1093, 1094, 1095, 1096, 1097, 1098, 1099, 1100,
+  1455, 1456, 1457, 1458, 1459, 1460, 1461, 1462, 1463, 1464, 1465,
+  1820, 1821, 1822, 1823, 1824, 1825, 1826, 1827, 1828, 1829, 1830,
+  178, 179, 180, 181, 182, 183, 184, 185
+];
+
+const smartAlignDatePair = (startVal: any, endVal: any): { startDate: Date | null; endDate: Date | null } => {
+  let sDate = parseDate(startVal);
+  let eDate = parseDate(endVal);
+
+  if (sDate && eDate) {
+    const sMonth = sDate.getUTCMonth() + 1;
+    const sDay = sDate.getUTCDate();
+    const sYear = sDate.getUTCFullYear();
+
+    const eMonth = eDate.getUTCMonth() + 1;
+    const eDay = eDate.getUTCDate();
+    const eYear = eDate.getUTCFullYear();
+
+    // 1. If start date is ambiguous (sMonth <= 12 and sDay <= 12), test if flipping aligns to annual contract
+    if (sMonth <= 12 && sDay <= 12 && sMonth !== sDay) {
+      const flippedStart = new Date(Date.UTC(sYear, sDay - 1, sMonth));
+      const origDiff = Math.round((eDate.getTime() - sDate.getTime()) / 86400000);
+      const flipDiff = Math.round((eDate.getTime() - flippedStart.getTime()) / 86400000);
+
+      if (ANNUAL_CONTRACT_DAYS.includes(flipDiff) && !ANNUAL_CONTRACT_DAYS.includes(origDiff)) {
+        sDate = flippedStart;
+      }
+    }
+
+    // 2. If end date is ambiguous (eMonth <= 12 and eDay <= 12), test if flipping aligns to annual contract
+    if (eMonth <= 12 && eDay <= 12 && eMonth !== eDay) {
+      const flippedEnd = new Date(Date.UTC(eYear, eDay - 1, eMonth));
+      const origDiff = Math.round((eDate.getTime() - sDate.getTime()) / 86400000);
+      const flipDiff = Math.round((flippedEnd.getTime() - sDate.getTime()) / 86400000);
+
+      if (ANNUAL_CONTRACT_DAYS.includes(flipDiff) && !ANNUAL_CONTRACT_DAYS.includes(origDiff)) {
+        eDate = flippedEnd;
+      }
+    }
+  }
+
+  return { startDate: sDate, endDate: eDate };
 };
 
 /** Parse numeric value (removes commas etc.) */
@@ -461,93 +523,130 @@ export const bulkImportDetailedContracts = async (req: Request, res: Response) =
       return res.status(400).json({ error: 'No records provided for import' });
     }
 
+    // 1. Prefetch all reference data in memory (3 fast queries instead of thousands)
+    const [allCustomers, allZones, allExisting] = await Promise.all([
+      db.customer.findMany({ select: { id: true, companyName: true } }),
+      db.serviceZone.findMany({ select: { id: true, name: true } }),
+      db.detailedContract.findMany({ select: { id: true, serialNumber: true } }),
+    ]);
+
+    const customerMap = new Map<string, number>();
+    allCustomers.forEach((c: any) => {
+      if (c.companyName) customerMap.set(c.companyName.toLowerCase().trim(), c.id);
+    });
+
+    const zoneMap = new Map<string, number>();
+    allZones.forEach((z: any) => {
+      if (z.name) zoneMap.set(z.name.toLowerCase().trim(), z.id);
+    });
+
+    const existingContractMap = new Map<string, number>();
+    allExisting.forEach((e: any) => {
+      if (e.serialNumber) existingContractMap.set(e.serialNumber.toLowerCase().trim(), e.id);
+    });
+
+    const findCustomerId = (name: string): number | null => {
+      if (!name) return null;
+      const clean = name.toLowerCase().trim();
+      if (customerMap.has(clean)) return customerMap.get(clean)!;
+      for (const [cName, id] of customerMap.entries()) {
+        if (cName.includes(clean) || clean.includes(cName)) return id;
+      }
+      return null;
+    };
+
+    const findZoneId = (name: string): number | null => {
+      if (!name) return null;
+      const clean = name.toLowerCase().trim();
+      if (zoneMap.has(clean)) return zoneMap.get(clean)!;
+      for (const [zName, id] of zoneMap.entries()) {
+        if (zName.includes(clean) || clean.includes(zName)) return id;
+      }
+      return null;
+    };
+
     const results = { created: 0, updated: 0, success: 0, failed: 0, errors: [] as any[] };
 
-    for (let i = 0; i < importRecords.length; i++) {
-      const row = importRecords[i];
-      try {
-        if (!row.customerName || !row.serialNumber) {
-          results.errors.push({ row: i + 1, error: 'Missing customerName or serialNumber' });
+    // 2. Process in fast concurrent chunks of 50
+    const CHUNK_SIZE = 50;
+    for (let cIdx = 0; cIdx < importRecords.length; cIdx += CHUNK_SIZE) {
+      const chunk = importRecords.slice(cIdx, cIdx + CHUNK_SIZE);
+      
+      await Promise.all(chunk.map(async (row, idxInChunk) => {
+        const globalRowIdx = cIdx + idxInChunk + 1;
+        try {
+          if (!row.customerName || !row.serialNumber) {
+            results.errors.push({ row: globalRowIdx, error: 'Missing customerName or serialNumber' });
+            results.failed++;
+            return;
+          }
+
+          const serialNumber = String(row.serialNumber).trim();
+          const cleanSerial = serialNumber.toLowerCase().trim();
+
+          const customerId = row.customerId || findCustomerId(row.customerName);
+          const zoneId = row.zoneId || findZoneId(row.zoneName);
+
+          const mcDates = smartAlignDatePair(row.mcStartDate, row.mcEndDate);
+          const warrantyDates = smartAlignDatePair(row.warrantyStartDate, row.warrantyEndDate);
+          const softwareDates = smartAlignDatePair(row.softwareStartDate, row.softwareEndDate);
+          const remoteSupportDates = smartAlignDatePair(row.remoteSupportStartDate, row.remoteSupportEndDate);
+
+          const payload = {
+            slNo: row.slNo ? parseInt(row.slNo) : null,
+            customerName: row.customerName.trim(),
+            customerClass: row.customerClass || null,
+            place: row.place || null,
+            department: row.department || null,
+            zoneName: row.zoneName || 'Unknown',
+            engineerName: row.engineerName || null,
+            unitType: row.unitType || row.modelNumber || null,
+            controlType: row.controlType || null,
+            serialNumber,
+            softwareName: row.softwareName || null,
+            installationYear: row.installationYear ? String(row.installationYear) : null,
+            contractType: row.contractType || null,
+            mcPoNumber: row.mcPoNumber ? String(row.mcPoNumber) : null,
+            poDate: parseDate(row.poDate),
+            mcStartDate: mcDates.startDate,
+            mcEndDate: mcDates.endDate,
+            warrantyStartDate: warrantyDates.startDate,
+            warrantyEndDate: warrantyDates.endDate,
+            softwarePoNo: row.softwarePoNo ? String(row.softwarePoNo) : null,
+            softwareStartDate: softwareDates.startDate,
+            softwareEndDate: softwareDates.endDate,
+            remoteSupportStartDate: remoteSupportDates.startDate,
+            remoteSupportEndDate: remoteSupportDates.endDate,
+            pmVisitsCount: parseInt(row.pmVisitsCount) || 0,
+            bdVisitsCount: parseInt(row.bdVisitsCount) || 0,
+            mcValue: parseNumeric(row.mcValue),
+            customer: customerId ? { connect: { id: customerId } } : undefined,
+            zone: zoneId ? { connect: { id: zoneId } } : undefined,
+            createdBy: userId ? { connect: { id: userId } } : undefined,
+          };
+
+          const existingId = existingContractMap.get(cleanSerial);
+
+          if (existingId) {
+            await db.detailedContract.update({
+              where: { id: existingId },
+              data: payload,
+            });
+            results.updated++;
+          } else {
+            const created = await db.detailedContract.create({
+              data: payload,
+            });
+            existingContractMap.set(cleanSerial, created.id);
+            results.created++;
+          }
+
+          results.success++;
+        } catch (err: any) {
+          results.errors.push({ row: globalRowIdx, error: err.message || 'Unknown error' });
           results.failed++;
-          continue;
         }
-
-        const serialNumber = String(row.serialNumber).trim();
-
-        // Try to auto-link customer
-        let customerId = row.customerId || null;
-        if (!customerId && row.customerName) {
-          const customer = await db.customer.findFirst({
-            where: { companyName: { contains: row.customerName.trim(), mode: 'insensitive' } },
-          });
-          if (customer) customerId = customer.id;
-        }
-
-        // Try to auto-link zone
-        let zoneId = row.zoneId || null;
-        if (!zoneId && row.zoneName) {
-          const zone = await db.serviceZone.findFirst({
-            where: { name: { contains: row.zoneName.trim(), mode: 'insensitive' } },
-          });
-          if (zone) zoneId = zone.id;
-        }
-
-        const payload = {
-          slNo: row.slNo ? parseInt(row.slNo) : null,
-          customerName: row.customerName.trim(),
-          customerClass: row.customerClass || null,
-          place: row.place || null,
-          department: row.department || null,
-          zoneName: row.zoneName || 'Unknown',
-          engineerName: row.engineerName || null,
-          unitType: row.unitType || row.modelNumber || null,
-          controlType: row.controlType || null,
-          serialNumber,
-          softwareName: row.softwareName || null,
-          installationYear: row.installationYear ? String(row.installationYear) : null,
-          contractType: row.contractType || null,
-          mcPoNumber: row.mcPoNumber ? String(row.mcPoNumber) : null,
-          poDate: parseDate(row.poDate),
-          mcStartDate: parseDate(row.mcStartDate),
-          mcEndDate: parseDate(row.mcEndDate),
-          warrantyStartDate: parseDate(row.warrantyStartDate),
-          warrantyEndDate: parseDate(row.warrantyEndDate),
-          softwarePoNo: row.softwarePoNo ? String(row.softwarePoNo) : null,
-          softwareStartDate: parseDate(row.softwareStartDate),
-          softwareEndDate: parseDate(row.softwareEndDate),
-          remoteSupportStartDate: parseDate(row.remoteSupportStartDate),
-          remoteSupportEndDate: parseDate(row.remoteSupportEndDate),
-          pmVisitsCount: parseInt(row.pmVisitsCount) || 0,
-          bdVisitsCount: parseInt(row.bdVisitsCount) || 0,
-          mcValue: parseNumeric(row.mcValue),
-          customer: customerId ? { connect: { id: customerId } } : undefined,
-          zone: zoneId ? { connect: { id: zoneId } } : undefined,
-          createdBy: userId ? { connect: { id: userId } } : undefined,
-        };
-
-        // Check if a contract for this machine serial number already exists
-        const existing = await db.detailedContract.findFirst({
-          where: { serialNumber },
-        });
-
-        if (existing) {
-          await db.detailedContract.update({
-            where: { id: existing.id },
-            data: payload,
-          });
-          results.updated++;
-        } else {
-          await db.detailedContract.create({
-            data: payload,
-          });
-          results.created++;
-        }
-
-        results.success++;
-      } catch (err: any) {
-        results.errors.push({ row: i + 1, error: err.message || 'Unknown error' });
-        results.failed++;
-      }
+      }));
     }
 
     res.json({

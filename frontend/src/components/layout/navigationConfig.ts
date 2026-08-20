@@ -592,14 +592,6 @@ export const adminContractsNavigation: NavItem[] = [
     iconBgColor: "bg-[#6F8A9D]/10"
   },
   {
-    title: "Bulk Import",
-    href: "/admin/contracts/import",
-    icon: UploadCloud,
-    roles: [UserRole.ADMIN],
-    iconColor: "text-[#E17F70]",
-    iconBgColor: "bg-[#E17F70]/10"
-  },
-  {
     title: "Reports",
     href: "/admin/contracts/reports",
     icon: BarChart2,
@@ -614,14 +606,6 @@ export const adminContractsNavigation: NavItem[] = [
     roles: [UserRole.ADMIN],
     iconColor: "text-[#7CA5C4]",
     iconBgColor: "bg-[#7CA5C4]/10"
-  },
-  {
-    title: "Import Annual",
-    href: "/admin/contracts/detailed-import",
-    icon: UploadCloud,
-    roles: [UserRole.ADMIN],
-    iconColor: "text-[#A884C9]",
-    iconBgColor: "bg-[#A884C9]/10"
   }
 ];
 
@@ -644,14 +628,6 @@ export const zoneManagerContractsNavigation: NavItem[] = [
     iconBgColor: "bg-[#6F8A9D]/10"
   },
   {
-    title: "Bulk Import",
-    href: "/zone-manager/contracts/import",
-    icon: UploadCloud,
-    roles: [UserRole.ZONE_MANAGER],
-    iconColor: "text-[#E17F70]",
-    iconBgColor: "bg-[#E17F70]/10"
-  },
-  {
     title: "Reports",
     href: "/zone-manager/contracts/reports",
     icon: BarChart2,
@@ -666,14 +642,6 @@ export const zoneManagerContractsNavigation: NavItem[] = [
     roles: [UserRole.ZONE_MANAGER],
     iconColor: "text-[#7CA5C4]",
     iconBgColor: "bg-[#7CA5C4]/10"
-  },
-  {
-    title: "Import Annual",
-    href: "/zone-manager/contracts/detailed-import",
-    icon: UploadCloud,
-    roles: [UserRole.ZONE_MANAGER],
-    iconColor: "text-[#A884C9]",
-    iconBgColor: "bg-[#A884C9]/10"
   }
 ];
 

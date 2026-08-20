@@ -30,10 +30,42 @@ interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
   onClose?: () => void;
 }
 
+// Helper to determine if a navigation item is currently active
+function isNavItemActive(itemHref: string, pathname: string | null, allHrefs: string[]): boolean {
+  if (!pathname) return false;
+  
+  const cleanItemHref = itemHref.split('?')[0];
+  const cleanPathname = pathname.split('?')[0];
+
+  // Exact match
+  if (cleanPathname === cleanItemHref) return true;
+
+  // Dashboard routes should only match exactly
+  if (cleanItemHref.endsWith('/dashboard')) return false;
+
+  const matchesSubroute = (parent: string, path: string) => {
+    return path.startsWith(parent + '/') || path.startsWith(parent + '-');
+  };
+
+  // Check if pathname is a subroute of itemHref (e.g. /admin/contracts/123 or /admin/contracts/detailed-import)
+  if (matchesSubroute(cleanItemHref, cleanPathname)) {
+    // If another nav item has a more specific / longer match, this item is NOT active
+    const hasMoreSpecificMatch = allHrefs.some(otherHref => {
+      if (otherHref === cleanItemHref) return false;
+      if (otherHref.length <= cleanItemHref.length) return false;
+      return cleanPathname === otherHref || matchesSubroute(otherHref, cleanPathname);
+    });
+    return !hasMoreSpecificMatch;
+  }
+
+  return false;
+}
+
 // Memoized Nav Item Component - using CSS transitions instead of framer-motion
 const MemoizedNavItem = React.memo(({ 
   item, 
   pathname, 
+  allHrefs,
   collapsed, 
   isMobile, 
   level = 0,
@@ -43,6 +75,7 @@ const MemoizedNavItem = React.memo(({
 }: {
   item: NavItem;
   pathname: string | null;
+  allHrefs: string[];
   collapsed: boolean;
   isMobile: boolean;
   level?: number;
@@ -50,17 +83,10 @@ const MemoizedNavItem = React.memo(({
   onSectionToggle: (href: string) => void;
   expandedSections: Record<string, boolean>;
 }) => {
-  // Determine if a sub-route is active, ignoring sibling routes that have their own sidebar items
-  const isSubRouteActive = React.useMemo(() => {
-    if (!pathname || !pathname.startsWith(item.href + '/')) return false;
-    const remaining = pathname.substring(item.href.length + 1);
-    const siblingSubRoutes = ['tracking', 'import', 'dashboard', 'reports'];
-    return !siblingSubRoutes.some(route => remaining === route || remaining.startsWith(route + '/'));
-  }, [pathname, item.href]);
-
-  const isActive = item.href.endsWith('/dashboard')
-    ? pathname === item.href
-    : (pathname === item.href || (isSubRouteActive && !pathname?.includes('/dashboard')));
+  const isActive = React.useMemo(
+    () => isNavItemActive(item.href, pathname, allHrefs),
+    [item.href, pathname, allHrefs]
+  );
   const hasChildren = item.children && item.children.length > 0;
   const isExpanded = expandedSections[item.href] ?? false;
   const Icon = item.icon;
@@ -183,6 +209,7 @@ const MemoizedNavItem = React.memo(({
                 key={child.href}
                 item={child}
                 pathname={pathname}
+                allHrefs={allHrefs}
                 collapsed={collapsed}
                 isMobile={isMobile}
                 level={level + 1}
@@ -334,6 +361,22 @@ export function Sidebar({
     }));
   }, []);
 
+  const allHrefs = React.useMemo(() => {
+    const hrefs: string[] = [];
+    const extractHrefs = (items: NavItem[]) => {
+      for (const it of items) {
+        if (it.href) {
+          hrefs.push(it.href.split('?')[0]);
+        }
+        if (it.children) {
+          extractHrefs(it.children);
+        }
+      }
+    };
+    extractHrefs(filteredNavItems);
+    return hrefs;
+  }, [filteredNavItems]);
+
   const navItems = React.useMemo(() => (
     <div className="space-y-1">
       {filteredNavItems.map((item) => (
@@ -341,6 +384,7 @@ export function Sidebar({
           key={item.href}
           item={item}
           pathname={pathname}
+          allHrefs={allHrefs}
           collapsed={collapsed}
           isMobile={isMobile}
           onItemClick={handleItemClick}
@@ -349,7 +393,7 @@ export function Sidebar({
         />
       ))}
     </div>
-  ), [filteredNavItems, pathname, collapsed, isMobile, handleItemClick, toggleSection, expandedSections]);
+  ), [filteredNavItems, pathname, allHrefs, collapsed, isMobile, handleItemClick, toggleSection, expandedSections]);
 
   return (
     <div
@@ -471,9 +515,7 @@ export function Sidebar({
             <nav className="px-2 space-y-2">
               {filteredNavItems.map((item) => {
                 const Icon = item.icon;
-                const isActive = item.href.endsWith('/dashboard')
-                  ? pathname === item.href
-                  : (pathname === item.href || (pathname?.startsWith(item.href + '/') && !pathname.includes('/dashboard')));
+                const isActive = isNavItemActive(item.href, pathname, allHrefs);
                 return (
                   <button
                     key={item.href}

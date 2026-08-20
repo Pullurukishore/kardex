@@ -7,7 +7,7 @@ import {
   ArrowLeft, CheckCircle, AlertTriangle, Activity, Clock,
   Shield, Calendar, IndianRupee, User, Sparkles, Eye,
   TrendingUp, ShieldCheck, Info, RefreshCw, Printer, X,
-  ChevronDown, ChevronUp, Layers, BarChart3, Plus
+  ChevronDown, ChevronUp, Layers, BarChart3, Plus, Upload
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiService } from '@/services/api';
@@ -608,10 +608,17 @@ export default function CustomerContractTracking({ role }: CustomerContractTrack
               Manage, track, and monitor all service contracts grouped by customer. Click &quot;View&quot; to see complete details.
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
+            <button
+              onClick={() => router.push(`${getBaseRoute()}/contracts/import`)}
+              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-white/15 hover:bg-white/25 border border-white/20 text-white font-bold text-xs sm:text-sm transition-all shadow-sm backdrop-blur-sm active:scale-[0.98]"
+            >
+              <Upload className="w-4 h-4" />
+              <span>Import Excel</span>
+            </button>
             <button
               onClick={() => router.push(`${getBaseRoute()}/contracts/new`)}
-              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-gradient-to-r from-[#82A094] to-[#688579] hover:brightness-110 active:scale-[0.98] text-white font-semibold transition-all shadow-lg shadow-[#82A094]/25"
+              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-gradient-to-r from-[#82A094] to-[#688579] hover:brightness-110 active:scale-[0.98] text-white font-semibold transition-all shadow-lg shadow-[#82A094]/25 text-xs sm:text-sm"
             >
               <Plus className="w-5 h-5" />
               <span>Add Agreement</span>

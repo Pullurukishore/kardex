@@ -61,47 +61,110 @@ interface DetailedContractImportProps {
 // ============================
 // Timezone-safe Excel Date Parser (preventing 1-day subtraction)
 // ============================
-const excelSerialToDateString = (serial: number): string | null => {
-  if (!serial || serial < 1) return null;
-  const utcDays = Math.floor(serial - 25569);
-  const d = new Date(utcDays * 86400 * 1000);
-  if (isNaN(d.getTime())) return null;
-  const y = d.getUTCFullYear();
-  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(d.getUTCDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-};
-
-const parseDateValue = (val: any): string | null => {
+function parseSingleDate(val: any): Date | null {
   if (val === null || val === undefined || val === '') return null;
-  if (typeof val === 'number' && val > 25000 && val < 60000) {
-    return excelSerialToDateString(val);
+  if (val instanceof Date && !isNaN(val.getTime())) return val;
+
+  // Excel serial number (numeric or 5-digit string like 46027)
+  const numVal = typeof val === 'number' ? val : (typeof val === 'string' && /^\d{5}$/.test(val.trim()) ? Number(val.trim()) : NaN);
+  if (!isNaN(numVal) && numVal > 25000 && numVal < 60000) {
+    const utcDays = Math.floor(numVal - 25569);
+    return new Date(utcDays * 86400 * 1000);
   }
+
   const str = String(val).trim();
   if (!str) return null;
 
-  // Direct parse for MM/DD/YYYY or YYYY-MM-DD without timezone shifting
   const parts = str.split(/[\/\-\.]/);
   if (parts.length === 3) {
     if (parts[0].length === 4) {
-      // YYYY-MM-DD
-      return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+      // YYYY-MM-DD or YYYY-DD-MM
+      const y = parseInt(parts[0], 10);
+      const p1 = parseInt(parts[1], 10);
+      const p2 = parseInt(parts[2], 10);
+      if (y >= 1970 && y <= 2100) {
+        if (p1 > 12) return new Date(Date.UTC(y, p2 - 1, p1));
+        return new Date(Date.UTC(y, p1 - 1, p2));
+      }
     }
-    if (parts[2].length === 4) {
-      // MM/DD/YYYY
-      return `${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`;
+    if (parts[2].length === 4 || parts[2].length === 2) {
+      let y = parseInt(parts[2], 10);
+      if (parts[2].length === 2) y = y < 50 ? 2000 + y : 1900 + y;
+      const p1 = parseInt(parts[0], 10);
+      const p2 = parseInt(parts[1], 10);
+      if (y >= 1970 && y <= 2100) {
+        if (p1 > 12 && p2 <= 12) return new Date(Date.UTC(y, p2 - 1, p1));
+        return new Date(Date.UTC(y, p1 - 1, p2));
+      }
     }
   }
 
   const d = new Date(str);
   if (!isNaN(d.getTime())) {
     const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
+    if (y >= 1970 && y <= 2100) return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
   }
   return null;
-};
+}
+
+function toISODateString(d: Date | null): string | null {
+  if (!d || isNaN(d.getTime())) return null;
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+const ANNUAL_CONTRACT_DAYS = [
+  360, 361, 362, 363, 364, 365, 366, 367, 368, 369, 370,
+  725, 726, 727, 728, 729, 730, 731, 732, 733, 734, 735,
+  1090, 1091, 1092, 1093, 1094, 1095, 1096, 1097, 1098, 1099, 1100,
+  1455, 1456, 1457, 1458, 1459, 1460, 1461, 1462, 1463, 1464, 1465,
+  1820, 1821, 1822, 1823, 1824, 1825, 1826, 1827, 1828, 1829, 1830,
+  178, 179, 180, 181, 182, 183, 184, 185
+];
+
+function smartAlignDatePair(startVal: any, endVal: any): { startDate: string | null; endDate: string | null } {
+  let sDate = parseSingleDate(startVal);
+  let eDate = parseSingleDate(endVal);
+
+  if (sDate && eDate) {
+    const sMonth = sDate.getUTCMonth() + 1;
+    const sDay = sDate.getUTCDate();
+    const sYear = sDate.getUTCFullYear();
+
+    const eMonth = eDate.getUTCMonth() + 1;
+    const eDay = eDate.getUTCDate();
+    const eYear = eDate.getUTCFullYear();
+
+    // 1. If start date is ambiguous (sMonth <= 12 and sDay <= 12), test if flipping aligns to annual contract
+    if (sMonth <= 12 && sDay <= 12 && sMonth !== sDay) {
+      const flippedStart = new Date(Date.UTC(sYear, sDay - 1, sMonth));
+      const origDiff = Math.round((eDate.getTime() - sDate.getTime()) / 86400000);
+      const flipDiff = Math.round((eDate.getTime() - flippedStart.getTime()) / 86400000);
+
+      if (ANNUAL_CONTRACT_DAYS.includes(flipDiff) && !ANNUAL_CONTRACT_DAYS.includes(origDiff)) {
+        sDate = flippedStart;
+      }
+    }
+
+    // 2. If end date is ambiguous (eMonth <= 12 and eDay <= 12), test if flipping aligns to annual contract
+    if (eMonth <= 12 && eDay <= 12 && eMonth !== eDay) {
+      const flippedEnd = new Date(Date.UTC(eYear, eDay - 1, eMonth));
+      const origDiff = Math.round((eDate.getTime() - sDate.getTime()) / 86400000);
+      const flipDiff = Math.round((flippedEnd.getTime() - sDate.getTime()) / 86400000);
+
+      if (ANNUAL_CONTRACT_DAYS.includes(flipDiff) && !ANNUAL_CONTRACT_DAYS.includes(origDiff)) {
+        eDate = flippedEnd;
+      }
+    }
+  }
+
+  return {
+    startDate: toISODateString(sDate),
+    endDate: toISODateString(eDate)
+  };
+}
 
 const parseNumericValue = (val: any): number | null => {
   if (val === null || val === undefined || val === '') return null;
@@ -196,7 +259,7 @@ export default function DetailedContractImport({ role }: DetailedContractImportP
         return;
       }
 
-      const rawData = wb.utils ? wb.utils.sheet_to_json(ws, { header: 1, raw: true }) : [];
+      const rawData = wb.utils ? wb.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' }) : [];
       if (!rawData || rawData.length < 2) {
         toast.error('No data found in the selected sheet');
         setParsedRows([]);
@@ -236,6 +299,23 @@ export default function DetailedContractImport({ role }: DetailedContractImportP
           : '';
         if (!zoneName) warnings.push('Missing zone');
 
+        const mcDates = smartAlignDatePair(
+          colMap.mcStartDate !== undefined ? row[colMap.mcStartDate] : null,
+          colMap.mcEndDate !== undefined ? row[colMap.mcEndDate] : null
+        );
+        const warrantyDates = smartAlignDatePair(
+          colMap.warrantyStartDate !== undefined ? row[colMap.warrantyStartDate] : null,
+          colMap.warrantyEndDate !== undefined ? row[colMap.warrantyEndDate] : null
+        );
+        const softwareDates = smartAlignDatePair(
+          colMap.softwareStartDate !== undefined ? row[colMap.softwareStartDate] : null,
+          colMap.softwareEndDate !== undefined ? row[colMap.softwareEndDate] : null
+        );
+        const remoteSupportDates = smartAlignDatePair(
+          colMap.remoteSupportStartDate !== undefined ? row[colMap.remoteSupportStartDate] : null,
+          colMap.remoteSupportEndDate !== undefined ? row[colMap.remoteSupportEndDate] : null
+        );
+
         parsed.push({
           slNo: colMap.slNo !== undefined ? (parseNumericValue(row[colMap.slNo]) as number | null) : null,
           customerName,
@@ -263,17 +343,17 @@ export default function DetailedContractImport({ role }: DetailedContractImportP
             ? String(row[colMap.contractType]).trim() : '',
           mcPoNumber: colMap.mcPoNumber !== undefined && row[colMap.mcPoNumber] !== undefined
             ? String(row[colMap.mcPoNumber]).trim() : '',
-          poDate: colMap.poDate !== undefined ? parseDateValue(row[colMap.poDate]) : null,
-          mcStartDate: colMap.mcStartDate !== undefined ? parseDateValue(row[colMap.mcStartDate]) : null,
-          mcEndDate: colMap.mcEndDate !== undefined ? parseDateValue(row[colMap.mcEndDate]) : null,
-          warrantyStartDate: colMap.warrantyStartDate !== undefined ? parseDateValue(row[colMap.warrantyStartDate]) : null,
-          warrantyEndDate: colMap.warrantyEndDate !== undefined ? parseDateValue(row[colMap.warrantyEndDate]) : null,
+          poDate: colMap.poDate !== undefined ? toISODateString(parseSingleDate(row[colMap.poDate])) : null,
+          mcStartDate: mcDates.startDate,
+          mcEndDate: mcDates.endDate,
+          warrantyStartDate: warrantyDates.startDate,
+          warrantyEndDate: warrantyDates.endDate,
           softwarePoNo: colMap.softwarePoNo !== undefined && row[colMap.softwarePoNo] !== undefined
             ? String(row[colMap.softwarePoNo]).trim() : null,
-          softwareStartDate: colMap.softwareStartDate !== undefined ? parseDateValue(row[colMap.softwareStartDate]) : null,
-          softwareEndDate: colMap.softwareEndDate !== undefined ? parseDateValue(row[colMap.softwareEndDate]) : null,
-          remoteSupportStartDate: colMap.remoteSupportStartDate !== undefined ? parseDateValue(row[colMap.remoteSupportStartDate]) : null,
-          remoteSupportEndDate: colMap.remoteSupportEndDate !== undefined ? parseDateValue(row[colMap.remoteSupportEndDate]) : null,
+          softwareStartDate: softwareDates.startDate,
+          softwareEndDate: softwareDates.endDate,
+          remoteSupportStartDate: remoteSupportDates.startDate,
+          remoteSupportEndDate: remoteSupportDates.endDate,
           pmVisitsCount: colMap.pmVisitsCount !== undefined ? ((parseNumericValue(row[colMap.pmVisitsCount]) as number) || 0) : 0,
           bdVisitsCount: colMap.bdVisitsCount !== undefined ? ((parseNumericValue(row[colMap.bdVisitsCount]) as number) || 0) : 0,
           mcValue: colMap.mcValue !== undefined ? parseNumericValue(row[colMap.mcValue]) : null,
@@ -299,7 +379,7 @@ export default function DetailedContractImport({ role }: DetailedContractImportP
     try {
       const XLSX = await import('xlsx');
       const data = await selectedFile.arrayBuffer();
-      const workbook = XLSX.read(data, { type: 'array' });
+      const workbook = XLSX.read(data, { type: 'array', cellDates: false });
 
       setWorkbookData({ ...workbook, utils: XLSX.utils });
       setSheetNames(workbook.SheetNames);
@@ -438,9 +518,8 @@ export default function DetailedContractImport({ role }: DetailedContractImportP
       {importResult && (
         <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-sm">
           <div className="flex items-center gap-4 mb-6">
-            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
-              importResult.failed === 0 ? 'bg-[#82A094]/15 text-[#4E7D6D]' : 'bg-[#CE9F6B]/15 text-[#B8874E]'
-            }`}>
+            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${importResult.failed === 0 ? 'bg-[#82A094]/15 text-[#4E7D6D]' : 'bg-[#CE9F6B]/15 text-[#B8874E]'
+              }`}>
               {importResult.failed === 0 ? <CheckCircle className="w-6 h-6" /> : <AlertTriangle className="w-6 h-6" />}
             </div>
             <div>
@@ -492,13 +571,12 @@ export default function DetailedContractImport({ role }: DetailedContractImportP
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onClick={() => fileInputRef.current?.click()}
-            className={`relative rounded-3xl border-2 border-dashed p-8 sm:p-12 cursor-pointer text-center transition-all duration-200 bg-white ${
-              dragActive
+            className={`relative rounded-3xl border-2 border-dashed p-8 sm:p-12 cursor-pointer text-center transition-all duration-200 bg-white ${dragActive
                 ? 'border-[#6F8A9D] bg-[#6F8A9D]/5 shadow-md'
                 : file
                   ? 'border-[#82A094] bg-[#82A094]/5 shadow-sm'
                   : 'border-slate-300 hover:border-[#6F8A9D] hover:bg-slate-50/50 shadow-sm'
-            }`}
+              }`}
           >
             <input
               ref={fileInputRef}
@@ -635,13 +713,12 @@ export default function DetailedContractImport({ role }: DetailedContractImportP
                         return (
                           <tr
                             key={idx}
-                            className={`transition-colors ${
-                              hasError
+                            className={`transition-colors ${hasError
                                 ? 'bg-rose-50/60 hover:bg-rose-50'
                                 : hasWarning
                                   ? 'bg-amber-50/50 hover:bg-amber-50'
                                   : 'hover:bg-slate-50/80'
-                            }`}
+                              }`}
                             title={hasError ? row._errors.join(', ') : hasWarning ? row._warnings.join(', ') : ''}
                           >
                             <td className="px-3 py-2.5 font-bold text-slate-400">{row._rowIndex}</td>
