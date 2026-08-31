@@ -161,6 +161,63 @@ const getExpiryBadge = (expiry: ExpiryInfo) => {
   }
 };
 
+const getCustomerGroupExpiryBadge = (cust: CustomerGroup) => {
+  if (!cust.machines || cust.machines.length === 0) {
+    return <span className="text-xs text-slate-400">—</span>;
+  }
+
+  // Count overdue machines (where daysLeft < 0 or bucket is expired/critical)
+  const overdueMachines = cust.machines.filter(m => 
+    m.mcExpiry && (
+      (m.mcExpiry.daysLeft !== null && m.mcExpiry.daysLeft < 0) ||
+      m.mcExpiry.bucket === 'expired'
+    )
+  );
+
+  if (overdueMachines.length > 0) {
+    const count = overdueMachines.length;
+    return (
+      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-[#E17F70]/15 text-[#E17F70] border border-[#E17F70]/30 shadow-sm">
+        <AlertCircle className="w-3 h-3" />
+        {count} {count === 1 ? 'Machine' : 'Machines'} Overdue
+      </span>
+    );
+  }
+
+  // Check for upcoming expiring machines (non-negative daysLeft)
+  const nonOverdueMachines = cust.machines.filter(m => 
+    m.mcExpiry && m.mcExpiry.daysLeft !== null && m.mcExpiry.daysLeft >= 0
+  );
+
+  if (nonOverdueMachines.length > 0) {
+    const earliest = nonOverdueMachines.reduce((prev, curr) => {
+      if (prev.mcExpiry.daysLeft === null) return curr;
+      if (curr.mcExpiry.daysLeft === null) return prev;
+      return curr.mcExpiry.daysLeft < prev.mcExpiry.daysLeft ? curr : prev;
+    });
+    return getExpiryBadge(earliest.mcExpiry);
+  }
+
+  if (cust.daysToEarliestExpiry !== null) {
+    if (cust.daysToEarliestExpiry < 0) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-[#E17F70]/15 text-[#E17F70] border border-[#E17F70]/30 shadow-sm">
+          <AlertCircle className="w-3 h-3" />
+          Contract Overdue
+        </span>
+      );
+    }
+    return getExpiryBadge({ status: cust.expiryStatus, daysLeft: cust.daysToEarliestExpiry, bucket: cust.expiryBucket });
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-[#82A094]/15 text-[#4E7D6D] border border-[#82A094]/30 shadow-sm">
+      <CheckCircle className="w-3 h-3" />
+      Active
+    </span>
+  );
+};
+
 const getClassBadge = (cls: string | null) => {
   if (!cls) return null;
   const colors: Record<string, string> = {
@@ -169,8 +226,120 @@ const getClassBadge = (cls: string | null) => {
     'C': 'bg-[#CE9F6B]/15 text-[#B8874E] border-[#CE9F6B]/40',
   };
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-extrabold border ${colors[cls] || 'bg-slate-100 text-slate-700 border-slate-200'}`}>
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border shadow-xs ${colors[cls] || 'bg-slate-100 text-slate-700 border-slate-200'}`}>
       Class {cls}
+    </span>
+  );
+};
+
+// ============================
+// Distinct Kardex Theme Helpers
+// ============================
+const getCustomerTheme = (name: string) => {
+  if (!name) return { gradient: 'from-[#546A7A] to-[#6F8A9D]', border: 'border-[#546A7A]/40', lightBg: 'bg-[#546A7A]/5', accent: '#546A7A' };
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const themes = [
+    { gradient: 'from-[#546A7A] to-[#6F8A9D]', border: 'border-[#546A7A]/30', lightBg: 'bg-[#546A7A]/5', accent: '#546A7A' }, // Kardex Blue
+    { gradient: 'from-[#4F6A64] to-[#82A094]', border: 'border-[#82A094]/30', lightBg: 'bg-[#82A094]/5', accent: '#82A094' }, // Kardex Green
+    { gradient: 'from-[#976E44] to-[#CE9F6B]', border: 'border-[#CE9F6B]/30', lightBg: 'bg-[#CE9F6B]/5', accent: '#CE9F6B' }, // Kardex Sand
+    { gradient: 'from-[#5D6E73] to-[#92A2A5]', border: 'border-[#92A2A5]/30', lightBg: 'bg-[#92A2A5]/5', accent: '#5D6E73' }, // Kardex Slate
+    { gradient: 'from-[#75242D] to-[#E17F70]', border: 'border-[#E17F70]/30', lightBg: 'bg-[#E17F70]/5', accent: '#E17F70' }, // Kardex Wine Red
+    { gradient: 'from-[#3F6158] to-[#6E9E90]', border: 'border-[#6E9E90]/30', lightBg: 'bg-[#6E9E90]/5', accent: '#6E9E90' }, // Kardex Teal
+  ];
+  return themes[Math.abs(hash) % themes.length];
+};
+
+const getUnitTypeBadge = (unitType: string | null, modelNumber?: string | null) => {
+  if (!unitType) return <span className="text-slate-400 font-medium">—</span>;
+  const upper = unitType.toUpperCase();
+  const label = modelNumber ? `${unitType} / ${modelNumber}` : unitType;
+
+  if (upper.includes('SHUTTLE')) {
+    return (
+      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-extrabold bg-[#6F8A9D]/15 text-[#546A7A] border border-[#6F8A9D]/30 shadow-xs">
+        <Cpu className="w-3 h-3 text-[#6F8A9D]" />
+        {label}
+      </span>
+    );
+  }
+  if (upper.includes('LEKTRIVER') || upper.includes('MEGAMAT')) {
+    return (
+      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-extrabold bg-[#82A094]/15 text-[#4F6A64] border border-[#82A094]/30 shadow-xs">
+        <Cpu className="w-3 h-3 text-[#82A094]" />
+        {label}
+      </span>
+    );
+  }
+  if (upper.includes('ELEMENT') || upper.includes('TOWER')) {
+    return (
+      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-extrabold bg-[#CE9F6B]/15 text-[#976E44] border border-[#CE9F6B]/30 shadow-xs">
+        <Cpu className="w-3 h-3 text-[#CE9F6B]" />
+        {label}
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-extrabold bg-[#92A2A5]/15 text-[#5D6E73] border border-[#92A2A5]/30 shadow-xs">
+      <Cpu className="w-3 h-3 text-[#92A2A5]" />
+      {label}
+    </span>
+  );
+};
+
+const getControlTypeBadge = (controlType: string | null) => {
+  if (!controlType) return <span className="text-slate-400 font-medium">—</span>;
+  const upper = controlType.toUpperCase();
+  if (upper.includes('C3000') || upper.includes('C2000') || upper.includes('C1000')) {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-[#6F8A9D]/15 text-[#546A7A] border border-[#6F8A9D]/30">
+        {controlType}
+      </span>
+    );
+  }
+  if (upper.includes('T88') || upper.includes('T3')) {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-[#82A094]/15 text-[#4F6A64] border border-[#82A094]/30">
+        {controlType}
+      </span>
+    );
+  }
+  if (upper.includes('LC100') || upper.includes('OP3000')) {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-[#CE9F6B]/15 text-[#976E44] border border-[#CE9F6B]/30">
+        {controlType}
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-slate-100 text-slate-700 border border-slate-200">
+      {controlType}
+    </span>
+  );
+};
+
+const getContractTypeBadge = (type: string | null) => {
+  if (!type) return <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">UMC</span>;
+  const upper = type.toUpperCase();
+  if (upper === 'UMC') {
+    return (
+      <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#6F8A9D]/15 text-[#546A7A] border border-[#6F8A9D]/30">
+        UMC
+      </span>
+    );
+  }
+  if (upper === 'AMC') {
+    return (
+      <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#82A094]/15 text-[#4F6A64] border border-[#82A094]/30">
+        AMC
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#CE9F6B]/15 text-[#976E44] border border-[#CE9F6B]/30">
+      {type}
     </span>
   );
 };
@@ -497,11 +666,12 @@ export default function DetailedContractTracking({ role }: DetailedContractTrack
         <div className="space-y-4">
           {customers.map((cust) => {
             const isExpanded = expandedCustomer === cust.customerName;
+            const theme = getCustomerTheme(cust.customerName);
             return (
               <div
                 key={cust.customerName}
                 className={`bg-white rounded-2xl border transition-all duration-200 overflow-hidden shadow-sm hover:shadow-md ${
-                  isExpanded ? 'border-[#6F8A9D]/60 ring-2 ring-[#6F8A9D]/10' : 'border-slate-200/80 hover:border-slate-300'
+                  isExpanded ? `${theme.border} ring-2 ring-[#6F8A9D]/15` : 'border-slate-200/80 hover:border-slate-300'
                 }`}
               >
                 {/* Accordion Header */}
@@ -510,8 +680,8 @@ export default function DetailedContractTracking({ role }: DetailedContractTrack
                   className="p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 cursor-pointer select-none"
                 >
                   <div className="flex items-center gap-3.5 min-w-0">
-                    <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#546A7A] to-[#6F8A9D] text-white flex items-center justify-center font-extrabold text-sm shadow-sm flex-shrink-0">
-                      {cust.totalMachines}
+                    <div className={`w-11 h-11 rounded-2xl bg-gradient-to-br ${theme.gradient} text-white flex items-center justify-center font-extrabold text-sm shadow-sm flex-shrink-0`}>
+                      <Building2 className="w-5 h-5 text-white" />
                     </div>
 
                     <div className="min-w-0">
@@ -520,11 +690,7 @@ export default function DetailedContractTracking({ role }: DetailedContractTrack
                           {cust.customerName}
                         </span>
                         {getClassBadge(cust.customerClass)}
-                        {getExpiryBadge(
-                          cust.daysToEarliestExpiry !== null
-                            ? { status: cust.expiryStatus, daysLeft: cust.daysToEarliestExpiry, bucket: cust.expiryBucket }
-                            : { status: 'N/A', daysLeft: null, bucket: 'na' }
-                        )}
+                        {getCustomerGroupExpiryBadge(cust)}
                       </div>
 
                       <div className="flex items-center gap-3 text-xs text-slate-500 mt-1 flex-wrap">
@@ -603,20 +769,20 @@ export default function DetailedContractTracking({ role }: DetailedContractTrack
                         <tbody className="divide-y divide-slate-100">
                           {cust.machines.map((m, idx) => (
                             <tr key={m.id} className="hover:bg-slate-50/80 transition-colors">
-                              <td className="px-3 py-2.5 font-bold text-slate-400">{m.slNo || idx + 1}</td>
+                              <td className="px-3 py-2.5 font-bold text-slate-400">{idx + 1}</td>
                               <td className="px-3 py-2.5 font-mono font-bold text-slate-800">
-                                {m.serialNumber}
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-800 font-mono">
+                                  {m.serialNumber}
+                                </span>
                               </td>
-                              <td className="px-3 py-2.5 font-semibold text-slate-800">{m.unitType || '—'}</td>
-                              <td className="px-3 py-2.5 font-medium text-slate-600">{m.controlType || '—'}</td>
-                              <td className="px-3 py-2.5 text-slate-600">{m.department || '—'}</td>
+                              <td className="px-3 py-2.5">{getUnitTypeBadge(m.unitType, m.modelNumber)}</td>
+                              <td className="px-3 py-2.5">{getControlTypeBadge(m.controlType)}</td>
+                              <td className="px-3 py-2.5 text-slate-600 font-medium">{m.department || '—'}</td>
                               <td className="px-3 py-2.5 text-center font-medium text-slate-600">
                                 {m.installationYear || '—'}
                               </td>
                               <td className="px-3 py-2.5 text-center">
-                                <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#6F8A9D]/15 text-[#546A7A] border border-[#6F8A9D]/30">
-                                  {m.contractType || 'UMC'}
-                                </span>
+                                {getContractTypeBadge(m.contractType)}
                               </td>
                               <td className="px-3 py-2.5 text-slate-700">
                                 {m.mcStartDate || m.mcEndDate ? (
@@ -708,72 +874,82 @@ export default function DetailedContractTracking({ role }: DetailedContractTrack
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {allMachines.map((m, idx) => (
-                  <tr key={m.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-3 py-2.5 font-bold text-slate-400">{idx + 1}</td>
-                    <td className="px-3 py-2.5 font-extrabold text-slate-800 max-w-[180px] truncate">
-                      {m.customerName}
-                    </td>
-                    <td className="px-3 py-2.5">{getClassBadge(m.customerClass)}</td>
-                    <td className="px-3 py-2.5 text-slate-600">
-                      <p className="font-medium text-slate-800">{m.place || '—'}</p>
-                      <p className="text-[10px] text-slate-400 font-semibold">{m.zoneName} Zone</p>
-                    </td>
-                    <td className="px-3 py-2.5 text-slate-600 font-medium">{m.engineerName || '—'}</td>
-                    <td className="px-3 py-2.5 font-mono font-bold text-slate-800">{m.serialNumber}</td>
-                    <td className="px-3 py-2.5 font-semibold text-slate-800">{m.unitType || '—'}</td>
-                    <td className="px-3 py-2.5 text-slate-600">{m.controlType || '—'}</td>
-                    <td className="px-3 py-2.5 text-center">
-                      <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#6F8A9D]/15 text-[#546A7A] border border-[#6F8A9D]/30">
-                        {m.contractType || 'UMC'}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2.5 text-slate-700">
-                      {m.mcStartDate || m.mcEndDate ? (
-                        <span className="font-medium">
-                          {formatDate(m.mcStartDate)} → {formatDate(m.mcEndDate)}
+                {allMachines.map((m, idx) => {
+                  const custTheme = getCustomerTheme(m.customerName);
+                  return (
+                    <tr key={m.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-3 py-2.5 font-bold text-slate-400">{idx + 1}</td>
+                      <td className="px-3 py-2.5 font-extrabold text-slate-800 max-w-[180px] truncate">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-6 h-6 rounded-lg bg-gradient-to-br ${custTheme.gradient} text-white flex items-center justify-center font-extrabold text-[10px] flex-shrink-0 shadow-xs`}>
+                            {m.customerName ? m.customerName.charAt(0).toUpperCase() : 'C'}
+                          </div>
+                          <span className="truncate">{m.customerName}</span>
+                        </div>
+                      </td>
+                      <td className="px-3 py-2.5">{getClassBadge(m.customerClass)}</td>
+                      <td className="px-3 py-2.5 text-slate-600">
+                        <p className="font-medium text-slate-800">{m.place || '—'}</p>
+                        <p className="text-[10px] text-slate-400 font-semibold">{m.zoneName} Zone</p>
+                      </td>
+                      <td className="px-3 py-2.5 text-slate-600 font-medium">{m.engineerName || '—'}</td>
+                      <td className="px-3 py-2.5 font-mono font-bold text-slate-800">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-800 font-mono text-[11px]">
+                          {m.serialNumber}
                         </span>
-                      ) : '—'}
-                    </td>
-                    <td className="px-3 py-2.5 text-center">{getExpiryBadge(m.mcExpiry)}</td>
-                    <td className="px-3 py-2.5 text-right font-extrabold text-slate-800">
-                      {formatCurrency(m.mcValue)}
-                    </td>
+                      </td>
+                      <td className="px-3 py-2.5">{getUnitTypeBadge(m.unitType, m.modelNumber)}</td>
+                      <td className="px-3 py-2.5">{getControlTypeBadge(m.controlType)}</td>
+                      <td className="px-3 py-2.5 text-center">
+                        {getContractTypeBadge(m.contractType)}
+                      </td>
+                      <td className="px-3 py-2.5 text-slate-700">
+                        {m.mcStartDate || m.mcEndDate ? (
+                          <span className="font-medium">
+                            {formatDate(m.mcStartDate)} → {formatDate(m.mcEndDate)}
+                          </span>
+                        ) : '—'}
+                      </td>
+                      <td className="px-3 py-2.5 text-center">{getExpiryBadge(m.mcExpiry)}</td>
+                      <td className="px-3 py-2.5 text-right font-extrabold text-slate-800">
+                        {formatCurrency(m.mcValue)}
+                      </td>
 
-                    {/* Actions */}
-                    <td className="px-3 py-2.5 text-center">
-                      <div className="flex items-center justify-center gap-1.5">
-                        <a
-                          href={`${getBaseRoute()}/contracts/detailed/${m.id}`}
-                          className="p-1.5 rounded-lg bg-slate-100 hover:bg-[#546A7A] text-slate-600 hover:text-white transition-colors"
-                          title="View Contract Details"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                        </a>
+                      {/* Actions */}
+                      <td className="px-3 py-2.5 text-center">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <a
+                            href={`${getBaseRoute()}/contracts/detailed/${m.id}`}
+                            className="p-1.5 rounded-lg bg-slate-100 hover:bg-[#546A7A] text-slate-600 hover:text-white transition-colors"
+                            title="View Contract Details"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </a>
 
-                        {canEdit && (
-                          <>
-                            <a
-                              href={`${getBaseRoute()}/contracts/detailed/${m.id}/edit`}
-                              className="p-1.5 rounded-lg bg-slate-100 hover:bg-[#82A094] text-slate-600 hover:text-white transition-colors"
-                              title="Edit Contract"
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </a>
+                          {canEdit && (
+                            <>
+                              <a
+                                href={`${getBaseRoute()}/contracts/detailed/${m.id}/edit`}
+                                className="p-1.5 rounded-lg bg-slate-100 hover:bg-[#82A094] text-slate-600 hover:text-white transition-colors"
+                                title="Edit Contract"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </a>
 
-                            <button
-                              onClick={() => setDeleteTarget(m)}
-                              className="p-1.5 rounded-lg bg-slate-100 hover:bg-rose-600 text-slate-600 hover:text-white transition-colors"
-                              title="Delete Contract"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                              <button
+                                onClick={() => setDeleteTarget(m)}
+                                className="p-1.5 rounded-lg bg-slate-100 hover:bg-rose-600 text-slate-600 hover:text-white transition-colors"
+                                title="Delete Contract"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

@@ -233,13 +233,40 @@ export const listDetailedContracts = async (req: Request, res: Response) => {
 // ============================
 export const getDetailedContractStats = async (req: Request, res: Response) => {
   try {
-    const { zone, customerClass } = req.query;
+    const { zone, customerClass, contractType, unitType, engineer, department, dateFrom, dateTo, search } = req.query;
     const where: any = {};
     if (zone && zone !== 'all') where.zoneName = { equals: zone as string, mode: 'insensitive' };
     if (customerClass && customerClass !== 'all') where.customerClass = customerClass as string;
+    if (contractType && contractType !== 'all') where.contractType = { equals: contractType as string, mode: 'insensitive' };
+    if (unitType && unitType !== 'all') where.unitType = { contains: unitType as string, mode: 'insensitive' };
+    if (engineer && engineer !== 'all') {
+      const engStr = String(engineer).trim();
+      const engLower = engStr.toLowerCase();
+      if (engLower.startsWith('sasi')) {
+        where.engineerName = { contains: 'sasi', mode: 'insensitive' };
+      } else {
+        where.engineerName = { contains: engStr, mode: 'insensitive' };
+      }
+    }
+    if (department && department !== 'all') where.department = { equals: department as string, mode: 'insensitive' };
+
+    if (dateFrom || dateTo) {
+      where.mcEndDate = {};
+      if (dateFrom) where.mcEndDate.gte = new Date(dateFrom as string);
+      if (dateTo) where.mcEndDate.lte = new Date(dateTo as string);
+    }
+
+    if (search) {
+      where.OR = [
+        { customerName: { contains: search as string, mode: 'insensitive' } },
+        { serialNumber: { contains: search as string, mode: 'insensitive' } },
+        { place: { contains: search as string, mode: 'insensitive' } },
+        { engineerName: { contains: search as string, mode: 'insensitive' } },
+        { unitType: { contains: search as string, mode: 'insensitive' } },
+      ];
+    }
 
     const records = await db.detailedContract.findMany({ where });
-    const now = new Date();
 
     let totalMachines = records.length;
     let totalMCValue = 0;
@@ -298,7 +325,7 @@ export const getDetailedContractStats = async (req: Request, res: Response) => {
 // ============================
 export const getCustomerGroupedContracts = async (req: Request, res: Response) => {
   try {
-    const { search, zone, customerClass, expiryBucket } = req.query;
+    const { search, zone, customerClass, contractType, unitType, engineer, department, dateFrom, dateTo, expiryBucket } = req.query;
     const where: any = {};
 
     if (search) {
@@ -306,10 +333,30 @@ export const getCustomerGroupedContracts = async (req: Request, res: Response) =
         { customerName: { contains: search as string, mode: 'insensitive' } },
         { serialNumber: { contains: search as string, mode: 'insensitive' } },
         { place: { contains: search as string, mode: 'insensitive' } },
+        { engineerName: { contains: search as string, mode: 'insensitive' } },
+        { unitType: { contains: search as string, mode: 'insensitive' } },
       ];
     }
     if (zone && zone !== 'all') where.zoneName = { equals: zone as string, mode: 'insensitive' };
     if (customerClass && customerClass !== 'all') where.customerClass = customerClass as string;
+    if (contractType && contractType !== 'all') where.contractType = { equals: contractType as string, mode: 'insensitive' };
+    if (unitType && unitType !== 'all') where.unitType = { contains: unitType as string, mode: 'insensitive' };
+    if (engineer && engineer !== 'all') {
+      const engStr = String(engineer).trim();
+      const engLower = engStr.toLowerCase();
+      if (engLower.startsWith('sasi')) {
+        where.engineerName = { contains: 'sasi', mode: 'insensitive' };
+      } else {
+        where.engineerName = { contains: engStr, mode: 'insensitive' };
+      }
+    }
+    if (department && department !== 'all') where.department = { equals: department as string, mode: 'insensitive' };
+
+    if (dateFrom || dateTo) {
+      where.mcEndDate = {};
+      if (dateFrom) where.mcEndDate.gte = new Date(dateFrom as string);
+      if (dateTo) where.mcEndDate.lte = new Date(dateTo as string);
+    }
 
     const records = await db.detailedContract.findMany({
       where,
@@ -328,7 +375,8 @@ export const getCustomerGroupedContracts = async (req: Request, res: Response) =
           customerClass: r.customerClass,
           place: r.place,
           zoneName: r.zoneName,
-          engineerName: r.engineerName,
+          engineerName: r.engineerName || null,
+          engineers: new Set<string>(),
           totalMachines: 0,
           totalMCValue: 0,
           totalPMVisits: 0,
@@ -337,6 +385,13 @@ export const getCustomerGroupedContracts = async (req: Request, res: Response) =
           earliestMCExpiry: null as Date | null,
           expiryStatus: 'Active',
         };
+      }
+
+      if (r.engineerName) {
+        r.engineerName.split(/[\/,]+/).forEach((eng: string) => {
+          const trimmed = eng.trim();
+          if (trimmed) customerMap[key].engineers.add(trimmed);
+        });
       }
 
       const mc = computeExpiryStatus(r.mcEndDate);
@@ -372,6 +427,10 @@ export const getCustomerGroupedContracts = async (req: Request, res: Response) =
       c.expiryStatus = earliest.status;
       c.expiryBucket = earliest.bucket;
       c.daysToEarliestExpiry = earliest.daysLeft;
+      if (c.engineers && c.engineers.size > 0) {
+        c.engineerName = Array.from(c.engineers).join(', ');
+      }
+      delete c.engineers;
       return c;
     });
 

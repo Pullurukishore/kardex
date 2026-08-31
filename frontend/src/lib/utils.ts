@@ -108,3 +108,66 @@ export function getCustomerColorClass(customerName: string): string {
   const index = Math.abs(hash) % colors.length;
   return colors[index];
 }
+
+/** Clean, parse and standardize engineer names (removes notes like "(Installed by ...)", deduplicates and normalizes casing/aliases) */
+export function normalizeEngineerNames(raw: string | null | undefined): string[] {
+  if (!raw) return [];
+
+  // Strip parenthetical notes like (Installed by ...) or (Direct)
+  const cleaned = String(raw).replace(/\s*\([^)]*\)/g, '').trim();
+  if (!cleaned) return [];
+
+  // Split by /, &, comma, or semicolon or 'and'
+  const parts = cleaned.split(/[\/,;&]+|\band\b/i);
+  const result: string[] = [];
+
+  parts.forEach(part => {
+    let name = part.trim();
+    if (!name) return;
+
+    // Remove any special characters/numbers
+    name = name.replace(/[^a-zA-Z\s]/g, '').trim();
+    if (!name) return;
+
+    // Standardize title casing
+    name = name.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+
+    const lower = name.toLowerCase();
+
+    // Map known variations to canonical names
+    if (lower === 'sasikumar' || lower === 'sasi kumar' || lower === 'sasi') {
+      name = 'Sasi Kumar';
+    } else if (lower === 'gajendra' || lower === 'gajendran') {
+      name = 'Gajendra';
+    } else if (lower === 'pradeep' || lower === 'pradeep kumar') {
+      name = 'Pradeep';
+    } else if (lower === 'minesh' || lower === 'minesh patel') {
+      name = 'Minesh';
+    } else if (lower === 'nitin' || lower === 'nithin') {
+      name = 'Nitin';
+    } else if (lower === 'rahul') {
+      name = 'Rahul';
+    } else if (lower === 'vinay') {
+      name = 'Vinay';
+    } else if (lower === 'pankaj') {
+      name = 'Pankaj';
+    } else if (lower === 'ashraf') {
+      name = 'Ashraf';
+    } else if (lower === 'yogesh') {
+      name = 'Yogesh';
+    }
+
+    if (!result.includes(name)) {
+      result.push(name);
+    }
+  });
+
+  return result;
+}
+
+/** Format engineer display string */
+export function formatEngineerDisplayName(raw: string | null | undefined): string {
+  const names = normalizeEngineerNames(raw);
+  return names.length > 0 ? names.join(', ') : (raw ? String(raw).replace(/\s*\([^)]*\)/g, '').trim() : '—');
+}
+

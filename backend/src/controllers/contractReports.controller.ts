@@ -63,7 +63,8 @@ const applyCommonFilters = (where: any, query: any) => {
       { customerName: { contains: search as string, mode: 'insensitive' } },
       { place: { contains: search as string, mode: 'insensitive' } },
       { contractNumber: { contains: search as string, mode: 'insensitive' } },
-      { poNo: { contains: search as string, mode: 'insensitive' } }
+      { poNo: { contains: search as string, mode: 'insensitive' } },
+      { responsible: { contains: search as string, mode: 'insensitive' } }
     ];
   }
 

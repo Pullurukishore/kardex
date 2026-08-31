@@ -576,14 +576,6 @@ export const expertHelpdeskNavigation: NavItem[] = [
 // Admin Contracts Navigation (flattened - no submenus)
 export const adminContractsNavigation: NavItem[] = [
   {
-    title: "Contracts Dashboard",
-    href: "/admin/contracts/dashboard",
-    icon: LayoutDashboard,
-    roles: [UserRole.ADMIN],
-    iconColor: "text-[#82A094]",
-    iconBgColor: "bg-[#82A094]/10"
-  },
-  {
     title: "Contracts",
     href: "/admin/contracts",
     icon: FileText,
@@ -592,33 +584,25 @@ export const adminContractsNavigation: NavItem[] = [
     iconBgColor: "bg-[#6F8A9D]/10"
   },
   {
-    title: "Reports",
-    href: "/admin/contracts/reports",
-    icon: BarChart2,
-    roles: [UserRole.ADMIN],
-    iconColor: "text-[#CE9F6B]",
-    iconBgColor: "bg-[#CE9F6B]/10"
-  },
-  {
     title: "Annual Contracts",
     href: "/admin/contracts/detailed",
     icon: Layers,
     roles: [UserRole.ADMIN],
     iconColor: "text-[#7CA5C4]",
     iconBgColor: "bg-[#7CA5C4]/10"
+  },
+  {
+    title: "Reports",
+    href: "/admin/contracts/reports",
+    icon: BarChart2,
+    roles: [UserRole.ADMIN],
+    iconColor: "text-[#CE9F6B]",
+    iconBgColor: "bg-[#CE9F6B]/10"
   }
 ];
 
 // Zone Manager Contracts Navigation (flattened)
 export const zoneManagerContractsNavigation: NavItem[] = [
-  {
-    title: "Contracts Dashboard",
-    href: "/zone-manager/contracts/dashboard",
-    icon: LayoutDashboard,
-    roles: [UserRole.ZONE_MANAGER],
-    iconColor: "text-[#82A094]",
-    iconBgColor: "bg-[#82A094]/10"
-  },
   {
     title: "Contracts",
     href: "/zone-manager/contracts",
@@ -628,33 +612,25 @@ export const zoneManagerContractsNavigation: NavItem[] = [
     iconBgColor: "bg-[#6F8A9D]/10"
   },
   {
-    title: "Reports",
-    href: "/zone-manager/contracts/reports",
-    icon: BarChart2,
-    roles: [UserRole.ZONE_MANAGER],
-    iconColor: "text-[#CE9F6B]",
-    iconBgColor: "bg-[#CE9F6B]/10"
-  },
-  {
     title: "Annual Contracts",
     href: "/zone-manager/contracts/detailed",
     icon: Layers,
     roles: [UserRole.ZONE_MANAGER],
     iconColor: "text-[#7CA5C4]",
     iconBgColor: "bg-[#7CA5C4]/10"
+  },
+  {
+    title: "Reports",
+    href: "/zone-manager/contracts/reports",
+    icon: BarChart2,
+    roles: [UserRole.ZONE_MANAGER],
+    iconColor: "text-[#CE9F6B]",
+    iconBgColor: "bg-[#CE9F6B]/10"
   }
 ];
 
 // Zone User Contracts Navigation (flattened)
 export const zoneUserContractsNavigation: NavItem[] = [
-  {
-    title: "Contracts Dashboard",
-    href: "/zone/contracts/dashboard",
-    icon: LayoutDashboard,
-    roles: [UserRole.ZONE_USER],
-    iconColor: "text-[#82A094]",
-    iconBgColor: "bg-[#82A094]/10"
-  },
   {
     title: "Contracts",
     href: "/zone/contracts",
@@ -664,33 +640,25 @@ export const zoneUserContractsNavigation: NavItem[] = [
     iconBgColor: "bg-[#6F8A9D]/10"
   },
   {
-    title: "Reports",
-    href: "/zone/contracts/reports",
-    icon: BarChart2,
-    roles: [UserRole.ZONE_USER],
-    iconColor: "text-[#CE9F6B]",
-    iconBgColor: "bg-[#CE9F6B]/10"
-  },
-  {
     title: "Annual Contracts",
     href: "/zone/contracts/detailed",
     icon: Layers,
     roles: [UserRole.ZONE_USER],
     iconColor: "text-[#7CA5C4]",
     iconBgColor: "bg-[#7CA5C4]/10"
+  },
+  {
+    title: "Reports",
+    href: "/zone/contracts/reports",
+    icon: BarChart2,
+    roles: [UserRole.ZONE_USER],
+    iconColor: "text-[#CE9F6B]",
+    iconBgColor: "bg-[#CE9F6B]/10"
   }
 ];
 
 // Expert Helpdesk Contracts Navigation (flattened)
 export const expertHelpdeskContractsNavigation: NavItem[] = [
-  {
-    title: "Contracts Dashboard",
-    href: "/expert/contracts/dashboard",
-    icon: LayoutDashboard,
-    roles: [UserRole.EXPERT_HELPDESK],
-    iconColor: "text-[#82A094]",
-    iconBgColor: "bg-[#82A094]/10"
-  },
   {
     title: "Contracts",
     href: "/expert/contracts",
@@ -700,20 +668,20 @@ export const expertHelpdeskContractsNavigation: NavItem[] = [
     iconBgColor: "bg-[#6F8A9D]/10"
   },
   {
-    title: "Reports",
-    href: "/expert/contracts/reports",
-    icon: BarChart2,
-    roles: [UserRole.EXPERT_HELPDESK],
-    iconColor: "text-[#CE9F6B]",
-    iconBgColor: "bg-[#CE9F6B]/10"
-  },
-  {
     title: "Annual Contracts",
     href: "/expert/contracts/detailed",
     icon: Layers,
     roles: [UserRole.EXPERT_HELPDESK],
     iconColor: "text-[#7CA5C4]",
     iconBgColor: "bg-[#7CA5C4]/10"
+  },
+  {
+    title: "Reports",
+    href: "/expert/reports",
+    icon: BarChart2,
+    roles: [UserRole.EXPERT_HELPDESK],
+    iconColor: "text-[#CE9F6B]",
+    iconBgColor: "bg-[#CE9F6B]/10"
   }
 ];
 

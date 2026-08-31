@@ -437,15 +437,16 @@ export function Sidebar({
                   <div className="absolute inset-0 bg-[#82A094] rounded-full animate-ping opacity-40" style={{ animationDuration: '2s' }} />
                 </div>
               </div>
-              <Image 
-                src="/kardex.png" 
-                alt="Kardex" 
-                width={isMobile ? 180 : 200} 
-                height={isMobile ? 56 : 62} 
-                className="transition-transform duration-200"
-                style={{ width: 'auto', height: 'auto' }}
-                priority
-              />
+              <div className="overflow-hidden w-[85px] sm:w-[94px] flex items-center shrink-0">
+                <Image 
+                  src="/kardex.png" 
+                  alt="Kardex" 
+                  width={isMobile ? 180 : 200} 
+                  height={isMobile ? 56 : 62} 
+                  className="transition-transform duration-200 max-w-none w-[180px] sm:w-[200px] h-auto"
+                  priority
+                />
+              </div>
             </div>
           )}
           {collapsed && !isMobile && (

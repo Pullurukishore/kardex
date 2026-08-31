@@ -11,7 +11,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { apiService } from '@/services/api';
-import { getCustomerColorClass } from '@/lib/utils';
+import { getCustomerColorClass, normalizeEngineerNames, formatEngineerDisplayName } from '@/lib/utils';
 import { generateContractReportPdf } from '@/lib/contract-report-pdf';
 
 interface PMSchedule {
@@ -76,7 +76,8 @@ type SortDir = 'asc' | 'desc';
 export default function ContractReports({ role }: ContractReportsProps) {
   const router = useRouter();
   const [contracts, setContracts] = useState<Contract[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [hasGenerated, setHasGenerated] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [expandedCustomerId, setExpandedCustomerId] = useState<string | number | null>(null);
 
@@ -116,7 +117,8 @@ export default function ContractReports({ role }: ContractReportsProps) {
   const [presetName, setPresetName] = useState('');
   const [showPresetSave, setShowPresetSave] = useState(false);
 
-  // Schedule banner
+  // PM Schedule Execution Mode (1st & 15th of every month)
+  const [scheduleMode, setScheduleMode] = useState(false);
   const [scheduleDismissed, setScheduleDismissed] = useState(false);
   const today = new Date();
   const dayOfMonth = today.getDate();
@@ -124,7 +126,7 @@ export default function ContractReports({ role }: ContractReportsProps) {
   const isScheduleWindow = dayOfMonth <= 3 || (dayOfMonth >= 15 && dayOfMonth <= 17);
   const scheduleLabel = dayOfMonth <= 3 ? '1st of Month' : '15th of Month';
 
-  // Load presets from localStorage
+  // Load presets & fetch initial contracts for dropdown filters
   useEffect(() => {
     try {
       const saved = localStorage.getItem('kardex-report-filter-presets');
@@ -132,6 +134,8 @@ export default function ContractReports({ role }: ContractReportsProps) {
       const dismissed = localStorage.getItem('kardex-schedule-dismissed-date');
       if (dismissed === today.toISOString().slice(0, 10)) setScheduleDismissed(true);
     } catch { /* ignore */ }
+
+    fetchContracts();
   }, []);
 
   const savePreset = () => {
@@ -148,13 +152,13 @@ export default function ContractReports({ role }: ContractReportsProps) {
     };
     const updated = [...filterPresets, preset];
     setFilterPresets(updated);
-    localStorage.setItem('kardex-report-filter-presets', JSON.stringify(updated));
+    try { localStorage.setItem('kardex-report-filter-presets', JSON.stringify(updated)); } catch { /* ignore */ }
     setPresetName('');
     setShowPresetSave(false);
     toast.success(`Filter preset "${preset.name}" saved!`);
   };
 
-  const loadPreset = (preset: FilterPreset) => {
+  const applyPreset = (preset: FilterPreset) => {
     setZoneFilter(preset.filters.zone);
     setStatusFilter(preset.filters.status);
     setTechFilter(preset.filters.tech);
@@ -162,17 +166,44 @@ export default function ContractReports({ role }: ContractReportsProps) {
     setMcTypeFilter(preset.filters.mcType);
     setSwFilter(preset.filters.sw);
     setSearch(preset.filters.search);
-    if (preset.filters.dateFrom !== undefined) setDateFrom(preset.filters.dateFrom);
-    if (preset.filters.dateTo !== undefined) setDateTo(preset.filters.dateTo);
-    toast.success(`Loaded preset "${preset.name}"`);
+    setDateFrom(preset.filters.dateFrom);
+    setDateTo(preset.filters.dateTo);
+    toast.info(`Applied preset: ${preset.name}`);
   };
 
   const deletePreset = (id: string) => {
     const updated = filterPresets.filter(p => p.id !== id);
     setFilterPresets(updated);
-    localStorage.setItem('kardex-report-filter-presets', JSON.stringify(updated));
-    toast.success('Preset deleted');
+    try { localStorage.setItem('kardex-report-filter-presets', JSON.stringify(updated)); } catch { /* ignore */ }
+    toast.success('Preset removed');
   };
+
+  // Quick Date Range Presets
+  const applyDatePreset = (preset: 'today' | 'this_month' | 'next_month' | 'this_quarter' | 'all') => {
+    const now = new Date();
+    if (preset === 'today') {
+      const todayStr = now.toISOString().slice(0, 10);
+      setDateFrom(todayStr);
+      setDateTo(todayStr);
+    } else if (preset === 'this_month') {
+      const y = now.getFullYear(), m = now.getMonth();
+      setDateFrom(new Date(y, m, 1).toISOString().slice(0, 10));
+      setDateTo(new Date(y, m + 1, 0).toISOString().slice(0, 10));
+    } else if (preset === 'next_month') {
+      const y = now.getFullYear(), m = now.getMonth() + 1;
+      setDateFrom(new Date(y, m, 1).toISOString().slice(0, 10));
+      setDateTo(new Date(y, m + 1, 0).toISOString().slice(0, 10));
+    } else if (preset === 'this_quarter') {
+      const y = now.getFullYear(), q = Math.floor(now.getMonth() / 3);
+      setDateFrom(new Date(y, q * 3, 1).toISOString().slice(0, 10));
+      setDateTo(new Date(y, q * 3 + 3, 0).toISOString().slice(0, 10));
+    } else if (preset === 'all') {
+      setDateFrom('');
+      setDateTo('');
+    }
+  };
+
+  const isScheduleActive = scheduleMode || (isScheduleWindow && !scheduleDismissed);
 
   const dismissSchedule = () => {
     setScheduleDismissed(true);
@@ -228,12 +259,14 @@ export default function ContractReports({ role }: ContractReportsProps) {
   // Fetch contracts
   const fetchContracts = async () => {
     setLoading(true);
+    setHasGenerated(true);
     try {
-      const params: any = {};
+      const params: any = { limit: 10000 };
       if (dateFrom) params.dateFrom = dateFrom;
       if (dateTo) params.dateTo = dateTo;
       const data = await apiService.getContracts(params);
-      setContracts(data);
+      const list = Array.isArray(data) ? data : (data?.contracts || data?.data || []);
+      setContracts(list);
     } catch (err: any) {
       console.error('Failed to fetch contracts', err);
       toast.error('Failed to load contracts data');
@@ -241,10 +274,6 @@ export default function ContractReports({ role }: ContractReportsProps) {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    fetchContracts();
-  }, []);
 
   const now = new Date();
 
@@ -391,12 +420,7 @@ export default function ContractReports({ role }: ContractReportsProps) {
   const uniqueTechnicians = useMemo(() => {
     const set = new Set<string>();
     contracts.forEach(c => {
-      if (c.responsible) {
-        c.responsible.split(/[\/,]+/).forEach(r => {
-          const name = r.trim();
-          if (name) set.add(name);
-        });
-      }
+      normalizeEngineerNames(c.responsible).forEach(name => set.add(name));
     });
     return Array.from(set).sort();
   }, [contracts]);
@@ -452,8 +476,12 @@ export default function ContractReports({ role }: ContractReportsProps) {
     if (zoneFilter !== 'all') filtered = filtered.filter(c => c.zoneName === zoneFilter);
     if (statusFilter !== 'all') filtered = filtered.filter(c => c.status === statusFilter);
     if (techFilter !== 'all') {
+      const tf = techFilter.toLowerCase().trim();
       filtered = filtered.filter(c =>
-        c.responsible && c.responsible.split(/[\/,]+/).map(r => r.trim().toLowerCase()).includes(techFilter.toLowerCase())
+        c.responsible && (
+          c.responsible.toLowerCase().includes(tf) ||
+          c.responsible.split(/[\/,]+/).map(r => r.trim().toLowerCase()).includes(tf)
+        )
       );
     }
     if (mcTypeFilter !== 'all') filtered = filtered.filter(c => c.mcType === mcTypeFilter);
@@ -685,28 +713,6 @@ export default function ContractReports({ role }: ContractReportsProps) {
         </div>
       )}
 
-      {/* ═══ PAGE HEADER — Same as Ticket Reports ═══ */}
-      <div className="mb-6 sm:mb-8">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-[#546A7A] mb-2">Contract & PM Reports</h1>
-            <p className="text-sm sm:text-base text-[#5D6E73]">
-              Generate and view comprehensive contract portfolios, PM schedules, and expiry analytics
-            </p>
-          </div>
-          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-            <div className="text-xs sm:text-sm text-[#5D6E73] bg-[#AEBFC3]/20 px-3 py-2 rounded-lg">
-              Report Type: <span className="font-medium">Customer Portfolio</span>
-            </div>
-            {contracts.length > 0 && (
-              <div className="text-xs sm:text-sm text-[#4F6A64] bg-[#A2B9AF]/10 px-3 py-2 rounded-lg">
-                ✓ {customerSummaries.length} Customers
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
       {/* ═══ REPORT GENERATION CONTROLS — Card Layout like Ticket Reports ═══ */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden print:hidden">
         {/* Card Header — Title + Generate + Export Buttons */}
@@ -819,12 +825,12 @@ export default function ContractReports({ role }: ContractReportsProps) {
               </select>
             </div>
 
-            {/* Responsible */}
+            {/* Responsible Engineer */}
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-600">Responsible</label>
+              <label className="text-xs font-semibold text-slate-600">Responsible Engineer</label>
               <select value={techFilter} onChange={(e) => setTechFilter(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 font-medium">
-                <option value="all">All Responsible</option>
+                <option value="all">All Responsible Engineers</option>
                 {uniqueTechnicians.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
@@ -887,7 +893,7 @@ export default function ContractReports({ role }: ContractReportsProps) {
             {filterPresets.map(preset => (
               <div key={preset.id} className="inline-flex items-center gap-1 group">
                 <button
-                  onClick={() => loadPreset(preset)}
+                  onClick={() => applyPreset(preset)}
                   className="px-2.5 py-1.5 rounded-lg bg-[#546A7A]/10 hover:bg-[#546A7A]/20 text-[10px] font-bold text-[#546A7A] transition-colors flex items-center gap-1"
                   title={`Zone: ${preset.filters.zone} | Status: ${preset.filters.status} | Responsible: ${preset.filters.tech}`}
                 >
@@ -934,103 +940,126 @@ export default function ContractReports({ role }: ContractReportsProps) {
         </div>
       </div>
 
-      {/* ═══ DYNAMIC SUMMARY KPI CARDS ═══ */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {reportType === 'customer-portfolio' && (
-          <>
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#82A094]/10 flex items-center justify-center text-[#82A094] flex-shrink-0">
-                <Building2 className="w-5 h-5" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Total Customers</p>
-                <p className="text-lg font-extrabold text-slate-800">{selectedSummary.totalCustomers}</p>
-              </div>
-            </div>
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#546A7A]/10 flex items-center justify-center text-[#546A7A] flex-shrink-0">
-                <FileText className="w-5 h-5" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Total Agreements</p>
-                <p className="text-lg font-extrabold text-slate-800">{selectedSummary.totalContracts}</p>
-                <span className="text-[10px] text-emerald-600 font-bold block">{selectedSummary.active} Active</span>
-              </div>
-            </div>
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-600 flex-shrink-0">
-                <IndianRupee className="w-5 h-5" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Portfolio Value</p>
-                <p className="text-lg font-extrabold text-slate-800">{formatCurrency(selectedSummary.totalValue || 0)}</p>
-              </div>
-            </div>
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-650 flex-shrink-0">
-                <TrendingUp className="w-5 h-5" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">PM Done %</p>
-                <p className="text-lg font-extrabold text-indigo-600">{selectedSummary.pmPct}%</p>
-                <span className="text-[10px] text-rose-600 font-bold block">{selectedSummary.pmOverdue} Overdue</span>
-              </div>
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* ═══ PM COMPLETION OVERVIEW BAR ═══ */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex flex-col sm:flex-row items-center gap-4">
-        <div className="flex items-center gap-3 flex-shrink-0">
-          <div className="relative w-14 h-14 flex items-center justify-center">
-            <svg className="w-14 h-14 transform -rotate-90" viewBox="0 0 64 64">
-              <circle cx="32" cy="32" r="26" fill="none" stroke="#e2e8f0" strokeWidth="5" />
-              <circle
-                cx="32" cy="32" r="26" fill="none"
-                stroke={Number(selectedSummary.pmPct || 0) >= 75 ? '#10b981' : Number(selectedSummary.pmPct || 0) >= 40 ? '#f59e0b' : '#ef4444'}
-                strokeWidth="5" strokeLinecap="round"
-                strokeDasharray={2 * Math.PI * 26}
-                strokeDashoffset={2 * Math.PI * 26 - (Number(selectedSummary.pmPct || 0) / 100) * 2 * Math.PI * 26}
-                className="transition-all duration-700 ease-out"
-              />
-            </svg>
-            <span className="absolute text-xs font-extrabold text-slate-700">{selectedSummary.pmPct || 0}%</span>
+      {/* ═══ NOT GENERATED STATE ═══ */}
+      {!hasGenerated && !loading && (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-12 sm:p-16 text-center">
+          <div className="w-16 h-16 rounded-2xl bg-[#546A7A]/10 text-[#546A7A] flex items-center justify-center mx-auto mb-4">
+            <BarChart3 className="w-8 h-8" />
           </div>
-        </div>
-        <div className="flex-1 min-w-0">
-          <h3 className="text-sm font-bold text-slate-800">Preventive Maintenance Overview</h3>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Across all filtered records: {selectedSummary.pmCompleted || 0} of {selectedSummary.pmTotal || 0} PM visits completed • {selectedSummary.pmOverdue || 0} overdue
+          <h3 className="text-lg sm:text-xl font-bold text-slate-800">Ready to Generate Report</h3>
+          <p className="text-sm text-slate-500 max-w-md mx-auto mt-1 mb-6">
+            Configure your parameters above and click &quot;Generate Report&quot; to view contract analytics and PM schedules.
           </p>
-          <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden mt-2">
-            <div
-              className="h-full rounded-full transition-all duration-700 ease-out"
-              style={{
-                width: `${selectedSummary.pmPct || 0}%`,
-                background: Number(selectedSummary.pmPct || 0) >= 75 ? '#10b981' : Number(selectedSummary.pmPct || 0) >= 40 ? '#f59e0b' : '#ef4444',
-              }}
-            />
-          </div>
+          <button
+            onClick={fetchContracts}
+            disabled={loading}
+            className="inline-flex items-center justify-center gap-2 bg-[#6F8A9D] hover:bg-[#546A7A] text-white font-bold py-3 px-6 rounded-xl shadow-md hover:shadow-lg transition-all"
+          >
+            <BarChart3 className="w-5 h-5" />
+            Generate Report
+          </button>
         </div>
-      </div>
+      )}
 
-      {/* ═══ TABLE / LIST CONTAINER ═══ */}
-      {loading ? (
-        <div className="bg-white rounded-2xl border border-slate-100 p-16 text-center shadow-sm">
-          <div className="w-10 h-10 border-4 border-[#82A094] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-slate-400 text-sm">Loading reports data...</p>
-        </div>
-      ) : customerSummaries.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-slate-100 p-16 text-center shadow-sm space-y-3">
-          <Building2 className="w-12 h-12 text-slate-300 mx-auto" />
-          <p className="text-slate-400 text-sm font-medium">No customers match the current filter criteria.</p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {/* 1. CUSTOMER PORTFOLIO LAYOUT */}
-          {reportType === 'customer-portfolio' && (
-            <>
+      {/* ═══ DYNAMIC SUMMARY KPI CARDS & REPORT (ONLY AFTER GENERATING) ═══ */}
+      {hasGenerated && (
+        <>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {reportType === 'customer-portfolio' && (
+              <>
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[#82A094]/10 flex items-center justify-center text-[#82A094] flex-shrink-0">
+                    <Building2 className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Total Customers</p>
+                    <p className="text-lg font-extrabold text-slate-800">{selectedSummary.totalCustomers}</p>
+                  </div>
+                </div>
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[#546A7A]/10 flex items-center justify-center text-[#546A7A] flex-shrink-0">
+                    <FileText className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Total Agreements</p>
+                    <p className="text-lg font-extrabold text-slate-800">{selectedSummary.totalContracts}</p>
+                    <span className="text-[10px] text-emerald-600 font-bold block">{selectedSummary.active} Active</span>
+                  </div>
+                </div>
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-600 flex-shrink-0">
+                    <IndianRupee className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Portfolio Value</p>
+                    <p className="text-lg font-extrabold text-slate-800">{formatCurrency(selectedSummary.totalValue || 0)}</p>
+                  </div>
+                </div>
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-650 flex-shrink-0">
+                    <TrendingUp className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">PM Done %</p>
+                    <p className="text-lg font-extrabold text-indigo-600">{selectedSummary.pmPct}%</p>
+                    <span className="text-[10px] text-rose-600 font-bold block">{selectedSummary.pmOverdue} Overdue</span>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* ═══ PM COMPLETION OVERVIEW BAR ═══ */}
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex flex-col sm:flex-row items-center gap-4">
+            <div className="flex items-center gap-3 flex-shrink-0">
+              <div className="relative w-14 h-14 flex items-center justify-center">
+                <svg className="w-14 h-14 transform -rotate-90" viewBox="0 0 64 64">
+                  <circle cx="32" cy="32" r="26" fill="none" stroke="#e2e8f0" strokeWidth="5" />
+                  <circle
+                    cx="32" cy="32" r="26" fill="none"
+                    stroke={Number(selectedSummary.pmPct || 0) >= 75 ? '#10b981' : Number(selectedSummary.pmPct || 0) >= 40 ? '#f59e0b' : '#ef4444'}
+                    strokeWidth="5" strokeLinecap="round"
+                    strokeDasharray={2 * Math.PI * 26}
+                    strokeDashoffset={2 * Math.PI * 26 - (Number(selectedSummary.pmPct || 0) / 100) * 2 * Math.PI * 26}
+                    className="transition-all duration-700 ease-out"
+                  />
+                </svg>
+                <span className="absolute text-xs font-extrabold text-slate-700">{selectedSummary.pmPct || 0}%</span>
+              </div>
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-sm font-bold text-slate-800">Preventive Maintenance Overview</h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Across all filtered records: {selectedSummary.pmCompleted || 0} of {selectedSummary.pmTotal || 0} PM visits completed • {selectedSummary.pmOverdue || 0} overdue
+              </p>
+              <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden mt-2">
+                <div
+                  className="h-full rounded-full transition-all duration-700 ease-out"
+                  style={{
+                    width: `${selectedSummary.pmPct || 0}%`,
+                    background: Number(selectedSummary.pmPct || 0) >= 75 ? '#10b981' : Number(selectedSummary.pmPct || 0) >= 40 ? '#f59e0b' : '#ef4444',
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* ═══ TABLE / LIST CONTAINER ═══ */}
+          {loading ? (
+            <div className="bg-white rounded-2xl border border-slate-100 p-16 text-center shadow-sm">
+              <div className="w-10 h-10 border-4 border-[#82A094] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+              <p className="text-slate-400 text-sm">Loading reports data...</p>
+            </div>
+          ) : customerSummaries.length === 0 ? (
+            <div className="bg-white rounded-2xl border border-slate-100 p-16 text-center shadow-sm space-y-3">
+              <Building2 className="w-12 h-12 text-slate-300 mx-auto" />
+              <p className="text-slate-400 text-sm font-medium">No customers match the current filter criteria.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {/* 1. CUSTOMER PORTFOLIO LAYOUT */}
+              {reportType === 'customer-portfolio' && (
+                <>
               {/* Header Row */}
               <div className="bg-[#546A7A] text-white rounded-t-2xl px-5 py-3 text-xs font-bold flex items-center justify-between shadow-sm select-none">
                 <div className="flex-1 cursor-pointer" onClick={() => handleSort('customerName')}>
@@ -1117,7 +1146,7 @@ export default function ContractReports({ role }: ContractReportsProps) {
 
                             {cs.contracts.some(c => c.responsible) && (
                               <span className="text-[10px] text-slate-400 font-medium ml-1">
-                                • Resp: {Array.from(new Set(cs.contracts.map(c => c.responsible).filter(Boolean))).join(', ')}
+                                • Resp: {Array.from(new Set(cs.contracts.flatMap(c => normalizeEngineerNames(c.responsible)))).join(', ')}
                               </span>
                             )}
                           </div>
@@ -1208,7 +1237,7 @@ export default function ContractReports({ role }: ContractReportsProps) {
                                           {daysLeft < 0 ? `Overdue by ${Math.abs(daysLeft)} Days` : `${daysLeft} Days Remaining`}
                                         </span>
                                         <span>•</span>
-                                        <span>Responsible: <strong className="text-slate-600 font-semibold">{contract.responsible || '—'}</strong></span>
+                                        <span>Responsible: <strong className="text-slate-600 font-semibold">{formatEngineerDisplayName(contract.responsible)}</strong></span>
                                       </div>
                                     </div>
                                   </div>
@@ -1323,6 +1352,8 @@ export default function ContractReports({ role }: ContractReportsProps) {
             </>
           )}
         </div>
+      )}
+        </>
       )}
 
       {/* ═══ FOOTER INFO ═══ */}
