@@ -146,7 +146,7 @@ export default function FSMSelectPage() {
 
         {/* Header */}
         <div className="text-center mb-12">
-          <Image src="/kardex.png" alt="Kardex" width={180} height={72} className="mx-auto mb-6 brightness-0 invert" priority />
+          <Image src="/kardex-only.png" alt="Kardex" width={180} height={72} className="mx-auto mb-6 brightness-0 invert" priority />
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#E17F70]/10 border border-[#E17F70]/25 mb-4">
             <Sparkles className="w-4 h-4 text-[#E17F70]" />
             <span className="text-sm font-semibold text-[#E17F70]">Field Service Management</span>

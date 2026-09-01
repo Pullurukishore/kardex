@@ -189,7 +189,7 @@ export default function PinAccessPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#0f0f23] via-[#1a1a2e] to-[#16213e] p-4">
         <div className="text-center p-8 bg-white/5 backdrop-blur-2xl rounded-3xl border border-white/10 max-w-sm w-full">
-          <Image src="/kardex.png" alt="Kardex" width={140} height={56} className="mx-auto mb-6 brightness-0 invert" priority />
+          <Image src="/kardex-only.png" alt="Kardex" width={140} height={56} className="mx-auto mb-6 brightness-0 invert" priority />
           <div className="w-16 h-16 mx-auto mb-4 relative">
             <div className="absolute inset-0 rounded-full bg-gradient-to-r from-[#E17F70] via-[#CE9F6B] to-[#82A094] animate-spin" style={{ animationDuration: '2s' }}></div>
             <div className="absolute inset-2 rounded-full bg-[#1a1a2e]"></div>
@@ -213,7 +213,7 @@ export default function PinAccessPage() {
         <div className="h-1 bg-gradient-to-r from-[#E17F70] via-[#CE9F6B] to-[#82A094]"></div>
 
         <div className="pt-6 pb-4 px-6 text-center">
-          <Image src="/kardex.png" alt="Kardex" width={120} height={48} className="mx-auto mb-4 brightness-0 invert" priority />
+          <Image src="/kardex-only.png" alt="Kardex" width={120} height={48} className="mx-auto mb-4 brightness-0 invert" priority />
           <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-gradient-to-br from-[#E17F70] to-[#CE9F6B] flex items-center justify-center shadow-lg shadow-[#E17F70]/30">
             <Fingerprint className="h-6 w-6 text-white" />
           </div>

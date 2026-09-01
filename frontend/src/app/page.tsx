@@ -187,7 +187,7 @@ export default function Home() {
                     style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.15), 0 0 0 1px rgba(255,255,255,0.1)' }}
                   >
                     <Image
-                      src="/kardex.png"
+                      src="/kardex-only.png"
                       alt="Kardex Logo"
                       width={220}
                       height={88}

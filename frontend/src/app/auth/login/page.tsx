@@ -219,7 +219,7 @@ export default function LoginPage() {
             {/* Logo */}
             <div className="mb-10 relative">
               <div className="absolute inset-0 bg-gradient-to-r from-[#E17F70]/20 via-transparent to-[#82A094]/20 blur-xl rounded-full"></div>
-              <Image src="/kardex.png" alt="Kardex" width={200} height={80} className="mx-auto brightness-0 invert relative z-10" priority />
+              <Image src="/kardex-only.png" alt="Kardex" width={200} height={80} className="mx-auto brightness-0 invert relative z-10" priority />
             </div>
 
             {/* Animated Success Icon */}
@@ -343,7 +343,7 @@ export default function LoginPage() {
         {/* Content */}
         <div className="relative z-10 max-w-lg">
           <div className="mb-12">
-            <Image src="/kardex.png" alt="Kardex" width={220} height={88} className="brightness-0 invert drop-shadow-2xl" priority />
+            <Image src="/kardex-only.png" alt="Kardex" width={220} height={88} className="brightness-0 invert drop-shadow-2xl" priority />
           </div>
 
           <h1 className="text-5xl font-bold text-white mb-6 leading-tight">
@@ -395,7 +395,7 @@ export default function LoginPage() {
         <div className="w-full max-w-md relative z-10">
           {/* Mobile Logo */}
           <div className="lg:hidden text-center mb-8">
-            <Image src="/kardex.png" alt="Kardex" width={160} height={64} className="mx-auto brightness-0 invert" priority />
+            <Image src="/kardex-only.png" alt="Kardex" width={160} height={64} className="mx-auto brightness-0 invert" priority />
           </div>
 
           {/* Back Button */}

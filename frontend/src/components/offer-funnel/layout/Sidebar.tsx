@@ -456,13 +456,13 @@ export function Sidebar({
               className="rounded-lg transition-all duration-200 hover:scale-105"
               priority
             />
-            <div className="overflow-hidden w-[94px] sm:w-[112px] flex items-center shrink-0">
+            <div className="flex items-center shrink-0">
               <Image 
-                src="/kardex.png" 
+                src="/kardex-only.png" 
                 alt="Kardex" 
-                width={isMobile ? 200 : 240} 
-                height={isMobile ? 62 : 75} 
-                className="transition-all duration-200 hover:scale-105 max-w-none w-[200px] sm:w-[240px] h-auto"
+                width={isMobile ? 100 : 115} 
+                height={isMobile ? 28 : 32} 
+                className="h-6 sm:h-7 w-auto object-contain transition-all duration-200 hover:scale-105"
                 priority
               />
             </div>

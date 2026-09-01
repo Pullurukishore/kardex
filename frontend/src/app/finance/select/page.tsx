@@ -134,7 +134,7 @@ export default function FinanceSelectPage() {
 
         {/* Header */}
         <div className="text-center mb-10">
-          <Image src="/kardex.png" alt="Kardex" width={180} height={72} className="mx-auto mb-6 brightness-0 invert" priority />
+          <Image src="/kardex-only.png" alt="Kardex" width={180} height={72} className="mx-auto mb-6 brightness-0 invert" priority />
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#CE9F6B]/10 border border-[#CE9F6B]/25 mb-4">
             <Sparkles className="w-4 h-4 text-[#CE9F6B]" />
             <span className="text-sm font-semibold text-[#CE9F6B]">Finance Module</span>

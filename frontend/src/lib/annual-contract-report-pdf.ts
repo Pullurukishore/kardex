@@ -269,9 +269,29 @@ export async function generateAnnualContractReportPdf(
     y += cardH + 6;
 
     // ── Prepare Customer-by-Customer Grouped Rows ──
-    const head = [
-        ['#', 'Serial Number', 'Unit / Model', 'Control', 'Department', 'Install Year', 'Type', 'MC Period', 'MC Expiry', 'MC Value']
-    ];
+    const columnHeaderRow = [
+        { content: '#', styles: { halign: 'center' } },
+        { content: 'Serial Number', styles: { halign: 'left' } },
+        { content: 'Unit / Model', styles: { halign: 'left' } },
+        { content: 'Control', styles: { halign: 'center' } },
+        { content: 'Department', styles: { halign: 'left' } },
+        { content: 'Install Year', styles: { halign: 'center' } },
+        { content: 'Type', styles: { halign: 'center' } },
+        { content: 'MC Period', styles: { halign: 'center' } },
+        { content: 'MC Expiry', styles: { halign: 'center' } },
+        { content: 'MC Value', styles: { halign: 'right' } }
+    ].map(col => ({
+        ...col,
+        styles: {
+            fillColor: [71, 85, 105],
+            textColor: COLORS.white,
+            fontStyle: 'bold',
+            fontSize: 7,
+            valign: 'middle',
+            cellPadding: { top: 2, bottom: 2, left: 2, right: 2 },
+            ...col.styles
+        }
+    }));
 
     const body: any[] = [];
 
@@ -300,6 +320,7 @@ export async function generateAnnualContractReportPdf(
             : (cust.daysToEarliestExpiry !== null ? (cust.daysToEarliestExpiry < 0 ? `[ Overdue ]` : `[ ${cust.daysToEarliestExpiry}d left ]`) : '[ Active ]');
         const visitsText = `${cust.totalPMVisits || 0} PM | ${cust.totalBDVisits || 0} BD`;
 
+        // 1. Customer Main Banner Row (Span 10 columns)
         body.push([
             {
                 content: `${custIdx + 1}.  ${cust.customerName.toUpperCase()}   •   ${classText}   •   ${placeText}   •   ${engText}   •   ${visitsText}   •   Total Value: ${valueText}   •   ${statusText}`,
@@ -316,6 +337,10 @@ export async function generateAnnualContractReportPdf(
             }
         ]);
 
+        // 2. Table Column Headers for this Customer
+        body.push(columnHeaderRow);
+
+        // 3. Machine rows for this Customer
         if (machines.length === 0) {
             body.push([
                 {
@@ -364,6 +389,7 @@ export async function generateAnnualContractReportPdf(
             });
         }
 
+        // 4. Spacing Gap between customers
         if (custIdx < customers.length - 1) {
             body.push([
                 {
@@ -381,7 +407,6 @@ export async function generateAnnualContractReportPdf(
     });
 
     autoTable(doc, {
-        head,
         body,
         startY: y,
         margin: { left: 10, right: 10, bottom: 12 },
@@ -395,14 +420,6 @@ export async function generateAnnualContractReportPdf(
             lineWidth: 0.15,
             valign: 'middle',
             overflow: 'linebreak',
-        },
-        headStyles: {
-            fillColor: [71, 85, 105],
-            textColor: COLORS.white,
-            fontStyle: 'bold',
-            fontSize: 7,
-            halign: 'center',
-            valign: 'middle',
         },
         alternateRowStyles: {
             fillColor: COLORS.offWhite,

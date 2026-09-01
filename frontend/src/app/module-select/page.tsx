@@ -112,7 +112,7 @@ export default function ModuleSelectPage() {
       <div className="w-full max-w-md relative z-10">
         {/* Header */}
         <div className="text-center mb-8">
-          <Image src="/kardex.png" alt="Kardex" width={140} height={56} className="mx-auto mb-6 brightness-0 invert" priority />
+          <Image src="/kardex-only.png" alt="Kardex" width={140} height={56} className="mx-auto mb-6 brightness-0 invert" priority />
           
           {/* Welcome Badge */}
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 mb-4">

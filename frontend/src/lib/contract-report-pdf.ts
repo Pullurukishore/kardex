@@ -385,10 +385,29 @@ export async function generateContractReportPdf(
     y += cardH + 6;
 
     // ── Prepare Customer-by-Customer Grouped Rows ──
-    // Notice: removed repeating "Contract No" column to focus on rich detailed schedule execution
-    const head = [
-        ['#', 'PM Visit', 'PM Schedule Window', 'PM Status', 'Completed Date', 'MC Type / SLA', 'Responsible Engineer', 'PO Number', 'Contract Expiry', 'Agreement Value']
-    ];
+    const columnHeaderRow = [
+        { content: '#', styles: { halign: 'center' } },
+        { content: 'PM Visit', styles: { halign: 'center' } },
+        { content: 'PM Schedule Window', styles: { halign: 'center' } },
+        { content: 'PM Status', styles: { halign: 'center' } },
+        { content: 'Completed Date', styles: { halign: 'center' } },
+        { content: 'MC Type / SLA', styles: { halign: 'center' } },
+        { content: 'Responsible Engineer', styles: { halign: 'left' } },
+        { content: 'PO Number', styles: { halign: 'center' } },
+        { content: 'Contract Expiry', styles: { halign: 'center' } },
+        { content: 'Agreement Value', styles: { halign: 'right' } }
+    ].map(col => ({
+        ...col,
+        styles: {
+            fillColor: [71, 85, 105], // Slate-600
+            textColor: COLORS.white,
+            fontStyle: 'bold',
+            fontSize: 7,
+            valign: 'middle',
+            cellPadding: { top: 2, bottom: 2, left: 2, right: 2 },
+            ...col.styles
+        }
+    }));
 
     const body: any[] = [];
 
@@ -473,7 +492,10 @@ export async function generateContractReportPdf(
             }
         ]);
 
-        // 2. PM / Contract Rows for this Customer
+        // 2. Table Column Headers for this Customer
+        body.push(columnHeaderRow);
+
+        // 3. PM / Contract Rows for this Customer
         if (customerPmRows.length === 0) {
             body.push([
                 {
@@ -506,7 +528,7 @@ export async function generateContractReportPdf(
             });
         }
 
-        // 3. Spacing Gap between customers
+        // 4. Spacing Gap between customers
         if (custIdx < data.length - 1) {
             body.push([
                 {
@@ -524,7 +546,6 @@ export async function generateContractReportPdf(
     });
 
     autoTable(doc, {
-        head,
         body,
         startY: y,
         margin: { left: 10, right: 10, bottom: 12 },
@@ -538,14 +559,6 @@ export async function generateContractReportPdf(
             lineWidth: 0.15,
             valign: 'middle',
             overflow: 'linebreak',
-        },
-        headStyles: {
-            fillColor: [71, 85, 105], // Slate-600
-            textColor: COLORS.white,
-            fontStyle: 'bold',
-            fontSize: 7,
-            halign: 'center',
-            valign: 'middle',
         },
         alternateRowStyles: {
             fillColor: COLORS.offWhite,

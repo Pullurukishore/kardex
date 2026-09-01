@@ -109,7 +109,7 @@ export default function ResetPasswordPage() {
         <div className="absolute inset-0 bg-gradient-to-br from-[#6F8A9D] via-[#5a7ba0] to-[#4a6b8a]"></div>
         <Card className="w-full max-w-md border-0 shadow-2xl rounded-3xl overflow-hidden backdrop-blur-sm bg-white/95">
           <CardHeader className="text-center bg-gradient-to-b from-white to-gray-50/50 p-8">
-            <Image src="/kardex.png" alt="Kardex Logo" width={200} height={80} className="mx-auto mb-6" />
+            <Image src="/kardex-only.png" alt="Kardex Logo" width={200} height={80} className="mx-auto mb-6" />
             <CardTitle className="text-2xl font-bold text-[#9E3B47] mb-2">Invalid Reset Link</CardTitle>
             <CardDescription className="text-[#5D6E73]">
               This password reset link is invalid or has expired.
@@ -147,7 +147,7 @@ export default function ResetPasswordPage() {
       <div className="w-full max-w-md relative z-10">
         <Card className="border-0 shadow-2xl rounded-3xl overflow-hidden backdrop-blur-sm bg-white/95">
           <CardHeader className="text-center bg-gradient-to-b from-white to-gray-50/50 p-8 pb-6">
-            <Image src="/kardex.png" alt="Kardex Logo" width={200} height={80} className="mx-auto mb-6" />
+            <Image src="/kardex-only.png" alt="Kardex Logo" width={200} height={80} className="mx-auto mb-6" />
             <CardTitle className="text-2xl font-bold text-[#6F8A9D] mb-2">
               {resetSuccess ? "Password Updated!" : "Reset Your Password"}
             </CardTitle>

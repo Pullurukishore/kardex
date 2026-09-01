@@ -182,12 +182,11 @@ export function BankAccountsClientWrapper({ children }: BankAccountsLayoutProps)
                     </div>
                   </div>
                   <Image 
-                    src="/kardex.png" 
+                    src="/kardex-only.png" 
                     alt="Kardex" 
                     width={isMobile ? 100 : 110} 
-                    height={isMobile ? 40 : 44} 
-                    className="transition-transform duration-200"
-                    style={{ width: 'auto', height: 'auto' }}
+                    height={isMobile ? 28 : 32} 
+                    className="h-6 sm:h-7 w-auto object-contain transition-transform duration-200"
                     priority
                   />
                 </div>
