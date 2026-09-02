@@ -61,11 +61,26 @@ interface DetailedContractImportProps {
 // ============================
 // Timezone-safe Excel Date Parser (preventing 1-day subtraction)
 // ============================
+const MONTH_MAP: Record<string, number> = {
+  jan: 1, january: 1,
+  feb: 2, february: 2,
+  mar: 3, march: 3,
+  apr: 4, april: 4,
+  may: 5,
+  jun: 6, june: 6,
+  jul: 7, july: 7,
+  aug: 8, august: 8,
+  sep: 9, sept: 9, september: 9,
+  oct: 10, october: 10,
+  nov: 11, november: 11,
+  dec: 12, december: 12
+};
+
 function parseSingleDate(val: any): Date | null {
   if (val === null || val === undefined || val === '') return null;
   if (val instanceof Date && !isNaN(val.getTime())) return val;
 
-  // Excel serial number (numeric or 5-digit string like 46027)
+  // 1. Excel serial number (numeric or 5-digit string like 46027)
   const numVal = typeof val === 'number' ? val : (typeof val === 'string' && /^\d{5}$/.test(val.trim()) ? Number(val.trim()) : NaN);
   if (!isNaN(numVal) && numVal > 25000 && numVal < 60000) {
     const utcDays = Math.floor(numVal - 25569);
@@ -75,10 +90,34 @@ function parseSingleDate(val: any): Date | null {
   const str = String(val).trim();
   if (!str) return null;
 
+  // 2. Named month format: e.g. "14-Mar-16", "15-Jul-2019", "Jul 15, 2019", "15/Jul/2019"
+  const namedMatch = str.match(/^(\d{1,2})[\s\-\/\.]([a-zA-Z]{3,9})[\s\-\/\.](\d{2,4})$/);
+  if (namedMatch) {
+    const day = parseInt(namedMatch[1], 10);
+    const month = MONTH_MAP[namedMatch[2].toLowerCase()];
+    let year = parseInt(namedMatch[3], 10);
+    if (namedMatch[3].length === 2) year = year < 50 ? 2000 + year : 1900 + year;
+    if (month && day >= 1 && day <= 31 && year >= 1970 && year <= 2100) {
+      return new Date(Date.UTC(year, month - 1, day));
+    }
+  }
+
+  const namedMatch2 = str.match(/^([a-zA-Z]{3,9})[\s\-\/\.](\d{1,2}),?[\s\-\/\.](\d{2,4})$/);
+  if (namedMatch2) {
+    const month = MONTH_MAP[namedMatch2[1].toLowerCase()];
+    const day = parseInt(namedMatch2[2], 10);
+    let year = parseInt(namedMatch2[3], 10);
+    if (namedMatch2[3].length === 2) year = year < 50 ? 2000 + year : 1900 + year;
+    if (month && day >= 1 && day <= 31 && year >= 1970 && year <= 2100) {
+      return new Date(Date.UTC(year, month - 1, day));
+    }
+  }
+
+  // 3. Numeric 3-part format: e.g. "4/10/23", "3/10/26", "02-13-2026", "3/31/2027", "13-02-2026"
   const parts = str.split(/[\/\-\.]/);
   if (parts.length === 3) {
+    // YYYY-MM-DD
     if (parts[0].length === 4) {
-      // YYYY-MM-DD or YYYY-DD-MM
       const y = parseInt(parts[0], 10);
       const p1 = parseInt(parts[1], 10);
       const p2 = parseInt(parts[2], 10);
@@ -87,18 +126,31 @@ function parseSingleDate(val: any): Date | null {
         return new Date(Date.UTC(y, p1 - 1, p2));
       }
     }
+
+    // XX-XX-YYYY or XX-XX-YY
     if (parts[2].length === 4 || parts[2].length === 2) {
       let y = parseInt(parts[2], 10);
       if (parts[2].length === 2) y = y < 50 ? 2000 + y : 1900 + y;
       const p1 = parseInt(parts[0], 10);
       const p2 = parseInt(parts[1], 10);
+
       if (y >= 1970 && y <= 2100) {
-        if (p1 > 12 && p2 <= 12) return new Date(Date.UTC(y, p2 - 1, p1));
-        return new Date(Date.UTC(y, p1 - 1, p2));
+        // If p2 > 12 (e.g. 3/31/2027 or 02-13-2026 or 12/31/2026):
+        // p1 must be Month, p2 must be Day!
+        if (p2 > 12 && p1 <= 12) {
+          return new Date(Date.UTC(y, p1 - 1, p2));
+        }
+
+        // Standard Indian Date format DD/MM/YYYY:
+        // p1 is DAY, p2 is MONTH (e.g. 4/10/23 = 04 Oct 2023, 3/10/26 = 03 Oct 2026)
+        if (p2 <= 12 && p1 <= 31) {
+          return new Date(Date.UTC(y, p2 - 1, p1));
+        }
       }
     }
   }
 
+  // 4. Standard Date fallback
   const d = new Date(str);
   if (!isNaN(d.getTime())) {
     const y = d.getFullYear();
@@ -115,51 +167,9 @@ function toISODateString(d: Date | null): string | null {
   return `${y}-${m}-${day}`;
 }
 
-const ANNUAL_CONTRACT_DAYS = [
-  360, 361, 362, 363, 364, 365, 366, 367, 368, 369, 370,
-  725, 726, 727, 728, 729, 730, 731, 732, 733, 734, 735,
-  1090, 1091, 1092, 1093, 1094, 1095, 1096, 1097, 1098, 1099, 1100,
-  1455, 1456, 1457, 1458, 1459, 1460, 1461, 1462, 1463, 1464, 1465,
-  1820, 1821, 1822, 1823, 1824, 1825, 1826, 1827, 1828, 1829, 1830,
-  178, 179, 180, 181, 182, 183, 184, 185
-];
-
 function smartAlignDatePair(startVal: any, endVal: any): { startDate: string | null; endDate: string | null } {
-  let sDate = parseSingleDate(startVal);
-  let eDate = parseSingleDate(endVal);
-
-  if (sDate && eDate) {
-    const sMonth = sDate.getUTCMonth() + 1;
-    const sDay = sDate.getUTCDate();
-    const sYear = sDate.getUTCFullYear();
-
-    const eMonth = eDate.getUTCMonth() + 1;
-    const eDay = eDate.getUTCDate();
-    const eYear = eDate.getUTCFullYear();
-
-    // 1. If start date is ambiguous (sMonth <= 12 and sDay <= 12), test if flipping aligns to annual contract
-    if (sMonth <= 12 && sDay <= 12 && sMonth !== sDay) {
-      const flippedStart = new Date(Date.UTC(sYear, sDay - 1, sMonth));
-      const origDiff = Math.round((eDate.getTime() - sDate.getTime()) / 86400000);
-      const flipDiff = Math.round((eDate.getTime() - flippedStart.getTime()) / 86400000);
-
-      if (ANNUAL_CONTRACT_DAYS.includes(flipDiff) && !ANNUAL_CONTRACT_DAYS.includes(origDiff)) {
-        sDate = flippedStart;
-      }
-    }
-
-    // 2. If end date is ambiguous (eMonth <= 12 and eDay <= 12), test if flipping aligns to annual contract
-    if (eMonth <= 12 && eDay <= 12 && eMonth !== eDay) {
-      const flippedEnd = new Date(Date.UTC(eYear, eDay - 1, eMonth));
-      const origDiff = Math.round((eDate.getTime() - sDate.getTime()) / 86400000);
-      const flipDiff = Math.round((flippedEnd.getTime() - sDate.getTime()) / 86400000);
-
-      if (ANNUAL_CONTRACT_DAYS.includes(flipDiff) && !ANNUAL_CONTRACT_DAYS.includes(origDiff)) {
-        eDate = flippedEnd;
-      }
-    }
-  }
-
+  const sDate = parseSingleDate(startVal);
+  const eDate = parseSingleDate(endVal);
   return {
     startDate: toISODateString(sDate),
     endDate: toISODateString(eDate)

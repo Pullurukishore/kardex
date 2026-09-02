@@ -987,7 +987,8 @@ export default function AnnualContractReports({ role }: AnnualContractReportsPro
               </div>
 
           {customers.map((cust) => {
-            const isExpanded = expandedCustomer === cust.customerName;
+            const custZoneKey = `${cust.customerName}::${cust.zoneName}`;
+            const isExpanded = expandedCustomer === custZoneKey;
             const theme = getCustomerTheme(cust.customerName);
             const overdueMachines = cust.machines.filter(m =>
               m.mcExpiry && (
@@ -998,14 +999,14 @@ export default function AnnualContractReports({ role }: AnnualContractReportsPro
 
             return (
               <div
-                key={cust.customerName}
+                key={custZoneKey}
                 className={`bg-white rounded-2xl border transition-all duration-200 overflow-hidden shadow-sm hover:shadow-md ${
                   isExpanded ? `${theme.border} ring-2 ring-[#6F8A9D]/15` : 'border-slate-200/80 hover:border-slate-300'
                 }`}
               >
                 {/* Accordion Header */}
                 <div
-                  onClick={() => setExpandedCustomer(isExpanded ? null : cust.customerName)}
+                  onClick={() => setExpandedCustomer(isExpanded ? null : custZoneKey)}
                   className="p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 cursor-pointer select-none"
                 >
                   <div className="flex items-center gap-3.5 min-w-0">

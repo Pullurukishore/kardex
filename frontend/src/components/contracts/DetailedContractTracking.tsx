@@ -665,18 +665,19 @@ export default function DetailedContractTracking({ role }: DetailedContractTrack
       {!loading && viewMode === 'customer' && customers.length > 0 && (
         <div className="space-y-4">
           {customers.map((cust) => {
-            const isExpanded = expandedCustomer === cust.customerName;
+            const custZoneKey = `${cust.customerName}::${cust.zoneName}`;
+            const isExpanded = expandedCustomer === custZoneKey;
             const theme = getCustomerTheme(cust.customerName);
             return (
               <div
-                key={cust.customerName}
+                key={custZoneKey}
                 className={`bg-white rounded-2xl border transition-all duration-200 overflow-hidden shadow-sm hover:shadow-md ${
                   isExpanded ? `${theme.border} ring-2 ring-[#6F8A9D]/15` : 'border-slate-200/80 hover:border-slate-300'
                 }`}
               >
                 {/* Accordion Header */}
                 <div
-                  onClick={() => setExpandedCustomer(isExpanded ? null : cust.customerName)}
+                  onClick={() => setExpandedCustomer(isExpanded ? null : custZoneKey)}
                   className="p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 cursor-pointer select-none"
                 >
                   <div className="flex items-center gap-3.5 min-w-0">
@@ -757,6 +758,7 @@ export default function DetailedContractTracking({ role }: DetailedContractTrack
                             <th className="px-3 py-2.5 text-left">Serial No</th>
                             <th className="px-3 py-2.5 text-left">Unit / Model</th>
                             <th className="px-3 py-2.5 text-left">Control</th>
+                            <th className="px-3 py-2.5 text-left">Engineer</th>
                             <th className="px-3 py-2.5 text-left">Department</th>
                             <th className="px-3 py-2.5 text-center">Install Year</th>
                             <th className="px-3 py-2.5 text-center">Type</th>
@@ -777,6 +779,16 @@ export default function DetailedContractTracking({ role }: DetailedContractTrack
                               </td>
                               <td className="px-3 py-2.5">{getUnitTypeBadge(m.unitType, m.modelNumber)}</td>
                               <td className="px-3 py-2.5">{getControlTypeBadge(m.controlType)}</td>
+                              <td className="px-3 py-2.5 text-slate-700 font-medium whitespace-nowrap">
+                                {m.engineerName ? (
+                                  <span className="inline-flex items-center gap-1">
+                                    <User className="w-3 h-3 text-[#546A7A]" />
+                                    <span>{m.engineerName}</span>
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-400">—</span>
+                                )}
+                              </td>
                               <td className="px-3 py-2.5 text-slate-600 font-medium">{m.department || '—'}</td>
                               <td className="px-3 py-2.5 text-center font-medium text-slate-600">
                                 {m.installationYear || '—'}
