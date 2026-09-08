@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiService } from '@/services/api';
-import { getCustomerColorClass } from '@/lib/utils';
+import { getCustomerColorClass, extractDepartmentFromCustomer } from '@/lib/utils';
 
 interface PMSchedule {
   id: number;
@@ -385,11 +385,17 @@ export default function CustomerContractTracking({ role }: CustomerContractTrack
                         <span className="font-extrabold text-slate-800 text-sm">
                           PO: {contract.poNo || '—'}
                         </span>
-                        {contract.customerName && contract.customerName !== cs.customerName && (
-                          <span className="px-2 py-0.5 rounded bg-slate-50 border border-slate-100 text-slate-600 text-[10px] font-extrabold shadow-inner" title="Department / Plant Site">
-                            {contract.customerName}
-                          </span>
-                        )}
+                        {(() => {
+                          const dept = extractDepartmentFromCustomer(contract.customerName, cs.customerName);
+                          if (dept && dept !== '—') {
+                            return (
+                              <span className="px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-700 text-[10px] font-bold shadow-xs" title="Department">
+                                {dept}
+                              </span>
+                            );
+                          }
+                          return null;
+                        })()}
                         <span className="text-xs font-semibold text-slate-400">
                           ({contract.contractNumber})
                         </span>

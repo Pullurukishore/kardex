@@ -274,6 +274,7 @@ export async function generateAnnualContractReportPdf(
         { content: 'Serial Number', styles: { halign: 'left' } },
         { content: 'Unit / Model', styles: { halign: 'left' } },
         { content: 'Control', styles: { halign: 'center' } },
+        { content: 'Engineer', styles: { halign: 'left' } },
         { content: 'Department', styles: { halign: 'left' } },
         { content: 'Install Year', styles: { halign: 'center' } },
         { content: 'Type', styles: { halign: 'center' } },
@@ -320,11 +321,11 @@ export async function generateAnnualContractReportPdf(
             : (cust.daysToEarliestExpiry !== null ? (cust.daysToEarliestExpiry < 0 ? `[ Overdue ]` : `[ ${cust.daysToEarliestExpiry}d left ]`) : '[ Active ]');
         const visitsText = `${cust.totalPMVisits || 0} PM | ${cust.totalBDVisits || 0} BD`;
 
-        // 1. Customer Main Banner Row (Span 10 columns)
+        // 1. Customer Main Banner Row (Span 11 columns)
         body.push([
             {
                 content: `${custIdx + 1}.  ${cust.customerName.toUpperCase()}   •   ${classText}   •   ${placeText}   •   ${engText}   •   ${visitsText}   •   Total Value: ${valueText}   •   ${statusText}`,
-                colSpan: 10,
+                colSpan: 11,
                 styles: {
                     fillColor: customerColor,
                     textColor: COLORS.white,
@@ -345,7 +346,7 @@ export async function generateAnnualContractReportPdf(
             body.push([
                 {
                     content: 'No machines registered for this customer contract.',
-                    colSpan: 10,
+                    colSpan: 11,
                     styles: {
                         fillColor: COLORS.offWhite,
                         textColor: COLORS.textMuted,
@@ -379,6 +380,7 @@ export async function generateAnnualContractReportPdf(
                     m.serialNumber || '—',
                     unitModel,
                     m.controlType || '—',
+                    m.engineerName || '—',
                     m.department || '—',
                     fmtInstallDatePdf(m.installationYear),
                     m.contractType || 'UMC',
@@ -394,7 +396,7 @@ export async function generateAnnualContractReportPdf(
             body.push([
                 {
                     content: '',
-                    colSpan: 10,
+                    colSpan: 11,
                     styles: {
                         minCellHeight: 4,
                         fillColor: [255, 255, 255],
@@ -425,16 +427,17 @@ export async function generateAnnualContractReportPdf(
             fillColor: COLORS.offWhite,
         },
         columnStyles: {
-            0: { cellWidth: 12, halign: 'center' },
-            1: { cellWidth: 28, fontStyle: 'bold', textColor: COLORS.textDark },
-            2: { cellWidth: 36 },
-            3: { cellWidth: 17, halign: 'center' },
-            4: { cellWidth: 26 },
-            5: { cellWidth: 24, halign: 'center' },
-            6: { cellWidth: 15, halign: 'center', fontStyle: 'bold' },
-            7: { cellWidth: 52, halign: 'center' },
-            8: { cellWidth: 32, halign: 'center' },
-            9: { cellWidth: 35, halign: 'right', fontStyle: 'bold', textColor: COLORS.textDark },
+            0: { cellWidth: 10, halign: 'center' },
+            1: { cellWidth: 26, fontStyle: 'bold', textColor: COLORS.textDark },
+            2: { cellWidth: 32 },
+            3: { cellWidth: 15, halign: 'center' },
+            4: { cellWidth: 25 },
+            5: { cellWidth: 24 },
+            6: { cellWidth: 18, halign: 'center' },
+            7: { cellWidth: 13, halign: 'center', fontStyle: 'bold' },
+            8: { cellWidth: 48, halign: 'center' },
+            9: { cellWidth: 32, halign: 'center' },
+            10: { cellWidth: 34, halign: 'right', fontStyle: 'bold', textColor: COLORS.textDark },
         },
         willDrawCell: (hookData: any) => {
             if (hookData.section === 'body' && hookData.cell.raw === '') {
@@ -443,8 +446,8 @@ export async function generateAnnualContractReportPdf(
                 return;
             }
 
-            // Style Expiry column (index 8) for overdue/critical machines
-            if (hookData.section === 'body' && hookData.column.index === 8 && typeof hookData.cell.raw === 'string') {
+            // Style Expiry column (index 9) for overdue/critical machines
+            if (hookData.section === 'body' && hookData.column.index === 9 && typeof hookData.cell.raw === 'string') {
                 const text = String(hookData.cell.raw || '');
                 if (text.includes('overdue')) {
                     hookData.cell.styles.textColor = [225, 127, 112]; // Kardex Red

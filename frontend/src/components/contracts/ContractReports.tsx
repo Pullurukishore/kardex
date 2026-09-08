@@ -11,8 +11,9 @@ import {
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { apiService } from '@/services/api';
-import { getCustomerColorClass, normalizeEngineerNames, formatEngineerDisplayName } from '@/lib/utils';
+import { getCustomerColorClass, normalizeEngineerNames, formatEngineerDisplayName, extractDepartmentFromCustomer } from '@/lib/utils';
 import { generateContractReportPdf } from '@/lib/contract-report-pdf';
+import { generateContractReportExcel } from '@/lib/contract-report-excel';
 
 interface PMSchedule {
   id: number;
@@ -93,6 +94,7 @@ export default function ContractReports({ role }: ContractReportsProps) {
   const [swFilter, setSwFilter] = useState('all');
 
   // Date range filter (default: today → today + 4 weeks)
+  const [dateFilterBasis, setDateFilterBasis] = useState<'both' | 'pm' | 'expiry'>('both');
   const [dateFrom, setDateFrom] = useState(() => {
     return new Date().toISOString().slice(0, 10);
   });
@@ -179,9 +181,15 @@ export default function ContractReports({ role }: ContractReportsProps) {
   };
 
   // Quick Date Range Presets
-  const applyDatePreset = (preset: 'today' | 'this_month' | 'next_month' | 'this_quarter' | 'all') => {
+  const applyDatePreset = (preset: '4_weeks' | 'today' | 'this_month' | 'next_month' | 'this_quarter' | 'all') => {
     const now = new Date();
-    if (preset === 'today') {
+    if (preset === '4_weeks') {
+      const todayStr = now.toISOString().slice(0, 10);
+      const d = new Date();
+      d.setDate(d.getDate() + 28);
+      setDateFrom(todayStr);
+      setDateTo(d.toISOString().slice(0, 10));
+    } else if (preset === 'today') {
       const todayStr = now.toISOString().slice(0, 10);
       setDateFrom(todayStr);
       setDateTo(todayStr);
@@ -213,35 +221,21 @@ export default function ContractReports({ role }: ContractReportsProps) {
   const handleExportBoth = async () => {
     setExporting(true);
     try {
-      // Export Excel
-      const params: any = { reportType: 'customer-portfolio', format: 'excel' };
-      if (zoneFilter !== 'all') params.zone = zoneFilter;
-      if (statusFilter !== 'all') params.status = statusFilter;
-      if (techFilter !== 'all') params.responsible = techFilter;
-      if (mcTypeFilter !== 'all') params.mcType = mcTypeFilter;
-      if (swFilter !== 'all') params.softwareSupport = swFilter;
-      if (search) params.search = search;
-      if (dateFrom) params.dateFrom = dateFrom;
-      if (dateTo) params.dateTo = dateTo;
+      const filters = {
+        zone: zoneFilter !== 'all' ? zoneFilter : 'All',
+        status: statusFilter !== 'all' ? statusFilter : 'All',
+        responsible: techFilter !== 'all' ? techFilter : 'All',
+        mcType: mcTypeFilter !== 'all' ? mcTypeFilter : 'All',
+        dateFrom,
+        dateTo
+      };
 
-      const blob = await apiService.exportContractReport(params);
-      const url = window.URL.createObjectURL(new Blob([blob], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', 'Contract_Report.xlsx');
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
+      // Export Excel
+      await generateContractReportExcel(customerSummaries, selectedSummary, filters);
 
       // Export PDF (slight delay to avoid browser blocking)
       await new Promise(r => setTimeout(r, 500));
-      const pdfFilters = {
-        zone: zoneFilter !== 'all' ? zoneFilter : 'All',
-        status: statusFilter !== 'all' ? statusFilter : 'All',
-        responsible: techFilter !== 'all' ? techFilter : 'All'
-      };
-      await generateContractReportPdf(customerSummaries, selectedSummary, pdfFilters);
+      await generateContractReportPdf(customerSummaries, selectedSummary, filters);
 
       toast.success('Both Excel & PDF reports exported successfully!');
     } catch (err: any) {
@@ -264,6 +258,7 @@ export default function ContractReports({ role }: ContractReportsProps) {
       const params: any = { limit: 10000 };
       if (dateFrom) params.dateFrom = dateFrom;
       if (dateTo) params.dateTo = dateTo;
+      params.dateFilterType = dateFilterBasis;
       const data = await apiService.getContracts(params);
       const list = Array.isArray(data) ? data : (data?.contracts || data?.data || []);
       setContracts(list);
@@ -447,19 +442,37 @@ export default function ContractReports({ role }: ContractReportsProps) {
   const customerSummaries = useMemo(() => {
     let filtered = [...contracts];
 
-    // Date range filter on PM schedule dates OR contract endDate
+    // Date range filter on PM schedule dates AND/OR contract expiry
     if (dateFrom || dateTo) {
       filtered = filtered.filter(c => {
+        // 1. Check PM Visit match in range
         const applicablePMs = (c.pmSchedules || []).filter(p => p.status !== 'Not Applicable');
-        if (applicablePMs.length > 0) {
-          return applicablePMs.some(p => isPMInDateRange(p.range, dateFrom, dateTo));
+        const hasPMMatch = applicablePMs.some(p => isPMInDateRange(p.range, dateFrom, dateTo));
+
+        // 2. Check Contract Expiry match in range
+        let hasExpiryMatch = false;
+        if (c.endDate) {
+          const end = new Date(c.endDate);
+          if (!isNaN(end.getTime())) {
+            let fromOk = true;
+            let toOk = true;
+            if (dateFrom) {
+              const from = new Date(dateFrom);
+              from.setHours(0, 0, 0, 0);
+              fromOk = end >= from;
+            }
+            if (dateTo) {
+              const to = new Date(dateTo);
+              to.setHours(23, 59, 59, 999);
+              toOk = end <= to;
+            }
+            hasExpiryMatch = fromOk && toOk;
+          }
         }
-        const end = c.endDate ? new Date(c.endDate) : null;
-        const from = dateFrom ? new Date(dateFrom) : null;
-        if (from) from.setHours(0, 0, 0, 0);
-        const to = dateTo ? new Date(dateTo) : null;
-        if (to) to.setHours(23, 59, 59, 999);
-        return end ? (!from || end >= from) && (!to || end <= to) : false;
+
+        if (dateFilterBasis === 'pm') return hasPMMatch;
+        if (dateFilterBasis === 'expiry') return hasExpiryMatch;
+        return hasPMMatch || hasExpiryMatch; // 'both'
       });
     }
 
@@ -579,7 +592,7 @@ export default function ContractReports({ role }: ContractReportsProps) {
     });
 
     return result;
-  }, [contracts, search, zoneFilter, statusFilter, techFilter, mcTypeFilter, swFilter, pmFilter, sortKey, sortDir, dateFrom, dateTo]);
+  }, [contracts, search, zoneFilter, statusFilter, techFilter, mcTypeFilter, swFilter, pmFilter, sortKey, sortDir, dateFrom, dateTo, dateFilterBasis]);
 
 
 
@@ -621,45 +634,25 @@ export default function ContractReports({ role }: ContractReportsProps) {
   const handleExport = async (format: 'excel' | 'pdf') => {
     setExporting(true);
     try {
+      const filters = {
+        zone: zoneFilter !== 'all' ? zoneFilter : 'All',
+        status: statusFilter !== 'all' ? statusFilter : 'All',
+        responsible: techFilter !== 'all' ? techFilter : 'All',
+        mcType: mcTypeFilter !== 'all' ? mcTypeFilter : 'All',
+        dateFrom,
+        dateTo
+      };
+
       if (format === 'pdf') {
-        const filters = {
-          zone: zoneFilter !== 'all' ? zoneFilter : 'All',
-          status: statusFilter !== 'all' ? statusFilter : 'All',
-          responsible: techFilter !== 'all' ? techFilter : 'All',
-          mcType: mcTypeFilter !== 'all' ? mcTypeFilter : 'All',
-          dateFrom,
-          dateTo
-        };
         await generateContractReportPdf(customerSummaries, selectedSummary, filters);
         toast.success('Contract Schedule PDF Report exported successfully!');
-        return;
+      } else {
+        await generateContractReportExcel(customerSummaries, selectedSummary, filters);
+        toast.success('Contract Portfolio Excel Report exported successfully!');
       }
-
-      const params: any = { reportType: 'customer-portfolio', format };
-      if (zoneFilter !== 'all') params.zone = zoneFilter;
-      if (statusFilter !== 'all') params.status = statusFilter;
-      if (techFilter !== 'all') params.responsible = techFilter;
-      if (mcTypeFilter !== 'all') params.mcType = mcTypeFilter;
-      if (swFilter !== 'all') params.softwareSupport = swFilter;
-      if (search) params.search = search;
-      if (dateFrom) params.dateFrom = dateFrom;
-      if (dateTo) params.dateTo = dateTo;
-
-      const blob = await apiService.exportContractReport(params);
-      const mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-
-      const url = window.URL.createObjectURL(new Blob([blob], { type: mimeType }));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', 'Contract_Report.xlsx');
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-      toast.success('Customer Portfolio Excel Report exported successfully!');
     } catch (err: any) {
       console.error('Export failed:', err);
-      toast.error(`Failed to export ${format} report`);
+      toast.error(`Failed to export ${format.toUpperCase()} report`);
     } finally {
       setExporting(false);
     }
@@ -756,11 +749,60 @@ export default function ContractReports({ role }: ContractReportsProps) {
         {/* Card Content — Filters */}
         <div className="px-6 py-5 space-y-4">
           {/* Date Range Row */}
-          <div className="space-y-2">
-            <label className="text-xs font-semibold text-slate-600 uppercase tracking-wider flex items-center gap-2">
-              <Calendar className="w-3.5 h-3.5" />
-              Date Range (Contract Expiry)
-            </label>
+          <div className="space-y-2.5">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-semibold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-[#546A7A]" />
+                  Date Filter Basis:
+                </label>
+                <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+                  <button
+                    type="button"
+                    onClick={() => setDateFilterBasis('both')}
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${
+                      dateFilterBasis === 'both'
+                        ? 'bg-[#546A7A] text-white shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Both (PM or Expiry)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDateFilterBasis('pm')}
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${
+                      dateFilterBasis === 'pm'
+                        ? 'bg-[#546A7A] text-white shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    PM Visits Only
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDateFilterBasis('expiry')}
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${
+                      dateFilterBasis === 'expiry'
+                        ? 'bg-[#546A7A] text-white shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Contract Expiry Only
+                  </button>
+                </div>
+              </div>
+
+              {(dateFrom || dateTo) && (
+                <button
+                  type="button"
+                  onClick={() => applyDatePreset('all')}
+                  className="text-xs text-[#82A094] hover:text-[#6e8a7f] font-semibold flex items-center gap-1"
+                >
+                  <X className="w-3.5 h-3.5" /> Clear Range
+                </button>
+              )}
+            </div>
             <div className="flex flex-wrap items-end gap-3">
               <div className="space-y-1">
                 <span className="text-[10px] font-medium text-slate-400">From</span>
@@ -779,6 +821,47 @@ export default function ContractReports({ role }: ContractReportsProps) {
                   onChange={(e) => setDateTo(e.target.value)}
                   className="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 bg-white font-medium w-[160px]"
                 />
+              </div>
+
+              {/* Quick Presets */}
+              <div className="flex items-center gap-1.5 flex-wrap pb-0.5">
+                <button
+                  type="button"
+                  onClick={() => applyDatePreset('4_weeks')}
+                  className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors"
+                >
+                  Next 4 Weeks (Default)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyDatePreset('this_month')}
+                  className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors"
+                >
+                  This Month
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyDatePreset('next_month')}
+                  className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors"
+                >
+                  Next Month
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyDatePreset('this_quarter')}
+                  className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors"
+                >
+                  This Quarter
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyDatePreset('all')}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                    !dateFrom && !dateTo ? 'bg-[#546A7A] text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                  }`}
+                >
+                  All Dates
+                </button>
               </div>
             </div>
           </div>
@@ -1217,11 +1300,17 @@ export default function ContractReports({ role }: ContractReportsProps) {
                                     <div className="flex flex-col">
                                       <div className="flex items-center gap-2 flex-wrap">
                                         <span className="font-extrabold text-slate-800 text-xs">{contract.contractNumber}</span>
-                                        {contract.customerName && contract.customerName !== cs.customerName && (
-                                          <span className="px-2 py-0.5 rounded bg-slate-50 border border-slate-100 text-slate-600 text-[9px] font-extrabold shadow-inner" title="Department / Plant Site">
-                                            {contract.customerName}
-                                          </span>
-                                        )}
+                                        {(() => {
+                                          const dept = extractDepartmentFromCustomer(contract.customerName, cs.customerName);
+                                          if (dept && dept !== '—') {
+                                            return (
+                                              <span className="px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-700 text-[10px] font-bold shadow-xs" title="Department">
+                                                {dept}
+                                              </span>
+                                            );
+                                          }
+                                          return null;
+                                        })()}
                                         {contract.poNo && <span className="text-[10px] font-semibold text-slate-400">(PO: {contract.poNo})</span>}
                                         <span className={`px-2 py-0.5 rounded-full border text-[9px] font-bold ${getStatusBadge(contract.status)}`}>
                                           {contract.status}

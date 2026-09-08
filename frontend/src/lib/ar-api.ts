@@ -1369,7 +1369,8 @@ export const formatARMonth = (monthStr?: string): string => {
 export interface PaymentBatchItem {
     id: string;
     batchId: string;
-    bankAccountId: string;
+    bankAccountId?: string | null;
+    isManual?: boolean;
     vendorName: string;
     accountNumber: string;
     ifscCode: string;
@@ -1382,6 +1383,7 @@ export interface PaymentBatchItem {
     valueDate: string;
     status: 'PENDING' | 'APPROVED' | 'REJECTED';
     rejectReason?: string;
+    nickName?: string;
 }
 
 export interface PaymentBatch {
@@ -1416,7 +1418,8 @@ export interface PaymentBatchStats {
 // Submit a payment batch for approval
 export const submitPaymentBatch = async (data: {
     items: Array<{
-        bankAccountId: string;
+        bankAccountId?: string | null;
+        isManual?: boolean;
         vendorName: string;
         accountNumber: string;
         ifscCode: string;

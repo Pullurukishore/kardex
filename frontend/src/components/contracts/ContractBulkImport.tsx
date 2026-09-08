@@ -514,40 +514,56 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
             parsedBdCount = parseInt(bdRaw, 10) || 0;
           }
 
+          const parsedVisits = visitsCol !== -1 && visitsCol < row.length ? Math.min(12, Math.max(1, Number(row[visitsCol]) || 3)) : 3;
+
+          // Helper to check if string looks like a date or date range
+          const isValidRangeString = (str: string): boolean => {
+            if (!str) return false;
+            const s = str.trim().toLowerCase();
+            return /\d{1,4}[-/\.]\d{1,2}/.test(s) ||
+                   /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b/i.test(s) ||
+                   s.includes(' to ') || s.includes(' - ');
+          };
+
           // Parse PMs (Cycles 1 to 12)
           const pmSchedules: any[] = [];
           if (pm1Col !== -1) {
             // Cycles 1 to 10
-            for (let p = 1; p <= 10; p++) {
+            for (let p = 1; p <= Math.min(10, parsedVisits); p++) {
               const rCol = pm1Col + (p - 1) * 2;
               const dCol = rCol + 1;
               const pRange = rCol < row.length ? String(row[rCol] || '').trim() : '';
               const pDateVal = dCol < row.length ? row[dCol] : null;
               const pDate = pDateVal ? parseCompletionDate(pDateVal) : null;
-              if (pRange || pDate) {
+              
+              if ((pRange && isValidRangeString(pRange)) || pDate) {
                 pmSchedules.push({
                   pmNumber: p,
-                  range: pRange,
+                  range: isValidRangeString(pRange) ? pRange : '',
                   completedAt: pDate
                 });
               }
             }
             // Cycles 11 and 12 (single columns in Dummy data.xlsx)
-            const rCol11 = pm1Col + 20;
-            const rCol12 = pm1Col + 21;
-            if (rCol11 < row.length && row[rCol11]) {
-              pmSchedules.push({
-                pmNumber: 11,
-                range: String(row[rCol11]).trim(),
-                completedAt: null
-              });
+            if (parsedVisits >= 11) {
+              const rCol11 = pm1Col + 20;
+              if (rCol11 < row.length && row[rCol11] && isValidRangeString(String(row[rCol11]))) {
+                pmSchedules.push({
+                  pmNumber: 11,
+                  range: String(row[rCol11]).trim(),
+                  completedAt: null
+                });
+              }
             }
-            if (rCol12 < row.length && row[rCol12]) {
-              pmSchedules.push({
-                pmNumber: 12,
-                range: String(row[rCol12]).trim(),
-                completedAt: null
-              });
+            if (parsedVisits >= 12) {
+              const rCol12 = pm1Col + 21;
+              if (rCol12 < row.length && row[rCol12] && isValidRangeString(String(row[rCol12]))) {
+                pmSchedules.push({
+                  pmNumber: 12,
+                  range: String(row[rCol12]).trim(),
+                  completedAt: null
+                });
+              }
             }
           }
 

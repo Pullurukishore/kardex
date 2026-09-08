@@ -1520,7 +1520,8 @@ model PaymentBatch {
 model PaymentBatchItem {
   id              String            @id @default(uuid())
   batchId         String
-  bankAccountId   String
+  bankAccountId   String?
+  isManual        Boolean           @default(false)
 
   vendorName      String
   accountNumber   String

@@ -236,7 +236,7 @@ export const getVendorPaymentHistory = async (req: Request, res: Response) => {
         // Group by vendor (bankAccountId)
         const vendorMap = new Map<string, {
             vendorName: string;
-            bankAccountId: string;
+            bankAccountId: string | null;
             accountNumber: string;
             bankName: string;
             bpCode: string | null;
@@ -247,7 +247,7 @@ export const getVendorPaymentHistory = async (req: Request, res: Response) => {
         }>();
 
         items.forEach(item => {
-            const key = item.bankAccountId;
+            const key = item.bankAccountId || `manual_${item.accountNumber || item.vendorName}`;
             const amount = Number(item.amount);
 
             if (!vendorMap.has(key)) {

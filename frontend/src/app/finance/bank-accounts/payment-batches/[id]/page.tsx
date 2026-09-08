@@ -715,7 +715,14 @@ export default function BatchDetailPage() {
                           </span>
                         </td>
                         <td className="px-4 py-3.5">
-                          <p className="font-semibold text-[#546A7A] text-sm">{item.vendorName}</p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="font-semibold text-[#546A7A] text-sm">{item.vendorName}</p>
+                            {(item.isManual || !item.bankAccountId) && (
+                              <span className="inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200" title="One-time / Ad-hoc payee (not in master)">
+                                <AlertCircle className="w-2.5 h-2.5 text-amber-600" /> Ad-hoc
+                              </span>
+                            )}
+                          </div>
                           {item.bpCode && <p className="text-xs text-[#6F8A9D] font-mono">{item.bpCode}</p>}
                           {item.emailId && <p className="text-xs text-[#92A2A5] truncate max-w-[140px]">{item.emailId}</p>}
                         </td>
@@ -882,7 +889,14 @@ export default function BatchDetailPage() {
                           {item.vendorName?.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()}
                         </div>
                         <div className="min-w-0">
-                          <h4 className="font-black text-[#546A7A] truncate text-sm tracking-tight">{item.vendorName}</h4>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <h4 className="font-black text-[#546A7A] truncate text-sm tracking-tight">{item.vendorName}</h4>
+                            {(item.isManual || !item.bankAccountId) && (
+                              <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 uppercase tracking-tight">
+                                Ad-Hoc
+                              </span>
+                            )}
+                          </div>
                           <div className="flex items-center gap-2 mt-0.5">
                             <span className="text-[9px] font-black text-[#AEBFC3] uppercase tracking-tighter">{item.ifscCode}</span>
                             <span className="w-1 h-1 rounded-full bg-slate-200" />

@@ -44,8 +44,8 @@ export const submitBatch = async (req: Request, res: Response) => {
         // Validate each item
         for (let i = 0; i < items.length; i++) {
             const item = items[i];
-            if (!item.bankAccountId || !item.vendorName || !item.accountNumber || !item.ifscCode || !item.bankName) {
-                return res.status(400).json({ error: `Item ${i + 1}: Missing required fields (bankAccountId, vendorName, accountNumber, ifscCode, bankName)` });
+            if (!item.vendorName || !item.accountNumber || !item.ifscCode || !item.bankName) {
+                return res.status(400).json({ error: `Item ${i + 1}: Missing required fields (vendorName, accountNumber, ifscCode, bankName)` });
             }
             if (!item.amount || parseFloat(item.amount) <= 0) {
                 return res.status(400).json({ error: `Item ${i + 1}: Invalid amount` });
@@ -69,7 +69,8 @@ export const submitBatch = async (req: Request, res: Response) => {
                 requestedById: userId,
                 items: {
                     create: items.map((item: any) => ({
-                        bankAccountId: item.bankAccountId,
+                        bankAccountId: item.bankAccountId || null,
+                        isManual: item.isManual === true || !item.bankAccountId,
                         vendorName: item.vendorName,
                         accountNumber: item.accountNumber,
                         ifscCode: item.ifscCode,
@@ -240,7 +241,7 @@ export const getBatchById = async (req: Request, res: Response) => {
         }
 
         // Lookup nickNames from bank accounts for each item
-        const bankAccountIds = [...new Set(batch.items.map(i => i.bankAccountId))];
+        const bankAccountIds = [...new Set(batch.items.map(i => i.bankAccountId).filter((id): id is string => Boolean(id)))];
         const bankAccounts = await prisma.bankAccount.findMany({
             where: { id: { in: bankAccountIds } },
             select: { id: true, nickName: true }
@@ -251,7 +252,7 @@ export const getBatchById = async (req: Request, res: Response) => {
             ...batch,
             items: batch.items.map(item => ({
                 ...item,
-                nickName: nickNameMap.get(item.bankAccountId) || ''
+                nickName: item.bankAccountId ? (nickNameMap.get(item.bankAccountId) || '') : ''
             }))
         };
 
@@ -424,7 +425,7 @@ export const downloadBatch = async (req: Request, res: Response) => {
         }
 
         // Lookup nickNames from bank accounts for each item
-        const bankAccountIds = [...new Set(batch.items.map(i => i.bankAccountId))];
+        const bankAccountIds = [...new Set(batch.items.map(i => i.bankAccountId).filter((id): id is string => Boolean(id)))];
         const bankAccounts = await prisma.bankAccount.findMany({
             where: { id: { in: bankAccountIds } },
             select: { id: true, nickName: true }
@@ -447,7 +448,7 @@ export const downloadBatch = async (req: Request, res: Response) => {
                 ifscCode: item.ifscCode,
                 bankName: item.bankName,
                 bpCode: item.bpCode,
-                nickName: nickNameMap.get(item.bankAccountId) || '',
+                nickName: item.bankAccountId ? (nickNameMap.get(item.bankAccountId) || '') : '',
                 emailId: item.emailId,
                 accountType: item.accountType,
                 amount: item.amount,

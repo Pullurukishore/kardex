@@ -114,6 +114,18 @@ const formatDate = (val: string | null) => {
   return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
+const renderDateRange = (startDate: string | null, endDate: string | null) => {
+  if (!startDate && !endDate) {
+    return <span className="text-slate-400 font-medium text-[11px]">—</span>;
+  }
+  return (
+    <div className="flex flex-col text-[10.5px] leading-snug whitespace-nowrap">
+      <span className="font-semibold text-slate-700">{formatDate(startDate)}</span>
+      <span className="text-[9.5px] text-slate-400 font-medium">to {formatDate(endDate)}</span>
+    </div>
+  );
+};
+
 const getExpiryBadge = (expiry: ExpiryInfo) => {
   if (!expiry || expiry.bucket === 'na') return <span className="text-xs text-slate-400">—</span>;
 
@@ -742,78 +754,82 @@ export default function DetailedContractTracking({ role }: DetailedContractTrack
 
                 {/* Expanded Machine Table with Actions */}
                 {isExpanded && (
-                  <div className="border-t border-slate-100 bg-slate-50/60 p-4 sm:p-5 overflow-x-auto">
-                    <div className="flex items-center justify-between mb-3">
+                  <div className="border-t border-slate-100 bg-slate-50/60 p-3 sm:p-4">
+                    <div className="flex items-center justify-between mb-2.5">
                       <h4 className="text-xs font-extrabold uppercase tracking-wider text-[#546A7A] flex items-center gap-2">
                         <Cpu className="w-4 h-4 text-[#82A094]" />
                         Machine Inventory ({cust.machines.length} Units)
                       </h4>
                     </div>
 
-                    <div className="bg-white rounded-xl border border-slate-200/80 overflow-hidden shadow-sm">
+                    <div className="bg-white rounded-xl border border-slate-200/80 overflow-hidden shadow-xs">
                       <table className="w-full text-xs">
                         <thead>
-                          <tr className="bg-slate-50 border-b border-slate-200/80 text-slate-600 font-bold uppercase text-[10px] tracking-wider">
-                            <th className="px-3 py-2.5 text-left">#</th>
-                            <th className="px-3 py-2.5 text-left">Serial No</th>
-                            <th className="px-3 py-2.5 text-left">Unit / Model</th>
-                            <th className="px-3 py-2.5 text-left">Control</th>
-                            <th className="px-3 py-2.5 text-left">Engineer</th>
-                            <th className="px-3 py-2.5 text-left">Department</th>
-                            <th className="px-3 py-2.5 text-center">Install Year</th>
-                            <th className="px-3 py-2.5 text-center">Type</th>
-                            <th className="px-3 py-2.5 text-left">MC Period</th>
-                            <th className="px-3 py-2.5 text-center">MC Expiry</th>
-                            <th className="px-3 py-2.5 text-right">MC Value</th>
-                            <th className="px-3 py-2.5 text-center">Actions</th>
+                          <tr className="bg-slate-50/90 border-b border-slate-200/80 text-slate-600 font-bold uppercase text-[10px] tracking-wider select-none">
+                            <th className="px-2 py-2.5 text-center w-7">#</th>
+                            <th className="px-2 py-2.5 text-left">Serial No</th>
+                            <th className="px-2 py-2.5 text-left">Unit / Model</th>
+                            <th className="px-2 py-2.5 text-center">Control</th>
+                            <th className="px-2 py-2.5 text-left">Engineer</th>
+                            <th className="px-2 py-2.5 text-left">Department</th>
+                            <th className="px-2 py-2.5 text-center">Install</th>
+                            <th className="px-2 py-2.5 text-center">Type</th>
+                            <th className="px-2 py-2.5 text-left">MC Period</th>
+                            <th className="px-2 py-2.5 text-left">Warranty Period</th>
+                            <th className="px-2 py-2.5 text-center">MC Expiry</th>
+                            <th className="px-2 py-2.5 text-right">MC Value</th>
+                            <th className="px-2 py-2.5 text-center w-20">Actions</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                           {cust.machines.map((m, idx) => (
                             <tr key={m.id} className="hover:bg-slate-50/80 transition-colors">
-                              <td className="px-3 py-2.5 font-bold text-slate-400">{idx + 1}</td>
-                              <td className="px-3 py-2.5 font-mono font-bold text-slate-800">
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-800 font-mono">
+                              <td className="px-2 py-2 text-center font-bold text-slate-400 text-[10px]">{idx + 1}</td>
+                              <td className="px-2 py-2 font-mono font-bold text-slate-800">
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-800 font-mono text-[10.5px]">
                                   {m.serialNumber}
                                 </span>
                               </td>
-                              <td className="px-3 py-2.5">{getUnitTypeBadge(m.unitType, m.modelNumber)}</td>
-                              <td className="px-3 py-2.5">{getControlTypeBadge(m.controlType)}</td>
-                              <td className="px-3 py-2.5 text-slate-700 font-medium whitespace-nowrap">
+                              <td className="px-2 py-2">{getUnitTypeBadge(m.unitType, m.modelNumber)}</td>
+                              <td className="px-2 py-2 text-center">{getControlTypeBadge(m.controlType)}</td>
+                              <td className="px-2 py-2 text-slate-700 font-medium">
                                 {m.engineerName ? (
-                                  <span className="inline-flex items-center gap-1">
-                                    <User className="w-3 h-3 text-[#546A7A]" />
-                                    <span>{m.engineerName}</span>
+                                  <span className="inline-flex items-center gap-1 text-[11px]" title={m.engineerName}>
+                                    <User className="w-3 h-3 text-[#546A7A] shrink-0" />
+                                    <span className="truncate max-w-[90px]">{m.engineerName}</span>
                                   </span>
                                 ) : (
                                   <span className="text-slate-400">—</span>
                                 )}
                               </td>
-                              <td className="px-3 py-2.5 text-slate-600 font-medium">{m.department || '—'}</td>
-                              <td className="px-3 py-2.5 text-center font-medium text-slate-600">
+                              <td className="px-2 py-2 text-slate-600 font-medium text-[11px]">
+                                <span className="truncate max-w-[80px] block" title={m.department || ''}>
+                                  {m.department || '—'}
+                                </span>
+                              </td>
+                              <td className="px-2 py-2 text-center font-medium text-slate-600 text-[11px]">
                                 {m.installationYear || '—'}
                               </td>
-                              <td className="px-3 py-2.5 text-center">
+                              <td className="px-2 py-2 text-center">
                                 {getContractTypeBadge(m.contractType)}
                               </td>
-                              <td className="px-3 py-2.5 text-slate-700">
-                                {m.mcStartDate || m.mcEndDate ? (
-                                  <span className="font-medium">
-                                    {formatDate(m.mcStartDate)} → {formatDate(m.mcEndDate)}
-                                  </span>
-                                ) : '—'}
+                              <td className="px-2 py-2">
+                                {renderDateRange(m.mcStartDate, m.mcEndDate)}
                               </td>
-                              <td className="px-3 py-2.5 text-center">{getExpiryBadge(m.mcExpiry)}</td>
-                              <td className="px-3 py-2.5 text-right font-extrabold text-slate-800">
+                              <td className="px-2 py-2">
+                                {renderDateRange(m.warrantyStartDate, m.warrantyEndDate)}
+                              </td>
+                              <td className="px-2 py-2 text-center">{getExpiryBadge(m.mcExpiry)}</td>
+                              <td className="px-2 py-2 text-right font-extrabold text-slate-800 text-[11.5px] tabular-nums whitespace-nowrap">
                                 {formatCurrency(m.mcValue)}
                               </td>
 
                               {/* Row Action Buttons */}
-                              <td className="px-3 py-2.5 text-center">
-                                <div className="flex items-center justify-center gap-1.5">
+                              <td className="px-2 py-2 text-center">
+                                <div className="flex items-center justify-center gap-1">
                                   <a
                                     href={`${getBaseRoute()}/contracts/detailed/${m.id}`}
-                                    className="p-1.5 rounded-lg bg-slate-100 hover:bg-[#546A7A] text-slate-600 hover:text-white transition-colors"
+                                    className="p-1 rounded-md bg-slate-100 hover:bg-[#546A7A] text-slate-600 hover:text-white transition-colors"
                                     title="View Contract Details"
                                   >
                                     <Eye className="w-3.5 h-3.5" />
@@ -823,7 +839,7 @@ export default function DetailedContractTracking({ role }: DetailedContractTrack
                                     <>
                                       <a
                                         href={`${getBaseRoute()}/contracts/detailed/${m.id}/edit`}
-                                        className="p-1.5 rounded-lg bg-slate-100 hover:bg-[#82A094] text-slate-600 hover:text-white transition-colors"
+                                        className="p-1 rounded-md bg-slate-100 hover:bg-[#82A094] text-slate-600 hover:text-white transition-colors"
                                         title="Edit Contract"
                                       >
                                         <Pencil className="w-3.5 h-3.5" />
@@ -834,7 +850,7 @@ export default function DetailedContractTracking({ role }: DetailedContractTrack
                                           e.stopPropagation();
                                           setDeleteTarget(m);
                                         }}
-                                        className="p-1.5 rounded-lg bg-slate-100 hover:bg-rose-600 text-slate-600 hover:text-white transition-colors"
+                                        className="p-1 rounded-md bg-slate-100 hover:bg-rose-600 text-slate-600 hover:text-white transition-colors"
                                         title="Delete Contract"
                                       >
                                         <Trash2 className="w-3.5 h-3.5" />
@@ -869,20 +885,21 @@ export default function DetailedContractTracking({ role }: DetailedContractTrack
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider">
-                  <th className="px-3 py-3 text-left">#</th>
-                  <th className="px-3 py-3 text-left">Customer</th>
-                  <th className="px-3 py-3 text-left">Class</th>
-                  <th className="px-3 py-3 text-left">Location / Zone</th>
-                  <th className="px-3 py-3 text-left">Engineer</th>
-                  <th className="px-3 py-3 text-left">Serial No</th>
-                  <th className="px-3 py-3 text-left">Unit / Model</th>
-                  <th className="px-3 py-3 text-left">Control</th>
-                  <th className="px-3 py-3 text-center">Type</th>
-                  <th className="px-3 py-3 text-left">MC Period</th>
-                  <th className="px-3 py-3 text-center">MC Expiry</th>
-                  <th className="px-3 py-3 text-right">MC Value</th>
-                  <th className="px-3 py-3 text-center">Actions</th>
+                <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider select-none">
+                  <th className="px-2.5 py-3 text-center w-7">#</th>
+                  <th className="px-2.5 py-3 text-left">Customer</th>
+                  <th className="px-2.5 py-3 text-left">Class</th>
+                  <th className="px-2.5 py-3 text-left">Location</th>
+                  <th className="px-2.5 py-3 text-left">Engineer</th>
+                  <th className="px-2.5 py-3 text-left">Serial No</th>
+                  <th className="px-2.5 py-3 text-left">Unit / Model</th>
+                  <th className="px-2.5 py-3 text-center">Control</th>
+                  <th className="px-2.5 py-3 text-center">Type</th>
+                  <th className="px-2.5 py-3 text-left">MC Period</th>
+                  <th className="px-2.5 py-3 text-left">Warranty Period</th>
+                  <th className="px-2.5 py-3 text-center">MC Expiry</th>
+                  <th className="px-2.5 py-3 text-right">MC Value</th>
+                  <th className="px-2.5 py-3 text-center w-20">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -890,49 +907,48 @@ export default function DetailedContractTracking({ role }: DetailedContractTrack
                   const custTheme = getCustomerTheme(m.customerName);
                   return (
                     <tr key={m.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="px-3 py-2.5 font-bold text-slate-400">{idx + 1}</td>
-                      <td className="px-3 py-2.5 font-extrabold text-slate-800 max-w-[180px] truncate">
-                        <div className="flex items-center gap-2">
-                          <div className={`w-6 h-6 rounded-lg bg-gradient-to-br ${custTheme.gradient} text-white flex items-center justify-center font-extrabold text-[10px] flex-shrink-0 shadow-xs`}>
+                      <td className="px-2.5 py-2.5 text-center font-bold text-slate-400 text-[10px]">{idx + 1}</td>
+                      <td className="px-2.5 py-2.5 font-extrabold text-slate-800 max-w-[150px] truncate">
+                        <div className="flex items-center gap-1.5">
+                          <div className={`w-5 h-5 rounded bg-gradient-to-br ${custTheme.gradient} text-white flex items-center justify-center font-extrabold text-[9px] flex-shrink-0`}>
                             {m.customerName ? m.customerName.charAt(0).toUpperCase() : 'C'}
                           </div>
-                          <span className="truncate">{m.customerName}</span>
+                          <span className="truncate text-xs">{m.customerName}</span>
                         </div>
                       </td>
-                      <td className="px-3 py-2.5">{getClassBadge(m.customerClass)}</td>
-                      <td className="px-3 py-2.5 text-slate-600">
-                        <p className="font-medium text-slate-800">{m.place || '—'}</p>
-                        <p className="text-[10px] text-slate-400 font-semibold">{m.zoneName} Zone</p>
+                      <td className="px-2.5 py-2.5">{getClassBadge(m.customerClass)}</td>
+                      <td className="px-2.5 py-2.5 text-slate-600">
+                        <p className="font-medium text-slate-800 text-[11px] truncate max-w-[100px]">{m.place || '—'}</p>
+                        <p className="text-[9.5px] text-slate-400 font-semibold">{m.zoneName}</p>
                       </td>
-                      <td className="px-3 py-2.5 text-slate-600 font-medium">{m.engineerName || '—'}</td>
-                      <td className="px-3 py-2.5 font-mono font-bold text-slate-800">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-800 font-mono text-[11px]">
+                      <td className="px-2.5 py-2.5 text-slate-600 font-medium text-[11px] truncate max-w-[90px]">{m.engineerName || '—'}</td>
+                      <td className="px-2.5 py-2.5 font-mono font-bold text-slate-800">
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-800 font-mono text-[10.5px]">
                           {m.serialNumber}
                         </span>
                       </td>
-                      <td className="px-3 py-2.5">{getUnitTypeBadge(m.unitType, m.modelNumber)}</td>
-                      <td className="px-3 py-2.5">{getControlTypeBadge(m.controlType)}</td>
-                      <td className="px-3 py-2.5 text-center">
+                      <td className="px-2.5 py-2.5">{getUnitTypeBadge(m.unitType, m.modelNumber)}</td>
+                      <td className="px-2.5 py-2.5 text-center">{getControlTypeBadge(m.controlType)}</td>
+                      <td className="px-2.5 py-2.5 text-center">
                         {getContractTypeBadge(m.contractType)}
                       </td>
-                      <td className="px-3 py-2.5 text-slate-700">
-                        {m.mcStartDate || m.mcEndDate ? (
-                          <span className="font-medium">
-                            {formatDate(m.mcStartDate)} → {formatDate(m.mcEndDate)}
-                          </span>
-                        ) : '—'}
+                      <td className="px-2.5 py-2.5">
+                        {renderDateRange(m.mcStartDate, m.mcEndDate)}
                       </td>
-                      <td className="px-3 py-2.5 text-center">{getExpiryBadge(m.mcExpiry)}</td>
-                      <td className="px-3 py-2.5 text-right font-extrabold text-slate-800">
+                      <td className="px-2.5 py-2.5">
+                        {renderDateRange(m.warrantyStartDate, m.warrantyEndDate)}
+                      </td>
+                      <td className="px-2.5 py-2.5 text-center">{getExpiryBadge(m.mcExpiry)}</td>
+                      <td className="px-2.5 py-2.5 text-right font-extrabold text-slate-800 text-[11.5px] tabular-nums whitespace-nowrap">
                         {formatCurrency(m.mcValue)}
                       </td>
 
                       {/* Actions */}
-                      <td className="px-3 py-2.5 text-center">
-                        <div className="flex items-center justify-center gap-1.5">
+                      <td className="px-2.5 py-2.5 text-center">
+                        <div className="flex items-center justify-center gap-1">
                           <a
                             href={`${getBaseRoute()}/contracts/detailed/${m.id}`}
-                            className="p-1.5 rounded-lg bg-slate-100 hover:bg-[#546A7A] text-slate-600 hover:text-white transition-colors"
+                            className="p-1 rounded-md bg-slate-100 hover:bg-[#546A7A] text-slate-600 hover:text-white transition-colors"
                             title="View Contract Details"
                           >
                             <Eye className="w-3.5 h-3.5" />
@@ -942,15 +958,18 @@ export default function DetailedContractTracking({ role }: DetailedContractTrack
                             <>
                               <a
                                 href={`${getBaseRoute()}/contracts/detailed/${m.id}/edit`}
-                                className="p-1.5 rounded-lg bg-slate-100 hover:bg-[#82A094] text-slate-600 hover:text-white transition-colors"
+                                className="p-1 rounded-md bg-slate-100 hover:bg-[#82A094] text-slate-600 hover:text-white transition-colors"
                                 title="Edit Contract"
                               >
                                 <Pencil className="w-3.5 h-3.5" />
                               </a>
 
                               <button
-                                onClick={() => setDeleteTarget(m)}
-                                className="p-1.5 rounded-lg bg-slate-100 hover:bg-rose-600 text-slate-600 hover:text-white transition-colors"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDeleteTarget(m);
+                                }}
+                                className="p-1 rounded-md bg-slate-100 hover:bg-rose-600 text-slate-600 hover:text-white transition-colors"
                                 title="Delete Contract"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />

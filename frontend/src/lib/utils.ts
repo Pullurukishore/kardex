@@ -171,3 +171,25 @@ export function formatEngineerDisplayName(raw: string | null | undefined): strin
   return names.length > 0 ? names.join(', ') : (raw ? String(raw).replace(/\s*\([^)]*\)/g, '').trim() : '—');
 }
 
+/**
+ * Extract department/division from customer string formatted like "Bharat Electronics Ltd - NCS" -> "NCS"
+ */
+export function extractDepartmentFromCustomer(contractCustomerName?: string | null, mainCustomerName?: string | null): string {
+  if (!contractCustomerName) return '—';
+  const trimmed = String(contractCustomerName).trim();
+
+  // If there's a dash separator (e.g. "Customer - Department")
+  const dashParts = trimmed.split(/\s*[-–—]\s*/);
+  if (dashParts.length > 1) {
+    const afterDash = dashParts[dashParts.length - 1]?.trim();
+    if (afterDash) return afterDash;
+  }
+
+  // If contractCustomerName is distinct from main customer account name
+  if (mainCustomerName && trimmed.toLowerCase() !== String(mainCustomerName).trim().toLowerCase()) {
+    return trimmed;
+  }
+
+  return '—';
+}
+

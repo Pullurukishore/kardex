@@ -11,6 +11,7 @@ import {
 import { toast } from 'sonner';
 import { apiService } from '@/services/api';
 import { generateAnnualContractReportPdf } from '@/lib/annual-contract-report-pdf';
+import { generateAnnualContractReportExcel } from '@/lib/annual-contract-report-excel';
 import { normalizeEngineerNames, formatEngineerDisplayName } from '@/lib/utils';
 
 // ============================
@@ -489,107 +490,29 @@ export default function AnnualContractReports({ role }: AnnualContractReportsPro
   const handleExport = async (format: 'excel' | 'pdf') => {
     setExporting(true);
     try {
+      const filters = {
+        zone: zoneFilter,
+        customerClass: classFilter,
+        contractType: contractTypeFilter,
+        unitType: unitTypeFilter,
+        engineer: techFilter,
+        department: departmentFilter,
+        dateFrom,
+        dateTo,
+        expiryBucket: expiryFilter,
+        search
+      };
+
       if (format === 'pdf') {
-        const filters = {
-          zone: zoneFilter,
-          customerClass: classFilter,
-          contractType: contractTypeFilter,
-          unitType: unitTypeFilter,
-          engineer: techFilter,
-          department: departmentFilter,
-          dateFrom,
-          dateTo,
-          expiryBucket: expiryFilter,
-          search
-        };
         await generateAnnualContractReportPdf(customers, stats, filters);
         toast.success('Annual Contract PDF Report exported successfully!');
-        return;
-      }
-
-      const params: any = {};
-      if (zoneFilter !== 'all') params.zone = zoneFilter;
-      if (classFilter !== 'all') params.customerClass = classFilter;
-      if (contractTypeFilter !== 'all') params.contractType = contractTypeFilter;
-      if (unitTypeFilter !== 'all') params.unitType = unitTypeFilter;
-      if (techFilter !== 'all') params.engineer = techFilter;
-      if (departmentFilter !== 'all') params.department = departmentFilter;
-      if (expiryFilter !== 'all') params.expiryBucket = expiryFilter;
-      if (dateFrom) params.dateFrom = dateFrom;
-      if (dateTo) params.dateTo = dateTo;
-      if (search) params.search = search;
-      params.format = format;
-
-      const data = await apiService.exportDetailedContracts(params);
-
-      // If it's a blob, download it
-      if (data instanceof Blob) {
-        const url = window.URL.createObjectURL(data);
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', 'Annual_Contract_Report.xlsx');
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        window.URL.revokeObjectURL(url);
       } else {
-        const machines = Array.isArray(data) ? data : (data.data || []);
-        if (machines.length === 0) {
-          toast.error('No data to export');
-          return;
-        }
-
-        const headers = [
-          'Sl No', 'Customer Name', 'Class', 'Place', 'Zone', 'Engineer',
-          'Serial Number', 'Unit Type', 'Model', 'Control Type', 'Department',
-          'Installation Year', 'Contract Type', 'MC PO Number', 'PO Date',
-          'MC Start Date', 'MC End Date', 'MC Value', 'MC Expiry Status',
-          'PM Visits', 'BD Visits'
-        ];
-
-        const rows = machines.map((m: any, idx: number) => [
-          idx + 1,
-          m.customerName || '',
-          m.customerClass || '',
-          m.place || '',
-          m.zoneName || '',
-          m.engineerName || '',
-          m.serialNumber || '',
-          m.unitType || '',
-          m.modelNumber || '',
-          m.controlType || '',
-          m.department || '',
-          m.installationYear || '',
-          m.contractType || '',
-          m.mcPoNumber || '',
-          m.poDate || '',
-          m.mcStartDate || '',
-          m.mcEndDate || '',
-          m.mcValue || 0,
-          m.mcExpiry?.bucket || '',
-          m.pmVisitsCount || 0,
-          m.bdVisitsCount || 0
-        ]);
-
-        const csvContent = [
-          headers.join(','),
-          ...rows.map((row: any[]) => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
-        ].join('\n');
-
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', 'Annual_Contract_Report.csv');
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        window.URL.revokeObjectURL(url);
+        await generateAnnualContractReportExcel(customers, stats, filters);
+        toast.success('Annual Contract Excel Report exported successfully!');
       }
-      toast.success(`Annual Contract ${format.toUpperCase()} Report exported successfully!`);
     } catch (err: any) {
       console.error('Export failed:', err);
-      toast.error(`Failed to export ${format} report`);
+      toast.error(`Failed to export ${format.toUpperCase()} report`);
     } finally {
       setExporting(false);
     }

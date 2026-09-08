@@ -11,7 +11,7 @@ import {
     kardexRed,
     kardexSand
 } from './kardex-colors';
-import { normalizeEngineerNames, formatEngineerDisplayName } from './utils';
+import { normalizeEngineerNames, formatEngineerDisplayName, extractDepartmentFromCustomer } from './utils';
 
 // ============ Color Helpers ============
 const hexToRgb = (hex: string): [number, number, number] => {
@@ -394,6 +394,7 @@ export async function generateContractReportPdf(
         { content: 'MC Type / SLA', styles: { halign: 'center' } },
         { content: 'Responsible Engineer', styles: { halign: 'left' } },
         { content: 'PO Number', styles: { halign: 'center' } },
+        { content: 'Department', styles: { halign: 'center' } },
         { content: 'Contract Expiry', styles: { halign: 'center' } },
         { content: 'Agreement Value', styles: { halign: 'right' } }
     ].map(col => ({
@@ -423,6 +424,7 @@ export async function generateContractReportPdf(
             const daysLeft = getDaysRemainingPdf(c.endDate);
             const daysRemainingText = daysLeft < 0 ? `${Math.abs(daysLeft)}d overdue` : `${daysLeft}d left`;
             const expiryText = c.endDate ? `${fmtDatePdf(c.endDate)} (${daysRemainingText})` : '—';
+            const deptVal = extractDepartmentFromCustomer(c.customerName, cust.customerName);
 
             if (matchingPMs.length > 0) {
                 matchingPMs.forEach((pm: any) => {
@@ -438,6 +440,7 @@ export async function generateContractReportPdf(
                         mcType: c.mcType || '—',
                         responsible: formatEngineerDisplayName(c.responsible),
                         poNo: c.poNo || '—',
+                        department: deptVal,
                         expiryWithDays: expiryText,
                         amount: c.amount || 0
                     });
@@ -452,6 +455,7 @@ export async function generateContractReportPdf(
                     mcType: c.mcType || '—',
                     responsible: formatEngineerDisplayName(c.responsible),
                     poNo: c.poNo || '—',
+                    department: deptVal,
                     expiryWithDays: expiryText,
                     amount: c.amount || 0
                 });
@@ -475,11 +479,11 @@ export async function generateContractReportPdf(
         const resp = Array.from(new Set(contracts.flatMap((c: any) => normalizeEngineerNames(c.responsible)))).join(', ');
         const respText = resp ? `   •   Eng: ${resp}` : '';
 
-        // 1. Customer Main Banner Row (Span 10 columns) with distinct Kardex color & rich page details
+        // 1. Customer Main Banner Row (Span 11 columns) with distinct Kardex color & rich page details
         body.push([
             {
                 content: `${custIdx + 1}.  ${cust.customerName.toUpperCase()}   •   ${placeText}${respText}${mcTypesText}${swText}${poText}   •   ${machinesText}   •   Total Value: ${valueText}   •   ${pmProgress}   •   ${overdueText}`,
-                colSpan: 10,
+                colSpan: 11,
                 styles: {
                     fillColor: customerColor,
                     textColor: COLORS.white,
@@ -500,7 +504,7 @@ export async function generateContractReportPdf(
             body.push([
                 {
                     content: 'No PM visits scheduled for this customer in selected period.',
-                    colSpan: 10,
+                    colSpan: 11,
                     styles: {
                         fillColor: COLORS.offWhite,
                         textColor: COLORS.textMuted,
@@ -522,6 +526,7 @@ export async function generateContractReportPdf(
                     row.mcType,
                     row.responsible,
                     row.poNo,
+                    row.department,
                     row.expiryWithDays,
                     fmtCurrency(row.amount)
                 ]);
@@ -533,7 +538,7 @@ export async function generateContractReportPdf(
             body.push([
                 {
                     content: '',
-                    colSpan: 10,
+                    colSpan: 11,
                     styles: {
                         minCellHeight: 4,
                         fillColor: [255, 255, 255],
@@ -564,16 +569,17 @@ export async function generateContractReportPdf(
             fillColor: COLORS.offWhite,
         },
         columnStyles: {
-            0: { cellWidth: 12, halign: 'center' },                               // # (S.No)
-            1: { cellWidth: 16, halign: 'center', fontStyle: 'bold' },            // PM Visit (PM 1, PM 2)
-            2: { cellWidth: 52, halign: 'center' },                              // PM Schedule Window (expanded from 46mm to 52mm)
-            3: { cellWidth: 22, halign: 'center', fontStyle: 'bold' },            // PM Status (Completed, Overdue, Pending)
-            4: { cellWidth: 26, halign: 'center' },                              // Completed Date
-            5: { cellWidth: 22, halign: 'center' },                              // MC Type / SLA (Flex Care)
-            6: { cellWidth: 35, halign: 'left' },                                // Responsible Engineer
-            7: { cellWidth: 22, halign: 'center' },                              // PO Number
-            8: { cellWidth: 36, halign: 'center' },                              // Contract Expiry (with days left/overdue)
-            9: { cellWidth: 30, halign: 'right', fontStyle: 'bold', textColor: COLORS.textDark }, // Agreement Value
+            0: { cellWidth: 8, halign: 'center' },                                // # (S.No)
+            1: { cellWidth: 14, halign: 'center', fontStyle: 'bold' },            // PM Visit (PM 1, PM 2)
+            2: { cellWidth: 44, halign: 'center' },                              // PM Schedule Window
+            3: { cellWidth: 18, halign: 'center', fontStyle: 'bold' },            // PM Status
+            4: { cellWidth: 22, halign: 'center' },                              // Completed Date
+            5: { cellWidth: 20, halign: 'center' },                              // MC Type / SLA
+            6: { cellWidth: 32, halign: 'left' },                                // Responsible Engineer
+            7: { cellWidth: 24, halign: 'center' },                              // PO Number
+            8: { cellWidth: 28, halign: 'center' },                              // Department
+            9: { cellWidth: 38, halign: 'center' },                              // Contract Expiry
+            10: { cellWidth: 29, halign: 'right', fontStyle: 'bold', textColor: COLORS.textDark }, // Agreement Value
         },
         willDrawCell: (hookData: any) => {
             // If spacer row, don't draw border lines

@@ -10,7 +10,8 @@ import {
     X, Info, Wallet, DollarSign, RefreshCcw, Check, Building2,
     Shield, Globe, Power, Eye, Pencil, List, Hash, Send,
     Zap, AlertCircle, IndianRupee, Clock, Filter, ChevronDown, Mail,
-    FileSpreadsheet, FileText, Banknote, Download, FileCode
+    FileSpreadsheet, FileText, Banknote, Download, FileCode,
+    UserPlus, Sparkles
 } from 'lucide-react';
 import { format } from 'date-fns';
 import Link from 'next/link';
@@ -43,7 +44,8 @@ import { toast } from 'sonner';
 
 interface PendingPayment extends Partial<PaymentRow> {
     tempId: string;
-    bankAccount: BankAccount;
+    bankAccount?: BankAccount | null;
+    isManual?: boolean;
 }
 
 // ============================================================================
@@ -268,6 +270,118 @@ export default function PaymentsPage() {
         setPendingPayments(prev => prev.filter(p => p.tempId !== tempId));
     };
 
+    const [showManualModal, setShowManualModal] = useState(false);
+    const [manualForm, setManualForm] = useState({
+        vendorName: '',
+        accountNumber: '',
+        confirmAccountNumber: '',
+        ifscCode: '',
+        bankName: '',
+        accountType: 'Current',
+        amount: '',
+        transactionMode: 'NFT' as 'NFT' | 'RTI' | 'FT',
+        emailId: '',
+        nickName: ''
+    });
+
+    const detectBankFromIFSC = (ifsc: string): string => {
+        const code = ifsc.trim().toUpperCase().substring(0, 4);
+        const bankMap: Record<string, string> = {
+            'HDFC': 'HDFC Bank',
+            'SBIN': 'State Bank of India',
+            'ICIC': 'ICICI Bank',
+            'UTIB': 'Axis Bank',
+            'KKBK': 'Kotak Mahindra Bank',
+            'PUNB': 'Punjab National Bank',
+            'BARB': 'Bank of Baroda',
+            'CNRB': 'Canara Bank',
+            'UBIN': 'Union Bank of India',
+            'IDIB': 'Indian Bank',
+            'INDB': 'IndusInd Bank',
+            'YESB': 'Yes Bank',
+            'SCBL': 'Standard Chartered Bank',
+            'HSBC': 'HSBC',
+            'CITI': 'Citibank',
+            'DEUT': 'Deutsche Bank',
+            'FDRL': 'Federal Bank',
+            'IDFB': 'IDFC First Bank',
+            'RATN': 'RBL Bank',
+            'MAHB': 'Bank of Maharashtra',
+            'IOBA': 'Indian Overseas Bank',
+            'CIUB': 'City Union Bank',
+            'CSBK': 'CSB Bank',
+            'KVBL': 'Karur Vysya Bank',
+            'SIBL': 'South Indian Bank',
+            'TMBL': 'Tamilnad Mercantile Bank',
+            'BDBL': 'Bandhan Bank',
+            'AUBL': 'AU Small Finance Bank',
+            'ESFB': 'Equitas Small Finance Bank',
+            'UJVN': 'Ujjivan Small Finance Bank'
+        };
+        return bankMap[code] || '';
+    };
+
+    const handleAddManualPayee = (e?: React.FormEvent) => {
+        if (e) e.preventDefault();
+        const { vendorName, accountNumber, confirmAccountNumber, ifscCode, bankName, amount, emailId, transactionMode, accountType, nickName } = manualForm;
+
+        if (!vendorName.trim()) {
+            toast.error('Please enter payee / vendor name');
+            return;
+        }
+        if (!accountNumber.trim()) {
+            toast.error('Please enter account number');
+            return;
+        }
+        if (confirmAccountNumber.trim() && accountNumber.trim() !== confirmAccountNumber.trim()) {
+            toast.error('Account numbers do not match');
+            return;
+        }
+        if (!ifscCode.trim()) {
+            toast.error('Please enter IFSC / SWIFT code');
+            return;
+        }
+        if (!bankName.trim()) {
+            toast.error('Please enter or verify bank name');
+            return;
+        }
+
+        const parsedAmount = amount ? parseFloat(amount.replace(/,/g, '')) : 0;
+
+        const newPayment: PendingPayment = {
+            tempId: crypto.randomUUID?.() || Math.random().toString(36).substring(2, 11),
+            bankAccount: null,
+            isManual: true,
+            vendorName: vendorName.trim(),
+            bpCode: '',
+            nickName: nickName.trim(),
+            accountNumber: accountNumber.trim(),
+            ifscCode: ifscCode.trim().toUpperCase(),
+            bankName: bankName.trim(),
+            amount: isNaN(parsedAmount) ? 0 : parsedAmount,
+            emailId: emailId.trim(),
+            valueDate: new Date(globalDate),
+            transactionMode: transactionMode || globalMode,
+            accountType: accountType || 'Current'
+        };
+
+        setPendingPayments(prev => [...prev, newPayment]);
+        setShowManualModal(false);
+        setManualForm({
+            vendorName: '',
+            accountNumber: '',
+            confirmAccountNumber: '',
+            ifscCode: '',
+            bankName: '',
+            accountType: 'Current',
+            amount: '',
+            transactionMode: globalMode,
+            emailId: '',
+            nickName: ''
+        });
+        toast.success(`Added "${newPayment.vendorName}" as one-time payee`);
+    };
+
     const updatePayment = (tempId: string, updates: Partial<PendingPayment>) => {
         // If accountNumber is being updated, determine whether it's a secondary or primary account
         if (updates.accountNumber) {
@@ -283,7 +397,7 @@ export default function PaymentsPage() {
             } else {
                 // Primary account selected: restore primary bank details
                 const payment = pendingPayments.find(p => p.tempId === tempId);
-                if (payment) {
+                if (payment && payment.bankAccount) {
                     updates = {
                         ...updates,
                         ifscCode: payment.bankAccount.ifscCode,
@@ -324,7 +438,8 @@ export default function PaymentsPage() {
                 const cleanIfsc = rawAcc.includes('|') ? rawAcc.split('|')[1] : p.ifscCode;
                 const cleanBank = rawAcc.includes('|') ? rawAcc.split('|')[2] : p.bankName;
                 return {
-                    bankAccountId: p.bankAccount.id,
+                    bankAccountId: p.bankAccount?.id || undefined,
+                    isManual: !!p.isManual,
                     vendorName: p.vendorName!,
                     accountNumber: cleanAcc,
                     ifscCode: cleanIfsc!,
@@ -354,7 +469,7 @@ export default function PaymentsPage() {
 
     const stats = useMemo(() => ({
         totalRecords: pendingPayments.length,
-        selectedVendors: new Set(pendingPayments.map(p => p.bankAccount.id)).size,
+        selectedVendors: new Set(pendingPayments.map(p => p.bankAccount?.id || p.accountNumber || p.tempId)).size,
         totalAmount: pendingPayments.reduce((acc, p) => acc + (p.amount || 0), 0),
         validPayments: pendingPayments.filter(p => p.amount && p.amount > 0).length,
     }), [pendingPayments]);
@@ -376,7 +491,7 @@ export default function PaymentsPage() {
                 return {
                     vendorName: p.vendorName!,
                     bpCode: p.bpCode || '',
-                    nickName: (p.bankAccount as any).nickName || '',
+                    nickName: (p.bankAccount as any)?.nickName || p.nickName || '',
                     accountNumber: cleanAcc,
                     ifscCode: cleanIfsc!,
                     bankName: cleanBank!,
@@ -672,141 +787,206 @@ export default function PaymentsPage() {
                                     </div>
                                 </div>
                             )}
-                            {/* Custom Vendor Search Dropdown */}
-                            <div ref={dropdownRef} className="relative">
-                                {/* Search Trigger / Input */}
-                                <div
-                                    className={cn(
-                                        "w-full flex items-center gap-3 bg-slate-50/80 border rounded-xl h-14 px-4 transition-all",
-                                        currencyFilter === 'ALL' ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer',
-                                        openDropdown ? 'border-[#B18E63] ring-2 ring-[#B18E63]/20 bg-white shadow-lg' : 'border-slate-200 hover:border-[#B18E63]/50 hover:bg-white hover:shadow-md'
-                                    )}
-                                    onClick={() => currencyFilter !== 'ALL' && setOpenDropdown(true)}
-                                >
-                                    {loading ? (
-                                        <Loader2 className="w-5 h-5 animate-spin text-[#B18E63] shrink-0" />
-                                    ) : (
-                                        <Search className="w-5 h-5 text-slate-400 shrink-0" />
-                                    )}
-                                    <input
-                                        ref={searchInputRef}
-                                        type="text"
-                                        placeholder={currencyFilter === 'ALL' ? 'Select a currency first...' : (loading ? 'Loading vendors...' : 'Search by vendor name, BP code, account number, bank name, or IFSC...')}
-                                        className="flex-1 bg-transparent text-sm font-medium text-slate-700 placeholder:text-slate-400 outline-none"
-                                        value={vendorSearchQuery}
-                                        onChange={(e) => {
-                                            setVendorSearchQuery(e.target.value);
-                                            if (!openDropdown) setOpenDropdown(true);
-                                        }}
-                                        onFocus={() => currencyFilter !== 'ALL' && setOpenDropdown(true)}
-                                        disabled={loading || currencyFilter === 'ALL'}
-                                    />
-                                    {vendorSearchQuery && (
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setVendorSearchQuery('');
+                            {/* Custom Vendor Search Dropdown + Manual Payee Button */}
+                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                                <div ref={dropdownRef} className="relative flex-1">
+                                    {/* Search Trigger / Input */}
+                                    <div
+                                        className={cn(
+                                            "w-full flex items-center gap-3 bg-slate-50/80 border rounded-xl h-14 px-4 transition-all",
+                                            currencyFilter === 'ALL' ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer',
+                                            openDropdown ? 'border-[#B18E63] ring-2 ring-[#B18E63]/20 bg-white shadow-lg' : 'border-slate-200 hover:border-[#B18E63]/50 hover:bg-white hover:shadow-md'
+                                        )}
+                                        onClick={() => currencyFilter !== 'ALL' && setOpenDropdown(true)}
+                                    >
+                                        {loading ? (
+                                            <Loader2 className="w-5 h-5 animate-spin text-[#B18E63] shrink-0" />
+                                        ) : (
+                                            <Search className="w-5 h-5 text-slate-400 shrink-0" />
+                                        )}
+                                        <input
+                                            ref={searchInputRef}
+                                            type="text"
+                                            placeholder={currencyFilter === 'ALL' ? 'Select a currency first...' : (loading ? 'Loading vendors...' : 'Search by vendor name, BP code, account number, bank name, or IFSC...')}
+                                            className="flex-1 bg-transparent text-sm font-medium text-slate-700 placeholder:text-slate-400 outline-none"
+                                            value={vendorSearchQuery}
+                                            onChange={(e) => {
+                                                setVendorSearchQuery(e.target.value);
+                                                if (!openDropdown) setOpenDropdown(true);
                                             }}
-                                            className="p-1 rounded-lg hover:bg-slate-200 transition-colors"
-                                        >
-                                            <X className="w-4 h-4 text-slate-400" />
-                                        </button>
+                                            onFocus={() => currencyFilter !== 'ALL' && setOpenDropdown(true)}
+                                            disabled={loading || currencyFilter === 'ALL'}
+                                        />
+                                        {vendorSearchQuery && (
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setVendorSearchQuery('');
+                                                }}
+                                                className="p-1 rounded-lg hover:bg-slate-200 transition-colors"
+                                            >
+                                                <X className="w-4 h-4 text-slate-400" />
+                                            </button>
+                                        )}
+                                        <ChevronDown className={cn(
+                                            "h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200",
+                                            openDropdown && 'rotate-180'
+                                        )} />
+                                    </div>
+
+                                    {/* Dropdown List */}
+                                    {openDropdown && (
+                                        <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-2xl z-[100] overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200">
+                                            <div className="max-h-[400px] overflow-y-auto">
+                                                {filteredAccounts.length > 0 ? (
+                                                    filteredAccounts.map((a, idx) => (
+                                                        <div
+                                                            key={a.id}
+                                                            onClick={() => {
+                                                                addVendor(a);
+                                                                setOpenDropdown(false);
+                                                                setVendorSearchQuery('');
+                                                            }}
+                                                            className={cn(
+                                                                "px-5 py-3.5 cursor-pointer transition-all hover:bg-[#B18E63]/5 group/item",
+                                                                idx < filteredAccounts.length - 1 && 'border-b border-slate-50'
+                                                            )}
+                                                        >
+                                                            {/* Row 1: Vendor Name + Account Type Badge */}
+                                                            <div className="flex items-center justify-between gap-3 mb-1.5">
+                                                                <span className="font-bold text-sm text-slate-700 group-hover/item:text-[#976E44] transition-colors truncate">
+                                                                    {a.vendorName}
+                                                                </span>
+                                                            </div>
+
+                                                            {/* Row 2: Bank Name + Account Number + IFSC */}
+                                                            <div className="flex items-center gap-3 text-[11px] text-slate-400 mb-1.5">
+                                                                <div className="flex items-center gap-1.5">
+                                                                    <Building2 className="w-3.5 h-3.5 shrink-0 text-slate-300" />
+                                                                    <span className="font-medium truncate max-w-[160px]">{a.beneficiaryBankName}</span>
+                                                                </div>
+                                                                <span className="text-slate-200">•</span>
+                                                                <span className="font-mono text-slate-500">{a.accountNumber}</span>
+                                                                <span className="text-slate-200">•</span>
+                                                                <span className="font-mono text-[#6F8A9D] font-semibold">{a.ifscCode}</span>
+                                                            </div>
+
+                                                            {/* Row 3: NickName + Currency + MSME */}
+                                                            <div className="flex items-center gap-2">
+                                                                {a.nickName && (
+                                                                    <span className="text-[10px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md font-bold uppercase tracking-tight">
+                                                                        Nick: {a.nickName}
+                                                                    </span>
+                                                                )}
+                                                                <span className="inline-flex items-center gap-1 text-[10px] text-[#4F6A64] bg-[#82A094]/10 px-2 py-0.5 rounded-md font-bold uppercase">
+                                                                    <span className="font-black">{CURRENCY_SYMBOLS[(a.currency || 'INR').toUpperCase()] || ''}</span>
+                                                                    {a.currency || 'INR'}
+                                                                </span>
+                                                                {a.isMSME && (
+                                                                    <span className="text-[10px] text-[#CE9F6B] bg-[#CE9F6B]/10 px-2 py-0.5 rounded-md font-bold uppercase">
+                                                                        MSME
+                                                                    </span>
+                                                                )}
+                                                                {a.accountType && (
+                                                                    <span className="text-[10px] text-slate-400 bg-slate-50 px-2 py-0.5 rounded-md font-medium">
+                                                                        {a.accountType}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    ))
+                                                ) : (
+                                                    <div className="flex flex-col items-center gap-3 py-8 px-4 text-center">
+                                                        <Search className="w-9 h-9 text-slate-300" />
+                                                        <div>
+                                                            <p className="text-sm text-slate-600 font-bold">No master vendor found</p>
+                                                            <p className="text-xs text-slate-400 mt-0.5">"{vendorSearchQuery}" is not in the bank account master list.</p>
+                                                        </div>
+                                                        <Button
+                                                            type="button"
+                                                            size="sm"
+                                                            onClick={() => {
+                                                                setManualForm(prev => ({
+                                                                    ...prev,
+                                                                    vendorName: vendorSearchQuery.trim(),
+                                                                }));
+                                                                setShowManualModal(true);
+                                                                setOpenDropdown(false);
+                                                            }}
+                                                            className="bg-gradient-to-r from-[#B18E63] to-[#976E44] text-white text-xs font-bold rounded-xl h-9 px-4 shadow-sm hover:brightness-105"
+                                                        >
+                                                            <Plus className="w-3.5 h-3.5 mr-1" />
+                                                            Add "{vendorSearchQuery}" as One-Time Payee
+                                                        </Button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            {/* Dropdown Quick Manual Action */}
+                                            <div className="border-t border-slate-100 px-4 py-2.5 bg-amber-50/50 flex items-center justify-between">
+                                                <span className="text-[11px] text-amber-800 font-medium flex items-center gap-1.5">
+                                                    <Sparkles className="w-3 h-3 text-[#B18E63]" />
+                                                    One-time payment not in master?
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        if (vendorSearchQuery.trim()) {
+                                                            setManualForm(prev => ({ ...prev, vendorName: vendorSearchQuery.trim() }));
+                                                        }
+                                                        setShowManualModal(true);
+                                                        setOpenDropdown(false);
+                                                    }}
+                                                    className="text-[11px] text-[#976E44] hover:underline font-bold flex items-center gap-1 bg-white px-2.5 py-1 rounded-lg border border-[#B18E63]/30 shadow-xs hover:bg-[#B18E63]/5 transition-colors"
+                                                >
+                                                    <Plus className="w-3 h-3" /> Manual Entry
+                                                </button>
+                                            </div>
+                                            {/* Footer */}
+                                            <div className="border-t border-slate-100 px-5 py-2 bg-slate-50/50 flex items-center justify-between">
+                                                <p className="text-[11px] text-slate-400 font-medium">
+                                                    Showing {filteredAccounts.length} of {accounts.length} vendors
+                                                    {currencyFilter !== 'ALL' && (
+                                                        <span className="ml-1.5 text-[#4F6A64] font-bold">• {currencyFilter}</span>
+                                                    )}
+                                                </p>
+                                                {currencyFilter !== 'ALL' && (
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); setCurrencyFilter('ALL'); }}
+                                                        className="text-[10px] text-slate-400 hover:text-red-500 font-bold flex items-center gap-1 transition-colors"
+                                                    >
+                                                        <X className="w-3 h-3" />
+                                                        Clear filter
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
                                     )}
-                                    <ChevronDown className={cn(
-                                        "h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200",
-                                        openDropdown && 'rotate-180'
-                                    )} />
                                 </div>
 
-                                {/* Dropdown List */}
-                                {openDropdown && (
-                                    <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-2xl z-[100] overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200">
-                                        <div className="max-h-[400px] overflow-y-auto">
-                                            {filteredAccounts.length > 0 ? (
-                                                filteredAccounts.map((a, idx) => (
-                                                    <div
-                                                        key={a.id}
-                                                        onClick={() => {
-                                                            addVendor(a);
-                                                            setOpenDropdown(false);
-                                                            setVendorSearchQuery('');
-                                                        }}
-                                                        className={cn(
-                                                            "px-5 py-3.5 cursor-pointer transition-all hover:bg-[#B18E63]/5 group/item",
-                                                            idx < filteredAccounts.length - 1 && 'border-b border-slate-50'
-                                                        )}
-                                                    >
-                                                        {/* Row 1: Vendor Name + Account Type Badge */}
-                                                        <div className="flex items-center justify-between gap-3 mb-1.5">
-                                                            <span className="font-bold text-sm text-slate-700 group-hover/item:text-[#976E44] transition-colors truncate">
-                                                                {a.vendorName}
-                                                            </span>
-                                                        </div>
-
-                                                        {/* Row 2: Bank Name + Account Number + IFSC */}
-                                                        <div className="flex items-center gap-3 text-[11px] text-slate-400 mb-1.5">
-                                                            <div className="flex items-center gap-1.5">
-                                                                <Building2 className="w-3.5 h-3.5 shrink-0 text-slate-300" />
-                                                                <span className="font-medium truncate max-w-[160px]">{a.beneficiaryBankName}</span>
-                                                            </div>
-                                                            <span className="text-slate-200">•</span>
-                                                            <span className="font-mono text-slate-500">{a.accountNumber}</span>
-                                                            <span className="text-slate-200">•</span>
-                                                            <span className="font-mono text-[#6F8A9D] font-semibold">{a.ifscCode}</span>
-                                                        </div>
-
-                                                        {/* Row 3: NickName + Currency + MSME */}
-                                                        <div className="flex items-center gap-2">
-                                                            {a.nickName && (
-                                                                <span className="text-[10px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md font-bold uppercase tracking-tight">
-                                                                    Nick: {a.nickName}
-                                                                </span>
-                                                            )}
-                                                            <span className="inline-flex items-center gap-1 text-[10px] text-[#4F6A64] bg-[#82A094]/10 px-2 py-0.5 rounded-md font-bold uppercase">
-                                                                <span className="font-black">{CURRENCY_SYMBOLS[(a.currency || 'INR').toUpperCase()] || ''}</span>
-                                                                {a.currency || 'INR'}
-                                                            </span>
-                                                            {a.isMSME && (
-                                                                <span className="text-[10px] text-[#CE9F6B] bg-[#CE9F6B]/10 px-2 py-0.5 rounded-md font-bold uppercase">
-                                                                    MSME
-                                                                </span>
-                                                            )}
-                                                            {a.accountType && (
-                                                                <span className="text-[10px] text-slate-400 bg-slate-50 px-2 py-0.5 rounded-md font-medium">
-                                                                    {a.accountType}
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                ))
-                                            ) : (
-                                                <div className="flex flex-col items-center gap-2 py-10">
-                                                    <Search className="w-10 h-10 text-slate-200" />
-                                                    <p className="text-sm text-slate-400 font-medium">No matching vendors found</p>
-                                                    <p className="text-xs text-slate-300">Try a different search term</p>
-                                                </div>
-                                            )}
-                                        </div>
-                                        {/* Footer */}
-                                        <div className="border-t border-slate-100 px-5 py-2.5 bg-slate-50/50 flex items-center justify-between">
-                                            <p className="text-[11px] text-slate-400 font-medium">
-                                                Showing {filteredAccounts.length} of {accounts.length} vendors
-                                                {currencyFilter !== 'ALL' && (
-                                                    <span className="ml-1.5 text-[#4F6A64] font-bold">• {currencyFilter}</span>
-                                                )}
-                                            </p>
-                                            {currencyFilter !== 'ALL' && (
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); setCurrencyFilter('ALL'); }}
-                                                    className="text-[10px] text-slate-400 hover:text-red-500 font-bold flex items-center gap-1 transition-colors"
-                                                >
-                                                    <X className="w-3 h-3" />
-                                                    Clear filter
-                                                </button>
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
+                                {/* Dedicated Manual Payee Button */}
+                                <Button
+                                    type="button"
+                                    onClick={() => {
+                                        if (currencyFilter === 'ALL') {
+                                            toast.error('Please select a currency filter first');
+                                            return;
+                                        }
+                                        if (vendorSearchQuery.trim()) {
+                                            setManualForm(prev => ({
+                                                ...prev,
+                                                vendorName: vendorSearchQuery.trim(),
+                                            }));
+                                        }
+                                        setShowManualModal(true);
+                                        setOpenDropdown(false);
+                                    }}
+                                    disabled={loading || currencyFilter === 'ALL'}
+                                    className="h-14 px-5 rounded-xl bg-gradient-to-r from-[#B18E63] to-[#976E44] hover:brightness-105 text-white font-bold text-xs uppercase tracking-wider shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 shrink-0 disabled:opacity-40"
+                                >
+                                    <UserPlus className="w-4 h-4" />
+                                    Manual Payee
+                                </Button>
                             </div>
                         </div>
                     </div>
@@ -1090,21 +1270,57 @@ export default function PaymentsPage() {
                                             {/* Vendor & Account */}
                                             <TableCell className="py-4 align-top">
                                                 <div className="flex items-start gap-3">
-                                                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#6F8A9D] to-[#546A7A] flex items-center justify-center text-white text-[11px] font-black shrink-0 shadow-md">
-                                                        {p.vendorName?.split(' ').slice(0, 2).map(w => w?.[0] || '').join('').toUpperCase()}
+                                                    <div className={cn(
+                                                        "w-10 h-10 rounded-xl flex items-center justify-center text-white text-[11px] font-black shrink-0 shadow-md",
+                                                        p.isManual
+                                                            ? "bg-gradient-to-br from-[#CE9F6B] to-[#976E44]"
+                                                            : "bg-gradient-to-br from-[#6F8A9D] to-[#546A7A]"
+                                                    )}>
+                                                        {p.isManual ? (
+                                                            <UserPlus className="w-5 h-5 text-white" />
+                                                        ) : (
+                                                            p.vendorName?.split(' ').slice(0, 2).map(w => w?.[0] || '').join('').toUpperCase()
+                                                        )}
                                                     </div>
                                                     <div className="flex flex-col gap-1.5 min-w-0 flex-1">
-                                                        {/* Row 1: Vendor name + currency badge */}
+                                                        {/* Row 1: Vendor name + badge */}
                                                         <div className="flex items-center gap-2 flex-wrap">
-                                                            <span className="font-bold text-sm text-slate-700 truncate">{p.vendorName}</span>
-                                                            <span className="inline-flex items-center gap-1 text-[9px] font-black px-2 py-0.5 rounded-md bg-[#82A094]/10 text-[#4F6A64] shrink-0 uppercase tracking-widest border border-[#82A094]/20">
-                                                                {CURRENCY_SYMBOLS[(p.bankAccount.currency || 'INR').toUpperCase()] || ''} {(p.bankAccount.currency || 'INR').toUpperCase()}
-                                                            </span>
+                                                            {p.isManual ? (
+                                                                <input
+                                                                    type="text"
+                                                                    value={p.vendorName || ''}
+                                                                    onChange={(e) => updatePayment(p.tempId, { vendorName: e.target.value })}
+                                                                    placeholder="Payee Name"
+                                                                    className="font-bold text-sm text-slate-800 bg-amber-50/40 border border-amber-200/80 rounded-lg px-2 py-0.5 outline-none focus:ring-1 focus:ring-[#B18E63] w-full max-w-[200px]"
+                                                                    title="Click to edit payee name"
+                                                                />
+                                                            ) : (
+                                                                <span className="font-bold text-sm text-slate-700 truncate">{p.vendorName}</span>
+                                                            )}
+                                                            {p.isManual ? (
+                                                                <span className="inline-flex items-center gap-1 text-[9px] font-black px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200 shrink-0 uppercase tracking-wider">
+                                                                    <Sparkles className="w-2.5 h-2.5 text-amber-600" /> One-Time / Ad-Hoc
+                                                                </span>
+                                                            ) : (
+                                                                <span className="inline-flex items-center gap-1 text-[9px] font-black px-2 py-0.5 rounded-md bg-[#82A094]/10 text-[#4F6A64] shrink-0 uppercase tracking-widest border border-[#82A094]/20">
+                                                                    {CURRENCY_SYMBOLS[(p.bankAccount?.currency || activeCurrencyCode).toUpperCase()] || ''} {(p.bankAccount?.currency || activeCurrencyCode).toUpperCase()}
+                                                                </span>
+                                                            )}
                                                         </div>
-                                                        {/* Row 2: Account number (select or static) */}
+
+                                                        {/* Row 2: Account number (editable for manual, select or static for master) */}
                                                         <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-mono">
-                                                            <Wallet className="w-3 h-3 shrink-0 text-slate-300" />
-                                                            {p.bankAccount.otherAccountNumbers && p.bankAccount.otherAccountNumbers.length > 0 ? (
+                                                            <Wallet className={cn("w-3 h-3 shrink-0", p.isManual ? "text-[#B18E63]" : "text-slate-300")} />
+                                                            {p.isManual ? (
+                                                                <input
+                                                                    type="text"
+                                                                    value={p.accountNumber || ''}
+                                                                    onChange={(e) => updatePayment(p.tempId, { accountNumber: e.target.value })}
+                                                                    placeholder="A/C Number"
+                                                                    className="h-6 px-2 text-xs font-mono font-bold bg-amber-50/50 border border-amber-200 rounded-md text-slate-800 outline-none focus:ring-1 focus:ring-[#B18E63] w-40"
+                                                                    title="Click to edit account number"
+                                                                />
+                                                            ) : p.bankAccount?.otherAccountNumbers && p.bankAccount.otherAccountNumbers.length > 0 ? (
                                                                 <Select
                                                                     value={p.accountNumber}
                                                                     onValueChange={(val) => updatePayment(p.tempId, { accountNumber: val })}
@@ -1130,11 +1346,43 @@ export default function PaymentsPage() {
                                                                 <span className="truncate bg-slate-100/80 px-1.5 py-0.5 rounded text-slate-500">{p.accountNumber}</span>
                                                             )}
                                                         </div>
+
                                                         {/* Row 3: Bank name + IFSC */}
                                                         <div className="flex items-center gap-1.5 text-[10px]">
-                                                            <span className="text-slate-400 font-medium truncate max-w-[140px]">{p.bankName}</span>
-                                                            <span className="text-slate-200">•</span>
-                                                            <span className="text-[#B18E63] font-bold bg-[#B18E63]/5 px-1.5 py-0.5 rounded font-mono">{p.ifscCode}</span>
+                                                            {p.isManual ? (
+                                                                <div className="flex items-center gap-1 mt-0.5">
+                                                                    <input
+                                                                        type="text"
+                                                                        value={p.bankName || ''}
+                                                                        onChange={(e) => updatePayment(p.tempId, { bankName: e.target.value })}
+                                                                        placeholder="Bank Name"
+                                                                        className="h-5 px-1.5 text-[10px] bg-slate-50 border border-slate-200 rounded text-slate-600 outline-none focus:ring-1 focus:ring-[#B18E63] max-w-[110px]"
+                                                                        title="Click to edit bank name"
+                                                                    />
+                                                                    <span className="text-slate-200">•</span>
+                                                                    <input
+                                                                        type="text"
+                                                                        value={p.ifscCode || ''}
+                                                                        onChange={(e) => {
+                                                                            const ifsc = e.target.value.toUpperCase();
+                                                                            const detected = detectBankFromIFSC(ifsc);
+                                                                            updatePayment(p.tempId, {
+                                                                                ifscCode: ifsc,
+                                                                                ...(detected && !p.bankName ? { bankName: detected } : {})
+                                                                            });
+                                                                        }}
+                                                                        placeholder="IFSC"
+                                                                        className="h-5 px-1.5 text-[10px] font-mono font-bold uppercase bg-[#B18E63]/10 border border-[#B18E63]/30 rounded text-[#B18E63] outline-none focus:ring-1 focus:ring-[#B18E63] w-24"
+                                                                        title="Click to edit IFSC code"
+                                                                    />
+                                                                </div>
+                                                            ) : (
+                                                                <>
+                                                                    <span className="text-slate-400 font-medium truncate max-w-[140px]">{p.bankName}</span>
+                                                                    <span className="text-slate-200">•</span>
+                                                                    <span className="text-[#B18E63] font-bold bg-[#B18E63]/5 px-1.5 py-0.5 rounded font-mono">{p.ifscCode}</span>
+                                                                </>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 </div>
@@ -1274,7 +1522,14 @@ export default function PaymentsPage() {
                                                 {p.vendorName?.split(' ').slice(0, 2).map(w => w?.[0] || '').join('').toUpperCase()}
                                             </div>
                                             <div className="min-w-0">
-                                                <h4 className="font-black text-[#546A7A] truncate text-sm tracking-tight">{p.vendorName}</h4>
+                                                <div className="flex items-center gap-1.5 flex-wrap">
+                                                    <h4 className="font-black text-[#546A7A] truncate text-sm tracking-tight">{p.vendorName}</h4>
+                                                    {p.isManual && (
+                                                        <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 uppercase tracking-tight">
+                                                            Ad-Hoc
+                                                        </span>
+                                                    )}
+                                                </div>
                                                 <div className="flex items-center gap-1.5 mt-0.5">
                                                     <p className="text-[10px] font-bold text-[#AEBFC3] font-mono uppercase">{p.ifscCode}</p>
                                                     <span className="text-[10px] text-[#AEBFC3]">•</span>
@@ -1357,7 +1612,7 @@ export default function PaymentsPage() {
                                             />
                                         </div>
                                         <div className="bg-white px-2 py-1 rounded-lg border border-slate-200">
-                                            {p.bankAccount.otherAccountNumbers && p.bankAccount.otherAccountNumbers.length > 0 ? (
+                                            {p.bankAccount?.otherAccountNumbers && p.bankAccount.otherAccountNumbers.length > 0 ? (
                                                 <Select
                                                     value={p.accountNumber}
                                                     onValueChange={(val) => updatePayment(p.tempId, { accountNumber: val })}
@@ -1919,6 +2174,237 @@ export default function PaymentsPage() {
                     </div>
                 )}
             </div>
+
+            {/* ================================================================ */}
+            {/* MANUAL / AD-HOC BENEFICIARY MODAL */}
+            {/* ================================================================ */}
+            {showManualModal && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div 
+                        className="relative w-full max-w-xl bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden animate-in zoom-in-95 duration-200"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Modal Header */}
+                        <div className="bg-gradient-to-r from-[#B18E63] via-[#CE9F6B] to-[#976E44] px-6 py-5 text-white flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-inner">
+                                    <UserPlus className="w-5 h-5 text-white" />
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-base text-white">Add One-Time / Manual Payee</h3>
+                                    <p className="text-[11px] text-white/80 font-medium">For direct disbursement without creating a vendor master record</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setShowManualModal(false)}
+                                className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        {/* Modal Form */}
+                        <form onSubmit={handleAddManualPayee} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+                            <div className="p-3 bg-amber-50/70 border border-amber-200/80 rounded-2xl flex items-start gap-2.5 text-xs text-amber-900">
+                                <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                                <p className="leading-relaxed">
+                                    This payee will be added strictly for this payment batch. They will appear in the HDFC/DB bank export files and can be reviewed by the approver.
+                                </p>
+                            </div>
+
+                            {/* Payee / Vendor Name */}
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                                    <Building2 className="w-3.5 h-3.5 text-[#B18E63]" />
+                                    Payee / Vendor Name <span className="text-red-500">*</span>
+                                </label>
+                                <Input
+                                    type="text"
+                                    placeholder="e.g. BESCOM Electricity or Apex Freight"
+                                    value={manualForm.vendorName}
+                                    onChange={(e) => setManualForm(prev => ({ ...prev, vendorName: e.target.value }))}
+                                    className="h-11 rounded-xl bg-slate-50 border-slate-200 font-medium text-sm focus:bg-white"
+                                    autoFocus
+                                />
+                            </div>
+
+                            {/* Account Number & Confirm Account Number */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                                        <Wallet className="w-3.5 h-3.5 text-[#B18E63]" />
+                                        Beneficiary Account No. <span className="text-red-500">*</span>
+                                    </label>
+                                    <Input
+                                        type="text"
+                                        placeholder="Enter bank account number"
+                                        value={manualForm.accountNumber}
+                                        onChange={(e) => setManualForm(prev => ({ ...prev, accountNumber: e.target.value }))}
+                                        className="h-11 rounded-xl bg-slate-50 border-slate-200 font-mono font-bold text-sm focus:bg-white"
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                                        <CheckCircle2 className="w-3.5 h-3.5 text-[#82A094]" />
+                                        Confirm Account No. <span className="text-red-500">*</span>
+                                    </label>
+                                    <Input
+                                        type="text"
+                                        placeholder="Re-enter to confirm"
+                                        value={manualForm.confirmAccountNumber}
+                                        onChange={(e) => setManualForm(prev => ({ ...prev, confirmAccountNumber: e.target.value }))}
+                                        className={cn(
+                                            "h-11 rounded-xl font-mono font-bold text-sm focus:bg-white",
+                                            manualForm.confirmAccountNumber && manualForm.accountNumber !== manualForm.confirmAccountNumber
+                                                ? "bg-red-50 border-red-300 text-red-700"
+                                                : "bg-slate-50 border-slate-200"
+                                        )}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* IFSC Code & Bank Name */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                                        <Landmark className="w-3.5 h-3.5 text-[#B18E63]" />
+                                        IFSC / SWIFT Code <span className="text-red-500">*</span>
+                                    </label>
+                                    <Input
+                                        type="text"
+                                        maxLength={16}
+                                        placeholder="e.g. HDFC0000001 or SWIFT"
+                                        value={manualForm.ifscCode}
+                                        onChange={(e) => {
+                                            const ifsc = e.target.value.toUpperCase();
+                                            const detected = detectBankFromIFSC(ifsc);
+                                            setManualForm(prev => ({
+                                                ...prev,
+                                                ifscCode: ifsc,
+                                                bankName: detected || prev.bankName
+                                            }));
+                                        }}
+                                        className="h-11 rounded-xl bg-slate-50 border-slate-200 font-mono font-bold text-sm uppercase focus:bg-white"
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                                        <Building2 className="w-3.5 h-3.5 text-slate-400" />
+                                        Bank Name <span className="text-red-500">*</span>
+                                    </label>
+                                    <Input
+                                        type="text"
+                                        placeholder="e.g. HDFC Bank"
+                                        value={manualForm.bankName}
+                                        onChange={(e) => setManualForm(prev => ({ ...prev, bankName: e.target.value }))}
+                                        className="h-11 rounded-xl bg-slate-50 border-slate-200 font-medium text-sm focus:bg-white"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Amount & Mode */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                                        <IndianRupee className="w-3.5 h-3.5 text-[#82A094]" />
+                                        Payment Amount ({activeCurrencySymbol})
+                                    </label>
+                                    <div className="relative">
+                                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">
+                                            {activeCurrencySymbol}
+                                        </span>
+                                        <Input
+                                            type="text"
+                                            inputMode="decimal"
+                                            placeholder="0.00"
+                                            value={manualForm.amount}
+                                            onChange={(e) => {
+                                                const val = e.target.value.replace(/,/g, '');
+                                                if (val === '' || !isNaN(Number(val))) {
+                                                    setManualForm(prev => ({ ...prev, amount: val }));
+                                                }
+                                            }}
+                                            className="h-11 pl-8 rounded-xl bg-slate-50 border-slate-200 font-bold text-sm focus:bg-white"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                                        <Zap className="w-3.5 h-3.5 text-[#6F8A9D]" />
+                                        Transaction Mode
+                                    </label>
+                                    <Select
+                                        value={manualForm.transactionMode}
+                                        onValueChange={(val: any) => setManualForm(prev => ({ ...prev, transactionMode: val }))}
+                                    >
+                                        <SelectTrigger className="h-11 rounded-xl bg-slate-50 border-slate-200 text-sm font-medium">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="NFT">NEFT (NFT)</SelectItem>
+                                            <SelectItem value="RTI">RTGS (RTI)</SelectItem>
+                                            <SelectItem value="FT">Same Bank (FT)</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+
+                            {/* Account Type & Beneficiary Email */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                                        Account Type
+                                    </label>
+                                    <Select
+                                        value={manualForm.accountType}
+                                        onValueChange={(val) => setManualForm(prev => ({ ...prev, accountType: val }))}
+                                    >
+                                        <SelectTrigger className="h-11 rounded-xl bg-slate-50 border-slate-200 text-sm font-medium">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="Current">Current Account</SelectItem>
+                                            <SelectItem value="Saving">Savings Account</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                                        <Mail className="w-3.5 h-3.5 text-slate-400" />
+                                        Email Address (Optional)
+                                    </label>
+                                    <Input
+                                        type="email"
+                                        placeholder="payee@email.com"
+                                        value={manualForm.emailId}
+                                        onChange={(e) => setManualForm(prev => ({ ...prev, emailId: e.target.value }))}
+                                        className="h-11 rounded-xl bg-slate-50 border-slate-200 text-sm focus:bg-white"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Modal Actions */}
+                            <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    onClick={() => setShowManualModal(false)}
+                                    className="rounded-xl font-bold text-xs h-11 px-5 text-slate-500 hover:bg-slate-100"
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    type="submit"
+                                    className="rounded-xl font-bold text-xs h-11 px-6 bg-gradient-to-r from-[#B18E63] to-[#976E44] text-white shadow-lg shadow-[#B18E63]/25 hover:brightness-105"
+                                >
+                                    <Plus className="w-4 h-4 mr-1.5" />
+                                    Add to Payment Queue
+                                </Button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

@@ -189,7 +189,7 @@ export const createContract = async (req: any, res: Response) => {
 // List all contracts with role filtering & search filters
 export const listContracts = async (req: any, res: Response) => {
   try {
-    const { search = '', zone, status, tech } = req.query;
+    const { search = '', zone, status, tech, dateFrom, dateTo, dateFilterType } = req.query;
     const where: any = {};
 
     if (search) {
@@ -213,6 +213,20 @@ export const listContracts = async (req: any, res: Response) => {
         where.endDate = { gte: now };
       } else {
         where.status = status as string;
+      }
+    }
+
+    if (dateFilterType === 'expiry' && (dateFrom || dateTo)) {
+      if (!where.endDate) where.endDate = {};
+      if (dateFrom) {
+        const from = new Date(dateFrom as string);
+        from.setHours(0, 0, 0, 0);
+        where.endDate.gte = from;
+      }
+      if (dateTo) {
+        const to = new Date(dateTo as string);
+        to.setHours(23, 59, 59, 999);
+        where.endDate.lte = to;
       }
     }
 
