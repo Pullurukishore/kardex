@@ -11,7 +11,7 @@ import {
     Shield, Globe, Power, Eye, Pencil, List, Hash, Send,
     Zap, AlertCircle, IndianRupee, Clock, Filter, ChevronDown, Mail,
     FileSpreadsheet, FileText, Banknote, Download, FileCode,
-    UserPlus, Sparkles
+    UserPlus, Sparkles, Copy, RotateCcw
 } from 'lucide-react';
 import { format } from 'date-fns';
 import Link from 'next/link';
@@ -19,7 +19,9 @@ import {
     PaymentRow,
     downloadICICICMS, downloadStandardPayment,
     downloadICICICMS_CSV, downloadICICICMS_TXT,
-    downloadStandard_CSV, downloadStandard_TXT
+    downloadStandard_CSV, downloadStandard_TXT,
+    generateICICICMS_TXT_Content, generateStandard_TXT_Content,
+    downloadCustomTextFile
 } from '@/lib/payment-excel-utils';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -162,6 +164,14 @@ export default function PaymentsPage() {
     const [showDownloadMenu, setShowDownloadMenu] = useState(false);
     const [previewFormat, setPreviewFormat] = useState<'HDFC' | 'DB'>('HDFC');
     const [customFilename, setCustomFilename] = useState('');
+    const [showTxtEditModal, setShowTxtEditModal] = useState(false);
+    const [txtEditorMode, setTxtEditorMode] = useState<'grid' | 'raw'>('grid');
+    const [txtRows, setTxtRows] = useState<PaymentRow[]>([]);
+    const [txtContent, setTxtContent] = useState('');
+    const [txtFormat, setTxtFormat] = useState<'HDFC' | 'DB'>('HDFC');
+    const [txtFilename, setTxtFilename] = useState('');
+    const [txtWrap, setTxtWrap] = useState(false);
+    const [generatingTxt, setGeneratingTxt] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const downloadMenuRef = useRef<HTMLDivElement>(null);
     const searchInputRef = useRef<HTMLInputElement>(null);
@@ -527,6 +537,137 @@ export default function PaymentsPage() {
             toast.success('Payment file downloaded!');
         } catch {
             toast.error('Download failed');
+        }
+    };
+
+    const handleOpenTxtEditor = async (formatToUse: 'HDFC' | 'DB') => {
+        const rows = buildPaymentRows();
+        if (rows.length === 0) {
+            toast.error('No valid payments to export. Please enter amounts first.');
+            return;
+        }
+        setGeneratingTxt(true);
+        try {
+            const cloned = rows.map(r => ({ ...r }));
+            setTxtRows(cloned);
+            setTxtEditorMode('grid');
+            const content = formatToUse === 'HDFC'
+                ? await generateICICICMS_TXT_Content(cloned)
+                : await generateStandard_TXT_Content(cloned);
+            const defaultName = customFilename.trim()
+                ? (customFilename.endsWith('.txt') ? customFilename : `${customFilename}.txt`)
+                : (formatToUse === 'HDFC' ? `HDFC_Data_${format(new Date(), 'yyyyMMdd')}.txt` : `DB_Payment_Data_${format(new Date(), 'yyyyMMdd')}.txt`);
+            setTxtFormat(formatToUse);
+            setTxtContent(content);
+            setTxtFilename(defaultName);
+            setShowTxtEditModal(true);
+        } catch (error) {
+            console.error('Failed to generate TXT content:', error);
+            toast.error('Failed to generate TXT file content');
+        } finally {
+            setGeneratingTxt(false);
+        }
+    };
+
+    const updateTxtRow = async (idx: number, updates: Partial<PaymentRow>) => {
+        const updated = [...txtRows];
+        updated[idx] = { ...updated[idx], ...updates };
+        setTxtRows(updated);
+        try {
+            const content = txtFormat === 'HDFC'
+                ? await generateICICICMS_TXT_Content(updated)
+                : await generateStandard_TXT_Content(updated);
+            setTxtContent(content);
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    const removeTxtRow = async (idx: number) => {
+        if (txtRows.length <= 1) {
+            toast.error('TXT file must contain at least one payment row');
+            return;
+        }
+        const updated = txtRows.filter((_, i) => i !== idx);
+        setTxtRows(updated);
+        try {
+            const content = txtFormat === 'HDFC'
+                ? await generateICICICMS_TXT_Content(updated)
+                : await generateStandard_TXT_Content(updated);
+            setTxtContent(content);
+            toast.info('Row removed from TXT file');
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    const addTxtRow = async () => {
+        const newRow: PaymentRow = {
+            vendorName: 'Manual Payee',
+            bpCode: '',
+            nickName: 'MANUAL',
+            accountNumber: '',
+            ifscCode: '',
+            bankName: '',
+            amount: 0,
+            emailId: '',
+            valueDate: new Date(globalDate),
+            transactionMode: globalMode || 'NFT',
+            accountType: 'Current'
+        };
+        const updated = [...txtRows, newRow];
+        setTxtRows(updated);
+        try {
+            const content = txtFormat === 'HDFC'
+                ? await generateICICICMS_TXT_Content(updated)
+                : await generateStandard_TXT_Content(updated);
+            setTxtContent(content);
+            toast.success('Added new row to TXT file');
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    const handleDownloadEditedTxt = () => {
+        if (!txtContent.trim()) {
+            toast.error('TXT file content cannot be empty');
+            return;
+        }
+        downloadCustomTextFile(txtContent, txtFilename || `${txtFormat}_Payment.txt`);
+        setShowTxtEditModal(false);
+        toast.success(`Downloaded edited ${txtFormat} TXT file!`);
+    };
+
+    const handleSwitchTxtFormat = async (newFormat: 'HDFC' | 'DB') => {
+        setTxtFormat(newFormat);
+        try {
+            const rowsToUse = txtRows.length > 0 ? txtRows : buildPaymentRows();
+            const content = newFormat === 'HDFC'
+                ? await generateICICICMS_TXT_Content(rowsToUse)
+                : await generateStandard_TXT_Content(rowsToUse);
+            setTxtContent(content);
+            const defaultName = customFilename.trim()
+                ? (customFilename.endsWith('.txt') ? customFilename : `${customFilename}.txt`)
+                : (newFormat === 'HDFC' ? `HDFC_Data_${format(new Date(), 'yyyyMMdd')}.txt` : `DB_Payment_Data_${format(new Date(), 'yyyyMMdd')}.txt`);
+            setTxtFilename(defaultName);
+            toast.info(`Switched to ${newFormat} TXT format`);
+        } catch {
+            toast.error('Failed to switch format');
+        }
+    };
+
+    const handleRegenerateTxt = async () => {
+        const rows = buildPaymentRows();
+        const cloned = rows.map(r => ({ ...r }));
+        setTxtRows(cloned);
+        try {
+            const content = txtFormat === 'HDFC'
+                ? await generateICICICMS_TXT_Content(cloned)
+                : await generateStandard_TXT_Content(cloned);
+            setTxtContent(content);
+            toast.info('TXT content reset to freshly generated payment data');
+        } catch {
+            toast.error('Failed to reload TXT content');
         }
     };
 
@@ -1926,9 +2067,20 @@ export default function PaymentsPage() {
                                 {/* HDFC Downloads */}
                                 <div className="space-y-3">
                                     <div>
-                                        <p className="text-[9px] font-black text-[#B18E63] uppercase tracking-widest px-1 mb-2 flex items-center gap-1.5">
-                                            <Landmark className="w-3 h-3" /> HDFC (CMS)
-                                        </p>
+                                        <div className="flex items-center justify-between px-1 mb-2">
+                                            <p className="text-[9px] font-black text-[#B18E63] uppercase tracking-widest flex items-center gap-1.5">
+                                                <Landmark className="w-3 h-3" /> HDFC (CMS)
+                                            </p>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleOpenTxtEditor('HDFC')}
+                                                disabled={stats.validPayments === 0 || generatingTxt}
+                                                className="text-[9px] font-black text-[#B18E63] hover:text-[#976E44] flex items-center gap-1 hover:underline disabled:opacity-40 transition-colors"
+                                                title="Edit HDFC TXT file content directly before download"
+                                            >
+                                                <Pencil className="w-2.5 h-2.5" /> Edit TXT
+                                            </button>
+                                        </div>
                                         <div className="flex gap-1.5">
                                             {(['EXCEL', 'CSV', 'TXT'] as const).map(f => (
                                                 <button key={f} onClick={() => handleLocalDownload('HDFC', f)}
@@ -1942,9 +2094,20 @@ export default function PaymentsPage() {
                                     </div>
                                     {/* DB Downloads */}
                                     <div>
-                                        <p className="text-[9px] font-black text-[#546A7A] uppercase tracking-widest px-1 mb-2 flex items-center gap-1.5">
-                                            <Banknote className="w-3 h-3" /> DB (Standard)
-                                        </p>
+                                        <div className="flex items-center justify-between px-1 mb-2">
+                                            <p className="text-[9px] font-black text-[#546A7A] uppercase tracking-widest flex items-center gap-1.5">
+                                                <Banknote className="w-3 h-3" /> DB (Standard)
+                                            </p>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleOpenTxtEditor('DB')}
+                                                disabled={stats.validPayments === 0 || generatingTxt}
+                                                className="text-[9px] font-black text-[#546A7A] hover:text-[#3B4D58] flex items-center gap-1 hover:underline disabled:opacity-40 transition-colors"
+                                                title="Edit DB TXT file content directly before download"
+                                            >
+                                                <Pencil className="w-2.5 h-2.5" /> Edit TXT
+                                            </button>
+                                        </div>
                                         <div className="flex gap-1.5">
                                             {(['EXCEL', 'CSV', 'TXT'] as const).map(f => (
                                                 <button key={f} onClick={() => handleLocalDownload('DB', f)}
@@ -1956,6 +2119,17 @@ export default function PaymentsPage() {
                                             ))}
                                         </div>
                                     </div>
+
+                                    {/* Prominent Edit TXT Bar */}
+                                    <button
+                                        type="button"
+                                        onClick={() => handleOpenTxtEditor(exportFormat)}
+                                        disabled={stats.validPayments === 0 || generatingTxt}
+                                        className="w-full mt-2 flex items-center justify-center gap-2 py-2 px-3 rounded-xl border border-amber-300 bg-gradient-to-r from-amber-50 to-amber-100/70 hover:from-amber-100 hover:to-amber-200/70 text-amber-900 text-[10px] font-black uppercase tracking-wider transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs group"
+                                    >
+                                        <FileCode className="w-3 h-3 text-amber-700 group-hover:scale-110 transition-transform" />
+                                        Edit & Preview {exportFormat} TXT File
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -2180,7 +2354,7 @@ export default function PaymentsPage() {
             {/* ================================================================ */}
             {showManualModal && (
                 <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div 
+                    <div
                         className="relative w-full max-w-xl bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden animate-in zoom-in-95 duration-200"
                         onClick={(e) => e.stopPropagation()}
                     >
@@ -2402,6 +2576,185 @@ export default function PaymentsPage() {
                                 </Button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* ================================================================ */}
+            {/* TXT FILE EDIT & PREVIEW MODAL */}
+            {/* ================================================================ */}
+            {showTxtEditModal && (
+                <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-3xl shadow-2xl border border-slate-100 w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+                        {/* Modal Header */}
+                        <div className="bg-gradient-to-r from-[#202E38] via-[#2D3E4C] to-[#1F2C36] px-6 py-4 flex items-center justify-between text-white shrink-0">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#B18E63] to-[#7A5A38] flex items-center justify-center shadow-md">
+                                    <FileCode className="w-5 h-5 text-white" />
+                                </div>
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <h3 className="font-bold text-base text-white">Edit Payment TXT File</h3>
+                                        <span className={cn(
+                                            "text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md border",
+                                            txtFormat === 'HDFC'
+                                                ? "bg-[#B18E63]/25 text-[#E6C79C] border-[#B18E63]/40"
+                                                : "bg-[#6F8A9D]/25 text-[#B8D1E5] border-[#6F8A9D]/40"
+                                        )}>
+                                            {txtFormat === 'HDFC' ? 'HDFC CMS Format' : 'DB Standard Format'}
+                                        </span>
+                                    </div>
+                                    <p className="text-[11px] text-slate-300 font-medium">
+                                        Inspect and modify file lines before downloading for bank upload
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Format Switcher & Close */}
+                            <div className="flex items-center gap-2.5">
+                                <div className="flex items-center bg-slate-800/80 p-0.5 rounded-xl border border-slate-700">
+                                    <button
+                                        type="button"
+                                        onClick={() => handleSwitchTxtFormat('HDFC')}
+                                        className={cn(
+                                            "px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5",
+                                            txtFormat === 'HDFC'
+                                                ? "bg-gradient-to-r from-[#B18E63] to-[#976E44] text-white shadow-sm"
+                                                : "text-slate-400 hover:text-white"
+                                        )}
+                                    >
+                                        <Landmark className="w-3 h-3" /> HDFC TXT
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleSwitchTxtFormat('DB')}
+                                        className={cn(
+                                            "px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5",
+                                            txtFormat === 'DB'
+                                                ? "bg-gradient-to-r from-[#6F8A9D] to-[#546A7A] text-white shadow-sm"
+                                                : "text-slate-400 hover:text-white"
+                                        )}
+                                    >
+                                        <Banknote className="w-3 h-3" /> DB TXT
+                                    </button>
+                                </div>
+
+                                <button
+                                    onClick={() => setShowTxtEditModal(false)}
+                                    className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center text-slate-300 hover:text-white transition-colors"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Toolbar */}
+                        <div className="bg-slate-50 border-b border-slate-200 px-6 py-3 flex flex-wrap items-center justify-between gap-3 shrink-0">
+                            {/* Filename Editor */}
+                            <div className="flex items-center gap-2 flex-1 min-w-[260px] max-w-md">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 shrink-0 flex items-center gap-1">
+                                    <FileText className="w-3.5 h-3.5 text-slate-400" /> Filename:
+                                </span>
+                                <Input
+                                    type="text"
+                                    value={txtFilename}
+                                    onChange={(e) => setTxtFilename(e.target.value)}
+                                    placeholder="filename.txt"
+                                    className="h-8 text-xs font-mono bg-white border-slate-300 rounded-lg focus:ring-1 focus:ring-[#B18E63]"
+                                />
+                            </div>
+
+                            {/* Utility Buttons */}
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setTxtWrap(!txtWrap)}
+                                    className={cn(
+                                        "h-8 text-xs font-bold rounded-lg border-slate-300 transition-colors",
+                                        txtWrap ? "bg-slate-200 text-slate-800" : "text-slate-600 bg-white"
+                                    )}
+                                    title="Toggle word wrap"
+                                >
+                                    {txtWrap ? "Wrap: ON" : "Wrap: OFF"}
+                                </Button>
+
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(txtContent);
+                                        toast.success("TXT content copied to clipboard!");
+                                    }}
+                                    className="h-8 text-xs font-bold rounded-lg border-slate-300 bg-white text-slate-600 hover:text-slate-900 gap-1.5"
+                                    title="Copy text to clipboard"
+                                >
+                                    <Copy className="w-3.5 h-3.5 text-slate-500" />
+                                    Copy
+                                </Button>
+
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleRegenerateTxt}
+                                    className="h-8 text-xs font-bold rounded-lg border-slate-300 bg-white text-slate-600 hover:text-amber-700 hover:border-amber-300 gap-1.5"
+                                    title="Reset to original generated content from table"
+                                >
+                                    <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
+                                    Reset
+                                </Button>
+                            </div>
+                        </div>
+
+                        {/* Textarea Editor */}
+                        <div className="p-5 flex-1 flex flex-col min-h-0 bg-slate-900 overflow-hidden">
+                            <div className="flex items-center justify-between pb-2 text-[10px] font-mono text-slate-400">
+                                <span className="flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                                    Direct File Buffer (You can edit lines, amounts, IFSC, or separators directly)
+                                </span>
+                                <span>
+                                    {txtContent.split('\n').filter(Boolean).length} rows • {txtContent.length} characters
+                                </span>
+                            </div>
+
+                            <textarea
+                                value={txtContent}
+                                onChange={(e) => setTxtContent(e.target.value)}
+                                wrap={txtWrap ? "soft" : "off"}
+                                spellCheck={false}
+                                className="flex-1 w-full p-4 rounded-xl bg-slate-950 text-emerald-400 font-mono text-xs sm:text-[13px] leading-relaxed border border-slate-800 focus:outline-none focus:ring-1 focus:ring-[#B18E63] resize-none overflow-auto shadow-inner selection:bg-emerald-800 selection:text-white"
+                                placeholder="Generated TXT file content will appear here..."
+                            />
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div className="px-6 py-4 bg-white border-t border-slate-200 flex items-center justify-between shrink-0">
+                            <div className="text-[11px] text-slate-500 font-medium hidden sm:block">
+                                Clicking download will generate and save the exact text file as edited above.
+                            </div>
+                            <div className="flex items-center gap-3 ml-auto">
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    onClick={() => setShowTxtEditModal(false)}
+                                    className="rounded-xl font-bold text-xs h-10 px-4 text-slate-500 hover:bg-slate-100"
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    type="button"
+                                    onClick={handleDownloadEditedTxt}
+                                    className="rounded-xl font-bold text-xs h-10 px-6 bg-gradient-to-r from-[#B18E63] to-[#976E44] hover:brightness-105 text-white shadow-lg shadow-[#B18E63]/25 gap-2"
+                                >
+                                    <Download className="w-4 h-4" />
+                                    Download .TXT File
+                                </Button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}

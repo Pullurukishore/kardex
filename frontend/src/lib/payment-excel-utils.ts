@@ -277,12 +277,17 @@ export const downloadICICICMS_CSV = async (payments: PaymentRow[], customFilenam
 };
 
 // ============================================================================
-// HDFC — TXT (Pipe-delimited, essential fields only)
+// HDFC — TXT (Pipe/comma-delimited data generator)
 // ============================================================================
-export const downloadICICICMS_TXT = async (payments: PaymentRow[], customFilename?: string) => {
+export const generateICICICMS_TXT_Content = async (payments: PaymentRow[]): Promise<string> => {
     const { format } = await import('date-fns');
     const rows = buildICICIDataRows(payments, format);
-    const txtContent = rows.map(row => row.join(',')).join('\r\n');
+    return rows.map(row => row.join(',')).join('\r\n');
+};
+
+export const downloadICICICMS_TXT = async (payments: PaymentRow[], customFilename?: string) => {
+    const { format } = await import('date-fns');
+    const txtContent = await generateICICICMS_TXT_Content(payments);
     const finalFilename = customFilename ? (customFilename.endsWith('.txt') ? customFilename : `${customFilename}.txt`) : `HDFC_Data_${format(new Date(), 'yyyyMMdd')}.txt`;
     downloadBlob(txtContent, finalFilename, 'text/plain;charset=utf-8;');
 };
@@ -302,13 +307,24 @@ export const downloadStandard_CSV = async (payments: PaymentRow[], customFilenam
 };
 
 // ============================================================================
-// DB — TXT (Pipe-delimited data only)
+// DB — TXT (Data generator)
 // ============================================================================
-export const downloadStandard_TXT = async (payments: PaymentRow[], customFilename?: string) => {
+export const generateStandard_TXT_Content = async (payments: PaymentRow[]): Promise<string> => {
     const { format } = await import('date-fns');
     const rows = buildStandardDataRows(payments, format);
-    const txtContent = rows.map(row => row.join(',')).join('\r\n');
+    return rows.map(row => row.join(',')).join('\r\n');
+};
+
+export const downloadStandard_TXT = async (payments: PaymentRow[], customFilename?: string) => {
+    const { format } = await import('date-fns');
+    const txtContent = await generateStandard_TXT_Content(payments);
     const finalFilename = customFilename ? (customFilename.endsWith('.txt') ? customFilename : `${customFilename}.txt`) : `DB_Payment_Data_${format(new Date(), 'yyyyMMdd')}.txt`;
     downloadBlob(txtContent, finalFilename, 'text/plain;charset=utf-8;');
 };
+
+export const downloadCustomTextFile = (content: string, filename: string) => {
+    const safeFilename = filename.endsWith('.txt') ? filename : `${filename}.txt`;
+    downloadBlob(content, safeFilename, 'text/plain;charset=utf-8;');
+};
+
 
