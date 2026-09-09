@@ -4,7 +4,7 @@ import { JwtPayload } from '../middleware/auth.middleware';
 import { serializeBigInts } from '../utils/bigint';
 import { differenceInMinutes } from 'date-fns';
 import prisma from '../config/db';
-import { calculateBusinessHoursInMinutes } from '../utils/dateUtils';
+import { calculateBusinessHoursInMinutes, calculateTravelMinutes } from '../utils/dateUtils';
 
 // Custom type definitions to replace problematic Prisma exports
 type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'IN_PROCESS' | 'RESOLVED' | 'CLOSED' | 'CANCELLED';
@@ -323,48 +323,46 @@ async function calculateTechnicianEfficiency(zoneId: number): Promise<number> {
 
 async function calculateAverageTravelTime(zoneId: number): Promise<{ hours: number; minutes: number; change: number; isPositive: boolean }> {
   try {
-    // Get all tickets for this zone (no date filter on createdAt - match admin dashboard logic)
+    // Get all tickets for this zone (ignoring PHONE_CALL tickets)
     const tickets = await prisma.ticket.findMany({
       where: {
         customer: {
           serviceZoneId: zoneId
+        },
+        supportMode: {
+          not: 'PHONE_CALL'
         }
       },
-      include: {
+      select: {
+        relatedMachineIds: true,
         statusHistory: {
           orderBy: {
             changedAt: 'asc',
           },
         },
+        visitStartedAt: true,
+        visitReachedAt: true,
+        visitInProgressAt: true,
+        supportMode: true
       },
     });
 
     const travelTimes: number[] = [];
 
     for (const ticket of tickets) {
-      const statusHistory = ticket.statusHistory;
-      if (statusHistory.length > 0) {
-        // Travel time: ONSITE_VISIT_STARTED to ONSITE_VISIT_REACHED + ONSITE_VISIT_RESOLVED to ONSITE_VISIT_COMPLETED
-        const goingStart = statusHistory.find(h => h.status === 'ONSITE_VISIT_STARTED');
-        const goingEnd = statusHistory.find(h => h.status === 'ONSITE_VISIT_REACHED');
-        const returnStart = statusHistory.find(h => h.status === 'ONSITE_VISIT_RESOLVED');
-        const returnEnd = statusHistory.find(h => h.status === 'ONSITE_VISIT_COMPLETED');
+      if (ticket.supportMode === 'PHONE_CALL') continue;
 
-        let ticketTravelTime = 0;
+      const travelMins = calculateTravelMinutes(
+        ticket.relatedMachineIds,
+        ticket.statusHistory,
+        ticket.visitStartedAt,
+        ticket.visitReachedAt,
+        ticket.visitInProgressAt,
+        ticket.supportMode
+      );
 
-        // Going travel time
-        if (goingStart && goingEnd && goingStart.changedAt < goingEnd.changedAt) {
-          ticketTravelTime += differenceInMinutes(goingEnd.changedAt, goingStart.changedAt);
-        }
-
-        // Return travel time
-        if (returnStart && returnEnd && returnStart.changedAt < returnEnd.changedAt) {
-          ticketTravelTime += differenceInMinutes(returnEnd.changedAt, returnStart.changedAt);
-        }
-
-        if (ticketTravelTime > 0) {
-          travelTimes.push(ticketTravelTime);
-        }
+      if (travelMins > 0 && travelMins <= 480) {
+        travelTimes.push(travelMins);
       }
     }
 

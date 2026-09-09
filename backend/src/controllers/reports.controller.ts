@@ -2247,61 +2247,32 @@ async function getTicketSummaryData(whereClause: any, startDate: Date, endDate: 
     }
     const responseTime = responseTimeMins;
 
-    // Calculate travel time using status history: (STARTED → REACHED) + (RESOLVED → COMPLETED)
     // Travel time is 0 for PHONE_CALL tickets
     let travelTime = 0;
-    if (ticket.supportMode !== 'PHONE_CALL' && ticket.statusHistory && ticket.statusHistory.length > 0) {
-      const statusHistory = ticket.statusHistory;
-
-      // Going travel time (ONSITE_VISIT_STARTED → ONSITE_VISIT_REACHED)
-      const goingStart = statusHistory.find((h: any) => h.status === 'ONSITE_VISIT_STARTED');
-      const goingEnd = statusHistory.find((h: any) => h.status === 'ONSITE_VISIT_REACHED');
-
-      // Return travel time (ONSITE_VISIT_RESOLVED → ONSITE_VISIT_COMPLETED)
-      const returnStart = statusHistory.find((h: any) => h.status === 'ONSITE_VISIT_RESOLVED');
-      const returnEnd = statusHistory.find((h: any) => h.status === 'ONSITE_VISIT_COMPLETED');
-
-      let totalTravelMinutes = 0;
-      let hasValidTravel = false;
-
-      // Add going travel time
-      if (goingStart && goingEnd && goingStart.changedAt < goingEnd.changedAt) {
-        const goingMinutes = differenceInMinutes(new Date(goingEnd.changedAt), new Date(goingStart.changedAt));
-        if (goingMinutes > 0 && goingMinutes <= 120) { // Max 2 hours for one-way travel
-          totalTravelMinutes += goingMinutes;
-          hasValidTravel = true;
-        }
-      }
-
-      // Add return travel time
-      if (returnStart && returnEnd && returnStart.changedAt < returnEnd.changedAt) {
-        const returnMinutes = differenceInMinutes(new Date(returnEnd.changedAt), new Date(returnStart.changedAt));
-        if (returnMinutes > 0 && returnMinutes <= 120) { // Max 2 hours for one-way travel
-          totalTravelMinutes += returnMinutes;
-          hasValidTravel = true;
-        }
-      }
-
-      // Only use if we have valid travel data and total is reasonable
-      if (hasValidTravel && totalTravelMinutes <= 240) { // Max 4 hours total travel
-        travelTime = totalTravelMinutes;
+    if (ticket.supportMode !== 'PHONE_CALL') {
+      const computedTravel = calculateTravelMinutes(
+        ticket.relatedMachineIds,
+        ticket.statusHistory,
+        ticket.visitStartedAt,
+        ticket.visitReachedAt,
+        ticket.visitInProgressAt,
+        ticket.supportMode
+      );
+      if (computedTravel > 0 && computedTravel <= 480) {
+        travelTime = computedTravel;
       }
     }
 
-    // Calculate onsite working time using status history: ONSITE_VISIT_IN_PROGRESS → ONSITE_VISIT_RESOLVED
     // Onsite working time is 0 for PHONE_CALL tickets
     let onsiteWorkingTime = 0;
-    if (ticket.supportMode !== 'PHONE_CALL' && ticket.statusHistory && ticket.statusHistory.length > 0) {
-      const statusHistory = ticket.statusHistory;
-
-      const onsiteStart = statusHistory.find((h: any) => h.status === 'ONSITE_VISIT_IN_PROGRESS');
-      const onsiteEnd = statusHistory.find((h: any) => h.status === 'ONSITE_VISIT_RESOLVED');
-
-      if (onsiteStart && onsiteEnd && onsiteStart.changedAt < onsiteEnd.changedAt) {
-        const workingMinutes = differenceInMinutes(new Date(onsiteEnd.changedAt), new Date(onsiteStart.changedAt));
-        if (workingMinutes > 0 && workingMinutes <= 480) { // Max 8 hours for onsite work
-          onsiteWorkingTime = workingMinutes;
-        }
+    if (ticket.supportMode !== 'PHONE_CALL') {
+      const computedOnsite = calculateOnsiteResolutionMinutes(
+        ticket.relatedMachineIds,
+        ticket.statusHistory,
+        ticket.supportMode
+      );
+      if (computedOnsite > 0 && computedOnsite <= 1440) {
+        onsiteWorkingTime = computedOnsite;
       }
     }
 

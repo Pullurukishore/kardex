@@ -1033,7 +1033,8 @@ async function calculateAverageTravelTime(startDate: Date, endDate: Date) {
   try {
     const tickets = await prisma.ticket.findMany({
       where: {
-        createdAt: { gte: startDate, lte: endDate }
+        createdAt: { gte: startDate, lte: endDate },
+        supportMode: { not: 'PHONE_CALL' }
       },
       take: 2000,
       select: {
