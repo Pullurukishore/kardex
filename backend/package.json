@@ -16,6 +16,7 @@
     "create:sample-excel": "node scripts/create-sample-excel.js",
     "reset:db": "node scripts/reset-database.js",
     "create:admin": "node scripts/create-admin-user.js",
+    "delete:tickets": "ts-node scripts/deleteTickets.ts",
     "delete:service-persons": "ts-node scripts/deleteServicePersons.ts",
     "delete:customers": "ts-node scripts/deleteAllCustomers.ts",
     "delete:contracts": "ts-node scripts/deleteAllContracts.ts",
