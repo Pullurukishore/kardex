@@ -81,6 +81,11 @@ const PRIORITY_CELL_COLORS: Record<string, { bg: string; text: string }> = {
 
 // Helper to safely format values
 function formatExcelValue(value: any, column: ColumnDefinition, item?: any): any {
+    // Phone call tickets do not have travel or onsite working time
+    if (item && item.supportMode === 'PHONE_CALL' && (column.key === 'travelTime' || column.key === 'onsiteWorkingTime')) {
+        return '-';
+    }
+
     if (value === null || value === undefined || value === '') return '-';
 
     if (column.format) {

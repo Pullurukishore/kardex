@@ -127,7 +127,12 @@ function determineSupportMode(
     const workMinutes = parseTimeToMinutes(workHour) || 0;
     const allRemarks = (String(remarks || '') + ' ' + String(remarks2 || '')).toLowerCase();
 
-    // 1. First priority: Check explicit support mode values in the "Response (On-site)" or "Response" column
+    // 1. First priority: If travel time exists, they physically visited the customer site, so it's definitively ON_SITE
+    if (travelMinutes > 0) {
+        return 'ON_SITE';
+    }
+
+    // 2. Second priority: Check explicit support mode values in the "Response (On-site)" or "Response" column
     if (rOn === 'phone call' || rOn.includes('phone') || rOn.includes('call') || rOn.includes('remote')) {
         return 'PHONE_CALL';
     }
@@ -139,11 +144,6 @@ function determineSupportMode(
         return 'PHONE_CALL';
     }
     if (r === 'on-site' || r === 'onsite' || r.includes('visit')) {
-        return 'ON_SITE';
-    }
-
-    // 2. Second priority: If travel time exists, they visited the customer site, so it's ON_SITE
-    if (travelMinutes > 0) {
         return 'ON_SITE';
     }
 
@@ -1034,6 +1034,12 @@ export class TicketImportService {
                         if (travelHourMinutes !== null) metadata.travelHourMinutes = travelHourMinutes;
                         if (workHourMinutes !== null) metadata.workHourMinutes = workHourMinutes;
                         if (downtimeMinutes !== null) metadata.downtimeMinutes = downtimeMinutes;
+
+                        // Phone call tickets must never have travel time
+                        if (supportMode === 'PHONE_CALL') {
+                            metadata.travelHour = '00:00';
+                            metadata.travelHourMinutes = 0;
+                        }
 
                         // ── Upsert Ticket ──
                         const findExistingId = () => {

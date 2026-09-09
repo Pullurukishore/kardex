@@ -1086,12 +1086,15 @@ async function generateZonePerformanceReport(res: Response, whereClause: any, st
       let validTravelTickets = 0;
 
       for (const ticket of tickets) {
+        if (ticket.supportMode === 'PHONE_CALL') continue;
+
         const travelMinutes = calculateTravelMinutes(
           ticket.relatedMachineIds,
           ticket.statusHistory,
           ticket.visitStartedAt,
           ticket.visitReachedAt,
-          ticket.visitInProgressAt
+          ticket.visitInProgressAt,
+          ticket.supportMode
         );
 
         if (travelMinutes > 0 && travelMinutes <= 480) {
@@ -1117,9 +1120,12 @@ async function generateZonePerformanceReport(res: Response, whereClause: any, st
       let validOnsiteTickets = 0;
 
       for (const ticket of resolvedTickets) {
+        if (ticket.supportMode === 'PHONE_CALL') continue;
+
         const onsiteMinutes = calculateOnsiteResolutionMinutes(
           ticket.relatedMachineIds,
-          ticket.statusHistory
+          ticket.statusHistory,
+          ticket.supportMode
         );
 
         if (onsiteMinutes > 0 && onsiteMinutes <= 1440) {
@@ -1799,19 +1805,21 @@ export const exportReport = async (req: Request, res: Response) => {
             const visitCompletedDate = ticket.visitCompletedDate || findStatus('ONSITE_VISIT_COMPLETED')?.changedAt || null;
             const onsiteStart = ticket.visitInProgressAt || findStatus('ONSITE_VISIT_IN_PROGRESS')?.changedAt || null;
 
-            // Travel time (uses metadata, status history, and timestamps)
-            const travelTime = calculateTravelMinutes(
+            // Travel time (uses metadata, status history, and timestamps - 0 for PHONE_CALL)
+            const travelTime = ticket.supportMode === 'PHONE_CALL' ? 0 : calculateTravelMinutes(
               ticket.relatedMachineIds,
               ticket.statusHistory,
               visitStartedAt,
               visitReachedAt,
-              onsiteStart
+              onsiteStart,
+              ticket.supportMode
             );
 
-            // Onsite working time (uses metadata and status history)
-            const onsiteWorkingTime = calculateOnsiteResolutionMinutes(
+            // Onsite working time (uses metadata and status history - 0 for PHONE_CALL)
+            const onsiteWorkingTime = ticket.supportMode === 'PHONE_CALL' ? 0 : calculateOnsiteResolutionMinutes(
               ticket.relatedMachineIds,
-              ticket.statusHistory
+              ticket.statusHistory,
+              ticket.supportMode
             );
 
             // Total resolution time (business hours, uses actualResolutionTime, metadata, or duration)
@@ -2240,8 +2248,9 @@ async function getTicketSummaryData(whereClause: any, startDate: Date, endDate: 
     const responseTime = responseTimeMins;
 
     // Calculate travel time using status history: (STARTED → REACHED) + (RESOLVED → COMPLETED)
+    // Travel time is 0 for PHONE_CALL tickets
     let travelTime = 0;
-    if (ticket.statusHistory && ticket.statusHistory.length > 0) {
+    if (ticket.supportMode !== 'PHONE_CALL' && ticket.statusHistory && ticket.statusHistory.length > 0) {
       const statusHistory = ticket.statusHistory;
 
       // Going travel time (ONSITE_VISIT_STARTED → ONSITE_VISIT_REACHED)
@@ -2280,8 +2289,9 @@ async function getTicketSummaryData(whereClause: any, startDate: Date, endDate: 
     }
 
     // Calculate onsite working time using status history: ONSITE_VISIT_IN_PROGRESS → ONSITE_VISIT_RESOLVED
+    // Onsite working time is 0 for PHONE_CALL tickets
     let onsiteWorkingTime = 0;
-    if (ticket.statusHistory && ticket.statusHistory.length > 0) {
+    if (ticket.supportMode !== 'PHONE_CALL' && ticket.statusHistory && ticket.statusHistory.length > 0) {
       const statusHistory = ticket.statusHistory;
 
       const onsiteStart = statusHistory.find((h: any) => h.status === 'ONSITE_VISIT_IN_PROGRESS');

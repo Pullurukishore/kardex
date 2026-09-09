@@ -168,8 +168,14 @@ export function calculateTravelMinutes(
     statusHistory: any[] | null | undefined,
     visitStartedAt?: Date | string | null,
     visitReachedAt?: Date | string | null,
-    visitInProgressAt?: Date | string | null
+    visitInProgressAt?: Date | string | null,
+    supportMode?: string | null
 ): number {
+    // Phone call / remote tickets do not involve physical travel
+    if (supportMode === 'PHONE_CALL') {
+        return 0;
+    }
+
     let minutes = 0;
 
     // Priority 1: Use imported Excel travel hour (metadata)
@@ -219,8 +225,14 @@ export function calculateTravelMinutes(
  */
 export function calculateOnsiteResolutionMinutes(
     relatedMachineIds: string | null | undefined,
-    statusHistory: any[] | null | undefined
+    statusHistory: any[] | null | undefined,
+    supportMode?: string | null
 ): number {
+    // Phone call / remote tickets do not involve on-site physical work
+    if (supportMode === 'PHONE_CALL') {
+        return 0;
+    }
+
     // Priority 1: Use imported Excel work hour (metadata)
     if (relatedMachineIds) {
         try {

@@ -1041,19 +1041,23 @@ async function calculateAverageTravelTime(startDate: Date, endDate: Date) {
         statusHistory: true,
         visitStartedAt: true,
         visitReachedAt: true,
-        visitInProgressAt: true
+        visitInProgressAt: true,
+        supportMode: true
       }
     });
 
     const travelTimes: number[] = [];
 
     for (const ticket of tickets) {
+      if (ticket.supportMode === 'PHONE_CALL') continue;
+
       const travelMins = calculateTravelMinutes(
         ticket.relatedMachineIds,
         ticket.statusHistory,
         ticket.visitStartedAt,
         ticket.visitReachedAt,
-        ticket.visitInProgressAt
+        ticket.visitInProgressAt,
+        ticket.supportMode
       );
 
       // Validate travel time (same 8h cap as reports)

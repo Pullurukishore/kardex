@@ -1553,37 +1553,39 @@ async function calculateServicePersonTicketMetrics(
         if (resMins > 0) resolutionTimes.push(resMins);
       }
 
-      // Travel and onsite time calculations from status history
-      const statusHistory = ticket.statusHistory || [];
-      let travelTimeFromHistory = 0;
-      let onsiteTimeFromHistory = 0;
+      // Travel and onsite time calculations (only for ON_SITE tickets)
+      if (ticket.supportMode !== 'PHONE_CALL') {
+        const statusHistory = ticket.statusHistory || [];
+        let travelTimeFromHistory = 0;
+        let onsiteTimeFromHistory = 0;
 
-      if (statusHistory.length > 0) {
-        const goingStart = statusHistory.find(h => h.status === 'ONSITE_VISIT_STARTED');
-        const goingEnd = statusHistory.find(h => h.status === 'ONSITE_VISIT_REACHED');
-        const returnStart = statusHistory.find(h => h.status === 'ONSITE_VISIT_RESOLVED');
-        const returnEnd = statusHistory.find(h => h.status === 'ONSITE_VISIT_COMPLETED');
+        if (statusHistory.length > 0) {
+          const goingStart = statusHistory.find(h => h.status === 'ONSITE_VISIT_STARTED');
+          const goingEnd = statusHistory.find(h => h.status === 'ONSITE_VISIT_REACHED');
+          const returnStart = statusHistory.find(h => h.status === 'ONSITE_VISIT_RESOLVED');
+          const returnEnd = statusHistory.find(h => h.status === 'ONSITE_VISIT_COMPLETED');
 
-        if (goingStart && goingEnd && goingStart.changedAt < goingEnd.changedAt) {
-          travelTimeFromHistory += differenceInMinutes(new Date(goingEnd.changedAt), new Date(goingStart.changedAt));
-        }
-        if (returnStart && returnEnd && returnStart.changedAt < returnEnd.changedAt) {
-          travelTimeFromHistory += differenceInMinutes(new Date(returnEnd.changedAt), new Date(returnStart.changedAt));
+          if (goingStart && goingEnd && goingStart.changedAt < goingEnd.changedAt) {
+            travelTimeFromHistory += differenceInMinutes(new Date(goingEnd.changedAt), new Date(goingStart.changedAt));
+          }
+          if (returnStart && returnEnd && returnStart.changedAt < returnEnd.changedAt) {
+            travelTimeFromHistory += differenceInMinutes(new Date(returnEnd.changedAt), new Date(returnStart.changedAt));
+          }
+
+          const onsiteStart = statusHistory.find(h => h.status === 'ONSITE_VISIT_IN_PROGRESS');
+          const onsiteEnd = statusHistory.find(h => h.status === 'ONSITE_VISIT_RESOLVED' || h.status === 'RESOLVED' || h.status === 'CLOSED');
+          if (onsiteStart && onsiteEnd && onsiteStart.changedAt < onsiteEnd.changedAt) {
+            onsiteTimeFromHistory = differenceInMinutes(new Date(onsiteEnd.changedAt), new Date(onsiteStart.changedAt));
+          }
         }
 
-        const onsiteStart = statusHistory.find(h => h.status === 'ONSITE_VISIT_IN_PROGRESS');
-        const onsiteEnd = statusHistory.find(h => h.status === 'ONSITE_VISIT_RESOLVED' || h.status === 'RESOLVED' || h.status === 'CLOSED');
-        if (onsiteStart && onsiteEnd && onsiteStart.changedAt < onsiteEnd.changedAt) {
-          onsiteTimeFromHistory = differenceInMinutes(new Date(onsiteEnd.changedAt), new Date(onsiteStart.changedAt));
-        }
+        // Prioritize imported metadata if history is missing or zero
+        const finalTravelTime = travelTimeFromHistory > 0 ? travelTimeFromHistory : (importedMetadata?.travelHourMinutes || 0);
+        const finalOnsiteTime = onsiteTimeFromHistory > 0 ? onsiteTimeFromHistory : (importedMetadata?.workHourMinutes || 0);
+
+        if (finalTravelTime > 0) travelTimes.push(finalTravelTime);
+        if (finalOnsiteTime > 0) onsiteTimes.push(finalOnsiteTime);
       }
-
-      // Prioritize imported metadata if history is missing or zero
-      const finalTravelTime = travelTimeFromHistory > 0 ? travelTimeFromHistory : (importedMetadata?.travelHourMinutes || 0);
-      const finalOnsiteTime = onsiteTimeFromHistory > 0 ? onsiteTimeFromHistory : (importedMetadata?.workHourMinutes || 0);
-
-      if (finalTravelTime > 0) travelTimes.push(finalTravelTime);
-      if (finalOnsiteTime > 0) onsiteTimes.push(finalOnsiteTime);
     }
 
     // Calculate averages in hours (rounded to 1 decimal place)

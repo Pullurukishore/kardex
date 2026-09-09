@@ -48,6 +48,11 @@ const COLORS = {
 
 // Helper to safely format values for PDF
 function formatPdfValue(value: any, column: ColumnDefinition, item?: any): string {
+    // Phone call tickets do not have travel or onsite working time
+    if (item && item.supportMode === 'PHONE_CALL' && (column.key === 'travelTime' || column.key === 'onsiteWorkingTime')) {
+        return '-';
+    }
+
     // If column has a custom format function, call it first (even for empty values)
     if (column.format) {
         try {
