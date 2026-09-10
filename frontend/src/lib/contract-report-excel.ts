@@ -187,6 +187,80 @@ const applyDataCell = (cell: any, bgColor: string, opts: { bold?: boolean; isNum
     cell.font = { size: 9, color: { argb: opts.fontColor || COLORS.textDark }, bold: opts.bold || false };
 };
 
+const months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+
+const parseDateObj = (str: string | null | undefined): Date | null => {
+    if (!str) return null;
+    str = str.trim();
+
+    // Check DD/MM/YYYY or DD.MM.YYYY
+    const slashDot = str.match(/^(\d{1,2})[\/\.](\d{1,2})[\/\.](\d{2,4})$/);
+    if (slashDot) {
+        const d = parseInt(slashDot[1], 10);
+        const m = parseInt(slashDot[2], 10) - 1;
+        let y = parseInt(slashDot[3], 10);
+        if (y < 100) y += 2000;
+        return new Date(y, m, d);
+    }
+
+    // Check YYYY-MM-DD
+    const isoMatch = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if (isoMatch) {
+        return new Date(parseInt(isoMatch[1], 10), parseInt(isoMatch[2], 10) - 1, parseInt(isoMatch[3], 10));
+    }
+
+    // Check DD-MM-YYYY
+    const dmyMatch = str.match(/^(\d{1,2})-(\d{1,2})-(\d{2,4})$/);
+    if (dmyMatch) {
+        let y = parseInt(dmyMatch[3], 10);
+        if (y < 100) y += 2000;
+        return new Date(y, parseInt(dmyMatch[2], 10) - 1, parseInt(dmyMatch[1], 10));
+    }
+
+    // Check DD-MMM-YYYY or DD MMM YYYY (e.g. 15-Oct-2026, 15 Oct 2026)
+    const wordMatch = str.match(/^(\d{1,2})[-\s]+([A-Za-z]+)[-\s]+(\d{2,4})$/);
+    if (wordMatch) {
+        const d = parseInt(wordMatch[1], 10);
+        const mStr = wordMatch[2].toLowerCase().slice(0, 3);
+        const m = months.indexOf(mStr);
+        let y = parseInt(wordMatch[3], 10);
+        if (y < 100) y += 2000;
+        if (m >= 0) return new Date(y, m, d);
+    }
+
+    const fallback = new Date(str);
+    return isNaN(fallback.getTime()) ? null : fallback;
+};
+
+// Extracts the PM visit end date from range string (e.g. "11/08/2026 TO 31/08/2026" -> 31/08/2026)
+const getPMEndDate = (pmRange: string | null | undefined): Date | null => {
+    if (!pmRange) return null;
+    const parts = pmRange.split(/\s+(?:TO|to|-)\s+/);
+    const endStr = parts.length >= 2 ? parts[parts.length - 1]?.trim() : parts[0]?.trim();
+    return parseDateObj(endStr);
+};
+
+// Checks if the PM visit ENDS between dateFrom and dateTo
+const isPMEndDateInRange = (pmRange: string | null | undefined, dateFrom?: string, dateTo?: string): boolean => {
+    if (!dateFrom && !dateTo) return true;
+    const endObj = getPMEndDate(pmRange);
+    if (!endObj) return false;
+
+    if (dateFrom) {
+        const fromObj = new Date(dateFrom);
+        fromObj.setHours(0, 0, 0, 0);
+        if (endObj < fromObj) return false;
+    }
+
+    if (dateTo) {
+        const toObj = new Date(dateTo);
+        toObj.setHours(23, 59, 59, 999);
+        if (endObj > toObj) return false;
+    }
+
+    return true;
+};
+
 // ============ Column Definitions (Without Payment Terms) ============
 const MAIN_COLUMNS = [
     { header: '#', key: 'slNo', width: 6, align: 'center' as const },
@@ -231,10 +305,69 @@ export async function generateContractReportExcel(
         ws.getColumn(i + 1).width = col.width;
     });
 
+    const isDateFiltered = Boolean(filters.dateFrom || filters.dateTo);
+    const now = new Date();
+
+    // ── Filter to only customers & contracts with PENDING visits that END between dateFrom and dateTo ──
+    const filteredCustomerList: CustomerSummary[] = [];
+
+    customerSummaries.forEach(cs => {
+        const matchingContracts = cs.contracts.filter(ct => {
+            const applicablePMs = (ct.pmSchedules || []).filter(p => p.status !== 'Not Applicable');
+            const pendingEndingInRange = applicablePMs.filter(p => {
+                if (p.status === 'Completed' || p.status === 'Not Applicable') return false;
+                if (isDateFiltered) return isPMEndDateInRange(p.range, filters.dateFrom, filters.dateTo);
+                return true;
+            });
+            return pendingEndingInRange.length > 0;
+        });
+
+        if (matchingContracts.length > 0) {
+            const totalVal = matchingContracts.reduce((sum, c) => sum + Number(c.amount || 0), 0);
+            const totalMach = matchingContracts.reduce((sum, c) => sum + Number(c.noOfMachine || 0), 0);
+
+            filteredCustomerList.push({
+                ...cs,
+                contracts: matchingContracts,
+                totalContracts: matchingContracts.length,
+                totalValue: totalVal,
+                totalMachines: totalMach,
+            });
+        }
+    });
+
+    // Compute effective totals from filtered accounts
+    let effTotalContracts = 0;
+    let effTotalCustomers = filteredCustomerList.length;
+    let effTotalValue = 0;
+    let effTotalMachines = 0;
+    let effActive = 0;
+    let effExpiring = 0;
+    let effExpired = 0;
+    let effPendingVisitsCount = 0;
+
+    filteredCustomerList.forEach(cs => {
+        effTotalContracts += cs.contracts.length;
+        effTotalValue += cs.totalValue;
+        effTotalMachines += cs.totalMachines;
+        cs.contracts.forEach(c => {
+            if (c.status === 'Active') effActive++;
+            else if (c.status === 'Expiring Soon') effExpiring++;
+            else if (c.status === 'Expired') effExpired++;
+
+            const pending = (c.pmSchedules || []).filter(p => {
+                if (p.status === 'Completed' || p.status === 'Not Applicable') return false;
+                if (isDateFiltered) return isPMEndDateInRange(p.range, filters.dateFrom, filters.dateTo);
+                return true;
+            });
+            effPendingVisitsCount += pending.length;
+        });
+    });
+
     // ── Row 1: Executive Title (Kardex Blue #546A7A) ──
     ws.mergeCells(`A1:${lastCol}1`);
     const titleCell = ws.getCell('A1');
-    titleCell.value = 'KARDEX - CONTRACT REPORT';
+    titleCell.value = 'KARDEX - CONTRACT REPORT (PENDING PM VISITS)';
     titleCell.font = { bold: true, size: 13, color: { argb: COLORS.textWhite } };
     titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.kardexBlueDark } };
     titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
@@ -255,7 +388,7 @@ export async function generateContractReportExcel(
     if (filters.mcType && filters.mcType !== 'All') filterParts.push(`MC Type: ${filters.mcType}`);
     if (filters.dateFrom || filters.dateTo) filterParts.push(`Period: ${filters.dateFrom || 'Start'} → ${filters.dateTo || 'End'}`);
     const filterStr = filterParts.length > 0 ? filterParts.join('  |  ') : 'All Zones & Statuses';
-    infoCell.value = `Generated: ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}  |  ${customerSummaries.length} Customer Accounts  |  ${filterStr}`;
+    infoCell.value = `Generated: ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}  |  ${effTotalCustomers} Customer Accounts (${effPendingVisitsCount} Pending Visits)  |  ${filterStr}`;
     infoCell.font = { size: 9, color: { argb: COLORS.kardexBlueDark }, italic: true };
     infoCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.kardexBlueTint } };
     infoCell.alignment = { horizontal: 'center', vertical: 'middle' };
@@ -263,12 +396,12 @@ export async function generateContractReportExcel(
 
     // ── Rows 5-6: Executive Kardex KPI Cards ──
     const kpis = [
-        { label: 'TOTAL CONTRACTS', value: String(overall.totalContracts), accent: COLORS.kardexBlueDark, span: 2 },
-        { label: 'TOTAL CUSTOMERS', value: String(overall.totalCustomers), accent: COLORS.kardexBlueMedium, span: 2 },
-        { label: 'TOTAL MC VALUE', value: fmtCurrency(overall.totalValue), accent: COLORS.kardexSandDark, span: 3 },
-        { label: 'ACTIVE / EXPIRING / EXPIRED', value: `${overall.active} / ${overall.expiring} / ${overall.expired}`, accent: COLORS.kardexGreenDark, span: 3 },
-        { label: 'TOTAL MACHINES', value: String(overall.totalMachines), accent: COLORS.kardexBlueDark, span: 1 },
-        { label: 'PM PROGRESS', value: `${overall.pmPct}% (${overall.pmCompleted}/${overall.pmTotal})`, accent: COLORS.kardexBlueMedium, span: 1 },
+        { label: 'TOTAL CONTRACTS', value: String(effTotalContracts), accent: COLORS.kardexBlueDark, span: 2 },
+        { label: 'TOTAL CUSTOMERS', value: String(effTotalCustomers), accent: COLORS.kardexBlueMedium, span: 2 },
+        { label: 'TOTAL MC VALUE', value: fmtCurrency(effTotalValue), accent: COLORS.kardexSandDark, span: 3 },
+        { label: 'ACTIVE / EXPIRING / EXPIRED', value: `${effActive} / ${effExpiring} / ${effExpired}`, accent: COLORS.kardexGreenDark, span: 3 },
+        { label: 'TOTAL MACHINES', value: String(effTotalMachines), accent: COLORS.kardexBlueDark, span: 1 },
+        { label: 'PENDING VISITS', value: String(effPendingVisitsCount), accent: COLORS.kardexSandDark, span: 2 },
     ];
 
     const kpiLabelRow = 5;
@@ -308,50 +441,57 @@ export async function generateContractReportExcel(
     let currentRow = 8;
     ws.mergeCells(`A${currentRow}:${lastCol}${currentRow}`);
     const secCell = ws.getCell(`A${currentRow}`);
-    secCell.value = 'CUSTOMER-WISE AGREEMENTS & PREVENTIVE MAINTENANCE SCHEDULES';
+    secCell.value = 'CUSTOMER-WISE AGREEMENTS & PENDING PREVENTIVE MAINTENANCE SCHEDULES';
     secCell.font = { bold: true, size: 9.5, color: { argb: COLORS.textWhite } };
     secCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.kardexBlueDark } };
     secCell.alignment = { horizontal: 'left', vertical: 'middle' };
     ws.getRow(currentRow).height = 22;
 
-    const now = new Date();
-
     // ── Customer Grouped Blocks ──
-    customerSummaries.forEach((cs, custIdx) => {
+    if (filteredCustomerList.length === 0) {
         currentRow += 1;
-
-        // 1. Customer Kardex Blue Banner Row (#546A7A)
-        const bannerRow = currentRow;
-        ws.mergeCells(`A${bannerRow}:${lastCol}${bannerRow}`);
-        const banner = ws.getCell(`A${bannerRow}`);
-        const placeStr = cs.place ? `${cs.place}, ${cs.zoneName}` : cs.zoneName;
-        banner.value = `${custIdx + 1}.  ${cs.customerName.toUpperCase()}   •   ${placeStr}   •   Contracts: ${cs.totalContracts}   •   Machines: ${cs.totalMachines}   •   Total Value: ${fmtCurrency(cs.totalValue)}   •   PM: ${cs.pmPercentage}% (${cs.pmCompleted}/${cs.pmTotal})`;
-        banner.font = { bold: true, color: { argb: COLORS.textWhite }, size: 9.5 };
-        banner.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.kardexBlueDark } };
-        banner.alignment = { horizontal: 'left', vertical: 'middle' };
-        banner.border = thinBorder(COLORS.kardexBlueDark);
-        ws.getRow(bannerRow).height = 24;
-
-        // 2. Table Header Row for this Customer (Kardex Blue Medium #6F8A9D)
-        currentRow += 1;
-        const tableHeaderRow = currentRow;
-        ws.getRow(tableHeaderRow).height = 22;
-        MAIN_COLUMNS.forEach((col, i) => {
-            const cell = ws.getCell(tableHeaderRow, i + 1);
-            cell.value = col.header;
-            applyHeaderStyle(cell);
-        });
-
-        // 3. Contract Rows & PM Sub-rows for this Customer
-        if (cs.contracts.length === 0) {
+        ws.mergeCells(`A${currentRow}:${lastCol}${currentRow}`);
+        const emptyCell = ws.getCell(`A${currentRow}`);
+        emptyCell.value = 'No pending PM visits found ending within the selected filter period.';
+        emptyCell.font = { italic: true, size: 10, color: { argb: COLORS.textMuted } };
+        emptyCell.alignment = { horizontal: 'center', vertical: 'middle' };
+        ws.getRow(currentRow).height = 28;
+    } else {
+        filteredCustomerList.forEach((cs, custIdx) => {
             currentRow += 1;
-            ws.mergeCells(`A${currentRow}:${lastCol}${currentRow}`);
-            const emptyCell = ws.getCell(`A${currentRow}`);
-            emptyCell.value = 'No contracts found for this customer.';
-            emptyCell.font = { italic: true, size: 9, color: { argb: COLORS.textMuted } };
-            emptyCell.alignment = { horizontal: 'center', vertical: 'middle' };
-            ws.getRow(currentRow).height = 20;
-        } else {
+
+            // Count pending visits for this customer ending in date range
+            const custPendingVisits = cs.contracts.flatMap(c =>
+                (c.pmSchedules || []).filter(p => {
+                    if (p.status === 'Completed' || p.status === 'Not Applicable') return false;
+                    if (isDateFiltered) return isPMEndDateInRange(p.range, filters.dateFrom, filters.dateTo);
+                    return true;
+                })
+            ).length;
+
+            // 1. Customer Kardex Blue Banner Row (#546A7A)
+            const bannerRow = currentRow;
+            ws.mergeCells(`A${bannerRow}:${lastCol}${bannerRow}`);
+            const banner = ws.getCell(`A${bannerRow}`);
+            const placeStr = cs.place ? `${cs.place}, ${cs.zoneName}` : cs.zoneName;
+            banner.value = `${custIdx + 1}.  ${cs.customerName.toUpperCase()}   •   ${placeStr}   •   Agreements: ${cs.contracts.length}   •   Machines: ${cs.totalMachines}   •   Total Value: ${fmtCurrency(cs.totalValue)}   •   Pending Visits in Period: ${custPendingVisits}`;
+            banner.font = { bold: true, color: { argb: COLORS.textWhite }, size: 9.5 };
+            banner.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.kardexBlueDark } };
+            banner.alignment = { horizontal: 'left', vertical: 'middle' };
+            banner.border = thinBorder(COLORS.kardexBlueDark);
+            ws.getRow(bannerRow).height = 24;
+
+            // 2. Table Header Row for this Customer (Kardex Blue Medium #6F8A9D)
+            currentRow += 1;
+            const tableHeaderRow = currentRow;
+            ws.getRow(tableHeaderRow).height = 22;
+            MAIN_COLUMNS.forEach((col, i) => {
+                const cell = ws.getCell(tableHeaderRow, i + 1);
+                cell.value = col.header;
+                applyHeaderStyle(cell);
+            });
+
+            // 3. Contract Rows & PM Sub-rows for this Customer
             cs.contracts.forEach((ct, cIdx) => {
                 currentRow += 1;
                 const r = currentRow;
@@ -398,50 +538,37 @@ export async function generateContractReportExcel(
                 });
                 ws.getRow(r).height = 22;
 
-                // ── PM Sub-Rows (Ledger breakdown for ALL PM cycles: 1, 2, 4, 6, 7, etc.) ──
-                if (applicablePMs.length > 0) {
+                // ── PM Sub-Rows: ONLY PENDING VISITS WHOSE WINDOW ENDS BETWEEN DATE FILTER ──
+                const pendingVisitsToShow = applicablePMs.filter(pm => {
+                    if (pm.status === 'Completed' || pm.status === 'Not Applicable') return false;
+                    if (isDateFiltered) {
+                        return isPMEndDateInRange(pm.range, filters.dateFrom, filters.dateTo);
+                    }
+                    return true;
+                });
+
+                if (pendingVisitsToShow.length > 0) {
                     const totalVisitsCount = ct.noOfVisits || applicablePMs.length || 1;
                     const pmVisitAmount = (totalVisitsCount > 0 && ct.amount) ? Math.round(ct.amount / totalVisitsCount) : 0;
 
-                    applicablePMs.forEach(pm => {
+                    pendingVisitsToShow.forEach(pm => {
                         currentRow += 1;
                         const pmR = currentRow;
-                        const isDone = pm.status === 'Completed';
 
-                        // Check overdue
+                        // Check overdue against today
                         let isOverdue = false;
-                        if (!isDone && pm.range) {
+                        if (pm.range) {
                             try {
-                                const parts = pm.range.split(/\s+(?:TO|to|-)\s+/);
-                                const endStr = parts[parts.length - 1]?.trim();
-                                if (endStr) {
-                                    const d = new Date(endStr);
-                                    if (!isNaN(d.getTime()) && d < now) isOverdue = true;
-                                }
+                                const endObj = getPMEndDate(pm.range);
+                                if (endObj && endObj < now) isOverdue = true;
                             } catch { /* ignore */ }
                         }
 
-                        const statusText = isDone
-                            ? `✓ Completed`
-                            : isOverdue
-                                ? `! Overdue`
-                                : `⏳ Pending`;
+                        const statusText = isOverdue ? `! Overdue` : `⏳ Pending`;
+                        const completionDetails = isOverdue ? `Pending Execution (Overdue)` : `Pending Execution`;
 
-                        const completionDetails = isDone
-                            ? `Done on: ${fmtDate(pm.completedAt)}`
-                            : `Pending Execution`;
-
-                        const statusBg = isDone
-                            ? COLORS.kardexGreenTint
-                            : isOverdue
-                                ? COLORS.kardexRedTint
-                                : COLORS.kardexSandTint;
-
-                        const statusColor = isDone
-                            ? COLORS.kardexGreenDark
-                            : isOverdue
-                                ? COLORS.kardexRedDark
-                                : COLORS.kardexSandDark;
+                        const statusBg = isOverdue ? COLORS.kardexRedTint : COLORS.kardexSandTint;
+                        const statusColor = isOverdue ? COLORS.kardexRedDark : COLORS.kardexSandDark;
 
                         // Column A (1): blank indentation
                         const cellA = ws.getCell(pmR, 1);
@@ -484,7 +611,7 @@ export async function generateContractReportExcel(
                         cellH.alignment = { horizontal: 'center', vertical: 'middle' };
                         cellH.border = thinBorder();
 
-                        // Column I to lastCol (9..13): Completion / Execution Details
+                        // Column I to lastCol (9..13): Execution Details
                         ws.mergeCells(`I${pmR}:${lastCol}${pmR}`);
                         const cellI = ws.getCell(pmR, 9);
                         cellI.value = completionDetails;
@@ -497,49 +624,49 @@ export async function generateContractReportExcel(
                     });
                 }
             });
-        }
 
-        // 4. Customer Subtotal Row (Soft Kardex Blue Tint)
-        currentRow += 1;
-        const subtotalRow = currentRow;
-        const amountColIdx = MAIN_COLUMNS.findIndex(c => c.key === 'amount') + 1;
-        const machinesColIdx = MAIN_COLUMNS.findIndex(c => c.key === 'noOfMachine') + 1;
+            // 4. Customer Subtotal Row (Soft Kardex Blue Tint)
+            currentRow += 1;
+            const subtotalRow = currentRow;
+            const amountColIdx = MAIN_COLUMNS.findIndex(c => c.key === 'amount') + 1;
+            const machinesColIdx = MAIN_COLUMNS.findIndex(c => c.key === 'noOfMachine') + 1;
 
-        ws.mergeCells(`A${subtotalRow}:${numToCol(machinesColIdx - 1)}${subtotalRow}`);
-        const subLabel = ws.getCell(`A${subtotalRow}`);
-        subLabel.value = `Total for ${cs.customerName}:`;
-        subLabel.font = { bold: true, size: 9, color: { argb: COLORS.kardexBlueDark } };
-        subLabel.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.subtotalBg } };
-        subLabel.alignment = { horizontal: 'right', vertical: 'middle' };
-        subLabel.border = thinBorder(COLORS.borderMedium);
+            ws.mergeCells(`A${subtotalRow}:${numToCol(machinesColIdx - 1)}${subtotalRow}`);
+            const subLabel = ws.getCell(`A${subtotalRow}`);
+            subLabel.value = `Total for ${cs.customerName}:`;
+            subLabel.font = { bold: true, size: 9, color: { argb: COLORS.kardexBlueDark } };
+            subLabel.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.subtotalBg } };
+            subLabel.alignment = { horizontal: 'right', vertical: 'middle' };
+            subLabel.border = thinBorder(COLORS.borderMedium);
 
-        const machCell = ws.getCell(subtotalRow, machinesColIdx);
-        machCell.value = cs.totalMachines;
-        machCell.font = { bold: true, size: 9, color: { argb: COLORS.kardexBlueDark } };
-        machCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.subtotalBg } };
-        machCell.alignment = { horizontal: 'center', vertical: 'middle' };
-        machCell.border = thinBorder(COLORS.borderMedium);
+            const machCell = ws.getCell(subtotalRow, machinesColIdx);
+            machCell.value = cs.totalMachines;
+            machCell.font = { bold: true, size: 9, color: { argb: COLORS.kardexBlueDark } };
+            machCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.subtotalBg } };
+            machCell.alignment = { horizontal: 'center', vertical: 'middle' };
+            machCell.border = thinBorder(COLORS.borderMedium);
 
-        const amtCell = ws.getCell(subtotalRow, amountColIdx);
-        amtCell.value = cs.totalValue || 0;
-        amtCell.numFmt = '₹#,##0';
-        amtCell.font = { bold: true, size: 9, color: { argb: COLORS.kardexBlueDark } };
-        amtCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.subtotalBg } };
-        amtCell.alignment = { horizontal: 'right', vertical: 'middle' };
-        amtCell.border = thinBorder(COLORS.borderMedium);
+            const amtCell = ws.getCell(subtotalRow, amountColIdx);
+            amtCell.value = cs.totalValue || 0;
+            amtCell.numFmt = '₹#,##0';
+            amtCell.font = { bold: true, size: 9, color: { argb: COLORS.kardexBlueDark } };
+            amtCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.subtotalBg } };
+            amtCell.alignment = { horizontal: 'right', vertical: 'middle' };
+            amtCell.border = thinBorder(COLORS.borderMedium);
 
-        for (let i = amountColIdx + 1; i <= totalCols; i++) {
-            const cell = ws.getCell(subtotalRow, i);
-            cell.value = '';
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.subtotalBg } };
-            cell.border = thinBorder(COLORS.borderMedium);
-        }
-        ws.getRow(subtotalRow).height = 20;
+            for (let i = amountColIdx + 1; i <= totalCols; i++) {
+                const cell = ws.getCell(subtotalRow, i);
+                cell.value = '';
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.subtotalBg } };
+                cell.border = thinBorder(COLORS.borderMedium);
+            }
+            ws.getRow(subtotalRow).height = 20;
 
-        // Comfortable spacing row between customer accounts
-        currentRow += 1;
-        ws.getRow(currentRow).height = 10;
-    });
+            // Comfortable spacing row between customer accounts
+            currentRow += 1;
+            ws.getRow(currentRow).height = 10;
+        });
+    }
 
     // ── Final Grand Total Row (Kardex Blue #546A7A) ──
     currentRow += 1;
@@ -549,21 +676,21 @@ export async function generateContractReportExcel(
 
     ws.mergeCells(`A${grandRow}:${numToCol(machinesColIdx - 1)}${grandRow}`);
     const grandLabel = ws.getCell(`A${grandRow}`);
-    grandLabel.value = `GRAND TOTAL (${overall.totalCustomers} Customers, ${overall.totalContracts} Contracts):`;
+    grandLabel.value = `GRAND TOTAL (${effTotalCustomers} Customers, ${effTotalContracts} Contracts, ${effPendingVisitsCount} Pending Visits):`;
     grandLabel.font = { bold: true, size: 9.5, color: { argb: COLORS.textWhite } };
     grandLabel.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.kardexBlueDark } };
     grandLabel.alignment = { horizontal: 'right', vertical: 'middle' };
     grandLabel.border = thinBorder(COLORS.kardexBlueDark);
 
     const grandMach = ws.getCell(grandRow, machinesColIdx);
-    grandMach.value = overall.totalMachines;
+    grandMach.value = effTotalMachines;
     grandMach.font = { bold: true, size: 10, color: { argb: COLORS.textWhite } };
     grandMach.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.kardexBlueDark } };
     grandMach.alignment = { horizontal: 'center', vertical: 'middle' };
     grandMach.border = thinBorder(COLORS.kardexBlueDark);
 
     const grandAmt = ws.getCell(grandRow, amountColIdx);
-    grandAmt.value = overall.totalValue || 0;
+    grandAmt.value = effTotalValue || 0;
     grandAmt.numFmt = '₹#,##0';
     grandAmt.font = { bold: true, size: 10, color: { argb: COLORS.textWhite } };
     grandAmt.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.kardexBlueDark } };

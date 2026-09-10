@@ -94,7 +94,7 @@ export default function ContractReports({ role }: ContractReportsProps) {
   const [swFilter, setSwFilter] = useState('all');
 
   // Date range filter (default: today → today + 4 weeks)
-  const [dateFilterBasis, setDateFilterBasis] = useState<'both' | 'pm' | 'expiry'>('both');
+  const [dateFilterBasis, setDateFilterBasis] = useState<'both' | 'pm' | 'expiry'>('pm');
   const [dateFrom, setDateFrom] = useState(() => {
     return new Date().toISOString().slice(0, 10);
   });
@@ -280,22 +280,6 @@ export default function ContractReports({ role }: ContractReportsProps) {
     return '/admin';
   };
 
-  const isRangeOverdue = (range: string): boolean => {
-    try {
-      const parts = range.split(/\s+(?:TO|to|-)\s+/);
-      const endStr = parts[parts.length - 1]?.trim();
-      if (!endStr) return false;
-      let endDateObj: Date | null = null;
-      if (endStr.includes('/')) {
-        const [day, month, year] = endStr.split('/').map(Number);
-        if (day && month && year) endDateObj = new Date(year, month - 1, day);
-      } else if (endStr.includes('-')) {
-        endDateObj = new Date(endStr);
-      }
-      return endDateObj ? endDateObj < now : false;
-    } catch { return false; }
-  };
-
   const parseDateObj = (str: string): Date | null => {
     if (!str) return null;
     str = str.trim();
@@ -328,32 +312,41 @@ export default function ContractReports({ role }: ContractReportsProps) {
     return isNaN(fallback.getTime()) ? null : fallback;
   };
 
-  const isPMInDateRange = (pmRange: string | null | undefined, dateFrom?: string, dateTo?: string): boolean => {
-    if (!dateFrom && !dateTo) return true;
-    if (!pmRange) return true;
-
+  // Extracts the PM visit end date from range string (e.g. "11/08/2026 TO 31/08/2026" -> 31/08/2026)
+  const getPMEndDate = (pmRange: string | null | undefined): Date | null => {
+    if (!pmRange) return null;
     const parts = pmRange.split(/\s+(?:TO|to|-)\s+/);
-    const startObj = parseDateObj(parts[0]);
-    const endObj = parts.length >= 2 ? parseDateObj(parts[parts.length - 1]) : startObj;
+    const endStr = parts.length >= 2 ? parts[parts.length - 1]?.trim() : parts[0]?.trim();
+    return parseDateObj(endStr);
+  };
 
-    if (!startObj && !endObj) return true;
-
-    const pmStart = startObj || endObj;
-    const pmEnd = endObj || startObj;
+  // Checks if the PM visit ENDS between dateFrom and dateTo
+  const isPMEndDateInRange = (pmRange: string | null | undefined, dateFrom?: string, dateTo?: string): boolean => {
+    if (!dateFrom && !dateTo) return true;
+    const endObj = getPMEndDate(pmRange);
+    if (!endObj) return false;
 
     if (dateFrom) {
       const fromObj = new Date(dateFrom);
       fromObj.setHours(0, 0, 0, 0);
-      if (pmEnd && pmEnd < fromObj) return false;
+      if (endObj < fromObj) return false;
     }
 
     if (dateTo) {
       const toObj = new Date(dateTo);
       toObj.setHours(23, 59, 59, 999);
-      if (pmStart && pmStart > toObj) return false;
+      if (endObj > toObj) return false;
     }
 
     return true;
+  };
+
+  const isRangeOverdue = (range: string): boolean => {
+    try {
+      const endObj = getPMEndDate(range);
+      if (!endObj) return false;
+      return endObj < now;
+    } catch { return false; }
   };
 
   const parseRangeDates = (range: string | null | undefined): { startDate: string; endDate: string } => {
@@ -368,8 +361,19 @@ export default function ContractReports({ role }: ContractReportsProps) {
     return { startDate: range.trim(), endDate: '—' };
   };
 
-  const getPMStats = (pmSchedules: PMSchedule[]) => {
+  const getPMStats = (pmSchedules: PMSchedule[], dFrom?: string, dTo?: string) => {
     const applicable = pmSchedules.filter(p => p.status !== 'Not Applicable');
+    if (dFrom || dTo) {
+      const pendingInRange = applicable.filter(p => p.status !== 'Completed' && isPMEndDateInRange(p.range, dFrom, dTo));
+      const overdue = pendingInRange.filter(p => p.range && isRangeOverdue(p.range)).length;
+      return {
+        completed: 0,
+        total: pendingInRange.length,
+        pending: pendingInRange.length,
+        overdue,
+        pct: 0
+      };
+    }
     const completed = applicable.filter(p => p.status === 'Completed').length;
     const total = applicable.length;
     const pending = total - completed;
@@ -445,9 +449,9 @@ export default function ContractReports({ role }: ContractReportsProps) {
     // Date range filter on PM schedule dates AND/OR contract expiry
     if (dateFrom || dateTo) {
       filtered = filtered.filter(c => {
-        // 1. Check PM Visit match in range
+        // 1. Check PM Visit match in range (only pending visits whose window ends in range)
         const applicablePMs = (c.pmSchedules || []).filter(p => p.status !== 'Not Applicable');
-        const hasPMMatch = applicablePMs.some(p => isPMInDateRange(p.range, dateFrom, dateTo));
+        const hasPMMatch = applicablePMs.some(p => p.status !== 'Completed' && isPMEndDateInRange(p.range, dateFrom, dateTo));
 
         // 2. Check Contract Expiry match in range
         let hasExpiryMatch = false;
@@ -547,7 +551,7 @@ export default function ContractReports({ role }: ContractReportsProps) {
       grouped[key].totalMachines += c.noOfMachine;
       if (c.softwareSupport) grouped[key].hasSoftwareSupport = true;
 
-      const stats = getPMStats(c.pmSchedules);
+      const stats = getPMStats(c.pmSchedules, dateFrom, dateTo);
       grouped[key].pmCompleted += stats.completed;
       grouped[key].pmTotal += stats.total;
       grouped[key].pmOverdue += stats.overdue;
@@ -760,33 +764,30 @@ export default function ContractReports({ role }: ContractReportsProps) {
                   <button
                     type="button"
                     onClick={() => setDateFilterBasis('both')}
-                    className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${
-                      dateFilterBasis === 'both'
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${dateFilterBasis === 'both'
                         ? 'bg-[#546A7A] text-white shadow-xs'
                         : 'text-slate-600 hover:text-slate-900'
-                    }`}
+                      }`}
                   >
                     Both (PM or Expiry)
                   </button>
                   <button
                     type="button"
                     onClick={() => setDateFilterBasis('pm')}
-                    className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${
-                      dateFilterBasis === 'pm'
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${dateFilterBasis === 'pm'
                         ? 'bg-[#546A7A] text-white shadow-xs'
                         : 'text-slate-600 hover:text-slate-900'
-                    }`}
+                      }`}
                   >
                     PM Visits Only
                   </button>
                   <button
                     type="button"
                     onClick={() => setDateFilterBasis('expiry')}
-                    className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${
-                      dateFilterBasis === 'expiry'
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${dateFilterBasis === 'expiry'
                         ? 'bg-[#546A7A] text-white shadow-xs'
                         : 'text-slate-600 hover:text-slate-900'
-                    }`}
+                      }`}
                   >
                     Contract Expiry Only
                   </button>
@@ -856,9 +857,8 @@ export default function ContractReports({ role }: ContractReportsProps) {
                 <button
                   type="button"
                   onClick={() => applyDatePreset('all')}
-                  className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                    !dateFrom && !dateTo ? 'bg-[#546A7A] text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                  }`}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${!dateFrom && !dateTo ? 'bg-[#546A7A] text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                    }`}
                 >
                   All Dates
                 </button>
@@ -1079,13 +1079,19 @@ export default function ContractReports({ role }: ContractReportsProps) {
                   </div>
                 </div>
                 <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-650 flex-shrink-0">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 flex-shrink-0">
                     <TrendingUp className="w-5 h-5" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">PM Done %</p>
-                    <p className="text-lg font-extrabold text-indigo-600">{selectedSummary.pmPct}%</p>
-                    <span className="text-[10px] text-rose-600 font-bold block">{selectedSummary.pmOverdue} Overdue</span>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+                      {(dateFrom || dateTo) ? 'Pending PM Visits' : 'PM Done %'}
+                    </p>
+                    <p className="text-lg font-extrabold text-indigo-600">
+                      {(dateFrom || dateTo) ? selectedSummary.pmTotal : `${selectedSummary.pmPct}%`}
+                    </p>
+                    <span className="text-[10px] text-rose-600 font-bold block">
+                      {selectedSummary.pmOverdue} Overdue
+                    </span>
                   </div>
                 </div>
               </>
@@ -1100,27 +1106,35 @@ export default function ContractReports({ role }: ContractReportsProps) {
                   <circle cx="32" cy="32" r="26" fill="none" stroke="#e2e8f0" strokeWidth="5" />
                   <circle
                     cx="32" cy="32" r="26" fill="none"
-                    stroke={Number(selectedSummary.pmPct || 0) >= 75 ? '#10b981' : Number(selectedSummary.pmPct || 0) >= 40 ? '#f59e0b' : '#ef4444'}
+                    stroke={(dateFrom || dateTo) ? (selectedSummary.pmOverdue > 0 ? '#ef4444' : '#6F8A9D') : (Number(selectedSummary.pmPct || 0) >= 75 ? '#10b981' : Number(selectedSummary.pmPct || 0) >= 40 ? '#f59e0b' : '#ef4444')}
                     strokeWidth="5" strokeLinecap="round"
                     strokeDasharray={2 * Math.PI * 26}
-                    strokeDashoffset={2 * Math.PI * 26 - (Number(selectedSummary.pmPct || 0) / 100) * 2 * Math.PI * 26}
+                    strokeDashoffset={(dateFrom || dateTo) ? 0 : (2 * Math.PI * 26 - (Number(selectedSummary.pmPct || 0) / 100) * 2 * Math.PI * 26)}
                     className="transition-all duration-700 ease-out"
                   />
                 </svg>
-                <span className="absolute text-xs font-extrabold text-slate-700">{selectedSummary.pmPct || 0}%</span>
+                <span className="absolute text-xs font-extrabold text-slate-700">
+                  {(dateFrom || dateTo) ? selectedSummary.pmTotal : `${selectedSummary.pmPct || 0}%`}
+                </span>
               </div>
             </div>
             <div className="flex-1 min-w-0">
-              <h3 className="text-sm font-bold text-slate-800">Preventive Maintenance Overview</h3>
+              <h3 className="text-sm font-bold text-slate-800">
+                {(dateFrom || dateTo) ? 'Pending PM Visits Execution Scope' : 'Preventive Maintenance Overview'}
+              </h3>
               <p className="text-xs text-slate-400 mt-0.5">
-                Across all filtered records: {selectedSummary.pmCompleted || 0} of {selectedSummary.pmTotal || 0} PM visits completed • {selectedSummary.pmOverdue || 0} overdue
+                {(dateFrom || dateTo)
+                  ? `Across all filtered records: ${selectedSummary.pmTotal || 0} pending PM visits ending within filter window • ${selectedSummary.pmOverdue || 0} overdue for action`
+                  : `Across all filtered records: ${selectedSummary.pmCompleted || 0} of ${selectedSummary.pmTotal || 0} PM visits completed • ${selectedSummary.pmOverdue || 0} overdue`}
               </p>
               <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden mt-2">
                 <div
                   className="h-full rounded-full transition-all duration-700 ease-out"
                   style={{
-                    width: `${selectedSummary.pmPct || 0}%`,
-                    background: Number(selectedSummary.pmPct || 0) >= 75 ? '#10b981' : Number(selectedSummary.pmPct || 0) >= 40 ? '#f59e0b' : '#ef4444',
+                    width: (dateFrom || dateTo) ? '100%' : `${selectedSummary.pmPct || 0}%`,
+                    background: (dateFrom || dateTo)
+                      ? (selectedSummary.pmOverdue > 0 ? '#ef4444' : '#6F8A9D')
+                      : (Number(selectedSummary.pmPct || 0) >= 75 ? '#10b981' : Number(selectedSummary.pmPct || 0) >= 40 ? '#f59e0b' : '#ef4444'),
                   }}
                 />
               </div>
@@ -1143,305 +1157,310 @@ export default function ContractReports({ role }: ContractReportsProps) {
               {/* 1. CUSTOMER PORTFOLIO LAYOUT */}
               {reportType === 'customer-portfolio' && (
                 <>
-              {/* Header Row */}
-              <div className="bg-[#546A7A] text-white rounded-t-2xl px-5 py-3 text-xs font-bold flex items-center justify-between shadow-sm select-none">
-                <div className="flex-1 cursor-pointer" onClick={() => handleSort('customerName')}>
-                  Customer Details <SortIcon col="customerName" />
-                </div>
-                <div className="flex items-center gap-4 text-right">
-                  <div className="w-24 cursor-pointer text-center" onClick={() => handleSort('zoneName')}>
-                    Zone <SortIcon col="zoneName" />
-                  </div>
-                  <div className="w-24 cursor-pointer text-center" onClick={() => handleSort('totalContracts')}>
-                    Contracts <SortIcon col="totalContracts" />
-                  </div>
-                  <div className="w-32 cursor-pointer text-center" onClick={() => handleSort('pmPercentage')}>
-                    PM Done <SortIcon col="pmPercentage" />
-                  </div>
-                  <div className="w-32 cursor-pointer text-right" onClick={() => handleSort('totalValue')}>
-                    Total Portfolio <SortIcon col="totalValue" />
-                  </div>
-                  <div className="w-8"></div>
-                </div>
-              </div>
-
-              {/* Customer Rows */}
-              {customerSummaries.map((cs, idx) => {
-                const isExpanded = expandedCustomerId === (cs.customerId || cs.customerName);
-                return (
-                  <div
-                    key={`cust-${cs.customerId || idx}`}
-                    className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all overflow-hidden"
-                  >
-                    <div
-                      className="p-5 flex items-center justify-between gap-4 cursor-pointer"
-                      onClick={() => setExpandedCustomerId(isExpanded ? null : (cs.customerId || cs.customerName))}
-                    >
-                      <div className="flex items-center gap-4 min-w-0 flex-1">
-                        <div className={`w-11 h-11 rounded-2xl bg-gradient-to-br ${getCustomerColorClass(cs.customerName)} flex items-center justify-center text-white text-sm font-extrabold flex-shrink-0 shadow-sm`}>
-                          {(cs.customerName || 'C').charAt(0).toUpperCase()}
-                        </div>
-                        <div className="min-w-0">
-                          <h3 className="font-extrabold text-slate-850 text-sm truncate flex items-center gap-2">
-                            {cs.customerName || 'Unassigned'}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                router.push(`${getBaseRoute()}/customers/${cs.customerId}`);
-                              }}
-                              className="text-slate-400 hover:text-[#82A094] p-0.5"
-                              title="Open Customer Account"
-                            >
-                              <ExternalLink className="w-3.5 h-3.5" />
-                            </button>
-                          </h3>
-                          <div className="flex items-center gap-2 text-xs text-slate-400 mt-0.5">
-                            <MapPin className="w-3 h-3 flex-shrink-0" />
-                            <span className="truncate">{cs.place || '—'}</span>
-                          </div>
-
-                          <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
-                            {Array.from(new Set(cs.contracts.map(c => c.mcType).filter(Boolean))).map(sla => (
-                              <span key={sla} className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${getSlaColor(sla)}`}>
-                                {sla}
-                              </span>
-                            ))}
-
-                            {cs.hasSoftwareSupport && (
-                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-50 text-indigo-650 border border-indigo-100">
-                                <ShieldCheck className="w-2.5 h-2.5" />
-                                SW Support
-                              </span>
-                            )}
-
-                            {cs.contracts.filter(c => c.status === 'Expiring Soon').length > 0 && (
-                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-100">
-                                <AlertTriangle className="w-2.5 h-2.5" />
-                                {cs.contracts.filter(c => c.status === 'Expiring Soon').length} Expiring Soon
-                              </span>
-                            )}
-                            {cs.contracts.filter(c => c.status === 'Expired').length > 0 && (
-                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-rose-50 text-rose-700 border border-rose-100">
-                                <Clock className="w-2.5 h-2.5" />
-                                {cs.contracts.filter(c => c.status === 'Expired').length} Expired
-                              </span>
-                            )}
-
-                            {cs.contracts.some(c => c.responsible) && (
-                              <span className="text-[10px] text-slate-400 font-medium ml-1">
-                                • Resp: {Array.from(new Set(cs.contracts.flatMap(c => normalizeEngineerNames(c.responsible)))).join(', ')}
-                              </span>
-                            )}
-                          </div>
-                        </div>
+                  {/* Header Row */}
+                  <div className="bg-[#546A7A] text-white rounded-t-2xl px-5 py-3 text-xs font-bold flex items-center justify-between shadow-sm select-none">
+                    <div className="flex-1 cursor-pointer" onClick={() => handleSort('customerName')}>
+                      Customer Details <SortIcon col="customerName" />
+                    </div>
+                    <div className="flex items-center gap-4 text-right">
+                      <div className="w-24 cursor-pointer text-center" onClick={() => handleSort('zoneName')}>
+                        Zone <SortIcon col="zoneName" />
                       </div>
+                      <div className="w-24 cursor-pointer text-center" onClick={() => handleSort('totalContracts')}>
+                        Contracts <SortIcon col="totalContracts" />
+                      </div>
+                      <div className="w-32 cursor-pointer text-center" onClick={() => handleSort('pmPercentage')}>
+                        PM Done <SortIcon col="pmPercentage" />
+                      </div>
+                      <div className="w-32 cursor-pointer text-right" onClick={() => handleSort('totalValue')}>
+                        Total Portfolio <SortIcon col="totalValue" />
+                      </div>
+                      <div className="w-8"></div>
+                    </div>
+                  </div>
 
-                      <div className="flex items-center gap-4 text-xs font-semibold flex-shrink-0">
-                        <div className="w-24 text-center">
-                          <span className="px-2.5 py-0.5 rounded-full bg-[#82A094]/15 text-[#546A7A] text-[10px] font-bold">
-                            {cs.zoneName || '—'}
-                          </span>
-                        </div>
+                  {/* Customer Rows */}
+                  {customerSummaries.map((cs, idx) => {
+                    const isExpanded = expandedCustomerId === (cs.customerId || cs.customerName);
+                    return (
+                      <div
+                        key={`cust-${cs.customerId || idx}`}
+                        className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all overflow-hidden"
+                      >
+                        <div
+                          className="p-5 flex items-center justify-between gap-4 cursor-pointer"
+                          onClick={() => setExpandedCustomerId(isExpanded ? null : (cs.customerId || cs.customerName))}
+                        >
+                          <div className="flex items-center gap-4 min-w-0 flex-1">
+                            <div className={`w-11 h-11 rounded-2xl bg-gradient-to-br ${getCustomerColorClass(cs.customerName)} flex items-center justify-center text-white text-sm font-extrabold flex-shrink-0 shadow-sm`}>
+                              {(cs.customerName || 'C').charAt(0).toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <h3 className="font-extrabold text-slate-850 text-sm truncate flex items-center gap-2">
+                                {cs.customerName || 'Unassigned'}
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    router.push(`${getBaseRoute()}/customers/${cs.customerId}`);
+                                  }}
+                                  className="text-slate-400 hover:text-[#82A094] p-0.5"
+                                  title="Open Customer Account"
+                                >
+                                  <ExternalLink className="w-3.5 h-3.5" />
+                                </button>
+                              </h3>
+                              <div className="flex items-center gap-2 text-xs text-slate-400 mt-0.5">
+                                <MapPin className="w-3 h-3 flex-shrink-0" />
+                                <span className="truncate">{cs.place || '—'}</span>
+                              </div>
 
-                        <div className="w-24 text-center">
-                          <span className="text-slate-700 font-extrabold">{cs.totalContracts}</span>
-                          {cs.activeContracts > 0 && (
-                            <span className="text-emerald-600 text-[10px] block font-bold">{cs.activeContracts} Active</span>
-                          )}
-                        </div>
+                              <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                                {Array.from(new Set(cs.contracts.map(c => c.mcType).filter(Boolean))).map(sla => (
+                                  <span key={sla} className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${getSlaColor(sla)}`}>
+                                    {sla}
+                                  </span>
+                                ))}
 
-                        <div className="w-32 flex flex-col items-center">
-                          <div className="flex items-center gap-1.5 justify-center">
-                            <span className={`font-extrabold ${cs.pmPercentage >= 75 ? 'text-emerald-600' : cs.pmPercentage >= 40 ? 'text-amber-600' : 'text-rose-600'}`}>
-                              {cs.pmPercentage}%
-                            </span>
-                            <div className="w-12 bg-slate-200 h-1.5 rounded-full overflow-hidden">
-                              <div
-                                className="h-full rounded-full"
-                                style={{
-                                  width: `${cs.pmPercentage}%`,
-                                  background: cs.pmPercentage >= 75 ? '#10b981' : cs.pmPercentage >= 40 ? '#f59e0b' : '#ef4444',
-                                }}
-                              />
+                                {cs.hasSoftwareSupport && (
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-50 text-indigo-650 border border-indigo-100">
+                                    <ShieldCheck className="w-2.5 h-2.5" />
+                                    SW Support
+                                  </span>
+                                )}
+
+                                {cs.contracts.filter(c => c.status === 'Expiring Soon').length > 0 && (
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-100">
+                                    <AlertTriangle className="w-2.5 h-2.5" />
+                                    {cs.contracts.filter(c => c.status === 'Expiring Soon').length} Expiring Soon
+                                  </span>
+                                )}
+                                {cs.contracts.filter(c => c.status === 'Expired').length > 0 && (
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-rose-50 text-rose-700 border border-rose-100">
+                                    <Clock className="w-2.5 h-2.5" />
+                                    {cs.contracts.filter(c => c.status === 'Expired').length} Expired
+                                  </span>
+                                )}
+
+                                {cs.contracts.some(c => c.responsible) && (
+                                  <span className="text-[10px] text-slate-400 font-medium ml-1">
+                                    • Resp: {Array.from(new Set(cs.contracts.flatMap(c => normalizeEngineerNames(c.responsible)))).join(', ')}
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
-                          {cs.pmOverdue > 0 && (
-                            <span className="text-rose-600 font-bold text-[9px] mt-0.5 uppercase tracking-wider">{cs.pmOverdue} Overdue</span>
-                          )}
-                        </div>
 
-                        <div className="w-32 text-right">
-                          <span className="text-sm font-extrabold text-slate-800">{formatCurrency(cs.totalValue)}</span>
-                          <span className="text-[10px] text-slate-400 block font-medium">{cs.totalMachines} Machine{cs.totalMachines !== 1 ? 's' : ''}</span>
-                        </div>
+                          <div className="flex items-center gap-4 text-xs font-semibold flex-shrink-0">
+                            <div className="w-24 text-center">
+                              <span className="px-2.5 py-0.5 rounded-full bg-[#82A094]/15 text-[#546A7A] text-[10px] font-bold">
+                                {cs.zoneName || '—'}
+                              </span>
+                            </div>
 
-                        <div className="w-8 flex justify-center">
-                          {isExpanded ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
-                        </div>
-                      </div>
-                    </div>
+                            <div className="w-24 text-center">
+                              <span className="text-slate-700 font-extrabold">{cs.totalContracts}</span>
+                              {cs.activeContracts > 0 && (
+                                <span className="text-emerald-600 text-[10px] block font-bold">{cs.activeContracts} Active</span>
+                              )}
+                            </div>
 
-                    {isExpanded && (
-                      <div className="border-t border-slate-100 bg-slate-50/50 p-4 space-y-4 animate-in slide-in-from-top-2 duration-200">
-                        <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-2">
-                          <FileText className="w-3.5 h-3.5 text-[#82A094]" />
-                          Contracts details for {cs.customerName} ({cs.contracts.length})
-                        </h4>
-                        <div className="space-y-3">
-                          {cs.contracts.map((contract, cIdx) => {
-                            const daysLeft = getDaysRemaining(contract.endDate);
-                            return (
-                              <div key={`c-${contract.id}`} className="bg-white rounded-xl border border-slate-100 p-4 shadow-sm">
-                                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                                  <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#546A7A] to-[#6F8A9D] flex items-center justify-center text-white text-xs font-bold">
-                                      {cIdx + 1}
-                                    </div>
-                                    <div className="flex flex-col">
-                                      <div className="flex items-center gap-2 flex-wrap">
-                                        <span className="font-extrabold text-slate-800 text-xs">{contract.contractNumber}</span>
-                                        {(() => {
-                                          const dept = extractDepartmentFromCustomer(contract.customerName, cs.customerName);
-                                          if (dept && dept !== '—') {
-                                            return (
-                                              <span className="px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-700 text-[10px] font-bold shadow-xs" title="Department">
-                                                {dept}
-                                              </span>
-                                            );
-                                          }
-                                          return null;
-                                        })()}
-                                        {contract.poNo && <span className="text-[10px] font-semibold text-slate-400">(PO: {contract.poNo})</span>}
-                                        <span className={`px-2 py-0.5 rounded-full border text-[9px] font-bold ${getStatusBadge(contract.status)}`}>
-                                          {contract.status}
-                                        </span>
-                                        <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${getSlaColor(contract.mcType)}`}>
-                                          {contract.mcType}
-                                        </span>
-                                      </div>
-                                      <div className="text-[11px] text-slate-400 mt-1 flex gap-3">
-                                        <span>End Date: <strong className="text-slate-600 font-semibold">{formatDate(contract.endDate)}</strong></span>
-                                        <span>•</span>
-                                        <span className={daysLeft <= 0 ? 'text-rose-600 font-bold' : daysLeft <= 30 ? 'text-amber-600 font-bold' : 'text-slate-500'}>
-                                          {daysLeft < 0 ? `Overdue by ${Math.abs(daysLeft)} Days` : `${daysLeft} Days Remaining`}
-                                        </span>
-                                        <span>•</span>
-                                        <span>Responsible: <strong className="text-slate-600 font-semibold">{formatEngineerDisplayName(contract.responsible)}</strong></span>
-                                      </div>
-                                    </div>
-                                  </div>
-
-                                  <div className="flex items-center gap-4 justify-between lg:justify-end">
-                                    <div className="flex gap-1 items-center">
-                                      {contract.pmSchedules.map((p, pidx) => {
-                                        if (p.status === 'Not Applicable') return null;
-                                        const done = p.status === 'Completed';
-                                        const overdue = !done && p.range && isRangeOverdue(p.range);
-                                        return (
-                                          <div
-                                            key={pidx}
-                                            className={`w-6 h-6 rounded-lg flex items-center justify-center text-[9px] font-bold border transition-all ${done
-                                                ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'
-                                                : overdue
-                                                  ? 'bg-rose-500/10 text-rose-700 border-rose-500/20'
-                                                  : 'bg-amber-500/10 text-amber-700 border-amber-500/20'
-                                              }`}
-                                            title={`PM Visit ${p.pmNumber}: ${p.status}\nRange: ${p.range}`}
-                                          >
-                                            {done ? '✓' : overdue ? '!' : p.pmNumber}
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-
-                                    <div className="text-right">
-                                      <div className="text-xs font-extrabold text-slate-800">{formatCurrency(contract.amount)}</div>
-                                      <div className="text-[10px] text-slate-400 font-medium">{contract.noOfMachine} Machine{contract.noOfMachine !== 1 ? 's' : ''}</div>
-                                    </div>
-
-                                    <button
-                                      type="button"
-                                      onClick={() => router.push(`${getBaseRoute()}/contracts/${contract.id}`)}
-                                      className="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-55 text-[10px] font-bold text-slate-600 transition-colors"
-                                    >
-                                      Open Agreement
-                                    </button>
-                                  </div>
+                            <div className="w-32 flex flex-col items-center">
+                              {(dateFrom || dateTo) ? (
+                                <div className="text-center">
+                                  <span className="font-extrabold text-[#546A7A] text-xs">
+                                    {cs.pmTotal} Pending PM{cs.pmTotal !== 1 ? 's' : ''}
+                                  </span>
+                                  {cs.pmOverdue > 0 && (
+                                    <span className="text-rose-600 font-bold text-[9px] block uppercase tracking-wider">
+                                      {cs.pmOverdue} Overdue
+                                    </span>
+                                  )}
                                 </div>
+                              ) : (
+                                <>
+                                  <div className="flex items-center gap-1.5 justify-center">
+                                    <span className={`font-extrabold ${cs.pmPercentage >= 75 ? 'text-emerald-600' : cs.pmPercentage >= 40 ? 'text-amber-600' : 'text-rose-600'}`}>
+                                      {cs.pmPercentage}%
+                                    </span>
+                                    <div className="w-12 bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                                      <div
+                                        className="h-full rounded-full"
+                                        style={{
+                                          width: `${cs.pmPercentage}%`,
+                                          background: cs.pmPercentage >= 75 ? '#10b981' : cs.pmPercentage >= 40 ? '#f59e0b' : '#ef4444',
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+                                  {cs.pmOverdue > 0 && (
+                                    <span className="text-rose-600 font-bold text-[9px] mt-0.5 uppercase tracking-wider">{cs.pmOverdue} Overdue</span>
+                                  )}
+                                </>
+                              )}
+                            </div>
 
-                                <div className="mt-3 pt-3 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                                  {(() => {
-                                    const activePMs = (contract.pmSchedules || []).filter(p => {
-                                      if (p.status === 'Not Applicable') return false;
-                                      if (dateFrom || dateTo) return isPMInDateRange(p.range, dateFrom, dateTo);
-                                      return true;
-                                    });
+                            <div className="w-32 text-right">
+                              <span className="text-sm font-extrabold text-slate-800">{formatCurrency(cs.totalValue)}</span>
+                              <span className="text-[10px] text-slate-400 block font-medium">{cs.totalMachines} Machine{cs.totalMachines !== 1 ? 's' : ''}</span>
+                            </div>
 
-                                    if (activePMs.length === 0) {
-                                      return (
-                                        <div className="col-span-full py-2 text-center text-slate-400 text-[11px] italic">
-                                          No PM visits scheduled in this period.
+                            <div className="w-8 flex justify-center">
+                              {isExpanded ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+                            </div>
+                          </div>
+                        </div>
+
+                        {isExpanded && (
+                          <div className="border-t border-slate-100 bg-slate-50/50 p-4 space-y-4 animate-in slide-in-from-top-2 duration-200">
+                            <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-2">
+                              <FileText className="w-3.5 h-3.5 text-[#82A094]" />
+                              Contracts details for {cs.customerName} ({cs.contracts.length})
+                            </h4>
+                            <div className="space-y-3">
+                              {cs.contracts.map((contract, cIdx) => {
+                                const daysLeft = getDaysRemaining(contract.endDate);
+                                return (
+                                  <div key={`c-${contract.id}`} className="bg-white rounded-xl border border-slate-100 p-4 shadow-sm">
+                                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                                      <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#546A7A] to-[#6F8A9D] flex items-center justify-center text-white text-xs font-bold">
+                                          {cIdx + 1}
                                         </div>
-                                      );
-                                    }
-
-                                    return activePMs.map((p, pidx) => {
-                                      const done = p.status === 'Completed';
-                                      const overdue = !done && p.range && isRangeOverdue(p.range);
-                                      return (
-                                        <div
-                                          key={pidx}
-                                          className={`px-3 py-2 rounded-xl border flex justify-between items-center text-[11px] ${done
-                                              ? 'bg-emerald-500/5 border-emerald-500/15'
-                                              : overdue
-                                                ? 'bg-rose-500/5 border-rose-500/15'
-                                                : 'bg-slate-50/50 border-slate-100'
-                                            }`}
-                                        >
-                                          <div className="min-w-0">
-                                            <span className={`font-bold block text-[9px] uppercase tracking-wider ${done ? 'text-emerald-700' : overdue ? 'text-rose-700' : 'text-slate-400'
-                                              }`}>
-                                              PM Cycle {p.pmNumber}
+                                        <div className="flex flex-col">
+                                          <div className="flex items-center gap-2 flex-wrap">
+                                            <span className="font-extrabold text-slate-800 text-xs">{contract.contractNumber}</span>
+                                            {(() => {
+                                              const dept = extractDepartmentFromCustomer(contract.customerName, cs.customerName);
+                                              if (dept && dept !== '—') {
+                                                return (
+                                                  <span className="px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-700 text-[10px] font-bold shadow-xs" title="Department">
+                                                    {dept}
+                                                  </span>
+                                                );
+                                              }
+                                              return null;
+                                            })()}
+                                            {contract.poNo && <span className="text-[10px] font-semibold text-slate-400">(PO: {contract.poNo})</span>}
+                                            <span className={`px-2 py-0.5 rounded-full border text-[9px] font-bold ${getStatusBadge(contract.status)}`}>
+                                              {contract.status}
                                             </span>
-                                            {p.range && (
-                                              <div className="text-[10px] text-slate-600 font-medium">
-                                                <span>Start: <strong className="text-slate-700">{parseRangeDates(p.range).startDate}</strong></span>
-                                                <span className="mx-1 text-slate-300">•</span>
-                                                <span>End: <strong className="text-slate-700">{parseRangeDates(p.range).endDate}</strong></span>
-                                              </div>
-                                            )}
-                                            {done && p.completedAt && (
-                                              <span className="text-[9px] font-bold text-emerald-600 block mt-0.5">
-                                                Done: {formatDate(p.completedAt)}
-                                              </span>
-                                            )}
+                                            <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${getSlaColor(contract.mcType)}`}>
+                                              {contract.mcType}
+                                            </span>
                                           </div>
-                                          <span className={`px-2 py-0.5 rounded text-[9px] font-bold whitespace-nowrap ${done
-                                              ? 'bg-emerald-500/10 text-emerald-700'
-                                              : overdue
-                                                ? 'bg-rose-500/10 text-rose-700'
-                                                : 'bg-amber-500/10 text-amber-700'
-                                            }`}>
-                                            {done ? '✓ Done' : overdue ? '! Overdue' : 'Pending'}
-                                          </span>
+                                          <div className="text-[11px] text-slate-400 mt-1 flex gap-3">
+                                            <span>End Date: <strong className="text-slate-600 font-semibold">{formatDate(contract.endDate)}</strong></span>
+                                            <span>•</span>
+                                            <span className={daysLeft <= 0 ? 'text-rose-600 font-bold' : daysLeft <= 30 ? 'text-amber-600 font-bold' : 'text-slate-500'}>
+                                              {daysLeft < 0 ? `Overdue by ${Math.abs(daysLeft)} Days` : `${daysLeft} Days Remaining`}
+                                            </span>
+                                            <span>•</span>
+                                            <span>Responsible: <strong className="text-slate-600 font-semibold">{formatEngineerDisplayName(contract.responsible)}</strong></span>
+                                          </div>
                                         </div>
-                                      );
-                                    });
-                                  })()}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
+                                      </div>
+
+                                      <div className="flex items-center gap-4 justify-between lg:justify-end">
+                                        <div className="flex gap-1 items-center">
+                                          {contract.pmSchedules.map((p, pidx) => {
+                                            if (p.status === 'Not Applicable') return null;
+                                            const done = p.status === 'Completed';
+                                            const overdue = !done && p.range && isRangeOverdue(p.range);
+                                            return (
+                                              <div
+                                                key={pidx}
+                                                className={`w-6 h-6 rounded-lg flex items-center justify-center text-[9px] font-bold border transition-all ${done
+                                                  ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'
+                                                  : overdue
+                                                    ? 'bg-rose-500/10 text-rose-700 border-rose-500/20'
+                                                    : 'bg-amber-500/10 text-amber-700 border-amber-500/20'
+                                                  }`}
+                                                title={`PM Visit ${p.pmNumber}: ${p.status}\nRange: ${p.range}`}
+                                              >
+                                                {done ? '✓' : overdue ? '!' : p.pmNumber}
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+
+                                        <div className="text-right">
+                                          <div className="text-xs font-extrabold text-slate-800">{formatCurrency(contract.amount)}</div>
+                                          <div className="text-[10px] text-slate-400 font-medium">{contract.noOfMachine} Machine{contract.noOfMachine !== 1 ? 's' : ''}</div>
+                                        </div>
+
+                                        <button
+                                          type="button"
+                                          onClick={() => router.push(`${getBaseRoute()}/contracts/${contract.id}`)}
+                                          className="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-55 text-[10px] font-bold text-slate-600 transition-colors"
+                                        >
+                                          Open Agreement
+                                        </button>
+                                      </div>
+                                    </div>
+
+                                    <div className="mt-3 pt-3 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                                      {(() => {
+                                        const activePMs = (contract.pmSchedules || []).filter(p => {
+                                          if (p.status === 'Not Applicable' || p.status === 'Completed') return false;
+                                          if (dateFrom || dateTo) return isPMEndDateInRange(p.range, dateFrom, dateTo);
+                                          return true;
+                                        });
+
+                                        if (activePMs.length === 0) {
+                                          return (
+                                            <div className="col-span-full py-2 text-center text-slate-400 text-[11px] italic">
+                                              No pending PM visits scheduled in this period.
+                                            </div>
+                                          );
+                                        }
+
+                                        return activePMs.map((p, pidx) => {
+                                          const overdue = p.range && isRangeOverdue(p.range);
+                                          return (
+                                            <div
+                                              key={pidx}
+                                              className={`px-3 py-2 rounded-xl border flex justify-between items-center text-[11px] ${overdue
+                                                  ? 'bg-rose-500/5 border-rose-500/15'
+                                                  : 'bg-amber-500/5 border-amber-500/15'
+                                                }`}
+                                            >
+                                              <div className="min-w-0">
+                                                <span className={`font-bold block text-[9px] uppercase tracking-wider ${overdue ? 'text-rose-700' : 'text-amber-700'
+                                                  }`}>
+                                                  PM Cycle {p.pmNumber}
+                                                </span>
+                                                {p.range && (
+                                                  <div className="text-[10px] text-slate-600 font-medium">
+                                                    <span>Start: <strong className="text-slate-700">{parseRangeDates(p.range).startDate}</strong></span>
+                                                    <span className="mx-1 text-slate-300">•</span>
+                                                    <span>End: <strong className="text-slate-700">{parseRangeDates(p.range).endDate}</strong></span>
+                                                  </div>
+                                                )}
+                                              </div>
+                                              <span className={`px-2 py-0.5 rounded text-[9px] font-bold whitespace-nowrap ${overdue
+                                                  ? 'bg-rose-500/10 text-rose-700'
+                                                  : 'bg-amber-500/10 text-amber-700'
+                                                }`}>
+                                                {overdue ? '! Overdue' : '⏳ Pending'}
+                                              </span>
+                                            </div>
+                                          );
+                                        });
+                                      })()}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                );
-              })}
-            </>
+                    );
+                  })}
+                </>
+              )}
+            </div>
           )}
-        </div>
-      )}
         </>
       )}
 

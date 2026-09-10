@@ -136,27 +136,30 @@ const parseRangeDatesFormatted = (range: string | null | undefined): { startDate
     };
 };
 
-const isPMInRange = (pmRange: string | null | undefined, dateFrom?: string, dateTo?: string, status?: string): boolean => {
-    if (!dateFrom && !dateTo) return true;
-    if (!pmRange) return true;
-
+// Extracts the PM visit end date from range string (e.g. "11/08/2026 TO 31/08/2026" -> 31/08/2026)
+const getPMEndDate = (pmRange: string | null | undefined): Date | null => {
+    if (!pmRange) return null;
     const parts = pmRange.split(/\s+(?:TO|to|-)\s+/);
-    const startObj = parseDateObj(parts[0]);
-    const endObj = parts.length >= 2 ? parseDateObj(parts[parts.length - 1]) : startObj;
+    const endStr = parts.length >= 2 ? parts[parts.length - 1]?.trim() : parts[0]?.trim();
+    return parseDateObj(endStr);
+};
 
-    // If dateTo is provided: Any PM scheduled AFTER dateTo must be EXCLUDED!
+// Checks if the PM visit ENDS between dateFrom and dateTo
+const isPMEndDateInRange = (pmRange: string | null | undefined, dateFrom?: string, dateTo?: string): boolean => {
+    if (!dateFrom && !dateTo) return true;
+    const endObj = getPMEndDate(pmRange);
+    if (!endObj) return false;
+
+    if (dateFrom) {
+        const fromObj = new Date(dateFrom);
+        fromObj.setHours(0, 0, 0, 0);
+        if (endObj < fromObj) return false;
+    }
+
     if (dateTo) {
         const toObj = new Date(dateTo);
         toObj.setHours(23, 59, 59, 999);
-        if (startObj && startObj > toObj) return false;
-        if (!startObj && endObj && endObj > toObj) return false;
-    }
-
-    // If dateFrom is provided: Completed PMs done before dateFrom are excluded.
-    if (dateFrom && status === 'Completed') {
-        const fromObj = new Date(dateFrom);
-        fromObj.setHours(0, 0, 0, 0);
-        if (endObj && endObj < fromObj) return false;
+        if (endObj > toObj) return false;
     }
 
     return true;
@@ -164,12 +167,10 @@ const isPMInRange = (pmRange: string | null | undefined, dateFrom?: string, date
 
 const isRangeOverdue = (range: string): boolean => {
     try {
-        const parts = range.split(/\s+(?:TO|to|-)\s+/);
-        const endStr = parts[parts.length - 1]?.trim();
-        if (!endStr) return false;
+        const endObj = getPMEndDate(range);
+        if (!endObj) return false;
         const now = new Date();
-        const endDateObj = parseDateObj(endStr);
-        return endDateObj ? endDateObj < now : false;
+        return endObj < now;
     } catch { return false; }
 };
 
@@ -224,7 +225,10 @@ function drawHeader(doc: any, filters: any, logoBase64: string | null, totalCust
 
     // Title
     doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(...COLORS.white);
-    doc.text('PREVENTIVE MAINTENANCE & CONTRACT REPORT', 60, 12);
+    const title = (filters.dateFrom || filters.dateTo)
+        ? 'PENDING PREVENTIVE MAINTENANCE VISITS REPORT'
+        : 'PREVENTIVE MAINTENANCE & CONTRACT REPORT';
+    doc.text(title, 60, 12);
 
     // Subtitle / Filters
     doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(...COLORS.accentCyan);
@@ -250,7 +254,8 @@ function drawHeader(doc: any, filters: any, logoBase64: string | null, totalCust
         doc.text(`Date: ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`, badgeX + badgeW / 2, badgeY + 6, { align: 'center' });
     }
     doc.setFontSize(6); doc.setTextColor(...COLORS.accentCyan);
-    doc.text(`${totalCustomers} Customers (${totalPMs} PMs)  |  Confidential`, badgeX + badgeW / 2, badgeY + 12, { align: 'center' });
+    const pmCountLabel = (filters.dateFrom || filters.dateTo) ? 'Pending PMs' : 'PMs';
+    doc.text(`${totalCustomers} Customers (${totalPMs} ${pmCountLabel})  |  Confidential`, badgeX + badgeW / 2, badgeY + 12, { align: 'center' });
 
     return 30;
 }
@@ -310,24 +315,65 @@ export async function generateContractReportPdf(
     const pageW = doc.internal.pageSize.getWidth();
     const pageNum = { val: 1 };
 
-    // Calculate total PM stats across all filtered customers
-    let totalPMs = 0;
-    let completedPMs = 0;
-    let pendingPMs = 0;
+    // Calculate total PM stats across filtered customers
+    const isDateFiltered = Boolean(filters.dateFrom || filters.dateTo);
+    const now = new Date();
+
+    // Filter to only customers & contracts with PENDING visits that END between dateFrom and dateTo
+    const filteredCustomerList: any[] = [];
+
+    data.forEach((cust: any) => {
+        const matchingContracts = (cust.contracts || []).filter((ct: any) => {
+            const applicablePMs = (ct.pmSchedules || []).filter((p: any) => p.status !== 'Not Applicable');
+            const pendingEndingInRange = applicablePMs.filter((p: any) => {
+                if (p.status === 'Completed' || p.status === 'Not Applicable') return false;
+                if (isDateFiltered) return isPMEndDateInRange(p.range, filters.dateFrom, filters.dateTo);
+                return true;
+            });
+            return pendingEndingInRange.length > 0;
+        });
+
+        if (matchingContracts.length > 0) {
+            const totalVal = matchingContracts.reduce((sum: number, c: any) => sum + Number(c.amount || 0), 0);
+            const totalMach = matchingContracts.reduce((sum: number, c: any) => sum + Number(c.noOfMachine || 0), 0);
+
+            filteredCustomerList.push({
+                ...cust,
+                contracts: matchingContracts,
+                totalContracts: matchingContracts.length,
+                totalValue: totalVal,
+                totalMachines: totalMach,
+            });
+        }
+    });
+
+    // Compute effective totals from filtered accounts
+    let totalPendingPMs = 0;
     let overduePMs = 0;
     let totalContractsCount = 0;
     let totalMachinesCount = 0;
+    let totalPortfolioValue = 0;
 
-    data.forEach(cust => {
-        totalContractsCount += (cust.totalContracts || cust.contracts?.length || 0);
+    filteredCustomerList.forEach(cust => {
+        totalContractsCount += cust.contracts.length;
         totalMachinesCount += (cust.totalMachines || 0);
-        completedPMs += (cust.pmCompleted || 0);
-        overduePMs += (cust.pmOverdue || 0);
-        totalPMs += (cust.pmTotal || 0);
+        totalPortfolioValue += (cust.totalValue || 0);
+        cust.contracts.forEach((c: any) => {
+            const applicablePMs = (c.pmSchedules || []).filter((p: any) => p.status !== 'Not Applicable');
+            const matchingPending = applicablePMs.filter((p: any) => {
+                if (p.status === 'Completed' || p.status === 'Not Applicable') return false;
+                if (isDateFiltered) return isPMEndDateInRange(p.range, filters.dateFrom, filters.dateTo);
+                return true;
+            });
+            totalPendingPMs += matchingPending.length;
+            matchingPending.forEach((pm: any) => {
+                const endObj = getPMEndDate(pm.range);
+                if (endObj && endObj < now) overduePMs += 1;
+            });
+        });
     });
-    pendingPMs = totalPMs - completedPMs;
 
-    let y = drawHeader(doc, filters, logoBase64, data.length, totalPMs);
+    let y = drawHeader(doc, filters, logoBase64, filteredCustomerList.length, totalPendingPMs);
 
     // ── 5 Executive KPI Cards (ASCII safe: no ₹, no ≤) ──
     const cardGap = 4;
@@ -335,38 +381,18 @@ export async function generateContractReportPdf(
     const cardW = (pageW - 20 - (totalCards - 1) * cardGap) / totalCards;
     const cardH = 24;
 
-    const pmPct = totalPMs > 0 ? Math.round((completedPMs / totalPMs) * 100) : 0;
-
     drawKPICard(
         doc,
         10 + 0 * (cardW + cardGap), y, cardW, cardH,
-        'Total PM Visits',
-        String(totalPMs),
+        'Pending PM Visits',
+        String(totalPendingPMs),
         COLORS.headerLight,
-        `${totalContractsCount} Agreements (${totalMachinesCount} Machines)`
+        `${totalContractsCount} Agreements in Scope`
     );
 
     drawKPICard(
         doc,
         10 + 1 * (cardW + cardGap), y, cardW, cardH,
-        'Completed PMs',
-        String(completedPMs),
-        COLORS.kardexGreen,
-        `${pmPct}% Execution Rate`
-    );
-
-    drawKPICard(
-        doc,
-        10 + 2 * (cardW + cardGap), y, cardW, cardH,
-        'Pending PMs',
-        String(pendingPMs),
-        COLORS.kardexSand,
-        'Scheduled & Upcoming'
-    );
-
-    drawKPICard(
-        doc,
-        10 + 3 * (cardW + cardGap), y, cardW, cardH,
         'Overdue PMs',
         String(overduePMs),
         overduePMs > 0 ? COLORS.kardexRed : COLORS.kardexGreen,
@@ -375,11 +401,29 @@ export async function generateContractReportPdf(
 
     drawKPICard(
         doc,
+        10 + 2 * (cardW + cardGap), y, cardW, cardH,
+        'Customer Accounts',
+        String(filteredCustomerList.length),
+        COLORS.kardexSand,
+        'Accounts with Pending PMs'
+    );
+
+    drawKPICard(
+        doc,
+        10 + 3 * (cardW + cardGap), y, cardW, cardH,
+        'Covered Machines',
+        String(totalMachinesCount),
+        COLORS.headerLight,
+        'Equipment Units'
+    );
+
+    drawKPICard(
+        doc,
         10 + 4 * (cardW + cardGap), y, cardW, cardH,
         'Portfolio Value',
-        fmtCurrency(summary?.totalValue || 0),
+        fmtCurrency(totalPortfolioValue),
         COLORS.kardexSand,
-        `${data.length} Accounts in View`
+        'Filtered Agreements Value'
     );
 
     y += cardH + 6;
@@ -390,7 +434,7 @@ export async function generateContractReportPdf(
         { content: 'PM Visit', styles: { halign: 'center' } },
         { content: 'PM Schedule Window', styles: { halign: 'center' } },
         { content: 'PM Status', styles: { halign: 'center' } },
-        { content: 'Completed Date', styles: { halign: 'center' } },
+        { content: 'Timeline / Due', styles: { halign: 'center' } },
         { content: 'MC Type / SLA', styles: { halign: 'center' } },
         { content: 'Responsible Engineer', styles: { halign: 'left' } },
         { content: 'PO Number', styles: { halign: 'center' } },
@@ -412,46 +456,39 @@ export async function generateContractReportPdf(
 
     const body: any[] = [];
 
-    data.forEach((cust: any, custIdx: number) => {
+    filteredCustomerList.forEach((cust: any, custIdx: number) => {
         const contracts = cust.contracts || [];
-
-        // Flatten PMs or contracts for this customer
         const customerPmRows: any[] = [];
 
         contracts.forEach((c: any) => {
             const applicablePMs = (c.pmSchedules || []).filter((p: any) => p.status !== 'Not Applicable');
-            const matchingPMs = applicablePMs.filter((pm: any) => isPMInRange(pm.range, filters.dateFrom, filters.dateTo, pm.status));
+            const matchingPMs = applicablePMs.filter((pm: any) => {
+                if (pm.status === 'Completed' || pm.status === 'Not Applicable') return false;
+                if (isDateFiltered) return isPMEndDateInRange(pm.range, filters.dateFrom, filters.dateTo);
+                return true;
+            });
+
             const daysLeft = getDaysRemainingPdf(c.endDate);
             const daysRemainingText = daysLeft < 0 ? `${Math.abs(daysLeft)}d overdue` : `${daysLeft}d left`;
             const expiryText = c.endDate ? `${fmtDatePdf(c.endDate)} (${daysRemainingText})` : '—';
             const deptVal = extractDepartmentFromCustomer(c.customerName, cust.customerName);
 
-            if (matchingPMs.length > 0) {
-                matchingPMs.forEach((pm: any) => {
-                    const isDone = pm.status === 'Completed';
-                    const isOverdue = !isDone && pm.range && isRangeOverdue(pm.range);
-                    const { startDate: pmStart, endDate: pmEnd } = parseRangeDatesFormatted(pm.range);
+            matchingPMs.forEach((pm: any) => {
+                const endObj = getPMEndDate(pm.range);
+                const isOverdue = endObj ? endObj < now : false;
+                const { startDate: pmStart, endDate: pmEnd } = parseRangeDatesFormatted(pm.range);
 
-                    customerPmRows.push({
-                        pmNumber: `PM ${pm.pmNumber}`,
-                        schedulePeriod: (pmStart !== '—' || pmEnd !== '—') ? `${pmStart} to ${pmEnd}` : (pm.range || '—'),
-                        status: isDone ? 'Completed' : (isOverdue ? 'Overdue' : 'Pending'),
-                        completedAt: pm.completedAt ? fmtDatePdf(pm.completedAt) : '—',
-                        mcType: c.mcType || '—',
-                        responsible: formatEngineerDisplayName(c.responsible),
-                        poNo: c.poNo || '—',
-                        department: deptVal,
-                        expiryWithDays: expiryText,
-                        amount: c.amount || 0
-                    });
-                });
-            } else {
-                // If no specific PMs matched but contract exists, list contract line
+                let pmDaysDueText = '—';
+                if (endObj) {
+                    const days = Math.ceil((endObj.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+                    pmDaysDueText = days < 0 ? `${Math.abs(days)}d overdue` : (days === 0 ? 'Due today' : `Due in ${days}d`);
+                }
+
                 customerPmRows.push({
-                    pmNumber: `${c.noOfVisits || 0} Visits`,
-                    schedulePeriod: `${fmtDatePdf(c.startDate)} to ${fmtDatePdf(c.endDate)}`,
-                    status: c.status || 'Active',
-                    completedAt: '—',
+                    pmNumber: `PM ${pm.pmNumber}`,
+                    schedulePeriod: (pmStart !== '—' || pmEnd !== '—') ? `${pmStart} to ${pmEnd}` : (pm.range || '—'),
+                    status: isOverdue ? 'Overdue' : 'Pending',
+                    dueIn: pmDaysDueText,
                     mcType: c.mcType || '—',
                     responsible: formatEngineerDisplayName(c.responsible),
                     poNo: c.poNo || '—',
@@ -459,8 +496,10 @@ export async function generateContractReportPdf(
                     expiryWithDays: expiryText,
                     amount: c.amount || 0
                 });
-            }
+            });
         });
+
+        if (customerPmRows.length === 0) return;
 
         // Pick distinct Kardex brand color for this customer
         const customerColor = CUSTOMER_HEADER_COLORS[custIdx % CUSTOMER_HEADER_COLORS.length];
@@ -468,8 +507,10 @@ export async function generateContractReportPdf(
         const placeText = cust.place ? `${cust.place}, ${cust.zoneName || ''} Zone` : `${cust.zoneName || ''} Zone`;
         const valueText = fmtCurrency(cust.totalValue || 0);
         const machinesText = `${cust.totalMachines || 0} Machine${cust.totalMachines !== 1 ? 's' : ''}`;
-        const pmProgress = `PM Done: ${cust.pmCompleted || 0}/${cust.pmTotal || 0} (${cust.pmPercentage || 0}%)`;
-        const overdueText = (cust.pmOverdue || 0) > 0 ? `[ ${cust.pmOverdue} Overdue ]` : `[ On Track ]`;
+        const pmPendingCount = customerPmRows.length;
+        const overdueCount = customerPmRows.filter((r: any) => r.status === 'Overdue').length;
+        const pmProgress = `${pmPendingCount} Pending Visit${pmPendingCount !== 1 ? 's' : ''}`;
+        const overdueText = overdueCount > 0 ? `[ ${overdueCount} Overdue ]` : `[ On Track ]`;
 
         const mcTypes = Array.from(new Set(contracts.map((c: any) => c.mcType).filter(Boolean))).join(', ');
         const mcTypesText = mcTypes ? `   •   SLA: ${mcTypes}` : '';
@@ -479,10 +520,10 @@ export async function generateContractReportPdf(
         const resp = Array.from(new Set(contracts.flatMap((c: any) => normalizeEngineerNames(c.responsible)))).join(', ');
         const respText = resp ? `   •   Eng: ${resp}` : '';
 
-        // 1. Customer Main Banner Row (Span 11 columns) with distinct Kardex color & rich page details
+        // 1. Customer Main Banner Row (Span 11 columns)
         body.push([
             {
-                content: `${custIdx + 1}.  ${cust.customerName.toUpperCase()}   •   ${placeText}${respText}${mcTypesText}${swText}${poText}   •   ${machinesText}   •   Total Value: ${valueText}   •   ${pmProgress}   •   ${overdueText}`,
+                content: `${custIdx + 1}.  ${cust.customerName.toUpperCase()}   •   ${placeText}${respText}${mcTypesText}${swText}${poText}   •   ${machinesText}   •   Value: ${valueText}   •   ${pmProgress}   •   ${overdueText}`,
                 colSpan: 11,
                 styles: {
                     fillColor: customerColor,
@@ -499,42 +540,53 @@ export async function generateContractReportPdf(
         // 2. Table Column Headers for this Customer
         body.push(columnHeaderRow);
 
-        // 3. PM / Contract Rows for this Customer
-        if (customerPmRows.length === 0) {
+        // 3. PM Rows for this Customer
+        customerPmRows.forEach((row: any, rIdx: number) => {
             body.push([
-                {
-                    content: 'No PM visits scheduled for this customer in selected period.',
-                    colSpan: 11,
-                    styles: {
-                        fillColor: COLORS.offWhite,
-                        textColor: COLORS.textMuted,
-                        fontStyle: 'italic',
-                        fontSize: 6.5,
-                        halign: 'center',
-                        cellPadding: 2.5
-                    }
-                }
+                String(rIdx + 1),
+                row.pmNumber,
+                row.schedulePeriod,
+                row.status,
+                row.dueIn,
+                row.mcType,
+                row.responsible,
+                row.poNo,
+                row.department,
+                row.expiryWithDays,
+                fmtCurrency(row.amount)
             ]);
-        } else {
-            customerPmRows.forEach((row: any, rIdx: number) => {
-                body.push([
-                    String(rIdx + 1),
-                    row.pmNumber,
-                    row.schedulePeriod,
-                    row.status,
-                    row.completedAt,
-                    row.mcType,
-                    row.responsible,
-                    row.poNo,
-                    row.department,
-                    row.expiryWithDays,
-                    fmtCurrency(row.amount)
-                ]);
-            });
-        }
+        });
 
-        // 4. Spacing Gap between customers
-        if (custIdx < data.length - 1) {
+        // Customer Subtotal Row
+        const customerTotalVal = contracts.reduce((sum: number, c: any) => sum + Number(c.amount || 0), 0);
+        body.push([
+            {
+                content: `Customer Total: ${customerPmRows.length} Pending PM Visit${customerPmRows.length !== 1 ? 's' : ''} across ${contracts.length} Agreement${contracts.length !== 1 ? 's' : ''}`,
+                colSpan: 10,
+                styles: {
+                    fillColor: [241, 245, 249],
+                    textColor: COLORS.textDark,
+                    fontStyle: 'bold',
+                    fontSize: 7,
+                    halign: 'right',
+                    cellPadding: 2
+                }
+            },
+            {
+                content: fmtCurrency(customerTotalVal),
+                styles: {
+                    fillColor: [241, 245, 249],
+                    textColor: COLORS.textDark,
+                    fontStyle: 'bold',
+                    fontSize: 7,
+                    halign: 'right',
+                    cellPadding: 2
+                }
+            }
+        ]);
+
+        // Spacing Gap between customers
+        if (custIdx < filteredCustomerList.length - 1) {
             body.push([
                 {
                     content: '',
@@ -549,6 +601,50 @@ export async function generateContractReportPdf(
             ]);
         }
     });
+
+    // Grand Total Row
+    if (filteredCustomerList.length > 0) {
+        body.push([
+            {
+                content: `GRAND TOTAL: ${filteredCustomerList.length} Customer Accounts  |  ${totalContractsCount} Agreements  |  ${totalPendingPMs} Pending PM Visits`,
+                colSpan: 10,
+                styles: {
+                    fillColor: COLORS.headerBg,
+                    textColor: COLORS.white,
+                    fontStyle: 'bold',
+                    fontSize: 7.5,
+                    halign: 'right',
+                    cellPadding: 2.5
+                }
+            },
+            {
+                content: fmtCurrency(totalPortfolioValue),
+                styles: {
+                    fillColor: COLORS.headerBg,
+                    textColor: COLORS.white,
+                    fontStyle: 'bold',
+                    fontSize: 7.5,
+                    halign: 'right',
+                    cellPadding: 2.5
+                }
+            }
+        ]);
+    } else {
+        body.push([
+            {
+                content: 'No pending PM visits ending within the selected date filter range.',
+                colSpan: 11,
+                styles: {
+                    fillColor: COLORS.offWhite,
+                    textColor: COLORS.textMuted,
+                    fontStyle: 'italic',
+                    fontSize: 8,
+                    halign: 'center',
+                    cellPadding: 5
+                }
+            }
+        ]);
+    }
 
     autoTable(doc, {
         body,
