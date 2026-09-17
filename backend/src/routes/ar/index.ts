@@ -247,9 +247,13 @@ router.get('/payment-batches/pending', requireFinanceApprover, paymentBatchContr
 router.get('/payment-batches/my', requireFinanceRead, paymentBatchController.getMyBatches);
 router.get('/payment-batches/:id', requireFinanceRead, paymentBatchController.getBatchById);
 router.post('/payment-batches', requireFinanceWrite, paymentBatchController.submitBatch);
+router.put('/payment-batches/:id', requireFinanceWrite, paymentBatchController.updatePendingBatch);
+router.delete('/payment-batches/:id', requireFinanceWrite, paymentBatchController.cancelBatch);
+router.post('/payment-batches/:id/items', requireFinanceWrite, paymentBatchController.addBatchItem);
 router.put('/payment-batches/:id/review', requireFinanceApprover, paymentBatchController.reviewBatch);
 router.get('/payment-batches/:id/download', requireFinanceRead, paymentBatchController.downloadBatch);
 router.put('/payment-batches/:id/resubmit', requireFinanceWrite, paymentBatchController.resubmitRejectedItems);
 router.delete('/payment-batches/:id/items/:itemId', requireFinanceWrite, paymentBatchController.deleteBatchItem);
 
 export default router;
+

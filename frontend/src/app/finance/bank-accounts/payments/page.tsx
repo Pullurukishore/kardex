@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
     PaymentRow,
     downloadICICICMS, downloadStandardPayment,
@@ -143,9 +144,11 @@ const ModeBadge = ({ mode }: { mode: string }) => {
 };
 
 export default function PaymentsPage() {
+    const router = useRouter();
     const { user } = useAuth();
     const isAdmin = user?.financeRole === FinanceRole.FINANCE_ADMIN;
     const DEFAULT_EMAIL = 'naveen.n@kardex.com';
+    const [submittedBatch, setSubmittedBatch] = useState<{ id: string; batchNumber: string } | null>(null);
     const [accounts, setAccounts] = useState<BankAccount[]>([]);
     const [loading, setLoading] = useState(true);
     const [pendingPayments, setPendingPayments] = useState<PendingPayment[]>([]);
@@ -467,7 +470,14 @@ export default function PaymentsPage() {
 
             const currency = currencyFilter !== 'ALL' ? currencyFilter : 'INR';
             const result = await submitPaymentBatch({ items, currency, exportFormat });
-            toast.success(`Batch ${result.batch.batchNumber} submitted for admin approval!`);
+            setSubmittedBatch({ id: result.batch.id, batchNumber: result.batch.batchNumber });
+            toast.success(`Batch ${result.batch.batchNumber} submitted for admin approval!`, {
+                action: {
+                    label: 'View / Edit Batch',
+                    onClick: () => router.push(`/finance/bank-accounts/payment-batches/${result.batch.id}`)
+                },
+                duration: 10000,
+            });
             setPendingPayments([]);
         } catch (error: any) {
             console.error('Submit failed:', error);
@@ -692,6 +702,34 @@ export default function PaymentsPage() {
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
+            {/* ================================================================ */}
+            {/* RECENTLY SUBMITTED BATCH NOTIFICATION BANNER */}
+            {/* ================================================================ */}
+            {submittedBatch && (
+                <div className="p-4 rounded-2xl bg-gradient-to-r from-[#82A094]/15 via-[#82A094]/10 to-[#546A7A]/10 border border-[#82A094]/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-[#82A094]/20 flex items-center justify-center shrink-0">
+                            <CheckCircle2 className="w-5 h-5 text-[#4F6A64]" />
+                        </div>
+                        <div>
+                            <p className="font-bold text-[#4F6A64] text-sm">Batch {submittedBatch.batchNumber} Submitted for Approval</p>
+                            <p className="text-xs text-[#5D6E73] mt-0.5">Need to edit amounts, dates, or remove payees before approval?</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                        <Link href={`/finance/bank-accounts/payment-batches/${submittedBatch.id}`}>
+                            <Button size="sm" className="bg-[#4F6A64] hover:bg-[#3D524D] text-white rounded-xl font-bold text-xs shadow-md">
+                                <Pencil className="w-3.5 h-3.5 mr-1.5" />
+                                View & Edit Batch
+                            </Button>
+                        </Link>
+                        <Button variant="ghost" size="sm" onClick={() => setSubmittedBatch(null)} className="text-[#5D6E73] hover:text-[#546A7A] rounded-xl text-xs">
+                            <X className="w-4 h-4" />
+                        </Button>
+                    </div>
+                </div>
+            )}
+
             {/* ================================================================ */}
             {/* HEADER SECTION */}
             {/* ================================================================ */}

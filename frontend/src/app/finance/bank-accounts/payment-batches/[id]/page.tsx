@@ -6,7 +6,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { FinanceRole } from '@/types/user.types';
 import {
   getPaymentBatchById, reviewPaymentBatch, downloadPaymentBatch,
-  resubmitRejectedItems, deleteBatchItem, PaymentBatch, formatARCurrency, formatARDate
+  resubmitRejectedItems, deleteBatchItem, updatePendingPaymentBatch,
+  cancelPaymentBatch, addPaymentBatchItem, PaymentBatch, formatARCurrency, formatARDate
 } from '@/lib/ar-api';
 import {
   downloadICICICMS, downloadStandardPayment, downloadICICICMS_CSV, downloadICICICMS_TXT,
@@ -17,7 +18,8 @@ import {
   Download, Shield, Send, User, Calendar, Hash, Banknote,
   FileSpreadsheet, FileText, FileCode, Package, Building2,
   CreditCard, ChevronDown, TrendingUp, Search,
-  CheckCheck, BanIcon, Info, Eye, RefreshCcw, Trash2
+  CheckCheck, BanIcon, Info, Eye, RefreshCcw, Trash2,
+  Plus, Save, RotateCcw, Sparkles, X
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
@@ -60,6 +62,23 @@ export default function BatchDetailPage() {
   const [activeTab, setActiveTab] = useState<'items' | 'summary' | 'preview'>('items');
   const [previewFormat, setPreviewFormat] = useState<'HDFC' | 'DB'>('HDFC');
   const [itemSearch, setItemSearch] = useState('');
+
+  // Pending Batch Management State
+  const [savingEdits, setSavingEdits] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [showAddItemModal, setShowAddItemModal] = useState(false);
+  const [addingItem, setAddingItem] = useState(false);
+  const [newItem, setNewItem] = useState({
+    vendorName: '',
+    accountNumber: '',
+    ifscCode: '',
+    bankName: '',
+    bpCode: '',
+    emailId: '',
+    amount: '',
+    transactionMode: 'NFT',
+    valueDate: new Date().toISOString().split('T')[0]
+  });
 
 
   useEffect(() => {
@@ -211,8 +230,10 @@ export default function BatchDetailPage() {
   const canDownload = batch.status === 'APPROVED';
   const isFinanceUser = user?.financeRole === FinanceRole.FINANCE_USER;
   const isRequester = user?.id === batch.requestedById;
-  const canResubmit = ['APPROVED', 'PARTIALLY_APPROVED', 'REJECTED'].includes(batch.status) && isRequester;
-  const canEditBatch = canResubmit;
+  // Editing before approval is strictly for Finance User (requester), NOT for Admin/Approver
+  const canEditPending = isPending && isFinanceUser && (isRequester || !isApprover);
+  const canResubmit = ['PARTIALLY_APPROVED', 'REJECTED'].includes(batch.status) && isRequester && isFinanceUser;
+  const canEditBatch = canEditPending || canResubmit;
 
   const handleResubmit = async () => {
     if (!batch) return;
@@ -238,16 +259,120 @@ export default function BatchDetailPage() {
     }
   };
 
+  const handleSavePendingEdits = async () => {
+    if (!batch) return;
+    if (Object.keys(edits).length === 0) return;
+    setSavingEdits(true);
+    try {
+      const itemsToUpdate = Object.entries(edits).map(([id, data]) => ({
+        id,
+        ...data
+      }));
+      const result = await updatePendingPaymentBatch(batchId, { items: itemsToUpdate });
+      toast.success(result.message || 'Batch updated successfully');
+      setBatch(result.batch);
+      setEdits({});
+    } catch (error: any) {
+      toast.error(error?.response?.data?.error || 'Failed to save changes');
+    } finally {
+      setSavingEdits(false);
+    }
+  };
+
+  const handleCancelBatch = async () => {
+    if (!batch) return;
+    if (!confirm(`Are you sure you want to cancel and delete batch ${batch.batchNumber}? This cannot be undone.`)) return;
+    setCancelling(true);
+    try {
+      const result = await cancelPaymentBatch(batchId);
+      toast.success(result.message || 'Batch cancelled');
+      router.push('/finance/bank-accounts/payment-batches');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.error || 'Failed to cancel batch');
+      setCancelling(false);
+    }
+  };
+
+  const handleAddBatchItem = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!batch) return;
+    if (!newItem.vendorName.trim()) {
+      toast.error('Vendor / Payee Name is required');
+      return;
+    }
+    if (!newItem.accountNumber.trim()) {
+      toast.error('Account Number is required');
+      return;
+    }
+    if (!newItem.ifscCode.trim()) {
+      toast.error('IFSC Code is required');
+      return;
+    }
+    if (!newItem.bankName.trim()) {
+      toast.error('Bank Name is required');
+      return;
+    }
+    const numAmount = parseFloat(newItem.amount);
+    if (isNaN(numAmount) || numAmount <= 0) {
+      toast.error('Please enter a valid amount greater than zero');
+      return;
+    }
+
+    setAddingItem(true);
+    try {
+      const res = await addPaymentBatchItem(batchId, {
+        vendorName: newItem.vendorName.trim(),
+        accountNumber: newItem.accountNumber.trim(),
+        ifscCode: newItem.ifscCode.trim().toUpperCase(),
+        bankName: newItem.bankName.trim(),
+        bpCode: newItem.bpCode.trim() || undefined,
+        emailId: newItem.emailId.trim() || undefined,
+        amount: numAmount,
+        transactionMode: newItem.transactionMode,
+        valueDate: newItem.valueDate ? new Date(newItem.valueDate).toISOString() : new Date().toISOString()
+      });
+      toast.success(res.message || 'Payee added to batch');
+      setBatch(res.batch);
+      setShowAddItemModal(false);
+      setNewItem({
+        vendorName: '',
+        accountNumber: '',
+        ifscCode: '',
+        bankName: '',
+        bpCode: '',
+        emailId: '',
+        amount: '',
+        transactionMode: 'NFT',
+        valueDate: new Date().toISOString().split('T')[0]
+      });
+    } catch (error: any) {
+      toast.error(error?.response?.data?.error || 'Failed to add payee to batch');
+    } finally {
+      setAddingItem(false);
+    }
+  };
+
   const handleDeleteItem = async (itemId: string) => {
     if (!batch) return;
     if (!confirm('Are you sure you want to remove this item from the batch?')) return;
     
     try {
-      await deleteBatchItem(batchId, itemId);
-      toast.success('Item removed from batch');
+      const res = await deleteBatchItem(batchId, itemId);
+      toast.success(res.message || 'Item removed from batch');
+      if (batch.items.length <= 1) {
+        toast.info('Batch had no remaining items and was deleted.');
+        router.push('/finance/bank-accounts/payment-batches');
+        return;
+      }
       // Refresh batch data
       const updated = await getPaymentBatchById(batchId);
       setBatch(updated);
+      // Remove from edits if present
+      setEdits(prev => {
+        const next = { ...prev };
+        delete next[itemId];
+        return next;
+      });
     } catch (error: any) {
       toast.error(error?.response?.data?.error || 'Failed to remove item');
     }
@@ -360,6 +485,33 @@ export default function BatchDetailPage() {
                 </div>
               </div>
             </div>
+
+            {/* Pending Batch Actions: Add Payee, Cancel Batch */}
+            {canEditPending && (
+              <div className="flex items-center gap-2 shrink-0 w-full lg:w-auto justify-end flex-wrap">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowAddItemModal(true)}
+                  className="bg-white/80 hover:bg-[#CE9F6B]/10 text-[#976E44] border-[#CE9F6B]/40 rounded-xl font-bold text-xs h-11 px-4 shadow-sm"
+                >
+                  <Plus className="w-4 h-4 mr-1.5 text-[#976E44]" />
+                  Add Payee
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={handleCancelBatch}
+                  disabled={cancelling}
+                  className="text-red-500 hover:text-red-600 hover:bg-red-50 rounded-xl font-bold text-xs h-11 px-4"
+                >
+                  {cancelling ? (
+                    <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-4 h-4 mr-1.5 text-red-500" />
+                  )}
+                  Cancel Batch
+                </Button>
+              </div>
+            )}
 
             {/* Download */}
             {canDownload && (
@@ -540,6 +692,51 @@ export default function BatchDetailPage() {
             </div>
           )}
         </div>
+
+        {/* ── Unsaved Pending Edits Banner ──────────────────────────────── */}
+        {canEditPending && Object.keys(edits).length > 0 && (
+          <div className="sticky top-4 z-40 bg-gradient-to-r from-[#B18E63] via-[#CE9F6B] to-[#976E44] text-white rounded-2xl p-4 sm:p-5 shadow-2xl border border-white/25 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in slide-in-from-top-3 duration-300">
+            <div className="flex items-center gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center shrink-0 shadow-inner">
+                <Sparkles className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-sm text-white tracking-wide flex items-center gap-2">
+                  Unsaved Batch Changes
+                  <span className="bg-white/20 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                    {Object.keys(edits).length} item{Object.keys(edits).length > 1 ? 's' : ''} modified
+                  </span>
+                </h3>
+                <p className="text-xs text-white/80 mt-0.5">
+                  You have modified item details in this pending batch. Save changes to update the amounts and dates before approval.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setEdits({})}
+                disabled={savingEdits}
+                className="text-white hover:bg-white/20 rounded-xl font-bold text-xs h-10 px-4"
+              >
+                <RotateCcw className="w-3.5 h-3.5 mr-1.5" /> Discard
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleSavePendingEdits}
+                disabled={savingEdits}
+                className="bg-white text-[#976E44] hover:bg-white/95 rounded-xl font-extrabold shadow-lg text-xs h-10 px-5"
+              >
+                {savingEdits ? (
+                  <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Saving…</>
+                ) : (
+                  <><Save className="w-3.5 h-3.5 mr-1.5" /> Save Changes</>
+                )}
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* ── Re-Request / Edit Banner ──────────────────────────────── */}
         {canResubmit && (batch.status !== 'APPROVED' || Object.keys(edits).length > 0) && (
@@ -722,6 +919,11 @@ export default function BatchDetailPage() {
                                 <AlertCircle className="w-2.5 h-2.5 text-amber-600" /> Ad-hoc
                               </span>
                             )}
+                            {edits[item.id] && (
+                              <span className="inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full bg-[#CE9F6B]/15 text-[#976E44] border border-[#CE9F6B]/30 animate-pulse">
+                                Modified
+                              </span>
+                            )}
                           </div>
                           {item.bpCode && <p className="text-xs text-[#6F8A9D] font-mono">{item.bpCode}</p>}
                           {item.emailId && <p className="text-xs text-[#92A2A5] truncate max-w-[140px]">{item.emailId}</p>}
@@ -738,7 +940,7 @@ export default function BatchDetailPage() {
                           <p className="text-xs text-slate-600 font-medium max-w-[120px] truncate">{item.bankName || '—'}</p>
                         </td>
                         <td className="px-4 py-3.5 text-center">
-                          {canResubmit ? (
+                          {canEditBatch ? (
                             <input
                               type="date"
                               value={edits[item.id]?.valueDate || (item.valueDate ? new Date(item.valueDate).toISOString().split('T')[0] : '')}
@@ -750,7 +952,7 @@ export default function BatchDetailPage() {
                           )}
                         </td>
                         <td className="px-4 py-3.5 text-center">
-                          {canResubmit ? (
+                          {canEditBatch ? (
                             <select
                               value={edits[item.id]?.transactionMode || item.transactionMode}
                               onChange={e => handleEditItem(item.id, 'transactionMode', e.target.value)}
@@ -767,7 +969,7 @@ export default function BatchDetailPage() {
                           )}
                         </td>
                         <td className="px-4 py-3.5 text-right">
-                          {canResubmit ? (
+                          {canEditBatch ? (
                             <input
                               type="number"
                               value={edits[item.id]?.amount !== undefined ? edits[item.id]?.amount : item.amount}
@@ -950,11 +1152,11 @@ export default function BatchDetailPage() {
                       </div>
                     )}
 
-                    {/* Edit Fields for Resubmission */}
-                    {canResubmit && (
+                    {/* Edit Fields for Resubmission or Pending Changes */}
+                    {canEditBatch && (
                       <div className="p-3 bg-amber-50/50 border border-amber-200/50 rounded-2xl space-y-3">
                         <p className="text-[9px] font-black text-amber-700 uppercase tracking-widest flex items-center gap-1.5">
-                          <RefreshCcw className="w-3 h-3" /> Update Payment Details
+                          <RefreshCcw className="w-3 h-3" /> {isPending ? 'Edit Payment Details' : 'Update Payment Details'}
                         </p>
                         <div className="grid grid-cols-2 gap-2">
                           <div className="space-y-1">
@@ -1374,6 +1576,170 @@ export default function BatchDetailPage() {
                 : <><Shield className="w-3.5 h-3.5 mr-2" /> Submit Review Decision</>
               }
             </Button>
+          </div>
+        </div>
+      )}
+      {/* ================================================================ */}
+      {/* ADD PAYEE TO PENDING BATCH MODAL */}
+      {/* ================================================================ */}
+      {showAddItemModal && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div
+            className="relative w-full max-w-xl bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-[#B18E63] via-[#CE9F6B] to-[#976E44] px-6 py-5 text-white flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-inner">
+                  <Plus className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-white">Add Payee to Batch</h3>
+                  <p className="text-[11px] text-white/80 font-medium">Add another payment item to pending batch {batch.batchNumber}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowAddItemModal(false)}
+                className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Form */}
+            <form onSubmit={handleAddBatchItem} className="p-6 space-y-4">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-[#546A7A] uppercase tracking-wider">Vendor / Payee Name *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Acme Corp Ltd"
+                  value={newItem.vendorName}
+                  onChange={e => setNewItem(prev => ({ ...prev, vendorName: e.target.value }))}
+                  className="w-full text-xs font-bold border border-slate-200 rounded-xl h-10 px-3 focus:ring-1 focus:ring-[#CE9F6B] outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-[#546A7A] uppercase tracking-wider">Account Number *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. 50200012345678"
+                    value={newItem.accountNumber}
+                    onChange={e => setNewItem(prev => ({ ...prev, accountNumber: e.target.value }))}
+                    className="w-full text-xs font-bold font-mono border border-slate-200 rounded-xl h-10 px-3 focus:ring-1 focus:ring-[#CE9F6B] outline-none"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-[#546A7A] uppercase tracking-wider">IFSC Code *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. HDFC0001234"
+                    value={newItem.ifscCode}
+                    onChange={e => setNewItem(prev => ({ ...prev, ifscCode: e.target.value.toUpperCase() }))}
+                    className="w-full text-xs font-bold font-mono uppercase border border-slate-200 rounded-xl h-10 px-3 focus:ring-1 focus:ring-[#CE9F6B] outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-[#546A7A] uppercase tracking-wider">Bank Name *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. HDFC Bank"
+                    value={newItem.bankName}
+                    onChange={e => setNewItem(prev => ({ ...prev, bankName: e.target.value }))}
+                    className="w-full text-xs font-bold border border-slate-200 rounded-xl h-10 px-3 focus:ring-1 focus:ring-[#CE9F6B] outline-none"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-[#546A7A] uppercase tracking-wider">Amount ({batch.currency}) *</label>
+                  <input
+                    type="number"
+                    step="any"
+                    required
+                    min="0.01"
+                    placeholder="0.00"
+                    value={newItem.amount}
+                    onChange={e => setNewItem(prev => ({ ...prev, amount: e.target.value }))}
+                    className="w-full text-xs font-bold border border-slate-200 rounded-xl h-10 px-3 focus:ring-1 focus:ring-[#CE9F6B] outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-[#546A7A] uppercase tracking-wider">Payment Mode *</label>
+                  <select
+                    value={newItem.transactionMode}
+                    onChange={e => setNewItem(prev => ({ ...prev, transactionMode: e.target.value }))}
+                    className="w-full text-xs font-bold border border-slate-200 rounded-xl h-10 px-3 focus:ring-1 focus:ring-[#CE9F6B] outline-none bg-white"
+                  >
+                    <option value="NFT">NEFT</option>
+                    <option value="RTI">RTGS</option>
+                    <option value="FT">I-FT (Same Bank)</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-[#546A7A] uppercase tracking-wider">Processing Date</label>
+                  <input
+                    type="date"
+                    value={newItem.valueDate}
+                    onChange={e => setNewItem(prev => ({ ...prev, valueDate: e.target.value }))}
+                    className="w-full text-xs font-bold border border-slate-200 rounded-xl h-10 px-3 focus:ring-1 focus:ring-[#CE9F6B] outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-[#546A7A] uppercase tracking-wider">Email ID (Optional)</label>
+                  <input
+                    type="email"
+                    placeholder="payee@vendor.com"
+                    value={newItem.emailId}
+                    onChange={e => setNewItem(prev => ({ ...prev, emailId: e.target.value }))}
+                    className="w-full text-xs font-medium border border-slate-200 rounded-xl h-10 px-3 focus:ring-1 focus:ring-[#CE9F6B] outline-none"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-[#546A7A] uppercase tracking-wider">BP / Vendor Code (Optional)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. V100234"
+                    value={newItem.bpCode}
+                    onChange={e => setNewItem(prev => ({ ...prev, bpCode: e.target.value }))}
+                    className="w-full text-xs font-mono border border-slate-200 rounded-xl h-10 px-3 focus:ring-1 focus:ring-[#CE9F6B] outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setShowAddItemModal(false)}
+                  disabled={addingItem}
+                  className="rounded-xl text-xs font-bold text-slate-500"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={addingItem}
+                  className="bg-gradient-to-r from-[#B18E63] to-[#976E44] text-white rounded-xl font-bold text-xs px-6 shadow-md"
+                >
+                  {addingItem ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />}
+                  Add to Batch
+                </Button>
+              </div>
+            </form>
           </div>
         </div>
       )}

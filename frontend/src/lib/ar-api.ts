@@ -1510,6 +1510,56 @@ export const deleteBatchItem = async (id: string, itemId: string): Promise<{ mes
     return response.data;
 };
 
+// Update a pending payment batch (amounts, dates, modes, notes) before approval
+export const updatePendingPaymentBatch = async (
+    id: string,
+    data: {
+        items?: Array<{
+            id: string;
+            amount?: number;
+            valueDate?: string;
+            transactionMode?: string;
+            vendorName?: string;
+            accountNumber?: string;
+            ifscCode?: string;
+            bankName?: string;
+            emailId?: string;
+        }>;
+        notes?: string;
+    }
+): Promise<{ message: string; batch: PaymentBatch }> => {
+    const response = await api.put(`/ar/payment-batches/${id}`, data);
+    return response.data;
+};
+
+// Cancel and delete an entire pending payment batch
+export const cancelPaymentBatch = async (id: string): Promise<{ message: string }> => {
+    const response = await api.delete(`/ar/payment-batches/${id}`);
+    return response.data;
+};
+
+// Add a new item to an existing pending payment batch
+export const addPaymentBatchItem = async (
+    id: string,
+    item: {
+        bankAccountId?: string;
+        isManual?: boolean;
+        vendorName: string;
+        accountNumber: string;
+        ifscCode: string;
+        bankName: string;
+        bpCode?: string;
+        emailId?: string;
+        accountType?: string;
+        amount: number;
+        transactionMode: string;
+        valueDate?: string;
+    }
+): Promise<{ message: string; batch: PaymentBatch }> => {
+    const response = await api.post(`/ar/payment-batches/${id}/items`, item);
+    return response.data;
+};
+
 // Helper to copy text to clipboard with HTTP fallback
 export const copyTextToClipboard = async (text: string): Promise<void> => {
     if (!text) return;

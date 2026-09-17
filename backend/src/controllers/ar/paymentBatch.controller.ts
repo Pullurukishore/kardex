@@ -616,8 +616,13 @@ export const deleteBatchItem = async (req: Request, res: Response) => {
             return res.status(404).json({ error: 'Payment batch not found' });
         }
 
-        if (batch.requestedById !== userId) {
-            return res.status(403).json({ error: 'Only the original requester can modify this batch' });
+        const userRole = (req as any).user?.financeRole;
+        if (userRole === 'FINANCE_ADMIN' || userRole === 'FINANCE_APPROVER') {
+            return res.status(403).json({ error: 'Admins and approvers cannot delete items from pending batches. Please reject the item during review instead.' });
+        }
+
+        if (batch.requestedById !== userId && userRole !== 'FINANCE_USER') {
+            return res.status(403).json({ error: 'Only the original requester or a Finance User can modify this batch' });
         }
 
         if (!['PENDING', 'PARTIALLY_APPROVED', 'REJECTED'].includes(batch.status)) {
@@ -639,8 +644,7 @@ export const deleteBatchItem = async (req: Request, res: Response) => {
             });
 
             if (remainingItems.length === 0) {
-                // If no items left, delete the batch or mark as cancelled?
-                // Let's just delete the batch if it's the last item
+                // If no items left, delete the batch
                 await tx.paymentBatch.delete({ where: { id } });
                 return { deletedBatch: true };
             }
@@ -677,5 +681,243 @@ export const deleteBatchItem = async (req: Request, res: Response) => {
         res.json({ message: 'Item removed from batch' });
     } catch (error: any) {
         res.status(500).json({ error: 'Failed to remove item', message: error.message });
+    }
+};
+
+// ───────────────────────────────────────────────────────────────────────────
+// PUT /payment-batches/:id — Update a pending payment batch (Requester / Admin)
+// ───────────────────────────────────────────────────────────────────────────
+export const updatePendingBatch = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const userId = (req as any).user?.id || 1;
+        const userRole = (req as any).user?.financeRole;
+        if (userRole === 'FINANCE_ADMIN' || userRole === 'FINANCE_APPROVER') {
+            return res.status(403).json({ error: 'Admins and approvers cannot edit pending batches. Only Finance Users can edit before approval.' });
+        }
+
+        const batch = await prisma.paymentBatch.findUnique({
+            where: { id },
+            include: { items: true }
+        });
+
+        if (!batch) {
+            return res.status(404).json({ error: 'Payment batch not found' });
+        }
+
+        if (batch.status !== 'PENDING') {
+            return res.status(400).json({ error: 'Only pending batches can be edited directly before approval' });
+        }
+
+        if (batch.requestedById !== userId && userRole !== 'FINANCE_USER') {
+            return res.status(403).json({ error: 'Only the original requester or a Finance User can edit this batch' });
+        }
+
+        const { items: updatedItemsData, notes } = req.body;
+
+        const updatedBatch = await prisma.$transaction(async (tx) => {
+            // Update items if provided
+            if (updatedItemsData && Array.isArray(updatedItemsData)) {
+                for (const updatedItem of updatedItemsData) {
+                    const existingItem = batch.items.find(i => i.id === updatedItem.id);
+                    if (!existingItem) {
+                        throw new Error(`Item ${updatedItem.id} does not belong to this batch`);
+                    }
+
+                    if (updatedItem.amount !== undefined && parseFloat(updatedItem.amount) <= 0) {
+                        throw new Error(`Invalid amount for item ${existingItem.vendorName}`);
+                    }
+
+                    await tx.paymentBatchItem.update({
+                        where: { id: updatedItem.id },
+                        data: {
+                            amount: updatedItem.amount !== undefined ? new Decimal(updatedItem.amount) : existingItem.amount,
+                            valueDate: updatedItem.valueDate ? new Date(updatedItem.valueDate) : existingItem.valueDate,
+                            transactionMode: updatedItem.transactionMode || existingItem.transactionMode,
+                            emailId: updatedItem.emailId !== undefined ? updatedItem.emailId : existingItem.emailId,
+                            vendorName: updatedItem.vendorName || existingItem.vendorName,
+                            accountNumber: updatedItem.accountNumber || existingItem.accountNumber,
+                            ifscCode: updatedItem.ifscCode || existingItem.ifscCode,
+                            bankName: updatedItem.bankName || existingItem.bankName,
+                        }
+                    });
+                }
+            }
+
+            // Re-fetch all items for the batch to recalculate totals
+            const currentItems = await tx.paymentBatchItem.findMany({
+                where: { batchId: id }
+            });
+
+            if (currentItems.length === 0) {
+                throw new Error('Batch cannot have 0 items. Please cancel the batch instead.');
+            }
+
+            const totalAmount = currentItems.reduce((sum, item) => sum.add(item.amount), new Decimal(0));
+
+            return await tx.paymentBatch.update({
+                where: { id },
+                data: {
+                    totalAmount,
+                    totalItems: currentItems.length,
+                    notes: notes !== undefined ? notes : batch.notes,
+                },
+                include: {
+                    items: { orderBy: { vendorName: 'asc' } },
+                    requestedBy: { select: { id: true, name: true, email: true } },
+                    reviewedBy: { select: { id: true, name: true, email: true } }
+                }
+            });
+        });
+
+        res.json({
+            message: 'Payment batch updated successfully',
+            batch: updatedBatch
+        });
+    } catch (error: any) {
+        res.status(500).json({ error: 'Failed to update payment batch', message: error.message });
+    }
+};
+
+// ───────────────────────────────────────────────────────────────────────────
+// DELETE /payment-batches/:id — Cancel & delete an entire pending batch
+// ───────────────────────────────────────────────────────────────────────────
+export const cancelBatch = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const userId = (req as any).user?.id || 1;
+        const userRole = (req as any).user?.financeRole;
+        if (userRole === 'FINANCE_ADMIN' || userRole === 'FINANCE_APPROVER') {
+            return res.status(403).json({ error: 'Admins and approvers cannot cancel pending batches. Only Finance Users can cancel their request.' });
+        }
+
+        const batch = await prisma.paymentBatch.findUnique({
+            where: { id }
+        });
+
+        if (!batch) {
+            return res.status(404).json({ error: 'Payment batch not found' });
+        }
+
+        if (batch.status !== 'PENDING') {
+            return res.status(400).json({ error: 'Only pending batches can be cancelled or recalled' });
+        }
+
+        if (batch.requestedById !== userId && userRole !== 'FINANCE_USER') {
+            return res.status(403).json({ error: 'Only the original requester or a Finance User can cancel this batch' });
+        }
+
+        await prisma.paymentBatch.delete({
+            where: { id }
+        });
+
+        res.json({ message: `Batch ${batch.batchNumber} cancelled successfully` });
+    } catch (error: any) {
+        res.status(500).json({ error: 'Failed to cancel batch', message: error.message });
+    }
+};
+
+// ───────────────────────────────────────────────────────────────────────────
+// POST /payment-batches/:id/items — Add an item to an existing pending batch
+// ───────────────────────────────────────────────────────────────────────────
+export const addBatchItem = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const userId = (req as any).user?.id || 1;
+        const userRole = (req as any).user?.financeRole;
+        if (userRole === 'FINANCE_ADMIN' || userRole === 'FINANCE_APPROVER') {
+            return res.status(403).json({ error: 'Admins and approvers cannot add items to pending batches. Only Finance Users can edit before approval.' });
+        }
+
+        const batch = await prisma.paymentBatch.findUnique({
+            where: { id },
+            include: { items: true }
+        });
+
+        if (!batch) {
+            return res.status(404).json({ error: 'Payment batch not found' });
+        }
+
+        if (batch.status !== 'PENDING') {
+            return res.status(400).json({ error: 'Items can only be added to pending batches' });
+        }
+
+        if (batch.requestedById !== userId && userRole !== 'FINANCE_USER') {
+            return res.status(403).json({ error: 'Only the original requester or a Finance User can modify this batch' });
+        }
+
+        const {
+            bankAccountId,
+            isManual,
+            vendorName,
+            accountNumber,
+            ifscCode,
+            bankName,
+            bpCode,
+            emailId,
+            accountType,
+            amount,
+            transactionMode,
+            valueDate
+        } = req.body;
+
+        if (!vendorName || !accountNumber || !ifscCode || !bankName) {
+            return res.status(400).json({ error: 'Missing required payee fields (vendorName, accountNumber, ifscCode, bankName)' });
+        }
+
+        if (!amount || parseFloat(amount) <= 0) {
+            return res.status(400).json({ error: 'Invalid amount' });
+        }
+
+        if (!transactionMode) {
+            return res.status(400).json({ error: 'Transaction mode is required' });
+        }
+
+        const updatedBatch = await prisma.$transaction(async (tx) => {
+            await tx.paymentBatchItem.create({
+                data: {
+                    batchId: id,
+                    bankAccountId: bankAccountId || null,
+                    isManual: isManual === true || !bankAccountId,
+                    vendorName,
+                    accountNumber,
+                    ifscCode,
+                    bankName,
+                    bpCode: bpCode || null,
+                    emailId: emailId || null,
+                    accountType: accountType || null,
+                    amount: new Decimal(parseFloat(amount)),
+                    transactionMode,
+                    valueDate: new Date(valueDate || new Date()),
+                    status: 'PENDING'
+                }
+            });
+
+            const currentItems = await tx.paymentBatchItem.findMany({
+                where: { batchId: id }
+            });
+
+            const totalAmount = currentItems.reduce((sum, item) => sum.add(item.amount), new Decimal(0));
+
+            return await tx.paymentBatch.update({
+                where: { id },
+                data: {
+                    totalAmount,
+                    totalItems: currentItems.length
+                },
+                include: {
+                    items: { orderBy: { vendorName: 'asc' } },
+                    requestedBy: { select: { id: true, name: true, email: true } },
+                    reviewedBy: { select: { id: true, name: true, email: true } }
+                }
+            });
+        });
+
+        res.status(201).json({
+            message: 'Item added to batch successfully',
+            batch: updatedBatch
+        });
+    } catch (error: any) {
+        res.status(500).json({ error: 'Failed to add item to batch', message: error.message });
     }
 };
