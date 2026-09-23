@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { 
-  ArrowLeft, Calendar, FileText, MapPin, Shield, Building2, 
-  Activity, DollarSign, CheckCircle, AlertTriangle, Info, Clock, 
+import {
+  ArrowLeft, Calendar, FileText, MapPin, Shield, Building2,
+  Activity, DollarSign, CheckCircle, AlertTriangle, Info, Clock,
   User, ShieldCheck, Trash2, RefreshCw, Printer, IndianRupee, Pencil, X
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -97,7 +97,7 @@ export default function ContractDetails({ id, role, backUrl }: ContractDetailsPr
         await apiService.updatePMSchedule(pmId, 'Pending');
         toast.success('PM Visit status set to Pending!');
         if (contract) {
-          const updatedSchedules = contract.pmSchedules.map(pm => 
+          const updatedSchedules = contract.pmSchedules.map(pm =>
             pm.id === pmId ? { ...pm, status: 'Pending' as any, completedAt: undefined } : pm
           );
           setContract({ ...contract, pmSchedules: updatedSchedules });
@@ -115,7 +115,7 @@ export default function ContractDetails({ id, role, backUrl }: ContractDetailsPr
       await apiService.updatePMSchedule(selectedPmId, 'Completed', completedDate);
       toast.success('PM Visit marked as Completed!');
       if (contract) {
-        const updatedSchedules = contract.pmSchedules.map(pm => 
+        const updatedSchedules = contract.pmSchedules.map(pm =>
           pm.id === selectedPmId ? { ...pm, status: 'Completed' as any, completedAt: completedDate } : pm
         );
         setContract({ ...contract, pmSchedules: updatedSchedules });
@@ -185,7 +185,7 @@ export default function ContractDetails({ id, role, backUrl }: ContractDetailsPr
         <AlertTriangle className="w-16 h-16 text-amber-500" />
         <h2 className="text-lg font-bold text-slate-800">Contract Not Found</h2>
         <p className="text-slate-500 text-sm">The contract you are trying to view does not exist or has been deleted.</p>
-        <button 
+        <button
           onClick={() => router.push(backUrl)}
           className="px-4 py-2 bg-[#82A094] text-white rounded-xl text-sm font-semibold hover:bg-[#6e897e]"
         >
@@ -205,7 +205,7 @@ export default function ContractDetails({ id, role, backUrl }: ContractDetailsPr
       {/* Header Bar */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
         <div className="flex items-center gap-3">
-          <button 
+          <button
             onClick={() => router.push(backUrl)}
             className="w-10 h-10 rounded-xl border border-slate-200 hover:bg-slate-50 flex items-center justify-center text-slate-600 transition-colors"
           >
@@ -226,7 +226,7 @@ export default function ContractDetails({ id, role, backUrl }: ContractDetailsPr
         </div>
 
         <div className="flex gap-2 w-full sm:w-auto">
-          <button 
+          <button
             onClick={() => window.print()}
             className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-4 py-2 border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-700 rounded-xl shadow-sm transition-all"
           >
@@ -235,7 +235,7 @@ export default function ContractDetails({ id, role, backUrl }: ContractDetailsPr
           </button>
 
           {(role === 'Admin' || role === 'Zone Manager') && (
-            <button 
+            <button
               onClick={() => router.push(`${backUrl}/${id}/edit`)}
               className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-4 py-2 border border-slate-200 hover:bg-slate-50 text-xs font-bold text-indigo-600 rounded-xl shadow-sm transition-all"
             >
@@ -245,7 +245,7 @@ export default function ContractDetails({ id, role, backUrl }: ContractDetailsPr
           )}
 
           {role === 'Admin' && (
-            <button 
+            <button
               onClick={handleDeleteContract}
               className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-4 py-2 border border-rose-200 hover:bg-rose-50 text-xs font-bold text-rose-600 rounded-xl shadow-sm transition-all"
             >
@@ -254,7 +254,7 @@ export default function ContractDetails({ id, role, backUrl }: ContractDetailsPr
             </button>
           )}
 
-          <button 
+          <button
             onClick={() => {
               toast.success('Simulation: Renewal workflow initiated!');
             }}
@@ -268,10 +268,10 @@ export default function ContractDetails({ id, role, backUrl }: ContractDetailsPr
 
       {/* Main Grid Details */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
+
         {/* Left 2 Cols: Details & Cycles */}
         <div className="lg:col-span-2 space-y-6">
-          
+
           {/* Card Info Grid */}
           <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 space-y-6">
             <h2 className="text-base font-bold text-slate-800 flex items-center gap-2 border-b border-slate-100 pb-3">
@@ -389,13 +389,12 @@ export default function ContractDetails({ id, role, backUrl }: ContractDetailsPr
 
                 const isCompleted = pm.status === 'Completed';
                 return (
-                  <div 
-                    key={idx} 
-                    className={`p-4 rounded-2xl border flex justify-between items-center text-xs transition-all ${
-                      isCompleted 
-                        ? 'bg-emerald-500/5 border-emerald-500/20 shadow-sm' 
+                  <div
+                    key={idx}
+                    className={`p-4 rounded-2xl border flex justify-between items-center text-xs transition-all ${isCompleted
+                        ? 'bg-emerald-500/5 border-emerald-500/20 shadow-sm'
                         : 'bg-white border-slate-100 shadow-sm hover:border-slate-200'
-                    }`}
+                      }`}
                   >
                     <div className="space-y-1">
                       <span className={`font-bold block text-[10px] uppercase tracking-wider ${isCompleted ? 'text-emerald-700' : 'text-slate-400'}`}>
@@ -412,11 +411,10 @@ export default function ContractDetails({ id, role, backUrl }: ContractDetailsPr
                     <button
                       type="button"
                       onClick={() => handleTogglePMStatus(pm.id, pm.status)}
-                      className={`px-3 py-1.5 rounded-xl font-bold text-[10px] uppercase tracking-wider transition-all border ${
-                        isCompleted
+                      className={`px-3 py-1.5 rounded-xl font-bold text-[10px] uppercase tracking-wider transition-all border ${isCompleted
                           ? 'bg-emerald-500 text-white border-emerald-600 shadow-sm hover:bg-emerald-600'
                           : 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 border-amber-500/20'
-                      }`}
+                        }`}
                     >
                       {isCompleted ? '✓ Completed' : '• Pending'}
                     </button>
@@ -424,7 +422,7 @@ export default function ContractDetails({ id, role, backUrl }: ContractDetailsPr
                 );
               })}
             </div>
-            
+
             <div className="p-3 bg-blue-50/40 rounded-xl border border-blue-100/50 flex gap-2 items-center text-xs text-slate-500">
               <Info className="w-4 h-4 text-blue-600 flex-shrink-0" />
               <p>You can click the status badges above to quickly toggle maintenance cycle logs in the database.</p>
@@ -435,7 +433,7 @@ export default function ContractDetails({ id, role, backUrl }: ContractDetailsPr
 
         {/* Right 1 Col: Billing & Incidents */}
         <div className="space-y-6">
-          
+
           {/* Portfolio Value */}
           <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 flex flex-col justify-between relative overflow-hidden min-h-[140px]">
             <div className="absolute top-0 right-0 -mt-8 -mr-8 w-24 h-24 bg-amber-500/5 rounded-full blur-2xl" />
@@ -474,7 +472,7 @@ export default function ContractDetails({ id, role, backUrl }: ContractDetailsPr
                 <span className="text-slate-400 font-bold uppercase text-[9px]">PO Number</span>
                 <span className="font-mono font-bold text-slate-800">{contract.poNo}</span>
               </div>
-              
+
               <div className="flex justify-between py-1 border-b border-slate-50">
                 <span className="text-slate-400 font-bold uppercase text-[9px]">PO Date</span>
                 <span className="font-semibold text-slate-700">{formatDateLabel(contract.poDate)}</span>
@@ -505,7 +503,7 @@ export default function ContractDetails({ id, role, backUrl }: ContractDetailsPr
                 <CheckCircle className="w-5 h-5 text-emerald-600" />
                 <span>Mark PM Visit Completed</span>
               </h3>
-              <button 
+              <button
                 onClick={() => setDateModalOpen(false)}
                 className="w-7 h-7 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors"
               >

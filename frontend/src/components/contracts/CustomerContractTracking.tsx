@@ -437,8 +437,8 @@ export default function CustomerContractTracking({ role }: CustomerContractTrack
                           <span
                             key={num}
                             className={`w-6 h-6 rounded-lg flex items-center justify-center text-[9px] font-bold border ${done
-                                ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'
-                                : 'bg-amber-500/10 text-amber-700 border-amber-500/20'
+                              ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'
+                              : 'bg-amber-500/10 text-amber-700 border-amber-500/20'
                               }`}
                             title={`PM ${num}: ${pm.status}`}
                           >
@@ -526,8 +526,8 @@ export default function CustomerContractTracking({ role }: CustomerContractTrack
                             <div
                               key={idx}
                               className={`p-3 rounded-xl border flex justify-between items-center text-xs transition-all ${isCompleted
-                                  ? 'bg-emerald-500/5 border-emerald-500/20'
-                                  : 'bg-white border-slate-100 hover:border-slate-200'
+                                ? 'bg-emerald-500/5 border-emerald-500/20'
+                                : 'bg-white border-slate-100 hover:border-slate-200'
                                 }`}
                             >
                               <div className="space-y-0.5">
@@ -545,8 +545,8 @@ export default function CustomerContractTracking({ role }: CustomerContractTrack
                                 type="button"
                                 onClick={() => handleTogglePMStatus(pm.id, pm.status)}
                                 className={`px-2.5 py-1 rounded-lg font-bold text-[10px] uppercase tracking-wider transition-all border ${isCompleted
-                                    ? 'bg-emerald-500 text-white border-emerald-600 hover:bg-emerald-600'
-                                    : 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 border-amber-500/20'
+                                  ? 'bg-emerald-500 text-white border-emerald-600 hover:bg-emerald-600'
+                                  : 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 border-amber-500/20'
                                   }`}
                               >
                                 {isCompleted ? '✓ Done' : '• Pending'}

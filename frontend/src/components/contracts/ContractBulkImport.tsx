@@ -700,7 +700,7 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
           customerName: rawCustName || 'Blank Customer',
           place: placeCol !== -1 && placeCol < row.length ? String(row[placeCol] || '').trim() : '',
           mcType: rawMcType,
-          noOfMachine: machinesCol !== -1 && machinesCol < row.length ? Number(row[machinesCol] || 1) : 1,
+          noOfMachine: machinesCol !== -1 && machinesCol < row.length && row[machinesCol] !== '' && row[machinesCol] !== null && row[machinesCol] !== undefined ? (Number(row[machinesCol]) || 0) : 0,
           amount: (() => {
             const amtRaw = amountCol !== -1 && amountCol < row.length ? String(row[amountCol]).trim() : '';
             if (!amtRaw || amtRaw === '-') return 0;
@@ -729,6 +729,23 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
 
       // Filter out empty rows (e.g. rows where customer name is empty)
       const validParsedRows = parsedRows.filter(r => r.customerName && r.customerName !== 'Blank Customer');
+
+      // Post-process: Propagate "No of Machine" within multi-year contract groups.
+      // The Excel places the machine count on only one row (usually the last) in a group
+      // sharing the same Customer + Place + PO. Inherit it for rows where it was empty.
+      const mcGroupMap = new Map<string, number>();
+      for (const r of validParsedRows) {
+        if (r.noOfMachine > 0) {
+          const gKey = `${r.customerName.toLowerCase().trim()}::${(r.place || '').toLowerCase().trim()}::${(r.poNo || '').toLowerCase().trim()}`;
+          mcGroupMap.set(gKey, Math.max(mcGroupMap.get(gKey) || 0, r.noOfMachine));
+        }
+      }
+      for (const r of validParsedRows) {
+        if (r.noOfMachine <= 0) {
+          const gKey = `${r.customerName.toLowerCase().trim()}::${(r.place || '').toLowerCase().trim()}::${(r.poNo || '').toLowerCase().trim()}`;
+          r.noOfMachine = mcGroupMap.get(gKey) || 1; // Default to 1 if still unknown
+        }
+      }
 
       setParsedData(validParsedRows);
       setCurrentPage(1);
