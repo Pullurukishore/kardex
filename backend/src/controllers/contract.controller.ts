@@ -548,9 +548,17 @@ export const bulkImportContracts = async (req: any, res: Response) => {
       existingContractsRaw.map((c: any) => [c.contractNumber, c])
     );
 
+    const cleanCustomerName = (s: string) =>
+      String(s || '')
+        .toLowerCase()
+        .replace(/\b(pvt|ltd|private|limited|co|corp|corporation|company|india|ltd\.|pvt\.)\b/gi, '')
+        .replace(/[^a-z0-9]/g, '')
+        .trim();
+
     // Customer map: key = `${companyName_lower}::${address_lower}::${zoneId}`
     const customerMap = new Map<string, any>();
     allCustomers.forEach((c: any) => {
+      c._cleanName = cleanCustomerName(c.companyName);
       const key = `${String(c.companyName).toLowerCase().trim()}::${String(c.address || '').toLowerCase().trim()}::${c.serviceZoneId}`;
       customerMap.set(key, c);
     });
@@ -623,9 +631,9 @@ export const bulkImportContracts = async (req: any, res: Response) => {
       return n1 === n2 || n1.includes(n2) || n2.includes(n1);
     };
 
-    const isFuzzyNameMatch = (n1: string, n2: string): boolean => {
-      const clean = (s: string) => s.toLowerCase().replace(/\b(pvt|ltd|private|limited|co|corp|corporation|company|india|ltd\.|pvt\.)\b/gi, '').replace(/[^a-z0-9]/g, '').trim();
-      return clean(n1) === clean(n2);
+    const isFuzzyNameMatch = (cust: any, custName: string, cleanInputName: string): boolean => {
+      const c1 = cust._cleanName !== undefined ? cust._cleanName : cleanCustomerName(cust.companyName);
+      return c1 === cleanInputName;
     };
 
     const findCustomerInDb = (custName: string, custPlace: string, zId: number) => {
@@ -636,10 +644,12 @@ export const bulkImportContracts = async (req: any, res: Response) => {
         return customerMap.get(directKey);
       }
 
+      const cleanInputName = cleanCustomerName(custName);
+
       // Fuzzy lookup across allCustomers
       for (const [key, cust] of customerMap.entries()) {
         if (cust.serviceZoneId !== zId) continue;
-        if (!isFuzzyNameMatch(cust.companyName, custName)) continue;
+        if (!isFuzzyNameMatch(cust, custName, cleanInputName)) continue;
         if (custPlace && cust.address) {
           if (isPlaceMatch(custPlace, cust.address)) return cust;
         } else if (!custPlace && !cust.address) {
@@ -706,12 +716,13 @@ export const bulkImportContracts = async (req: any, res: Response) => {
         )
       );
       created.forEach((c: any) => {
+        c._cleanName = cleanCustomerName(c.companyName);
         const key = `${String(c.companyName).toLowerCase().trim()}::${String(c.address || '').toLowerCase().trim()}::${c.serviceZoneId}`;
         customerMap.set(key, c);
       });
     }
 
-    // ── PHASE 2: Also scan for existing contracts by (customerName+place+zoneId) for rows without contractNumber ──
+    // ── PHASE 2: Also scan for existing contracts by (customerName+place+poNo+startDate) for rows without contractNumber ──
     // Fetch existing contracts for those combos to avoid duplicates
     const nameBasedContracts = await db.contract.findMany({
       where: {
@@ -719,18 +730,26 @@ export const bulkImportContracts = async (req: any, res: Response) => {
       },
       include: { pmSchedules: true }
     });
-    // Existing by natural key: customerName_lower::place_lower::zoneId
+
+    const formatDateStr = (d: any) => {
+      if (!d) return '';
+      const date = new Date(d);
+      return isNaN(date.getTime()) ? '' : date.toISOString().split('T')[0];
+    };
+
+    // Existing by natural key: customerName_lower::place_lower::poNo_lower::startDate
     const existingByNaturalKey = new Map<string, any>();
     nameBasedContracts.forEach((c: any) => {
-      const key = `${String(c.customerName).toLowerCase().trim()}::${String(c.place || '').toLowerCase().trim()}::${c.zoneId}`;
-      // Keep the most recent one if duplicates exist
+      const poPart = String(c.poNo || '').toLowerCase().trim();
+      const startPart = formatDateStr(c.startDate);
+      const key = `${String(c.customerName).toLowerCase().trim()}::${String(c.place || '').toLowerCase().trim()}::${poPart}::${startPart}`;
       if (!existingByNaturalKey.has(key)) {
         existingByNaturalKey.set(key, c);
       }
     });
 
-    // ── PHASE 3: Process each contract (create or update) ──
-    const results: any[] = [];
+    // ── PHASE 3: Prepare all contract payloads synchronously in memory ──
+    const preparedContracts: any[] = [];
 
     for (const item of contracts) {
       const {
@@ -825,7 +844,7 @@ export const bulkImportContracts = async (req: any, res: Response) => {
 
       // Find existing contract: by contractNumber first, then by natural key
       const safeContractNo = contractNumber ? String(contractNumber).trim() : '';
-      const naturalKey = `${String(customerName).trim().toLowerCase()}::${String(place).trim().toLowerCase()}::${Number(zoneId)}`;
+      const naturalKey = `${String(customerName).trim().toLowerCase()}::${String(place).trim().toLowerCase()}::${safePoNo.toLowerCase()}::${start.toISOString().split('T')[0]}`;
 
       const existingContract = (safeContractNo && existingByContractNo.has(safeContractNo))
         ? existingByContractNo.get(safeContractNo)
@@ -853,78 +872,77 @@ export const bulkImportContracts = async (req: any, res: Response) => {
         assignedToId
       };
 
-      let savedContract: any;
+      const genContractNumber = safeContractNo || generateContractNumber();
 
-      if (existingContract) {
-        // ── UPDATE existing contract ──
-        savedContract = await db.contract.update({
-          where: { id: existingContract.id },
-          data: contractData
-        });
+      preparedContracts.push({
+        isUpdate: Boolean(existingContract),
+        existingContract,
+        contractData,
+        genContractNumber,
+        finalCustomerId,
+        pmSchedulesData
+      });
+    }
 
-        // Sync PM schedules: delete obsolete, upsert remaining
-        // Delete PMs that no longer exist
-        await db.contractPMSchedule.deleteMany({
-          where: {
-            contractId: existingContract.id,
-            pmNumber: { gt: pmSchedulesData.length }
-          }
-        });
+    // ── PHASE 4: Concurrent chunked execution (chunks of 25 parallel database operations) ──
+    const CHUNK_SIZE = 25;
+    const results: any[] = [];
 
-        // Update or create each PM using upsert
-        await Promise.all(
-          pmSchedulesData.map(pm => {
-            const existingPM = existingContract.pmSchedules?.find((p: any) => p.pmNumber === pm.pmNumber);
-            if (existingPM) {
-              return db.contractPMSchedule.update({
-                where: { id: existingPM.id },
-                data: {
-                  range: pm.range,
-                  // Don't override Completed status back to Pending
-                  status: pm.status === 'Completed' ? 'Completed' : existingPM.status,
-                  completedAt: pm.status === 'Completed' ? (pm.completedAt || existingPM.completedAt) : existingPM.completedAt
-                }
-              });
-            } else {
-              return db.contractPMSchedule.create({
-                data: {
-                  contractId: existingContract.id,
+    for (let i = 0; i < preparedContracts.length; i += CHUNK_SIZE) {
+      const chunk = preparedContracts.slice(i, i + CHUNK_SIZE);
+      const chunkResults = await Promise.all(
+        chunk.map(async (task) => {
+          if (task.isUpdate) {
+            const savedContract = await db.contract.update({
+              where: { id: task.existingContract.id },
+              data: task.contractData
+            });
+
+            // Re-sync PM schedules cleanly in batch without stale record lookup errors
+            await db.contractPMSchedule.deleteMany({
+              where: { contractId: task.existingContract.id }
+            });
+
+            if (task.pmSchedulesData.length > 0) {
+              await db.contractPMSchedule.createMany({
+                data: task.pmSchedulesData.map((pm: any) => ({
+                  contractId: task.existingContract.id,
                   pmNumber: pm.pmNumber,
                   range: pm.range,
                   status: pm.status,
                   completedAt: pm.completedAt
-                }
+                }))
               });
             }
-          })
-        );
 
-      } else {
-        // ── CREATE new contract ──
-        const genContractNumber = safeContractNo || generateContractNumber();
+            return savedContract;
+          } else {
+            const savedContract = await db.contract.create({
+              data: {
+                ...task.contractData,
+                contractNumber: task.genContractNumber,
+                customerId: task.finalCustomerId ? Number(task.finalCustomerId) : undefined,
+                createdById: Number(createdById)
+              }
+            });
 
-        savedContract = await db.contract.create({
-          data: {
-            ...contractData,
-            contractNumber: genContractNumber,
-            customerId: finalCustomerId ? Number(finalCustomerId) : undefined,
-            createdById: Number(createdById)
+            if (task.pmSchedulesData.length > 0) {
+              await db.contractPMSchedule.createMany({
+                data: task.pmSchedulesData.map((pm: any) => ({
+                  contractId: savedContract.id,
+                  pmNumber: pm.pmNumber,
+                  range: pm.range,
+                  status: pm.status,
+                  completedAt: pm.completedAt
+                }))
+              });
+            }
+
+            return savedContract;
           }
-        });
-
-        // Create PMs in one batch
-        await db.contractPMSchedule.createMany({
-          data: pmSchedulesData.map(pm => ({
-            contractId: savedContract.id,
-            pmNumber: pm.pmNumber,
-            range: pm.range,
-            status: pm.status,
-            completedAt: pm.completedAt
-          }))
-        });
-      }
-
-      results.push(savedContract);
+        })
+      );
+      results.push(...chunkResults);
     }
 
     return res.status(201).json({ success: true, count: results.length, data: results });

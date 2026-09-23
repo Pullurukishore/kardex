@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   UploadCloud, FileSpreadsheet, CheckCircle, AlertTriangle, ArrowLeft,
-  Trash2, Sparkles, Download, Check, RefreshCw, AlertCircle, HelpCircle, Plus
+  Trash2, Sparkles, Download, Check, RefreshCw, AlertCircle, HelpCircle, Plus,
+  ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
@@ -62,6 +63,7 @@ interface ContractBulkImportProps {
 export default function ContractBulkImport({ role }: ContractBulkImportProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const workbookRef = useRef<XLSX.WorkBook | null>(null);
 
   // State
   const [loading, setLoading] = useState(false);
@@ -69,7 +71,12 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
   const [dbZones, setDbZones] = useState<any[]>([]);
   const [dbUsers, setDbUsers] = useState<any[]>([]);
   const [parsedData, setParsedData] = useState<ParsedContract[]>([]);
+  const [availableSheets, setAvailableSheets] = useState<string[]>([]);
+  const [selectedSheet, setSelectedSheet] = useState<string>('');
   const [isDragOver, setIsDragOver] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [filterMode, setFilterMode] = useState<'all' | 'warnings' | 'valid'>('all');
 
   // Quick Create Customer Modal State
   const [quickCreateModalOpen, setQuickCreateModalOpen] = useState(false);
@@ -91,7 +98,12 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
           apiService.getZones(),
           apiService.getUsers()
         ]);
-        setDbCustomers(cData);
+        const rawCust = Array.isArray(cData) ? cData : (cData?.customers || cData?.data || []);
+        const preprocessed = rawCust.map((c: any) => ({
+          ...c,
+          _cleanedName: cleanName(c.companyName || c.name || '')
+        }));
+        setDbCustomers(preprocessed);
         setDbZones(Array.isArray(zData) ? zData : (zData?.data || []));
         setDbUsers(uData.users || uData || []);
       } catch (err) {
@@ -107,6 +119,35 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
     if (role === 'Zone Manager') return '/zone-manager';
     return '/admin';
   };
+
+  // Memoize customer options with pre-formatted labels and zone names
+  const customerOptions = useMemo(() => {
+    const zoneMap = new Map((dbZones || []).map((z: any) => [Number(z.id), z.name]));
+    return (dbCustomers || []).map((cust: any) => {
+      const zName = cust.serviceZone?.name || zoneMap.get(Number(cust.serviceZoneId));
+      const placeStr = cust.address ? ` - ${cust.address}` : '';
+      return {
+        id: cust.id,
+        label: `${cust.companyName || cust.name}${placeStr}${zName ? ` (${zName} Zone)` : ''}`
+      };
+    });
+  }, [dbCustomers, dbZones]);
+
+  const rowsWithWarnings = useMemo(() => (parsedData || []).filter(r => r.errors.length > 0), [parsedData]);
+  const rowsWithWarningsCount = rowsWithWarnings.length;
+  const rowsValidCount = (parsedData || []).length - rowsWithWarningsCount;
+
+  const filteredData = useMemo(() => {
+    if (filterMode === 'warnings') return rowsWithWarnings;
+    if (filterMode === 'valid') return (parsedData || []).filter(r => r.errors.length === 0);
+    return parsedData;
+  }, [parsedData, filterMode, rowsWithWarnings]);
+
+  const totalPages = Math.ceil(filteredData.length / pageSize) || 1;
+  const paginatedData = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredData.slice(start, start + pageSize);
+  }, [filteredData, currentPage, pageSize]);
 
   // Generate and download a sample Excel file
   const handleDownloadTemplate = () => {
@@ -267,19 +308,29 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
   const getDistance = (s1: string, s2: string): number => {
     const m = s1.length;
     const n = s2.length;
-    const dp = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
-    for (let i = 0; i <= m; i++) dp[i][0] = i;
-    for (let j = 0; j <= n; j++) dp[0][j] = j;
+    if (Math.abs(m - n) > 2) return 999;
+    if (m === 0) return n;
+    if (n === 0) return m;
+
+    let prev = new Int32Array(n + 1);
+    let curr = new Int32Array(n + 1);
+    for (let j = 0; j <= n; j++) prev[j] = j;
+
     for (let i = 1; i <= m; i++) {
+      curr[0] = i;
+      const c1 = s1.charCodeAt(i - 1);
       for (let j = 1; j <= n; j++) {
-        if (s1[i - 1] === s2[j - 1]) {
-          dp[i][j] = dp[i - 1][j - 1];
+        if (c1 === s2.charCodeAt(j - 1)) {
+          curr[j] = prev[j - 1];
         } else {
-          dp[i][j] = Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]) + 1;
+          curr[j] = Math.min(prev[j], curr[j - 1], prev[j - 1]) + 1;
         }
       }
+      const temp = prev;
+      prev = curr;
+      curr = temp;
     }
-    return dp[m][n];
+    return prev[n];
   };
 
   const normalizePlaceForComparison = (place: string): string => {
@@ -345,7 +396,7 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
     return n1 === n2 || n1.includes(n2) || n2.includes(n1);
   };
 
-  const isFuzzyMatch = (dbName: string, excelName: string): boolean => {
+  const isFuzzyMatch = (dbName: string, excelName: string, preCleanDb?: string, preCleanEx?: string): boolean => {
     if (!dbName || !excelName) return false;
 
     const dName = dbName.trim().toLowerCase();
@@ -355,8 +406,9 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
 
     if (dName.includes('electro optical') && eName.includes('electro optics')) return true;
 
-    const cDb = cleanName(dbName);
-    const cEx = cleanName(excelName);
+    const cDb = preCleanDb !== undefined ? preCleanDb : cleanName(dbName);
+    const cEx = preCleanEx !== undefined ? preCleanEx : cleanName(excelName);
+    if (!cDb || !cEx) return false;
     if (cDb === cEx) return true;
 
     // Cleaned prefix match (first 10 chars)
@@ -369,8 +421,10 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
       if (cDb.includes(cEx) || cEx.includes(cDb)) return true;
 
       // Edit distance check for small typos
-      const dist = getDistance(cDb, cEx);
-      if (dist <= 2) return true;
+      if (Math.abs(cDb.length - cEx.length) <= 2) {
+        const dist = getDistance(cDb, cEx);
+        if (dist <= 2) return true;
+      }
     }
 
     return false;
@@ -407,7 +461,285 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
     return errs;
   };
 
-  // Handle excel parsing
+  // Parse a specific sheet from the workbook
+  const parseWorkbookSheet = (workbook: XLSX.WorkBook, sheetName: string, custs = dbCustomers, zones = dbZones) => {
+    try {
+      const worksheet = workbook.Sheets[sheetName];
+      if (!worksheet) {
+        toast.error(`Sheet "${sheetName}" not found in workbook.`);
+        return;
+      }
+
+      // Use 2D array header: 1 to support dynamic / merged columns reliably
+      const rows = XLSX.utils.sheet_to_json<any[]>(worksheet, { header: 1, defval: '' });
+
+      if (rows.length === 0) {
+        toast.error(`The sheet "${sheetName}" contains no rows.`);
+        return;
+      }
+
+      // Find header row index
+      let headerRowIndex = -1;
+      for (let i = 0; i < Math.min(15, rows.length); i++) {
+        const row = rows[i];
+        if (row && row.some(cell => {
+          const str = String(cell || '').trim().toLowerCase();
+          return (
+            str === 'customer name' ||
+            str === 'name of the customer' ||
+            str === 'customer' ||
+            (str.includes('customer') && str.length < 25 && !str.includes('invoice') && !str.includes('territory') && !str.includes('release'))
+          );
+        })) {
+          headerRowIndex = i;
+          break;
+        }
+      }
+
+      if (headerRowIndex === -1) {
+        toast.error(`Could not find header row in sheet "${sheetName}". Make sure you have a "Customer Name" column.`);
+        return;
+      }
+
+      const headers = rows[headerRowIndex].map(h => String(h || '').trim().toLowerCase());
+
+      // Find column indices
+      const getColIndex = (aliases: string[]) => {
+        return headers.findIndex(h => aliases.some(alias => h.includes(alias.toLowerCase())));
+      };
+
+      const custCol = getColIndex(['customer name', 'customername', 'company', 'name of the customer']);
+      const placeCol = getColIndex(['place', 'location', 'city']);
+      const mcCol = getColIndex(['mc type', 'mc_type', 'mctype', 'sla type', 'slatype', 'care level']);
+      const machinesCol = getColIndex(['no of machine', 'no of machines', 'noofmachine', 'noofmachines', 'number of machines', 'number of machine', 'machines']);
+      const amountCol = getColIndex(['amount', 'contract amount', 'contractamount', 'value', 'price']);
+      const visitsCol = getColIndex(['no of visits', 'noofvisits', 'number of visits', 'visits']);
+      const startCol = getColIndex(['start', 'start ', 'start date', 'startdate']);
+      const endCol = getColIndex(['end', 'end date', 'enddate']);
+      const poCol = getColIndex(['po no', 'po no.', 'po number', 'pono', 'ponumber']);
+      const poDateCol = getColIndex(['po date', 'podate']);
+      const respCol = getColIndex(['responsible', 'responsible engineer', 'engineer', 'technician']);
+      const zoneCol = getColIndex(['zone', 'zone name', 'zonename']);
+      const swCol = getColIndex(['software support', 'softwaresupport', 'sw support']);
+      const bdCol = getColIndex(['bd', 'bd count', 'bdcount', 'buffer days', 'breakdown visits']);
+      const pm1Col = getColIndex(['1st pm', 'pm1', 'pm 1']);
+      const contractNoCol = getColIndex(['contract no', 'contract number', 'contract_no', 'contractnumber', 'agreement no', 'agreement number']);
+      const paymentCol = getColIndex(['payment terms', 'paymentterms', 'payment term', 'paymentterm', 'payment']);
+
+      const dataRows = rows.slice(headerRowIndex + 1);
+
+      // Track recent zone by customer name or PO to auto-inherit across multi-year split rows
+      const poZoneMap = new Map<string, any>();
+      const custZoneMap = new Map<string, any>();
+
+      const parsedRows = dataRows.map((row, index) => {
+        const rawCustName = custCol !== -1 && custCol < row.length ? String(row[custCol] || '').trim() : '';
+        const cleanedRowCustName = cleanName(rawCustName);
+        const rawContractNo = contractNoCol !== -1 && contractNoCol < row.length ? String(row[contractNoCol] || '').trim() : '';
+        const rawPaymentTerms = paymentCol !== -1 && paymentCol < row.length ? String(row[paymentCol] || '').trim() : '';
+        const rawZoneName = zoneCol !== -1 && zoneCol < row.length ? String(row[zoneCol] || '').trim() : '';
+        const rawMcType = mcCol !== -1 && mcCol < row.length ? String(row[mcCol] || '').trim() : '';
+        const rawSoftware = swCol !== -1 && swCol < row.length ? String(row[swCol] || '').trim().toLowerCase() : '';
+        const rawPlaceStr = placeCol !== -1 && placeCol < row.length ? String(row[placeCol] || '').trim().toLowerCase() : '';
+        const rawPoNo = poCol !== -1 && poCol < row.length ? String(row[poCol] || '').trim() : '';
+
+        // Normalize zone string & common typos (e.g. "Easr" -> "East")
+        let cleanZoneName = rawZoneName.trim();
+        const lowerZ = cleanZoneName.toLowerCase();
+        if (lowerZ === 'easr' || lowerZ === 'est') cleanZoneName = 'East';
+        else if (lowerZ === 'sout' || lowerZ === 'st') cleanZoneName = 'South';
+        else if (lowerZ === 'nrth' || lowerZ === 'nth') cleanZoneName = 'North';
+        else if (lowerZ === 'wst' || lowerZ === 'wset') cleanZoneName = 'West';
+
+        // Match database Zone directly from Excel
+        let matchedZone = zones && Array.isArray(zones)
+          ? zones.find(z => z?.name && String(z.name).toLowerCase() === cleanZoneName.toLowerCase())
+          : undefined;
+
+        // Match database Customer
+        const matchedCust = custs && Array.isArray(custs)
+          ? custs.find(c => {
+              if (!c?.companyName) return false;
+              // Check zone FIRST if resolved to eliminate false positive candidates
+              if (matchedZone && c.serviceZoneId && c.serviceZoneId !== matchedZone.id) return false;
+              if (!isFuzzyMatch(c.companyName, rawCustName, c._cleanedName, cleanedRowCustName)) return false;
+
+              // Match address/place if provided in both Excel and DB
+              if (rawPlaceStr && c.address) {
+                return isPlaceMatch(rawPlaceStr, c.address);
+              }
+              return true;
+            })
+          : undefined;
+
+        // Smart Zone Fallbacks:
+        // 1. Inherit zone from matched Customer in database if Excel cell was empty
+        if (!matchedZone && matchedCust) {
+          if (matchedCust.serviceZoneId) {
+            matchedZone = zones.find(z => Number(z.id) === Number(matchedCust.serviceZoneId));
+          } else if (matchedCust.serviceZone?.name) {
+            matchedZone = zones.find(z => String(z.name).toLowerCase() === String(matchedCust.serviceZone.name).toLowerCase());
+          }
+        }
+
+        // 2. Inherit zone from previous multi-year row with same PO No or Customer
+        if (!matchedZone && rawPoNo && poZoneMap.has(rawPoNo)) {
+          matchedZone = poZoneMap.get(rawPoNo);
+        }
+        if (!matchedZone && cleanedRowCustName && custZoneMap.has(cleanedRowCustName)) {
+          matchedZone = custZoneMap.get(cleanedRowCustName);
+        }
+
+        // 3. Fallback from Place keywords
+        if (!matchedZone) {
+          const placeToCheck = (rawPlaceStr || matchedCust?.address || '').toLowerCase();
+          if (placeToCheck.includes('bangalore') || placeToCheck.includes('bengaluru') || placeToCheck.includes('chennai') || placeToCheck.includes('hyderabad')) {
+            matchedZone = zones.find(z => z.name.toLowerCase() === 'south');
+          } else if (placeToCheck.includes('pune') || placeToCheck.includes('mumbai') || placeToCheck.includes('aurangabad') || placeToCheck.includes('gujarat') || placeToCheck.includes('vadodara') || placeToCheck.includes('ahmedabad')) {
+            matchedZone = zones.find(z => z.name.toLowerCase() === 'west');
+          } else if (placeToCheck.includes('delhi') || placeToCheck.includes('noida') || placeToCheck.includes('gurgaon') || placeToCheck.includes('ghaziabad') || placeToCheck.includes('faridabad')) {
+            matchedZone = zones.find(z => z.name.toLowerCase() === 'north');
+          } else if (placeToCheck.includes('kolkata') || placeToCheck.includes('jamshedpur') || placeToCheck.includes('ranchi') || placeToCheck.includes('orissa') || placeToCheck.includes('odisha') || placeToCheck.includes('koraput')) {
+            matchedZone = zones.find(z => z.name.toLowerCase() === 'east');
+          }
+        }
+
+        // Remember zone for subsequent multi-year rows in the same spreadsheet
+        if (matchedZone) {
+          if (rawPoNo) poZoneMap.set(rawPoNo, matchedZone);
+          if (cleanedRowCustName) custZoneMap.set(cleanedRowCustName, matchedZone);
+        }
+
+        let startDateParsed = startCol !== -1 && startCol < row.length ? parseExcelDate(row[startCol]) : '';
+        let endDateParsed = endCol !== -1 && endCol < row.length ? parseExcelDate(row[endCol]) : '';
+        const poDateParsed = poDateCol !== -1 && poDateCol < row.length ? parseExcelDate(row[poDateCol]) : '';
+
+        // If Start Date is missing in Excel but PO Date is available, derive 1-year contract dates from PO Date
+        if (!startDateParsed && poDateParsed) {
+          startDateParsed = poDateParsed;
+          const sD = new Date(startDateParsed);
+          if (!isNaN(sD.getTime())) {
+            const eD = new Date(sD);
+            eD.setFullYear(eD.getFullYear() + 1);
+            eD.setDate(eD.getDate() - 1);
+            endDateParsed = formatDateISO(eD);
+          }
+        }
+
+        // If Start Date is present but End Date is missing, automatically set End Date to 1 year minus 1 day
+        if (startDateParsed && !endDateParsed) {
+          const sD = new Date(startDateParsed);
+          if (!isNaN(sD.getTime())) {
+            const eD = new Date(sD);
+            eD.setFullYear(eD.getFullYear() + 1);
+            eD.setDate(eD.getDate() - 1);
+            endDateParsed = formatDateISO(eD);
+          }
+        }
+
+        // BD parsing
+        const bdRaw = bdCol !== -1 && bdCol < row.length ? String(row[bdCol] || '').trim() : '';
+        let parsedBdCount = 0;
+        if (bdRaw.toLowerCase() === 'unlimited' || bdRaw.toLowerCase() === 'ul') {
+          parsedBdCount = 999;
+        } else {
+          parsedBdCount = parseInt(bdRaw, 10) || 0;
+        }
+
+        const parsedVisits = visitsCol !== -1 && visitsCol < row.length ? Math.min(12, Math.max(1, Number(row[visitsCol]) || 3)) : 3;
+
+        const isValidRangeString = (str: string): boolean => {
+          if (!str) return false;
+          const s = str.trim().toLowerCase();
+          return /\d{1,4}[-/\.]\d{1,2}/.test(s) ||
+                 /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b/i.test(s) ||
+                 s.includes(' to ') || s.includes(' - ');
+        };
+
+        const pmSchedules: any[] = [];
+        if (pm1Col !== -1) {
+          for (let p = 1; p <= Math.min(10, parsedVisits); p++) {
+            const rCol = pm1Col + (p - 1) * 2;
+            const dCol = rCol + 1;
+            const pRange = rCol < row.length ? String(row[rCol] || '').trim() : '';
+            const pDateVal = dCol < row.length ? row[dCol] : null;
+            const pDate = pDateVal ? parseCompletionDate(pDateVal) : null;
+            
+            if ((pRange && isValidRangeString(pRange)) || pDate) {
+              pmSchedules.push({
+                pmNumber: p,
+                range: isValidRangeString(pRange) ? pRange : '',
+                completedAt: pDate
+              });
+            }
+          }
+          if (parsedVisits >= 11) {
+            const rCol11 = pm1Col + 20;
+            if (rCol11 < row.length && row[rCol11] && isValidRangeString(String(row[rCol11]))) {
+              pmSchedules.push({
+                pmNumber: 11,
+                range: String(row[rCol11]).trim(),
+                completedAt: null
+              });
+            }
+          }
+          if (parsedVisits >= 12) {
+            const rCol12 = pm1Col + 21;
+            if (rCol12 < row.length && row[rCol12] && isValidRangeString(String(row[rCol12]))) {
+              pmSchedules.push({
+                pmNumber: 12,
+                range: String(row[rCol12]).trim(),
+                completedAt: null
+              });
+            }
+          }
+        }
+
+        const contractItem: Partial<ParsedContract> = {
+          id: `row-${index}-${Date.now()}`,
+          customerName: rawCustName || 'Blank Customer',
+          place: placeCol !== -1 && placeCol < row.length ? String(row[placeCol] || '').trim() : '',
+          mcType: rawMcType,
+          noOfMachine: machinesCol !== -1 && machinesCol < row.length ? Number(row[machinesCol] || 1) : 1,
+          amount: (() => {
+            const amtRaw = amountCol !== -1 && amountCol < row.length ? String(row[amountCol]).trim() : '';
+            if (!amtRaw || amtRaw === '-') return 0;
+            const cleanAmt = amtRaw.replace(/[^0-9.]/g, '');
+            return parseFloat(cleanAmt) || 0;
+          })(),
+          noOfVisits: visitsCol !== -1 && visitsCol < row.length ? Number(row[visitsCol] || 3) : 3,
+          startDate: startDateParsed,
+          endDate: endDateParsed,
+          poNo: (rawPoNo && rawPoNo !== 'N/A' && rawPoNo !== '-') ? rawPoNo : 'PO-AWAITED',
+          poDate: poDateParsed || startDateParsed,
+          responsible: respCol !== -1 && respCol < row.length ? String(row[respCol] || '').trim() : '',
+          zoneName: matchedZone?.name || cleanZoneName || rawZoneName || '',
+          paymentTerms: rawPaymentTerms || undefined,
+          softwareSupport: rawSoftware === 'yes' || rawSoftware === 'true' || rawSoftware === '1',
+          bdCount: parsedBdCount,
+          pmSchedules: pmSchedules,
+          customerId: matchedCust?.id,
+          zoneId: matchedZone?.id,
+          contractNumber: rawContractNo || undefined
+        };
+
+        contractItem.errors = validateContract(contractItem);
+        return contractItem as ParsedContract;
+      });
+
+      // Filter out empty rows (e.g. rows where customer name is empty)
+      const validParsedRows = parsedRows.filter(r => r.customerName && r.customerName !== 'Blank Customer');
+
+      setParsedData(validParsedRows);
+      setCurrentPage(1);
+      toast.success(`Loaded ${validParsedRows.length} contract agreements from sheet "${sheetName}".`);
+    } catch (err) {
+      console.error(`Failed parsing excel sheet "${sheetName}":`, err);
+      toast.error(`Failed to parse sheet "${sheetName}".`);
+    }
+  };
+
+  // Handle excel file parsing with sheet detection
   const processExcelFile = (file: File) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -416,197 +748,34 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
         if (!data) return;
 
         const workbook = XLSX.read(data, { type: 'binary', cellDates: true });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        
-        // Use 2D array header: 1 to support dynamic / merged columns reliably
-        const rows = XLSX.utils.sheet_to_json<any[]>(worksheet, { header: 1, defval: '' });
+        workbookRef.current = workbook;
 
-        if (rows.length === 0) {
-          toast.error('The uploaded Excel sheet contains no rows.');
+        const sheetNames = workbook.SheetNames || [];
+        if (sheetNames.length === 0) {
+          toast.error('The uploaded Excel file contains no worksheets.');
           return;
         }
 
-        // Find header row index
-        let headerRowIndex = -1;
-        for (let i = 0; i < Math.min(15, rows.length); i++) {
-          const row = rows[i];
-          if (row && row.some(cell => {
-            const str = String(cell || '').toLowerCase();
-            return str.includes('customer name') || str.includes('customer');
-          })) {
-            headerRowIndex = i;
-            break;
+        setAvailableSheets(sheetNames);
+
+        // Smart default sheet selection:
+        // Prioritize 'AMC LIST 2026' or sheet containing 'AMC LIST', then sheets containing '2026', then latest sheet
+        let defaultSheet = sheetNames.find(s => /amc\s*list/i.test(s));
+        if (!defaultSheet) {
+          const yearSheets = sheetNames.filter(s => /2026/i.test(s));
+          if (yearSheets.length > 0) {
+            defaultSheet = yearSheets[yearSheets.length - 1];
           }
         }
-
-        if (headerRowIndex === -1) {
-          toast.error('Could not find header row in the spreadsheet. Make sure you have a "Customer Name" column.');
-          return;
+        if (!defaultSheet) {
+          defaultSheet = sheetNames[sheetNames.length - 1] || sheetNames[0];
         }
 
-        const headers = rows[headerRowIndex].map(h => String(h || '').trim().toLowerCase());
-
-        // Find column indices
-        const getColIndex = (aliases: string[]) => {
-          return headers.findIndex(h => aliases.some(alias => h.includes(alias.toLowerCase())));
-        };
-
-        const custCol = getColIndex(['customer name', 'customername', 'company', 'name of the customer']);
-        const placeCol = getColIndex(['place', 'location', 'city']);
-        const mcCol = getColIndex(['mc type', 'mc_type', 'mctype', 'sla type', 'slatype', 'care level']);
-        const machinesCol = getColIndex(['no of machine', 'no of machines', 'noofmachine', 'noofmachines', 'number of machines', 'number of machine', 'machines']);
-        const amountCol = getColIndex(['amount', 'contract amount', 'contractamount', 'value', 'price']);
-        const visitsCol = getColIndex(['no of visits', 'noofvisits', 'number of visits', 'visits']);
-        const startCol = getColIndex(['start', 'start ', 'start date', 'startdate']);
-        const endCol = getColIndex(['end', 'end date', 'enddate']);
-        const poCol = getColIndex(['po no', 'po no.', 'po number', 'pono', 'ponumber']);
-        const poDateCol = getColIndex(['po date', 'podate']);
-        const respCol = getColIndex(['responsible', 'responsible engineer', 'engineer', 'technician']);
-        const zoneCol = getColIndex(['zone', 'zone name', 'zonename']);
-        const swCol = getColIndex(['software support', 'softwaresupport', 'sw support']);
-        const bdCol = getColIndex(['bd', 'bd count', 'bdcount', 'buffer days', 'breakdown visits']);
-        const pm1Col = getColIndex(['1st pm', 'pm1', 'pm 1']);
-        const contractNoCol = getColIndex(['contract no', 'contract number', 'contract_no', 'contractnumber', 'agreement no', 'agreement number']);
-        const paymentCol = getColIndex(['payment terms', 'paymentterms', 'payment term', 'paymentterm', 'payment']);
-
-        const dataRows = rows.slice(headerRowIndex + 1);
-
-        const parsedRows = dataRows.map((row, index) => {
-          const rawCustName = custCol !== -1 && custCol < row.length ? String(row[custCol] || '').trim() : '';
-          const rawContractNo = contractNoCol !== -1 && contractNoCol < row.length ? String(row[contractNoCol] || '').trim() : '';
-          const rawPaymentTerms = paymentCol !== -1 && paymentCol < row.length ? String(row[paymentCol] || '').trim() : '';
-          const rawZoneName = zoneCol !== -1 && zoneCol < row.length ? String(row[zoneCol] || '').trim() : '';
-          const rawMcType = mcCol !== -1 && mcCol < row.length ? String(row[mcCol] || '').trim() : '';
-          const rawSoftware = swCol !== -1 && swCol < row.length ? String(row[swCol] || '').trim().toLowerCase() : '';
-
-          // Match database Zone
-          const matchedZone = dbZones && Array.isArray(dbZones)
-            ? dbZones.find(z => z?.name && String(z.name).toLowerCase() === rawZoneName.toLowerCase())
-            : undefined;
-
-          // Match database Customer (filter by zone and place/address if resolved)
-          const rawPlaceStr = placeCol !== -1 && placeCol < row.length ? String(row[placeCol] || '').trim().toLowerCase() : '';
-          const matchedCust = dbCustomers && Array.isArray(dbCustomers)
-            ? dbCustomers.find(c => {
-                if (!c?.companyName) return false;
-                if (!isFuzzyMatch(c.companyName, rawCustName)) return false;
-                if (matchedZone && c.serviceZoneId !== matchedZone.id) return false;
-
-                // Match address/place if provided in both Excel and DB
-                if (rawPlaceStr && c.address) {
-                  return isPlaceMatch(rawPlaceStr, c.address);
-                }
-                return true;
-              })
-            : undefined;
-
-          const startDateParsed = startCol !== -1 && startCol < row.length ? parseExcelDate(row[startCol]) : '';
-          const endDateParsed = endCol !== -1 && endCol < row.length ? parseExcelDate(row[endCol]) : '';
-          const poDateParsed = poDateCol !== -1 && poDateCol < row.length ? parseExcelDate(row[poDateCol]) : '';
-
-          // Parse BD / bdCount
-          const bdRaw = bdCol !== -1 && bdCol < row.length ? String(row[bdCol] || '').trim() : '';
-          let parsedBdCount = 0;
-          if (bdRaw.toLowerCase() === 'unlimited' || bdRaw.toLowerCase() === 'ul') {
-            parsedBdCount = 999;
-          } else {
-            parsedBdCount = parseInt(bdRaw, 10) || 0;
-          }
-
-          const parsedVisits = visitsCol !== -1 && visitsCol < row.length ? Math.min(12, Math.max(1, Number(row[visitsCol]) || 3)) : 3;
-
-          // Helper to check if string looks like a date or date range
-          const isValidRangeString = (str: string): boolean => {
-            if (!str) return false;
-            const s = str.trim().toLowerCase();
-            return /\d{1,4}[-/\.]\d{1,2}/.test(s) ||
-                   /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b/i.test(s) ||
-                   s.includes(' to ') || s.includes(' - ');
-          };
-
-          // Parse PMs (Cycles 1 to 12)
-          const pmSchedules: any[] = [];
-          if (pm1Col !== -1) {
-            // Cycles 1 to 10
-            for (let p = 1; p <= Math.min(10, parsedVisits); p++) {
-              const rCol = pm1Col + (p - 1) * 2;
-              const dCol = rCol + 1;
-              const pRange = rCol < row.length ? String(row[rCol] || '').trim() : '';
-              const pDateVal = dCol < row.length ? row[dCol] : null;
-              const pDate = pDateVal ? parseCompletionDate(pDateVal) : null;
-              
-              if ((pRange && isValidRangeString(pRange)) || pDate) {
-                pmSchedules.push({
-                  pmNumber: p,
-                  range: isValidRangeString(pRange) ? pRange : '',
-                  completedAt: pDate
-                });
-              }
-            }
-            // Cycles 11 and 12 (single columns in Dummy data.xlsx)
-            if (parsedVisits >= 11) {
-              const rCol11 = pm1Col + 20;
-              if (rCol11 < row.length && row[rCol11] && isValidRangeString(String(row[rCol11]))) {
-                pmSchedules.push({
-                  pmNumber: 11,
-                  range: String(row[rCol11]).trim(),
-                  completedAt: null
-                });
-              }
-            }
-            if (parsedVisits >= 12) {
-              const rCol12 = pm1Col + 21;
-              if (rCol12 < row.length && row[rCol12] && isValidRangeString(String(row[rCol12]))) {
-                pmSchedules.push({
-                  pmNumber: 12,
-                  range: String(row[rCol12]).trim(),
-                  completedAt: null
-                });
-              }
-            }
-          }
-
-          const contractItem: Partial<ParsedContract> = {
-            id: `row-${index}-${Date.now()}`,
-            customerName: rawCustName || 'Blank Customer',
-            place: placeCol !== -1 && placeCol < row.length ? String(row[placeCol] || '').trim() : '',
-            mcType: rawMcType,
-            noOfMachine: machinesCol !== -1 && machinesCol < row.length ? Number(row[machinesCol] || 1) : 1,
-            amount: (() => {
-              const amtRaw = amountCol !== -1 && amountCol < row.length ? String(row[amountCol]).trim() : '';
-              if (!amtRaw || amtRaw === '-') return 0;
-              const cleanAmt = amtRaw.replace(/[^0-9.]/g, '');
-              return parseFloat(cleanAmt) || 0;
-            })(),
-            noOfVisits: visitsCol !== -1 && visitsCol < row.length ? Number(row[visitsCol] || 3) : 3,
-            startDate: startDateParsed,
-            endDate: endDateParsed,
-            poNo: poCol !== -1 && poCol < row.length ? String(row[poCol] || '').trim() : '',
-            poDate: poDateParsed || startDateParsed,
-            responsible: respCol !== -1 && respCol < row.length ? String(row[respCol] || '').trim() : '',
-            zoneName: matchedZone?.name || rawZoneName || '',
-            paymentTerms: rawPaymentTerms || undefined,
-            softwareSupport: rawSoftware === 'yes' || rawSoftware === 'true' || rawSoftware === '1',
-            bdCount: parsedBdCount,
-            pmSchedules: pmSchedules,
-            customerId: matchedCust?.id,
-            zoneId: matchedZone?.id,
-            contractNumber: rawContractNo || undefined
-          };
-
-          contractItem.errors = validateContract(contractItem);
-          return contractItem as ParsedContract;
-        });
-
-        // Filter out empty rows (e.g. rows where customer name is empty)
-        const validParsedRows = parsedRows.filter(r => r.customerName && r.customerName !== 'Blank Customer');
-
-        setParsedData(validParsedRows);
-        toast.success(`Successfully parsed ${validParsedRows.length} contract agreements.`);
+        setSelectedSheet(defaultSheet);
+        parseWorkbookSheet(workbook, defaultSheet, dbCustomers, dbZones);
       } catch (err) {
         console.error('Failed parsing excel file:', err);
-        toast.error('Failed to parse Excel file. Make sure headers are correct.');
+        toast.error('Failed to parse Excel file. Make sure file format is valid.');
       }
     };
 
@@ -642,6 +811,50 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
           ...row,
           zoneId: zoneId,
           zoneName: zone.name
+        };
+        updated.errors = validateContract(updated);
+        return updated;
+      }
+      return row;
+    }));
+  };
+
+  const handleUpdateRowDates = (rowId: string, startDate?: string, endDate?: string) => {
+    setParsedData(prev => prev.map(row => {
+      if (row.id === rowId) {
+        const updated = {
+          ...row,
+          startDate: startDate !== undefined ? startDate : row.startDate,
+          endDate: endDate !== undefined ? endDate : row.endDate,
+          poDate: row.poDate || startDate || row.startDate
+        };
+        updated.errors = validateContract(updated);
+        return updated;
+      }
+      return row;
+    }));
+  };
+
+  const handleUpdateRowAmount = (rowId: string, amount: number) => {
+    setParsedData(prev => prev.map(row => {
+      if (row.id === rowId) {
+        const updated = {
+          ...row,
+          amount
+        };
+        updated.errors = validateContract(updated);
+        return updated;
+      }
+      return row;
+    }));
+  };
+
+  const handleUpdateRowPo = (rowId: string, poNo: string) => {
+    setParsedData(prev => prev.map(row => {
+      if (row.id === rowId) {
+        const updated = {
+          ...row,
+          poNo
         };
         updated.errors = validateContract(updated);
         return updated;
@@ -693,7 +906,11 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
       toast.success('Customer created successfully!');
       
       // Update dbCustomers list in state
-      setDbCustomers(prev => [...prev, newCust]);
+      const preprocessedCust = {
+        ...newCust,
+        _cleanedName: cleanName(newCust.companyName || newCust.name || '')
+      };
+      setDbCustomers(prev => [...prev, preprocessedCust]);
       
       // Auto-assign to the row
       if (targetRowForCustomer) {
@@ -850,55 +1067,184 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
       ) : (
         /* Preview Dashboard */
         <div className="space-y-6">
+          {/* Sheet Selector Banner */}
+          {availableSheets.length > 1 && (
+            <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-[#82A094]/15 text-[#82A094] flex items-center justify-center font-bold">
+                  <FileSpreadsheet className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-slate-800 flex items-center gap-2">
+                    <span>Active Excel Sheet:</span>
+                    <span className="px-2.5 py-0.5 rounded-lg bg-[#82A094]/15 text-[#82A094] font-extrabold">{selectedSheet}</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Found {availableSheets.length} sheets in workbook. Switch below to preview contracts from other tabs:
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5">
+                {availableSheets.map(s => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => {
+                      setSelectedSheet(s);
+                      if (workbookRef.current) {
+                        parseWorkbookSheet(workbookRef.current, s);
+                      }
+                    }}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                      selectedSheet === s
+                        ? 'bg-slate-900 text-white shadow-md ring-2 ring-slate-900/20'
+                        : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+                    }`}
+                  >
+                    <span>{s}</span>
+                    {s === selectedSheet && <Check className="w-3.5 h-3.5 text-emerald-400" />}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex items-center justify-between">
-              <div className="space-y-1">
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Rows</p>
-                <h3 className="text-2xl font-bold text-slate-700">{parsedData.length}</h3>
+            {/* Total Rows Card (Clickable Filter) */}
+            <button
+              type="button"
+              onClick={() => { setFilterMode('all'); setCurrentPage(1); }}
+              className={`text-left rounded-2xl p-5 border transition-all cursor-pointer ${filterMode === 'all'
+                ? 'bg-slate-900 text-white border-slate-900 shadow-md ring-2 ring-slate-900/20'
+                : 'bg-white hover:bg-slate-50 border-slate-100 shadow-sm text-slate-800'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <p className={`text-xs font-semibold uppercase tracking-wider ${filterMode === 'all' ? 'text-white/60' : 'text-slate-400'}`}>Total Rows</p>
+                  <h3 className={`text-2xl font-bold ${filterMode === 'all' ? 'text-white' : 'text-slate-700'}`}>{parsedData.length}</h3>
+                </div>
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${filterMode === 'all' ? 'bg-white/10 text-white border-white/20' : 'bg-slate-50 text-slate-600 border-slate-100'}`}>
+                  <FileSpreadsheet className="w-5 h-5" />
+                </div>
               </div>
-              <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-600 border border-slate-100">
-                <FileSpreadsheet className="w-5 h-5" />
+              <div className={`mt-2 text-[10px] font-medium flex items-center gap-1 ${filterMode === 'all' ? 'text-white/70' : 'text-slate-400'}`}>
+                {filterMode === 'all' ? '✓ Showing all records' : 'Click to show all records'}
               </div>
-            </div>
+            </button>
 
-            <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex items-center justify-between">
-              <div className="space-y-1">
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Validation status</p>
-                <h3 className={`text-2xl font-bold ${totalErrorsCount > 0 ? 'text-amber-500' : 'text-emerald-500'}`}>
-                  {totalErrorsCount > 0 ? `${totalErrorsCount} Warnings` : 'All Valid'}
-                </h3>
-              </div>
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${totalErrorsCount > 0
-                  ? 'bg-amber-500/10 text-amber-500 border-amber-500/20'
-                  : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+            {/* Validation Warnings Card (Clickable Filter to See All Warnings) */}
+            <button
+              type="button"
+              onClick={() => { setFilterMode('warnings'); setCurrentPage(1); }}
+              className={`text-left rounded-2xl p-5 border transition-all cursor-pointer ${filterMode === 'warnings'
+                ? 'bg-amber-500 text-white border-amber-500 shadow-md ring-2 ring-amber-500/20'
+                : 'bg-white hover:bg-amber-50/40 border-slate-100 shadow-sm text-slate-800'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <p className={`text-xs font-semibold uppercase tracking-wider ${filterMode === 'warnings' ? 'text-white/80' : 'text-slate-400'}`}>Validation status</p>
+                  <h3 className={`text-2xl font-bold ${filterMode === 'warnings' ? 'text-white' : totalErrorsCount > 0 ? 'text-amber-500' : 'text-emerald-500'}`}>
+                    {totalErrorsCount > 0 ? `${totalErrorsCount} Warnings` : 'All Valid'}
+                  </h3>
+                </div>
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${
+                  filterMode === 'warnings'
+                    ? 'bg-white/20 text-white border-white/30'
+                    : totalErrorsCount > 0
+                    ? 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+                    : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
                 }`}>
-                {totalErrorsCount > 0 ? <AlertTriangle className="w-5 h-5" /> : <CheckCircle className="w-5 h-5" />}
+                  {totalErrorsCount > 0 ? <AlertTriangle className="w-5 h-5" /> : <CheckCircle className="w-5 h-5" />}
+                </div>
               </div>
-            </div>
+              <div className={`mt-2 text-[10px] font-medium flex items-center gap-1 ${filterMode === 'warnings' ? 'text-white/90 font-bold' : totalErrorsCount > 0 ? 'text-amber-600 font-bold' : 'text-emerald-600'}`}>
+                {filterMode === 'warnings' ? '✓ Filtered: showing warnings only' : totalErrorsCount > 0 ? `⚠️ Click to see all ${rowsWithWarningsCount} warning rows` : '✓ All rows valid'}
+              </div>
+            </button>
 
-            <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex items-center justify-between">
-              <div className="space-y-1">
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Database matching</p>
-                <h3 className="text-2xl font-bold text-slate-700">
-                  {parsedData.filter(r => r.customerId).length} / {parsedData.length} Matched
-                </h3>
+            {/* Database Matching / Ready Card (Clickable Filter) */}
+            <button
+              type="button"
+              onClick={() => { setFilterMode('valid'); setCurrentPage(1); }}
+              className={`text-left rounded-2xl p-5 border transition-all cursor-pointer ${filterMode === 'valid'
+                ? 'bg-[#82A094] text-white border-[#82A094] shadow-md ring-2 ring-[#82A094]/20'
+                : 'bg-white hover:bg-slate-50 border-slate-100 shadow-sm text-slate-800'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <p className={`text-xs font-semibold uppercase tracking-wider ${filterMode === 'valid' ? 'text-white/80' : 'text-slate-400'}`}>Ready to Import</p>
+                  <h3 className={`text-2xl font-bold ${filterMode === 'valid' ? 'text-white' : 'text-slate-700'}`}>
+                    {rowsValidCount} / {parsedData.length} Valid
+                  </h3>
+                </div>
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${filterMode === 'valid' ? 'bg-white/20 text-white border-white/30' : 'bg-[#82A094]/10 text-[#82A094] border-[#82A094]/20'}`}>
+                  <Check className="w-5 h-5" />
+                </div>
               </div>
-              <div className="w-10 h-10 rounded-xl bg-[#82A094]/10 flex items-center justify-center text-[#82A094] border border-[#82A094]/20">
-                <Check className="w-5 h-5" />
+              <div className={`mt-2 text-[10px] font-medium flex items-center gap-1 ${filterMode === 'valid' ? 'text-white/90 font-bold' : 'text-slate-400'}`}>
+                {filterMode === 'valid' ? '✓ Filtered: showing valid rows only' : 'Click to view ready rows'}
               </div>
-            </div>
+            </button>
           </div>
 
           {/* Interactive corrections preview grid */}
           <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden p-6 space-y-4">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
                 <h3 className="font-extrabold text-slate-800 text-sm uppercase tracking-wider">Parsed Agreement Records</h3>
                 <p className="text-slate-400 text-xs">Verify matched IDs and resolve warnings directly below before submitting.</p>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Filter Tabs */}
+                <div className="inline-flex p-1 bg-slate-100 rounded-xl gap-1 border border-slate-200/60">
+                  <button
+                    type="button"
+                    onClick={() => { setFilterMode('all'); setCurrentPage(1); }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      filterMode === 'all'
+                        ? 'bg-white text-slate-800 shadow-sm'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    All ({parsedData.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setFilterMode('warnings'); setCurrentPage(1); }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                      filterMode === 'warnings'
+                        ? 'bg-amber-500 text-white shadow-sm'
+                        : totalErrorsCount > 0
+                        ? 'text-amber-700 bg-amber-500/10 hover:bg-amber-500/20'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    <span>Warnings ({rowsWithWarningsCount})</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setFilterMode('valid'); setCurrentPage(1); }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                      filterMode === 'valid'
+                        ? 'bg-[#82A094] text-white shadow-sm'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Valid ({rowsValidCount})</span>
+                  </button>
+                </div>
+
                 <button
-                  onClick={() => setParsedData([])}
+                  onClick={() => {
+                    setParsedData([]);
+                    setCurrentPage(1);
+                    setFilterMode('all');
+                  }}
                   className="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5"
                 >
                   <Trash2 className="w-4 h-4 text-slate-400" />
@@ -929,11 +1275,31 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
 
             {/* Error banner if warnings exist */}
             {totalErrorsCount > 0 && (
-              <div className="p-3 bg-amber-500/10 border border-amber-500/20 text-amber-800 rounded-xl text-xs flex gap-2 items-center">
-                <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                <span>
-                  <strong>Data Warnings Found:</strong> Some rows could not match customers or zones to database values. Please select them manually from the dropdowns below to resolve them.
-                </span>
+              <div className="p-3 bg-amber-500/10 border border-amber-500/20 text-amber-800 rounded-xl text-xs flex flex-col sm:flex-row gap-2 sm:items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0 text-amber-600" />
+                  <span>
+                    <strong>Data Warnings Found:</strong> {rowsWithWarningsCount} row{rowsWithWarningsCount !== 1 ? 's have' : ' has'} validation issues. Please assign customers or zones below before importing.
+                  </span>
+                </div>
+                {filterMode !== 'warnings' ? (
+                  <button
+                    type="button"
+                    onClick={() => { setFilterMode('warnings'); setCurrentPage(1); }}
+                    className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-[11px] self-start sm:self-auto transition-colors flex items-center gap-1 shadow-sm shrink-0"
+                  >
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    See All Warnings ({rowsWithWarningsCount})
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => { setFilterMode('all'); setCurrentPage(1); }}
+                    className="px-3 py-1 bg-white border border-amber-300 hover:bg-amber-50 text-amber-800 rounded-lg font-bold text-[11px] self-start sm:self-auto transition-colors shadow-sm shrink-0"
+                  >
+                    Show All Records
+                  </button>
+                )}
               </div>
             )}
 
@@ -952,7 +1318,32 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {parsedData.map((row, index) => {
+                  {paginatedData.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="p-12 text-center text-slate-400">
+                        {filterMode === 'warnings' ? (
+                          <div className="space-y-2 max-w-sm mx-auto">
+                            <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto border border-emerald-100">
+                              <CheckCircle className="w-6 h-6" />
+                            </div>
+                            <p className="font-extrabold text-slate-700 text-sm">No warnings to display!</p>
+                            <p className="text-xs text-slate-400">All agreements are valid and ready to be imported.</p>
+                            <button
+                              type="button"
+                              onClick={() => { setFilterMode('all'); setCurrentPage(1); }}
+                              className="mt-2 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-colors"
+                            >
+                              Show All Records ({parsedData.length})
+                            </button>
+                          </div>
+                        ) : (
+                          <p className="text-xs">No records found matching this view.</p>
+                        )}
+                      </td>
+                    </tr>
+                  ) : (
+                    paginatedData.map((row, relativeIndex) => {
+                    const index = (currentPage - 1) * pageSize + relativeIndex;
                     const hasRowErrors = row.errors.length > 0;
 
                     return (
@@ -982,15 +1373,11 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
                                 }`}
                             >
                               <option value="">-- Unresolved (Select Customer) --</option>
-                              {dbCustomers.map(cust => {
-                                const zName = cust.serviceZone?.name || dbZones.find((z: any) => Number(z.id) === Number(cust.serviceZoneId))?.name;
-                                const placeStr = cust.address ? ` - ${cust.address}` : '';
-                                return (
-                                  <option key={cust.id} value={cust.id}>
-                                    {cust.companyName || cust.name}{placeStr}{zName ? ` (${zName} Zone)` : ''}
-                                  </option>
-                                );
-                              })}
+                              {customerOptions.map(opt => (
+                                <option key={opt.id} value={opt.id}>
+                                  {opt.label}
+                                </option>
+                              ))}
                             </select>
                             {!row.customerId && (
                               <button
@@ -1017,8 +1404,40 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
                               Visits: <span className="font-bold text-slate-700">{row.noOfVisits} PMs</span>
                             </div>
                             <div className="text-slate-400 text-[10px]">
-                              Dates: <span className="text-slate-600 font-semibold">{row.startDate} TO {row.endDate}</span>
+                              Dates: <span className="text-slate-600 font-semibold">{row.startDate || '—'} TO {row.endDate || '—'}</span>
                             </div>
+                            {(!row.startDate || !row.endDate) && (
+                              <div className="flex flex-col gap-1 mt-1 p-1.5 bg-amber-50 rounded-lg border border-amber-200">
+                                <div className="flex items-center justify-between gap-1">
+                                  <span className="text-[9px] font-bold text-amber-700 uppercase">Set Dates:</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUpdateRowDates(row.id, '2026-04-01', '2027-03-31')}
+                                    className="text-[9px] px-1.5 py-0.5 rounded bg-amber-600 hover:bg-amber-700 text-white font-bold transition-all shadow-xs"
+                                    title="Apply default financial year 2026-2027"
+                                  >
+                                    ⚡ Auto 2026–27
+                                  </button>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <input
+                                    type="date"
+                                    value={row.startDate || ''}
+                                    onChange={(e) => handleUpdateRowDates(row.id, e.target.value, row.endDate)}
+                                    className="px-1 py-0.5 border border-amber-300 rounded text-[10px] bg-white text-slate-700 focus:outline-none"
+                                    title="Start Date"
+                                  />
+                                  <span className="text-[10px] text-amber-700 font-bold">to</span>
+                                  <input
+                                    type="date"
+                                    value={row.endDate || ''}
+                                    onChange={(e) => handleUpdateRowDates(row.id, row.startDate, e.target.value)}
+                                    className="px-1 py-0.5 border border-amber-300 rounded text-[10px] bg-white text-slate-700 focus:outline-none"
+                                    title="End Date"
+                                  />
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </td>
 
@@ -1026,8 +1445,32 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
                         <td className="p-3">
                           <div className="space-y-1 text-[11px] leading-tight">
                             <div className="font-bold text-slate-800">₹{Number(row.amount).toLocaleString('en-IN')}</div>
-                            <div className="text-[10px] text-slate-400">
-                              PO: <span className="font-mono text-slate-600">{row.poNo || 'N/A'}</span>
+                            {(!row.amount || row.amount <= 0) && (
+                              <div className="flex items-center gap-1 mt-1">
+                                <span className="text-[10px] text-slate-400">₹</span>
+                                <input
+                                  type="number"
+                                  placeholder="Amount"
+                                  value={row.amount || ''}
+                                  onChange={(e) => handleUpdateRowAmount(row.id, parseFloat(e.target.value) || 0)}
+                                  className="w-24 px-1.5 py-0.5 border border-amber-300 rounded text-[10px] bg-amber-50/40 text-slate-800 focus:outline-none"
+                                />
+                              </div>
+                            )}
+                            <div className="text-[10px] text-slate-400 flex items-center gap-1.5">
+                              <span>PO:</span>
+                              <input
+                                type="text"
+                                placeholder="PO Number"
+                                value={row.poNo || ''}
+                                onChange={(e) => handleUpdateRowPo(row.id, e.target.value)}
+                                className={`w-28 px-1.5 py-0.5 border rounded font-mono text-[10px] focus:outline-none ${
+                                  row.poNo === 'PO-AWAITED'
+                                    ? 'border-amber-300 bg-amber-50 text-amber-800 font-bold'
+                                    : 'border-slate-200 bg-white text-slate-700'
+                                }`}
+                                title={row.poNo === 'PO-AWAITED' ? 'PO is marked as Awaited/Pending. You can edit this anytime.' : 'PO Number'}
+                              />
                             </div>
                             <div className="text-[10px] text-slate-400">
                               Engineer: <span className="text-slate-600 font-semibold">{row.responsible}</span>
@@ -1098,10 +1541,68 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
                         </td>
                       </tr>
                     );
-                  })}
+                  }))}
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination Controls */}
+            {filteredData.length > 0 && (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-100 text-xs text-slate-500">
+                <div className="flex items-center gap-2">
+                  <span>Showing</span>
+                  <span className="font-bold text-slate-700">
+                    {(currentPage - 1) * pageSize + 1}
+                  </span>
+                  <span>to</span>
+                  <span className="font-bold text-slate-700">
+                    {Math.min(currentPage * pageSize, filteredData.length)}
+                  </span>
+                  <span>of</span>
+                  <span className="font-bold text-slate-700">{filteredData.length}</span>
+                  <span>records {filterMode !== 'all' ? `(${filterMode === 'warnings' ? 'Warnings only' : 'Valid only'} • ${parsedData.length} total)` : ''}</span>
+
+                  <div className="ml-4 flex items-center gap-1.5">
+                    <span className="text-slate-400">Rows per page:</span>
+                    <select
+                      value={pageSize}
+                      onChange={(e) => {
+                        setPageSize(Number(e.target.value));
+                        setCurrentPage(1);
+                      }}
+                      className="px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none"
+                    >
+                      <option value={15}>15</option>
+                      <option value={25}>25</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ChevronLeft className="w-4 h-4 text-slate-600" />
+                  </button>
+                  <span className="px-3 py-1 font-semibold text-slate-700">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ChevronRight className="w-4 h-4 text-slate-600" />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
