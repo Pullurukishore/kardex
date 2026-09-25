@@ -93,7 +93,7 @@ export interface Contract {
   noOfVisits: number;
   startDate: string;
   endDate: string;
-  status: 'Active' | 'Expiring Soon' | 'Expired';
+  status: 'Active' | 'Expired';
   softwareSupport: boolean;
   pmSchedules: PMSchedule[];
   responsible: string;
@@ -138,7 +138,7 @@ export default function ContractsListPage({
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedMcType, setSelectedMcType] = useState('all');
   const [selectedTech, setSelectedTech] = useState('all');
-  const [quickTab, setQuickTab] = useState<'all' | 'Active' | 'Expiring Soon' | 'Expired' | 'software'>('all');
+  const [quickTab, setQuickTab] = useState<'all' | 'Active' | 'Expired' | 'software'>('all');
 
   // Sorting
   const [sortField, setSortField] = useState<string>('id');
@@ -340,8 +340,6 @@ export default function ContractsListPage({
     switch (status) {
       case 'Active':
         return 'bg-emerald-50 text-emerald-700 border-emerald-200 ring-emerald-500/20';
-      case 'Expiring Soon':
-        return 'bg-amber-50 text-amber-700 border-amber-200 ring-amber-500/20';
       case 'Expired':
         return 'bg-rose-50 text-rose-700 border-rose-200 ring-rose-500/20';
       default:
@@ -391,7 +389,6 @@ export default function ContractsListPage({
   const stats = useMemo(() => {
     const total = contracts.length;
     let active = 0;
-    let expiring = 0;
     let expired = 0;
     let swSupportCount = 0;
     let totalValue = 0;
@@ -400,7 +397,6 @@ export default function ContractsListPage({
 
     contracts.forEach(c => {
       if (c.status === 'Active') active++;
-      else if (c.status === 'Expiring Soon') expiring++;
       else if (c.status === 'Expired') expired++;
 
       if (c.softwareSupport) swSupportCount++;
@@ -419,7 +415,6 @@ export default function ContractsListPage({
     return {
       total,
       active,
-      expiring,
       expired,
       swSupportCount,
       totalValue,
@@ -434,7 +429,6 @@ export default function ContractsListPage({
     return contracts.filter(c => {
       // Quick tab filter
       if (quickTab === 'Active' && c.status !== 'Active') return false;
-      if (quickTab === 'Expiring Soon' && c.status !== 'Expiring Soon') return false;
       if (quickTab === 'Expired' && c.status !== 'Expired') return false;
       if (quickTab === 'software' && !c.softwareSupport) return false;
 
@@ -704,15 +698,6 @@ export default function ContractsListPage({
             <span className="text-sm sm:text-base font-extrabold text-emerald-200">{stats.active}</span>
           </div>
 
-          {/* Expiring Soon */}
-          <div
-            onClick={() => { setQuickTab('Expiring Soon'); setCurrentPage(1); }}
-            className="bg-amber-500/25 hover:bg-amber-500/35 transition-colors cursor-pointer rounded-lg px-2.5 py-1.5 border border-amber-400/30 text-center flex items-center justify-between sm:flex-col sm:justify-center"
-          >
-            <span className="text-amber-100 text-[10px] uppercase font-bold tracking-wider">Expiring</span>
-            <span className="text-sm sm:text-base font-extrabold text-amber-200">{stats.expiring}</span>
-          </div>
-
           {/* Expired */}
           <div
             onClick={() => { setQuickTab('Expired'); setCurrentPage(1); }}
@@ -748,7 +733,6 @@ export default function ContractsListPage({
           {[
             { id: 'all', label: 'All Contracts', count: stats.total, color: 'bg-[#546A7A] hover:bg-[#5D6E73] text-white' },
             { id: 'Active', label: 'Active', count: stats.active, color: 'bg-emerald-600 hover:bg-emerald-700 text-white' },
-            { id: 'Expiring Soon', label: 'Expiring Soon', count: stats.expiring, color: 'bg-amber-600 hover:bg-amber-700 text-white' },
             { id: 'Expired', label: 'Expired', count: stats.expired, color: 'bg-rose-600 hover:bg-rose-700 text-white' },
             { id: 'software', label: 'Software Support', count: stats.swSupportCount, color: 'bg-indigo-600 hover:bg-indigo-700 text-white' }
           ].map(tab => {
@@ -892,7 +876,6 @@ export default function ContractsListPage({
                     <SelectContent>
                       <SelectItem value="all">All Statuses</SelectItem>
                       <SelectItem value="Active">Active</SelectItem>
-                      <SelectItem value="Expiring Soon">Expiring Soon</SelectItem>
                       <SelectItem value="Expired">Expired</SelectItem>
                     </SelectContent>
                   </Select>

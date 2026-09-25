@@ -5,7 +5,6 @@ import { generatePdf, getPdfColumns, generateCombinedPdf } from '../utils/pdfGen
 // Safely cast prisma to bypass typescript client stale cache
 const db = prisma as any;
 
-// Helper to compute contract status dynamically based on end date
 const computeContractStatus = (endDate: Date | null | string): string => {
   if (!endDate) return 'Active';
   const now = new Date();
@@ -13,11 +12,6 @@ const computeContractStatus = (endDate: Date | null | string): string => {
 
   if (end < now) {
     return 'Expired';
-  }
-
-  const thirtyDaysLater = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-  if (end <= thirtyDaysLater) {
-    return 'Expiring Soon';
   }
 
   return 'Active';
@@ -76,9 +70,6 @@ const applyCommonFilters = (where: any, query: any) => {
     const now = new Date();
     if (status === 'Expired') {
       where.endDate = { lt: now };
-    } else if (status === 'Expiring Soon') {
-      const thirtyDaysLater = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-      where.endDate = { gte: now, lte: thirtyDaysLater };
     } else if (status === 'Active') {
       where.endDate = { gte: now };
     }
@@ -336,7 +327,6 @@ export const getZoneContractSummary = async (req: any, res: Response) => {
       const status = computeContractStatus(c.endDate);
       zoneMap[zone].totalContracts++;
       if (status === 'Active') zoneMap[zone].activeContracts++;
-      else if (status === 'Expiring Soon') zoneMap[zone].expiringContracts++;
       else if (status === 'Expired') zoneMap[zone].expiredContracts++;
 
       zoneMap[zone].totalValue += Number(c.amount);
@@ -532,7 +522,6 @@ export const getCustomerPortfolioReport = async (req: any, res: Response) => {
       customerMap[key].totalContracts++;
       if (status === 'Active') customerMap[key].activeContracts++;
       else if (status === 'Expired') customerMap[key].expiredContracts++;
-      else if (status === 'Expiring Soon') customerMap[key].expiringContracts++;
 
       customerMap[key].totalValue += Number(c.amount);
       customerMap[key].totalMachines += c.noOfMachine;

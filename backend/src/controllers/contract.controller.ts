@@ -22,11 +22,6 @@ const computeContractStatus = (endDate: Date | null | string): string => {
     return 'Expired';
   }
 
-  const thirtyDaysLater = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-  if (end <= thirtyDaysLater) {
-    return 'Expiring Soon';
-  }
-
   return 'Active';
 };
 
@@ -206,9 +201,6 @@ export const listContracts = async (req: any, res: Response) => {
       const now = new Date();
       if (status === 'Expired') {
         where.endDate = { lt: now };
-      } else if (status === 'Expiring Soon') {
-        const thirtyDaysLater = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-        where.endDate = { gte: now, lte: thirtyDaysLater };
       } else if (status === 'Active') {
         where.endDate = { gte: now };
       } else {

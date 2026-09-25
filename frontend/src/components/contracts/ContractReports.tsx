@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect, useMemo, Fragment } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   BarChart3, FileText, Search, Download, Calendar,
   CheckCircle, AlertTriangle, Clock, MapPin,
   Building2, IndianRupee, ShieldCheck,
   TrendingUp, ChevronDown, ChevronUp,
   ArrowUpDown, ExternalLink, X,
-  Layers, RefreshCw
+  Settings2, RefreshCw
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -37,7 +37,7 @@ interface Contract {
   noOfVisits: number;
   startDate: string;
   endDate: string;
-  status: 'Active' | 'Expiring Soon' | 'Expired';
+  status: 'Active' | 'Expired';
   softwareSupport: boolean;
   pmSchedules: PMSchedule[];
   responsible: string;
@@ -56,7 +56,6 @@ interface CustomerSummary {
   zoneName: string;
   totalContracts: number;
   activeContracts: number;
-  expiringSoonContracts: number;
   expiredContracts: number;
   totalValue: number;
   totalMachines: number;
@@ -81,24 +80,6 @@ export default function ContractReports({ role }: ContractReportsProps) {
   const [loading, setLoading] = useState(false);
   const [hasGenerated, setHasGenerated] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const [expandedCustomerIds, setExpandedCustomerIds] = useState<Set<string | number>>(new Set());
-
-  const toggleExpand = (id: string | number) => {
-    setExpandedCustomerIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const handleExpandAll = () => {
-    if (expandedCustomerIds.size === customerSummaries.length) {
-      setExpandedCustomerIds(new Set());
-    } else {
-      setExpandedCustomerIds(new Set(customerSummaries.map(cs => cs.customerId || cs.customerName)));
-    }
-  };
 
   // Filters
   const [search, setSearch] = useState('');
@@ -109,7 +90,7 @@ export default function ContractReports({ role }: ContractReportsProps) {
   const [mcTypeFilter, setMcTypeFilter] = useState('all');
   const [swFilter, setSwFilter] = useState('all');
 
-  // Date range filter (default: today → today + 4 weeks)
+  // Date range filter (default: today  →  today + 4 weeks)
   const [dateFilterBasis, setDateFilterBasis] = useState<'both' | 'pm' | 'expiry'>('pm');
   const [dateFrom, setDateFrom] = useState(() => {
     return new Date().toISOString().slice(0, 10);
@@ -248,6 +229,13 @@ export default function ContractReports({ role }: ContractReportsProps) {
     return isNaN(fallback.getTime()) ? null : fallback;
   };
 
+  // Extracts the PM visit start date from range string
+  const getPMStartDate = (pmRange: string | null | undefined): Date | null => {
+    if (!pmRange) return null;
+    const parts = pmRange.split(/\s+(?:TO|to|-)\s+/);
+    return parseDateObj(parts[0]?.trim());
+  };
+
   // Extracts the PM visit end date from range string (e.g. "11/08/2026 TO 31/08/2026" -> 31/08/2026)
   const getPMEndDate = (pmRange: string | null | undefined): Date | null => {
     if (!pmRange) return null;
@@ -277,6 +265,11 @@ export default function ContractReports({ role }: ContractReportsProps) {
     return true;
   };
 
+  // Checks if the PM visit ENDS between dateFrom and dateTo (strictly based on PM end date)
+  const isPMInRange = (pm: PMSchedule, dFrom?: string, dTo?: string): boolean => {
+    return isPMEndDateInRange(pm.range, dFrom, dTo);
+  };
+
   const isRangeOverdue = (range: string): boolean => {
     try {
       const endObj = getPMEndDate(range);
@@ -300,14 +293,18 @@ export default function ContractReports({ role }: ContractReportsProps) {
   const getPMStats = (pmSchedules: PMSchedule[], dFrom?: string, dTo?: string) => {
     const applicable = pmSchedules.filter(p => p.status !== 'Not Applicable');
     if (dFrom || dTo) {
-      const pendingInRange = applicable.filter(p => p.status !== 'Completed' && isPMEndDateInRange(p.range, dFrom, dTo));
-      const overdue = pendingInRange.filter(p => p.range && isRangeOverdue(p.range)).length;
+      const inRange = applicable.filter(p => isPMInRange(p, dFrom, dTo));
+      const completed = inRange.filter(p => p.status === 'Completed').length;
+      const total = inRange.length;
+      const pending = total - completed;
+      const overdue = inRange.filter(p => p.status !== 'Completed' && p.range && isRangeOverdue(p.range)).length;
+      const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
       return {
-        completed: 0,
-        total: pendingInRange.length,
-        pending: pendingInRange.length,
+        completed,
+        total,
+        pending,
         overdue,
-        pct: 0
+        pct
       };
     }
     const completed = applicable.filter(p => p.status === 'Completed').length;
@@ -328,12 +325,37 @@ export default function ContractReports({ role }: ContractReportsProps) {
     return new Date(iso).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
   };
 
-  const formatCurrency = (val: number) => `₹${Number(val).toLocaleString('en-IN')}`;
+  const formatPeriodDate = (iso: string) => {
+    if (!iso) return '—';
+    try {
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return '—';
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = d.toLocaleDateString('en-IN', { month: 'short' });
+      const year = String(d.getFullYear()).slice(-2);
+      return `${day} ${month} '${year}`;
+    } catch {
+      return '—';
+    }
+  };
+
+  const formatCompactDate = (dStr: string | null | undefined) => {
+    if (!dStr || dStr === '—') return '—';
+    const trimmed = dStr.trim();
+    const m = trimmed.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-]20(\d{2})$/);
+    if (m) return `${m[1]}/${m[2]}/${m[3]}`;
+    const m2 = trimmed.match(/^20(\d{2})[\/\-](\d{2})[\/\-](\d{2})$/);
+    if (m2) return `${m2[3]}/${m2[2]}/${m2[1]}`;
+    const m3 = trimmed.match(/^(\d{1,2}\s+[A-Za-z]{3})\s+20(\d{2})$/);
+    if (m3) return `${m3[1]} '${m3[2]}`;
+    return trimmed;
+  };
+
+  const formatCurrency = (val: number) => `\u20B9${Number(val || 0).toLocaleString('en-IN')}`;
 
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'Active': return 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20';
-      case 'Expiring Soon': return 'bg-amber-500/10 text-amber-700 border-amber-500/20';
       case 'Expired': return 'bg-rose-500/10 text-rose-700 border-rose-500/20';
       default: return 'bg-slate-100 text-slate-600';
     }
@@ -395,9 +417,9 @@ export default function ContractReports({ role }: ContractReportsProps) {
     // Date range filter on PM schedule dates AND/OR contract expiry
     if (dateFrom || dateTo) {
       filtered = filtered.filter(c => {
-        // 1. Check PM Visit match in range (only pending visits whose window ends in range)
+        // 1. Check PM Visit match in range
         const applicablePMs = (c.pmSchedules || []).filter(p => p.status !== 'Not Applicable');
-        const hasPMMatch = applicablePMs.some(p => p.status !== 'Completed' && isPMEndDateInRange(p.range, dateFrom, dateTo));
+        const hasPMMatch = applicablePMs.some(p => isPMInRange(p, dateFrom, dateTo));
 
         // 2. Check Contract Expiry match in range
         let hasExpiryMatch = false;
@@ -453,7 +475,8 @@ export default function ContractReports({ role }: ContractReportsProps) {
 
     if (pmFilter !== 'all') {
       filtered = filtered.filter(c => {
-        const { pct, overdue } = getPMStats(c.pmSchedules);
+        const { pct, overdue, pending } = getPMStats(c.pmSchedules, dateFrom, dateTo);
+        if (pmFilter === 'pending') return pending > 0;
         if (pmFilter === 'completed') return pct === 100;
         if (pmFilter === 'on-track') return pct >= 50 && pct < 100;
         if (pmFilter === 'behind') return pct < 50 && pct > 0;
@@ -475,7 +498,6 @@ export default function ContractReports({ role }: ContractReportsProps) {
           zoneName: c.zoneName,
           totalContracts: 0,
           activeContracts: 0,
-          expiringSoonContracts: 0,
           expiredContracts: 0,
           totalValue: 0,
           totalMachines: 0,
@@ -490,7 +512,6 @@ export default function ContractReports({ role }: ContractReportsProps) {
 
       grouped[key].totalContracts++;
       if (c.status === 'Active') grouped[key].activeContracts++;
-      else if (c.status === 'Expiring Soon') grouped[key].expiringSoonContracts++;
       else if (c.status === 'Expired') grouped[key].expiredContracts++;
 
       grouped[key].totalValue += Number(c.amount);
@@ -553,7 +574,7 @@ export default function ContractReports({ role }: ContractReportsProps) {
   // Overall KPI summaries
   const selectedSummary = useMemo(() => {
     let totalValue = 0, totalMachines = 0, totalContracts = 0;
-    let active = 0, expired = 0, expiring = 0;
+    let active = 0, expired = 0;
     let pmCompleted = 0, pmTotal = 0, pmOverdue = 0;
 
     customerSummaries.forEach(cs => {
@@ -562,7 +583,6 @@ export default function ContractReports({ role }: ContractReportsProps) {
       totalContracts += cs.totalContracts;
       active += cs.activeContracts;
       expired += cs.expiredContracts;
-      expiring += cs.expiringSoonContracts;
       pmCompleted += cs.pmCompleted;
       pmTotal += cs.pmTotal;
       pmOverdue += cs.pmOverdue;
@@ -575,7 +595,6 @@ export default function ContractReports({ role }: ContractReportsProps) {
       totalContracts,
       active,
       expired,
-      expiring,
       totalValue,
       totalMachines,
       pmCompleted,
@@ -608,8 +627,8 @@ export default function ContractReports({ role }: ContractReportsProps) {
   };
 
   return (
-    <div className="space-y-5 print:space-y-3">
-      {/* ═══ REPORT GENERATION CONTROLS — Card Layout (Matches Annual Contract Reports) ═══ */}
+    <div className="w-full space-y-4 print:space-y-3">
+      {/* === REPORT GENERATION CONTROLS — Card Layout (Matches Annual Contract Reports) === */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden print:hidden">
         {/* Card Header — Title + Generate + Export Buttons */}
         <div className="px-6 py-5 border-b border-slate-100">
@@ -794,7 +813,6 @@ export default function ContractReports({ role }: ContractReportsProps) {
               >
                 <option value="all">All Statuses</option>
                 <option value="Active">Active</option>
-                <option value="Expiring Soon">Expiring Soon</option>
                 <option value="Expired">Expired</option>
               </select>
             </div>
@@ -834,10 +852,11 @@ export default function ContractReports({ role }: ContractReportsProps) {
                 className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 font-medium"
               >
                 <option value="all">All PM Statuses</option>
-                <option value="completed">100% Completed</option>
-                <option value="on-track">On Track (≥50%)</option>
-                <option value="behind">Behind (&lt;50%)</option>
+                <option value="pending">Only Pending PMs</option>
                 <option value="overdue">Overdue PMs</option>
+                <option value="completed">100% Completed</option>
+                <option value="on-track">On Track (&ge; 50%)</option>
+                <option value="behind">Behind (&lt;50%)</option>
                 <option value="not-started">Not Started (0%)</option>
               </select>
             </div>
@@ -880,7 +899,7 @@ export default function ContractReports({ role }: ContractReportsProps) {
         </div>
       </div>
 
-      {/* ═══ NOT GENERATED STATE ═══ */}
+      {/* === NOT GENERATED STATE === */}
       {!hasGenerated && !loading && (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-12 sm:p-16 text-center">
           <div className="w-16 h-16 rounded-2xl bg-[#546A7A]/10 text-[#546A7A] flex items-center justify-center mx-auto mb-4">
@@ -901,7 +920,7 @@ export default function ContractReports({ role }: ContractReportsProps) {
         </div>
       )}
 
-      {/* ═══ KPI STRIP + TABLE (ONLY AFTER GENERATING) ═══ */}
+      {/* === KPI STRIP + TABLE (ONLY AFTER GENERATING) === */}
       {hasGenerated && (
         <>
           {/* Compact KPI Strip */}
@@ -939,33 +958,49 @@ export default function ContractReports({ role }: ContractReportsProps) {
                 <CheckCircle className="w-4 h-4" />
               </div>
               <div>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Active / Expiring</p>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Active / Expired</p>
                 <p className="text-base font-extrabold text-slate-800">
-                  {selectedSummary.active} <span className="text-amber-600 text-xs font-bold">/ {selectedSummary.expiring}</span>
+                  {selectedSummary.active} <span className="text-rose-500 text-xs font-bold">/ {selectedSummary.expired}</span>
                 </p>
               </div>
             </div>
-            <div className="bg-white rounded-xl border border-slate-100 shadow-sm px-4 py-3 flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-600 flex-shrink-0">
-                <TrendingUp className="w-4 h-4" />
+            <div
+              onClick={() => setPmFilter(pmFilter === 'pending' ? 'all' : 'pending')}
+              className={`bg-white rounded-xl border shadow-sm px-4 py-3 flex items-center gap-2.5 cursor-pointer transition-all hover:border-amber-400 hover:shadow-md ${
+                pmFilter === 'pending' ? 'ring-2 ring-amber-500 border-amber-400 bg-amber-50/20' : 'border-slate-100'
+              }`}
+              title="Click to toggle filter: Only Pending PMs"
+            >
+              <div className="w-9 h-9 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-600 flex-shrink-0">
+                <Clock className="w-4 h-4" />
               </div>
               <div>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
-                  {(dateFrom || dateTo) ? 'Pending PMs' : 'PM Done'}
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                  <span>{(dateFrom || dateTo) ? 'Pending PMs' : 'PM Done'}</span>
+                  {pmFilter === 'pending' && <span className="text-[8px] bg-amber-600 text-white px-1 py-0.2 rounded font-bold">Active</span>}
                 </p>
-                <p className="text-base font-extrabold text-indigo-600">
-                  {(dateFrom || dateTo) ? selectedSummary.pmTotal : `${selectedSummary.pmPct}%`}
+                <p className="text-base font-extrabold text-amber-600">
+                  {(dateFrom || dateTo) ? selectedSummary.pmTotal - selectedSummary.pmCompleted : `${selectedSummary.pmPct}%`}
                 </p>
               </div>
             </div>
-            <div className="bg-white rounded-xl border border-slate-100 shadow-sm px-4 py-3 flex items-center gap-2.5">
+            <div
+              onClick={() => setPmFilter(pmFilter === 'overdue' ? 'all' : 'overdue')}
+              className={`bg-white rounded-xl border shadow-sm px-4 py-3 flex items-center gap-2.5 cursor-pointer transition-all hover:border-rose-400 hover:shadow-md ${
+                pmFilter === 'overdue' ? 'ring-2 ring-rose-500 border-rose-400 bg-rose-50/20' : 'border-slate-100'
+              }`}
+              title="Click to toggle filter: Overdue PMs"
+            >
               <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${
                 selectedSummary.pmOverdue > 0 ? 'bg-rose-500/10 text-rose-600' : 'bg-slate-100 text-slate-400'
               }`}>
                 <AlertTriangle className="w-4 h-4" />
               </div>
               <div>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Overdue</p>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                  <span>Overdue</span>
+                  {pmFilter === 'overdue' && <span className="text-[8px] bg-rose-600 text-white px-1 py-0.2 rounded font-bold">Active</span>}
+                </p>
                 <p className={`text-base font-extrabold ${selectedSummary.pmOverdue > 0 ? 'text-rose-600' : 'text-slate-400'}`}>
                   {selectedSummary.pmOverdue}
                 </p>
@@ -973,7 +1008,7 @@ export default function ContractReports({ role }: ContractReportsProps) {
             </div>
           </div>
 
-          {/* ═══ MAIN TABLE ═══ */}
+          {/* === MAIN TABLE — FLAT DETAILED VIEW === */}
           {loading ? (
             <div className="bg-white rounded-xl border border-slate-200 p-16 text-center shadow-sm">
               <div className="w-10 h-10 border-4 border-[#82A094] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
@@ -991,47 +1026,96 @@ export default function ContractReports({ role }: ContractReportsProps) {
                 Reset All Filters
               </button>
             </div>
-          ) : (
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          ) : (() => {
+            const flatContracts = customerSummaries.flatMap(cs =>
+              cs.contracts.map(c => ({ ...c, _customer: cs }))
+            );
+
+            return (
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden w-full">
               {/* Table Toolbar */}
-              <div className="px-4 py-2.5 bg-slate-50/80 border-b border-slate-200 flex items-center justify-between gap-3">
+              <div className="px-4 py-2.5 bg-slate-50/80 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 w-full">
                 <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
                   <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#546A7A] text-white text-[11px] font-bold">
-                    {customerSummaries.length}
+                    {flatContracts.length}
                   </span>
-                  <span className="font-semibold text-slate-700">Accounts</span>
-                  <span className="text-slate-300">•</span>
+                  <span className="font-semibold text-slate-700">Contracts</span>
+                  <span className="text-slate-300 font-bold">&bull;</span>
                   <span>
-                    <strong className="text-slate-800">{selectedSummary.totalContracts}</strong> Agreements
+                    <strong className="text-slate-800">{customerSummaries.length}</strong> Customers
                   </span>
-                  <span className="text-slate-300">•</span>
+                  <span className="text-slate-300 font-bold">&bull;</span>
                   <span>
                     <strong className="text-slate-800">{selectedSummary.totalMachines}</strong> Machines
                   </span>
-                  <span className="text-slate-300">•</span>
+                  <span className="text-slate-300 font-bold">&bull;</span>
                   <span>
                     Value: <strong className="text-slate-900">{formatCurrency(selectedSummary.totalValue)}</strong>
                   </span>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleExpandAll}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-xs font-semibold text-slate-700 transition-all shadow-xs flex-shrink-0"
-                  title={expandedCustomerIds.size === customerSummaries.length ? 'Collapse All' : 'Expand All'}
-                >
-                  <Layers className="w-3.5 h-3.5 text-[#546A7A]" />
-                  {expandedCustomerIds.size === customerSummaries.length ? 'Collapse All' : 'Expand All'}
-                </button>
+
+                {/* Quick PM Status Filters */}
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <span className="text-[11px] font-semibold text-slate-500 mr-1 hidden md:inline">PM:</span>
+                  <button
+                    type="button"
+                    onClick={() => setPmFilter('all')}
+                    className={`px-2 py-1 rounded-md text-[11px] font-bold transition-all ${
+                      pmFilter === 'all'
+                        ? 'bg-[#546A7A] text-white shadow-sm'
+                        : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    All PMs
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPmFilter(pmFilter === 'pending' ? 'all' : 'pending')}
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1 ${
+                      pmFilter === 'pending'
+                        ? 'bg-amber-500 text-white shadow-sm ring-2 ring-amber-400/50'
+                        : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-amber-400'
+                    }`}
+                  >
+                    <Clock className="w-3 h-3 text-amber-500" />
+                    <span>Only Pending</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPmFilter(pmFilter === 'overdue' ? 'all' : 'overdue')}
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1 ${
+                      pmFilter === 'overdue'
+                        ? 'bg-rose-600 text-white shadow-sm ring-2 ring-rose-400/50'
+                        : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-rose-400'
+                    }`}
+                  >
+                    <AlertTriangle className="w-3 h-3 text-rose-500" />
+                    <span>Overdue</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPmFilter(pmFilter === 'completed' ? 'all' : 'completed')}
+                    className={`px-2 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1 ${
+                      pmFilter === 'completed'
+                        ? 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-400/50'
+                        : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-emerald-400'
+                    }`}
+                  >
+                    <CheckCircle className="w-3 h-3 text-emerald-500" />
+                    <span>Done</span>
+                  </button>
+                </div>
               </div>
 
-              {/* Table */}
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse min-w-[1050px]">
+              {/* Flat Detailed Table */}
+              {/* Flat Detailed Table - Single View (No Side Scroll) */}
+              <div className="w-full overflow-x-auto">
+                <table className="w-full text-left border-collapse table-auto">
                   <thead>
-                    <tr className="bg-[#546A7A] text-white text-[11px] font-bold uppercase tracking-wider select-none border-b border-[#435562]">
-                      <th className="py-2.5 px-3 text-center w-10 text-white/80">#</th>
+                    <tr className="bg-[#546A7A] text-white text-[10px] font-bold uppercase tracking-wider select-none border-b border-[#435562]">
+                      <th className="py-2 px-1.5 text-center w-7 text-white/80">#</th>
                       <th
-                        className="py-2.5 px-4 cursor-pointer hover:bg-white/10 transition-colors group"
+                        className="py-2 px-2 cursor-pointer hover:bg-white/10 transition-colors group"
                         onClick={() => handleSort('customerName')}
                       >
                         <div className="flex items-center gap-1">
@@ -1039,8 +1123,9 @@ export default function ContractReports({ role }: ContractReportsProps) {
                           <SortIcon col="customerName" />
                         </div>
                       </th>
+                      <th className="py-2 px-1.5 whitespace-nowrap">PO No</th>
                       <th
-                        className="py-2.5 px-3 text-center w-20 cursor-pointer hover:bg-white/10 transition-colors group"
+                        className="py-2 px-1.5 text-center cursor-pointer hover:bg-white/10 transition-colors group"
                         onClick={() => handleSort('zoneName')}
                       >
                         <div className="flex items-center justify-center gap-1">
@@ -1048,343 +1133,243 @@ export default function ContractReports({ role }: ContractReportsProps) {
                           <SortIcon col="zoneName" />
                         </div>
                       </th>
+                      <th className="py-2 px-1.5 text-center whitespace-nowrap">MC Type</th>
                       <th
-                        className="py-2.5 px-3 text-center w-24 cursor-pointer hover:bg-white/10 transition-colors group"
-                        onClick={() => handleSort('totalContracts')}
-                      >
-                        <div className="flex items-center justify-center gap-1">
-                          <span>Contracts</span>
-                          <SortIcon col="totalContracts" />
-                        </div>
-                      </th>
-                      <th
-                        className="py-2.5 px-3 text-center w-24 cursor-pointer hover:bg-white/10 transition-colors group"
+                        className="py-2 px-1 text-center cursor-pointer hover:bg-white/10 transition-colors group"
                         onClick={() => handleSort('totalMachines')}
                       >
                         <div className="flex items-center justify-center gap-1">
-                          <span>Machines</span>
+                          <span>MC</span>
                           <SortIcon col="totalMachines" />
                         </div>
                       </th>
+                      <th className="py-2 px-1.5 whitespace-nowrap">Contract Period</th>
                       <th
-                        className="py-2.5 px-4 text-right w-32 cursor-pointer hover:bg-white/10 transition-colors group"
+                        className="py-2 px-1.5 text-right cursor-pointer hover:bg-white/10 transition-colors group"
                         onClick={() => handleSort('totalValue')}
                       >
                         <div className="flex items-center justify-end gap-1">
-                          <span>Value</span>
+                          <span>Amount</span>
                           <SortIcon col="totalValue" />
                         </div>
                       </th>
-                      <th
-                        className="py-2.5 px-4 text-center w-40 cursor-pointer hover:bg-white/10 transition-colors group"
-                        onClick={() => handleSort('pmPercentage')}
-                      >
-                        <div className="flex items-center justify-center gap-1">
-                          <span>{(dateFrom || dateTo) ? 'Pending PMs' : 'PM %'}</span>
-                          <SortIcon col="pmPercentage" />
-                        </div>
+                      <th className="py-2 px-1.5 whitespace-nowrap" title={dateFrom || dateTo ? `Showing visits between ${dateFrom || 'start'} and ${dateTo || 'end'}` : 'All PM visits'}>
+                        PM Visits {dateFrom || dateTo ? '(In Date Range)' : ''}
                       </th>
-                      <th className="py-2.5 px-3 text-left w-40 text-white/90">Engineers</th>
-                      <th className="py-2.5 px-2 text-center w-12 text-white/80"></th>
+                      <th className="py-2 px-1.5 text-center whitespace-nowrap">Status</th>
+                      <th className="py-2 px-1.5 whitespace-nowrap">Engineer</th>
+                      <th className="py-2 px-1 text-center w-7"></th>
                     </tr>
                   </thead>
 
                   <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
-                    {customerSummaries.map((cs, idx) => {
-                      const custId = cs.customerId || cs.customerName;
-                      const isExpanded = expandedCustomerIds.has(custId);
-                      const engNames = Array.from(new Set(cs.contracts.flatMap(c => normalizeEngineerNames(c.responsible)))).filter(Boolean);
-                      const engText = engNames.join(', ');
-                      const uniqueSlas = Array.from(new Set(cs.contracts.map(c => c.mcType).filter(Boolean)));
-                      const expiringCount = cs.contracts.filter(c => c.status === 'Expiring Soon').length;
-                      const expiredCount = cs.contracts.filter(c => c.status === 'Expired').length;
+                    {flatContracts.map((contract, idx) => {
+                      const cs = contract._customer;
+                      const daysLeft = getDaysRemaining(contract.endDate);
+                      const dept = extractDepartmentFromCustomer(contract.customerName, cs.customerName);
+                      const applicablePMs = contract.pmSchedules.filter(p => p.status !== 'Not Applicable');
+                      let displayedPMs = (dateFrom || dateTo)
+                        ? applicablePMs.filter(p => isPMInRange(p, dateFrom, dateTo))
+                        : applicablePMs;
+
+                      if (pmFilter === 'pending') {
+                        displayedPMs = displayedPMs.filter(p => p.status !== 'Completed');
+                      } else if (pmFilter === 'completed') {
+                        displayedPMs = displayedPMs.filter(p => p.status === 'Completed');
+                      } else if (pmFilter === 'overdue') {
+                        displayedPMs = displayedPMs.filter(p => p.status !== 'Completed' && p.range && isRangeOverdue(p.range));
+                      }
 
                       return (
-                        <Fragment key={`cust-${custId}-${idx}`}>
-                          {/* Customer Row */}
-                          <tr
-                            onClick={() => toggleExpand(custId)}
-                            className={`group cursor-pointer transition-colors duration-150 ${
-                              isExpanded
-                                ? 'bg-[#546A7A]/[0.04] font-medium border-l-[3px] border-l-[#82A094]'
-                                : idx % 2 === 1
-                                ? 'bg-slate-50/50 hover:bg-[#82A094]/[0.04]'
-                                : 'bg-white hover:bg-[#82A094]/[0.04]'
-                            }`}
-                          >
-                            <td className="py-3 px-3 text-center font-bold text-slate-400 text-[11px]">
-                              {idx + 1}
-                            </td>
+                        <tr
+                          key={`flat-${contract.id}-${idx}`}
+                          className={`group hover:bg-[#82A094]/[0.04] transition-colors duration-100 ${
+                            idx % 2 === 1 ? 'bg-slate-50/40' : 'bg-white'
+                          }`}
+                        >
+                          {/* # */}
+                          <td className="py-2 px-1.5 text-center font-bold text-slate-400 text-[10px]">
+                            {idx + 1}
+                          </td>
 
-                            {/* Customer */}
-                            <td className="py-3 px-4 min-w-[220px]">
-                              <div className="flex items-center gap-2.5">
-                                <div className={`w-7 h-7 rounded-md bg-gradient-to-br ${getCustomerColorClass(cs.customerName)} flex items-center justify-center text-white text-[10px] font-extrabold flex-shrink-0`}>
-                                  {(cs.customerName || 'C').charAt(0).toUpperCase()}
+                          {/* Customer + Dept + Location */}
+                          <td className="py-2 px-2 min-w-[140px] max-w-[220px] overflow-hidden">
+                            <div className="flex items-start gap-1.5 min-w-0">
+                              <div className={`w-5 h-5 rounded bg-gradient-to-br ${getCustomerColorClass(cs.customerName)} flex items-center justify-center text-white text-[9px] font-extrabold flex-shrink-0 mt-0.5`}>
+                                {(cs.customerName || 'C').charAt(0).toUpperCase()}
+                              </div>
+                              <div className="min-w-0 flex-1 overflow-hidden">
+                                <div className="flex items-start gap-1 min-w-0">
+                                  <span
+                                    className="font-bold text-slate-900 text-[11px] leading-snug break-words flex-1 min-w-0"
+                                    title={cs.customerName}
+                                  >
+                                    {cs.customerName || 'Unassigned'}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      router.push(`${getBaseRoute()}/customers/${cs.customerId}`);
+                                    }}
+                                    className="text-slate-300 hover:text-[#82A094] transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0 mt-0.5"
+                                    title="Open Customer"
+                                  >
+                                    <ExternalLink className="w-2.5 h-2.5" />
+                                  </button>
                                 </div>
-                                <div className="min-w-0">
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="font-bold text-slate-900 text-xs hover:text-[#546A7A] transition-colors truncate max-w-[200px]">
-                                      {cs.customerName || 'Unassigned'}
+                                <div className="flex items-center gap-1.5 text-[9px] text-slate-400 mt-0.5 flex-wrap min-w-0">
+                                  {dept && dept !== '—' && !cs.customerName?.toLowerCase().includes(dept.toLowerCase()) && (
+                                    <span
+                                      className="px-1.5 py-0.2 rounded bg-slate-100 border border-slate-200 text-slate-600 text-[8px] font-semibold truncate max-w-[90px]"
+                                      title={`Department: ${dept}`}
+                                    >
+                                      {dept}
                                     </span>
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        router.push(`${getBaseRoute()}/customers/${cs.customerId}`);
-                                      }}
-                                      className="text-slate-300 hover:text-[#82A094] p-0.5 transition-colors opacity-0 group-hover:opacity-100"
-                                      title="Open Customer"
-                                    >
-                                      <ExternalLink className="w-3 h-3" />
-                                    </button>
-                                  </div>
-                                  <div className="flex items-center gap-1.5 text-[10px] text-slate-400 mt-0.5">
-                                    <MapPin className="w-2.5 h-2.5 flex-shrink-0" />
-                                    <span className="truncate">{cs.place || '—'}</span>
-                                    {uniqueSlas.length > 0 && (
-                                      <>
-                                        <span className="text-slate-200">|</span>
-                                        {uniqueSlas.map(sla => (
-                                          <span key={sla} className={`px-1 py-px rounded text-[8px] font-bold ${getSlaColor(sla)}`}>
-                                            {sla}
-                                          </span>
-                                        ))}
-                                      </>
-                                    )}
-                                    {cs.hasSoftwareSupport && (
-                                      <span className="inline-flex items-center gap-0.5 px-1 py-px rounded text-[8px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100">
-                                        <ShieldCheck className="w-2 h-2" />SW
+                                  )}
+                                  {cs.place && cs.place !== '—' && (
+                                    <div className="flex items-center gap-0.5 text-[9px] text-slate-400 min-w-0">
+                                      <MapPin className="w-2 h-2 flex-shrink-0" />
+                                      <span className="truncate max-w-[120px]">{cs.place}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* PO No */}
+                          <td className="py-2 px-1.5 whitespace-nowrap">
+                            <span className="text-[10px] text-slate-600 font-mono">{contract.poNo || '—'}</span>
+                          </td>
+
+                          {/* Zone */}
+                          <td className="py-2 px-1.5 text-center whitespace-nowrap">
+                            <span className="inline-flex px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-100 text-slate-600">
+                              {contract.zoneName || '—'}
+                            </span>
+                          </td>
+
+                          {/* MC Type */}
+                          <td className="py-2 px-1.5 text-center whitespace-nowrap">
+                            <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${getSlaColor(contract.mcType)}`}>
+                              {contract.mcType || '—'}
+                            </span>
+                          </td>
+
+                          {/* Machines */}
+                          <td className="py-2 px-1 text-center whitespace-nowrap">
+                            <span className="font-extrabold text-slate-800 text-[11px]">{contract.noOfMachine}</span>
+                          </td>
+
+                          {/* Contract Period + Days Left */}
+                          <td className="py-2 px-1.5 whitespace-nowrap">
+                            <div className="text-[10px] text-slate-700 font-medium">
+                              <span>{formatPeriodDate(contract.startDate)}</span> <span className="text-slate-400 font-bold mx-0.5">&rarr;</span> <span>{formatPeriodDate(contract.endDate)}</span>
+                            </div>
+                            <div className="mt-0.5">
+                              <span className={`inline-flex px-1.5 py-0.2 rounded-full text-[8px] font-bold ${
+                                daysLeft < 0
+                                  ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                                  : daysLeft <= 30
+                                    ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                    : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              }`}>
+                                {daysLeft < 0 ? `${Math.abs(daysLeft)}d overdue` : `${daysLeft}d left`}
+                              </span>
+                            </div>
+                          </td>
+
+                          {/* Amount */}
+                          <td className="py-2 px-1.5 text-right whitespace-nowrap">
+                            <span className="font-bold text-slate-900 font-mono text-[11px]">
+                              {formatCurrency(contract.amount)}
+                            </span>
+                          </td>
+
+                          {/* PM Visits (Start & End) */}
+                          <td className="py-2 px-1.5">
+                            <div className="flex flex-col gap-0.5 py-0.5">
+                              {displayedPMs.map((p, pidx) => {
+                                const done = p.status === 'Completed';
+                                const isOverdue = !done && p.range && isRangeOverdue(p.range);
+                                const { startDate, endDate } = parseRangeDates(p.range);
+                                const startFmt = formatCompactDate(startDate);
+                                const endFmt = formatCompactDate(endDate);
+                                return (
+                                  <div
+                                    key={pidx}
+                                    className={`flex items-center justify-between gap-1 px-1.5 py-0.5 rounded text-[9px] border leading-tight ${
+                                      done
+                                        ? 'bg-emerald-50/70 border-emerald-200/80 text-emerald-900'
+                                        : isOverdue
+                                          ? 'bg-rose-50/70 border-rose-200/80 text-rose-900'
+                                          : 'bg-amber-50/70 border-amber-200/80 text-amber-900'
+                                    }`}
+                                    title={`PM ${p.pmNumber}: ${p.status}\nRange: ${p.range || 'N/A'}${done && p.completedAt ? `\nCompleted: ${formatDate(p.completedAt)}` : ''}`}
+                                  >
+                                    <div className="flex items-center gap-1 min-w-0">
+                                      <span className={`font-extrabold text-[8px] uppercase px-1 py-0.2 rounded ${
+                                        done ? 'bg-emerald-200/70 text-emerald-800' : isOverdue ? 'bg-rose-200/70 text-rose-800' : 'bg-amber-200/70 text-amber-800'
+                                      }`}>
+                                        PM{p.pmNumber}
                                       </span>
-                                    )}
+                                      <span className="font-semibold text-slate-700 whitespace-nowrap text-[9px]">
+                                        {startFmt} <span className="text-slate-400 font-bold">&rarr;</span> {endFmt}
+                                      </span>
+                                    </div>
+                                    <span className={`text-[8px] font-bold px-1 py-0.2 rounded whitespace-nowrap ${
+                                      done
+                                        ? 'text-emerald-700 bg-emerald-100/90'
+                                        : isOverdue
+                                          ? 'text-rose-700 bg-rose-100/90'
+                                          : 'text-amber-700 bg-amber-100/90'
+                                    }`}>
+                                      {done ? '✓ Done' : isOverdue ? 'Overdue' : 'Pending'}
+                                    </span>
                                   </div>
-                                </div>
-                              </div>
-                            </td>
-
-                            {/* Zone */}
-                            <td className="py-3 px-3 text-center whitespace-nowrap">
-                              <span className="inline-flex px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600">
-                                {cs.zoneName || '—'}
-                              </span>
-                            </td>
-
-                            {/* Contracts */}
-                            <td className="py-3 px-3 text-center whitespace-nowrap">
-                              <span className="font-extrabold text-slate-800 text-sm">{cs.totalContracts}</span>
-                              <div className="flex items-center justify-center gap-1 text-[9px] font-bold mt-0.5">
-                                <span className="text-emerald-600">{cs.activeContracts}A</span>
-                                {expiringCount > 0 && <span className="text-amber-600">{expiringCount}E</span>}
-                                {expiredCount > 0 && <span className="text-rose-600">{expiredCount}X</span>}
-                              </div>
-                            </td>
-
-                            {/* Machines */}
-                            <td className="py-3 px-3 text-center whitespace-nowrap">
-                              <span className="font-extrabold text-slate-800 text-sm">{cs.totalMachines}</span>
-                            </td>
-
-                            {/* Value */}
-                            <td className="py-3 px-4 text-right whitespace-nowrap">
-                              <div className="font-extrabold text-slate-900 text-xs font-mono">
-                                {formatCurrency(cs.totalValue)}
-                              </div>
-                              <div className="text-[9px] text-slate-400">
-                                {selectedSummary.totalValue > 0
-                                  ? `${((cs.totalValue / selectedSummary.totalValue) * 100).toFixed(1)}%`
-                                  : '—'}
-                              </div>
-                            </td>
-
-                            {/* PM */}
-                            <td className="py-3 px-4 text-center whitespace-nowrap">
-                              {(dateFrom || dateTo) ? (
-                                <div className="inline-flex flex-col items-center">
-                                  <span className="font-bold text-[#546A7A] text-xs">
-                                    {cs.pmTotal} Pending
-                                  </span>
-                                  {cs.pmOverdue > 0 && (
-                                    <span className="text-[9px] text-rose-600 font-bold">{cs.pmOverdue} Overdue</span>
-                                  )}
-                                </div>
-                              ) : (
-                                <div className="flex items-center justify-center gap-1.5">
-                                  <span className={`font-extrabold text-xs ${
-                                    cs.pmPercentage >= 75 ? 'text-emerald-600' : cs.pmPercentage >= 40 ? 'text-amber-600' : 'text-rose-600'
-                                  }`}>
-                                    {cs.pmPercentage}%
-                                  </span>
-                                  <div className="w-12 bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                                    <div
-                                      className="h-full rounded-full transition-all duration-500"
-                                      style={{
-                                        width: `${cs.pmPercentage}%`,
-                                        background: cs.pmPercentage >= 75 ? '#10b981' : cs.pmPercentage >= 40 ? '#f59e0b' : '#ef4444',
-                                      }}
-                                    />
-                                  </div>
-                                  {cs.pmOverdue > 0 && (
-                                    <span className="text-[9px] text-rose-600 font-bold">!{cs.pmOverdue}</span>
-                                  )}
-                                </div>
+                                );
+                              })}
+                              {displayedPMs.length === 0 && (
+                                <span className="text-[9px] text-slate-400 italic">
+                                  {applicablePMs.length > 0 ? 'No PM in range' : '—'}
+                                </span>
                               )}
-                            </td>
+                            </div>
+                          </td>
 
-                            {/* Engineers */}
-                            <td className="py-3 px-3 text-left">
-                              <span className="text-xs text-slate-600 font-medium truncate block max-w-[150px]" title={engText}>
-                                {engText || '—'}
+                          {/* Status */}
+                          <td className="py-2 px-1.5 text-center whitespace-nowrap">
+                            <span className={`px-1.5 py-0.5 rounded-full border text-[9px] font-bold ${getStatusBadge(contract.status)}`}>
+                              {contract.status}
+                            </span>
+                          </td>
+
+                          {/* Engineer + SW Support */}
+                          <td className="py-2 px-1.5">
+                            <div className="text-[10px] text-slate-700 font-medium truncate max-w-[110px] lg:max-w-[130px]" title={contract.responsible || '—'}>
+                              {formatEngineerDisplayName(contract.responsible) || '—'}
+                            </div>
+                            {contract.softwareSupport && (
+                              <span className="inline-flex items-center gap-0.5 text-[8px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-1 py-0.2 rounded mt-0.5 whitespace-nowrap" title="Software Support Included">
+                                <ShieldCheck className="w-2.5 h-2.5" />
+                                <span>SW Support</span>
                               </span>
-                            </td>
+                            )}
+                          </td>
 
-                            {/* Chevron */}
-                            <td className="py-3 px-2 text-center">
-                              <button
-                                type="button"
-                                className={`w-6 h-6 rounded-md border flex items-center justify-center transition-all ${
-                                  isExpanded
-                                    ? 'bg-[#546A7A] text-white border-[#546A7A]'
-                                    : 'border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-slate-100'
-                                }`}
-                              >
-                                <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
-                              </button>
-                            </td>
-                          </tr>
-
-                          {/* Expanded Sub-Table */}
-                          {isExpanded && (
-                            <tr className="bg-slate-50/80 border-b border-slate-200">
-                              <td colSpan={9} className="p-3 sm:p-4">
-                                <div className="bg-white rounded-lg border border-slate-200 shadow-xs overflow-hidden animate-in fade-in duration-200">
-                                  <div className="px-4 py-2 bg-gradient-to-r from-slate-100 via-slate-50 to-white border-b border-slate-200 flex items-center justify-between">
-                                    <h4 className="text-[11px] font-bold text-slate-800 flex items-center gap-1.5">
-                                      <FileText className="w-3.5 h-3.5 text-[#82A094]" />
-                                      <span className="text-[#546A7A]">{cs.customerName}</span> — {cs.contracts.length} agreements
-                                    </h4>
-                                    <button
-                                      type="button"
-                                      onClick={() => router.push(`${getBaseRoute()}/customers/${cs.customerId}`)}
-                                      className="inline-flex items-center gap-1 text-[10px] font-bold text-[#546A7A] hover:text-[#82A094] transition-colors"
-                                    >
-                                      Account <ExternalLink className="w-2.5 h-2.5" />
-                                    </button>
-                                  </div>
-
-                                  <div className="overflow-x-auto">
-                                    <table className="w-full text-left text-xs border-collapse">
-                                      <thead>
-                                        <tr className="bg-slate-100/90 text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">
-                                          <th className="py-2 px-3 text-center w-8">#</th>
-                                          <th className="py-2 px-3">Contract / PO</th>
-                                          <th className="py-2 px-3">Dept</th>
-                                          <th className="py-2 px-3 text-center">MC Type</th>
-                                          <th className="py-2 px-3">Period</th>
-                                          <th className="py-2 px-3 text-center">MC</th>
-                                          <th className="py-2 px-3 text-right">Amount</th>
-                                          <th className="py-2 px-3">PM Cycles</th>
-                                          <th className="py-2 px-3 text-center">Status</th>
-                                          <th className="py-2 px-3">Engineer</th>
-                                          <th className="py-2 px-3 text-center w-14"></th>
-                                        </tr>
-                                      </thead>
-                                      <tbody className="divide-y divide-slate-100">
-                                        {cs.contracts.map((contract, cIdx) => {
-                                          const daysLeft = getDaysRemaining(contract.endDate);
-                                          const dept = extractDepartmentFromCustomer(contract.customerName, cs.customerName);
-                                          return (
-                                            <tr key={contract.id} className="hover:bg-slate-50/80 transition-colors">
-                                              <td className="py-2 px-3 text-center font-bold text-slate-400 text-[10px]">
-                                                {cIdx + 1}
-                                              </td>
-                                              <td className="py-2 px-3">
-                                                <div className="font-bold text-slate-800 text-[11px]">
-                                                  {contract.contractNumber}
-                                                </div>
-                                                {contract.poNo && (
-                                                  <div className="text-[10px] text-slate-400">PO: {contract.poNo}</div>
-                                                )}
-                                              </td>
-                                              <td className="py-2 px-3">
-                                                {dept && dept !== '—' ? (
-                                                  <span className="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-600 text-[10px] font-semibold">
-                                                    {dept}
-                                                  </span>
-                                                ) : <span className="text-slate-400">—</span>}
-                                              </td>
-                                              <td className="py-2 px-3 text-center">
-                                                <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${getSlaColor(contract.mcType)}`}>
-                                                  {contract.mcType}
-                                                </span>
-                                              </td>
-                                              <td className="py-2 px-3 whitespace-nowrap">
-                                                <div className="text-[11px] text-slate-700">
-                                                  {formatDate(contract.startDate)} → {formatDate(contract.endDate)}
-                                                </div>
-                                                <span className={`text-[9px] font-bold ${
-                                                  daysLeft < 0 ? 'text-rose-600' : daysLeft <= 30 ? 'text-amber-600' : 'text-emerald-600'
-                                                }`}>
-                                                  {daysLeft < 0 ? `${Math.abs(daysLeft)}d overdue` : `${daysLeft}d left`}
-                                                </span>
-                                              </td>
-                                              <td className="py-2 px-3 text-center font-bold text-slate-700">
-                                                {contract.noOfMachine}
-                                              </td>
-                                              <td className="py-2 px-3 text-right font-bold text-slate-900 font-mono text-[11px]">
-                                                {formatCurrency(contract.amount)}
-                                              </td>
-                                              <td className="py-2 px-3">
-                                                <div className="flex flex-wrap gap-0.5 items-center">
-                                                  {contract.pmSchedules.map((p, pidx) => {
-                                                    if (p.status === 'Not Applicable') return null;
-                                                    const done = p.status === 'Completed';
-                                                    const overdue = !done && p.range && isRangeOverdue(p.range);
-                                                    return (
-                                                      <span
-                                                        key={pidx}
-                                                        className={`px-1 py-px rounded text-[8px] font-bold border ${
-                                                          done
-                                                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                                            : overdue
-                                                            ? 'bg-rose-50 text-rose-700 border-rose-200'
-                                                            : 'bg-amber-50 text-amber-700 border-amber-200'
-                                                        }`}
-                                                        title={`PM ${p.pmNumber}: ${p.status}\n${p.range || 'N/A'}`}
-                                                      >
-                                                        {done ? `${p.pmNumber}✓` : overdue ? `${p.pmNumber}!` : `${p.pmNumber}⏳`}
-                                                      </span>
-                                                    );
-                                                  })}
-                                                </div>
-                                              </td>
-                                              <td className="py-2 px-3 text-center">
-                                                <span className={`px-1.5 py-0.5 rounded-full border text-[9px] font-bold ${getStatusBadge(contract.status)}`}>
-                                                  {contract.status}
-                                                </span>
-                                              </td>
-                                              <td className="py-2 px-3 text-slate-600 text-[11px]">
-                                                {formatEngineerDisplayName(contract.responsible) || '—'}
-                                              </td>
-                                              <td className="py-2 px-3 text-center">
-                                                <button
-                                                  type="button"
-                                                  onClick={() => router.push(`${getBaseRoute()}/contracts/${contract.id}`)}
-                                                  className="px-2 py-1 rounded-md border border-slate-200 hover:bg-slate-100 text-[10px] font-bold text-slate-600 transition-colors"
-                                                >
-                                                  Open
-                                                </button>
-                                              </td>
-                                            </tr>
-                                          );
-                                        })}
-                                      </tbody>
-                                    </table>
-                                  </div>
-                                </div>
-                              </td>
-                            </tr>
-                          )}
-                        </Fragment>
+                          {/* Open */}
+                          <td className="py-2 px-1 text-center">
+                            <button
+                              type="button"
+                              onClick={() => router.push(`${getBaseRoute()}/contracts/${contract.id}`)}
+                              className="p-1 rounded border border-slate-200 hover:bg-slate-100 hover:border-[#82A094] text-slate-500 hover:text-[#546A7A] transition-colors"
+                              title="Open Contract"
+                            >
+                              <ExternalLink className="w-3 h-3" />
+                            </button>
+                          </td>
+                        </tr>
                       );
                     })}
                   </tbody>
@@ -1392,46 +1377,50 @@ export default function ContractReports({ role }: ContractReportsProps) {
                   {/* Footer Totals */}
                   <tfoot className="bg-[#546A7A] text-white border-t border-[#435562] text-xs font-bold select-none">
                     <tr>
-                      <td className="py-3 px-3 text-center font-bold text-white/70">Σ</td>
-                      <td className="py-3 px-4 font-bold text-white">
-                        TOTAL ({customerSummaries.length} Accounts)
+                      <td className="py-2.5 px-1.5 text-center font-bold text-white/70">Total</td>
+                      <td className="py-2.5 px-2 font-bold text-white whitespace-nowrap" colSpan={2}>
+                        TOTAL &mdash; {customerSummaries.length} Customers &bull; {flatContracts.length} Contracts
                       </td>
-                      <td className="py-3 px-3 text-center text-white/50">—</td>
-                      <td className="py-3 px-3 text-center">
-                        <div className="font-extrabold text-white text-sm">{selectedSummary.totalContracts}</div>
-                        <div className="text-[9px] text-emerald-300">{selectedSummary.active} Active</div>
+                      <td className="py-2.5 px-1.5 text-center text-white/50">—</td>
+                      <td className="py-2.5 px-1.5 text-center text-white/50">—</td>
+                      <td className="py-2.5 px-1 text-center whitespace-nowrap">
+                        <span className="font-extrabold text-white text-xs">{selectedSummary.totalMachines}</span>
                       </td>
-                      <td className="py-3 px-3 text-center">
-                        <div className="font-extrabold text-white text-sm">{selectedSummary.totalMachines}</div>
+                      <td className="py-2.5 px-1.5 text-center text-white/50">—</td>
+                      <td className="py-2.5 px-1.5 text-right whitespace-nowrap">
+                        <span className="font-extrabold text-white text-xs font-mono">{formatCurrency(selectedSummary.totalValue)}</span>
                       </td>
-                      <td className="py-3 px-4 text-right">
-                        <div className="font-extrabold text-white text-sm font-mono">{formatCurrency(selectedSummary.totalValue)}</div>
-                      </td>
-                      <td className="py-3 px-4 text-center">
+                      <td className="py-2.5 px-1.5 text-center whitespace-nowrap">
                         {(dateFrom || dateTo) ? (
                           <div>
-                            <span className="font-bold text-white text-xs">{selectedSummary.pmTotal} Pending</span>
+                            <span className="font-bold text-white text-[10px]">{selectedSummary.pmTotal} Pending</span>
                             {selectedSummary.pmOverdue > 0 && (
-                              <span className="text-rose-300 text-[9px] block font-bold">{selectedSummary.pmOverdue} Overdue</span>
+                              <span className="text-rose-300 text-[9px] block font-bold">{selectedSummary.pmOverdue} OD</span>
                             )}
                           </div>
                         ) : (
                           <div>
-                            <span className="font-bold text-white text-xs">{selectedSummary.pmCompleted}/{selectedSummary.pmTotal} ({selectedSummary.pmPct}%)</span>
+                            <span className="font-bold text-white text-[10px]">{selectedSummary.pmCompleted}/{selectedSummary.pmTotal}</span>
                             {selectedSummary.pmOverdue > 0 && (
-                              <span className="text-rose-300 text-[9px] block font-bold">{selectedSummary.pmOverdue} Overdue</span>
+                              <span className="text-rose-300 text-[9px] block font-bold">{selectedSummary.pmOverdue} OD</span>
                             )}
                           </div>
                         )}
                       </td>
-                      <td className="py-3 px-3 text-white/50">—</td>
-                      <td className="py-3 px-2 text-center text-white/50"></td>
+                      <td className="py-2.5 px-1.5 text-center whitespace-nowrap">
+                        <div className="text-[10px] font-bold">
+                          <span className="text-emerald-300">{selectedSummary.active} Active</span>
+                          {selectedSummary.expired > 0 && <span className="text-rose-300 ml-1">{selectedSummary.expired} Exp</span>}
+                        </div>
+                      </td>
+                      <td className="py-2.5 px-1 text-white/50 text-center" colSpan={2}>—</td>
                     </tr>
                   </tfoot>
                 </table>
               </div>
             </div>
-          )}
+            );
+          })()}
         </>
       )}
     </div>

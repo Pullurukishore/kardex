@@ -182,12 +182,15 @@ export function extractDepartmentFromCustomer(contractCustomerName?: string | nu
   const dashParts = trimmed.split(/\s*[-–—]\s*/);
   if (dashParts.length > 1) {
     const afterDash = dashParts[dashParts.length - 1]?.trim();
-    if (afterDash) return afterDash;
-  }
-
-  // If contractCustomerName is distinct from main customer account name
-  if (mainCustomerName && trimmed.toLowerCase() !== String(mainCustomerName).trim().toLowerCase()) {
-    return trimmed;
+    // Valid departments are short division/dept names (e.g. NCS, Forging, QA, Plant 2)
+    // Exclude corporate legal entities or long notes
+    if (
+      afterDash &&
+      afterDash.length <= 25 &&
+      !/pvt|ltd|limited|formerly|corp|inc|llp/i.test(afterDash)
+    ) {
+      return afterDash;
+    }
   }
 
   return '—';

@@ -4,7 +4,7 @@ import ContractReportsWrapper from '@/components/contracts/ContractReportsWrappe
 
 export default function AdminContractReportsPage() {
   return (
-    <div className="w-full p-4 sm:p-6 lg:p-8 animate-in fade-in duration-200">
+    <div className="w-full p-1 sm:p-2 lg:p-3 animate-in fade-in duration-200">
       <ContractReportsWrapper role="Admin" />
     </div>
   );

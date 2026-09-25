@@ -39,7 +39,7 @@ interface Contract {
     noOfVisits: number;
     startDate: string;
     endDate: string;
-    status: 'Active' | 'Expiring Soon' | 'Expired';
+    status: 'Active' | 'Expired';
     softwareSupport: boolean;
     pmSchedules: PMSchedule[];
     responsible: string;
@@ -58,7 +58,7 @@ interface CustomerSummary {
     zoneName: string;
     totalContracts: number;
     activeContracts: number;
-    expiringSoonContracts: number;
+    expiringSoonContracts?: number;
     expiredContracts: number;
     totalValue: number;
     totalMachines: number;
@@ -75,7 +75,7 @@ interface OverallSummary {
     totalContracts: number;
     active: number;
     expired: number;
-    expiring: number;
+    expiring?: number;
     totalValue: number;
     totalMachines: number;
     pmCompleted: number;
@@ -228,14 +228,41 @@ const getPMEndDate = (pmRange: string | null | undefined): Date | null => {
     return parseDateObj(endStr);
 };
 
+const isPMEndDateInRange = (pmRange: string | null | undefined, dateFrom?: string, dateTo?: string): boolean => {
+    if (!dateFrom && !dateTo) return true;
+    const endObj = getPMEndDate(pmRange);
+    if (!endObj) return false;
+
+    if (dateFrom) {
+        const fromObj = new Date(dateFrom);
+        fromObj.setHours(0, 0, 0, 0);
+        if (endObj < fromObj) return false;
+    }
+
+    if (dateTo) {
+        const toObj = new Date(dateTo);
+        toObj.setHours(23, 59, 59, 999);
+        if (endObj > toObj) return false;
+    }
+
+    return true;
+};
+
+const isRangeOverdue = (range: string): boolean => {
+    try {
+        const endObj = getPMEndDate(range);
+        if (!endObj) return false;
+        const now = new Date();
+        return endObj < now;
+    } catch { return false; }
+};
+
 // ============ Pure Tabular Columns Definition ============
 const CONTRACT_TABLE_COLUMNS = [
     { header: '#', key: 'slNo', width: 6, align: 'center' as const },
-    { header: 'Customer Name', key: 'customerName', width: 28, align: 'left' as const },
-    { header: 'Department', key: 'department', width: 18, align: 'left' as const },
+    { header: 'Customer Name', key: 'customerName', width: 30, align: 'left' as const },
     { header: 'Place', key: 'place', width: 16, align: 'left' as const },
     { header: 'Zone', key: 'zoneName', width: 14, align: 'center' as const },
-    { header: 'Contract Number', key: 'contractNumber', width: 18, align: 'center' as const },
     { header: 'PO Number', key: 'poNo', width: 18, align: 'center' as const },
     { header: 'PO Date', key: 'poDate', width: 14, align: 'center' as const },
     { header: 'MC Type', key: 'mcType', width: 14, align: 'center' as const },
@@ -246,11 +273,7 @@ const CONTRACT_TABLE_COLUMNS = [
     { header: 'Status', key: 'status', width: 14, align: 'center' as const },
     { header: 'Responsible Engineer', key: 'responsible', width: 24, align: 'left' as const },
     { header: 'Total PM Visits', key: 'noOfVisits', width: 14, align: 'center' as const },
-    { header: 'PM Completed', key: 'pmCompleted', width: 14, align: 'center' as const },
-    { header: 'PM Pending', key: 'pmPending', width: 12, align: 'center' as const },
-    { header: 'PM Overdue', key: 'pmOverdue', width: 12, align: 'center' as const },
-    { header: 'PM Progress', key: 'pmProgress', width: 14, align: 'center' as const },
-    { header: 'Pending PM Window', key: 'pendingWindow', width: 28, align: 'left' as const },
+    { header: 'PM Schedule Window', key: 'pendingWindow', width: 32, align: 'left' as const },
     { header: 'BD Visits', key: 'bdCount', width: 12, align: 'center' as const },
     { header: 'SW Support', key: 'softwareSupport', width: 12, align: 'center' as const },
     { header: 'Payment Terms', key: 'paymentTerms', width: 16, align: 'left' as const },
@@ -302,9 +325,6 @@ export async function generateContractReportExcel(
     let totalMachinesSum = 0;
     let totalValueSum = 0;
     let totalPMVisitsSum = 0;
-    let totalPMDoneSum = 0;
-    let totalPMPendingSum = 0;
-    let totalPMOverdueSum = 0;
     const uniqueCustomers = new Set<string>();
 
     // ── Rows 2..N: Contract Data Records ──
@@ -320,27 +340,26 @@ export async function generateContractReportExcel(
             const bg = isOdd ? COLORS.white : COLORS.kardexBlueTint;
 
             const applicablePMs = (ct.pmSchedules || []).filter(p => p.status !== 'Not Applicable');
-            const pmDone = applicablePMs.filter(p => p.status === 'Completed').length;
-            const pmPending = applicablePMs.filter(p => p.status === 'Pending').length;
             const totalPMs = ct.noOfVisits || applicablePMs.length;
 
-            const pmOverdue = applicablePMs.filter(p => {
-                if (p.status === 'Completed') return false;
-                const end = getPMEndDate(p.range);
-                return end && end < now;
-            }).length;
+            const matchingPMs = (_filters?.dateFrom || _filters?.dateTo)
+                ? applicablePMs.filter(p => isPMEndDateInRange(p.range, _filters.dateFrom, _filters.dateTo))
+                : applicablePMs;
 
-            const pmProgStr = applicablePMs.length > 0
-                ? `${Math.round((pmDone / applicablePMs.length) * 100)}%`
-                : '—';
+            const targetPMs = matchingPMs.length > 0 ? matchingPMs : applicablePMs;
 
-            const nextPending = applicablePMs.find(p => p.status !== 'Completed');
-            const pendingWindowStr = nextPending
-                ? `PM ${nextPending.pmNumber}: ${nextPending.range || 'Scheduled'}`
-                : (applicablePMs.length > 0 ? 'All Completed' : '—');
+            const formatExcelPM = (p: PMSchedule) => {
+                const isDone = p.status === 'Completed';
+                const statusLabel = isDone ? 'Done' : 'Pending';
+                const rangeText = p.range ? p.range.trim() : 'Scheduled';
+                return `PM ${p.pmNumber}: ${rangeText} (${statusLabel})`;
+            };
+
+            const pendingWindowStr = targetPMs.length > 0
+                ? targetPMs.map(formatExcelPM).join('\n')
+                : (applicablePMs.length > 0 ? applicablePMs.map(formatExcelPM).join('\n') : '—');
 
             const bdLabel = ct.bdCount === 999 ? 'Unlimited' : (ct.bdCount ?? 0);
-            const deptVal = extractDepartmentFromCustomer(ct.customerName, cs.customerName) || '—';
             const engNames = normalizeEngineerNames(ct.responsible).join(', ') || '—';
 
             const machineCount = Number(ct.noOfMachine || 0);
@@ -349,17 +368,12 @@ export async function generateContractReportExcel(
             totalMachinesSum += machineCount;
             totalValueSum += contractAmount;
             totalPMVisitsSum += totalPMs;
-            totalPMDoneSum += pmDone;
-            totalPMPendingSum += pmPending;
-            totalPMOverdueSum += pmOverdue;
 
             const rowData: (string | number)[] = [
                 recordIndex,
                 cs.customerName,
-                deptVal,
                 ct.place || cs.place || '—',
                 ct.zoneName || cs.zoneName || '—',
-                ct.contractNumber || '—',
                 ct.poNo || '—',
                 fmtDate(ct.poDate),
                 ct.mcType || '—',
@@ -370,10 +384,6 @@ export async function generateContractReportExcel(
                 ct.status || '—',
                 engNames,
                 totalPMs,
-                pmDone,
-                pmPending,
-                pmOverdue,
-                pmProgStr,
                 pendingWindowStr,
                 bdLabel,
                 ct.softwareSupport ? 'Yes' : 'No',
@@ -381,22 +391,18 @@ export async function generateContractReportExcel(
             ];
 
             const row = ws.getRow(r);
-            row.height = 20;
+            row.height = Math.max(20, (targetPMs.length || 1) * 16);
 
             rowData.forEach((val, colIdx) => {
                 const cell = row.getCell(colIdx + 1);
                 cell.value = val;
                 const colDef = CONTRACT_TABLE_COLUMNS[colIdx];
 
-                const isNumeric = colDef.key === 'amount' || colDef.key === 'noOfMachine' ||
-                    colDef.key === 'noOfVisits' || colDef.key === 'pmCompleted' ||
-                    colDef.key === 'pmPending' || colDef.key === 'pmOverdue';
+                const isNumeric = colDef.key === 'amount' || colDef.key === 'noOfMachine' || colDef.key === 'noOfVisits';
 
                 let fontColor: string | undefined;
                 if (colDef.key === 'status') {
                     fontColor = getStatusColor(String(val));
-                } else if (colDef.key === 'pmOverdue' && Number(val) > 0) {
-                    fontColor = COLORS.kardexRedDark;
                 }
 
                 applyDataCell(cell, bg, {
@@ -425,11 +431,8 @@ export async function generateContractReportExcel(
         const machColIdx = CONTRACT_TABLE_COLUMNS.findIndex(c => c.key === 'noOfMachine') + 1;
         const amtColIdx = CONTRACT_TABLE_COLUMNS.findIndex(c => c.key === 'amount') + 1;
         const totPmColIdx = CONTRACT_TABLE_COLUMNS.findIndex(c => c.key === 'noOfVisits') + 1;
-        const pmDoneColIdx = CONTRACT_TABLE_COLUMNS.findIndex(c => c.key === 'pmCompleted') + 1;
-        const pmPendColIdx = CONTRACT_TABLE_COLUMNS.findIndex(c => c.key === 'pmPending') + 1;
-        const pmOverColIdx = CONTRACT_TABLE_COLUMNS.findIndex(c => c.key === 'pmOverdue') + 1;
 
-        // Label merged across columns 1..9
+        // Label merged across columns 1..MC Type
         ws.mergeCells(`A${grandRow}:${numToCol(mcColIdx)}${grandRow}`);
         const labelCell = ws.getCell(`A${grandRow}`);
         labelCell.value = `GRAND TOTAL (${recordIndex} Contracts, ${uniqueCustomers.size} Customers):`;
@@ -471,32 +474,8 @@ export async function generateContractReportExcel(
         totPmCell.alignment = { horizontal: 'center', vertical: 'middle' };
         totPmCell.border = thinBorder(COLORS.kardexBlueDark);
 
-        // PM Done total
-        const pmDoneCell = totalRow.getCell(pmDoneColIdx);
-        pmDoneCell.value = totalPMDoneSum;
-        pmDoneCell.font = { bold: true, size: 9.5, color: { argb: COLORS.textWhite } };
-        pmDoneCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.kardexBlueDark } };
-        pmDoneCell.alignment = { horizontal: 'center', vertical: 'middle' };
-        pmDoneCell.border = thinBorder(COLORS.kardexBlueDark);
-
-        // PM Pending total
-        const pmPendCell = totalRow.getCell(pmPendColIdx);
-        pmPendCell.value = totalPMPendingSum;
-        pmPendCell.font = { bold: true, size: 9.5, color: { argb: COLORS.textWhite } };
-        pmPendCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.kardexBlueDark } };
-        pmPendCell.alignment = { horizontal: 'center', vertical: 'middle' };
-        pmPendCell.border = thinBorder(COLORS.kardexBlueDark);
-
-        // PM Overdue total
-        const pmOverCell = totalRow.getCell(pmOverColIdx);
-        pmOverCell.value = totalPMOverdueSum;
-        pmOverCell.font = { bold: true, size: 9.5, color: { argb: COLORS.textWhite } };
-        pmOverCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.kardexBlueDark } };
-        pmOverCell.alignment = { horizontal: 'center', vertical: 'middle' };
-        pmOverCell.border = thinBorder(COLORS.kardexBlueDark);
-
         // Fill remaining columns
-        for (let i = pmOverColIdx + 1; i <= totalCols; i++) {
+        for (let i = totPmColIdx + 1; i <= totalCols; i++) {
             const cell = totalRow.getCell(i);
             cell.value = '';
             cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.kardexBlueDark } };

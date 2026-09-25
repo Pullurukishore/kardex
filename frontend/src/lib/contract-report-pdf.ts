@@ -319,18 +319,17 @@ export async function generateContractReportPdf(
     const isDateFiltered = Boolean(filters.dateFrom || filters.dateTo);
     const now = new Date();
 
-    // Filter to only customers & contracts with PENDING visits that END between dateFrom and dateTo
+    // Filter to only customers & contracts with PM visits that END between dateFrom and dateTo (or all if not date filtered)
     const filteredCustomerList: any[] = [];
 
     data.forEach((cust: any) => {
         const matchingContracts = (cust.contracts || []).filter((ct: any) => {
             const applicablePMs = (ct.pmSchedules || []).filter((p: any) => p.status !== 'Not Applicable');
-            const pendingEndingInRange = applicablePMs.filter((p: any) => {
-                if (p.status === 'Completed' || p.status === 'Not Applicable') return false;
-                if (isDateFiltered) return isPMEndDateInRange(p.range, filters.dateFrom, filters.dateTo);
-                return true;
+            if (!isDateFiltered) return applicablePMs.length > 0;
+            const endingInRange = applicablePMs.filter((p: any) => {
+                return isPMEndDateInRange(p.range, filters.dateFrom, filters.dateTo);
             });
-            return pendingEndingInRange.length > 0;
+            return endingInRange.length > 0;
         });
 
         if (matchingContracts.length > 0) {
@@ -348,7 +347,9 @@ export async function generateContractReportPdf(
     });
 
     // Compute effective totals from filtered accounts
+    let totalPMsCount = 0;
     let totalPendingPMs = 0;
+    let completedPMs = 0;
     let overduePMs = 0;
     let totalContractsCount = 0;
     let totalMachinesCount = 0;
@@ -360,20 +361,24 @@ export async function generateContractReportPdf(
         totalPortfolioValue += (cust.totalValue || 0);
         cust.contracts.forEach((c: any) => {
             const applicablePMs = (c.pmSchedules || []).filter((p: any) => p.status !== 'Not Applicable');
-            const matchingPending = applicablePMs.filter((p: any) => {
-                if (p.status === 'Completed' || p.status === 'Not Applicable') return false;
+            const matching = applicablePMs.filter((p: any) => {
                 if (isDateFiltered) return isPMEndDateInRange(p.range, filters.dateFrom, filters.dateTo);
                 return true;
             });
-            totalPendingPMs += matchingPending.length;
-            matchingPending.forEach((pm: any) => {
-                const endObj = getPMEndDate(pm.range);
-                if (endObj && endObj < now) overduePMs += 1;
+            totalPMsCount += matching.length;
+            matching.forEach((pm: any) => {
+                if (pm.status === 'Completed') {
+                    completedPMs += 1;
+                } else {
+                    totalPendingPMs += 1;
+                    const endObj = getPMEndDate(pm.range);
+                    if (endObj && endObj < now) overduePMs += 1;
+                }
             });
         });
     });
 
-    let y = drawHeader(doc, filters, logoBase64, filteredCustomerList.length, totalPendingPMs);
+    let y = drawHeader(doc, filters, logoBase64, filteredCustomerList.length, totalPMsCount);
 
     // ── 5 Executive KPI Cards (ASCII safe: no ₹, no ≤) ──
     const cardGap = 4;
@@ -384,8 +389,8 @@ export async function generateContractReportPdf(
     drawKPICard(
         doc,
         10 + 0 * (cardW + cardGap), y, cardW, cardH,
-        'Pending PM Visits',
-        String(totalPendingPMs),
+        'Total PM Visits',
+        String(totalPMsCount),
         COLORS.headerLight,
         `${totalContractsCount} Agreements in Scope`
     );
@@ -393,10 +398,10 @@ export async function generateContractReportPdf(
     drawKPICard(
         doc,
         10 + 1 * (cardW + cardGap), y, cardW, cardH,
-        'Overdue PMs',
-        String(overduePMs),
-        overduePMs > 0 ? COLORS.kardexRed : COLORS.kardexGreen,
-        overduePMs > 0 ? `${overduePMs} Action Required` : 'On Schedule'
+        'Pending / Overdue',
+        `${totalPendingPMs}${overduePMs > 0 ? ` (${overduePMs} Overdue)` : ''}`,
+        overduePMs > 0 ? COLORS.kardexRed : COLORS.kardexSand,
+        `${completedPMs} Completed`
     );
 
     drawKPICard(
@@ -405,7 +410,7 @@ export async function generateContractReportPdf(
         'Customer Accounts',
         String(filteredCustomerList.length),
         COLORS.kardexSand,
-        'Accounts with Pending PMs'
+        'Accounts with PMs'
     );
 
     drawKPICard(
@@ -438,7 +443,6 @@ export async function generateContractReportPdf(
         { content: 'MC Type / SLA', styles: { halign: 'center' } },
         { content: 'Responsible Engineer', styles: { halign: 'left' } },
         { content: 'PO Number', styles: { halign: 'center' } },
-        { content: 'Department', styles: { halign: 'center' } },
         { content: 'Contract Expiry', styles: { halign: 'center' } },
         { content: 'Agreement Value', styles: { halign: 'right' } }
     ].map(col => ({
@@ -463,7 +467,6 @@ export async function generateContractReportPdf(
         contracts.forEach((c: any) => {
             const applicablePMs = (c.pmSchedules || []).filter((p: any) => p.status !== 'Not Applicable');
             const matchingPMs = applicablePMs.filter((pm: any) => {
-                if (pm.status === 'Completed' || pm.status === 'Not Applicable') return false;
                 if (isDateFiltered) return isPMEndDateInRange(pm.range, filters.dateFrom, filters.dateTo);
                 return true;
             });
@@ -471,28 +474,32 @@ export async function generateContractReportPdf(
             const daysLeft = getDaysRemainingPdf(c.endDate);
             const daysRemainingText = daysLeft < 0 ? `${Math.abs(daysLeft)}d overdue` : `${daysLeft}d left`;
             const expiryText = c.endDate ? `${fmtDatePdf(c.endDate)} (${daysRemainingText})` : '—';
-            const deptVal = extractDepartmentFromCustomer(c.customerName, cust.customerName);
 
             matchingPMs.forEach((pm: any) => {
+                const isDone = pm.status === 'Completed';
                 const endObj = getPMEndDate(pm.range);
-                const isOverdue = endObj ? endObj < now : false;
+                const isOverdue = !isDone && endObj ? endObj < now : false;
                 const { startDate: pmStart, endDate: pmEnd } = parseRangeDatesFormatted(pm.range);
 
                 let pmDaysDueText = '—';
-                if (endObj) {
+                if (isDone) {
+                    pmDaysDueText = 'Completed';
+                } else if (endObj) {
                     const days = Math.ceil((endObj.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
                     pmDaysDueText = days < 0 ? `${Math.abs(days)}d overdue` : (days === 0 ? 'Due today' : `Due in ${days}d`);
                 }
 
+                const rangeText = (pmStart !== '—' || pmEnd !== '—') ? `${pmStart} to ${pmEnd}` : (pm.range || '—');
+                const statusSuffix = isDone ? 'Done' : 'Pending';
+
                 customerPmRows.push({
                     pmNumber: `PM ${pm.pmNumber}`,
-                    schedulePeriod: (pmStart !== '—' || pmEnd !== '—') ? `${pmStart} to ${pmEnd}` : (pm.range || '—'),
-                    status: isOverdue ? 'Overdue' : 'Pending',
+                    schedulePeriod: `${rangeText} (${statusSuffix})`,
+                    status: isDone ? 'Done' : (isOverdue ? 'Overdue' : 'Pending'),
                     dueIn: pmDaysDueText,
                     mcType: c.mcType || '—',
                     responsible: formatEngineerDisplayName(c.responsible),
                     poNo: c.poNo || '—',
-                    department: deptVal,
                     expiryWithDays: expiryText,
                     amount: c.amount || 0
                 });
@@ -507,10 +514,6 @@ export async function generateContractReportPdf(
         const placeText = cust.place ? `${cust.place}, ${cust.zoneName || ''} Zone` : `${cust.zoneName || ''} Zone`;
         const valueText = fmtCurrency(cust.totalValue || 0);
         const machinesText = `${cust.totalMachines || 0} Machine${cust.totalMachines !== 1 ? 's' : ''}`;
-        const pmPendingCount = customerPmRows.length;
-        const overdueCount = customerPmRows.filter((r: any) => r.status === 'Overdue').length;
-        const pmProgress = `${pmPendingCount} Pending Visit${pmPendingCount !== 1 ? 's' : ''}`;
-        const overdueText = overdueCount > 0 ? `[ ${overdueCount} Overdue ]` : `[ On Track ]`;
 
         const mcTypes = Array.from(new Set(contracts.map((c: any) => c.mcType).filter(Boolean))).join(', ');
         const mcTypesText = mcTypes ? `   •   SLA: ${mcTypes}` : '';
@@ -520,11 +523,11 @@ export async function generateContractReportPdf(
         const resp = Array.from(new Set(contracts.flatMap((c: any) => normalizeEngineerNames(c.responsible)))).join(', ');
         const respText = resp ? `   •   Eng: ${resp}` : '';
 
-        // 1. Customer Main Banner Row (Span 11 columns)
+        // 1. Customer Main Banner Row (Span 10 columns)
         body.push([
             {
-                content: `${custIdx + 1}.  ${cust.customerName.toUpperCase()}   •   ${placeText}${respText}${mcTypesText}${swText}${poText}   •   ${machinesText}   •   Value: ${valueText}   •   ${pmProgress}   •   ${overdueText}`,
-                colSpan: 11,
+                content: `${custIdx + 1}.  ${cust.customerName.toUpperCase()}   •   ${placeText}${respText}${mcTypesText}${swText}${poText}   •   ${machinesText}   •   Value: ${valueText}`,
+                colSpan: 10,
                 styles: {
                     fillColor: customerColor,
                     textColor: COLORS.white,
@@ -551,7 +554,6 @@ export async function generateContractReportPdf(
                 row.mcType,
                 row.responsible,
                 row.poNo,
-                row.department,
                 row.expiryWithDays,
                 fmtCurrency(row.amount)
             ]);
@@ -561,8 +563,8 @@ export async function generateContractReportPdf(
         const customerTotalVal = contracts.reduce((sum: number, c: any) => sum + Number(c.amount || 0), 0);
         body.push([
             {
-                content: `Customer Total: ${customerPmRows.length} Pending PM Visit${customerPmRows.length !== 1 ? 's' : ''} across ${contracts.length} Agreement${contracts.length !== 1 ? 's' : ''}`,
-                colSpan: 10,
+                content: `Customer Total: across ${contracts.length} Agreement${contracts.length !== 1 ? 's' : ''}`,
+                colSpan: 9,
                 styles: {
                     fillColor: [241, 245, 249],
                     textColor: COLORS.textDark,
@@ -590,7 +592,7 @@ export async function generateContractReportPdf(
             body.push([
                 {
                     content: '',
-                    colSpan: 11,
+                    colSpan: 10,
                     styles: {
                         minCellHeight: 4,
                         fillColor: [255, 255, 255],
@@ -606,8 +608,8 @@ export async function generateContractReportPdf(
     if (filteredCustomerList.length > 0) {
         body.push([
             {
-                content: `GRAND TOTAL: ${filteredCustomerList.length} Customer Accounts  |  ${totalContractsCount} Agreements  |  ${totalPendingPMs} Pending PM Visits`,
-                colSpan: 10,
+                content: `GRAND TOTAL: ${filteredCustomerList.length} Customer Accounts  |  ${totalContractsCount} Agreements`,
+                colSpan: 9,
                 styles: {
                     fillColor: COLORS.headerBg,
                     textColor: COLORS.white,
@@ -632,8 +634,8 @@ export async function generateContractReportPdf(
     } else {
         body.push([
             {
-                content: 'No pending PM visits ending within the selected date filter range.',
-                colSpan: 11,
+                content: 'No contracts match the current filters.',
+                colSpan: 10,
                 styles: {
                     fillColor: COLORS.offWhite,
                     textColor: COLORS.textMuted,
@@ -666,16 +668,15 @@ export async function generateContractReportPdf(
         },
         columnStyles: {
             0: { cellWidth: 8, halign: 'center' },                                // # (S.No)
-            1: { cellWidth: 14, halign: 'center', fontStyle: 'bold' },            // PM Visit (PM 1, PM 2)
-            2: { cellWidth: 44, halign: 'center' },                              // PM Schedule Window
-            3: { cellWidth: 18, halign: 'center', fontStyle: 'bold' },            // PM Status
-            4: { cellWidth: 22, halign: 'center' },                              // Completed Date
-            5: { cellWidth: 20, halign: 'center' },                              // MC Type / SLA
-            6: { cellWidth: 32, halign: 'left' },                                // Responsible Engineer
-            7: { cellWidth: 24, halign: 'center' },                              // PO Number
-            8: { cellWidth: 28, halign: 'center' },                              // Department
-            9: { cellWidth: 38, halign: 'center' },                              // Contract Expiry
-            10: { cellWidth: 29, halign: 'right', fontStyle: 'bold', textColor: COLORS.textDark }, // Agreement Value
+            1: { cellWidth: 16, halign: 'center', fontStyle: 'bold' },            // PM Visit (PM 1, PM 2)
+            2: { cellWidth: 50, halign: 'center' },                              // PM Schedule Window
+            3: { cellWidth: 20, halign: 'center', fontStyle: 'bold' },            // PM Status
+            4: { cellWidth: 24, halign: 'center' },                              // Timeline / Due
+            5: { cellWidth: 22, halign: 'center' },                              // MC Type / SLA
+            6: { cellWidth: 38, halign: 'left' },                                // Responsible Engineer
+            7: { cellWidth: 28, halign: 'center' },                              // PO Number
+            8: { cellWidth: 40, halign: 'center' },                              // Contract Expiry
+            9: { cellWidth: 31, halign: 'right', fontStyle: 'bold', textColor: COLORS.textDark }, // Agreement Value
         },
         willDrawCell: (hookData: any) => {
             // If spacer row, don't draw border lines
@@ -688,7 +689,7 @@ export async function generateContractReportPdf(
             // Highlight PM Status Column (Index 3)
             if (hookData.section === 'body' && hookData.column.index === 3 && typeof hookData.cell.raw === 'string') {
                 const val = hookData.cell.raw;
-                if (val === 'Completed' || val === 'Active') {
+                if (val === 'Done' || val === 'Completed' || val === 'Active') {
                     hookData.cell.styles.textColor = [79, 106, 100]; // Kardex Green Dark
                     hookData.cell.styles.fontStyle = 'bold';
                 } else if (val === 'Overdue' || val === 'Expired') {
