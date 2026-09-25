@@ -268,6 +268,7 @@ const CONTRACT_TABLE_COLUMNS = [
     { header: 'MC Type', key: 'mcType', width: 14, align: 'center' as const },
     { header: 'Machines', key: 'noOfMachine', width: 10, align: 'center' as const },
     { header: 'Contract Value (₹)', key: 'amount', width: 18, align: 'right' as const },
+    { header: 'PM Visit Value (₹)', key: 'pmVisitValue', width: 18, align: 'right' as const },
     { header: 'Start Date', key: 'startDate', width: 14, align: 'center' as const },
     { header: 'End Date', key: 'endDate', width: 14, align: 'center' as const },
     { header: 'Status', key: 'status', width: 14, align: 'center' as const },
@@ -364,6 +365,7 @@ export async function generateContractReportExcel(
 
             const machineCount = Number(ct.noOfMachine || 0);
             const contractAmount = Number(ct.amount || 0);
+            const pmVisitValue = totalPMs > 0 ? Math.round(contractAmount / totalPMs) : contractAmount;
 
             totalMachinesSum += machineCount;
             totalValueSum += contractAmount;
@@ -379,6 +381,7 @@ export async function generateContractReportExcel(
                 ct.mcType || '—',
                 machineCount,
                 contractAmount,
+                pmVisitValue,
                 fmtDate(ct.startDate),
                 fmtDate(ct.endDate),
                 ct.status || '—',
@@ -398,7 +401,7 @@ export async function generateContractReportExcel(
                 cell.value = val;
                 const colDef = CONTRACT_TABLE_COLUMNS[colIdx];
 
-                const isNumeric = colDef.key === 'amount' || colDef.key === 'noOfMachine' || colDef.key === 'noOfVisits';
+                const isNumeric = colDef.key === 'amount' || colDef.key === 'pmVisitValue' || colDef.key === 'noOfMachine' || colDef.key === 'noOfVisits';
 
                 let fontColor: string | undefined;
                 if (colDef.key === 'status') {
@@ -406,13 +409,13 @@ export async function generateContractReportExcel(
                 }
 
                 applyDataCell(cell, bg, {
-                    bold: colDef.key === 'poNo' || colDef.key === 'customerName' || colDef.key === 'amount',
+                    bold: colDef.key === 'poNo' || colDef.key === 'customerName' || colDef.key === 'amount' || colDef.key === 'pmVisitValue',
                     isNumber: isNumeric,
                     align: colDef.align,
                     fontColor,
                 });
 
-                if (colDef.key === 'amount' && typeof val === 'number') {
+                if ((colDef.key === 'amount' || colDef.key === 'pmVisitValue') && typeof val === 'number') {
                     cell.numFmt = '₹#,##0';
                 }
             });

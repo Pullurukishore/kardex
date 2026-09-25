@@ -444,7 +444,7 @@ export async function generateContractReportPdf(
         { content: 'Responsible Engineer', styles: { halign: 'left' } },
         { content: 'PO Number', styles: { halign: 'center' } },
         { content: 'Contract Expiry', styles: { halign: 'center' } },
-        { content: 'Agreement Value', styles: { halign: 'right' } }
+        { content: 'PM Value', styles: { halign: 'right' } }
     ].map(col => ({
         ...col,
         styles: {
@@ -466,6 +466,9 @@ export async function generateContractReportPdf(
 
         contracts.forEach((c: any) => {
             const applicablePMs = (c.pmSchedules || []).filter((p: any) => p.status !== 'Not Applicable');
+            const totalVisitsCount = c.noOfVisits || applicablePMs.length || 1;
+            const pmVisitAmount = totalVisitsCount > 0 ? Math.round(Number(c.amount || 0) / totalVisitsCount) : Number(c.amount || 0);
+
             const matchingPMs = applicablePMs.filter((pm: any) => {
                 if (isDateFiltered) return isPMEndDateInRange(pm.range, filters.dateFrom, filters.dateTo);
                 return true;
@@ -501,7 +504,7 @@ export async function generateContractReportPdf(
                     responsible: formatEngineerDisplayName(c.responsible),
                     poNo: c.poNo || '—',
                     expiryWithDays: expiryText,
-                    amount: c.amount || 0
+                    amount: pmVisitAmount
                 });
             });
         });
