@@ -1103,9 +1103,9 @@ export default function ContractReports({ role }: ContractReportsProps) {
                   <table className="w-full text-left border-collapse table-auto">
                     <thead>
                       <tr className="bg-[#546A7A] text-white text-[10px] font-bold uppercase tracking-wider select-none border-b border-[#435562]">
-                        <th className="py-1.5 px-1 text-center w-6 text-white/80">#</th>
+                        <th className="py-1 px-1 text-center w-6 text-white/80">#</th>
                         <th
-                          className="py-1.5 px-1.5 cursor-pointer hover:bg-white/10 transition-colors group"
+                          className="py-1 px-2 cursor-pointer hover:bg-white/10 transition-colors group"
                           onClick={() => handleSort('customerName')}
                         >
                           <div className="flex items-center gap-1">
@@ -1113,9 +1113,9 @@ export default function ContractReports({ role }: ContractReportsProps) {
                             <SortIcon col="customerName" />
                           </div>
                         </th>
-                        <th className="py-1.5 px-1 text-center whitespace-nowrap">PO No</th>
+                        <th className="py-1 px-1 text-center whitespace-nowrap w-20">PO No</th>
                         <th
-                          className="py-1.5 px-1 text-center cursor-pointer hover:bg-white/10 transition-colors group"
+                          className="py-1 px-1 text-center cursor-pointer hover:bg-white/10 transition-colors group w-14"
                           onClick={() => handleSort('zoneName')}
                         >
                           <div className="flex items-center justify-center gap-1">
@@ -1123,9 +1123,9 @@ export default function ContractReports({ role }: ContractReportsProps) {
                             <SortIcon col="zoneName" />
                           </div>
                         </th>
-                        <th className="py-1.5 px-1 text-center whitespace-nowrap">MC Type</th>
+                        <th className="py-1 px-1 text-center whitespace-nowrap w-16">MC Type</th>
                         <th
-                          className="py-1.5 px-1 text-center cursor-pointer hover:bg-white/10 transition-colors group"
+                          className="py-1 px-1 text-center cursor-pointer hover:bg-white/10 transition-colors group w-10"
                           onClick={() => handleSort('totalMachines')}
                         >
                           <div className="flex items-center justify-center gap-1">
@@ -1133,12 +1133,12 @@ export default function ContractReports({ role }: ContractReportsProps) {
                             <SortIcon col="totalMachines" />
                           </div>
                         </th>
-                        <th className="py-1.5 px-1 text-center whitespace-nowrap" title="Total PM Visits for this contract">
+                        <th className="py-1 px-1 text-center whitespace-nowrap w-12" title="Total PM Visits for this contract">
                           Visits
                         </th>
-                        <th className="py-1.5 px-1 whitespace-nowrap">Contract Period</th>
+                        <th className="py-1 px-1 whitespace-nowrap w-28">Contract Period</th>
                         <th
-                          className="py-1.5 px-1.5 text-right cursor-pointer hover:bg-white/10 transition-colors group"
+                          className="py-1 px-1.5 text-right cursor-pointer hover:bg-white/10 transition-colors group w-28"
                           onClick={() => handleSort('totalValue')}
                         >
                           <div className="flex items-center justify-end gap-1">
@@ -1146,12 +1146,12 @@ export default function ContractReports({ role }: ContractReportsProps) {
                             <SortIcon col="totalValue" />
                           </div>
                         </th>
-                        <th className="py-1.5 px-1.5 whitespace-nowrap" title={dateFrom || dateTo ? `Showing visits between ${dateFrom || 'start'} and ${dateTo || 'end'}` : 'All PM visits'}>
+                        <th className="py-1 px-1.5 whitespace-nowrap" title={dateFrom || dateTo ? `Showing visits between ${dateFrom || 'start'} and ${dateTo || 'end'}` : 'All PM visits'}>
                           PM Visits ({selectedSummary.pmTotal}) {dateFrom || dateTo ? '(In Range)' : ''}
                         </th>
-                        <th className="py-1.5 px-1 text-center whitespace-nowrap">Status</th>
-                        <th className="py-1.5 px-1 whitespace-nowrap">Engineer</th>
-                        <th className="py-1.5 px-0.5 text-center w-6"></th>
+                        <th className="py-1 px-1 text-center whitespace-nowrap w-16">Status</th>
+                        <th className="py-1 px-1 whitespace-nowrap w-24">Engineer</th>
+                        <th className="py-1 px-0.5 text-center w-6"></th>
                       </tr>
                     </thead>
 
@@ -1183,12 +1183,12 @@ export default function ContractReports({ role }: ContractReportsProps) {
                               }`}
                           >
                             {/* # */}
-                            <td className="py-1.5 px-1 text-center font-bold text-slate-400 text-[10px]">
+                            <td className="py-1 px-1 text-center font-bold text-slate-400 text-[10px]">
                               {idx + 1}
                             </td>
 
                             {/* Customer + Dept + Location */}
-                            <td className="py-1.5 px-1.5 max-w-[200px]">
+                            <td className="py-1 px-2">
                               <div className="flex items-start gap-1.5 min-w-0">
                                 <div className={`w-5 h-5 rounded bg-gradient-to-br ${getCustomerColorClass(cs.customerName)} flex items-center justify-center text-white text-[9px] font-extrabold flex-shrink-0 mt-0.5`}>
                                   {(cs.customerName || 'C').charAt(0).toUpperCase()}
@@ -1234,31 +1234,31 @@ export default function ContractReports({ role }: ContractReportsProps) {
                             </td>
 
                             {/* PO No */}
-                            <td className="py-1.5 px-1 text-center whitespace-nowrap">
-                              <span className="text-[10px] text-slate-600 font-mono bg-slate-50 border border-slate-200/80 px-1.5 py-0.5 rounded">{contract.poNo || '—'}</span>
+                            <td className="py-1 px-1 text-center whitespace-nowrap">
+                              <span className="text-[10px] text-slate-600 font-mono bg-slate-50 border border-slate-200/80 px-1 py-0.5 rounded">{contract.poNo || '—'}</span>
                             </td>
 
                             {/* Zone */}
-                            <td className="py-1.5 px-1 text-center whitespace-nowrap">
+                            <td className="py-1 px-1 text-center whitespace-nowrap">
                               <span className="inline-flex px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-100 text-slate-600">
                                 {contract.zoneName || '—'}
                               </span>
                             </td>
 
                             {/* MC Type */}
-                            <td className="py-1.5 px-1 text-center whitespace-nowrap">
+                            <td className="py-1 px-1 text-center whitespace-nowrap">
                               <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${getSlaColor(contract.mcType)}`}>
                                 {contract.mcType || '—'}
                               </span>
                             </td>
 
                             {/* Machines */}
-                            <td className="py-1.5 px-1 text-center whitespace-nowrap">
+                            <td className="py-1 px-1 text-center whitespace-nowrap">
                               <span className="font-extrabold text-slate-800 text-[11px]">{contract.noOfMachine}</span>
                             </td>
 
                             {/* Total PM Visits Count (Contract-wise) */}
-                            <td className="py-1.5 px-1 text-center whitespace-nowrap">
+                            <td className="py-1 px-1 text-center whitespace-nowrap">
                               <div className="inline-flex flex-col items-center">
                                 <span className="font-extrabold text-slate-800 text-[11px] bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded min-w-[22px]" title={`Total PM Visits: ${totalContractVisits}`}>
                                   {totalContractVisits}
@@ -1272,7 +1272,7 @@ export default function ContractReports({ role }: ContractReportsProps) {
                             </td>
 
                             {/* Contract Period + Days Left */}
-                            <td className="py-1.5 px-1 whitespace-nowrap">
+                            <td className="py-1 px-1 whitespace-nowrap">
                               <div className="text-[10px] text-slate-700 font-medium">
                                 <span>{formatPeriodDate(contract.startDate)}</span> <span className="text-slate-400 font-bold mx-0.5">&rarr;</span> <span>{formatPeriodDate(contract.endDate)}</span>
                               </div>
@@ -1289,7 +1289,7 @@ export default function ContractReports({ role }: ContractReportsProps) {
                             </td>
 
                             {/* Amount & Per PM Visit Value */}
-                            <td className="py-1.5 px-1.5 text-right whitespace-nowrap">
+                            <td className="py-1 px-1.5 text-right whitespace-nowrap">
                               <div className="font-bold text-slate-900 font-mono text-[11px]">
                                 {formatCurrency(contract.amount)}
                               </div>
@@ -1304,7 +1304,7 @@ export default function ContractReports({ role }: ContractReportsProps) {
                             </td>
 
                             {/* PM Visits (Start & End) */}
-                            <td className="py-1.5 px-1.5">
+                            <td className="py-1 px-1.5">
                               <div className="flex flex-col gap-0.5 py-0.5">
                                 {displayedPMs.map((p, pidx) => {
                                   const done = p.status === 'Completed';
@@ -1352,14 +1352,14 @@ export default function ContractReports({ role }: ContractReportsProps) {
                             </td>
 
                             {/* Status */}
-                            <td className="py-1.5 px-1 text-center whitespace-nowrap">
+                            <td className="py-1 px-1 text-center whitespace-nowrap">
                               <span className={`px-1.5 py-0.5 rounded-full border text-[9px] font-bold ${getStatusBadge(contract.status)}`}>
                                 {contract.status}
                               </span>
                             </td>
 
                             {/* Engineer + SW Support */}
-                            <td className="py-1.5 px-1">
+                            <td className="py-1 px-1">
                               <div className="text-[10px] text-slate-700 font-medium truncate max-w-[110px] lg:max-w-[130px]" title={contract.responsible || '—'}>
                                 {formatEngineerDisplayName(contract.responsible) || '—'}
                               </div>
@@ -1372,7 +1372,7 @@ export default function ContractReports({ role }: ContractReportsProps) {
                             </td>
 
                             {/* Open */}
-                            <td className="py-1.5 px-0.5 text-center">
+                            <td className="py-1 px-0.5 text-center">
                               <button
                                 type="button"
                                 onClick={() => router.push(`${getBaseRoute()}/contracts/${contract.id}`)}
@@ -1390,23 +1390,23 @@ export default function ContractReports({ role }: ContractReportsProps) {
                     {/* Footer Totals */}
                     <tfoot className="bg-[#546A7A] text-white border-t border-[#435562] text-xs font-bold select-none">
                       <tr>
-                        <td className="py-2 px-1 text-center font-bold text-white/70">Total</td>
-                        <td className="py-2 px-1.5 font-bold text-white whitespace-nowrap" colSpan={2}>
+                        <td className="py-1.5 px-1 text-center font-bold text-white/70">Total</td>
+                        <td className="py-1.5 px-1.5 font-bold text-white whitespace-nowrap" colSpan={2}>
                           TOTAL &mdash; {customerSummaries.length} Customers &bull; {flatContracts.length} Contracts
                         </td>
-                        <td className="py-2 px-1 text-center text-white/50">—</td>
-                        <td className="py-2 px-1 text-center text-white/50">—</td>
-                        <td className="py-2 px-1 text-center whitespace-nowrap">
+                        <td className="py-1.5 px-1 text-center text-white/50">—</td>
+                        <td className="py-1.5 px-1 text-center text-white/50">—</td>
+                        <td className="py-1.5 px-1 text-center whitespace-nowrap">
                           <span className="font-extrabold text-white text-xs">{selectedSummary.totalMachines}</span>
                         </td>
-                        <td className="py-2 px-1 text-center whitespace-nowrap">
+                        <td className="py-1.5 px-1 text-center whitespace-nowrap">
                           <span className="font-extrabold text-white text-xs">{selectedSummary.pmTotal}</span>
                         </td>
-                        <td className="py-2 px-1 text-center text-white/50">—</td>
-                        <td className="py-2 px-1.5 text-right whitespace-nowrap">
+                        <td className="py-1.5 px-1 text-center text-white/50">—</td>
+                        <td className="py-1.5 px-1.5 text-right whitespace-nowrap">
                           <span className="font-extrabold text-white text-xs font-mono">{formatCurrency(selectedSummary.totalValue)}</span>
                         </td>
-                        <td className="py-2 px-1.5 text-center whitespace-nowrap">
+                        <td className="py-1.5 px-1.5 text-center whitespace-nowrap">
                           {(dateFrom || dateTo) ? (
                             <div>
                               <span className="font-bold text-white text-[10px]">{selectedSummary.pmTotal} Pending</span>
@@ -1423,13 +1423,13 @@ export default function ContractReports({ role }: ContractReportsProps) {
                             </div>
                           )}
                         </td>
-                        <td className="py-2 px-1 text-center whitespace-nowrap">
+                        <td className="py-1.5 px-1 text-center whitespace-nowrap">
                           <div className="text-[10px] font-bold">
                             <span className="text-emerald-300">{selectedSummary.active} Active</span>
                             {selectedSummary.expired > 0 && <span className="text-rose-300 ml-1">{selectedSummary.expired} Exp</span>}
                           </div>
                         </td>
-                        <td className="py-2 px-0.5 text-white/50 text-center" colSpan={2}>—</td>
+                        <td className="py-1.5 px-0.5 text-white/50 text-center" colSpan={2}>—</td>
                       </tr>
                     </tfoot>
                   </table>
