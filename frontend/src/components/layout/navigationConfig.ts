@@ -592,8 +592,16 @@ export const adminContractsNavigation: NavItem[] = [
     iconBgColor: "bg-[#7CA5C4]/10"
   },
   {
-    title: "Reports",
+    title: "Contract Reports",
     href: "/admin/contracts/reports",
+    icon: BarChart2,
+    roles: [UserRole.ADMIN],
+    iconColor: "text-[#546A7A]",
+    iconBgColor: "bg-[#6F8A9D]/10"
+  },
+  {
+    title: "Annual Contract Reports",
+    href: "/admin/contracts/annual-reports",
     icon: BarChart2,
     roles: [UserRole.ADMIN],
     iconColor: "text-[#CE9F6B]",
@@ -620,8 +628,16 @@ export const zoneManagerContractsNavigation: NavItem[] = [
     iconBgColor: "bg-[#7CA5C4]/10"
   },
   {
-    title: "Reports",
+    title: "Contract Reports",
     href: "/zone-manager/contracts/reports",
+    icon: BarChart2,
+    roles: [UserRole.ZONE_MANAGER],
+    iconColor: "text-[#546A7A]",
+    iconBgColor: "bg-[#6F8A9D]/10"
+  },
+  {
+    title: "Annual Contract Reports",
+    href: "/zone-manager/contracts/annual-reports",
     icon: BarChart2,
     roles: [UserRole.ZONE_MANAGER],
     iconColor: "text-[#CE9F6B]",
@@ -648,8 +664,16 @@ export const zoneUserContractsNavigation: NavItem[] = [
     iconBgColor: "bg-[#7CA5C4]/10"
   },
   {
-    title: "Reports",
+    title: "Contract Reports",
     href: "/zone/contracts/reports",
+    icon: BarChart2,
+    roles: [UserRole.ZONE_USER],
+    iconColor: "text-[#546A7A]",
+    iconBgColor: "bg-[#6F8A9D]/10"
+  },
+  {
+    title: "Annual Contract Reports",
+    href: "/zone/contracts/annual-reports",
     icon: BarChart2,
     roles: [UserRole.ZONE_USER],
     iconColor: "text-[#CE9F6B]",
@@ -676,8 +700,16 @@ export const expertHelpdeskContractsNavigation: NavItem[] = [
     iconBgColor: "bg-[#7CA5C4]/10"
   },
   {
-    title: "Reports",
-    href: "/expert/reports",
+    title: "Contract Reports",
+    href: "/expert/contracts/reports",
+    icon: BarChart2,
+    roles: [UserRole.EXPERT_HELPDESK],
+    iconColor: "text-[#546A7A]",
+    iconBgColor: "bg-[#6F8A9D]/10"
+  },
+  {
+    title: "Annual Contract Reports",
+    href: "/expert/contracts/annual-reports",
     icon: BarChart2,
     roles: [UserRole.EXPERT_HELPDESK],
     iconColor: "text-[#CE9F6B]",

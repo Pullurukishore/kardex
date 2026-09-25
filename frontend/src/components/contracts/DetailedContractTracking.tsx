@@ -484,6 +484,14 @@ export default function DetailedContractTracking({ role }: DetailedContractTrack
             )}
 
             <a
+              href={`${getBaseRoute()}/contracts/annual-reports`}
+              className="px-4 py-2.5 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold text-xs sm:text-sm flex items-center gap-2 transition-all shadow-sm backdrop-blur-sm"
+            >
+              <BarChart3 className="w-4 h-4 text-[#82A094]" />
+              <span>Annual Reports</span>
+            </a>
+
+            <a
               href={`${getBaseRoute()}/contracts/detailed-import`}
               className="px-5 py-2.5 rounded-2xl bg-[#82A094] hover:bg-[#6e8a7f] text-white font-bold text-xs sm:text-sm flex items-center gap-2 transition-all shadow-md hover:shadow-lg transform active:scale-95"
             >

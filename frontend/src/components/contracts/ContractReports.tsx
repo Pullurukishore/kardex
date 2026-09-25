@@ -7,7 +7,7 @@ import {
   Building2, IndianRupee, ShieldCheck,
   TrendingUp, ChevronDown, ChevronUp,
   ArrowUpDown, ExternalLink, X,
-  Layers, Settings2
+  Layers, RefreshCw
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -82,7 +82,6 @@ export default function ContractReports({ role }: ContractReportsProps) {
   const [hasGenerated, setHasGenerated] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [expandedCustomerIds, setExpandedCustomerIds] = useState<Set<string | number>>(new Set());
-  const [showFilters, setShowFilters] = useState(true);
 
   const toggleExpand = (id: string | number) => {
     setExpandedCustomerIds(prev => {
@@ -609,247 +608,294 @@ export default function ContractReports({ role }: ContractReportsProps) {
   };
 
   return (
-    <div className="space-y-4 print:space-y-2">
-      {/* ═══ COMPACT TOOLBAR: Generate + Filters Toggle + Export ═══ */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm print:hidden">
-        {/* Top Bar */}
-        <div className="px-5 py-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={fetchContracts}
-              disabled={loading}
-              className="inline-flex items-center gap-2 bg-[#546A7A] hover:bg-[#435562] text-white font-bold py-2.5 px-5 rounded-lg shadow-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-            >
-              <BarChart3 className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              {loading ? 'Loading...' : 'Generate'}
-            </button>
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-lg border text-sm font-semibold transition-all ${
-                showFilters
-                  ? 'bg-slate-100 border-slate-300 text-slate-800'
-                  : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-              }`}
-            >
-              <Settings2 className="w-4 h-4" />
-              Filters
-              {activeFilterCount > 0 && (
-                <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-[#546A7A] text-white text-[10px] font-bold leading-none">
-                  {activeFilterCount}
-                </span>
-              )}
-            </button>
-            {activeFilterCount > 0 && (
+    <div className="space-y-5 print:space-y-3">
+      {/* ═══ REPORT GENERATION CONTROLS — Card Layout (Matches Annual Contract Reports) ═══ */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden print:hidden">
+        {/* Card Header — Title + Generate + Export Buttons */}
+        <div className="px-6 py-5 border-b border-slate-100">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h2 className="text-lg sm:text-xl font-bold text-slate-800">Report Filters</h2>
+              <p className="text-sm text-slate-500 mt-1">Configure parameters for contract portfolios and PM schedule report</p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
               <button
-                onClick={resetAllFilters}
-                className="text-xs text-slate-400 hover:text-rose-500 font-medium transition-colors flex items-center gap-1"
+                onClick={fetchContracts}
+                disabled={loading}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-[#6F8A9D] hover:bg-[#546A7A] text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-all duration-200 hover:shadow-xl hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
               >
-                <X className="w-3 h-3" /> Clear all
+                <BarChart3 className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+                {loading ? 'Generating...' : 'Generate Report'}
               </button>
-            )}
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => handleExport('excel')}
-              disabled={exporting || loading || customerSummaries.length === 0}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-[#4F6A64] text-[#4F6A64] hover:bg-[#4F6A64]/5 font-semibold text-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <Download className={`w-3.5 h-3.5 ${exporting ? 'animate-bounce' : ''}`} />
-              Excel
-            </button>
-            <button
-              onClick={() => handleExport('pdf')}
-              disabled={exporting || loading || customerSummaries.length === 0}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-[#9E3B47] text-[#9E3B47] hover:bg-[#9E3B47]/5 font-semibold text-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <FileText className="w-3.5 h-3.5" />
-              PDF
-            </button>
+              <div className="flex gap-2 sm:gap-3">
+                <button
+                  onClick={() => handleExport('excel')}
+                  disabled={exporting || loading || customerSummaries.length === 0}
+                  className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 border-[#4F6A64] text-[#4F6A64] hover:bg-[#A2B9AF]/10 font-semibold text-sm transition-all min-h-[44px] disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Download className={`w-4 h-4 ${exporting ? 'animate-bounce' : ''}`} />
+                  Export Excel
+                </button>
+                <button
+                  onClick={() => handleExport('pdf')}
+                  disabled={exporting || loading || customerSummaries.length === 0}
+                  className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 border-[#9E3B47] text-[#9E3B47] hover:bg-[#E17F70]/10 font-semibold text-sm transition-all min-h-[44px] disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <FileText className="w-4 h-4" />
+                  Export PDF
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Collapsible Filter Panel */}
-        {showFilters && (
-          <div className="px-5 py-4 space-y-3 animate-in slide-in-from-top-2 duration-200">
-            {/* Date Range Row */}
-            <div className="flex flex-wrap items-end gap-3">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-                    <Calendar className="w-3 h-3" /> Date Basis
-                  </label>
-                  <div className="flex items-center bg-slate-100 p-0.5 rounded-md border border-slate-200">
-                    {(['both', 'pm', 'expiry'] as const).map(basis => (
-                      <button
-                        key={basis}
-                        type="button"
-                        onClick={() => setDateFilterBasis(basis)}
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all ${
-                          dateFilterBasis === basis
-                            ? 'bg-[#546A7A] text-white shadow-xs'
-                            : 'text-slate-500 hover:text-slate-800'
-                        }`}
-                      >
-                        {basis === 'both' ? 'Both' : basis === 'pm' ? 'PM' : 'Expiry'}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="date"
-                    value={dateFrom}
-                    onChange={(e) => setDateFrom(e.target.value)}
-                    className="px-2.5 py-1.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 bg-white font-medium w-[145px]"
-                  />
-                  <span className="text-slate-300 text-xs">→</span>
-                  <input
-                    type="date"
-                    value={dateTo}
-                    onChange={(e) => setDateTo(e.target.value)}
-                    className="px-2.5 py-1.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 bg-white font-medium w-[145px]"
-                  />
+        {/* Card Content — Filters */}
+        <div className="px-6 py-5 space-y-4">
+          {/* Date Range Row */}
+          <div className="space-y-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-3">
+                <label className="text-xs font-semibold text-slate-600 flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-[#6F8A9D]" />
+                  Contract Date Range
+                </label>
+                <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+                  <span className="text-[10px] font-bold uppercase text-slate-400 px-2">Basis:</span>
+                  {(['both', 'pm', 'expiry'] as const).map(basis => (
+                    <button
+                      key={basis}
+                      type="button"
+                      onClick={() => setDateFilterBasis(basis)}
+                      className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition-all ${
+                        dateFilterBasis === basis
+                          ? 'bg-[#546A7A] text-white shadow-xs'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      {basis === 'both' ? 'Both' : basis === 'pm' ? 'PM Schedule' : 'Contract Expiry'}
+                    </button>
+                  ))}
                 </div>
               </div>
+              <div className="flex items-center gap-1 flex-wrap">
+                <span className="text-[10px] text-slate-400 mr-1">Quick ranges:</span>
+                <button
+                  type="button"
+                  onClick={() => applyDatePreset('4_weeks')}
+                  className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 hover:bg-[#6F8A9D]/15 hover:text-[#546A7A] text-slate-600 transition-colors"
+                >
+                  4 Weeks
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyDatePreset('today')}
+                  className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 hover:bg-[#6F8A9D]/15 hover:text-[#546A7A] text-slate-600 transition-colors"
+                >
+                  Today
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyDatePreset('this_month')}
+                  className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 hover:bg-[#6F8A9D]/15 hover:text-[#546A7A] text-slate-600 transition-colors"
+                >
+                  This Month
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyDatePreset('next_month')}
+                  className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 hover:bg-[#6F8A9D]/15 hover:text-[#546A7A] text-slate-600 transition-colors"
+                >
+                  Next Month
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyDatePreset('this_quarter')}
+                  className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 hover:bg-[#6F8A9D]/15 hover:text-[#546A7A] text-slate-600 transition-colors"
+                >
+                  This Quarter
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyDatePreset('all')}
+                  className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 hover:bg-slate-200 text-slate-500 transition-colors"
+                >
+                  All Time
+                </button>
+              </div>
+            </div>
 
-              {/* Quick Date Presets */}
-              <div className="flex items-center gap-1 flex-wrap pb-0.5">
-                {[
-                  { key: '4_weeks' as const, label: '4 Weeks' },
-                  { key: 'this_month' as const, label: 'This Month' },
-                  { key: 'next_month' as const, label: 'Next Month' },
-                  { key: 'this_quarter' as const, label: 'Quarter' },
-                  { key: 'all' as const, label: 'All' },
-                ].map(p => (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-bold uppercase text-slate-400 pointer-events-none">From:</span>
+                <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={e => setDateFrom(e.target.value)}
+                  className="w-full pl-14 pr-3 py-2 rounded-lg border border-slate-200 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 font-medium text-slate-700"
+                />
+              </div>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-bold uppercase text-slate-400 pointer-events-none">To:</span>
+                <input
+                  type="date"
+                  value={dateTo}
+                  onChange={e => setDateTo(e.target.value)}
+                  className="w-full pl-10 pr-3 py-2 rounded-lg border border-slate-200 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 font-medium text-slate-700"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Filter Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Search */}
+            <div className="space-y-1 sm:col-span-2 lg:col-span-2">
+              <label className="text-xs font-semibold text-slate-600">Search</label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                <input
+                  type="text"
+                  placeholder="Customer, PO, place..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full pl-9 pr-8 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 font-medium"
+                />
+                {search && (
                   <button
-                    key={p.key}
-                    type="button"
-                    onClick={() => applyDatePreset(p.key)}
-                    className={`px-2 py-1 rounded-md text-[11px] font-semibold transition-colors ${
-                      p.key === 'all' && !dateFrom && !dateTo
-                        ? 'bg-[#546A7A] text-white'
-                        : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
-                    }`}
+                    onClick={() => setSearch('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
                   >
-                    {p.label}
-                  </button>
-                ))}
-                {(dateFrom || dateTo) && (
-                  <button
-                    type="button"
-                    onClick={() => applyDatePreset('all')}
-                    className="text-[11px] text-slate-400 hover:text-rose-500 font-medium ml-1 flex items-center gap-0.5"
-                  >
-                    <X className="w-3 h-3" />
+                    <X className="w-3.5 h-3.5" />
                   </button>
                 )}
               </div>
             </div>
 
-            {/* Filter Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2.5">
-              {/* Search */}
-              <div className="space-y-0.5 col-span-2 sm:col-span-1">
-                <label className="text-[10px] font-semibold text-slate-500 uppercase">Search</label>
-                <div className="relative">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5" />
-                  <input
-                    type="text"
-                    placeholder="Customer, PO..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="w-full pl-8 pr-2 py-1.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#82A094]/30"
-                  />
-                </div>
-              </div>
+            {/* Zone */}
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-600">Zone</label>
+              <select
+                value={zoneFilter}
+                onChange={(e) => setZoneFilter(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 font-medium"
+              >
+                <option value="all">All Zones</option>
+                {uniqueZones.map(z => <option key={z} value={z}>{z}</option>)}
+              </select>
+            </div>
 
-              {/* Zone */}
-              <div className="space-y-0.5">
-                <label className="text-[10px] font-semibold text-slate-500 uppercase">Zone</label>
-                <select value={zoneFilter} onChange={(e) => setZoneFilter(e.target.value)}
-                  className="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 font-medium">
-                  <option value="all">All</option>
-                  {uniqueZones.map(z => <option key={z} value={z}>{z}</option>)}
-                </select>
-              </div>
+            {/* Contract Status */}
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-600">Contract Status</label>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 font-medium"
+              >
+                <option value="all">All Statuses</option>
+                <option value="Active">Active</option>
+                <option value="Expiring Soon">Expiring Soon</option>
+                <option value="Expired">Expired</option>
+              </select>
+            </div>
 
-              {/* Status */}
-              <div className="space-y-0.5">
-                <label className="text-[10px] font-semibold text-slate-500 uppercase">Status</label>
-                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
-                  className="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 font-medium">
-                  <option value="all">All</option>
-                  <option value="Active">Active</option>
-                  <option value="Expiring Soon">Expiring</option>
-                  <option value="Expired">Expired</option>
-                </select>
-              </div>
+            {/* Responsible Engineer */}
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-600">Responsible Engineer</label>
+              <select
+                value={techFilter}
+                onChange={(e) => setTechFilter(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 font-medium"
+              >
+                <option value="all">All Engineers</option>
+                {uniqueTechnicians.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
 
-              {/* Engineer */}
-              <div className="space-y-0.5">
-                <label className="text-[10px] font-semibold text-slate-500 uppercase">Engineer</label>
-                <select value={techFilter} onChange={(e) => setTechFilter(e.target.value)}
-                  className="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 font-medium">
-                  <option value="all">All</option>
-                  {uniqueTechnicians.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
-              </div>
+            {/* Machine Type */}
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-600">Machine Model / Type</label>
+              <select
+                value={mcTypeFilter}
+                onChange={(e) => setMcTypeFilter(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 font-medium"
+              >
+                <option value="all">All Machine Types</option>
+                {uniqueMcTypes.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </div>
 
-              {/* MC Type */}
-              <div className="space-y-0.5">
-                <label className="text-[10px] font-semibold text-slate-500 uppercase">MC Type</label>
-                <select value={mcTypeFilter} onChange={(e) => setMcTypeFilter(e.target.value)}
-                  className="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 font-medium">
-                  <option value="all">All</option>
-                  {uniqueMcTypes.map(m => <option key={m} value={m}>{m}</option>)}
-                </select>
-              </div>
+            {/* PM Status */}
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-600">PM Status</label>
+              <select
+                value={pmFilter}
+                onChange={(e) => setPmFilter(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 font-medium"
+              >
+                <option value="all">All PM Statuses</option>
+                <option value="completed">100% Completed</option>
+                <option value="on-track">On Track (≥50%)</option>
+                <option value="behind">Behind (&lt;50%)</option>
+                <option value="overdue">Overdue PMs</option>
+                <option value="not-started">Not Started (0%)</option>
+              </select>
+            </div>
 
-              {/* PM Status */}
-              <div className="space-y-0.5">
-                <label className="text-[10px] font-semibold text-slate-500 uppercase">PM Status</label>
-                <select value={pmFilter} onChange={(e) => setPmFilter(e.target.value)}
-                  className="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 font-medium">
-                  <option value="all">All</option>
-                  <option value="completed">100% Done</option>
-                  <option value="on-track">On Track (≥50%)</option>
-                  <option value="behind">Behind (&lt;50%)</option>
-                  <option value="overdue">Overdue</option>
-                  <option value="not-started">Not Started</option>
-                </select>
-              </div>
-
-              {/* SW Support */}
-              <div className="space-y-0.5">
-                <label className="text-[10px] font-semibold text-slate-500 uppercase">SW</label>
-                <select value={swFilter} onChange={(e) => setSwFilter(e.target.value)}
-                  className="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 font-medium">
-                  <option value="all">All</option>
-                  <option value="yes">With SW</option>
-                  <option value="no">Without SW</option>
-                </select>
-              </div>
+            {/* SW Support */}
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-600">Software Support</label>
+              <select
+                value={swFilter}
+                onChange={(e) => setSwFilter(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 font-medium"
+              >
+                <option value="all">All (With & Without SW)</option>
+                <option value="yes">With Software Support</option>
+                <option value="no">Without Software Support</option>
+              </select>
             </div>
           </div>
-        )}
+
+          {/* Reset Controls & Active Filter Badges */}
+          <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap">
+              {activeFilterCount > 0 && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#546A7A]/10 text-[#546A7A] text-xs font-semibold">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#546A7A]" />
+                  {activeFilterCount} active filter{activeFilterCount > 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={resetAllFilters}
+              className="text-xs font-semibold text-slate-500 hover:text-rose-600 transition-colors flex items-center gap-1.5"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              Reset Filters
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* ═══ NOT GENERATED STATE ═══ */}
       {!hasGenerated && !loading && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-12 text-center">
-          <div className="w-14 h-14 rounded-xl bg-[#546A7A]/10 text-[#546A7A] flex items-center justify-center mx-auto mb-3">
-            <BarChart3 className="w-7 h-7" />
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-12 sm:p-16 text-center">
+          <div className="w-16 h-16 rounded-2xl bg-[#546A7A]/10 text-[#546A7A] flex items-center justify-center mx-auto mb-4">
+            <BarChart3 className="w-8 h-8" />
           </div>
-          <h3 className="text-lg font-bold text-slate-800">Ready to Generate</h3>
-          <p className="text-sm text-slate-500 max-w-md mx-auto mt-1 mb-5">
-            Set your filters above and click &quot;Generate&quot; to view contract analytics.
+          <h3 className="text-lg sm:text-xl font-bold text-slate-800">Ready to Generate Report</h3>
+          <p className="text-sm text-slate-500 max-w-md mx-auto mt-1 mb-6">
+            Configure your filters above and click &quot;Generate Report&quot; to compile comprehensive contract portfolios and schedule analytics.
           </p>
           <button
             onClick={fetchContracts}
             disabled={loading}
-            className="inline-flex items-center gap-2 bg-[#546A7A] hover:bg-[#435562] text-white font-bold py-2.5 px-5 rounded-lg shadow-sm transition-all"
+            className="inline-flex items-center gap-2 bg-[#6F8A9D] hover:bg-[#546A7A] text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-all duration-200 hover:shadow-xl hover:scale-105"
           >
-            <BarChart3 className="w-4 h-4" />
+            <BarChart3 className="w-5 h-5" />
             Generate Report
           </button>
         </div>

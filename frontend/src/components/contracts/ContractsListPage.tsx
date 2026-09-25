@@ -662,7 +662,7 @@ export default function ContractsListPage({
               className="bg-white/10 hover:bg-white/20 text-white border-white/30 text-xs font-semibold h-8 px-2.5 shadow-xs"
             >
               <BarChart3 className="h-3.5 w-3.5 mr-1.5" />
-              Reports
+              Contract Reports
             </Button>
             <Button
               variant="outline"
