@@ -132,28 +132,30 @@ export function normalizeEngineerNames(raw: string | null | undefined): string[]
     // Standardize title casing
     name = name.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
 
-    const lower = name.toLowerCase();
+    const lower = name.toLowerCase().replace(/\s+/g, '');
 
-    // Map known variations to canonical names
-    if (lower === 'sasikumar' || lower === 'sasi kumar' || lower === 'sasi') {
+    // Map known variations and typo aliases to canonical names
+    if (lower === 'sasikumar' || lower === 'sasi' || lower === 'sasikumaar') {
       name = 'Sasi Kumar';
-    } else if (lower === 'gajendra' || lower === 'gajendran') {
+    } else if (lower === 'gajendra' || lower === 'gajendran' || lower === 'gajendrakumar') {
       name = 'Gajendra';
-    } else if (lower === 'pradeep' || lower === 'pradeep kumar') {
+    } else if (lower === 'pradeep' || lower === 'pradeepkumar') {
       name = 'Pradeep';
-    } else if (lower === 'minesh' || lower === 'minesh patel') {
+    } else if (lower === 'minesh' || lower === 'mineshpatel') {
       name = 'Minesh';
-    } else if (lower === 'nitin' || lower === 'nithin') {
+    } else if (lower === 'nitin' || lower === 'nithin' || lower === 'nitinkumar') {
       name = 'Nitin';
-    } else if (lower === 'rahul') {
+    } else if (lower === 'rahul' || lower === 'rahulkumar') {
       name = 'Rahul';
-    } else if (lower === 'vinay') {
+    } else if (lower === 'vinay' || lower === 'vinaykumar') {
       name = 'Vinay';
-    } else if (lower === 'pankaj') {
+    } else if (lower === 'pankaj' || lower === 'pankajkumar') {
       name = 'Pankaj';
-    } else if (lower === 'ashraf') {
+    } else if (lower === 'ashraf' || lower === 'ashaf' || lower === 'asharf' || lower === 'asraf' || lower === 'asharaf') {
       name = 'Ashraf';
-    } else if (lower === 'yogesh') {
+    } else if (lower === 'sreenadh' || lower === 'srinadh' || lower === 'sreenath' || lower === 'srinath' || lower === 'sreenad') {
+      name = 'Sreenadh';
+    } else if (lower === 'yogesh' || lower === 'yogeshkumar') {
       name = 'Yogesh';
     }
 
