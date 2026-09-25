@@ -142,6 +142,7 @@ router.get('/bank-accounts/requests/:id', requireFinanceRead, bankAccountRequest
 router.post('/bank-accounts/requests', requireFinanceWrite, bankAccountRequestController.createChangeRequest);
 router.post('/bank-accounts/requests/:id/approve', requireFinanceAdmin, bankAccountRequestController.approveRequest);
 router.post('/bank-accounts/requests/:id/reject', requireFinanceAdmin, bankAccountRequestController.rejectRequest);
+router.delete('/bank-accounts/requests/:id', requireFinanceWrite, bankAccountRequestController.deleteRequest);
 
 // ═══════════════════════════════════════════════════════════════════════════
 // BANK ACCOUNT ATTACHMENT ROUTES

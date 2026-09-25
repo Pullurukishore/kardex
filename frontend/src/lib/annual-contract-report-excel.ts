@@ -1,8 +1,11 @@
 /**
  * Annual Machine Contracts Excel Export Utility — Official Kardex Brand Design
- * Generates an executive, single-sheet Excel workbook using ExcelJS.
- * Beautifully styled with official Kardex Blue (#546A7A, #6F8A9D, #96AEC2),
- * Kardex Green (#82A094, #4F6A64), and Kardex Sand (#CE9F6B) palette.
+ * Generates a clean, professional, single-sheet Excel workbook using ExcelJS.
+ * Pure tabular structure (Table Only):
+ * - Row 1: Standard Table Header with Kardex styling & AutoFilter enabled
+ * - Rows 2..N: Data rows with individual machine contract records (no merged customer banners)
+ * - Row N+1: Grand Total row
+ * - Frozen header row for smooth scrolling
  */
 import {
     kardexBlue,
@@ -106,20 +109,18 @@ const solid = (hex: string) => 'FF' + c(hex);
 // ============ Official Kardex Brand Color Scheme ============
 const COLORS = {
     // Kardex Core Blues
-    kardexBlueDark: solid(kardexBlue[3]),    // #546A7A - Executive Header & Grand Totals
-    kardexBlueMedium: solid(kardexBlue[2]),  // #6F8A9D - Table Headers & Sub-sections
-    kardexBlueLight: solid(kardexBlue[1]),   // #96AEC2 - Subtle Accents & Highlights
-    kardexBlueTint: 'FFF0F4F8',             // Very soft Ice Blue tint for alternating rows
+    kardexBlueDark: solid(kardexBlue[3]),    // #546A7A - Table Header & Grand Totals
+    kardexBlueMedium: solid(kardexBlue[2]),  // #6F8A9D - Table Borders & Accents
+    kardexBlueLight: solid(kardexBlue[1]),   // #96AEC2 - Highlights
+    kardexBlueTint: 'FFF8FAFC',             // Very light slate tint for alternating rows
 
     // Kardex Green Accent
     kardexGreenMedium: solid(kardexGreen[2]),// #82A094 - Active / Success Accent
     kardexGreenDark: solid(kardexGreen[3]),  // #4F6A64 - Deep Green Text
-    kardexGreenTint: 'FFF0F7F4',             // Soft green tint
 
     // Kardex Sand Accent (Warm)
     kardexSandMedium: solid(kardexSand[2]),  // #CE9F6B - Warning / Value Accent
     kardexSandDark: solid(kardexSand[3]),    // #976E44 - Warm Sand Text
-    kardexSandTint: 'FFFCF8F2',              // Soft sand tint
 
     // Kardex Red (Alerts / Overdue)
     kardexRedLight: solid(kardexRed[1]),     // #E17F70 - Overdue Accent
@@ -127,11 +128,7 @@ const COLORS = {
 
     // Neutral Surfaces & Borders
     white: 'FFFFFFFF',
-    cardBg: 'FFFFFFFF',
-    cardHeaderBg: 'FFEBF1F6',                // Kardex soft blue-gray
-    customerBannerBg: solid(kardexBlue[3]),  // #546A7A - Distinct Customer Bar
-    subtotalBg: 'FFEAF1F6',                  // Soft Kardex subtotal background
-    borderLight: 'FFD5DFE6',                 // Soft Slate Border
+    borderLight: 'FFE2E8F0',                 // Slate-200 border
     borderMedium: solid(kardexBlue[1]),      // #96AEC2 Accent Border
 
     // Typography
@@ -151,11 +148,6 @@ function numToCol(n: number): string {
     }
     return s || 'A';
 }
-
-const fmtCurrency = (v: number | null | undefined): string => {
-    if (v === null || v === undefined || v === 0) return '₹0';
-    return '₹' + Number(v).toLocaleString('en-IN');
-};
 
 const fmtDate = (iso: string | null | undefined): string => {
     if (!iso) return '—';
@@ -193,45 +185,58 @@ const thinBorder = (color = COLORS.borderLight) => ({
 });
 
 const applyHeaderStyle = (cell: any): void => {
-    cell.font = { bold: true, color: { argb: COLORS.textWhite }, size: 9 };
-    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.kardexBlueMedium } };
+    cell.font = { bold: true, color: { argb: COLORS.textWhite }, size: 9.5 };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.kardexBlueDark } };
     cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
-    cell.border = thinBorder(COLORS.kardexBlueDark);
+    cell.border = thinBorder(COLORS.kardexBlueMedium);
 };
 
-const applyDataCell = (cell: any, bgColor: string, opts: { bold?: boolean; isNumber?: boolean; fontColor?: string; align?: 'left' | 'center' | 'right' } = {}): void => {
+const applyDataCell = (
+    cell: any,
+    bgColor: string,
+    opts: { bold?: boolean; isNumber?: boolean; fontColor?: string; align?: 'left' | 'center' | 'right' } = {}
+): void => {
     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgColor } };
     cell.border = thinBorder();
     cell.alignment = { horizontal: opts.align || (opts.isNumber ? 'right' : 'left'), vertical: 'middle', wrapText: true };
     cell.font = { size: 9, color: { argb: opts.fontColor || COLORS.textDark }, bold: opts.bold || false };
 };
 
-// ============ Column Definitions ============
-const ANNUAL_COLUMNS = [
+// ============ Pure Tabular Columns Definition ============
+const ANNUAL_TABLE_COLUMNS = [
     { header: '#', key: 'slNo', width: 6, align: 'center' as const },
+    { header: 'Customer Name', key: 'customerName', width: 28, align: 'left' as const },
+    { header: 'Class', key: 'customerClass', width: 10, align: 'center' as const },
+    { header: 'Place', key: 'place', width: 16, align: 'left' as const },
+    { header: 'Zone', key: 'zoneName', width: 14, align: 'center' as const },
     { header: 'Serial Number', key: 'serialNumber', width: 18, align: 'center' as const },
-    { header: 'Unit / Model', key: 'unitModel', width: 22, align: 'left' as const },
+    { header: 'Unit Type', key: 'unitType', width: 16, align: 'left' as const },
+    { header: 'Model Number', key: 'modelNumber', width: 16, align: 'left' as const },
     { header: 'Control Type', key: 'controlType', width: 14, align: 'center' as const },
-    { header: 'Responsible Engineer', key: 'engineerName', width: 22, align: 'left' as const },
     { header: 'Department', key: 'department', width: 16, align: 'left' as const },
+    { header: 'Responsible Engineer', key: 'engineerName', width: 24, align: 'left' as const },
     { header: 'Install Year', key: 'installationYear', width: 12, align: 'center' as const },
     { header: 'Contract Type', key: 'contractType', width: 14, align: 'center' as const },
-    { header: 'MC PO Number', key: 'mcPoNumber', width: 16, align: 'center' as const },
+    { header: 'MC PO Number', key: 'mcPoNumber', width: 18, align: 'center' as const },
     { header: 'PO Date', key: 'poDate', width: 14, align: 'center' as const },
     { header: 'MC Start Date', key: 'mcStartDate', width: 14, align: 'center' as const },
     { header: 'MC End Date', key: 'mcEndDate', width: 14, align: 'center' as const },
-    { header: 'MC Value (₹)', key: 'mcValue', width: 16, align: 'right' as const },
+    { header: 'MC Value (₹)', key: 'mcValue', width: 18, align: 'right' as const },
     { header: 'MC Expiry Status', key: 'mcExpiryStatus', width: 16, align: 'center' as const },
-    { header: 'Days Left', key: 'mcExpiryDays', width: 10, align: 'center' as const },
+    { header: 'Days Left', key: 'mcExpiryDays', width: 12, align: 'center' as const },
     { header: 'PM Visits', key: 'pmVisitsCount', width: 10, align: 'center' as const },
     { header: 'BD Visits', key: 'bdVisitsCount', width: 10, align: 'center' as const },
+    { header: 'Warranty End Date', key: 'warrantyEndDate', width: 16, align: 'center' as const },
+    { header: 'Software End Date', key: 'softwareEndDate', width: 16, align: 'center' as const },
+    { header: 'Remote Support End Date', key: 'remoteSupportEndDate', width: 18, align: 'center' as const },
+    { header: 'Notes', key: 'notes', width: 26, align: 'left' as const },
 ];
 
-// ============ Main Single-Sheet Generator ============
+// ============ Main Tabular Generator ============
 export async function generateAnnualContractReportExcel(
     customers: CustomerGroup[],
-    stats: Stats | null,
-    filters: ExcelFilters
+    _stats: Stats | null,
+    _filters: ExcelFilters
 ): Promise<void> {
     const ExcelJSModule = await import('exceljs');
     const ExcelJS = (ExcelJSModule as any).default || ExcelJSModule;
@@ -242,307 +247,183 @@ export async function generateAnnualContractReportExcel(
     workbook.created = new Date();
     workbook.modified = new Date();
 
-    const ws = workbook.addWorksheet('Annual Contract Report', {
+    const ws = workbook.addWorksheet('Annual Contracts', {
         properties: { tabColor: { argb: COLORS.kardexBlueDark } },
+        views: [{ state: 'frozen', xSplit: 0, ySplit: 1, activeCell: 'A2' }],
     });
 
-    const totalCols = ANNUAL_COLUMNS.length;
+    const totalCols = ANNUAL_TABLE_COLUMNS.length;
     const lastCol = numToCol(totalCols);
 
     // Set Column Widths
-    ANNUAL_COLUMNS.forEach((col, i) => {
+    ANNUAL_TABLE_COLUMNS.forEach((col, i) => {
         ws.getColumn(i + 1).width = col.width;
     });
 
-    // ── Row 1: Executive Title (Kardex Blue #546A7A) ──
-    ws.mergeCells(`A1:${lastCol}1`);
-    const titleCell = ws.getCell('A1');
-    titleCell.value = 'KARDEX — ANNUAL MACHINE CONTRACTS & ASSET REPORT';
-    titleCell.font = { bold: true, size: 13, color: { argb: COLORS.textWhite } };
-    titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.kardexBlueDark } };
-    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
-    ws.getRow(1).height = 32;
-
-    // ── Row 2: Kardex Green Accent Stripe (#82A094) ──
-    ws.mergeCells(`A2:${lastCol}2`);
-    ws.getCell('A2').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.kardexGreenMedium } };
-    ws.getRow(2).height = 3.5;
-
-    // ── Row 3: Filter Info Bar ──
-    ws.mergeCells(`A3:${lastCol}3`);
-    const infoCell = ws.getCell('A3');
-    const filterParts: string[] = [];
-    if (filters.zone && filters.zone !== 'all') filterParts.push(`Zone: ${filters.zone}`);
-    if (filters.customerClass && filters.customerClass !== 'all') filterParts.push(`Class: ${filters.customerClass}`);
-    if (filters.contractType && filters.contractType !== 'all') filterParts.push(`Type: ${filters.contractType}`);
-    if (filters.unitType && filters.unitType !== 'all') filterParts.push(`Model: ${filters.unitType}`);
-    if (filters.engineer && filters.engineer !== 'all') filterParts.push(`Engineer: ${filters.engineer}`);
-    if (filters.department && filters.department !== 'all') filterParts.push(`Dept: ${filters.department}`);
-    if (filters.expiryBucket && filters.expiryBucket !== 'all') filterParts.push(`Expiry: ${filters.expiryBucket}`);
-    if (filters.dateFrom || filters.dateTo) filterParts.push(`Period: ${filters.dateFrom || 'Start'} → ${filters.dateTo || 'End'}`);
-    if (filters.search) filterParts.push(`Search: "${filters.search}"`);
-    const filterStr = filterParts.length > 0 ? filterParts.join('  |  ') : 'All Zones & Customer Portfolios';
-
-    const totalMachinesCount = stats?.totalMachines ?? customers.reduce((s, c) => s + (c.machines?.length || 0), 0);
-    const totalCustomersCount = stats?.totalCustomers ?? customers.length;
-    const totalValCount = stats?.totalMCValue ?? customers.reduce((s, c) => s + (c.totalMCValue || 0), 0);
-
-    infoCell.value = `Generated: ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}  |  ${totalMachinesCount} Machines  |  ${totalCustomersCount} Accounts  |  ${filterStr}`;
-    infoCell.font = { size: 9, color: { argb: COLORS.kardexBlueDark }, italic: true };
-    infoCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.kardexBlueTint } };
-    infoCell.alignment = { horizontal: 'center', vertical: 'middle' };
-    ws.getRow(3).height = 20;
-
-    // ── Rows 5-6: Executive Kardex KPI Cards ──
-    const expiring30 = stats?.expiring30 ?? 0;
-    const expiredCount = stats?.expired ?? 0;
-    const activeCount = stats?.active ?? (totalMachinesCount - expiredCount);
-
-    const kpis = [
-        { label: 'TOTAL MACHINES', value: String(totalMachinesCount), accent: COLORS.kardexBlueDark, span: 3 },
-        { label: 'TOTAL CUSTOMERS', value: String(totalCustomersCount), accent: COLORS.kardexBlueMedium, span: 3 },
-        { label: 'TOTAL MC VALUE', value: fmtCurrency(totalValCount), accent: COLORS.kardexSandDark, span: 4 },
-        { label: 'EXPIRING ≤30D / OVERDUE', value: `${expiring30} / ${expiredCount}`, accent: (expiring30 > 0 || expiredCount > 0) ? COLORS.kardexRedDark : COLORS.kardexGreenDark, span: 4 },
-        { label: 'ACTIVE HEALTHY', value: String(activeCount), accent: COLORS.kardexGreenDark, span: 3 },
-    ];
-
-    const kpiLabelRow = 5;
-    const kpiValRow = 6;
-    ws.getRow(kpiLabelRow).height = 18;
-    ws.getRow(kpiValRow).height = 24;
-
-    let colCursor = 1;
-    kpis.forEach(kpi => {
-        const startCol = colCursor;
-        const endCol = Math.min(colCursor + kpi.span - 1, totalCols);
-        colCursor = endCol + 1;
-
-        const startLetter = numToCol(startCol);
-        const endLetter = numToCol(endCol);
-
-        // Label Cell
-        ws.mergeCells(`${startLetter}${kpiLabelRow}:${endLetter}${kpiLabelRow}`);
-        const labelCell = ws.getCell(`${startLetter}${kpiLabelRow}`);
-        labelCell.value = kpi.label;
-        labelCell.font = { bold: true, size: 8, color: { argb: COLORS.textMuted } };
-        labelCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.cardHeaderBg } };
-        labelCell.alignment = { horizontal: 'center', vertical: 'middle' };
-        labelCell.border = thinBorder();
-
-        // Value Cell
-        ws.mergeCells(`${startLetter}${kpiValRow}:${endLetter}${kpiValRow}`);
-        const valCell = ws.getCell(`${startLetter}${kpiValRow}`);
-        valCell.value = kpi.value;
-        valCell.font = { bold: true, size: 11, color: { argb: kpi.accent } };
-        valCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.white } };
-        valCell.alignment = { horizontal: 'center', vertical: 'middle' };
-        valCell.border = thinBorder();
+    // ── Row 1: Standard Table Header ──
+    const headerRow = ws.getRow(1);
+    headerRow.height = 28;
+    ANNUAL_TABLE_COLUMNS.forEach((col, i) => {
+        const cell = headerRow.getCell(i + 1);
+        cell.value = col.header;
+        applyHeaderStyle(cell);
     });
 
-    // ── Row 8: Section Header ──
-    let currentRow = 8;
-    ws.mergeCells(`A${currentRow}:${lastCol}${currentRow}`);
-    const secCell = ws.getCell(`A${currentRow}`);
-    secCell.value = 'CUSTOMER PORTFOLIO & MACHINE INVENTORY';
-    secCell.font = { bold: true, size: 9.5, color: { argb: COLORS.textWhite } };
-    secCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.kardexBlueDark } };
-    secCell.alignment = { horizontal: 'left', vertical: 'middle' };
-    ws.getRow(currentRow).height = 22;
+    // Enable Excel AutoFilter across the table headers
+    ws.autoFilter = `A1:${lastCol}1`;
 
-    // ── Customer Grouped Blocks ──
-    customers.forEach((cust, custIdx) => {
-        currentRow += 1;
+    let currentRow = 1;
+    let recordIndex = 0;
+    let totalValueSum = 0;
+    let totalPMVisitsSum = 0;
+    let totalBDVisitsSum = 0;
+    const uniqueCustomers = new Set<string>();
+
+    // ── Rows 2..N: Machine Contract Data Records ──
+    customers.forEach(cust => {
+        uniqueCustomers.add(cust.customerName);
         const machines = cust.machines || [];
 
-        const overdueCount = machines.filter(m =>
-            m.mcExpiry && ((m.mcExpiry.daysLeft !== null && m.mcExpiry.daysLeft < 0) || m.mcExpiry.bucket === 'expired')
-        ).length;
+        machines.forEach(m => {
+            recordIndex++;
+            currentRow++;
+            const r = currentRow;
+            const isOdd = recordIndex % 2 === 1;
+            const bg = isOdd ? COLORS.white : COLORS.kardexBlueTint;
 
-        const classText = cust.customerClass ? `Class ${cust.customerClass}` : '—';
-        const placeText = cust.place ? `${cust.place}, ${cust.zoneName} Zone` : `${cust.zoneName} Zone`;
-        const engNames = Array.from(new Set(
-            [cust.engineerName, ...(machines.map(m => m.engineerName))]
-                .flatMap(n => normalizeEngineerNames(n))
-        )).join(', ');
-        const engText = engNames ? `Eng: ${engNames}` : 'Eng: Unassigned';
-        const statusText = overdueCount > 0
-            ? `[ ${overdueCount} Overdue ]`
-            : (cust.daysToEarliestExpiry !== null ? (cust.daysToEarliestExpiry < 0 ? `[ Overdue ]` : `[ ${cust.daysToEarliestExpiry}d left ]`) : '[ Active ]');
-        const visitsText = `${cust.totalPMVisits || 0} PM | ${cust.totalBDVisits || 0} BD`;
+            const engName = normalizeEngineerNames(m.engineerName || cust.engineerName).join(', ') || '—';
+            const mcVal = Number(m.mcValue ?? 0);
+            const pmVisits = Number(m.pmVisitsCount || 0);
+            const bdVisits = Number(m.bdVisitsCount || 0);
 
-        // 1. Customer Kardex Blue Banner Row (#546A7A)
-        const bannerRow = currentRow;
-        ws.mergeCells(`A${bannerRow}:${lastCol}${bannerRow}`);
-        const banner = ws.getCell(`A${bannerRow}`);
-        banner.value = `${custIdx + 1}.  ${cust.customerName.toUpperCase()}   •   ${classText}   •   ${placeText}   •   ${engText}   •   Machines: ${cust.totalMachines}   •   Total Value: ${fmtCurrency(cust.totalMCValue)}   •   ${statusText}   •   ${visitsText}`;
-        banner.font = { bold: true, color: { argb: COLORS.textWhite }, size: 9.5 };
-        banner.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.kardexBlueDark } };
-        banner.alignment = { horizontal: 'left', vertical: 'middle' };
-        banner.border = thinBorder(COLORS.kardexBlueDark);
-        ws.getRow(bannerRow).height = 22;
+            totalValueSum += mcVal;
+            totalPMVisitsSum += pmVisits;
+            totalBDVisitsSum += bdVisits;
 
-        // 2. Table Header Row for this Customer (Kardex Blue Medium #6F8A9D)
-        currentRow += 1;
-        const tableHeaderRow = currentRow;
-        ws.getRow(tableHeaderRow).height = 20;
-        ANNUAL_COLUMNS.forEach((col, i) => {
-            const cell = ws.getCell(tableHeaderRow, i + 1);
-            cell.value = col.header;
-            applyHeaderStyle(cell);
-        });
+            const rowData: (string | number)[] = [
+                recordIndex,
+                cust.customerName,
+                m.customerClass || cust.customerClass || '—',
+                m.place || cust.place || '—',
+                m.zoneName || cust.zoneName || '—',
+                m.serialNumber || '—',
+                m.unitType || '—',
+                m.modelNumber || '—',
+                m.controlType || '—',
+                m.department || '—',
+                engName,
+                m.installationYear || '—',
+                m.contractType || 'UMC',
+                m.mcPoNumber || '—',
+                fmtDate(m.poDate),
+                fmtDate(m.mcStartDate),
+                fmtDate(m.mcEndDate),
+                mcVal,
+                fmtExpiryStatus(m.mcExpiry),
+                m.mcExpiry?.daysLeft ?? '',
+                pmVisits,
+                bdVisits,
+                fmtDate(m.warrantyEndDate),
+                fmtDate(m.softwareEndDate),
+                fmtDate(m.remoteSupportEndDate),
+                m.notes || '—',
+            ];
 
-        // 3. Machine Rows for this Customer (White / Soft Kardex Ice Blue Alternating)
-        if (machines.length === 0) {
-            currentRow += 1;
-            ws.mergeCells(`A${currentRow}:${lastCol}${currentRow}`);
-            const emptyCell = ws.getCell(`A${currentRow}`);
-            emptyCell.value = 'No machines registered for this customer contract.';
-            emptyCell.font = { italic: true, size: 9, color: { argb: COLORS.textMuted } };
-            emptyCell.alignment = { horizontal: 'center', vertical: 'middle' };
-            ws.getRow(currentRow).height = 18;
-        } else {
-            machines.forEach((m, mIdx) => {
-                currentRow += 1;
-                const r = currentRow;
-                const bg = mIdx % 2 === 0 ? COLORS.white : COLORS.kardexBlueTint;
+            const row = ws.getRow(r);
+            row.height = 20;
 
-                const unitModel = `${m.unitType || '—'}${m.modelNumber ? ` / ${m.modelNumber}` : ''}`;
-                const engName = normalizeEngineerNames(m.engineerName || cust.engineerName).join(', ') || '—';
+            rowData.forEach((val, colIdx) => {
+                const cell = row.getCell(colIdx + 1);
+                cell.value = val;
+                const colDef = ANNUAL_TABLE_COLUMNS[colIdx];
 
-                const vals: (string | number)[] = [
-                    mIdx + 1,
-                    m.serialNumber || '—',
-                    unitModel,
-                    m.controlType || '—',
-                    engName,
-                    m.department || '—',
-                    m.installationYear || '—',
-                    m.contractType || 'UMC',
-                    m.mcPoNumber || '—',
-                    fmtDate(m.poDate),
-                    fmtDate(m.mcStartDate),
-                    fmtDate(m.mcEndDate),
-                    m.mcValue ?? 0,
-                    fmtExpiryStatus(m.mcExpiry),
-                    m.mcExpiry?.daysLeft ?? '',
-                    m.pmVisitsCount || 0,
-                    m.bdVisitsCount || 0,
-                ];
+                const isNumeric = colDef.key === 'mcValue' || colDef.key === 'pmVisitsCount' ||
+                    colDef.key === 'bdVisitsCount' || colDef.key === 'mcExpiryDays';
 
-                vals.forEach((v, i) => {
-                    const cell = ws.getCell(r, i + 1);
-                    cell.value = v;
-                    const col = ANNUAL_COLUMNS[i];
-                    applyDataCell(cell, bg, {
-                        bold: col.key === 'serialNumber',
-                        isNumber: typeof v === 'number' || col.key === 'mcValue',
-                        align: col.align,
-                        fontColor: col.key === 'mcExpiryStatus' ? getExpiryColor(m.mcExpiry?.bucket) : undefined,
-                    });
+                let fontColor: string | undefined;
+                if (colDef.key === 'mcExpiryStatus') {
+                    fontColor = getExpiryColor(m.mcExpiry?.bucket);
+                }
 
-                    if (col.key === 'mcValue' && typeof v === 'number') {
-                        cell.numFmt = '₹#,##0';
-                    }
+                applyDataCell(cell, bg, {
+                    bold: colDef.key === 'serialNumber' || colDef.key === 'customerName' || colDef.key === 'mcValue',
+                    isNumber: isNumeric,
+                    align: colDef.align,
+                    fontColor,
                 });
 
-                ws.getRow(r).height = 18;
+                if (colDef.key === 'mcValue' && typeof val === 'number') {
+                    cell.numFmt = '₹#,##0';
+                }
             });
-        }
-
-        // 4. Customer Subtotal Row (Soft Kardex Blue Tint)
-        currentRow += 1;
-        const subtotalRow = currentRow;
-        const mcValueColIdx = ANNUAL_COLUMNS.findIndex(c => c.key === 'mcValue') + 1;
-        const pmVisitsColIdx = ANNUAL_COLUMNS.findIndex(c => c.key === 'pmVisitsCount') + 1;
-        const bdVisitsColIdx = ANNUAL_COLUMNS.findIndex(c => c.key === 'bdVisitsCount') + 1;
-
-        ws.mergeCells(`A${subtotalRow}:${numToCol(mcValueColIdx - 1)}${subtotalRow}`);
-        const subLabel = ws.getCell(`A${subtotalRow}`);
-        subLabel.value = `Total for ${cust.customerName} (${machines.length} Units):`;
-        subLabel.font = { bold: true, size: 9, color: { argb: COLORS.kardexBlueDark } };
-        subLabel.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.subtotalBg } };
-        subLabel.alignment = { horizontal: 'right', vertical: 'middle' };
-        subLabel.border = thinBorder(COLORS.borderMedium);
-
-        const subAmtCell = ws.getCell(subtotalRow, mcValueColIdx);
-        subAmtCell.value = cust.totalMCValue || 0;
-        subAmtCell.numFmt = '₹#,##0';
-        subAmtCell.font = { bold: true, size: 9, color: { argb: COLORS.kardexBlueDark } };
-        subAmtCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.subtotalBg } };
-        subAmtCell.alignment = { horizontal: 'right', vertical: 'middle' };
-        subAmtCell.border = thinBorder(COLORS.borderMedium);
-
-        for (let i = mcValueColIdx + 1; i <= totalCols; i++) {
-            const cell = ws.getCell(subtotalRow, i);
-            if (i === pmVisitsColIdx) {
-                cell.value = cust.totalPMVisits || 0;
-                cell.font = { bold: true, size: 9, color: { argb: COLORS.kardexBlueDark } };
-                cell.alignment = { horizontal: 'center', vertical: 'middle' };
-            } else if (i === bdVisitsColIdx) {
-                cell.value = cust.totalBDVisits || 0;
-                cell.font = { bold: true, size: 9, color: { argb: COLORS.kardexBlueDark } };
-                cell.alignment = { horizontal: 'center', vertical: 'middle' };
-            } else {
-                cell.value = '';
-            }
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.subtotalBg } };
-            cell.border = thinBorder(COLORS.borderMedium);
-        }
-        ws.getRow(subtotalRow).height = 19;
-
-        // Subtle spacing row
-        currentRow += 1;
-        ws.getRow(currentRow).height = 6;
+        });
     });
 
-    // ── Final Grand Total Row (Kardex Blue #546A7A) ──
-    currentRow += 1;
-    const grandRow = currentRow;
-    const mcValueColIdx = ANNUAL_COLUMNS.findIndex(c => c.key === 'mcValue') + 1;
-    const pmVisitsColIdx = ANNUAL_COLUMNS.findIndex(c => c.key === 'pmVisitsCount') + 1;
-    const bdVisitsColIdx = ANNUAL_COLUMNS.findIndex(c => c.key === 'bdVisitsCount') + 1;
+    // ── Row N+1: Grand Total Row ──
+    if (recordIndex > 0) {
+        currentRow++;
+        const grandRow = currentRow;
+        const totalRow = ws.getRow(grandRow);
+        totalRow.height = 24;
 
-    ws.mergeCells(`A${grandRow}:${numToCol(mcValueColIdx - 1)}${grandRow}`);
-    const grandLabel = ws.getCell(`A${grandRow}`);
-    grandLabel.value = `GRAND TOTAL (${totalCustomersCount} Accounts, ${totalMachinesCount} Machines):`;
-    grandLabel.font = { bold: true, size: 9.5, color: { argb: COLORS.textWhite } };
-    grandLabel.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.kardexBlueDark } };
-    grandLabel.alignment = { horizontal: 'right', vertical: 'middle' };
-    grandLabel.border = thinBorder(COLORS.kardexBlueDark);
+        // Find relevant column indexes (1-based)
+        const mcEndDateColIdx = ANNUAL_TABLE_COLUMNS.findIndex(c => c.key === 'mcEndDate') + 1;
+        const mcValColIdx = ANNUAL_TABLE_COLUMNS.findIndex(c => c.key === 'mcValue') + 1;
+        const pmVisitsColIdx = ANNUAL_TABLE_COLUMNS.findIndex(c => c.key === 'pmVisitsCount') + 1;
+        const bdVisitsColIdx = ANNUAL_TABLE_COLUMNS.findIndex(c => c.key === 'bdVisitsCount') + 1;
 
-    const grandAmt = ws.getCell(grandRow, mcValueColIdx);
-    grandAmt.value = totalValCount || 0;
-    grandAmt.numFmt = '₹#,##0';
-    grandAmt.font = { bold: true, size: 10, color: { argb: COLORS.textWhite } };
-    grandAmt.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.kardexBlueDark } };
-    grandAmt.alignment = { horizontal: 'right', vertical: 'middle' };
-    grandAmt.border = thinBorder(COLORS.kardexBlueDark);
+        // Label merged across columns 1..17
+        ws.mergeCells(`A${grandRow}:${numToCol(mcEndDateColIdx)}${grandRow}`);
+        const labelCell = ws.getCell(`A${grandRow}`);
+        labelCell.value = `GRAND TOTAL (${recordIndex} Machines, ${uniqueCustomers.size} Customers):`;
+        labelCell.font = { bold: true, size: 9.5, color: { argb: COLORS.textWhite } };
+        labelCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.kardexBlueDark } };
+        labelCell.alignment = { horizontal: 'right', vertical: 'middle' };
+        labelCell.border = thinBorder(COLORS.kardexBlueDark);
 
-    const totalPMs = customers.reduce((s, c) => s + (c.totalPMVisits || 0), 0);
-    const totalBDs = customers.reduce((s, c) => s + (c.totalBDVisits || 0), 0);
+        // MC Value total
+        const amtCell = totalRow.getCell(mcValColIdx);
+        amtCell.value = totalValueSum;
+        amtCell.numFmt = '₹#,##0';
+        amtCell.font = { bold: true, size: 9.5, color: { argb: COLORS.textWhite } };
+        amtCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.kardexBlueDark } };
+        amtCell.alignment = { horizontal: 'right', vertical: 'middle' };
+        amtCell.border = thinBorder(COLORS.kardexBlueDark);
 
-    for (let i = mcValueColIdx + 1; i <= totalCols; i++) {
-        const cell = ws.getCell(grandRow, i);
-        if (i === pmVisitsColIdx) {
-            cell.value = totalPMs;
-            cell.font = { bold: true, size: 9.5, color: { argb: COLORS.textWhite } };
-            cell.alignment = { horizontal: 'center', vertical: 'middle' };
-        } else if (i === bdVisitsColIdx) {
-            cell.value = totalBDs;
-            cell.font = { bold: true, size: 9.5, color: { argb: COLORS.textWhite } };
-            cell.alignment = { horizontal: 'center', vertical: 'middle' };
-        } else {
+        // Fill non-aggregated columns between MC Value and PM Visits
+        for (let i = mcValColIdx + 1; i < pmVisitsColIdx; i++) {
+            const cell = totalRow.getCell(i);
             cell.value = '';
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.kardexBlueDark } };
+            cell.border = thinBorder(COLORS.kardexBlueDark);
         }
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.kardexBlueDark } };
-        cell.border = thinBorder(COLORS.kardexBlueDark);
+
+        // PM Visits total
+        const pmCell = totalRow.getCell(pmVisitsColIdx);
+        pmCell.value = totalPMVisitsSum;
+        pmCell.font = { bold: true, size: 9.5, color: { argb: COLORS.textWhite } };
+        pmCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.kardexBlueDark } };
+        pmCell.alignment = { horizontal: 'center', vertical: 'middle' };
+        pmCell.border = thinBorder(COLORS.kardexBlueDark);
+
+        // BD Visits total
+        const bdCell = totalRow.getCell(bdVisitsColIdx);
+        bdCell.value = totalBDVisitsSum;
+        bdCell.font = { bold: true, size: 9.5, color: { argb: COLORS.textWhite } };
+        bdCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.kardexBlueDark } };
+        bdCell.alignment = { horizontal: 'center', vertical: 'middle' };
+        bdCell.border = thinBorder(COLORS.kardexBlueDark);
+
+        // Fill remaining columns
+        for (let i = bdVisitsColIdx + 1; i <= totalCols; i++) {
+            const cell = totalRow.getCell(i);
+            cell.value = '';
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.kardexBlueDark } };
+            cell.border = thinBorder(COLORS.kardexBlueDark);
+        }
     }
-    ws.getRow(grandRow).height = 24;
 
-    // Freeze panes at row 8
-    ws.views = [{ state: 'frozen', xSplit: 0, ySplit: 8, activeCell: 'A9' }];
-
-    // Generate & download
+    // Generate & download Excel file
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], {
         type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

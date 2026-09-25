@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Fragment } from 'react';
 import {
-  BarChart3, FileText, Filter, Search, Download, Calendar,
+  BarChart3, FileText, Search, Download, Calendar,
   CheckCircle, AlertTriangle, Clock, MapPin,
-  User, Building2, IndianRupee, ShieldCheck,
-  TrendingUp, RefreshCw, ChevronDown, ChevronUp, Info,
-  ArrowUpDown, ExternalLink, Save, Trash2, Zap, CalendarClock, BookmarkPlus, X
+  Building2, IndianRupee, ShieldCheck,
+  TrendingUp, ChevronDown, ChevronUp,
+  ArrowUpDown, ExternalLink, X,
+  Layers, Settings2
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -71,7 +72,7 @@ interface ContractReportsProps {
   role: string;
 }
 
-type SortKey = 'customerName' | 'totalValue' | 'totalContracts' | 'pmPercentage' | 'zoneName';
+type SortKey = 'customerName' | 'totalValue' | 'totalContracts' | 'totalMachines' | 'pmPercentage' | 'zoneName';
 type SortDir = 'asc' | 'desc';
 
 export default function ContractReports({ role }: ContractReportsProps) {
@@ -80,9 +81,25 @@ export default function ContractReports({ role }: ContractReportsProps) {
   const [loading, setLoading] = useState(false);
   const [hasGenerated, setHasGenerated] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const [expandedCustomerId, setExpandedCustomerId] = useState<string | number | null>(null);
+  const [expandedCustomerIds, setExpandedCustomerIds] = useState<Set<string | number>>(new Set());
+  const [showFilters, setShowFilters] = useState(true);
 
-  const reportType = 'customer-portfolio';
+  const toggleExpand = (id: string | number) => {
+    setExpandedCustomerIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleExpandAll = () => {
+    if (expandedCustomerIds.size === customerSummaries.length) {
+      setExpandedCustomerIds(new Set());
+    } else {
+      setExpandedCustomerIds(new Set(customerSummaries.map(cs => cs.customerId || cs.customerName)));
+    }
+  };
 
   // Filters
   const [search, setSearch] = useState('');
@@ -104,81 +121,9 @@ export default function ContractReports({ role }: ContractReportsProps) {
     return d.toISOString().slice(0, 10);
   });
 
-  // Filter Presets
-  interface FilterPreset {
-    id: string;
-    name: string;
-    filters: {
-      zone: string; status: string; tech: string; pm: string;
-      mcType: string; sw: string; search: string;
-      dateFrom: string; dateTo: string;
-    };
-    createdAt: string;
-  }
-  const [filterPresets, setFilterPresets] = useState<FilterPreset[]>([]);
-  const [presetName, setPresetName] = useState('');
-  const [showPresetSave, setShowPresetSave] = useState(false);
-
-  // PM Schedule Execution Mode (1st & 15th of every month)
-  const [scheduleMode, setScheduleMode] = useState(false);
-  const [scheduleDismissed, setScheduleDismissed] = useState(false);
-  const today = new Date();
-  const dayOfMonth = today.getDate();
-  const isScheduleDay = dayOfMonth === 1 || dayOfMonth === 15;
-  const isScheduleWindow = dayOfMonth <= 3 || (dayOfMonth >= 15 && dayOfMonth <= 17);
-  const scheduleLabel = dayOfMonth <= 3 ? '1st of Month' : '15th of Month';
-
-  // Load presets & fetch initial contracts for dropdown filters
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem('kardex-report-filter-presets');
-      if (saved) setFilterPresets(JSON.parse(saved));
-      const dismissed = localStorage.getItem('kardex-schedule-dismissed-date');
-      if (dismissed === today.toISOString().slice(0, 10)) setScheduleDismissed(true);
-    } catch { /* ignore */ }
-
     fetchContracts();
   }, []);
-
-  const savePreset = () => {
-    if (!presetName.trim()) { toast.error('Enter a preset name'); return; }
-    const preset: FilterPreset = {
-      id: `preset-${Date.now()}`,
-      name: presetName.trim(),
-      filters: {
-        zone: zoneFilter, status: statusFilter, tech: techFilter,
-        pm: pmFilter, mcType: mcTypeFilter, sw: swFilter,
-        search, dateFrom, dateTo,
-      },
-      createdAt: new Date().toISOString(),
-    };
-    const updated = [...filterPresets, preset];
-    setFilterPresets(updated);
-    try { localStorage.setItem('kardex-report-filter-presets', JSON.stringify(updated)); } catch { /* ignore */ }
-    setPresetName('');
-    setShowPresetSave(false);
-    toast.success(`Filter preset "${preset.name}" saved!`);
-  };
-
-  const applyPreset = (preset: FilterPreset) => {
-    setZoneFilter(preset.filters.zone);
-    setStatusFilter(preset.filters.status);
-    setTechFilter(preset.filters.tech);
-    setPmFilter(preset.filters.pm);
-    setMcTypeFilter(preset.filters.mcType);
-    setSwFilter(preset.filters.sw);
-    setSearch(preset.filters.search);
-    setDateFrom(preset.filters.dateFrom);
-    setDateTo(preset.filters.dateTo);
-    toast.info(`Applied preset: ${preset.name}`);
-  };
-
-  const deletePreset = (id: string) => {
-    const updated = filterPresets.filter(p => p.id !== id);
-    setFilterPresets(updated);
-    try { localStorage.setItem('kardex-report-filter-presets', JSON.stringify(updated)); } catch { /* ignore */ }
-    toast.success('Preset removed');
-  };
 
   // Quick Date Range Presets
   const applyDatePreset = (preset: '4_weeks' | 'today' | 'this_month' | 'next_month' | 'this_quarter' | 'all') => {
@@ -211,14 +156,7 @@ export default function ContractReports({ role }: ContractReportsProps) {
     }
   };
 
-  const isScheduleActive = scheduleMode || (isScheduleWindow && !scheduleDismissed);
-
-  const dismissSchedule = () => {
-    setScheduleDismissed(true);
-    localStorage.setItem('kardex-schedule-dismissed-date', today.toISOString().slice(0, 10));
-  };
-
-  const handleExportBoth = async () => {
+  const handleExport = async (format: 'excel' | 'pdf') => {
     setExporting(true);
     try {
       const filters = {
@@ -230,17 +168,16 @@ export default function ContractReports({ role }: ContractReportsProps) {
         dateTo
       };
 
-      // Export Excel
-      await generateContractReportExcel(customerSummaries, selectedSummary, filters);
-
-      // Export PDF (slight delay to avoid browser blocking)
-      await new Promise(r => setTimeout(r, 500));
-      await generateContractReportPdf(customerSummaries, selectedSummary, filters);
-
-      toast.success('Both Excel & PDF reports exported successfully!');
+      if (format === 'pdf') {
+        await generateContractReportPdf(customerSummaries, selectedSummary, filters);
+        toast.success('Contract Schedule PDF Report exported successfully!');
+      } else {
+        await generateContractReportExcel(customerSummaries, selectedSummary, filters);
+        toast.success('Contract Portfolio Excel Report exported successfully!');
+      }
     } catch (err: any) {
-      console.error('Export both failed:', err);
-      toast.error('Failed to export reports');
+      console.error('Export failed:', err);
+      toast.error(`Failed to export ${format.toUpperCase()} report`);
     } finally {
       setExporting(false);
     }
@@ -439,7 +376,17 @@ export default function ContractReports({ role }: ContractReportsProps) {
   };
 
   const SortIcon = ({ col }: { col: SortKey }) => (
-    <ArrowUpDown className={`w-3 h-3 inline ml-1 ${sortKey === col ? 'text-white' : 'text-white/40'}`} />
+    <span className="inline-flex items-center ml-1">
+      {sortKey === col ? (
+        sortDir === 'asc' ? (
+          <ChevronUp className="w-3.5 h-3.5 text-white" />
+        ) : (
+          <ChevronDown className="w-3.5 h-3.5 text-white" />
+        )
+      ) : (
+        <ArrowUpDown className="w-3 h-3 text-white/40 group-hover:text-white/80 transition-colors" />
+      )}
+    </span>
   );
 
   // 1. CUSTOMER PORTFOLIO DATA
@@ -578,6 +525,10 @@ export default function ContractReports({ role }: ContractReportsProps) {
           av = a.totalContracts;
           bv = b.totalContracts;
           break;
+        case 'totalMachines':
+          av = a.totalMachines;
+          bv = b.totalMachines;
+          break;
         case 'pmPercentage':
           av = a.pmPercentage;
           bv = b.pmPercentage;
@@ -635,840 +586,808 @@ export default function ContractReports({ role }: ContractReportsProps) {
     };
   }, [customerSummaries]);
 
-  const handleExport = async (format: 'excel' | 'pdf') => {
-    setExporting(true);
-    try {
-      const filters = {
-        zone: zoneFilter !== 'all' ? zoneFilter : 'All',
-        status: statusFilter !== 'all' ? statusFilter : 'All',
-        responsible: techFilter !== 'all' ? techFilter : 'All',
-        mcType: mcTypeFilter !== 'all' ? mcTypeFilter : 'All',
-        dateFrom,
-        dateTo
-      };
+  const activeFilterCount = [
+    zoneFilter !== 'all',
+    statusFilter !== 'all',
+    techFilter !== 'all',
+    pmFilter !== 'all',
+    mcTypeFilter !== 'all',
+    swFilter !== 'all',
+    !!search,
+  ].filter(Boolean).length;
 
-      if (format === 'pdf') {
-        await generateContractReportPdf(customerSummaries, selectedSummary, filters);
-        toast.success('Contract Schedule PDF Report exported successfully!');
-      } else {
-        await generateContractReportExcel(customerSummaries, selectedSummary, filters);
-        toast.success('Contract Portfolio Excel Report exported successfully!');
-      }
-    } catch (err: any) {
-      console.error('Export failed:', err);
-      toast.error(`Failed to export ${format.toUpperCase()} report`);
-    } finally {
-      setExporting(false);
-    }
-  };
-
-  const getFilterHeaderCount = () => {
-    return `${customerSummaries.length} customers`;
+  const resetAllFilters = () => {
+    setSearch('');
+    setZoneFilter('all');
+    setStatusFilter('all');
+    setTechFilter('all');
+    setPmFilter('all');
+    setMcTypeFilter('all');
+    setSwFilter('all');
+    setDateFrom('');
+    setDateTo('');
   };
 
   return (
-    <div className="space-y-5 print:space-y-3">
-      {/* ═══ BI-MONTHLY SCHEDULE REMINDER BANNER ═══ */}
-      {isScheduleWindow && !scheduleDismissed && (
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-200 p-4 animate-in slide-in-from-top-3 duration-300">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-500/15 flex items-center justify-center flex-shrink-0">
-                <CalendarClock className="w-5 h-5 text-amber-600" />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-amber-800 flex items-center gap-2">
-                  <Zap className="w-3.5 h-3.5" />
-                  {isScheduleDay ? 'Report Day!' : 'Scheduled Report Window'} — {scheduleLabel} Report
-                </h3>
-                <p className="text-xs text-amber-600/80 mt-0.5">
-                  {isScheduleDay
-                    ? 'Today is your scheduled report day. Apply your filters (Status, Responsible) and export detailed Excel + PDF reports for planning.'
-                    : `You're within the bi-monthly report window. Generate your reports for the ${scheduleLabel} cycle.`
-                  }
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
+    <div className="space-y-4 print:space-y-2">
+      {/* ═══ COMPACT TOOLBAR: Generate + Filters Toggle + Export ═══ */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm print:hidden">
+        {/* Top Bar */}
+        <div className="px-5 py-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={fetchContracts}
+              disabled={loading}
+              className="inline-flex items-center gap-2 bg-[#546A7A] hover:bg-[#435562] text-white font-bold py-2.5 px-5 rounded-lg shadow-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+            >
+              <BarChart3 className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              {loading ? 'Loading...' : 'Generate'}
+            </button>
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-lg border text-sm font-semibold transition-all ${
+                showFilters
+                  ? 'bg-slate-100 border-slate-300 text-slate-800'
+                  : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              <Settings2 className="w-4 h-4" />
+              Filters
+              {activeFilterCount > 0 && (
+                <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-[#546A7A] text-white text-[10px] font-bold leading-none">
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
+            {activeFilterCount > 0 && (
               <button
-                onClick={handleExportBoth}
-                disabled={exporting || loading}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-all shadow-sm disabled:opacity-50"
+                onClick={resetAllFilters}
+                className="text-xs text-slate-400 hover:text-rose-500 font-medium transition-colors flex items-center gap-1"
               >
-                <Zap className="w-3.5 h-3.5" />
-                Generate Now
+                <X className="w-3 h-3" /> Clear all
               </button>
-              <button
-                onClick={dismissSchedule}
-                className="p-1.5 rounded-lg hover:bg-amber-100 text-amber-400 hover:text-amber-600 transition-colors"
-                title="Dismiss for today"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+            )}
           </div>
-        </div>
-      )}
-
-      {/* ═══ REPORT GENERATION CONTROLS — Card Layout like Ticket Reports ═══ */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden print:hidden">
-        {/* Card Header — Title + Generate + Export Buttons */}
-        <div className="px-6 py-5 border-b border-slate-100">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h2 className="text-lg sm:text-xl font-bold text-slate-800">Report Filters</h2>
-              <p className="text-sm text-slate-500 mt-1">Configure your report parameters and generate</p>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-              <button
-                onClick={fetchContracts}
-                disabled={loading}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-[#6F8A9D] hover:bg-[#546A7A] text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-all duration-200 hover:shadow-xl hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
-              >
-                <BarChart3 className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
-                {loading ? 'Generating...' : 'Generate Report'}
-              </button>
-              <div className="flex gap-2 sm:gap-3">
-                <button
-                  onClick={() => handleExport('excel')}
-                  disabled={exporting || loading || customerSummaries.length === 0}
-                  className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 border-[#4F6A64] text-[#4F6A64] hover:bg-[#A2B9AF]/10 font-semibold text-sm transition-all min-h-[44px] disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Download className={`w-4 h-4 ${exporting ? 'animate-bounce' : ''}`} />
-                  Export Excel
-                </button>
-                <button
-                  onClick={() => handleExport('pdf')}
-                  disabled={exporting || loading || customerSummaries.length === 0}
-                  className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 border-[#9E3B47] text-[#9E3B47] hover:bg-[#E17F70]/10 font-semibold text-sm transition-all min-h-[44px] disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <FileText className="w-4 h-4" />
-                  Export PDF
-                </button>
-              </div>
-            </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => handleExport('excel')}
+              disabled={exporting || loading || customerSummaries.length === 0}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-[#4F6A64] text-[#4F6A64] hover:bg-[#4F6A64]/5 font-semibold text-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <Download className={`w-3.5 h-3.5 ${exporting ? 'animate-bounce' : ''}`} />
+              Excel
+            </button>
+            <button
+              onClick={() => handleExport('pdf')}
+              disabled={exporting || loading || customerSummaries.length === 0}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-[#9E3B47] text-[#9E3B47] hover:bg-[#9E3B47]/5 font-semibold text-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <FileText className="w-3.5 h-3.5" />
+              PDF
+            </button>
           </div>
         </div>
 
-        {/* Card Content — Filters */}
-        <div className="px-6 py-5 space-y-4">
-          {/* Date Range Row */}
-          <div className="space-y-2.5">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <div className="flex items-center gap-2">
-                <label className="text-xs font-semibold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                  <Calendar className="w-3.5 h-3.5 text-[#546A7A]" />
-                  Date Filter Basis:
-                </label>
-                <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200">
-                  <button
-                    type="button"
-                    onClick={() => setDateFilterBasis('both')}
-                    className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${dateFilterBasis === 'both'
-                        ? 'bg-[#546A7A] text-white shadow-xs'
-                        : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                  >
-                    Both (PM or Expiry)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setDateFilterBasis('pm')}
-                    className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${dateFilterBasis === 'pm'
-                        ? 'bg-[#546A7A] text-white shadow-xs'
-                        : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                  >
-                    PM Visits Only
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setDateFilterBasis('expiry')}
-                    className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${dateFilterBasis === 'expiry'
-                        ? 'bg-[#546A7A] text-white shadow-xs'
-                        : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                  >
-                    Contract Expiry Only
-                  </button>
+        {/* Collapsible Filter Panel */}
+        {showFilters && (
+          <div className="px-5 py-4 space-y-3 animate-in slide-in-from-top-2 duration-200">
+            {/* Date Range Row */}
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                    <Calendar className="w-3 h-3" /> Date Basis
+                  </label>
+                  <div className="flex items-center bg-slate-100 p-0.5 rounded-md border border-slate-200">
+                    {(['both', 'pm', 'expiry'] as const).map(basis => (
+                      <button
+                        key={basis}
+                        type="button"
+                        onClick={() => setDateFilterBasis(basis)}
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all ${
+                          dateFilterBasis === basis
+                            ? 'bg-[#546A7A] text-white shadow-xs'
+                            : 'text-slate-500 hover:text-slate-800'
+                        }`}
+                      >
+                        {basis === 'both' ? 'Both' : basis === 'pm' ? 'PM' : 'Expiry'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => setDateFrom(e.target.value)}
+                    className="px-2.5 py-1.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 bg-white font-medium w-[145px]"
+                  />
+                  <span className="text-slate-300 text-xs">→</span>
+                  <input
+                    type="date"
+                    value={dateTo}
+                    onChange={(e) => setDateTo(e.target.value)}
+                    className="px-2.5 py-1.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 bg-white font-medium w-[145px]"
+                  />
                 </div>
               </div>
 
-              {(dateFrom || dateTo) && (
-                <button
-                  type="button"
-                  onClick={() => applyDatePreset('all')}
-                  className="text-xs text-[#82A094] hover:text-[#6e8a7f] font-semibold flex items-center gap-1"
-                >
-                  <X className="w-3.5 h-3.5" /> Clear Range
-                </button>
-              )}
-            </div>
-            <div className="flex flex-wrap items-end gap-3">
-              <div className="space-y-1">
-                <span className="text-[10px] font-medium text-slate-400">From</span>
-                <input
-                  type="date"
-                  value={dateFrom}
-                  onChange={(e) => setDateFrom(e.target.value)}
-                  className="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 bg-white font-medium w-[160px]"
-                />
-              </div>
-              <div className="space-y-1">
-                <span className="text-[10px] font-medium text-slate-400">To</span>
-                <input
-                  type="date"
-                  value={dateTo}
-                  onChange={(e) => setDateTo(e.target.value)}
-                  className="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 bg-white font-medium w-[160px]"
-                />
-              </div>
-
-              {/* Quick Presets */}
-              <div className="flex items-center gap-1.5 flex-wrap pb-0.5">
-                <button
-                  type="button"
-                  onClick={() => applyDatePreset('4_weeks')}
-                  className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors"
-                >
-                  Next 4 Weeks (Default)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => applyDatePreset('this_month')}
-                  className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors"
-                >
-                  This Month
-                </button>
-                <button
-                  type="button"
-                  onClick={() => applyDatePreset('next_month')}
-                  className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors"
-                >
-                  Next Month
-                </button>
-                <button
-                  type="button"
-                  onClick={() => applyDatePreset('this_quarter')}
-                  className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors"
-                >
-                  This Quarter
-                </button>
-                <button
-                  type="button"
-                  onClick={() => applyDatePreset('all')}
-                  className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${!dateFrom && !dateTo ? 'bg-[#546A7A] text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+              {/* Quick Date Presets */}
+              <div className="flex items-center gap-1 flex-wrap pb-0.5">
+                {[
+                  { key: '4_weeks' as const, label: '4 Weeks' },
+                  { key: 'this_month' as const, label: 'This Month' },
+                  { key: 'next_month' as const, label: 'Next Month' },
+                  { key: 'this_quarter' as const, label: 'Quarter' },
+                  { key: 'all' as const, label: 'All' },
+                ].map(p => (
+                  <button
+                    key={p.key}
+                    type="button"
+                    onClick={() => applyDatePreset(p.key)}
+                    className={`px-2 py-1 rounded-md text-[11px] font-semibold transition-colors ${
+                      p.key === 'all' && !dateFrom && !dateTo
+                        ? 'bg-[#546A7A] text-white'
+                        : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
                     }`}
-                >
-                  All Dates
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Divider */}
-          <div className="border-t border-slate-100" />
-
-          {/* Filter Grid — matching ticket report grid layout */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Search */}
-            <div className="space-y-1 sm:col-span-2 lg:col-span-1">
-              <label className="text-xs font-semibold text-slate-600">Search</label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-                <input
-                  type="text"
-                  placeholder="Customer, contract, PO..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#82A094]/30"
-                />
+                  >
+                    {p.label}
+                  </button>
+                ))}
+                {(dateFrom || dateTo) && (
+                  <button
+                    type="button"
+                    onClick={() => applyDatePreset('all')}
+                    className="text-[11px] text-slate-400 hover:text-rose-500 font-medium ml-1 flex items-center gap-0.5"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
               </div>
             </div>
 
-            {/* Zone */}
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-600">Zone</label>
-              <select value={zoneFilter} onChange={(e) => setZoneFilter(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 font-medium">
-                <option value="all">All Zones</option>
-                {uniqueZones.map(z => <option key={z} value={z}>{z} Zone</option>)}
-              </select>
-            </div>
-
-            {/* Status */}
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-600">Status</label>
-              <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 font-medium">
-                <option value="all">All Status</option>
-                <option value="Active">Active</option>
-                <option value="Expiring Soon">Expiring Soon</option>
-                <option value="Expired">Expired</option>
-              </select>
-            </div>
-
-            {/* Responsible Engineer */}
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-600">Responsible Engineer</label>
-              <select value={techFilter} onChange={(e) => setTechFilter(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 font-medium">
-                <option value="all">All Responsible Engineers</option>
-                {uniqueTechnicians.map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
-            </div>
-
-            {/* MC Type */}
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-600">MC Type</label>
-              <select value={mcTypeFilter} onChange={(e) => setMcTypeFilter(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 font-medium">
-                <option value="all">All MC Types</option>
-                {uniqueMcTypes.map(m => <option key={m} value={m}>{m}</option>)}
-              </select>
-            </div>
-
-            {/* PM Progress */}
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-600">PM Status</label>
-              <select value={pmFilter} onChange={(e) => setPmFilter(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 font-medium">
-                <option value="all">All PM Status</option>
-                <option value="completed">100% Completed</option>
-                <option value="on-track">On Track (≥50%)</option>
-                <option value="behind">Behind (&lt;50%)</option>
-                <option value="overdue">Has Overdue PMs</option>
-                <option value="not-started">Not Started (0%)</option>
-              </select>
-            </div>
-
-
-
-            {/* SW Support */}
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-600">SW Support</label>
-              <select value={swFilter} onChange={(e) => setSwFilter(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 font-medium">
-                <option value="all">All</option>
-                <option value="yes">With SW</option>
-                <option value="no">Without SW</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Report Type Info Banner */}
-          <div className="mt-2 p-4 bg-[#96AEC2]/10 rounded-lg border border-[#96AEC2]">
-            <h4 className="font-medium text-[#546A7A]">Customer Portfolio Report</h4>
-            <p className="text-sm text-[#546A7A] mt-1">Comprehensive view of all customers with their contracts, PM schedules, expiry status, and portfolio value grouped by customer.</p>
-          </div>
-
-          {/* Preset Row */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <button
-              onClick={() => setShowPresetSave(!showPresetSave)}
-              className="px-3 py-2 rounded-lg border border-slate-200 text-xs bg-white hover:bg-slate-50 font-medium text-slate-600 flex items-center gap-1.5 transition-colors"
-              title="Save current filters as a preset"
-            >
-              <BookmarkPlus className="w-3.5 h-3.5" />
-              Save Preset
-            </button>
-
-            {filterPresets.map(preset => (
-              <div key={preset.id} className="inline-flex items-center gap-1 group">
-                <button
-                  onClick={() => applyPreset(preset)}
-                  className="px-2.5 py-1.5 rounded-lg bg-[#546A7A]/10 hover:bg-[#546A7A]/20 text-[10px] font-bold text-[#546A7A] transition-colors flex items-center gap-1"
-                  title={`Zone: ${preset.filters.zone} | Status: ${preset.filters.status} | Responsible: ${preset.filters.tech}`}
-                >
-                  <Zap className="w-2.5 h-2.5" />
-                  {preset.name}
-                </button>
-                <button
-                  onClick={() => deletePreset(preset.id)}
-                  className="p-0.5 rounded text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"
-                  title="Delete preset"
-                >
-                  <Trash2 className="w-3 h-3" />
-                </button>
+            {/* Filter Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2.5">
+              {/* Search */}
+              <div className="space-y-0.5 col-span-2 sm:col-span-1">
+                <label className="text-[10px] font-semibold text-slate-500 uppercase">Search</label>
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5" />
+                  <input
+                    type="text"
+                    placeholder="Customer, PO..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="w-full pl-8 pr-2 py-1.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#82A094]/30"
+                  />
+                </div>
               </div>
-            ))}
-          </div>
 
-          {/* Filter Preset Save Form */}
-          {showPresetSave && (
-            <div className="flex items-center gap-2 mt-2 pt-2 border-t border-slate-100 animate-in slide-in-from-top-2 duration-150">
-              <Save className="w-4 h-4 text-[#82A094] flex-shrink-0" />
-              <input
-                type="text"
-                placeholder="Enter preset name (e.g. 'Active East Zone')"
-                value={presetName}
-                onChange={e => setPresetName(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && savePreset()}
-                className="flex-1 px-3 py-1.5 rounded-lg border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-[#82A094]/30"
-              />
-              <button
-                onClick={savePreset}
-                className="px-3 py-1.5 rounded-lg bg-[#82A094] text-white text-xs font-bold hover:bg-[#6d9181] transition-colors"
-              >
-                Save
-              </button>
-              <button
-                onClick={() => { setShowPresetSave(false); setPresetName(''); }}
-                className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs text-slate-500 hover:bg-slate-50 transition-colors"
-              >
-                Cancel
-              </button>
+              {/* Zone */}
+              <div className="space-y-0.5">
+                <label className="text-[10px] font-semibold text-slate-500 uppercase">Zone</label>
+                <select value={zoneFilter} onChange={(e) => setZoneFilter(e.target.value)}
+                  className="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 font-medium">
+                  <option value="all">All</option>
+                  {uniqueZones.map(z => <option key={z} value={z}>{z}</option>)}
+                </select>
+              </div>
+
+              {/* Status */}
+              <div className="space-y-0.5">
+                <label className="text-[10px] font-semibold text-slate-500 uppercase">Status</label>
+                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
+                  className="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 font-medium">
+                  <option value="all">All</option>
+                  <option value="Active">Active</option>
+                  <option value="Expiring Soon">Expiring</option>
+                  <option value="Expired">Expired</option>
+                </select>
+              </div>
+
+              {/* Engineer */}
+              <div className="space-y-0.5">
+                <label className="text-[10px] font-semibold text-slate-500 uppercase">Engineer</label>
+                <select value={techFilter} onChange={(e) => setTechFilter(e.target.value)}
+                  className="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 font-medium">
+                  <option value="all">All</option>
+                  {uniqueTechnicians.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+
+              {/* MC Type */}
+              <div className="space-y-0.5">
+                <label className="text-[10px] font-semibold text-slate-500 uppercase">MC Type</label>
+                <select value={mcTypeFilter} onChange={(e) => setMcTypeFilter(e.target.value)}
+                  className="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 font-medium">
+                  <option value="all">All</option>
+                  {uniqueMcTypes.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </div>
+
+              {/* PM Status */}
+              <div className="space-y-0.5">
+                <label className="text-[10px] font-semibold text-slate-500 uppercase">PM Status</label>
+                <select value={pmFilter} onChange={(e) => setPmFilter(e.target.value)}
+                  className="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 font-medium">
+                  <option value="all">All</option>
+                  <option value="completed">100% Done</option>
+                  <option value="on-track">On Track (≥50%)</option>
+                  <option value="behind">Behind (&lt;50%)</option>
+                  <option value="overdue">Overdue</option>
+                  <option value="not-started">Not Started</option>
+                </select>
+              </div>
+
+              {/* SW Support */}
+              <div className="space-y-0.5">
+                <label className="text-[10px] font-semibold text-slate-500 uppercase">SW</label>
+                <select value={swFilter} onChange={(e) => setSwFilter(e.target.value)}
+                  className="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 font-medium">
+                  <option value="all">All</option>
+                  <option value="yes">With SW</option>
+                  <option value="no">Without SW</option>
+                </select>
+              </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* ═══ NOT GENERATED STATE ═══ */}
       {!hasGenerated && !loading && (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-12 sm:p-16 text-center">
-          <div className="w-16 h-16 rounded-2xl bg-[#546A7A]/10 text-[#546A7A] flex items-center justify-center mx-auto mb-4">
-            <BarChart3 className="w-8 h-8" />
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-12 text-center">
+          <div className="w-14 h-14 rounded-xl bg-[#546A7A]/10 text-[#546A7A] flex items-center justify-center mx-auto mb-3">
+            <BarChart3 className="w-7 h-7" />
           </div>
-          <h3 className="text-lg sm:text-xl font-bold text-slate-800">Ready to Generate Report</h3>
-          <p className="text-sm text-slate-500 max-w-md mx-auto mt-1 mb-6">
-            Configure your parameters above and click &quot;Generate Report&quot; to view contract analytics and PM schedules.
+          <h3 className="text-lg font-bold text-slate-800">Ready to Generate</h3>
+          <p className="text-sm text-slate-500 max-w-md mx-auto mt-1 mb-5">
+            Set your filters above and click &quot;Generate&quot; to view contract analytics.
           </p>
           <button
             onClick={fetchContracts}
             disabled={loading}
-            className="inline-flex items-center justify-center gap-2 bg-[#6F8A9D] hover:bg-[#546A7A] text-white font-bold py-3 px-6 rounded-xl shadow-md hover:shadow-lg transition-all"
+            className="inline-flex items-center gap-2 bg-[#546A7A] hover:bg-[#435562] text-white font-bold py-2.5 px-5 rounded-lg shadow-sm transition-all"
           >
-            <BarChart3 className="w-5 h-5" />
+            <BarChart3 className="w-4 h-4" />
             Generate Report
           </button>
         </div>
       )}
 
-      {/* ═══ DYNAMIC SUMMARY KPI CARDS & REPORT (ONLY AFTER GENERATING) ═══ */}
+      {/* ═══ KPI STRIP + TABLE (ONLY AFTER GENERATING) ═══ */}
       {hasGenerated && (
         <>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {reportType === 'customer-portfolio' && (
-              <>
-                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-[#82A094]/10 flex items-center justify-center text-[#82A094] flex-shrink-0">
-                    <Building2 className="w-5 h-5" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Total Customers</p>
-                    <p className="text-lg font-extrabold text-slate-800">{selectedSummary.totalCustomers}</p>
-                  </div>
-                </div>
-                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-[#546A7A]/10 flex items-center justify-center text-[#546A7A] flex-shrink-0">
-                    <FileText className="w-5 h-5" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Total Agreements</p>
-                    <p className="text-lg font-extrabold text-slate-800">{selectedSummary.totalContracts}</p>
-                    <span className="text-[10px] text-emerald-600 font-bold block">{selectedSummary.active} Active</span>
-                  </div>
-                </div>
-                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-600 flex-shrink-0">
-                    <IndianRupee className="w-5 h-5" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Portfolio Value</p>
-                    <p className="text-lg font-extrabold text-slate-800">{formatCurrency(selectedSummary.totalValue || 0)}</p>
-                  </div>
-                </div>
-                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 flex-shrink-0">
-                    <TrendingUp className="w-5 h-5" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
-                      {(dateFrom || dateTo) ? 'Pending PM Visits' : 'PM Done %'}
-                    </p>
-                    <p className="text-lg font-extrabold text-indigo-600">
-                      {(dateFrom || dateTo) ? selectedSummary.pmTotal : `${selectedSummary.pmPct}%`}
-                    </p>
-                    <span className="text-[10px] text-rose-600 font-bold block">
-                      {selectedSummary.pmOverdue} Overdue
-                    </span>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* ═══ PM COMPLETION OVERVIEW BAR ═══ */}
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex flex-col sm:flex-row items-center gap-4">
-            <div className="flex items-center gap-3 flex-shrink-0">
-              <div className="relative w-14 h-14 flex items-center justify-center">
-                <svg className="w-14 h-14 transform -rotate-90" viewBox="0 0 64 64">
-                  <circle cx="32" cy="32" r="26" fill="none" stroke="#e2e8f0" strokeWidth="5" />
-                  <circle
-                    cx="32" cy="32" r="26" fill="none"
-                    stroke={(dateFrom || dateTo) ? (selectedSummary.pmOverdue > 0 ? '#ef4444' : '#6F8A9D') : (Number(selectedSummary.pmPct || 0) >= 75 ? '#10b981' : Number(selectedSummary.pmPct || 0) >= 40 ? '#f59e0b' : '#ef4444')}
-                    strokeWidth="5" strokeLinecap="round"
-                    strokeDasharray={2 * Math.PI * 26}
-                    strokeDashoffset={(dateFrom || dateTo) ? 0 : (2 * Math.PI * 26 - (Number(selectedSummary.pmPct || 0) / 100) * 2 * Math.PI * 26)}
-                    className="transition-all duration-700 ease-out"
-                  />
-                </svg>
-                <span className="absolute text-xs font-extrabold text-slate-700">
-                  {(dateFrom || dateTo) ? selectedSummary.pmTotal : `${selectedSummary.pmPct || 0}%`}
-                </span>
+          {/* Compact KPI Strip */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+            <div className="bg-white rounded-xl border border-slate-100 shadow-sm px-4 py-3 flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-lg bg-[#82A094]/10 flex items-center justify-center text-[#82A094] flex-shrink-0">
+                <Building2 className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Customers</p>
+                <p className="text-base font-extrabold text-slate-800">{selectedSummary.totalCustomers}</p>
               </div>
             </div>
-            <div className="flex-1 min-w-0">
-              <h3 className="text-sm font-bold text-slate-800">
-                {(dateFrom || dateTo) ? 'Pending PM Visits Execution Scope' : 'Preventive Maintenance Overview'}
-              </h3>
-              <p className="text-xs text-slate-400 mt-0.5">
-                {(dateFrom || dateTo)
-                  ? `Across all filtered records: ${selectedSummary.pmTotal || 0} pending PM visits ending within filter window • ${selectedSummary.pmOverdue || 0} overdue for action`
-                  : `Across all filtered records: ${selectedSummary.pmCompleted || 0} of ${selectedSummary.pmTotal || 0} PM visits completed • ${selectedSummary.pmOverdue || 0} overdue`}
-              </p>
-              <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden mt-2">
-                <div
-                  className="h-full rounded-full transition-all duration-700 ease-out"
-                  style={{
-                    width: (dateFrom || dateTo) ? '100%' : `${selectedSummary.pmPct || 0}%`,
-                    background: (dateFrom || dateTo)
-                      ? (selectedSummary.pmOverdue > 0 ? '#ef4444' : '#6F8A9D')
-                      : (Number(selectedSummary.pmPct || 0) >= 75 ? '#10b981' : Number(selectedSummary.pmPct || 0) >= 40 ? '#f59e0b' : '#ef4444'),
-                  }}
-                />
+            <div className="bg-white rounded-xl border border-slate-100 shadow-sm px-4 py-3 flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-lg bg-[#546A7A]/10 flex items-center justify-center text-[#546A7A] flex-shrink-0">
+                <FileText className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Agreements</p>
+                <p className="text-base font-extrabold text-slate-800">{selectedSummary.totalContracts}</p>
+                <span className="text-[9px] text-emerald-600 font-bold">{selectedSummary.active} Active</span>
+              </div>
+            </div>
+            <div className="bg-white rounded-xl border border-slate-100 shadow-sm px-4 py-3 flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-600 flex-shrink-0">
+                <IndianRupee className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Value</p>
+                <p className="text-base font-extrabold text-slate-800">{formatCurrency(selectedSummary.totalValue || 0)}</p>
+              </div>
+            </div>
+            <div className="bg-white rounded-xl border border-slate-100 shadow-sm px-4 py-3 flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-600 flex-shrink-0">
+                <CheckCircle className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Active / Expiring</p>
+                <p className="text-base font-extrabold text-slate-800">
+                  {selectedSummary.active} <span className="text-amber-600 text-xs font-bold">/ {selectedSummary.expiring}</span>
+                </p>
+              </div>
+            </div>
+            <div className="bg-white rounded-xl border border-slate-100 shadow-sm px-4 py-3 flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-600 flex-shrink-0">
+                <TrendingUp className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+                  {(dateFrom || dateTo) ? 'Pending PMs' : 'PM Done'}
+                </p>
+                <p className="text-base font-extrabold text-indigo-600">
+                  {(dateFrom || dateTo) ? selectedSummary.pmTotal : `${selectedSummary.pmPct}%`}
+                </p>
+              </div>
+            </div>
+            <div className="bg-white rounded-xl border border-slate-100 shadow-sm px-4 py-3 flex items-center gap-2.5">
+              <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                selectedSummary.pmOverdue > 0 ? 'bg-rose-500/10 text-rose-600' : 'bg-slate-100 text-slate-400'
+              }`}>
+                <AlertTriangle className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Overdue</p>
+                <p className={`text-base font-extrabold ${selectedSummary.pmOverdue > 0 ? 'text-rose-600' : 'text-slate-400'}`}>
+                  {selectedSummary.pmOverdue}
+                </p>
               </div>
             </div>
           </div>
 
-          {/* ═══ TABLE / LIST CONTAINER ═══ */}
+          {/* ═══ MAIN TABLE ═══ */}
           {loading ? (
-            <div className="bg-white rounded-2xl border border-slate-100 p-16 text-center shadow-sm">
+            <div className="bg-white rounded-xl border border-slate-200 p-16 text-center shadow-sm">
               <div className="w-10 h-10 border-4 border-[#82A094] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-              <p className="text-slate-400 text-sm">Loading reports data...</p>
+              <p className="text-slate-500 text-sm font-semibold">Loading contract analytics...</p>
             </div>
           ) : customerSummaries.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-slate-100 p-16 text-center shadow-sm space-y-3">
+            <div className="bg-white rounded-xl border border-slate-200 p-16 text-center shadow-sm space-y-3">
               <Building2 className="w-12 h-12 text-slate-300 mx-auto" />
-              <p className="text-slate-400 text-sm font-medium">No customers match the current filter criteria.</p>
+              <p className="text-slate-500 text-sm font-medium">No contracts match current filters.</p>
+              <button
+                type="button"
+                onClick={resetAllFilters}
+                className="px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors"
+              >
+                Reset All Filters
+              </button>
             </div>
           ) : (
-            <div className="space-y-3">
-              {/* 1. CUSTOMER PORTFOLIO LAYOUT */}
-              {reportType === 'customer-portfolio' && (
-                <>
-                  {/* Header Row */}
-                  <div className="bg-[#546A7A] text-white rounded-t-2xl px-5 py-3 text-xs font-bold flex items-center justify-between shadow-sm select-none">
-                    <div className="flex-1 cursor-pointer" onClick={() => handleSort('customerName')}>
-                      Customer Details <SortIcon col="customerName" />
-                    </div>
-                    <div className="flex items-center gap-4 text-right">
-                      <div className="w-24 cursor-pointer text-center" onClick={() => handleSort('zoneName')}>
-                        Zone <SortIcon col="zoneName" />
-                      </div>
-                      <div className="w-24 cursor-pointer text-center" onClick={() => handleSort('totalContracts')}>
-                        Contracts <SortIcon col="totalContracts" />
-                      </div>
-                      <div className="w-32 cursor-pointer text-center" onClick={() => handleSort('pmPercentage')}>
-                        PM Done <SortIcon col="pmPercentage" />
-                      </div>
-                      <div className="w-32 cursor-pointer text-right" onClick={() => handleSort('totalValue')}>
-                        Total Portfolio <SortIcon col="totalValue" />
-                      </div>
-                      <div className="w-8"></div>
-                    </div>
-                  </div>
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+              {/* Table Toolbar */}
+              <div className="px-4 py-2.5 bg-slate-50/80 border-b border-slate-200 flex items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#546A7A] text-white text-[11px] font-bold">
+                    {customerSummaries.length}
+                  </span>
+                  <span className="font-semibold text-slate-700">Accounts</span>
+                  <span className="text-slate-300">•</span>
+                  <span>
+                    <strong className="text-slate-800">{selectedSummary.totalContracts}</strong> Agreements
+                  </span>
+                  <span className="text-slate-300">•</span>
+                  <span>
+                    <strong className="text-slate-800">{selectedSummary.totalMachines}</strong> Machines
+                  </span>
+                  <span className="text-slate-300">•</span>
+                  <span>
+                    Value: <strong className="text-slate-900">{formatCurrency(selectedSummary.totalValue)}</strong>
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleExpandAll}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-xs font-semibold text-slate-700 transition-all shadow-xs flex-shrink-0"
+                  title={expandedCustomerIds.size === customerSummaries.length ? 'Collapse All' : 'Expand All'}
+                >
+                  <Layers className="w-3.5 h-3.5 text-[#546A7A]" />
+                  {expandedCustomerIds.size === customerSummaries.length ? 'Collapse All' : 'Expand All'}
+                </button>
+              </div>
 
-                  {/* Customer Rows */}
-                  {customerSummaries.map((cs, idx) => {
-                    const isExpanded = expandedCustomerId === (cs.customerId || cs.customerName);
-                    return (
-                      <div
-                        key={`cust-${cs.customerId || idx}`}
-                        className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all overflow-hidden"
+              {/* Table */}
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse min-w-[1050px]">
+                  <thead>
+                    <tr className="bg-[#546A7A] text-white text-[11px] font-bold uppercase tracking-wider select-none border-b border-[#435562]">
+                      <th className="py-2.5 px-3 text-center w-10 text-white/80">#</th>
+                      <th
+                        className="py-2.5 px-4 cursor-pointer hover:bg-white/10 transition-colors group"
+                        onClick={() => handleSort('customerName')}
                       >
-                        <div
-                          className="p-5 flex items-center justify-between gap-4 cursor-pointer"
-                          onClick={() => setExpandedCustomerId(isExpanded ? null : (cs.customerId || cs.customerName))}
-                        >
-                          <div className="flex items-center gap-4 min-w-0 flex-1">
-                            <div className={`w-11 h-11 rounded-2xl bg-gradient-to-br ${getCustomerColorClass(cs.customerName)} flex items-center justify-center text-white text-sm font-extrabold flex-shrink-0 shadow-sm`}>
-                              {(cs.customerName || 'C').charAt(0).toUpperCase()}
-                            </div>
-                            <div className="min-w-0">
-                              <h3 className="font-extrabold text-slate-850 text-sm truncate flex items-center gap-2">
-                                {cs.customerName || 'Unassigned'}
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    router.push(`${getBaseRoute()}/customers/${cs.customerId}`);
-                                  }}
-                                  className="text-slate-400 hover:text-[#82A094] p-0.5"
-                                  title="Open Customer Account"
-                                >
-                                  <ExternalLink className="w-3.5 h-3.5" />
-                                </button>
-                              </h3>
-                              <div className="flex items-center gap-2 text-xs text-slate-400 mt-0.5">
-                                <MapPin className="w-3 h-3 flex-shrink-0" />
-                                <span className="truncate">{cs.place || '—'}</span>
+                        <div className="flex items-center gap-1">
+                          <span>Customer</span>
+                          <SortIcon col="customerName" />
+                        </div>
+                      </th>
+                      <th
+                        className="py-2.5 px-3 text-center w-20 cursor-pointer hover:bg-white/10 transition-colors group"
+                        onClick={() => handleSort('zoneName')}
+                      >
+                        <div className="flex items-center justify-center gap-1">
+                          <span>Zone</span>
+                          <SortIcon col="zoneName" />
+                        </div>
+                      </th>
+                      <th
+                        className="py-2.5 px-3 text-center w-24 cursor-pointer hover:bg-white/10 transition-colors group"
+                        onClick={() => handleSort('totalContracts')}
+                      >
+                        <div className="flex items-center justify-center gap-1">
+                          <span>Contracts</span>
+                          <SortIcon col="totalContracts" />
+                        </div>
+                      </th>
+                      <th
+                        className="py-2.5 px-3 text-center w-24 cursor-pointer hover:bg-white/10 transition-colors group"
+                        onClick={() => handleSort('totalMachines')}
+                      >
+                        <div className="flex items-center justify-center gap-1">
+                          <span>Machines</span>
+                          <SortIcon col="totalMachines" />
+                        </div>
+                      </th>
+                      <th
+                        className="py-2.5 px-4 text-right w-32 cursor-pointer hover:bg-white/10 transition-colors group"
+                        onClick={() => handleSort('totalValue')}
+                      >
+                        <div className="flex items-center justify-end gap-1">
+                          <span>Value</span>
+                          <SortIcon col="totalValue" />
+                        </div>
+                      </th>
+                      <th
+                        className="py-2.5 px-4 text-center w-40 cursor-pointer hover:bg-white/10 transition-colors group"
+                        onClick={() => handleSort('pmPercentage')}
+                      >
+                        <div className="flex items-center justify-center gap-1">
+                          <span>{(dateFrom || dateTo) ? 'Pending PMs' : 'PM %'}</span>
+                          <SortIcon col="pmPercentage" />
+                        </div>
+                      </th>
+                      <th className="py-2.5 px-3 text-left w-40 text-white/90">Engineers</th>
+                      <th className="py-2.5 px-2 text-center w-12 text-white/80"></th>
+                    </tr>
+                  </thead>
+
+                  <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
+                    {customerSummaries.map((cs, idx) => {
+                      const custId = cs.customerId || cs.customerName;
+                      const isExpanded = expandedCustomerIds.has(custId);
+                      const engNames = Array.from(new Set(cs.contracts.flatMap(c => normalizeEngineerNames(c.responsible)))).filter(Boolean);
+                      const engText = engNames.join(', ');
+                      const uniqueSlas = Array.from(new Set(cs.contracts.map(c => c.mcType).filter(Boolean)));
+                      const expiringCount = cs.contracts.filter(c => c.status === 'Expiring Soon').length;
+                      const expiredCount = cs.contracts.filter(c => c.status === 'Expired').length;
+
+                      return (
+                        <Fragment key={`cust-${custId}-${idx}`}>
+                          {/* Customer Row */}
+                          <tr
+                            onClick={() => toggleExpand(custId)}
+                            className={`group cursor-pointer transition-colors duration-150 ${
+                              isExpanded
+                                ? 'bg-[#546A7A]/[0.04] font-medium border-l-[3px] border-l-[#82A094]'
+                                : idx % 2 === 1
+                                ? 'bg-slate-50/50 hover:bg-[#82A094]/[0.04]'
+                                : 'bg-white hover:bg-[#82A094]/[0.04]'
+                            }`}
+                          >
+                            <td className="py-3 px-3 text-center font-bold text-slate-400 text-[11px]">
+                              {idx + 1}
+                            </td>
+
+                            {/* Customer */}
+                            <td className="py-3 px-4 min-w-[220px]">
+                              <div className="flex items-center gap-2.5">
+                                <div className={`w-7 h-7 rounded-md bg-gradient-to-br ${getCustomerColorClass(cs.customerName)} flex items-center justify-center text-white text-[10px] font-extrabold flex-shrink-0`}>
+                                  {(cs.customerName || 'C').charAt(0).toUpperCase()}
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="font-bold text-slate-900 text-xs hover:text-[#546A7A] transition-colors truncate max-w-[200px]">
+                                      {cs.customerName || 'Unassigned'}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        router.push(`${getBaseRoute()}/customers/${cs.customerId}`);
+                                      }}
+                                      className="text-slate-300 hover:text-[#82A094] p-0.5 transition-colors opacity-0 group-hover:opacity-100"
+                                      title="Open Customer"
+                                    >
+                                      <ExternalLink className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 text-[10px] text-slate-400 mt-0.5">
+                                    <MapPin className="w-2.5 h-2.5 flex-shrink-0" />
+                                    <span className="truncate">{cs.place || '—'}</span>
+                                    {uniqueSlas.length > 0 && (
+                                      <>
+                                        <span className="text-slate-200">|</span>
+                                        {uniqueSlas.map(sla => (
+                                          <span key={sla} className={`px-1 py-px rounded text-[8px] font-bold ${getSlaColor(sla)}`}>
+                                            {sla}
+                                          </span>
+                                        ))}
+                                      </>
+                                    )}
+                                    {cs.hasSoftwareSupport && (
+                                      <span className="inline-flex items-center gap-0.5 px-1 py-px rounded text-[8px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100">
+                                        <ShieldCheck className="w-2 h-2" />SW
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
                               </div>
+                            </td>
 
-                              <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
-                                {Array.from(new Set(cs.contracts.map(c => c.mcType).filter(Boolean))).map(sla => (
-                                  <span key={sla} className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${getSlaColor(sla)}`}>
-                                    {sla}
-                                  </span>
-                                ))}
-
-                                {cs.hasSoftwareSupport && (
-                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-50 text-indigo-650 border border-indigo-100">
-                                    <ShieldCheck className="w-2.5 h-2.5" />
-                                    SW Support
-                                  </span>
-                                )}
-
-                                {cs.contracts.filter(c => c.status === 'Expiring Soon').length > 0 && (
-                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-100">
-                                    <AlertTriangle className="w-2.5 h-2.5" />
-                                    {cs.contracts.filter(c => c.status === 'Expiring Soon').length} Expiring Soon
-                                  </span>
-                                )}
-                                {cs.contracts.filter(c => c.status === 'Expired').length > 0 && (
-                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-rose-50 text-rose-700 border border-rose-100">
-                                    <Clock className="w-2.5 h-2.5" />
-                                    {cs.contracts.filter(c => c.status === 'Expired').length} Expired
-                                  </span>
-                                )}
-
-                                {cs.contracts.some(c => c.responsible) && (
-                                  <span className="text-[10px] text-slate-400 font-medium ml-1">
-                                    • Resp: {Array.from(new Set(cs.contracts.flatMap(c => normalizeEngineerNames(c.responsible)))).join(', ')}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-4 text-xs font-semibold flex-shrink-0">
-                            <div className="w-24 text-center">
-                              <span className="px-2.5 py-0.5 rounded-full bg-[#82A094]/15 text-[#546A7A] text-[10px] font-bold">
+                            {/* Zone */}
+                            <td className="py-3 px-3 text-center whitespace-nowrap">
+                              <span className="inline-flex px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600">
                                 {cs.zoneName || '—'}
                               </span>
-                            </div>
+                            </td>
 
-                            <div className="w-24 text-center">
-                              <span className="text-slate-700 font-extrabold">{cs.totalContracts}</span>
-                              {cs.activeContracts > 0 && (
-                                <span className="text-emerald-600 text-[10px] block font-bold">{cs.activeContracts} Active</span>
-                              )}
-                            </div>
+                            {/* Contracts */}
+                            <td className="py-3 px-3 text-center whitespace-nowrap">
+                              <span className="font-extrabold text-slate-800 text-sm">{cs.totalContracts}</span>
+                              <div className="flex items-center justify-center gap-1 text-[9px] font-bold mt-0.5">
+                                <span className="text-emerald-600">{cs.activeContracts}A</span>
+                                {expiringCount > 0 && <span className="text-amber-600">{expiringCount}E</span>}
+                                {expiredCount > 0 && <span className="text-rose-600">{expiredCount}X</span>}
+                              </div>
+                            </td>
 
-                            <div className="w-32 flex flex-col items-center">
+                            {/* Machines */}
+                            <td className="py-3 px-3 text-center whitespace-nowrap">
+                              <span className="font-extrabold text-slate-800 text-sm">{cs.totalMachines}</span>
+                            </td>
+
+                            {/* Value */}
+                            <td className="py-3 px-4 text-right whitespace-nowrap">
+                              <div className="font-extrabold text-slate-900 text-xs font-mono">
+                                {formatCurrency(cs.totalValue)}
+                              </div>
+                              <div className="text-[9px] text-slate-400">
+                                {selectedSummary.totalValue > 0
+                                  ? `${((cs.totalValue / selectedSummary.totalValue) * 100).toFixed(1)}%`
+                                  : '—'}
+                              </div>
+                            </td>
+
+                            {/* PM */}
+                            <td className="py-3 px-4 text-center whitespace-nowrap">
                               {(dateFrom || dateTo) ? (
-                                <div className="text-center">
-                                  <span className="font-extrabold text-[#546A7A] text-xs">
-                                    {cs.pmTotal} Pending PM{cs.pmTotal !== 1 ? 's' : ''}
+                                <div className="inline-flex flex-col items-center">
+                                  <span className="font-bold text-[#546A7A] text-xs">
+                                    {cs.pmTotal} Pending
                                   </span>
                                   {cs.pmOverdue > 0 && (
-                                    <span className="text-rose-600 font-bold text-[9px] block uppercase tracking-wider">
-                                      {cs.pmOverdue} Overdue
-                                    </span>
+                                    <span className="text-[9px] text-rose-600 font-bold">{cs.pmOverdue} Overdue</span>
                                   )}
                                 </div>
                               ) : (
-                                <>
-                                  <div className="flex items-center gap-1.5 justify-center">
-                                    <span className={`font-extrabold ${cs.pmPercentage >= 75 ? 'text-emerald-600' : cs.pmPercentage >= 40 ? 'text-amber-600' : 'text-rose-600'}`}>
-                                      {cs.pmPercentage}%
-                                    </span>
-                                    <div className="w-12 bg-slate-200 h-1.5 rounded-full overflow-hidden">
-                                      <div
-                                        className="h-full rounded-full"
-                                        style={{
-                                          width: `${cs.pmPercentage}%`,
-                                          background: cs.pmPercentage >= 75 ? '#10b981' : cs.pmPercentage >= 40 ? '#f59e0b' : '#ef4444',
-                                        }}
-                                      />
-                                    </div>
+                                <div className="flex items-center justify-center gap-1.5">
+                                  <span className={`font-extrabold text-xs ${
+                                    cs.pmPercentage >= 75 ? 'text-emerald-600' : cs.pmPercentage >= 40 ? 'text-amber-600' : 'text-rose-600'
+                                  }`}>
+                                    {cs.pmPercentage}%
+                                  </span>
+                                  <div className="w-12 bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                                    <div
+                                      className="h-full rounded-full transition-all duration-500"
+                                      style={{
+                                        width: `${cs.pmPercentage}%`,
+                                        background: cs.pmPercentage >= 75 ? '#10b981' : cs.pmPercentage >= 40 ? '#f59e0b' : '#ef4444',
+                                      }}
+                                    />
                                   </div>
                                   {cs.pmOverdue > 0 && (
-                                    <span className="text-rose-600 font-bold text-[9px] mt-0.5 uppercase tracking-wider">{cs.pmOverdue} Overdue</span>
+                                    <span className="text-[9px] text-rose-600 font-bold">!{cs.pmOverdue}</span>
                                   )}
-                                </>
+                                </div>
                               )}
-                            </div>
+                            </td>
 
-                            <div className="w-32 text-right">
-                              <span className="text-sm font-extrabold text-slate-800">{formatCurrency(cs.totalValue)}</span>
-                              <span className="text-[10px] text-slate-400 block font-medium">{cs.totalMachines} Machine{cs.totalMachines !== 1 ? 's' : ''}</span>
-                            </div>
+                            {/* Engineers */}
+                            <td className="py-3 px-3 text-left">
+                              <span className="text-xs text-slate-600 font-medium truncate block max-w-[150px]" title={engText}>
+                                {engText || '—'}
+                              </span>
+                            </td>
 
-                            <div className="w-8 flex justify-center">
-                              {isExpanded ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
-                            </div>
-                          </div>
-                        </div>
+                            {/* Chevron */}
+                            <td className="py-3 px-2 text-center">
+                              <button
+                                type="button"
+                                className={`w-6 h-6 rounded-md border flex items-center justify-center transition-all ${
+                                  isExpanded
+                                    ? 'bg-[#546A7A] text-white border-[#546A7A]'
+                                    : 'border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-slate-100'
+                                }`}
+                              >
+                                <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                              </button>
+                            </td>
+                          </tr>
 
-                        {isExpanded && (
-                          <div className="border-t border-slate-100 bg-slate-50/50 p-4 space-y-4 animate-in slide-in-from-top-2 duration-200">
-                            <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-2">
-                              <FileText className="w-3.5 h-3.5 text-[#82A094]" />
-                              Contracts details for {cs.customerName} ({cs.contracts.length})
-                            </h4>
-                            <div className="space-y-3">
-                              {cs.contracts.map((contract, cIdx) => {
-                                const daysLeft = getDaysRemaining(contract.endDate);
-                                return (
-                                  <div key={`c-${contract.id}`} className="bg-white rounded-xl border border-slate-100 p-4 shadow-sm">
-                                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                                      <div className="flex items-center gap-3">
-                                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#546A7A] to-[#6F8A9D] flex items-center justify-center text-white text-xs font-bold">
-                                          {cIdx + 1}
-                                        </div>
-                                        <div className="flex flex-col">
-                                          <div className="flex items-center gap-2 flex-wrap">
-                                            <span className="font-extrabold text-slate-800 text-xs">{contract.contractNumber}</span>
-                                            {(() => {
-                                              const dept = extractDepartmentFromCustomer(contract.customerName, cs.customerName);
-                                              if (dept && dept !== '—') {
-                                                return (
-                                                  <span className="px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-700 text-[10px] font-bold shadow-xs" title="Department">
+                          {/* Expanded Sub-Table */}
+                          {isExpanded && (
+                            <tr className="bg-slate-50/80 border-b border-slate-200">
+                              <td colSpan={9} className="p-3 sm:p-4">
+                                <div className="bg-white rounded-lg border border-slate-200 shadow-xs overflow-hidden animate-in fade-in duration-200">
+                                  <div className="px-4 py-2 bg-gradient-to-r from-slate-100 via-slate-50 to-white border-b border-slate-200 flex items-center justify-between">
+                                    <h4 className="text-[11px] font-bold text-slate-800 flex items-center gap-1.5">
+                                      <FileText className="w-3.5 h-3.5 text-[#82A094]" />
+                                      <span className="text-[#546A7A]">{cs.customerName}</span> — {cs.contracts.length} agreements
+                                    </h4>
+                                    <button
+                                      type="button"
+                                      onClick={() => router.push(`${getBaseRoute()}/customers/${cs.customerId}`)}
+                                      className="inline-flex items-center gap-1 text-[10px] font-bold text-[#546A7A] hover:text-[#82A094] transition-colors"
+                                    >
+                                      Account <ExternalLink className="w-2.5 h-2.5" />
+                                    </button>
+                                  </div>
+
+                                  <div className="overflow-x-auto">
+                                    <table className="w-full text-left text-xs border-collapse">
+                                      <thead>
+                                        <tr className="bg-slate-100/90 text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">
+                                          <th className="py-2 px-3 text-center w-8">#</th>
+                                          <th className="py-2 px-3">Contract / PO</th>
+                                          <th className="py-2 px-3">Dept</th>
+                                          <th className="py-2 px-3 text-center">MC Type</th>
+                                          <th className="py-2 px-3">Period</th>
+                                          <th className="py-2 px-3 text-center">MC</th>
+                                          <th className="py-2 px-3 text-right">Amount</th>
+                                          <th className="py-2 px-3">PM Cycles</th>
+                                          <th className="py-2 px-3 text-center">Status</th>
+                                          <th className="py-2 px-3">Engineer</th>
+                                          <th className="py-2 px-3 text-center w-14"></th>
+                                        </tr>
+                                      </thead>
+                                      <tbody className="divide-y divide-slate-100">
+                                        {cs.contracts.map((contract, cIdx) => {
+                                          const daysLeft = getDaysRemaining(contract.endDate);
+                                          const dept = extractDepartmentFromCustomer(contract.customerName, cs.customerName);
+                                          return (
+                                            <tr key={contract.id} className="hover:bg-slate-50/80 transition-colors">
+                                              <td className="py-2 px-3 text-center font-bold text-slate-400 text-[10px]">
+                                                {cIdx + 1}
+                                              </td>
+                                              <td className="py-2 px-3">
+                                                <div className="font-bold text-slate-800 text-[11px]">
+                                                  {contract.contractNumber}
+                                                </div>
+                                                {contract.poNo && (
+                                                  <div className="text-[10px] text-slate-400">PO: {contract.poNo}</div>
+                                                )}
+                                              </td>
+                                              <td className="py-2 px-3">
+                                                {dept && dept !== '—' ? (
+                                                  <span className="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-600 text-[10px] font-semibold">
                                                     {dept}
                                                   </span>
-                                                );
-                                              }
-                                              return null;
-                                            })()}
-                                            {contract.poNo && <span className="text-[10px] font-semibold text-slate-400">(PO: {contract.poNo})</span>}
-                                            <span className={`px-2 py-0.5 rounded-full border text-[9px] font-bold ${getStatusBadge(contract.status)}`}>
-                                              {contract.status}
-                                            </span>
-                                            <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${getSlaColor(contract.mcType)}`}>
-                                              {contract.mcType}
-                                            </span>
-                                          </div>
-                                          <div className="text-[11px] text-slate-400 mt-1 flex gap-3">
-                                            <span>End Date: <strong className="text-slate-600 font-semibold">{formatDate(contract.endDate)}</strong></span>
-                                            <span>•</span>
-                                            <span className={daysLeft <= 0 ? 'text-rose-600 font-bold' : daysLeft <= 30 ? 'text-amber-600 font-bold' : 'text-slate-500'}>
-                                              {daysLeft < 0 ? `Overdue by ${Math.abs(daysLeft)} Days` : `${daysLeft} Days Remaining`}
-                                            </span>
-                                            <span>•</span>
-                                            <span>Responsible: <strong className="text-slate-600 font-semibold">{formatEngineerDisplayName(contract.responsible)}</strong></span>
-                                          </div>
-                                        </div>
-                                      </div>
-
-                                      <div className="flex items-center gap-4 justify-between lg:justify-end">
-                                        <div className="flex gap-1 items-center">
-                                          {contract.pmSchedules.map((p, pidx) => {
-                                            if (p.status === 'Not Applicable') return null;
-                                            const done = p.status === 'Completed';
-                                            const overdue = !done && p.range && isRangeOverdue(p.range);
-                                            return (
-                                              <div
-                                                key={pidx}
-                                                className={`w-6 h-6 rounded-lg flex items-center justify-center text-[9px] font-bold border transition-all ${done
-                                                  ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'
-                                                  : overdue
-                                                    ? 'bg-rose-500/10 text-rose-700 border-rose-500/20'
-                                                    : 'bg-amber-500/10 text-amber-700 border-amber-500/20'
-                                                  }`}
-                                                title={`PM Visit ${p.pmNumber}: ${p.status}\nRange: ${p.range}`}
-                                              >
-                                                {done ? '✓' : overdue ? '!' : p.pmNumber}
-                                              </div>
-                                            );
-                                          })}
-                                        </div>
-
-                                        <div className="text-right">
-                                          <div className="text-xs font-extrabold text-slate-800">{formatCurrency(contract.amount)}</div>
-                                          <div className="text-[10px] text-slate-400 font-medium">{contract.noOfMachine} Machine{contract.noOfMachine !== 1 ? 's' : ''}</div>
-                                        </div>
-
-                                        <button
-                                          type="button"
-                                          onClick={() => router.push(`${getBaseRoute()}/contracts/${contract.id}`)}
-                                          className="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-55 text-[10px] font-bold text-slate-600 transition-colors"
-                                        >
-                                          Open Agreement
-                                        </button>
-                                      </div>
-                                    </div>
-
-                                    <div className="mt-3 pt-3 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                                      {(() => {
-                                        const activePMs = (contract.pmSchedules || []).filter(p => {
-                                          if (p.status === 'Not Applicable' || p.status === 'Completed') return false;
-                                          if (dateFrom || dateTo) return isPMEndDateInRange(p.range, dateFrom, dateTo);
-                                          return true;
-                                        });
-
-                                        if (activePMs.length === 0) {
-                                          return (
-                                            <div className="col-span-full py-2 text-center text-slate-400 text-[11px] italic">
-                                              No pending PM visits scheduled in this period.
-                                            </div>
-                                          );
-                                        }
-
-                                        return activePMs.map((p, pidx) => {
-                                          const overdue = p.range && isRangeOverdue(p.range);
-                                          return (
-                                            <div
-                                              key={pidx}
-                                              className={`px-3 py-2 rounded-xl border flex justify-between items-center text-[11px] ${overdue
-                                                  ? 'bg-rose-500/5 border-rose-500/15'
-                                                  : 'bg-amber-500/5 border-amber-500/15'
-                                                }`}
-                                            >
-                                              <div className="min-w-0">
-                                                <span className={`font-bold block text-[9px] uppercase tracking-wider ${overdue ? 'text-rose-700' : 'text-amber-700'
-                                                  }`}>
-                                                  PM Cycle {p.pmNumber}
+                                                ) : <span className="text-slate-400">—</span>}
+                                              </td>
+                                              <td className="py-2 px-3 text-center">
+                                                <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${getSlaColor(contract.mcType)}`}>
+                                                  {contract.mcType}
                                                 </span>
-                                                {p.range && (
-                                                  <div className="text-[10px] text-slate-600 font-medium">
-                                                    <span>Start: <strong className="text-slate-700">{parseRangeDates(p.range).startDate}</strong></span>
-                                                    <span className="mx-1 text-slate-300">•</span>
-                                                    <span>End: <strong className="text-slate-700">{parseRangeDates(p.range).endDate}</strong></span>
-                                                  </div>
-                                                )}
-                                              </div>
-                                              <span className={`px-2 py-0.5 rounded text-[9px] font-bold whitespace-nowrap ${overdue
-                                                  ? 'bg-rose-500/10 text-rose-700'
-                                                  : 'bg-amber-500/10 text-amber-700'
+                                              </td>
+                                              <td className="py-2 px-3 whitespace-nowrap">
+                                                <div className="text-[11px] text-slate-700">
+                                                  {formatDate(contract.startDate)} → {formatDate(contract.endDate)}
+                                                </div>
+                                                <span className={`text-[9px] font-bold ${
+                                                  daysLeft < 0 ? 'text-rose-600' : daysLeft <= 30 ? 'text-amber-600' : 'text-emerald-600'
                                                 }`}>
-                                                {overdue ? '! Overdue' : '⏳ Pending'}
-                                              </span>
-                                            </div>
+                                                  {daysLeft < 0 ? `${Math.abs(daysLeft)}d overdue` : `${daysLeft}d left`}
+                                                </span>
+                                              </td>
+                                              <td className="py-2 px-3 text-center font-bold text-slate-700">
+                                                {contract.noOfMachine}
+                                              </td>
+                                              <td className="py-2 px-3 text-right font-bold text-slate-900 font-mono text-[11px]">
+                                                {formatCurrency(contract.amount)}
+                                              </td>
+                                              <td className="py-2 px-3">
+                                                <div className="flex flex-wrap gap-0.5 items-center">
+                                                  {contract.pmSchedules.map((p, pidx) => {
+                                                    if (p.status === 'Not Applicable') return null;
+                                                    const done = p.status === 'Completed';
+                                                    const overdue = !done && p.range && isRangeOverdue(p.range);
+                                                    return (
+                                                      <span
+                                                        key={pidx}
+                                                        className={`px-1 py-px rounded text-[8px] font-bold border ${
+                                                          done
+                                                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                            : overdue
+                                                            ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                                            : 'bg-amber-50 text-amber-700 border-amber-200'
+                                                        }`}
+                                                        title={`PM ${p.pmNumber}: ${p.status}\n${p.range || 'N/A'}`}
+                                                      >
+                                                        {done ? `${p.pmNumber}✓` : overdue ? `${p.pmNumber}!` : `${p.pmNumber}⏳`}
+                                                      </span>
+                                                    );
+                                                  })}
+                                                </div>
+                                              </td>
+                                              <td className="py-2 px-3 text-center">
+                                                <span className={`px-1.5 py-0.5 rounded-full border text-[9px] font-bold ${getStatusBadge(contract.status)}`}>
+                                                  {contract.status}
+                                                </span>
+                                              </td>
+                                              <td className="py-2 px-3 text-slate-600 text-[11px]">
+                                                {formatEngineerDisplayName(contract.responsible) || '—'}
+                                              </td>
+                                              <td className="py-2 px-3 text-center">
+                                                <button
+                                                  type="button"
+                                                  onClick={() => router.push(`${getBaseRoute()}/contracts/${contract.id}`)}
+                                                  className="px-2 py-1 rounded-md border border-slate-200 hover:bg-slate-100 text-[10px] font-bold text-slate-600 transition-colors"
+                                                >
+                                                  Open
+                                                </button>
+                                              </td>
+                                            </tr>
                                           );
-                                        });
-                                      })()}
-                                    </div>
+                                        })}
+                                      </tbody>
+                                    </table>
                                   </div>
-                                );
-                              })}
-                            </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
+                      );
+                    })}
+                  </tbody>
+
+                  {/* Footer Totals */}
+                  <tfoot className="bg-[#546A7A] text-white border-t border-[#435562] text-xs font-bold select-none">
+                    <tr>
+                      <td className="py-3 px-3 text-center font-bold text-white/70">Σ</td>
+                      <td className="py-3 px-4 font-bold text-white">
+                        TOTAL ({customerSummaries.length} Accounts)
+                      </td>
+                      <td className="py-3 px-3 text-center text-white/50">—</td>
+                      <td className="py-3 px-3 text-center">
+                        <div className="font-extrabold text-white text-sm">{selectedSummary.totalContracts}</div>
+                        <div className="text-[9px] text-emerald-300">{selectedSummary.active} Active</div>
+                      </td>
+                      <td className="py-3 px-3 text-center">
+                        <div className="font-extrabold text-white text-sm">{selectedSummary.totalMachines}</div>
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        <div className="font-extrabold text-white text-sm font-mono">{formatCurrency(selectedSummary.totalValue)}</div>
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        {(dateFrom || dateTo) ? (
+                          <div>
+                            <span className="font-bold text-white text-xs">{selectedSummary.pmTotal} Pending</span>
+                            {selectedSummary.pmOverdue > 0 && (
+                              <span className="text-rose-300 text-[9px] block font-bold">{selectedSummary.pmOverdue} Overdue</span>
+                            )}
+                          </div>
+                        ) : (
+                          <div>
+                            <span className="font-bold text-white text-xs">{selectedSummary.pmCompleted}/{selectedSummary.pmTotal} ({selectedSummary.pmPct}%)</span>
+                            {selectedSummary.pmOverdue > 0 && (
+                              <span className="text-rose-300 text-[9px] block font-bold">{selectedSummary.pmOverdue} Overdue</span>
+                            )}
                           </div>
                         )}
-                      </div>
-                    );
-                  })}
-                </>
-              )}
+                      </td>
+                      <td className="py-3 px-3 text-white/50">—</td>
+                      <td className="py-3 px-2 text-center text-white/50"></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
             </div>
           )}
         </>
       )}
-
-      {/* ═══ FOOTER INFO ═══ */}
-      <div className="p-3 bg-blue-50/40 rounded-xl border border-blue-100/50 flex gap-2 items-center text-xs text-slate-500 print:hidden">
-        <Info className="w-4 h-4 text-blue-600 flex-shrink-0" />
-        <p>This report groups contracts by customer. Click any customer row to expand and view individual agreements and detailed PM schedules.</p>
-      </div>
     </div>
   );
 }

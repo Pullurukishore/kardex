@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import fs from 'fs';
 import prisma from '../../config/db';
 import { sendEmail } from '../../utils/email';
 import {
@@ -682,5 +683,78 @@ export const getRequestStats = async (req: Request, res: Response) => {
     } catch (error: any) {
 
         res.status(500).json({ error: 'Failed to fetch stats', message: error.message });
+    }
+};
+
+// Delete change request before approval (ONLY the user who created/submitted the request - NOT admin)
+export const deleteRequest = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const userId = (req as any).financeUser?.id || (req as any).user?.id || 1;
+
+        const request = await prisma.bankAccountChangeRequest.findUnique({
+            where: { id },
+            include: {
+                bankAccount: true,
+                attachments: true
+            }
+        });
+
+        if (!request) {
+            return res.status(404).json({ error: 'Change request not found' });
+        }
+
+        // Before approval only: cannot delete an already approved request
+        if (request.status === 'APPROVED') {
+            return res.status(400).json({ error: 'Cannot delete an already approved request. To deactivate or delete an approved bank account, submit a deactivation/deletion request.' });
+        }
+
+        // ONLY the user who submitted the request can delete it before approval (Admin cannot delete, only Approve or Reject)
+        if (request.requestedById !== userId) {
+            return res.status(403).json({ error: 'Only the user who created this request can delete it before approval.' });
+        }
+
+        // Clean up attached physical files on disk
+        if (request.attachments && request.attachments.length > 0) {
+            for (const att of request.attachments) {
+                try {
+                    if (att.path && fs.existsSync(att.path)) {
+                        fs.unlinkSync(att.path);
+                    }
+                } catch (fsErr) {
+                    console.error('[DeleteRequest] Failed to remove attachment file:', fsErr);
+                }
+            }
+        }
+
+        // Delete from database (attachments cascade-deleted by foreign key)
+        await prisma.bankAccountChangeRequest.delete({
+            where: { id }
+        });
+
+        // Log activity
+        const user = getUserFromRequest(req);
+        const reqData = request.requestedData as any;
+        const vendorName = request.bankAccount?.vendorName || reqData?.vendorName || 'Unknown';
+        await logBankAccountActivity({
+            bankAccountId: request.bankAccountId || null,
+            action: 'CHANGE_REQUEST_DELETED' as any,
+            description: `Change request (${request.requestType}) for ${vendorName} was deleted before approval by creator: ${user.name || 'User'}`,
+            performedById: user.id,
+            performedBy: user.name,
+            ipAddress: getIpFromRequest(req),
+            userAgent: req.headers['user-agent'] || null,
+            metadata: {
+                requestId: id,
+                requestType: request.requestType,
+                originalStatus: request.status,
+                vendorName
+            }
+        });
+
+        res.json({ message: 'Request deleted successfully', id });
+    } catch (error: any) {
+        console.error('Failed to delete request:', error);
+        res.status(500).json({ error: 'Failed to delete change request', message: error.message });
     }
 };

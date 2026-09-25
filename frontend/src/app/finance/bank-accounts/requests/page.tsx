@@ -126,6 +126,26 @@ export default function BankAccountRequestsPage() {
     setRejectModal({ open: true, requestId: null, notes: '', isBulk: true });
   };
 
+  const handleDelete = async (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!confirm('Are you sure you want to delete this bank account request before approval? This action cannot be undone.')) return;
+
+    try {
+      setProcessingId(id);
+      await arApi.deleteBankAccountRequest(id);
+      setSelectedIds(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+      await loadRequests();
+    } catch (error: any) {
+      alert(error.response?.data?.error || error.message || 'Failed to delete request');
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
   const toggleSelection = (id: string) => {
     setSelectedIds(prev => {
       const next = new Set(prev);
@@ -497,6 +517,23 @@ export default function BankAccountRequestsPage() {
                           Reject
                         </button>
                       </>
+                    )}
+
+                    {/* Finance User (requester) delete option before approval */}
+                    {!isAdmin && request.status === 'PENDING' && request.requestedById === user?.id && (
+                      <button
+                        onClick={(e) => handleDelete(request.id, e)}
+                        disabled={processingId === request.id}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 hover:border-rose-300 text-rose-600 font-semibold transition-all disabled:opacity-50 text-xs sm:text-sm shadow-sm"
+                        title="Delete request before approval"
+                      >
+                        {processingId === request.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-4 h-4" />
+                        )}
+                        Delete
+                      </button>
                     )}
 
                     {/* View Details Arrow */}

@@ -977,6 +977,15 @@ export const arApi = {
         return res.data;
     },
 
+    async deleteBankAccountRequest(id: string): Promise<{ message: string; id: string }> {
+        const res = await api.delete(`/ar/bank-accounts/requests/${id}`);
+        return res.data;
+    },
+
+    async deleteRequest(id: string): Promise<{ message: string; id: string }> {
+        return this.deleteBankAccountRequest(id);
+    },
+
     async getRequestStats(): Promise<{ pending: number; approved: number; rejected: number; total: number }> {
         const res = await api.get('/ar/bank-accounts/requests/stats');
         return res.data;

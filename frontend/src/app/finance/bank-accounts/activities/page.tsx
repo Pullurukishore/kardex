@@ -23,6 +23,7 @@ const actionConfig: Record<string, { color: string; bgColor: string; borderColor
     CHANGE_REQUEST_CREATED: { color: 'text-[#6F8A9D]', bgColor: 'bg-[#96AEC2]/10', borderColor: 'border-[#96AEC2]/30', icon: '📝', label: 'Change Request Created' },
     CHANGE_REQUEST_APPROVED: { color: 'text-[#4F6A64]', bgColor: 'bg-[#82A094]/15', borderColor: 'border-[#82A094]/30', icon: '✅', label: 'Request Approved' },
     CHANGE_REQUEST_REJECTED: { color: 'text-[#9E3B47]', bgColor: 'bg-[#E17F70]/10', borderColor: 'border-[#E17F70]/30', icon: '❌', label: 'Request Rejected' },
+    CHANGE_REQUEST_DELETED: { color: 'text-[#E17F70]', bgColor: 'bg-[#E17F70]/10', borderColor: 'border-[#E17F70]/30', icon: '🗑️', label: 'Request Deleted' },
     USER_LOGIN: { color: 'text-[#4F6A64]', bgColor: 'bg-[#82A094]/10', borderColor: 'border-[#82A094]/30', icon: '🔑', label: 'User Login' },
     USER_LOGOUT: { color: 'text-[#9E3B47]', bgColor: 'bg-[#E17F70]/10', borderColor: 'border-[#E17F70]/30', icon: '🚪', label: 'User Logout' },
 };
@@ -320,6 +321,7 @@ export default function BankAccountActivitiesPage() {
                                     <option value="CHANGE_REQUEST_CREATED">Request Created</option>
                                     <option value="CHANGE_REQUEST_APPROVED">Request Approved</option>
                                     <option value="CHANGE_REQUEST_REJECTED">Request Rejected</option>
+                                    <option value="CHANGE_REQUEST_DELETED">Request Deleted</option>
                                 </optgroup>
                                 <optgroup label="System Events">
                                     <option value="USER_LOGIN">User Login</option>

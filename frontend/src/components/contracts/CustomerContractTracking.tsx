@@ -396,9 +396,6 @@ export default function CustomerContractTracking({ role }: CustomerContractTrack
                           }
                           return null;
                         })()}
-                        <span className="text-xs font-semibold text-slate-400">
-                          ({contract.contractNumber})
-                        </span>
                         <span className={`px-2 py-0.5 rounded-full border text-[10px] font-bold ${getStatusBadge(contract.status)}`}>
                           {contract.status}
                         </span>

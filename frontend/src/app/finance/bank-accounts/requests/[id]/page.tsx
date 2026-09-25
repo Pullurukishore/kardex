@@ -125,6 +125,20 @@ export default function RequestDetailPage() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!confirm('Are you sure you want to delete this bank account request before approval? This action cannot be undone.')) return;
+
+    try {
+      setProcessing(true);
+      await arApi.deleteBankAccountRequest(params.id as string);
+      router.push('/finance/bank-accounts/requests');
+    } catch (error: any) {
+      alert(error.response?.data?.error || error.message || 'Failed to delete request');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString('en-IN', {
       day: '2-digit',
@@ -596,14 +610,36 @@ export default function RequestDetailPage() {
           </>
         )}
 
-        {!isAdmin && request.status === 'REJECTED' && request.requestedById === user?.id && (
+        {/* Finance User (requester only) delete option before approval */}
+        {!isAdmin && request.status === 'PENDING' && request.requestedById === user?.id && (
           <button
-            onClick={() => router.push(`/finance/bank-accounts/requests/${request.id}/edit`)}
-            className="flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-[#CE9F6B] to-[#976E44] text-white font-semibold hover:from-[#976E44] hover:to-[#7A5837] transition-all duration-300 shadow-lg shadow-[#CE9F6B]/25"
+            onClick={handleDelete}
+            disabled={processing}
+            className="flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-rose-50 border-2 border-rose-200 text-rose-600 font-semibold hover:bg-rose-100 hover:border-rose-300 transition-all duration-300 shadow-md shadow-rose-500/10 disabled:opacity-50"
           >
-            <Pencil className="w-5 h-5" />
-            Edit & Re-request
+            {processing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Trash2 className="w-5 h-5" />}
+            Delete Request (Withdraw before Approval)
           </button>
+        )}
+
+        {!isAdmin && request.status === 'REJECTED' && request.requestedById === user?.id && (
+          <div className="flex items-center gap-4 w-full">
+            <button
+              onClick={() => router.push(`/finance/bank-accounts/requests/${request.id}/edit`)}
+              className="flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-[#CE9F6B] to-[#976E44] text-white font-semibold hover:from-[#976E44] hover:to-[#7A5837] transition-all duration-300 shadow-lg shadow-[#CE9F6B]/25"
+            >
+              <Pencil className="w-5 h-5" />
+              Edit & Re-request
+            </button>
+            <button
+              onClick={handleDelete}
+              disabled={processing}
+              className="px-6 py-3 rounded-xl bg-rose-50 border-2 border-rose-200 text-rose-600 font-semibold hover:bg-rose-100 transition-all disabled:opacity-50"
+            >
+              {processing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Trash2 className="w-5 h-5" />}
+              Delete
+            </button>
+          </div>
         )}
       </div>
 

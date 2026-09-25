@@ -8,7 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { 
   ArrowLeft, Building2, Sparkles, Save, AlertCircle, 
   CheckCircle2, Mail, CreditCard, Hash, User, Loader2,
-  Info, FileText, Upload, X, Shield
+  Info, FileText, Upload, X, Shield, Trash2
 } from 'lucide-react';
 
 interface FormData {
@@ -269,6 +269,18 @@ export default function EditRequestPage() {
     } catch (err: any) {
       setError(err.message || 'Failed to submit request');
     } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!confirm('Are you sure you want to permanently delete this request? This action cannot be undone.')) return;
+    try {
+      setSubmitting(true);
+      await arApi.deleteBankAccountRequest(params.id as string);
+      router.push('/finance/bank-accounts/requests');
+    } catch (err: any) {
+      setError(err.response?.data?.error || err.message || 'Failed to delete request');
       setSubmitting(false);
     }
   };
@@ -755,6 +767,15 @@ export default function EditRequestPage() {
               >
                 Cancel
               </Link>
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={submitting || !!success}
+                className="flex items-center gap-2 px-5 py-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 font-semibold hover:bg-rose-100 transition-all disabled:opacity-50"
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete Request
+              </button>
               <button
                 type="submit"
                 disabled={submitting || !!success}
