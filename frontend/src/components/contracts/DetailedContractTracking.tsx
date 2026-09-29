@@ -1,17 +1,70 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback, Fragment } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Search, Building2, MapPin, ChevronRight, ChevronDown, ChevronUp,
-  AlertTriangle, Clock, Shield, Calendar, IndianRupee, User, Eye,
-  TrendingUp, ShieldCheck, RefreshCw, Plus, Filter, X,
-  Cpu, Settings2, Wrench, BarChart3, Layers, FileText,
-  AlertCircle, CheckCircle, Timer, Upload, Sparkles, Phone, Mail,
-  Pencil, Trash2
+  Search,
+  Building2,
+  MapPin,
+  AlertTriangle,
+  Clock,
+  Shield,
+  Calendar,
+  IndianRupee,
+  User,
+  Eye,
+  RefreshCw,
+  Plus,
+  Filter,
+  X,
+  Cpu,
+  BarChart3,
+  Layers,
+  FileText,
+  AlertCircle,
+  CheckCircle,
+  Timer,
+  Upload,
+  Pencil,
+  Trash2,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  Loader2,
+  MoreHorizontal
 } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { apiService } from '@/services/api';
+import { getCustomerColorClass, extractDepartmentFromCustomer } from '@/lib/utils';
 
 // ============================
 // Types
@@ -97,6 +150,7 @@ interface Stats {
 
 interface DetailedContractTrackingProps {
   role: string;
+  basePath?: string;
 }
 
 // ============================
@@ -107,27 +161,38 @@ const formatCurrency = (val: number | null) => {
   return '₹' + Number(val).toLocaleString('en-IN');
 };
 
+const formatCurrencyCompact = (value: number | null) => {
+  if (!value) return '₹0';
+  if (value >= 10000000) {
+    return `₹${(value / 10000000).toFixed(2)} Cr`;
+  }
+  if (value >= 100000) {
+    return `₹${(value / 100000).toFixed(2)} L`;
+  }
+  return formatCurrency(value);
+};
+
 const formatDate = (val: string | null) => {
   if (!val) return '—';
   const d = new Date(val);
   if (isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
 const renderDateRange = (startDate: string | null, endDate: string | null) => {
   if (!startDate && !endDate) {
-    return <span className="text-slate-400 font-medium text-[11px]">—</span>;
+    return <span className="text-slate-400 font-medium text-xs">—</span>;
   }
   return (
-    <div className="flex flex-col text-[10.5px] leading-snug whitespace-nowrap">
-      <span className="font-semibold text-slate-700">{formatDate(startDate)}</span>
+    <div className="flex flex-col text-[10.5px] leading-tight whitespace-nowrap">
+      <span className="font-bold text-slate-800">{formatDate(startDate)}</span>
       <span className="text-[9.5px] text-slate-400 font-medium">to {formatDate(endDate)}</span>
     </div>
   );
 };
 
 const getExpiryBadge = (expiry: ExpiryInfo) => {
-  if (!expiry || expiry.bucket === 'na') return <span className="text-xs text-slate-400">—</span>;
+  if (!expiry || expiry.bucket === 'na') return <span className="text-[10.5px] text-slate-400">—</span>;
 
   const daysText = expiry.daysLeft !== null
     ? (expiry.daysLeft < 0 ? `${Math.abs(expiry.daysLeft)}d overdue` : `${expiry.daysLeft}d left`)
@@ -136,28 +201,28 @@ const getExpiryBadge = (expiry: ExpiryInfo) => {
   switch (expiry.bucket) {
     case 'expired':
       return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-[#E17F70]/15 text-[#E17F70] border border-[#E17F70]/30 shadow-sm">
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-[#E17F70]/15 text-[#E17F70] border border-[#E17F70]/30 shadow-2xs">
           <AlertCircle className="w-3 h-3" />
           {daysText || 'Expired'}
         </span>
       );
     case 'critical':
       return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-[#E17F70]/15 text-[#E17F70] border border-[#E17F70]/30 shadow-sm">
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-[#E17F70]/15 text-[#E17F70] border border-[#E17F70]/30 shadow-2xs">
           <AlertTriangle className="w-3 h-3" />
           {daysText}
         </span>
       );
     case 'warning':
       return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-[#CE9F6B]/15 text-[#B8874E] border border-[#CE9F6B]/30 shadow-sm">
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-[#CE9F6B]/15 text-[#B8874E] border border-[#CE9F6B]/30 shadow-2xs">
           <Clock className="w-3 h-3" />
           {daysText}
         </span>
       );
     case 'attention':
       return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-[#6F8A9D]/15 text-[#546A7A] border border-[#6F8A9D]/30 shadow-sm">
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-[#6F8A9D]/15 text-[#546A7A] border border-[#6F8A9D]/30 shadow-2xs">
           <Timer className="w-3 h-3" />
           {daysText}
         </span>
@@ -165,69 +230,12 @@ const getExpiryBadge = (expiry: ExpiryInfo) => {
     case 'healthy':
     default:
       return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-[#82A094]/15 text-[#4E7D6D] border border-[#82A094]/30 shadow-sm">
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-[#82A094]/15 text-[#4E7D6D] border border-[#82A094]/30 shadow-2xs">
           <CheckCircle className="w-3 h-3" />
           {daysText || 'Active'}
         </span>
       );
   }
-};
-
-const getCustomerGroupExpiryBadge = (cust: CustomerGroup) => {
-  if (!cust.machines || cust.machines.length === 0) {
-    return <span className="text-xs text-slate-400">—</span>;
-  }
-
-  // Count overdue machines (where daysLeft < 0 or bucket is expired/critical)
-  const overdueMachines = cust.machines.filter(m => 
-    m.mcExpiry && (
-      (m.mcExpiry.daysLeft !== null && m.mcExpiry.daysLeft < 0) ||
-      m.mcExpiry.bucket === 'expired'
-    )
-  );
-
-  if (overdueMachines.length > 0) {
-    const count = overdueMachines.length;
-    return (
-      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-[#E17F70]/15 text-[#E17F70] border border-[#E17F70]/30 shadow-sm">
-        <AlertCircle className="w-3 h-3" />
-        {count} {count === 1 ? 'Machine' : 'Machines'} Overdue
-      </span>
-    );
-  }
-
-  // Check for upcoming expiring machines (non-negative daysLeft)
-  const nonOverdueMachines = cust.machines.filter(m => 
-    m.mcExpiry && m.mcExpiry.daysLeft !== null && m.mcExpiry.daysLeft >= 0
-  );
-
-  if (nonOverdueMachines.length > 0) {
-    const earliest = nonOverdueMachines.reduce((prev, curr) => {
-      if (prev.mcExpiry.daysLeft === null) return curr;
-      if (curr.mcExpiry.daysLeft === null) return prev;
-      return curr.mcExpiry.daysLeft < prev.mcExpiry.daysLeft ? curr : prev;
-    });
-    return getExpiryBadge(earliest.mcExpiry);
-  }
-
-  if (cust.daysToEarliestExpiry !== null) {
-    if (cust.daysToEarliestExpiry < 0) {
-      return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-[#E17F70]/15 text-[#E17F70] border border-[#E17F70]/30 shadow-sm">
-          <AlertCircle className="w-3 h-3" />
-          Contract Overdue
-        </span>
-      );
-    }
-    return getExpiryBadge({ status: cust.expiryStatus, daysLeft: cust.daysToEarliestExpiry, bucket: cust.expiryBucket });
-  }
-
-  return (
-    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-[#82A094]/15 text-[#4E7D6D] border border-[#82A094]/30 shadow-sm">
-      <CheckCircle className="w-3 h-3" />
-      Active
-    </span>
-  );
 };
 
 const getClassBadge = (cls: string | null) => {
@@ -238,138 +246,129 @@ const getClassBadge = (cls: string | null) => {
     'C': 'bg-[#CE9F6B]/15 text-[#B8874E] border-[#CE9F6B]/40',
   };
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border shadow-xs ${colors[cls] || 'bg-slate-100 text-slate-700 border-slate-200'}`}>
+    <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10.5px] font-extrabold border shadow-2xs ${colors[cls] || 'bg-slate-100 text-slate-700 border-slate-200'}`}>
       Class {cls}
     </span>
   );
 };
 
-// ============================
-// Distinct Kardex Theme Helpers
-// ============================
-const getCustomerTheme = (name: string) => {
-  if (!name) return { gradient: 'from-[#546A7A] to-[#6F8A9D]', border: 'border-[#546A7A]/40', lightBg: 'bg-[#546A7A]/5', accent: '#546A7A' };
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+const getMachineStatus = (m: DetailedMachine): 'Active' | 'Expired' => {
+  if (m.mcExpiry?.bucket === 'expired') return 'Expired';
+  if (m.mcExpiry?.daysLeft !== null && m.mcExpiry?.daysLeft !== undefined && m.mcExpiry.daysLeft < 0) return 'Expired';
+  if (m.mcEndDate) {
+    const end = new Date(m.mcEndDate);
+    if (!isNaN(end.getTime()) && end.getTime() < new Date().setHours(0, 0, 0, 0)) {
+      return 'Expired';
+    }
   }
-  const themes = [
-    { gradient: 'from-[#546A7A] to-[#6F8A9D]', border: 'border-[#546A7A]/30', lightBg: 'bg-[#546A7A]/5', accent: '#546A7A' }, // Kardex Blue
-    { gradient: 'from-[#4F6A64] to-[#82A094]', border: 'border-[#82A094]/30', lightBg: 'bg-[#82A094]/5', accent: '#82A094' }, // Kardex Green
-    { gradient: 'from-[#976E44] to-[#CE9F6B]', border: 'border-[#CE9F6B]/30', lightBg: 'bg-[#CE9F6B]/5', accent: '#CE9F6B' }, // Kardex Sand
-    { gradient: 'from-[#5D6E73] to-[#92A2A5]', border: 'border-[#92A2A5]/30', lightBg: 'bg-[#92A2A5]/5', accent: '#5D6E73' }, // Kardex Slate
-    { gradient: 'from-[#75242D] to-[#E17F70]', border: 'border-[#E17F70]/30', lightBg: 'bg-[#E17F70]/5', accent: '#E17F70' }, // Kardex Wine Red
-    { gradient: 'from-[#3F6158] to-[#6E9E90]', border: 'border-[#6E9E90]/30', lightBg: 'bg-[#6E9E90]/5', accent: '#6E9E90' }, // Kardex Teal
-  ];
-  return themes[Math.abs(hash) % themes.length];
+  return 'Active';
+};
+
+const getStatusBadgeStyle = (status: string) => {
+  switch (status) {
+    case 'Active':
+      return 'bg-emerald-50 text-emerald-700 border-emerald-200 ring-emerald-500/20';
+    case 'Expired':
+      return 'bg-rose-50 text-rose-700 border-rose-200 ring-rose-500/20';
+    default:
+      return 'bg-slate-50 text-slate-700 border-slate-200';
+  }
 };
 
 const getUnitTypeBadge = (unitType: string | null, modelNumber?: string | null) => {
-  if (!unitType) return <span className="text-slate-400 font-medium">—</span>;
+  if (!unitType) return <span className="text-slate-400 font-medium text-[11px]">—</span>;
   const upper = unitType.toUpperCase();
   const label = modelNumber ? `${unitType} / ${modelNumber}` : unitType;
 
   if (upper.includes('SHUTTLE')) {
     return (
-      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-extrabold bg-[#6F8A9D]/15 text-[#546A7A] border border-[#6F8A9D]/30 shadow-xs">
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-[#6F8A9D]/15 text-[#546A7A] border border-[#6F8A9D]/30">
         <Cpu className="w-3 h-3 text-[#6F8A9D]" />
-        {label}
+        <span className="truncate max-w-[130px]">{label}</span>
       </span>
     );
   }
   if (upper.includes('LEKTRIVER') || upper.includes('MEGAMAT')) {
     return (
-      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-extrabold bg-[#82A094]/15 text-[#4F6A64] border border-[#82A094]/30 shadow-xs">
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-[#82A094]/15 text-[#4F6A64] border border-[#82A094]/30">
         <Cpu className="w-3 h-3 text-[#82A094]" />
-        {label}
+        <span className="truncate max-w-[130px]">{label}</span>
       </span>
     );
   }
   if (upper.includes('ELEMENT') || upper.includes('TOWER')) {
     return (
-      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-extrabold bg-[#CE9F6B]/15 text-[#976E44] border border-[#CE9F6B]/30 shadow-xs">
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-[#CE9F6B]/15 text-[#976E44] border border-[#CE9F6B]/30">
         <Cpu className="w-3 h-3 text-[#CE9F6B]" />
-        {label}
+        <span className="truncate max-w-[130px]">{label}</span>
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-extrabold bg-[#92A2A5]/15 text-[#5D6E73] border border-[#92A2A5]/30 shadow-xs">
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-[#92A2A5]/15 text-[#5D6E73] border border-[#92A2A5]/30">
       <Cpu className="w-3 h-3 text-[#92A2A5]" />
-      {label}
+      <span className="truncate max-w-[130px]">{label}</span>
     </span>
   );
 };
 
 const getControlTypeBadge = (controlType: string | null) => {
-  if (!controlType) return <span className="text-slate-400 font-medium">—</span>;
-  const upper = controlType.toUpperCase();
-  if (upper.includes('C3000') || upper.includes('C2000') || upper.includes('C1000')) {
-    return (
-      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-[#6F8A9D]/15 text-[#546A7A] border border-[#6F8A9D]/30">
-        {controlType}
-      </span>
-    );
-  }
-  if (upper.includes('T88') || upper.includes('T3')) {
-    return (
-      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-[#82A094]/15 text-[#4F6A64] border border-[#82A094]/30">
-        {controlType}
-      </span>
-    );
-  }
-  if (upper.includes('LC100') || upper.includes('OP3000')) {
-    return (
-      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-[#CE9F6B]/15 text-[#976E44] border border-[#CE9F6B]/30">
-        {controlType}
-      </span>
-    );
-  }
+  if (!controlType) return <span className="text-slate-400 font-medium text-[11px]">—</span>;
   return (
-    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-slate-100 text-slate-700 border border-slate-200">
+    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10.5px] font-mono font-bold bg-slate-100 text-slate-700 border border-slate-200">
       {controlType}
     </span>
   );
 };
 
 const getContractTypeBadge = (type: string | null) => {
-  if (!type) return <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">UMC</span>;
+  if (!type) return <span className="inline-flex px-2 py-0.5 rounded-md text-[10.5px] font-bold bg-slate-100 text-slate-700 border border-slate-200">UMC</span>;
   const upper = type.toUpperCase();
   if (upper === 'UMC') {
     return (
-      <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#6F8A9D]/15 text-[#546A7A] border border-[#6F8A9D]/30">
+      <span className="inline-flex px-2 py-0.5 rounded-md text-[10.5px] font-bold bg-[#6F8A9D]/15 text-[#546A7A] border border-[#6F8A9D]/30">
         UMC
       </span>
     );
   }
   if (upper === 'AMC') {
     return (
-      <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#82A094]/15 text-[#4F6A64] border border-[#82A094]/30">
+      <span className="inline-flex px-2 py-0.5 rounded-md text-[10.5px] font-bold bg-[#82A094]/15 text-[#4F6A64] border border-[#82A094]/30">
         AMC
       </span>
     );
   }
   return (
-    <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#CE9F6B]/15 text-[#976E44] border border-[#CE9F6B]/30">
+    <span className="inline-flex px-2 py-0.5 rounded-md text-[10.5px] font-bold bg-[#CE9F6B]/15 text-[#976E44] border border-[#CE9F6B]/30">
       {type}
     </span>
   );
 };
 
 // ============================
-// Component
+// Main Component
 // ============================
-export default function DetailedContractTracking({ role }: DetailedContractTrackingProps) {
+export default function DetailedContractTracking({ role, basePath }: DetailedContractTrackingProps) {
   const router = useRouter();
   const [customers, setCustomers] = useState<CustomerGroup[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Filters
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [zoneFilter, setZoneFilter] = useState('all');
   const [classFilter, setClassFilter] = useState('all');
   const [expiryFilter, setExpiryFilter] = useState('all');
-  const [expandedCustomer, setExpandedCustomer] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'customer' | 'flat'>('customer');
+  const [quickTab, setQuickTab] = useState<'all' | 'active' | 'expiring30' | 'expired'>('all');
+
+  // Sorting
+  const [sortField, setSortField] = useState<string>('customerName');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  // Pagination (for customer groups)
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
 
   // Delete modal state
   const [deleteTarget, setDeleteTarget] = useState<DetailedMachine | null>(null);
@@ -377,46 +376,61 @@ export default function DetailedContractTracking({ role }: DetailedContractTrack
 
   const canEdit = role === 'Admin' || role === 'Zone Manager';
 
-  const getBaseRoute = () => {
+  const resolvedBasePath = useMemo(() => {
+    if (basePath) return basePath;
     if (role === 'Admin') return '/admin';
     if (role === 'Zone Manager') return '/zone-manager';
     if (role === 'Zone User') return '/zone';
     if (role === 'Expert Helpdesk') return '/expert';
     return '/admin';
-  };
+  }, [basePath, role]);
+
+  // Debounce search
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
+      setCurrentPage(1);
+    }, 350);
+    return () => clearTimeout(handler);
+  }, [search]);
 
   // Fetch data
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const params: any = {};
       if (zoneFilter !== 'all') params.zone = zoneFilter;
       if (classFilter !== 'all') params.customerClass = classFilter;
 
+      let effectiveExpiry = expiryFilter;
+      if (quickTab === 'active') effectiveExpiry = 'healthy';
+      if (quickTab === 'expiring30') effectiveExpiry = 'critical';
+      if (quickTab === 'expired') effectiveExpiry = 'expired';
+
       const [groupedRes, statsRes] = await Promise.all([
-        apiService.getDetailedContractsCustomerGrouped({ ...params, search, expiryBucket: expiryFilter }),
+        apiService.getDetailedContractsCustomerGrouped({
+          ...params,
+          search: debouncedSearch,
+          expiryBucket: effectiveExpiry !== 'all' ? effectiveExpiry : undefined
+        }),
         apiService.getDetailedContractStats(params),
       ]);
 
-      setCustomers(groupedRes.data || []);
+      const data = groupedRes?.data || groupedRes || [];
+      setCustomers(Array.isArray(data) ? data : []);
       setStats(statsRes);
     } catch (error) {
       console.error('Failed to fetch detailed contracts:', error);
-      toast.error('Failed to load detailed contracts');
+      toast.error('Failed to load annual contracts');
+      setCustomers([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [zoneFilter, classFilter, expiryFilter, debouncedSearch, quickTab]);
 
   useEffect(() => {
     fetchData();
-  }, [zoneFilter, classFilter, expiryFilter]);
-
-  // Debounced search
-  useEffect(() => {
-    const timer = setTimeout(() => fetchData(), 350);
-    return () => clearTimeout(timer);
-  }, [search]);
+  }, [fetchData]);
 
   // Delete action
   const confirmDelete = async () => {
@@ -435,644 +449,890 @@ export default function DetailedContractTracking({ role }: DetailedContractTrack
     }
   };
 
-  // Flat machine list for flat view mode
-  const allMachines = useMemo(() => {
-    return customers.flatMap(c => c.machines);
+  // Sort handler
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  // Sorted Customer Groups
+  const sortedCustomerGroups = useMemo(() => {
+    const list = [...customers];
+    list.sort((a, b) => {
+      let aVal: any = a.customerName.toLowerCase();
+      let bVal: any = b.customerName.toLowerCase();
+
+      if (sortField === 'customerName') {
+        aVal = a.customerName.toLowerCase();
+        bVal = b.customerName.toLowerCase();
+      } else if (sortField === 'zoneName') {
+        aVal = (a.zoneName || '').toLowerCase();
+        bVal = (b.zoneName || '').toLowerCase();
+      } else if (sortField === 'totalMCValue') {
+        aVal = a.totalMCValue || 0;
+        bVal = b.totalMCValue || 0;
+      } else if (sortField === 'totalMachines') {
+        aVal = a.totalMachines || 0;
+        bVal = b.totalMachines || 0;
+      }
+
+      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+    return list;
+  }, [customers, sortField, sortDirection]);
+
+  // Paginated Customer Groups
+  const totalPages = Math.ceil(sortedCustomerGroups.length / pageSize) || 1;
+  const paginatedGroups = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return sortedCustomerGroups.slice(start, start + pageSize);
+  }, [sortedCustomerGroups, currentPage, pageSize]);
+
+  // Total machines across all fetched groups
+  const totalMachinesCount = useMemo(() => {
+    return customers.reduce((sum, c) => sum + (c.machines?.length || 0), 0);
   }, [customers]);
 
-  return (
-    <div className="space-y-6">
-      {/* ─── Kardex Hero Header ────────────────────────────── */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#546A7A] via-[#6F8A9D] to-[#3D4F5C] p-6 sm:p-8 text-white shadow-xl">
-        <div className="absolute top-0 right-0 -mt-10 -mr-10 w-48 h-48 bg-[#82A094]/30 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-1/3 -mb-10 w-48 h-48 bg-[#CE9F6B]/25 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute top-1/2 right-1/4 w-32 h-32 bg-[#E17F70]/20 rounded-full blur-3xl pointer-events-none" />
+  const clearFilters = () => {
+    setSearch('');
+    setZoneFilter('all');
+    setClassFilter('all');
+    setExpiryFilter('all');
+    setQuickTab('all');
+    setCurrentPage(1);
+  };
 
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 border border-white/20 mb-3 backdrop-blur-md">
-              <Layers className="w-3.5 h-3.5 text-[#82A094]" />
-              <span className="text-[11px] font-bold text-white tracking-wider uppercase">
-                Annual Machine Contracts
+  const hasActiveFilters =
+    Boolean(search) ||
+    zoneFilter !== 'all' ||
+    classFilter !== 'all' ||
+    expiryFilter !== 'all' ||
+    quickTab !== 'all';
+
+  return (
+    <div className="space-y-4">
+      {/* ─── COMPACT HERO HEADER BANNER ─── */}
+      <div className="relative overflow-hidden bg-gradient-to-r from-[#75242D] via-[#9E3B47] to-[#546A7A] rounded-xl shadow-md p-3 sm:p-4 text-white space-y-3">
+        {/* Top Row: Title on Left, Action Buttons on Right */}
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          {/* Title & Info */}
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-white/20 backdrop-blur-md rounded-lg ring-1 ring-white/30 shadow-xs flex-shrink-0">
+              <Layers className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-base sm:text-lg lg:text-xl font-extrabold tracking-tight">
+                  Annual Machine Contracts
+                </h1>
+                <span className="px-2 py-0.5 rounded-full bg-white/20 text-[9px] font-bold uppercase tracking-wider text-white">
+                  {role}
+                </span>
+                <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              </div>
+              <p className="text-white/80 text-[11px] sm:text-xs hidden sm:block">
+                Customer-wise annual maintenance agreements, machine asset lifecycle, and multi-tier expiration monitoring
+              </p>
+            </div>
+          </div>
+
+          {/* Quick Action Buttons */}
+          <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchData}
+              className="bg-white/10 hover:bg-white/20 text-white border-white/30 text-xs font-semibold h-8 px-2.5 shadow-xs"
+            >
+              <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+              Refresh
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => router.push(`${resolvedBasePath}/contracts/annual-reports`)}
+              className="bg-white/10 hover:bg-white/20 text-white border-white/30 text-xs font-semibold h-8 px-2.5 shadow-xs"
+            >
+              <BarChart3 className="h-3.5 w-3.5 mr-1.5" />
+              Annual Reports
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => router.push(`${resolvedBasePath}/contracts/detailed-import`)}
+              className="bg-white/10 hover:bg-white/20 text-white border-white/30 text-xs font-semibold h-8 px-2.5 shadow-xs"
+            >
+              <Upload className="h-3.5 w-3.5 mr-1.5" />
+              Import
+            </Button>
+            {canEdit && (
+              <Button
+                size="sm"
+                onClick={() => router.push(`${resolvedBasePath}/contracts/detailed/new`)}
+                className="bg-white text-[#9E3B47] hover:bg-white/90 text-xs font-bold h-8 px-3 shadow-sm hover:scale-[1.02] active:scale-[0.98] transition-all"
+              >
+                <Plus className="h-3.5 w-3.5 mr-1" />
+                New Contract
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Bottom Row: Compact Stats Bar */}
+        {stats && (
+          <div className="relative z-10 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 pt-2 border-t border-white/15">
+            {/* Total Machines */}
+            <div
+              onClick={() => { setQuickTab('all'); setExpiryFilter('all'); setCurrentPage(1); }}
+              className="bg-white/10 hover:bg-white/20 transition-colors cursor-pointer rounded-lg px-2.5 py-1.5 border border-white/15 text-center flex items-center justify-between sm:flex-col sm:justify-center"
+            >
+              <span className="text-white/70 text-[10px] uppercase font-bold tracking-wider">Total M/C</span>
+              <span className="text-sm sm:text-base font-extrabold">{stats.totalMachines}</span>
+            </div>
+
+            {/* Customers */}
+            <div className="bg-white/10 rounded-lg px-2.5 py-1.5 border border-white/15 text-center flex items-center justify-between sm:flex-col sm:justify-center">
+              <span className="text-white/70 text-[10px] uppercase font-bold tracking-wider">Customers</span>
+              <span className="text-sm sm:text-base font-extrabold text-sky-200">{stats.totalCustomers}</span>
+            </div>
+
+            {/* Total Value */}
+            <div
+              className="bg-white/10 rounded-lg px-2.5 py-1.5 border border-white/15 text-center flex items-center justify-between sm:flex-col sm:justify-center"
+              title={formatCurrency(stats.totalMCValue)}
+            >
+              <span className="text-white/70 text-[10px] uppercase font-bold tracking-wider">Total Value</span>
+              <span className="text-xs sm:text-sm font-extrabold text-amber-200 truncate">
+                {formatCurrencyCompact(stats.totalMCValue)}
               </span>
             </div>
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight text-white drop-shadow-sm">
-              Machine Contracts & Expiry Tracker
-            </h1>
-            <p className="text-sm text-white/80 mt-1.5 max-w-2xl font-medium">
-              Customer-wise annual maintenance agreements, machine asset lifecycle, and multi-tier expiration monitoring.
-            </p>
+
+            {/* Expiring ≤30d */}
+            <div
+              onClick={() => { setQuickTab('expiring30'); setExpiryFilter('critical'); setCurrentPage(1); }}
+              className="bg-rose-500/25 hover:bg-rose-500/35 transition-colors cursor-pointer rounded-lg px-2.5 py-1.5 border border-rose-400/30 text-center flex items-center justify-between sm:flex-col sm:justify-center"
+            >
+              <span className="text-rose-100 text-[10px] uppercase font-bold tracking-wider">≤ 30d Left</span>
+              <span className="text-sm sm:text-base font-extrabold text-rose-200">{stats.expiring30}</span>
+            </div>
+
+            {/* Expiring 31-90d */}
+            <div
+              onClick={() => { setQuickTab('all'); setExpiryFilter('warning'); setCurrentPage(1); }}
+              className="bg-amber-500/20 hover:bg-amber-500/30 transition-colors cursor-pointer rounded-lg px-2.5 py-1.5 border border-amber-400/30 text-center flex items-center justify-between sm:flex-col sm:justify-center"
+            >
+              <span className="text-amber-100 text-[10px] uppercase font-bold tracking-wider">31-90d Left</span>
+              <span className="text-sm sm:text-base font-extrabold text-amber-200">
+                {stats.expiring60 + stats.expiring90}
+              </span>
+            </div>
+
+            {/* Expired */}
+            <div
+              onClick={() => { setQuickTab('expired'); setExpiryFilter('expired'); setCurrentPage(1); }}
+              className="bg-red-900/40 hover:bg-red-900/50 transition-colors cursor-pointer rounded-lg px-2.5 py-1.5 border border-red-500/30 text-center flex items-center justify-between sm:flex-col sm:justify-center"
+            >
+              <span className="text-red-200 text-[10px] uppercase font-bold tracking-wider">Expired</span>
+              <span className="text-sm sm:text-base font-extrabold text-red-300">{stats.expired}</span>
+            </div>
           </div>
-
-          <div className="flex items-center gap-3 flex-wrap">
-            <button
-              onClick={fetchData}
-              className="px-4 py-2.5 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold text-xs sm:text-sm flex items-center gap-2 transition-all shadow-sm backdrop-blur-sm"
-            >
-              <RefreshCw className="w-4 h-4 text-[#82A094]" />
-              <span>Refresh</span>
-            </button>
-
-            {canEdit && (
-              <a
-                href={`${getBaseRoute()}/contracts/detailed/new`}
-                className="px-5 py-2.5 rounded-2xl bg-white/15 hover:bg-white/25 border border-white/20 text-white font-bold text-xs sm:text-sm flex items-center gap-2 transition-all shadow-sm backdrop-blur-sm"
-              >
-                <Plus className="w-4 h-4 text-[#82A094]" />
-                <span>New Contract</span>
-              </a>
-            )}
-
-            <a
-              href={`${getBaseRoute()}/contracts/annual-reports`}
-              className="px-4 py-2.5 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold text-xs sm:text-sm flex items-center gap-2 transition-all shadow-sm backdrop-blur-sm"
-            >
-              <BarChart3 className="w-4 h-4 text-[#82A094]" />
-              <span>Annual Reports</span>
-            </a>
-
-            <a
-              href={`${getBaseRoute()}/contracts/detailed-import`}
-              className="px-5 py-2.5 rounded-2xl bg-[#82A094] hover:bg-[#6e8a7f] text-white font-bold text-xs sm:text-sm flex items-center gap-2 transition-all shadow-md hover:shadow-lg transform active:scale-95"
-            >
-              <Upload className="w-4 h-4" />
-              <span>Import Excel</span>
-            </a>
-          </div>
-        </div>
+        )}
       </div>
 
-      {/* ─── Executive KPI Cards ───────────────────────────── */}
-      {stats && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
-          <KPICard
-            icon={<Cpu className="w-5 h-5" />}
-            label="Total Machines"
-            value={stats.totalMachines}
-            color="text-[#546A7A]"
-            bgColor="bg-[#546A7A]/10"
-            border="border-[#546A7A]/20"
-          />
-          <KPICard
-            icon={<Building2 className="w-5 h-5" />}
-            label="Customers"
-            value={stats.totalCustomers}
-            color="text-[#6F8A9D]"
-            bgColor="bg-[#6F8A9D]/10"
-            border="border-[#6F8A9D]/20"
-          />
-          <KPICard
-            icon={<IndianRupee className="w-5 h-5" />}
-            label="Total MC Value"
-            value={formatCurrency(stats.totalMCValue)}
-            color="text-[#82A094]"
-            bgColor="bg-[#82A094]/15"
-            border="border-[#82A094]/30"
-          />
-          <KPICard
-            icon={<AlertTriangle className="w-5 h-5" />}
-            label="Expiring ≤ 30d"
-            value={stats.expiring30}
-            color="text-[#E17F70]"
-            bgColor="bg-[#E17F70]/15"
-            border="border-[#E17F70]/30"
-            urgent={stats.expiring30 > 0}
-          />
-          <KPICard
-            icon={<Clock className="w-5 h-5" />}
-            label="Expiring 31-90d"
-            value={stats.expiring60 + stats.expiring90}
-            color="text-[#CE9F6B]"
-            bgColor="bg-[#CE9F6B]/15"
-            border="border-[#CE9F6B]/30"
-          />
-          <KPICard
-            icon={<AlertCircle className="w-5 h-5" />}
-            label="Expired"
-            value={stats.expired}
-            color="text-rose-600"
-            bgColor="bg-rose-50"
-            border="border-rose-200"
-          />
-        </div>
-      )}
-
-      {/* ─── Filters & Controls Bar ─────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 p-3 sm:p-4 shadow-sm flex flex-wrap items-center gap-3">
-        {/* Search */}
-        <div className="relative flex-1 min-w-[220px]">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#6F8A9D]" />
-          <input
-            type="text"
-            placeholder="Search customer, serial no, engineer, place, model..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-9 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs sm:text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#6F8A9D]/30 focus:border-[#6F8A9D] transition-all"
-          />
-          {search && (
-            <button
-              onClick={() => setSearch('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          )}
-        </div>
-
-        {/* Zone Selector */}
-        <select
-          value={zoneFilter}
-          onChange={(e) => setZoneFilter(e.target.value)}
-          className="px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs sm:text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#6F8A9D]/30 focus:border-[#6F8A9D] transition-all cursor-pointer"
-        >
-          <option value="all">All Zones</option>
-          {['North', 'South', 'East', 'West'].map((z) => (
-            <option key={z} value={z}>{z} Zone</option>
-          ))}
-        </select>
-
-        {/* Category / Class Filter */}
-        <select
-          value={classFilter}
-          onChange={(e) => setClassFilter(e.target.value)}
-          className="px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs sm:text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#6F8A9D]/30 focus:border-[#6F8A9D] transition-all cursor-pointer"
-        >
-          <option value="all">All Classes (A/B/C)</option>
-          <option value="A">Class A</option>
-          <option value="B">Class B</option>
-          <option value="C">Class C</option>
-        </select>
-
-        {/* Expiry Bucket Filter */}
-        <select
-          value={expiryFilter}
-          onChange={(e) => setExpiryFilter(e.target.value)}
-          className="px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs sm:text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#6F8A9D]/30 focus:border-[#6F8A9D] transition-all cursor-pointer"
-        >
-          <option value="all">All Expiry Lifecycles</option>
-          <option value="critical">Critical (≤ 30 Days)</option>
-          <option value="warning">Warning (31 - 60 Days)</option>
-          <option value="attention">Upcoming (61 - 90 Days)</option>
-          <option value="healthy">Active Healthy (&gt; 90 Days)</option>
-          <option value="expired">Expired Contracts</option>
-        </select>
-
-        {/* View Mode Toggle */}
-        <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 ml-auto">
-          <button
-            onClick={() => setViewMode('customer')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-              viewMode === 'customer'
-                ? 'bg-[#546A7A] text-white shadow-sm'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            Customer View
-          </button>
-          <button
-            onClick={() => setViewMode('flat')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-              viewMode === 'flat'
-                ? 'bg-[#546A7A] text-white shadow-sm'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            All Machines List
-          </button>
-        </div>
-      </div>
-
-      {/* ─── Loading State ──────────────────────────────────── */}
-      {loading && (
-        <div className="bg-white rounded-3xl border border-slate-200/80 p-16 flex flex-col items-center justify-center gap-3 shadow-sm">
-          <div className="w-10 h-10 border-3 border-[#82A094]/30 border-t-[#82A094] rounded-full animate-spin" />
-          <p className="text-sm font-bold text-slate-700">Loading Annual Machine Contracts...</p>
-        </div>
-      )}
-
-      {/* ─── Empty State ────────────────────────────────────── */}
-      {!loading && customers.length === 0 && (
-        <div className="bg-white rounded-3xl border border-slate-200/80 p-12 sm:p-16 flex flex-col items-center justify-center text-center shadow-sm">
-          <div className="w-16 h-16 rounded-2xl bg-[#546A7A]/10 text-[#546A7A] flex items-center justify-center mb-4">
-            <Layers className="w-8 h-8" />
-          </div>
-          <h3 className="text-lg sm:text-xl font-bold text-slate-800">No Annual Machine Contracts Found</h3>
-          <p className="text-xs sm:text-sm text-slate-500 max-w-md mt-1 mb-6">
-            Upload your machine details Excel sheet or create a contract manually to track customer lifecycles.
-          </p>
-          <div className="flex items-center gap-3 flex-wrap justify-center">
-            {canEdit && (
-              <a
-                href={`${getBaseRoute()}/contracts/detailed/new`}
-                className="px-6 py-3 rounded-2xl bg-[#546A7A] hover:bg-[#445663] text-white font-bold text-sm flex items-center gap-2 shadow-md transition-all"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Create Contract</span>
-              </a>
-            )}
-            <a
-              href={`${getBaseRoute()}/contracts/detailed-import`}
-              className="px-6 py-3 rounded-2xl bg-[#82A094] hover:bg-[#6e8a7f] text-white font-bold text-sm flex items-center gap-2 shadow-md hover:shadow-lg transition-all"
-            >
-              <Upload className="w-4 h-4" />
-              <span>Import Excel Sheet</span>
-            </a>
-          </div>
-        </div>
-      )}
-
-      {/* ─── Customer Grouped View ─────────────────────────── */}
-      {!loading && viewMode === 'customer' && customers.length > 0 && (
-        <div className="space-y-4">
-          {customers.map((cust) => {
-            const custZoneKey = `${cust.customerName}::${cust.zoneName}`;
-            const isExpanded = expandedCustomer === custZoneKey;
-            const theme = getCustomerTheme(cust.customerName);
+      {/* ─── QUICK FILTER TABS ─── */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-2 px-2 sm:mx-0 sm:px-0">
+          {[
+            { id: 'all', label: 'All Machine Contracts', count: stats?.totalMachines ?? totalMachinesCount, color: 'bg-[#546A7A] hover:bg-[#5D6E73] text-white' },
+            { id: 'active', label: 'Active Healthy', count: stats?.active ?? 0, color: 'bg-emerald-600 hover:bg-emerald-700 text-white' },
+            { id: 'expiring30', label: 'Expiring ≤ 30d', count: stats?.expiring30 ?? 0, color: 'bg-amber-600 hover:bg-amber-700 text-white' },
+            { id: 'expired', label: 'Expired', count: stats?.expired ?? 0, color: 'bg-rose-600 hover:bg-rose-700 text-white' },
+          ].map(tab => {
+            const isActive = quickTab === tab.id;
             return (
-              <div
-                key={custZoneKey}
-                className={`bg-white rounded-2xl border transition-all duration-200 overflow-hidden shadow-sm hover:shadow-md ${
-                  isExpanded ? `${theme.border} ring-2 ring-[#6F8A9D]/15` : 'border-slate-200/80 hover:border-slate-300'
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => {
+                  setQuickTab(tab.id as any);
+                  if (tab.id === 'all') setExpiryFilter('all');
+                  if (tab.id === 'active') setExpiryFilter('healthy');
+                  if (tab.id === 'expiring30') setExpiryFilter('critical');
+                  if (tab.id === 'expired') setExpiryFilter('expired');
+                  setCurrentPage(1);
+                }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex-shrink-0 ${
+                  isActive
+                    ? `${tab.color} shadow-sm`
+                    : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
                 }`}
               >
-                {/* Accordion Header */}
-                <div
-                  onClick={() => setExpandedCustomer(isExpanded ? null : custZoneKey)}
-                  className="p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 cursor-pointer select-none"
+                <span>{tab.label}</span>
+                <span
+                  className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${
+                    isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+                  }`}
                 >
-                  <div className="flex items-center gap-3.5 min-w-0">
-                    <div className={`w-11 h-11 rounded-2xl bg-gradient-to-br ${theme.gradient} text-white flex items-center justify-center font-extrabold text-sm shadow-sm flex-shrink-0`}>
-                      <Building2 className="w-5 h-5 text-white" />
-                    </div>
-
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-extrabold text-slate-800 text-sm sm:text-base">
-                          {cust.customerName}
-                        </span>
-                        {getClassBadge(cust.customerClass)}
-                        {getCustomerGroupExpiryBadge(cust)}
-                      </div>
-
-                      <div className="flex items-center gap-3 text-xs text-slate-500 mt-1 flex-wrap">
-                        {cust.place && (
-                          <span className="flex items-center gap-1">
-                            <MapPin className="w-3.5 h-3.5 text-[#6F8A9D]" />
-                            <span className="font-medium text-slate-600">{cust.place}</span>
-                          </span>
-                        )}
-                        <span>•</span>
-                        <span className="flex items-center gap-1">
-                          <Shield className="w-3.5 h-3.5 text-[#82A094]" />
-                          <span className="font-semibold text-slate-700">{cust.zoneName} Zone</span>
-                        </span>
-                        {cust.engineerName && (
-                          <>
-                            <span>•</span>
-                            <span className="flex items-center gap-1">
-                              <User className="w-3.5 h-3.5 text-[#546A7A]" />
-                              <span className="font-medium text-slate-600">Eng: {cust.engineerName}</span>
-                            </span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-4 sm:gap-6 flex-shrink-0 self-end lg:self-center">
-                    <div className="text-right">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Value</p>
-                      <p className="text-sm sm:text-base font-extrabold text-slate-800">
-                        {formatCurrency(cust.totalMCValue)}
-                      </p>
-                    </div>
-
-                    <div className="text-center hidden sm:block">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">PM / BD</p>
-                      <p className="text-xs font-bold text-slate-700">
-                        {cust.totalPMVisits} PM · {cust.totalBDVisits} BD
-                      </p>
-                    </div>
-
-                    <div className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center text-slate-500 hover:text-slate-800 transition-colors">
-                      {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Expanded Machine Table with Actions */}
-                {isExpanded && (
-                  <div className="border-t border-slate-100 bg-slate-50/60 p-3 sm:p-4">
-                    <div className="flex items-center justify-between mb-2.5">
-                      <h4 className="text-xs font-extrabold uppercase tracking-wider text-[#546A7A] flex items-center gap-2">
-                        <Cpu className="w-4 h-4 text-[#82A094]" />
-                        Machine Inventory ({cust.machines.length} Units)
-                      </h4>
-                    </div>
-
-                    <div className="bg-white rounded-xl border border-slate-200/80 overflow-hidden shadow-xs">
-                      <table className="w-full text-xs">
-                        <thead>
-                          <tr className="bg-slate-50/90 border-b border-slate-200/80 text-slate-600 font-bold uppercase text-[10px] tracking-wider select-none">
-                            <th className="px-2 py-2.5 text-center w-7">#</th>
-                            <th className="px-2 py-2.5 text-left">Serial No</th>
-                            <th className="px-2 py-2.5 text-left">Unit / Model</th>
-                            <th className="px-2 py-2.5 text-center">Control</th>
-                            <th className="px-2 py-2.5 text-left">Engineer</th>
-                            <th className="px-2 py-2.5 text-left">Department</th>
-                            <th className="px-2 py-2.5 text-center">Install</th>
-                            <th className="px-2 py-2.5 text-center">Type</th>
-                            <th className="px-2 py-2.5 text-left">MC Period</th>
-                            <th className="px-2 py-2.5 text-left">Warranty Period</th>
-                            <th className="px-2 py-2.5 text-center">MC Expiry</th>
-                            <th className="px-2 py-2.5 text-right">MC Value</th>
-                            <th className="px-2 py-2.5 text-center w-20">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                          {cust.machines.map((m, idx) => (
-                            <tr key={m.id} className="hover:bg-slate-50/80 transition-colors">
-                              <td className="px-2 py-2 text-center font-bold text-slate-400 text-[10px]">{idx + 1}</td>
-                              <td className="px-2 py-2 font-mono font-bold text-slate-800">
-                                <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-800 font-mono text-[10.5px]">
-                                  {m.serialNumber}
-                                </span>
-                              </td>
-                              <td className="px-2 py-2">{getUnitTypeBadge(m.unitType, m.modelNumber)}</td>
-                              <td className="px-2 py-2 text-center">{getControlTypeBadge(m.controlType)}</td>
-                              <td className="px-2 py-2 text-slate-700 font-medium">
-                                {m.engineerName ? (
-                                  <span className="inline-flex items-center gap-1 text-[11px]" title={m.engineerName}>
-                                    <User className="w-3 h-3 text-[#546A7A] shrink-0" />
-                                    <span className="truncate max-w-[90px]">{m.engineerName}</span>
-                                  </span>
-                                ) : (
-                                  <span className="text-slate-400">—</span>
-                                )}
-                              </td>
-                              <td className="px-2 py-2 text-slate-600 font-medium text-[11px]">
-                                <span className="truncate max-w-[80px] block" title={m.department || ''}>
-                                  {m.department || '—'}
-                                </span>
-                              </td>
-                              <td className="px-2 py-2 text-center font-medium text-slate-600 text-[11px]">
-                                {m.installationYear || '—'}
-                              </td>
-                              <td className="px-2 py-2 text-center">
-                                {getContractTypeBadge(m.contractType)}
-                              </td>
-                              <td className="px-2 py-2">
-                                {renderDateRange(m.mcStartDate, m.mcEndDate)}
-                              </td>
-                              <td className="px-2 py-2">
-                                {renderDateRange(m.warrantyStartDate, m.warrantyEndDate)}
-                              </td>
-                              <td className="px-2 py-2 text-center">{getExpiryBadge(m.mcExpiry)}</td>
-                              <td className="px-2 py-2 text-right font-extrabold text-slate-800 text-[11.5px] tabular-nums whitespace-nowrap">
-                                {formatCurrency(m.mcValue)}
-                              </td>
-
-                              {/* Row Action Buttons */}
-                              <td className="px-2 py-2 text-center">
-                                <div className="flex items-center justify-center gap-1">
-                                  <a
-                                    href={`${getBaseRoute()}/contracts/detailed/${m.id}`}
-                                    className="p-1 rounded-md bg-slate-100 hover:bg-[#546A7A] text-slate-600 hover:text-white transition-colors"
-                                    title="View Contract Details"
-                                  >
-                                    <Eye className="w-3.5 h-3.5" />
-                                  </a>
-
-                                  {canEdit && (
-                                    <>
-                                      <a
-                                        href={`${getBaseRoute()}/contracts/detailed/${m.id}/edit`}
-                                        className="p-1 rounded-md bg-slate-100 hover:bg-[#82A094] text-slate-600 hover:text-white transition-colors"
-                                        title="Edit Contract"
-                                      >
-                                        <Pencil className="w-3.5 h-3.5" />
-                                      </a>
-
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setDeleteTarget(m);
-                                        }}
-                                        className="p-1 rounded-md bg-slate-100 hover:bg-rose-600 text-slate-600 hover:text-white transition-colors"
-                                        title="Delete Contract"
-                                      >
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                      </button>
-                                    </>
-                                  )}
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-              </div>
+                  {tab.count}
+                </span>
+              </button>
             );
           })}
         </div>
-      )}
+      </div>
 
-      {/* ─── Flat Machines List View ────────────────────────── */}
-      {!loading && viewMode === 'flat' && allMachines.length > 0 && (
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
-          <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-            <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#546A7A] flex items-center gap-2">
-              <Cpu className="w-4 h-4 text-[#82A094]" />
-              All Machine Contracts ({allMachines.length} Records)
-            </h3>
+      {/* ─── SEARCH & FILTERS CARD ─── */}
+      <Card className="border border-slate-200/80 shadow-sm bg-white">
+        <CardHeader className="py-3 px-4 sm:px-6 bg-slate-50/70 border-b border-slate-200/60">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-[#546A7A]" />
+              <CardTitle className="text-sm font-bold text-slate-800">Search & Filter Annual Contracts</CardTitle>
+              {hasActiveFilters && (
+                <Badge variant="secondary" className="bg-[#9E3B47]/10 text-[#9E3B47] text-[10px] font-bold">
+                  Active Filters
+                </Badge>
+              )}
+            </div>
+            {hasActiveFilters && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearFilters}
+                className="h-7 text-xs text-[#9E3B47] hover:text-[#75242D] hover:bg-[#9E3B47]/10 px-2"
+              >
+                <X className="h-3.5 w-3.5 mr-1" />
+                Clear All
+              </Button>
+            )}
           </div>
+        </CardHeader>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider select-none">
-                  <th className="px-2.5 py-3 text-center w-7">#</th>
-                  <th className="px-2.5 py-3 text-left">Customer</th>
-                  <th className="px-2.5 py-3 text-left">Class</th>
-                  <th className="px-2.5 py-3 text-left">Location</th>
-                  <th className="px-2.5 py-3 text-left">Engineer</th>
-                  <th className="px-2.5 py-3 text-left">Serial No</th>
-                  <th className="px-2.5 py-3 text-left">Unit / Model</th>
-                  <th className="px-2.5 py-3 text-center">Control</th>
-                  <th className="px-2.5 py-3 text-center">Type</th>
-                  <th className="px-2.5 py-3 text-left">MC Period</th>
-                  <th className="px-2.5 py-3 text-left">Warranty Period</th>
-                  <th className="px-2.5 py-3 text-center">MC Expiry</th>
-                  <th className="px-2.5 py-3 text-right">MC Value</th>
-                  <th className="px-2.5 py-3 text-center w-20">Actions</th>
+        <CardContent className="p-4 sm:p-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+            {/* Search */}
+            <div className="space-y-1.5">
+              <Label htmlFor="detailed-contract-search" className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
+                <Search className="h-3.5 w-3.5 text-[#82A094]" />
+                Search
+              </Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                <Input
+                  id="detailed-contract-search"
+                  placeholder="Customer, serial no, engineer, place, model..."
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  className="pl-9 h-9 text-xs border-slate-200 focus:border-[#82A094] focus:ring-[#82A094]"
+                />
+                {search && (
+                  <button
+                    onClick={() => setSearch('')}
+                    className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Zone Selector */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
+                <MapPin className="h-3.5 w-3.5 text-[#6F8A9D]" />
+                Zone
+              </Label>
+              <Select
+                value={zoneFilter}
+                onValueChange={val => {
+                  setZoneFilter(val);
+                  setCurrentPage(1);
+                }}
+              >
+                <SelectTrigger className="h-9 text-xs border-slate-200">
+                  <SelectValue placeholder="All Zones" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Zones</SelectItem>
+                  <SelectItem value="North">North Zone</SelectItem>
+                  <SelectItem value="South">South Zone</SelectItem>
+                  <SelectItem value="East">East Zone</SelectItem>
+                  <SelectItem value="West">West Zone</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Customer Class Filter */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
+                <Shield className="h-3.5 w-3.5 text-[#CE9F6B]" />
+                Customer Classification
+              </Label>
+              <Select
+                value={classFilter}
+                onValueChange={val => {
+                  setClassFilter(val);
+                  setCurrentPage(1);
+                }}
+              >
+                <SelectTrigger className="h-9 text-xs border-slate-200">
+                  <SelectValue placeholder="All Classes (A/B/C)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Classes (A/B/C)</SelectItem>
+                  <SelectItem value="A">Class A</SelectItem>
+                  <SelectItem value="B">Class B</SelectItem>
+                  <SelectItem value="C">Class C</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Expiry Lifecycle Filter */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
+                <Clock className="h-3.5 w-3.5 text-[#9E3B47]" />
+                Expiry Lifecycle
+              </Label>
+              <Select
+                value={expiryFilter}
+                onValueChange={val => {
+                  setExpiryFilter(val);
+                  if (val === 'all') setQuickTab('all');
+                  else if (val === 'critical') setQuickTab('expiring30');
+                  else if (val === 'expired') setQuickTab('expired');
+                  else if (val === 'healthy') setQuickTab('active');
+                  else setQuickTab('all');
+                  setCurrentPage(1);
+                }}
+              >
+                <SelectTrigger className="h-9 text-xs border-slate-200">
+                  <SelectValue placeholder="All Expiry Lifecycles" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Expiry Lifecycles</SelectItem>
+                  <SelectItem value="critical">Critical (≤ 30 Days)</SelectItem>
+                  <SelectItem value="warning">Warning (31 - 60 Days)</SelectItem>
+                  <SelectItem value="attention">Upcoming (61 - 90 Days)</SelectItem>
+                  <SelectItem value="healthy">Active Healthy (&gt; 90 Days)</SelectItem>
+                  <SelectItem value="expired">Expired Contracts</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ─── UNIFIED CONTRACTS TABLE (Customer Band + Machine Rows Style) ─── */}
+      <Card className="border-0 shadow-xl overflow-hidden bg-white rounded-2xl">
+        <div className="w-full overflow-x-auto relative">
+          <table className="w-full border-collapse">
+            <thead className="sticky top-0 z-30 shadow-sm">
+              <tr className="bg-gradient-to-r from-[#75242D] via-[#9E3B47] to-[#546A7A] text-white text-[11px] sm:text-xs font-extrabold uppercase tracking-wide select-none">
+                {/* Sl/No */}
+                <th
+                  className="px-2 py-2.5 text-center cursor-pointer hover:bg-black/10 transition-colors w-11 sticky top-0"
+                  onClick={() => handleSort('totalMachines')}
+                >
+                  <div className="flex items-center justify-center gap-1">
+                    <span>#</span>
+                  </div>
+                </th>
+
+                {/* Serial No / Customer */}
+                <th
+                  className="px-2.5 py-2.5 text-left cursor-pointer hover:bg-black/10 transition-colors"
+                  onClick={() => handleSort('customerName')}
+                >
+                  <div className="flex items-center gap-1.5">
+                    <Building2 className="h-3.5 w-3.5 text-[#A2B9AF]" />
+                    <span>Machine Serial / Agreement</span>
+                    {sortField === 'customerName' && (
+                      <span className="text-[#A2B9AF]">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                    )}
+                  </div>
+                </th>
+
+                {/* Unit / Model */}
+                <th className="px-2 py-2.5 text-left">
+                  <div className="flex items-center gap-1.5">
+                    <Cpu className="h-3.5 w-3.5 text-[#82A094]" />
+                    <span>Unit Type / Model</span>
+                  </div>
+                </th>
+
+                {/* Control & Type */}
+                <th className="px-1.5 py-2.5 text-center w-26 sticky top-0">
+                  <span>Control / Type</span>
+                </th>
+
+                {/* Department / Year */}
+                <th className="px-2 py-2.5 text-left w-22 sticky top-0">
+                  <span>Department</span>
+                </th>
+
+                {/* MC Period */}
+                <th className="px-2.5 py-2.5 text-left w-32 sticky top-0">
+                  <div className="flex items-center gap-1.5">
+                    <Calendar className="h-3.5 w-3.5 text-[#CE9F6B]" />
+                    <span>MC Period</span>
+                  </div>
+                </th>
+
+                {/* Warranty Period */}
+                <th className="px-2.5 py-2.5 text-left w-28 sticky top-0">
+                  <div className="flex items-center gap-1.5">
+                    <Shield className="h-3.5 w-3.5 text-[#82A094]" />
+                    <span>Warranty</span>
+                  </div>
+                </th>
+
+                {/* Status */}
+                <th className="px-1.5 py-2.5 text-center w-20 sticky top-0">
+                  <div className="flex items-center justify-center gap-1">
+                    <span>Status</span>
+                  </div>
+                </th>
+
+                {/* MC Value */}
+                <th
+                  className="px-2.5 py-2.5 text-right cursor-pointer hover:bg-black/10 transition-colors w-26 sticky top-0"
+                  onClick={() => handleSort('totalMCValue')}
+                >
+                  <div className="flex items-center justify-end gap-1">
+                    <IndianRupee className="h-3.5 w-3.5 text-[#82A094]" />
+                    <span>MC Value</span>
+                    {sortField === 'totalMCValue' && (
+                      <span className="text-[#A2B9AF]">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                    )}
+                  </div>
+                </th>
+
+                {/* Engineer */}
+                <th className="px-2 py-2.5 text-left w-26 sticky top-0">
+                  <div className="flex items-center gap-1.5">
+                    <User className="h-3.5 w-3.5 text-cyan-300" />
+                    <span>Engineer</span>
+                  </div>
+                </th>
+
+                {/* Actions */}
+                <th className="px-1.5 py-2.5 text-center w-10 sticky top-0">
+                  <span className="sr-only">Actions</span>
+                </th>
+              </tr>
+            </thead>
+
+            <tbody className="divide-y divide-slate-100">
+              {loading ? (
+                <tr>
+                  <td colSpan={11} className="px-6 py-20 text-center bg-slate-50/50">
+                    <div className="flex flex-col items-center justify-center space-y-3">
+                      <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-[#9E3B47] to-[#546A7A] flex items-center justify-center shadow-lg">
+                        <Loader2 className="h-6 w-6 animate-spin text-white" />
+                      </div>
+                      <div>
+                        <p className="text-base font-bold text-slate-800">Loading annual machine contracts...</p>
+                        <p className="text-xs text-slate-400 mt-0.5">Fetching latest machine maintenance records</p>
+                      </div>
+                    </div>
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {allMachines.map((m, idx) => {
-                  const custTheme = getCustomerTheme(m.customerName);
+              ) : paginatedGroups.length === 0 ? (
+                <tr>
+                  <td colSpan={11} className="px-6 py-16 text-center bg-slate-50/40">
+                    <div className="flex flex-col items-center justify-center space-y-3 max-w-md mx-auto">
+                      <div className="h-14 w-14 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400">
+                        <Layers className="h-7 w-7" />
+                      </div>
+                      <div>
+                        <p className="text-base font-bold text-slate-800">No machine contracts found</p>
+                        <p className="text-xs text-slate-500 mt-1">
+                          {hasActiveFilters
+                            ? 'No contracts matched your filter criteria. Try adjusting or clearing your filters.'
+                            : 'No annual machine contracts have been recorded yet.'}
+                        </p>
+                      </div>
+                      {hasActiveFilters ? (
+                        <Button
+                          variant="outline"
+                          onClick={clearFilters}
+                          className="mt-2 text-xs font-semibold text-slate-700"
+                        >
+                          <X className="h-3.5 w-3.5 mr-1.5" />
+                          Clear All Filters
+                        </Button>
+                      ) : (
+                        <Button
+                          onClick={() => router.push(`${resolvedBasePath}/contracts/detailed/new`)}
+                          className="mt-2 bg-gradient-to-r from-[#9E3B47] to-[#75242D] text-white text-xs font-bold shadow-md h-8"
+                        >
+                          <Plus className="h-3.5 w-3.5 mr-1.5" />
+                          Create First Contract
+                        </Button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                paginatedGroups.map((group, groupIndex) => {
+                  const customerSlNo = (currentPage - 1) * pageSize + groupIndex + 1;
+                  const dept = extractDepartmentFromCustomer(group.customerName);
+                  const activeCount = group.machines.filter(m => getMachineStatus(m) === 'Active').length;
+                  const expiredCount = group.machines.filter(m => getMachineStatus(m) === 'Expired').length;
+
                   return (
-                    <tr key={m.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="px-2.5 py-2.5 text-center font-bold text-slate-400 text-[10px]">{idx + 1}</td>
-                      <td className="px-2.5 py-2.5 font-extrabold text-slate-800 max-w-[150px] truncate">
-                        <div className="flex items-center gap-1.5">
-                          <div className={`w-5 h-5 rounded bg-gradient-to-br ${custTheme.gradient} text-white flex items-center justify-center font-extrabold text-[9px] flex-shrink-0`}>
-                            {m.customerName ? m.customerName.charAt(0).toUpperCase() : 'C'}
+                    <Fragment key={`${group.customerName}_${group.zoneName}_${group.place}_${groupIndex}`}>
+                      {/* ─── CUSTOMER HEADER BAND ─── */}
+                      <tr className="bg-gradient-to-r from-slate-100 via-slate-50 to-slate-100/90 border-t-2 border-b border-slate-200">
+                        <td colSpan={11} className="py-2 px-3 sm:px-4">
+                          <div className="flex items-center justify-between flex-wrap gap-2.5">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <span className="w-6 h-6 rounded-md bg-[#546A7A] text-white flex items-center justify-center text-[11px] font-black shadow-xs flex-shrink-0">
+                                {customerSlNo}
+                              </span>
+                              <div
+                                className={`w-7 h-7 rounded-lg bg-gradient-to-br ${getCustomerColorClass(
+                                  group.customerName
+                                )} flex items-center justify-center text-white text-xs font-black shadow-xs flex-shrink-0`}
+                              >
+                                {(group.customerName || 'C').charAt(0).toUpperCase()}
+                              </div>
+                              <div className="flex items-center gap-2 flex-wrap min-w-0">
+                                <span className="font-extrabold text-slate-900 text-sm sm:text-[15px] truncate">
+                                  {group.customerName}
+                                </span>
+                                {getClassBadge(group.customerClass)}
+                                {dept && dept !== '—' && (
+                                  <span className="px-2 py-0.5 rounded-md bg-white text-slate-700 font-bold text-[11px] border border-slate-200 shadow-2xs">
+                                    {dept}
+                                  </span>
+                                )}
+                                {group.place && (
+                                  <span className="text-xs text-slate-600 font-medium">
+                                    • {group.place}
+                                  </span>
+                                )}
+                                {group.zoneName && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white text-slate-700 text-[11px] font-bold border border-slate-200 shadow-2xs">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-[#6F8A9D]" />
+                                    {group.zoneName} Zone
+                                  </span>
+                                )}
+                                <span className="px-2 py-0.5 rounded-full bg-[#9E3B47]/10 text-[#9E3B47] text-[11px] font-extrabold border border-[#9E3B47]/20 flex items-center gap-1">
+                                  <Cpu className="w-3 h-3" />
+                                  {group.machines.length} {group.machines.length === 1 ? 'Machine' : 'Machines'}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Right side summary KPIs for this customer */}
+                            <div className="flex items-center gap-2 text-xs font-semibold flex-shrink-0">
+                              <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-white border border-slate-200 text-slate-700 shadow-2xs">
+                                <span className="px-2 py-0.2 rounded-full bg-emerald-50 text-emerald-700 font-extrabold border border-emerald-200 text-[10.5px]">
+                                  {activeCount} Active
+                                </span>
+                                {expiredCount > 0 && (
+                                  <span className="px-2 py-0.2 rounded-full bg-rose-50 text-rose-700 font-extrabold border border-rose-200 text-[10.5px]">
+                                    {expiredCount} Expired
+                                  </span>
+                                )}
+                              </div>
+                              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 shadow-2xs">
+                                <span className="text-emerald-600 font-medium">Total Value:</span>
+                                <span className="font-black font-mono">{formatCurrency(group.totalMCValue)}</span>
+                              </div>
+                            </div>
                           </div>
-                          <span className="truncate text-xs">{m.customerName}</span>
-                        </div>
-                      </td>
-                      <td className="px-2.5 py-2.5">{getClassBadge(m.customerClass)}</td>
-                      <td className="px-2.5 py-2.5 text-slate-600">
-                        <p className="font-medium text-slate-800 text-[11px] truncate max-w-[100px]">{m.place || '—'}</p>
-                        <p className="text-[9.5px] text-slate-400 font-semibold">{m.zoneName}</p>
-                      </td>
-                      <td className="px-2.5 py-2.5 text-slate-600 font-medium text-[11px] truncate max-w-[90px]">{m.engineerName || '—'}</td>
-                      <td className="px-2.5 py-2.5 font-mono font-bold text-slate-800">
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-800 font-mono text-[10.5px]">
-                          {m.serialNumber}
-                        </span>
-                      </td>
-                      <td className="px-2.5 py-2.5">{getUnitTypeBadge(m.unitType, m.modelNumber)}</td>
-                      <td className="px-2.5 py-2.5 text-center">{getControlTypeBadge(m.controlType)}</td>
-                      <td className="px-2.5 py-2.5 text-center">
-                        {getContractTypeBadge(m.contractType)}
-                      </td>
-                      <td className="px-2.5 py-2.5">
-                        {renderDateRange(m.mcStartDate, m.mcEndDate)}
-                      </td>
-                      <td className="px-2.5 py-2.5">
-                        {renderDateRange(m.warrantyStartDate, m.warrantyEndDate)}
-                      </td>
-                      <td className="px-2.5 py-2.5 text-center">{getExpiryBadge(m.mcExpiry)}</td>
-                      <td className="px-2.5 py-2.5 text-right font-extrabold text-slate-800 text-[11.5px] tabular-nums whitespace-nowrap">
-                        {formatCurrency(m.mcValue)}
-                      </td>
+                        </td>
+                      </tr>
 
-                      {/* Actions */}
-                      <td className="px-2.5 py-2.5 text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          <a
-                            href={`${getBaseRoute()}/contracts/detailed/${m.id}`}
-                            className="p-1 rounded-md bg-slate-100 hover:bg-[#546A7A] text-slate-600 hover:text-white transition-colors"
-                            title="View Contract Details"
+                      {/* ─── CUSTOMER'S MACHINE CONTRACT ROWS ─── */}
+                      {group.machines.map((m, mIdx) => {
+                        const machineStatus = getMachineStatus(m);
+
+                        return (
+                          <tr
+                            key={m.id}
+                            onClick={() => router.push(`${resolvedBasePath}/contracts/detailed/${m.id}`)}
+                            className={`
+                              ${mIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50/40'}
+                              hover:bg-gradient-to-r hover:from-[#96AEC2]/10 hover:to-[#96AEC2]/20
+                              transition-all duration-150 cursor-pointer group border-b border-slate-100/70 text-xs sm:text-[12.5px]
+                            `}
                           >
-                            <Eye className="w-3.5 h-3.5" />
-                          </a>
+                            {/* Sub-index */}
+                            <td className="px-2 py-2 text-center w-11">
+                              <span className="font-mono text-slate-500 text-[10.5px] font-bold bg-slate-100 px-1.5 py-0.5 rounded">
+                                #{mIdx + 1}
+                              </span>
+                            </td>
 
-                          {canEdit && (
-                            <>
-                              <a
-                                href={`${getBaseRoute()}/contracts/detailed/${m.id}/edit`}
-                                className="p-1 rounded-md bg-slate-100 hover:bg-[#82A094] text-slate-600 hover:text-white transition-colors"
-                                title="Edit Contract"
-                              >
-                                <Pencil className="w-3.5 h-3.5" />
-                              </a>
+                            {/* Serial No & PO */}
+                            <td className="px-2.5 py-2">
+                              <div className="flex flex-col min-w-0">
+                                <span className="font-mono font-bold text-slate-900 group-hover:text-[#9E3B47] text-xs sm:text-[12.5px] transition-colors flex items-center gap-1">
+                                  <span className="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 font-mono text-[10.5px] font-bold">
+                                    {m.serialNumber}
+                                  </span>
+                                </span>
+                                {m.mcPoNumber && (
+                                  <span className="text-[9.5px] text-slate-500 font-mono mt-0.5 truncate" title={`PO: ${m.mcPoNumber}`}>
+                                    PO: {m.mcPoNumber}
+                                  </span>
+                                )}
+                                {m.poDate && (
+                                  <span className="text-[9.5px] text-slate-400 font-mono whitespace-nowrap mt-0.5" title={`PO Date: ${formatDate(m.poDate)}`}>
+                                    PO Date: {formatDate(m.poDate)}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
 
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setDeleteTarget(m);
-                                }}
-                                className="p-1 rounded-md bg-slate-100 hover:bg-rose-600 text-slate-600 hover:text-white transition-colors"
-                                title="Delete Contract"
+                            {/* Unit / Model */}
+                            <td className="px-2 py-2">
+                              {getUnitTypeBadge(m.unitType, m.modelNumber)}
+                            </td>
+
+                            {/* Control & Type */}
+                            <td className="px-1.5 py-2 text-center w-26">
+                              <div className="flex items-center justify-center gap-1 flex-wrap">
+                                {getControlTypeBadge(m.controlType)}
+                                {getContractTypeBadge(m.contractType)}
+                              </div>
+                            </td>
+
+                            {/* Department / Installation Year */}
+                            <td className="px-2 py-2 w-22">
+                              <div className="flex flex-col text-[10.5px] leading-tight">
+                                <span className="text-slate-800 font-semibold truncate max-w-[85px]" title={m.department || ''}>
+                                  {m.department || '—'}
+                                </span>
+                                {m.installationYear && (
+                                  <span className="text-[9.5px] text-slate-400 font-mono mt-0.5">
+                                    Inst: {m.installationYear}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+
+                            {/* MC Period + Expiry */}
+                            <td className="px-2.5 py-2 whitespace-nowrap w-32">
+                              <div className="flex flex-col gap-0.5">
+                                {renderDateRange(m.mcStartDate, m.mcEndDate)}
+                                <div>
+                                  {getExpiryBadge(m.mcExpiry)}
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Warranty Period */}
+                            <td className="px-2.5 py-2 whitespace-nowrap w-28">
+                              {renderDateRange(m.warrantyStartDate, m.warrantyEndDate)}
+                            </td>
+
+                            {/* Status (Active / Expired) */}
+                            <td className="px-1.5 py-2 text-center w-20">
+                              <span
+                                className={`inline-flex items-center justify-center gap-1 px-2 py-0.5 rounded-full text-[9.5px] font-extrabold border shadow-2xs whitespace-nowrap ${getStatusBadgeStyle(
+                                  machineStatus
+                                )}`}
                               >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
+                                <span
+                                  className={`w-1.5 h-1.5 rounded-full ${
+                                    machineStatus === 'Active' ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'
+                                  }`}
+                                />
+                                {machineStatus}
+                              </span>
+                            </td>
+
+                            {/* MC Value */}
+                            <td className="px-2.5 py-2 text-right w-26 whitespace-nowrap">
+                              <div className="font-extrabold text-slate-900 text-xs sm:text-[12.5px] font-mono leading-tight">
+                                {formatCurrency(m.mcValue)}
+                              </div>
+                            </td>
+
+                            {/* Engineer */}
+                            <td className="px-2 py-2 w-26">
+                              {m.engineerName ? (
+                                <span className="inline-flex items-center gap-1 text-[11px] text-slate-700 font-medium truncate max-w-[90px]" title={m.engineerName}>
+                                  <User className="w-3 h-3 text-[#546A7A] shrink-0" />
+                                  <span className="truncate">{m.engineerName}</span>
+                                </span>
+                              ) : (
+                                <span className="text-slate-400 text-xs">—</span>
+                              )}
+                            </td>
+
+                            {/* Actions */}
+                            <td className="px-1 py-2 text-center w-10" onClick={e => e.stopPropagation()}>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 w-6 p-0 hover:bg-slate-100 text-slate-600 rounded-md"
+                                  >
+                                    <MoreHorizontal className="h-3 w-3" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-44 bg-white shadow-lg text-xs">
+                                  <DropdownMenuLabel className="text-[10px] text-slate-400 uppercase font-bold">
+                                    Machine Actions
+                                  </DropdownMenuLabel>
+                                  <DropdownMenuItem
+                                    onClick={() => router.push(`${resolvedBasePath}/contracts/detailed/${m.id}`)}
+                                    className="cursor-pointer flex items-center gap-2 text-xs"
+                                  >
+                                    <Eye className="h-4 w-4 text-[#546A7A]" />
+                                    View Details
+                                  </DropdownMenuItem>
+                                  {canEdit && (
+                                    <>
+                                      <DropdownMenuItem
+                                        onClick={() => router.push(`${resolvedBasePath}/contracts/detailed/${m.id}/edit`)}
+                                        className="cursor-pointer flex items-center gap-2 text-xs"
+                                      >
+                                        <Pencil className="h-4 w-4 text-[#82A094]" />
+                                        Edit Contract
+                                      </DropdownMenuItem>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem
+                                        onClick={() => setDeleteTarget(m)}
+                                        className="cursor-pointer flex items-center gap-2 text-xs text-rose-600 focus:text-rose-600"
+                                      >
+                                        <Trash2 className="h-4 w-4 text-rose-600" />
+                                        Delete Contract
+                                      </DropdownMenuItem>
+                                    </>
+                                  )}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </Fragment>
                   );
-                })}
-              </tbody>
-            </table>
-          </div>
+                })
+              )}
+            </tbody>
+          </table>
         </div>
-      )}
 
-      {/* ─── Delete Modal ───────────────────────────────────── */}
-      {deleteTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-slate-100 space-y-4">
-            <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center">
-              <Trash2 className="w-6 h-6" />
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-slate-800">Delete Machine Contract?</h3>
-              <p className="text-xs sm:text-sm text-slate-500 mt-1">
-                Are you sure you want to delete the contract for machine{' '}
-                <span className="font-bold text-slate-700">{deleteTarget.serialNumber}</span> ({deleteTarget.customerName})? This action cannot be undone.
-              </p>
-            </div>
-
-            <div className="flex items-center gap-3 pt-2">
-              <button
-                onClick={() => setDeleteTarget(null)}
-                disabled={deleting}
-                className="flex-1 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-all"
+        {/* ─── TABLE PAGINATION FOOTER ─── */}
+        {!loading && sortedCustomerGroups.length > 0 && (
+          <div className="p-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500 bg-slate-50/50">
+            <div className="flex items-center gap-2">
+              <span>Show</span>
+              <select
+                value={pageSize}
+                onChange={e => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="h-7 px-2 rounded border border-slate-200 bg-white text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-[#9E3B47]"
               >
-                Cancel
-              </button>
-              <button
-                onClick={confirmDelete}
-                disabled={deleting}
-                className="flex-1 py-2.5 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition-all shadow-md"
+                <option value={25}>25 customers</option>
+                <option value={50}>50 customers</option>
+                <option value={100}>100 customers</option>
+              </select>
+              <span>of {sortedCustomerGroups.length} total customers</span>
+            </div>
+
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(1)}
+                className="h-7 w-7 p-0"
+                title="First Page"
               >
-                {deleting ? 'Deleting...' : 'Yes, Delete'}
-              </button>
+                <ChevronsLeft className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                className="h-7 px-2 text-xs"
+              >
+                <ChevronLeft className="h-3.5 w-3.5 mr-1" />
+                Prev
+              </Button>
+              <span className="text-xs font-semibold px-2">
+                Page {currentPage} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                className="h-7 px-2 text-xs"
+              >
+                Next
+                <ChevronRight className="h-3.5 w-3.5 ml-1" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage(totalPages)}
+                className="h-7 w-7 p-0"
+                title="Last Page"
+              >
+                <ChevronsRight className="h-3.5 w-3.5" />
+              </Button>
             </div>
           </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ============================
-// KPI Card sub-component
-// ============================
-function KPICard({
-  icon,
-  label,
-  value,
-  color,
-  bgColor,
-  border,
-  urgent
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string | number;
-  color: string;
-  bgColor: string;
-  border?: string;
-  urgent?: boolean;
-}) {
-  return (
-    <div
-      className={`bg-white rounded-2xl border ${border || 'border-slate-100'} p-4 shadow-sm hover:shadow-md transition-all flex flex-col justify-between ${
-        urgent ? 'ring-2 ring-[#E17F70]/30' : ''
-      }`}
-    >
-      <div className="flex items-center justify-between mb-2">
-        <div className={`w-9 h-9 rounded-xl ${bgColor} flex items-center justify-center ${color}`}>
-          {icon}
-        </div>
-        {urgent && (
-          <span className="w-2 h-2 rounded-full bg-[#E17F70] animate-ping" />
         )}
-      </div>
-      <div>
-        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{label}</p>
-        <p className={`text-lg sm:text-xl font-extrabold ${urgent ? 'text-[#E17F70]' : 'text-slate-800'} tracking-tight mt-0.5`}>
-          {value}
-        </p>
-      </div>
+      </Card>
+
+      {/* ─── DELETE MODAL DIALOG ─── */}
+      <Dialog open={Boolean(deleteTarget)} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <DialogContent className="max-w-md bg-white">
+          <DialogHeader>
+            <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center mb-2">
+              <Trash2 className="w-5 h-5" />
+            </div>
+            <DialogTitle className="text-base font-bold text-slate-900">
+              Delete Machine Contract?
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500">
+              Are you sure you want to delete the contract for machine{' '}
+              <span className="font-bold text-slate-800">{deleteTarget?.serialNumber}</span>{' '}
+              ({deleteTarget?.customerName})? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0 pt-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setDeleteTarget(null)}
+              disabled={deleting}
+              className="text-xs font-semibold"
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={confirmDelete}
+              disabled={deleting}
+              className="bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold"
+            >
+              {deleting ? 'Deleting...' : 'Yes, Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

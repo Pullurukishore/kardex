@@ -374,10 +374,14 @@ export async function generateAnnualContractReportPdf(
                     : '—';
 
                 const unitModel = `${m.unitType || '—'}${m.modelNumber ? ` / ${m.modelNumber}` : ''}`;
+                const poInfoParts: string[] = [];
+                if (m.mcPoNumber) poInfoParts.push(`PO: ${m.mcPoNumber}`);
+                if (m.poDate) poInfoParts.push(`PO Dt: ${fmtDatePdf(m.poDate)}`);
+                const serialCellText = (m.serialNumber || '—') + (poInfoParts.length > 0 ? `\n${poInfoParts.join(' | ')}` : '');
 
                 body.push([
                     String(mIdx + 1),
-                    m.serialNumber || '—',
+                    serialCellText,
                     unitModel,
                     m.controlType || '—',
                     m.engineerName || '—',

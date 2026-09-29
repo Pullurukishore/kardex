@@ -940,13 +940,13 @@ export default function ContractsListPage({
 
           {/* ─── CONTRACTS TABLE (Offers / Tickets Premium Design) ─── */}
           <Card className="border-0 shadow-xl overflow-hidden bg-white rounded-2xl">
-            <div className="overflow-x-auto">
+            <div className="w-full overflow-x-auto relative">
               <table className="w-full border-collapse">
-                <thead>
-                  <tr className="bg-gradient-to-r from-[#75242D] via-[#9E3B47] to-[#546A7A] text-white text-[11px] select-none">
+                <thead className="sticky top-0 z-30 shadow-sm">
+                  <tr className="bg-gradient-to-r from-[#75242D] via-[#9E3B47] to-[#546A7A] text-white text-[11px] sm:text-xs font-extrabold uppercase tracking-wide select-none">
                     {/* Sl/No */}
                     <th
-                      className="px-2 py-3 text-center font-bold uppercase tracking-wider cursor-pointer hover:bg-black/10 transition-colors w-12"
+                      className="px-2 py-2.5 text-center cursor-pointer hover:bg-black/10 transition-colors w-11 sticky top-0"
                       onClick={() => handleSort('id')}
                     >
                       <div className="flex items-center justify-center gap-1">
@@ -959,11 +959,11 @@ export default function ContractsListPage({
 
                     {/* Agreement / PO */}
                     <th
-                      className="px-2 py-3 text-left font-bold uppercase tracking-wider cursor-pointer hover:bg-black/10 transition-colors"
+                      className="px-2.5 py-2.5 text-left cursor-pointer hover:bg-black/10 transition-colors"
                       onClick={() => handleSort('customerName')}
                     >
-                      <div className="flex items-center gap-1">
-                        <FileText className="h-3 w-3 text-[#A2B9AF]" />
+                      <div className="flex items-center gap-1.5">
+                        <FileText className="h-3.5 w-3.5 text-[#A2B9AF]" />
                         <span>PO / Agreement</span>
                         {sortField === 'customerName' && (
                           <span className="text-[#A2B9AF]">{sortDirection === 'asc' ? '↑' : '↓'}</span>
@@ -973,11 +973,11 @@ export default function ContractsListPage({
 
                     {/* Zone */}
                     <th
-                      className="px-1.5 py-3 text-center font-bold uppercase tracking-wider cursor-pointer hover:bg-black/10 transition-colors w-16"
+                      className="px-1.5 py-2.5 text-center cursor-pointer hover:bg-black/10 transition-colors w-18"
                       onClick={() => handleSort('zoneName')}
                     >
                       <div className="flex items-center justify-center gap-1">
-                        <MapPin className="h-3 w-3 text-[#6F8A9D]" />
+                        <MapPin className="h-3.5 w-3.5 text-[#6F8A9D]" />
                         <span>Zone</span>
                         {sortField === 'zoneName' && (
                           <span className="text-[#A2B9AF]">{sortDirection === 'asc' ? '↑' : '↓'}</span>
@@ -987,11 +987,11 @@ export default function ContractsListPage({
 
                     {/* Care Level */}
                     <th
-                      className="px-1.5 py-3 text-center font-bold uppercase tracking-wider cursor-pointer hover:bg-black/10 transition-colors w-20"
+                      className="px-1.5 py-2.5 text-center cursor-pointer hover:bg-black/10 transition-colors w-22"
                       onClick={() => handleSort('mcType')}
                     >
                       <div className="flex items-center justify-center gap-1">
-                        <Layers className="h-3 w-3 text-[#CE9F6B]" />
+                        <Layers className="h-3.5 w-3.5 text-[#CE9F6B]" />
                         <span>Care</span>
                         {sortField === 'mcType' && (
                           <span className="text-[#A2B9AF]">{sortDirection === 'asc' ? '↑' : '↓'}</span>
@@ -1001,7 +1001,7 @@ export default function ContractsListPage({
 
                     {/* Machines */}
                     <th
-                      className="px-1 py-3 text-center font-bold uppercase tracking-wider cursor-pointer hover:bg-black/10 transition-colors w-16"
+                      className="px-1.5 py-2.5 text-center cursor-pointer hover:bg-black/10 transition-colors w-18"
                       onClick={() => handleSort('noOfMachine')}
                     >
                       <div className="flex items-center justify-center gap-1">
@@ -1014,7 +1014,7 @@ export default function ContractsListPage({
 
                     {/* BD Visits */}
                     <th
-                      className="px-1.5 py-3 text-center font-bold uppercase tracking-wider cursor-pointer hover:bg-black/10 transition-colors w-20"
+                      className="px-1.5 py-2.5 text-center cursor-pointer hover:bg-black/10 transition-colors w-22"
                       onClick={() => handleSort('bdCount')}
                     >
                       <div className="flex items-center justify-center gap-1">
@@ -1027,11 +1027,11 @@ export default function ContractsListPage({
 
                     {/* Value */}
                     <th
-                      className="px-2 py-3 text-right font-bold uppercase tracking-wider cursor-pointer hover:bg-black/10 transition-colors w-24"
+                      className="px-2.5 py-2.5 text-right cursor-pointer hover:bg-black/10 transition-colors w-26"
                       onClick={() => handleSort('amount')}
                     >
                       <div className="flex items-center justify-end gap-1">
-                        <IndianRupee className="h-3 w-3 text-[#82A094]" />
+                        <IndianRupee className="h-3.5 w-3.5 text-[#82A094]" />
                         <span>Value</span>
                         {sortField === 'amount' && (
                           <span className="text-[#A2B9AF]">{sortDirection === 'asc' ? '↑' : '↓'}</span>
@@ -1041,11 +1041,11 @@ export default function ContractsListPage({
 
                     {/* Period / Expiry */}
                     <th
-                      className="px-2 py-3 text-left font-bold uppercase tracking-wider cursor-pointer hover:bg-black/10 transition-colors"
+                      className="px-2 py-2.5 text-left cursor-pointer hover:bg-black/10 transition-colors w-32"
                       onClick={() => handleSort('endDate')}
                     >
-                      <div className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3 text-[#CE9F6B]" />
+                      <div className="flex items-center gap-1.5">
+                        <Calendar className="h-3.5 w-3.5 text-[#CE9F6B]" />
                         <span>Period</span>
                         {sortField === 'endDate' && (
                           <span className="text-[#A2B9AF]">{sortDirection === 'asc' ? '↑' : '↓'}</span>
@@ -1054,16 +1054,16 @@ export default function ContractsListPage({
                     </th>
 
                     {/* PM Progress */}
-                    <th className="px-1.5 py-3 text-center font-bold uppercase tracking-wider w-20">
+                    <th className="px-1.5 py-2.5 text-center w-22">
                       <div className="flex items-center justify-center gap-1">
-                        <CheckCircle className="h-3 w-3 text-emerald-400" />
+                        <CheckCircle className="h-3.5 w-3.5 text-emerald-400" />
                         <span>PM Visits</span>
                       </div>
                     </th>
 
                     {/* Status */}
                     <th
-                      className="px-1.5 py-3 text-center font-bold uppercase tracking-wider cursor-pointer hover:bg-black/10 transition-colors w-20"
+                      className="px-1.5 py-2.5 text-center cursor-pointer hover:bg-black/10 transition-colors w-20"
                       onClick={() => handleSort('status')}
                     >
                       <div className="flex items-center justify-center gap-1">
@@ -1076,11 +1076,11 @@ export default function ContractsListPage({
 
                     {/* Responsible */}
                     <th
-                      className="px-2 py-3 text-left font-bold uppercase tracking-wider cursor-pointer hover:bg-black/10 transition-colors w-28"
+                      className="px-2 py-2.5 text-left cursor-pointer hover:bg-black/10 transition-colors w-26"
                       onClick={() => handleSort('responsible')}
                     >
-                      <div className="flex items-center gap-1">
-                        <Users className="h-3 w-3 text-cyan-300" />
+                      <div className="flex items-center gap-1.5">
+                        <Users className="h-3.5 w-3.5 text-cyan-300" />
                         <span>Responsible</span>
                         {sortField === 'responsible' && (
                           <span className="text-[#A2B9AF]">{sortDirection === 'asc' ? '↑' : '↓'}</span>
@@ -1089,7 +1089,7 @@ export default function ContractsListPage({
                     </th>
 
                     {/* Actions */}
-                    <th className="px-1 py-3 text-center font-bold uppercase tracking-wider w-10">
+                    <th className="px-1.5 py-2.5 text-center w-10">
                       <span className="sr-only">Actions</span>
                     </th>
                   </tr>
@@ -1114,8 +1114,8 @@ export default function ContractsListPage({
                     <tr>
                       <td colSpan={12} className="px-6 py-16 text-center bg-slate-50/40">
                         <div className="flex flex-col items-center justify-center space-y-3 max-w-md mx-auto">
-                          <div className="h-16 w-16 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400">
-                            <FileText className="h-8 w-8" />
+                          <div className="h-14 w-14 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400">
+                            <FileText className="h-7 w-7" />
                           </div>
                           <div>
                             <p className="text-base font-bold text-slate-800">No service contracts found</p>
@@ -1131,15 +1131,15 @@ export default function ContractsListPage({
                               onClick={clearFilters}
                               className="mt-2 text-xs font-semibold text-slate-700"
                             >
-                              <X className="h-3.5 w-3.5 mr-1" />
+                              <X className="h-3.5 w-3.5 mr-1.5" />
                               Clear All Filters
                             </Button>
                           ) : (
                             <Button
                               onClick={() => router.push(`${resolvedBasePath}/contracts/new`)}
-                              className="mt-2 bg-gradient-to-r from-[#9E3B47] to-[#75242D] text-white text-xs font-bold shadow-md"
+                              className="mt-2 bg-gradient-to-r from-[#9E3B47] to-[#75242D] text-white text-xs font-bold shadow-md h-8"
                             >
-                              <Plus className="h-4 w-4 mr-1" />
+                              <Plus className="h-3.5 w-3.5 mr-1.5" />
                               Create First Contract
                             </Button>
                           )}
@@ -1155,41 +1155,41 @@ export default function ContractsListPage({
                         <Fragment key={`${group.customerName}_${group.zoneName}_${group.place}_${groupIndex}`}>
                           {/* ─── CUSTOMER HEADER BAND ─── */}
                           <tr className="bg-gradient-to-r from-slate-100 via-slate-50 to-slate-100/90 border-t-2 border-b border-slate-200">
-                            <td colSpan={12} className="py-2 px-3">
-                              <div className="flex items-center justify-between flex-wrap gap-2">
-                                <div className="flex items-center gap-2 min-w-0">
-                                  <span className="w-5 h-5 rounded bg-[#546A7A] text-white flex items-center justify-center text-[11px] font-black shadow-xs flex-shrink-0">
+                            <td colSpan={12} className="py-2 px-3 sm:px-4">
+                              <div className="flex items-center justify-between flex-wrap gap-2.5">
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <span className="w-6 h-6 rounded-md bg-[#546A7A] text-white flex items-center justify-center text-[11px] font-black shadow-xs flex-shrink-0">
                                     {customerSlNo}
                                   </span>
                                   <div
-                                    className={`w-6 h-6 rounded-md bg-gradient-to-br ${getCustomerColorClass(
+                                    className={`w-7 h-7 rounded-lg bg-gradient-to-br ${getCustomerColorClass(
                                       group.customerName
-                                    )} flex items-center justify-center text-white text-[11px] font-black shadow-xs flex-shrink-0`}
+                                    )} flex items-center justify-center text-white text-xs font-black shadow-xs flex-shrink-0`}
                                   >
                                     {(group.customerName || 'C').charAt(0).toUpperCase()}
                                   </div>
-                                  <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-                                    <span className="font-extrabold text-slate-900 text-xs sm:text-sm truncate">
+                                  <div className="flex items-center gap-2 flex-wrap min-w-0">
+                                    <span className="font-extrabold text-slate-900 text-sm sm:text-[15px] truncate">
                                       {group.customerName}
                                     </span>
                                     {dept && dept !== '—' && (
-                                      <span className="px-1.5 py-0.2 rounded bg-white text-slate-600 font-bold text-[9px] border border-slate-200 shadow-2xs">
+                                      <span className="px-2 py-0.5 rounded-md bg-white text-slate-700 font-bold text-[11px] border border-slate-200 shadow-2xs">
                                         {dept}
                                       </span>
                                     )}
                                     {group.place && (
-                                      <span className="text-[10px] text-slate-500 font-medium">
+                                      <span className="text-xs text-slate-600 font-medium">
                                         • {group.place}
                                       </span>
                                     )}
                                     {group.zoneName && (
-                                      <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full bg-white text-slate-700 text-[9px] font-bold border border-slate-200 shadow-2xs">
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white text-slate-700 text-[11px] font-bold border border-slate-200 shadow-2xs">
                                         <span className="h-1.5 w-1.5 rounded-full bg-[#6F8A9D]" />
-                                        {group.zoneName}
+                                        {group.zoneName} Zone
                                       </span>
                                     )}
-                                    <span className="px-1.5 py-0.2 rounded-full bg-[#9E3B47]/10 text-[#9E3B47] text-[9px] font-extrabold border border-[#9E3B47]/20 flex items-center gap-1">
-                                      <FileText className="w-2.5 h-2.5" />
+                                    <span className="px-2 py-0.5 rounded-full bg-[#9E3B47]/10 text-[#9E3B47] text-[11px] font-extrabold border border-[#9E3B47]/20 flex items-center gap-1">
+                                      <FileText className="w-3 h-3" />
                                       {group.contracts.length} {group.contracts.length === 1 ? 'Contract' : 'Contracts'}
                                     </span>
                                   </div>
@@ -1197,13 +1197,13 @@ export default function ContractsListPage({
 
                                 {/* Right side summary KPIs for this customer */}
                                 <div className="flex items-center gap-2 text-xs font-semibold flex-shrink-0">
-                                  <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white border border-slate-200 text-slate-600 shadow-2xs text-[10px]">
+                                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white border border-slate-200 text-slate-700 shadow-2xs">
                                     <span className="text-slate-400">Total Units:</span>
-                                    <span className="font-bold text-slate-800">{group.totalMachines} M/C</span>
+                                    <span className="font-extrabold text-slate-900">{group.totalMachines} M/C</span>
                                   </div>
-                                  <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 shadow-2xs text-[10px]">
+                                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 shadow-2xs">
                                     <span className="text-emerald-600 font-medium">Total Value:</span>
-                                    <span className="font-black">{formatCurrency(group.totalAmount)}</span>
+                                    <span className="font-black font-mono">{formatCurrency(group.totalAmount)}</span>
                                   </div>
                                 </div>
                               </div>
@@ -1224,22 +1224,22 @@ export default function ContractsListPage({
                                 className={`
                                   ${cIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50/40'}
                                   hover:bg-gradient-to-r hover:from-[#96AEC2]/10 hover:to-[#96AEC2]/20
-                                  transition-all duration-150 cursor-pointer group border-b border-slate-100/70
+                                  transition-all duration-150 cursor-pointer group border-b border-slate-100/70 text-xs sm:text-[12.5px]
                                 `}
                               >
                                 {/* Sub-index */}
-                                <td className="px-2 py-2 text-center w-12">
-                                  <span className="font-mono text-slate-400 text-[10px] font-bold bg-slate-100 px-1.5 py-0.5 rounded">
+                                <td className="px-2 py-2 text-center w-11">
+                                  <span className="font-mono text-slate-500 text-[10.5px] font-bold bg-slate-100 px-1.5 py-0.5 rounded">
                                     #{cIdx + 1}
                                   </span>
                                 </td>
 
                                 {/* PO & Agreement */}
-                                <td className="px-2 py-2">
-                                  <div className="flex flex-col min-w-0 max-w-[150px]">
+                                <td className="px-2.5 py-2">
+                                  <div className="flex flex-col min-w-0">
                                     <div className="flex items-center gap-1 flex-wrap">
                                       <span
-                                        className="font-mono font-bold text-slate-900 group-hover:text-[#9E3B47] text-[11px] leading-tight break-all line-clamp-2 transition-colors"
+                                        className="font-mono font-bold text-slate-900 group-hover:text-[#9E3B47] text-xs sm:text-[12.5px] leading-tight break-all transition-colors"
                                         title={contract.poNo || '—'}
                                       >
                                         {contract.poNo ? `PO: ${contract.poNo}` : '—'}
@@ -1247,14 +1247,14 @@ export default function ContractsListPage({
                                       {contract.softwareSupport && (
                                         <span
                                           title="Active Software Support License"
-                                          className="px-1 py-0.2 rounded text-[8px] font-extrabold bg-indigo-50 text-indigo-700 border border-indigo-200 flex-shrink-0"
+                                          className="px-1 py-0.2 rounded text-[8.5px] font-extrabold bg-indigo-50 text-indigo-700 border border-indigo-200 flex-shrink-0"
                                         >
                                           SW
                                         </span>
                                       )}
                                     </div>
                                     {contract.poDate && (
-                                      <span className="text-[9px] text-slate-400 font-mono mt-0.5 whitespace-nowrap">
+                                      <span className="text-[9.5px] text-slate-400 font-mono mt-0.5 whitespace-nowrap">
                                         PO Date: {formatDateLabel(contract.poDate)}
                                       </span>
                                     )}
@@ -1262,16 +1262,16 @@ export default function ContractsListPage({
                                 </td>
 
                                 {/* Zone */}
-                                <td className="px-1.5 py-2 text-center w-16">
-                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10px] font-bold border border-slate-200 whitespace-nowrap">
+                                <td className="px-1.5 py-2 text-center w-18">
+                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-800 text-[10.5px] font-bold border border-slate-200 whitespace-nowrap">
                                     {contract.zoneName || '—'}
                                   </span>
                                 </td>
 
                                 {/* Care Level */}
-                                <td className="px-1.5 py-2 text-center w-20" onClick={e => e.stopPropagation()}>
+                                <td className="px-1.5 py-2 text-center w-22" onClick={e => e.stopPropagation()}>
                                   <span
-                                    className={`inline-flex px-1.5 py-0.5 text-[9px] font-bold rounded border whitespace-nowrap ${getSlaBadgeStyle(
+                                    className={`inline-flex px-1.5 py-0.5 text-[10.5px] font-bold rounded-md border whitespace-nowrap ${getSlaBadgeStyle(
                                       contract.mcType
                                     )}`}
                                   >
@@ -1280,16 +1280,16 @@ export default function ContractsListPage({
                                 </td>
 
                                 {/* Machines */}
-                                <td className="px-1 py-2 text-center w-16">
-                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 text-slate-800 text-[10px] font-extrabold border border-slate-200 whitespace-nowrap">
+                                <td className="px-1.5 py-2 text-center w-18">
+                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-900 text-[11px] font-extrabold border border-slate-200 whitespace-nowrap">
                                     {contract.noOfMachine || 1} M/C
                                   </span>
                                 </td>
 
                                 {/* BD Visits */}
-                                <td className="px-1.5 py-2 text-center w-20">
+                                <td className="px-1.5 py-2 text-center w-22">
                                   <span
-                                    className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-extrabold border whitespace-nowrap ${
+                                    className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10.5px] font-extrabold border whitespace-nowrap ${
                                       contract.bdCount === 999
                                         ? 'bg-purple-50 text-purple-700 border-purple-200'
                                         : contract.bdCount > 0
@@ -1302,13 +1302,13 @@ export default function ContractsListPage({
                                 </td>
 
                                 {/* Value */}
-                                <td className="px-2 py-2 text-right w-24 whitespace-nowrap">
-                                  <div className="font-extrabold text-slate-900 text-[11px] leading-tight">
+                                <td className="px-2.5 py-2 text-right w-26 whitespace-nowrap">
+                                  <div className="font-extrabold text-slate-900 text-xs sm:text-[12.5px] font-mono leading-tight">
                                     {formatCurrency(contract.amount)}
                                   </div>
                                   {contract.paymentTerms && (
                                     <div
-                                      className="text-[8px] text-slate-400 font-medium truncate max-w-[85px] ml-auto"
+                                      className="text-[9px] text-slate-400 font-medium truncate max-w-[95px] ml-auto mt-0.5"
                                       title={contract.paymentTerms}
                                     >
                                       {contract.paymentTerms}
@@ -1317,8 +1317,8 @@ export default function ContractsListPage({
                                 </td>
 
                                 {/* Period / Expiry */}
-                                <td className="px-2 py-2 whitespace-nowrap">
-                                  <div className="flex flex-col text-[10px] leading-tight">
+                                <td className="px-2 py-2 whitespace-nowrap w-32">
+                                  <div className="flex flex-col text-[10.5px] leading-tight">
                                     <div className="flex items-center gap-1 font-semibold text-slate-800 whitespace-nowrap">
                                       <span>{formatDateLabel(contract.startDate)}</span>
                                       <span className="text-slate-400 font-normal">→</span>
@@ -1327,15 +1327,15 @@ export default function ContractsListPage({
                                     <div className="flex items-center gap-1 mt-0.5">
                                       {daysRemaining !== null && (
                                         daysRemaining < 0 ? (
-                                          <span className="text-[9px] font-bold text-rose-600">
+                                          <span className="text-[9.5px] font-bold text-rose-600">
                                             Expired {Math.abs(daysRemaining)}d ago
                                           </span>
                                         ) : daysRemaining <= 30 ? (
-                                          <span className="text-[9px] font-bold text-amber-600">
+                                          <span className="text-[9.5px] font-bold text-amber-600">
                                             {daysRemaining}d left
                                           </span>
                                         ) : (
-                                          <span className="text-[9px] font-medium text-slate-400">
+                                          <span className="text-[9.5px] font-medium text-slate-400">
                                             {daysRemaining}d left
                                           </span>
                                         )
@@ -1346,21 +1346,21 @@ export default function ContractsListPage({
 
                                 {/* PM Visits (Interactive) */}
                                 <td
-                                  className="px-1.5 py-2 text-center w-20"
+                                  className="px-1.5 py-2 text-center w-22"
                                   onClick={e => {
                                     e.stopPropagation();
                                     setPmModalContract(contract);
                                   }}
                                 >
                                   <div className="flex flex-col items-center gap-0.5 cursor-pointer group/pm" title="Click to view/update PM cycles">
-                                    <div className="flex items-center gap-0.5 flex-wrap justify-center max-w-[70px]">
+                                    <div className="flex items-center gap-0.5 flex-wrap justify-center max-w-[75px]">
                                       {(contract.pmSchedules || []).length > 0 ? (
                                         contract.pmSchedules.map(pm => {
                                           if (pm.status === 'Not Applicable') {
                                             return (
                                               <span
                                                 key={pm.id}
-                                                className="w-3.5 h-3.5 rounded flex items-center justify-center text-[7px] font-bold bg-slate-100 text-slate-400"
+                                                className="w-3.5 h-3.5 rounded flex items-center justify-center text-[7.5px] font-bold bg-slate-100 text-slate-400"
                                                 title={`Visit ${pm.pmNumber}: N/A`}
                                               >
                                                 —
@@ -1383,11 +1383,11 @@ export default function ContractsListPage({
                                           );
                                         })
                                       ) : (
-                                        <span className="text-[9px] text-slate-400 italic">No PM</span>
+                                        <span className="text-[9.5px] text-slate-400 italic">No PM</span>
                                       )}
                                     </div>
                                     {totalPMs > 0 && (
-                                      <span className="text-[9px] font-bold text-slate-600 group-hover/pm:text-[#9E3B47] whitespace-nowrap">
+                                      <span className="text-[9px] font-bold text-slate-600 group-hover/pm:text-[#9E3B47] whitespace-nowrap mt-0.5">
                                         {completedPMs}/{totalPMs} ({pmPercentage}%)
                                       </span>
                                     )}
@@ -1397,7 +1397,7 @@ export default function ContractsListPage({
                                 {/* Status */}
                                 <td className="px-1.5 py-2 text-center w-20">
                                   <span
-                                    className={`inline-flex px-1.5 py-0.5 rounded-full text-[9px] font-extrabold border whitespace-nowrap ${getStatusBadgeStyle(
+                                    className={`inline-flex px-1.5 py-0.5 rounded-full text-[9.5px] font-extrabold border whitespace-nowrap ${getStatusBadgeStyle(
                                       contract.status
                                     )}`}
                                   >
@@ -1406,13 +1406,13 @@ export default function ContractsListPage({
                                 </td>
 
                                 {/* Responsible */}
-                                <td className="px-2 py-2 w-28">
+                                <td className="px-2 py-2 w-26">
                                   <div className="flex items-center gap-1 min-w-0" title={contract.responsible}>
-                                    <div className="w-4 h-4 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center flex-shrink-0 text-[8px]">
+                                    <div className="w-4.5 h-4.5 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center flex-shrink-0 text-[8px]">
                                       <Users className="h-2.5 w-2.5" />
                                     </div>
                                     <span
-                                      className="text-[10px] font-medium text-slate-700 truncate max-w-[85px]"
+                                      className="text-[11px] font-medium text-slate-700 truncate max-w-[85px]"
                                     >
                                       {formatEngineerDisplayName(contract.responsible)}
                                     </span>
@@ -1428,7 +1428,7 @@ export default function ContractsListPage({
                                         size="sm"
                                         className="h-6 w-6 p-0 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-md"
                                       >
-                                        <MoreHorizontal className="h-3.5 w-3.5" />
+                                        <MoreHorizontal className="h-3 w-3" />
                                       </Button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end" className="w-48 bg-white border border-slate-200 shadow-lg rounded-xl">

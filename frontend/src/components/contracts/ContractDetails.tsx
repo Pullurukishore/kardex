@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowLeft, Calendar, FileText, MapPin, Shield, Building2,
   Activity, DollarSign, CheckCircle, AlertTriangle, Info, Clock,
@@ -51,6 +51,19 @@ interface ContractDetailsProps {
 
 export default function ContractDetails({ id, role, backUrl }: ContractDetailsProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const fromParam = searchParams.get('from');
+
+  const handleBack = () => {
+    if (fromParam) {
+      router.push(fromParam);
+    } else if (typeof window !== 'undefined' && window.history.length > 1) {
+      router.back();
+    } else {
+      router.push(backUrl);
+    }
+  };
+
   const [contract, setContract] = useState<Contract | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -134,7 +147,7 @@ export default function ContractDetails({ id, role, backUrl }: ContractDetailsPr
       try {
         await apiService.deleteContract(id);
         toast.success('Contract deleted successfully!');
-        router.push(backUrl);
+        handleBack();
       } catch (err) {
         console.error(err);
         toast.error('Failed to delete contract');
@@ -186,10 +199,10 @@ export default function ContractDetails({ id, role, backUrl }: ContractDetailsPr
         <h2 className="text-lg font-bold text-slate-800">Contract Not Found</h2>
         <p className="text-slate-500 text-sm">The contract you are trying to view does not exist or has been deleted.</p>
         <button
-          onClick={() => router.push(backUrl)}
+          onClick={handleBack}
           className="px-4 py-2 bg-[#82A094] text-white rounded-xl text-sm font-semibold hover:bg-[#6e897e]"
         >
-          Back to Contracts
+          Back
         </button>
       </div>
     );
@@ -206,7 +219,7 @@ export default function ContractDetails({ id, role, backUrl }: ContractDetailsPr
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => router.push(backUrl)}
+            onClick={handleBack}
             className="w-10 h-10 rounded-xl border border-slate-200 hover:bg-slate-50 flex items-center justify-center text-slate-600 transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />

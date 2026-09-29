@@ -343,6 +343,7 @@ export const getCustomerGroupedContracts = async (req: Request, res: Response) =
         { place: { contains: search as string, mode: 'insensitive' } },
         { engineerName: { contains: search as string, mode: 'insensitive' } },
         { unitType: { contains: search as string, mode: 'insensitive' } },
+        { mcPoNumber: { contains: search as string, mode: 'insensitive' } },
       ];
     }
     if (zone && zone !== 'all') where.zoneName = { equals: zone as string, mode: 'insensitive' };

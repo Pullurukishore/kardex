@@ -635,33 +635,31 @@ export default function ContractReports({ role }: ContractReportsProps) {
               <h2 className="text-lg sm:text-xl font-bold text-slate-800">Report Filters</h2>
               <p className="text-sm text-slate-500 mt-1">Configure parameters for contract portfolios and PM schedule report</p>
             </div>
-            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+            <div className="flex items-center gap-2 flex-wrap">
               <button
                 onClick={fetchContracts}
                 disabled={loading}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-[#6F8A9D] hover:bg-[#546A7A] text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-all duration-200 hover:shadow-xl hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
+                className="inline-flex items-center justify-center gap-1.5 bg-[#6F8A9D] hover:bg-[#546A7A] text-white font-bold h-9 px-3.5 rounded-lg shadow-xs hover:shadow transition-all text-xs whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <BarChart3 className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+                <BarChart3 className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
                 {loading ? 'Generating...' : 'Generate Report'}
               </button>
-              <div className="flex gap-2 sm:gap-3">
-                <button
-                  onClick={() => handleExport('excel')}
-                  disabled={exporting || loading || customerSummaries.length === 0}
-                  className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 border-[#4F6A64] text-[#4F6A64] hover:bg-[#A2B9AF]/10 font-semibold text-sm transition-all min-h-[44px] disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Download className={`w-4 h-4 ${exporting ? 'animate-bounce' : ''}`} />
-                  Export Excel
-                </button>
-                <button
-                  onClick={() => handleExport('pdf')}
-                  disabled={exporting || loading || customerSummaries.length === 0}
-                  className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 border-[#9E3B47] text-[#9E3B47] hover:bg-[#E17F70]/10 font-semibold text-sm transition-all min-h-[44px] disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <FileText className="w-4 h-4" />
-                  Export PDF
-                </button>
-              </div>
+              <button
+                onClick={() => handleExport('excel')}
+                disabled={exporting || loading || customerSummaries.length === 0}
+                className="inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-lg border border-[#4F6A64]/40 text-[#4F6A64] hover:bg-[#A2B9AF]/10 font-bold text-xs transition-all whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed shadow-xs"
+              >
+                <Download className={`w-3.5 h-3.5 ${exporting ? 'animate-bounce' : ''}`} />
+                Export Excel
+              </button>
+              <button
+                onClick={() => handleExport('pdf')}
+                disabled={exporting || loading || customerSummaries.length === 0}
+                className="inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-lg border border-[#9E3B47]/40 text-[#9E3B47] hover:bg-[#E17F70]/10 font-bold text-xs transition-all whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed shadow-xs"
+              >
+                <FileText className="w-3.5 h-3.5" />
+                Export PDF
+              </button>
             </div>
           </div>
         </div>
@@ -684,8 +682,8 @@ export default function ContractReports({ role }: ContractReportsProps) {
                       type="button"
                       onClick={() => setDateFilterBasis(basis)}
                       className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition-all ${dateFilterBasis === basis
-                          ? 'bg-[#546A7A] text-white shadow-xs'
-                          : 'text-slate-600 hover:text-slate-900'
+                        ? 'bg-[#546A7A] text-white shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
                         }`}
                     >
                       {basis === 'both' ? 'Both' : basis === 'pm' ? 'PM Schedule' : 'Contract Expiry'}
@@ -1055,8 +1053,8 @@ export default function ContractReports({ role }: ContractReportsProps) {
                       type="button"
                       onClick={() => setPmFilter('all')}
                       className={`px-2 py-1 rounded-md text-[11px] font-bold transition-all ${pmFilter === 'all'
-                          ? 'bg-[#546A7A] text-white shadow-sm'
-                          : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
+                        ? 'bg-[#546A7A] text-white shadow-sm'
+                        : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
                         }`}
                     >
                       All PMs
@@ -1065,8 +1063,8 @@ export default function ContractReports({ role }: ContractReportsProps) {
                       type="button"
                       onClick={() => setPmFilter(pmFilter === 'pending' ? 'all' : 'pending')}
                       className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1 ${pmFilter === 'pending'
-                          ? 'bg-amber-500 text-white shadow-sm ring-2 ring-amber-400/50'
-                          : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-amber-400'
+                        ? 'bg-amber-500 text-white shadow-sm ring-2 ring-amber-400/50'
+                        : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-amber-400'
                         }`}
                     >
                       <Clock className="w-3 h-3 text-amber-500" />
@@ -1076,8 +1074,8 @@ export default function ContractReports({ role }: ContractReportsProps) {
                       type="button"
                       onClick={() => setPmFilter(pmFilter === 'overdue' ? 'all' : 'overdue')}
                       className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1 ${pmFilter === 'overdue'
-                          ? 'bg-rose-600 text-white shadow-sm ring-2 ring-rose-400/50'
-                          : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-rose-400'
+                        ? 'bg-rose-600 text-white shadow-sm ring-2 ring-rose-400/50'
+                        : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-rose-400'
                         }`}
                     >
                       <AlertTriangle className="w-3 h-3 text-rose-500" />
@@ -1087,8 +1085,8 @@ export default function ContractReports({ role }: ContractReportsProps) {
                       type="button"
                       onClick={() => setPmFilter(pmFilter === 'completed' ? 'all' : 'completed')}
                       className={`px-2 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1 ${pmFilter === 'completed'
-                          ? 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-400/50'
-                          : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-emerald-400'
+                        ? 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-400/50'
+                        : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-emerald-400'
                         }`}
                     >
                       <CheckCircle className="w-3 h-3 text-emerald-500" />
@@ -1278,10 +1276,10 @@ export default function ContractReports({ role }: ContractReportsProps) {
                               </div>
                               <div className="mt-0.5">
                                 <span className={`inline-flex px-1.5 py-0.2 rounded-full text-[8px] font-bold ${daysLeft < 0
-                                    ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                                    : daysLeft <= 30
-                                      ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                                      : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                  ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                                  : daysLeft <= 30
+                                    ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                    : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                                   }`}>
                                   {daysLeft < 0 ? `${Math.abs(daysLeft)}d overdue` : `${daysLeft}d left`}
                                 </span>
@@ -1316,10 +1314,10 @@ export default function ContractReports({ role }: ContractReportsProps) {
                                     <div
                                       key={pidx}
                                       className={`flex items-center justify-between gap-1 px-1.5 py-0.5 rounded text-[9px] border leading-tight ${done
-                                          ? 'bg-emerald-50/70 border-emerald-200/80 text-emerald-900'
-                                          : isOverdue
-                                            ? 'bg-rose-50/70 border-rose-200/80 text-rose-900'
-                                            : 'bg-amber-50/70 border-amber-200/80 text-amber-900'
+                                        ? 'bg-emerald-50/70 border-emerald-200/80 text-emerald-900'
+                                        : isOverdue
+                                          ? 'bg-rose-50/70 border-rose-200/80 text-rose-900'
+                                          : 'bg-amber-50/70 border-amber-200/80 text-amber-900'
                                         }`}
                                       title={`PM ${p.pmNumber}: ${p.status}\nRange: ${p.range || 'N/A'}\nPM Value: ${formatCurrency(perPmVal)}${done && p.completedAt ? `\nCompleted: ${formatDate(p.completedAt)}` : ''}`}
                                     >
@@ -1333,10 +1331,10 @@ export default function ContractReports({ role }: ContractReportsProps) {
                                         </span>
                                       </div>
                                       <span className={`text-[8px] font-bold px-1 py-0.2 rounded whitespace-nowrap ${done
-                                          ? 'text-emerald-700 bg-emerald-100/90'
-                                          : isOverdue
-                                            ? 'text-rose-700 bg-rose-100/90'
-                                            : 'text-amber-700 bg-amber-100/90'
+                                        ? 'text-emerald-700 bg-emerald-100/90'
+                                        : isOverdue
+                                          ? 'text-rose-700 bg-rose-100/90'
+                                          : 'text-amber-700 bg-amber-100/90'
                                         }`}>
                                         {done ? '✓ Done' : isOverdue ? 'Overdue' : 'Pending'}
                                       </span>
@@ -1375,7 +1373,7 @@ export default function ContractReports({ role }: ContractReportsProps) {
                             <td className="py-1 px-0.5 text-center">
                               <button
                                 type="button"
-                                onClick={() => router.push(`${getBaseRoute()}/contracts/${contract.id}`)}
+                                onClick={() => router.push(`${getBaseRoute()}/contracts/${contract.id}?from=${encodeURIComponent(`${getBaseRoute()}/contracts/reports`)}`)}
                                 className="p-1 rounded border border-slate-200 hover:bg-slate-100 hover:border-[#82A094] text-slate-500 hover:text-[#546A7A] transition-colors"
                                 title="Open Contract"
                               >

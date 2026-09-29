@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowLeft, Calendar, FileText, MapPin, Shield, Building2,
   CheckCircle, AlertTriangle, Clock, User, ShieldCheck, Trash2,
@@ -119,6 +119,19 @@ const getExpiryBadge = (expiry?: { status: string; daysLeft: number | null; buck
 
 export default function DetailedContractDetails({ id, role, backUrl }: DetailedContractDetailsProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const fromParam = searchParams.get('from');
+
+  const handleBack = () => {
+    if (fromParam) {
+      router.push(fromParam);
+    } else if (typeof window !== 'undefined' && window.history.length > 1) {
+      router.back();
+    } else {
+      router.push(backUrl);
+    }
+  };
+
   const [contract, setContract] = useState<DetailedContract | null>(null);
   const [loading, setLoading] = useState(true);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -148,7 +161,7 @@ export default function DetailedContractDetails({ id, role, backUrl }: DetailedC
     try {
       await apiService.deleteDetailedContract(id);
       toast.success('Machine contract deleted successfully');
-      router.push(backUrl);
+      handleBack();
     } catch (err) {
       console.error('Failed to delete detailed contract:', err);
       toast.error('Failed to delete contract');
@@ -178,11 +191,11 @@ export default function DetailedContractDetails({ id, role, backUrl }: DetailedC
         <h3 className="text-lg font-bold text-slate-800">Contract Not Found</h3>
         <p className="text-xs text-slate-500 mt-1 mb-6">The requested machine contract record could not be found.</p>
         <button
-          onClick={() => router.push(backUrl)}
+          onClick={handleBack}
           className="px-5 py-2.5 rounded-2xl bg-[#546A7A] text-white font-bold text-xs flex items-center gap-2"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>Back to Contracts</span>
+          <span>Back</span>
         </button>
       </div>
     );
@@ -198,7 +211,7 @@ export default function DetailedContractDetails({ id, role, backUrl }: DetailedC
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="flex items-start sm:items-center gap-4">
             <button
-              onClick={() => router.push(backUrl)}
+              onClick={handleBack}
               className="w-10 h-10 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/20 flex items-center justify-center text-white transition-colors flex-shrink-0"
             >
               <ArrowLeft className="w-5 h-5" />
