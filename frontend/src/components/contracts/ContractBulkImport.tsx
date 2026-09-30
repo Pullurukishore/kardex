@@ -335,52 +335,52 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
 
   const normalizePlaceForComparison = (place: string): string => {
     const norm = place.trim().toLowerCase();
-    
+
     // Bangalore synonyms
     if (norm === 'bangalore' || norm === 'bengaluru' || norm === 'bng' || norm === 'blr' || norm.includes('bangalore') || norm.includes('bengaluru')) {
       return 'bengaluru';
     }
-    
+
     // Belgaum synonyms
     if (norm === 'belgum' || norm === 'belgam' || norm === 'belgaum') {
       return 'belgaum';
     }
-    
+
     // Kolkata synonyms
     if (norm === 'kolkota' || norm === 'kolkata') {
       return 'kolkata';
     }
-    
+
     // Nashik synonyms
     if (norm === 'nasik' || norm === 'nashik') {
       return 'nashik';
     }
-    
+
     // Akurdi synonyms
     if (norm === 'akrudi' || norm === 'akurdi') {
       return 'akurdi';
     }
-    
+
     // Hoshiarpur synonyms
     if (norm === 'hosiarpur-punjab' || norm === 'hoshiarpur- punjab' || norm === 'hoshiarpur' || norm.includes('hoshiarpur') || norm.includes('hosiarpur')) {
       return 'hoshiarpur';
     }
-    
+
     // Dapodi synonyms
     if (norm === 'dapodi' || norm === 'dapodi pune' || norm === 'dapodi, pune' || norm === 'dapodi-pune') {
       return 'dapodi';
     }
-    
+
     // Chinchwad synonyms
     if (norm === 'chinchwad pune' || norm === 'chinhwad - pune' || norm === 'chinchwad-pune' || norm.includes('chinchwad') || norm.includes('chinhwad')) {
       return 'chinchwad';
     }
-    
+
     // Bidadi synonyms
     if (norm === 'bidaddi' || norm === 'bidadi') {
       return 'bidadi';
     }
-    
+
     // Kothrud/Pune
     if (norm === 'kothrud') {
       return 'pune';
@@ -559,17 +559,17 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
         // Match database Customer
         const matchedCust = custs && Array.isArray(custs)
           ? custs.find(c => {
-              if (!c?.companyName) return false;
-              // Check zone FIRST if resolved to eliminate false positive candidates
-              if (matchedZone && c.serviceZoneId && c.serviceZoneId !== matchedZone.id) return false;
-              if (!isFuzzyMatch(c.companyName, rawCustName, c._cleanedName, cleanedRowCustName)) return false;
+            if (!c?.companyName) return false;
+            // Check zone FIRST if resolved to eliminate false positive candidates
+            if (matchedZone && c.serviceZoneId && c.serviceZoneId !== matchedZone.id) return false;
+            if (!isFuzzyMatch(c.companyName, rawCustName, c._cleanedName, cleanedRowCustName)) return false;
 
-              // Match address/place if provided in both Excel and DB
-              if (rawPlaceStr && c.address) {
-                return isPlaceMatch(rawPlaceStr, c.address);
-              }
-              return true;
-            })
+            // Match address/place if provided in both Excel and DB
+            if (rawPlaceStr && c.address) {
+              return isPlaceMatch(rawPlaceStr, c.address);
+            }
+            return true;
+          })
           : undefined;
 
         // Smart Zone Fallbacks:
@@ -652,8 +652,8 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
           if (!str) return false;
           const s = str.trim().toLowerCase();
           return /\d{1,4}[-/\.]\d{1,2}/.test(s) ||
-                 /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b/i.test(s) ||
-                 s.includes(' to ') || s.includes(' - ');
+            /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b/i.test(s) ||
+            s.includes(' to ') || s.includes(' - ');
         };
 
         const pmSchedules: any[] = [];
@@ -664,7 +664,7 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
             const pRange = rCol < row.length ? String(row[rCol] || '').trim() : '';
             const pDateVal = dCol < row.length ? row[dCol] : null;
             const pDate = pDateVal ? parseCompletionDate(pDateVal) : null;
-            
+
             if ((pRange && isValidRangeString(pRange)) || pDate) {
               pmSchedules.push({
                 pmNumber: p,
@@ -775,17 +775,43 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
 
         setAvailableSheets(sheetNames);
 
-        // Smart default sheet selection:
-        // Prioritize 'AMC LIST 2026' or sheet containing 'AMC LIST', then sheets containing '2026', then latest sheet
-        let defaultSheet = sheetNames.find(s => /amc\s*list/i.test(s));
+        // Smart multi-sheet auto-detection:
+        // 1. Scan all sheets in the workbook to detect which sheet has the contract headers (e.g. Sheet 3)
+        let defaultSheet = '';
+        for (const sName of sheetNames) {
+          const ws = workbook.Sheets[sName];
+          if (!ws) continue;
+          const sampleRows = XLSX.utils.sheet_to_json<any[]>(ws, { header: 1, defval: '' });
+          const hasCustomerHeader = sampleRows.slice(0, 20).some(row =>
+            row && row.some(cell => {
+              const str = String(cell || '').trim().toLowerCase();
+              return (
+                str === 'customer name' ||
+                str === 'name of the customer' ||
+                str === 'customer' ||
+                str === 'company' ||
+                (str.includes('customer') && str.length < 25 && !str.includes('invoice') && !str.includes('territory') && !str.includes('release'))
+              );
+            })
+          );
+          if (hasCustomerHeader) {
+            defaultSheet = sName;
+            break;
+          }
+        }
+
+        // 2. Fallback to name pattern match if scanning didn't find one
         if (!defaultSheet) {
-          const yearSheets = sheetNames.filter(s => /2026/i.test(s));
-          if (yearSheets.length > 0) {
-            defaultSheet = yearSheets[yearSheets.length - 1];
+          defaultSheet = sheetNames.find(s => /amc\s*list/i.test(s)) || '';
+          if (!defaultSheet) {
+            const yearSheets = sheetNames.filter(s => /2026|2025|2027/i.test(s));
+            if (yearSheets.length > 0) {
+              defaultSheet = yearSheets[yearSheets.length - 1];
+            }
           }
         }
         if (!defaultSheet) {
-          defaultSheet = sheetNames[sheetNames.length - 1] || sheetNames[0];
+          defaultSheet = sheetNames.find(s => /contract|amc|machine|detail/i.test(s)) || sheetNames[0] || '';
         }
 
         setSelectedSheet(defaultSheet);
@@ -902,7 +928,7 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
       toast.error('Company Name, Contact Person, and Phone are required.');
       return;
     }
-    
+
     setQcCreating(true);
     try {
       const response = await apiService.createCustomer({
@@ -914,21 +940,21 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
         contactPhone: qcContactPhone,
         contactEmail: qcContactEmail || null
       });
-      
+
       const newCust = response.customer || response.data || response;
       if (!newCust || !newCust.id) {
         throw new Error('Customer ID not returned');
       }
 
       toast.success('Customer created successfully!');
-      
+
       // Update dbCustomers list in state
       const preprocessedCust = {
         ...newCust,
         _cleanedName: cleanName(newCust.companyName || newCust.name || '')
       };
       setDbCustomers(prev => [...prev, preprocessedCust]);
-      
+
       // Auto-assign to the row
       if (targetRowForCustomer) {
         setParsedData(prev => prev.map(row => {
@@ -944,7 +970,7 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
           return row;
         }));
       }
-      
+
       setQuickCreateModalOpen(false);
     } catch (err: any) {
       console.error('Failed to create customer:', err);
@@ -1054,8 +1080,8 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
           onDrop={handleDrop}
           onClick={() => fileInputRef.current?.click()}
           className={`border-2 border-dashed rounded-3xl p-12 text-center cursor-pointer transition-all duration-300 ${isDragOver
-              ? 'border-[#82A094] bg-[#82A094]/5'
-              : 'border-slate-200 hover:border-slate-400 bg-white hover:shadow-md'
+            ? 'border-[#82A094] bg-[#82A094]/5'
+            : 'border-slate-200 hover:border-slate-400 bg-white hover:shadow-md'
             }`}
         >
           <input
@@ -1112,11 +1138,10 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
                         parseWorkbookSheet(workbookRef.current, s);
                       }
                     }}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                      selectedSheet === s
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${selectedSheet === s
                         ? 'bg-slate-900 text-white shadow-md ring-2 ring-slate-900/20'
                         : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
-                    }`}
+                      }`}
                   >
                     <span>{s}</span>
                     {s === selectedSheet && <Check className="w-3.5 h-3.5 text-emerald-400" />}
@@ -1134,7 +1159,7 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
               className={`text-left rounded-2xl p-5 border transition-all cursor-pointer ${filterMode === 'all'
                 ? 'bg-slate-900 text-white border-slate-900 shadow-md ring-2 ring-slate-900/20'
                 : 'bg-white hover:bg-slate-50 border-slate-100 shadow-sm text-slate-800'
-              }`}
+                }`}
             >
               <div className="flex items-center justify-between">
                 <div className="space-y-1">
@@ -1157,7 +1182,7 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
               className={`text-left rounded-2xl p-5 border transition-all cursor-pointer ${filterMode === 'warnings'
                 ? 'bg-amber-500 text-white border-amber-500 shadow-md ring-2 ring-amber-500/20'
                 : 'bg-white hover:bg-amber-50/40 border-slate-100 shadow-sm text-slate-800'
-              }`}
+                }`}
             >
               <div className="flex items-center justify-between">
                 <div className="space-y-1">
@@ -1166,13 +1191,12 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
                     {totalErrorsCount > 0 ? `${totalErrorsCount} Warnings` : 'All Valid'}
                   </h3>
                 </div>
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${
-                  filterMode === 'warnings'
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${filterMode === 'warnings'
                     ? 'bg-white/20 text-white border-white/30'
                     : totalErrorsCount > 0
-                    ? 'bg-amber-500/10 text-amber-500 border-amber-500/20'
-                    : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
-                }`}>
+                      ? 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+                      : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                  }`}>
                   {totalErrorsCount > 0 ? <AlertTriangle className="w-5 h-5" /> : <CheckCircle className="w-5 h-5" />}
                 </div>
               </div>
@@ -1188,7 +1212,7 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
               className={`text-left rounded-2xl p-5 border transition-all cursor-pointer ${filterMode === 'valid'
                 ? 'bg-[#82A094] text-white border-[#82A094] shadow-md ring-2 ring-[#82A094]/20'
                 : 'bg-white hover:bg-slate-50 border-slate-100 shadow-sm text-slate-800'
-              }`}
+                }`}
             >
               <div className="flex items-center justify-between">
                 <div className="space-y-1">
@@ -1220,24 +1244,22 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
                   <button
                     type="button"
                     onClick={() => { setFilterMode('all'); setCurrentPage(1); }}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                      filterMode === 'all'
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${filterMode === 'all'
                         ? 'bg-white text-slate-800 shadow-sm'
                         : 'text-slate-500 hover:text-slate-800'
-                    }`}
+                      }`}
                   >
                     All ({parsedData.length})
                   </button>
                   <button
                     type="button"
                     onClick={() => { setFilterMode('warnings'); setCurrentPage(1); }}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-                      filterMode === 'warnings'
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${filterMode === 'warnings'
                         ? 'bg-amber-500 text-white shadow-sm'
                         : totalErrorsCount > 0
-                        ? 'text-amber-700 bg-amber-500/10 hover:bg-amber-500/20'
-                        : 'text-slate-500 hover:text-slate-800'
-                    }`}
+                          ? 'text-amber-700 bg-amber-500/10 hover:bg-amber-500/20'
+                          : 'text-slate-500 hover:text-slate-800'
+                      }`}
                   >
                     <AlertTriangle className="w-3.5 h-3.5" />
                     <span>Warnings ({rowsWithWarningsCount})</span>
@@ -1245,11 +1267,10 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
                   <button
                     type="button"
                     onClick={() => { setFilterMode('valid'); setCurrentPage(1); }}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-                      filterMode === 'valid'
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${filterMode === 'valid'
                         ? 'bg-[#82A094] text-white shadow-sm'
                         : 'text-slate-500 hover:text-slate-800'
-                    }`}
+                      }`}
                   >
                     <Check className="w-3.5 h-3.5" />
                     <span>Valid ({rowsValidCount})</span>
@@ -1271,8 +1292,8 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
                   onClick={handleImportSubmit}
                   disabled={loading || totalErrorsCount > 0}
                   className={`px-5 py-2 rounded-xl text-xs font-bold text-white transition-all shadow-lg flex items-center gap-1.5 ${totalErrorsCount > 0
-                      ? 'bg-slate-300 cursor-not-allowed shadow-none'
-                      : 'bg-gradient-to-r from-[#82A094] to-[#688579] hover:brightness-110 active:scale-[0.98]'
+                    ? 'bg-slate-300 cursor-not-allowed shadow-none'
+                    : 'bg-gradient-to-r from-[#82A094] to-[#688579] hover:brightness-110 active:scale-[0.98]'
                     }`}
                 >
                   {loading ? (
@@ -1360,205 +1381,204 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
                     </tr>
                   ) : (
                     paginatedData.map((row, relativeIndex) => {
-                    const index = (currentPage - 1) * pageSize + relativeIndex;
-                    const hasRowErrors = row.errors.length > 0;
+                      const index = (currentPage - 1) * pageSize + relativeIndex;
+                      const hasRowErrors = row.errors.length > 0;
 
-                    return (
-                      <tr
-                        key={row.id}
-                        className={`transition-colors ${hasRowErrors ? 'bg-amber-500/[0.03] hover:bg-amber-500/[0.05]' : 'hover:bg-slate-50/50'}`}
-                      >
-                        {/* Index */}
-                        <td className="p-3 text-center font-bold text-slate-400">
-                          {index + 1}
-                        </td>
+                      return (
+                        <tr
+                          key={row.id}
+                          className={`transition-colors ${hasRowErrors ? 'bg-amber-500/[0.03] hover:bg-amber-500/[0.05]' : 'hover:bg-slate-50/50'}`}
+                        >
+                          {/* Index */}
+                          <td className="p-3 text-center font-bold text-slate-400">
+                            {index + 1}
+                          </td>
 
-                        {/* Customer Match dropdown */}
-                        <td className="p-3 max-w-[200px]">
-                          <div className="space-y-1.5">
-                            <div className="font-bold text-slate-700 text-xs truncate" title={row.customerName}>
-                              {row.customerName}
-                            </div>
+                          {/* Customer Match dropdown */}
+                          <td className="p-3 max-w-[200px]">
+                            <div className="space-y-1.5">
+                              <div className="font-bold text-slate-700 text-xs truncate" title={row.customerName}>
+                                {row.customerName}
+                              </div>
 
-                            {/* DB Customer Map Dropdown */}
-                            <select
-                              value={row.customerId || ''}
-                              onChange={(e) => handleUpdateRowCustomer(row.id, Number(e.target.value))}
-                              className={`w-full px-2 py-1 border rounded-lg text-[10px] bg-white focus:outline-none ${row.customerId
+                              {/* DB Customer Map Dropdown */}
+                              <select
+                                value={row.customerId || ''}
+                                onChange={(e) => handleUpdateRowCustomer(row.id, Number(e.target.value))}
+                                className={`w-full px-2 py-1 border rounded-lg text-[10px] bg-white focus:outline-none ${row.customerId
                                   ? 'border-slate-200 text-slate-600'
                                   : 'border-amber-500 text-amber-600 font-bold bg-amber-50/50'
-                                }`}
-                            >
-                              <option value="">-- Unresolved (Select Customer) --</option>
-                              {customerOptions.map(opt => (
-                                <option key={opt.id} value={opt.id}>
-                                  {opt.label}
-                                </option>
-                              ))}
-                            </select>
-                            {!row.customerId && (
-                              <button
-                                type="button"
-                                onClick={() => handleOpenQuickCreateCustomer(row)}
-                                className="mt-1 text-[9px] font-extrabold text-[#CE9F6B] hover:text-[#b58557] flex items-center gap-0.5"
+                                  }`}
                               >
-                                <Plus className="w-2.5 h-2.5" />
-                                Quick Create Customer
-                              </button>
-                            )}
-                          </div>
-                        </td>
+                                <option value="">-- Unresolved (Select Customer) --</option>
+                                {customerOptions.map(opt => (
+                                  <option key={opt.id} value={opt.id}>
+                                    {opt.label}
+                                  </option>
+                                ))}
+                              </select>
+                              {!row.customerId && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenQuickCreateCustomer(row)}
+                                  className="mt-1 text-[9px] font-extrabold text-[#CE9F6B] hover:text-[#b58557] flex items-center gap-0.5"
+                                >
+                                  <Plus className="w-2.5 h-2.5" />
+                                  Quick Create Customer
+                                </button>
+                              )}
+                            </div>
+                          </td>
 
-                        {/* Agreement details */}
-                        <td className="p-3">
-                          <div className="space-y-1 text-[11px] leading-tight">
-                            <div>
-                              <span className="font-bold text-slate-700">{row.mcType}</span>
-                              <span className="text-slate-300 ml-1">•</span>
-                              <span className="text-slate-500 ml-1">{row.noOfMachine} Machine(s)</span>
-                            </div>
-                            <div className="text-slate-400 text-[10px]">
-                              Visits: <span className="font-bold text-slate-700">{row.noOfVisits} PMs</span>
-                            </div>
-                            <div className="text-slate-400 text-[10px]">
-                              Dates: <span className="text-slate-600 font-semibold">{row.startDate || '—'} TO {row.endDate || '—'}</span>
-                            </div>
-                            {(!row.startDate || !row.endDate) && (
-                              <div className="flex flex-col gap-1 mt-1 p-1.5 bg-amber-50 rounded-lg border border-amber-200">
-                                <div className="flex items-center justify-between gap-1">
-                                  <span className="text-[9px] font-bold text-amber-700 uppercase">Set Dates:</span>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleUpdateRowDates(row.id, '2026-04-01', '2027-03-31')}
-                                    className="text-[9px] px-1.5 py-0.5 rounded bg-amber-600 hover:bg-amber-700 text-white font-bold transition-all shadow-xs"
-                                    title="Apply default financial year 2026-2027"
-                                  >
-                                    ⚡ Auto 2026–27
-                                  </button>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <input
-                                    type="date"
-                                    value={row.startDate || ''}
-                                    onChange={(e) => handleUpdateRowDates(row.id, e.target.value, row.endDate)}
-                                    className="px-1 py-0.5 border border-amber-300 rounded text-[10px] bg-white text-slate-700 focus:outline-none"
-                                    title="Start Date"
-                                  />
-                                  <span className="text-[10px] text-amber-700 font-bold">to</span>
-                                  <input
-                                    type="date"
-                                    value={row.endDate || ''}
-                                    onChange={(e) => handleUpdateRowDates(row.id, row.startDate, e.target.value)}
-                                    className="px-1 py-0.5 border border-amber-300 rounded text-[10px] bg-white text-slate-700 focus:outline-none"
-                                    title="End Date"
-                                  />
-                                </div>
+                          {/* Agreement details */}
+                          <td className="p-3">
+                            <div className="space-y-1 text-[11px] leading-tight">
+                              <div>
+                                <span className="font-bold text-slate-700">{row.mcType}</span>
+                                <span className="text-slate-300 ml-1">•</span>
+                                <span className="text-slate-500 ml-1">{row.noOfMachine} Machine(s)</span>
                               </div>
-                            )}
-                          </div>
-                        </td>
+                              <div className="text-slate-400 text-[10px]">
+                                Visits: <span className="font-bold text-slate-700">{row.noOfVisits} PMs</span>
+                              </div>
+                              <div className="text-slate-400 text-[10px]">
+                                Dates: <span className="text-slate-600 font-semibold">{row.startDate || '—'} TO {row.endDate || '—'}</span>
+                              </div>
+                              {(!row.startDate || !row.endDate) && (
+                                <div className="flex flex-col gap-1 mt-1 p-1.5 bg-amber-50 rounded-lg border border-amber-200">
+                                  <div className="flex items-center justify-between gap-1">
+                                    <span className="text-[9px] font-bold text-amber-700 uppercase">Set Dates:</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleUpdateRowDates(row.id, '2026-04-01', '2027-03-31')}
+                                      className="text-[9px] px-1.5 py-0.5 rounded bg-amber-600 hover:bg-amber-700 text-white font-bold transition-all shadow-xs"
+                                      title="Apply default financial year 2026-2027"
+                                    >
+                                      ⚡ Auto 2026–27
+                                    </button>
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <input
+                                      type="date"
+                                      value={row.startDate || ''}
+                                      onChange={(e) => handleUpdateRowDates(row.id, e.target.value, row.endDate)}
+                                      className="px-1 py-0.5 border border-amber-300 rounded text-[10px] bg-white text-slate-700 focus:outline-none"
+                                      title="Start Date"
+                                    />
+                                    <span className="text-[10px] text-amber-700 font-bold">to</span>
+                                    <input
+                                      type="date"
+                                      value={row.endDate || ''}
+                                      onChange={(e) => handleUpdateRowDates(row.id, row.startDate, e.target.value)}
+                                      className="px-1 py-0.5 border border-amber-300 rounded text-[10px] bg-white text-slate-700 focus:outline-none"
+                                      title="End Date"
+                                    />
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </td>
 
-                        {/* PO & Value details */}
-                        <td className="p-3">
-                          <div className="space-y-1 text-[11px] leading-tight">
-                            <div className="font-bold text-slate-800">₹{Number(row.amount).toLocaleString('en-IN')}</div>
-                            {(!row.amount || row.amount <= 0) && (
-                              <div className="flex items-center gap-1 mt-1">
-                                <span className="text-[10px] text-slate-400">₹</span>
+                          {/* PO & Value details */}
+                          <td className="p-3">
+                            <div className="space-y-1 text-[11px] leading-tight">
+                              <div className="font-bold text-slate-800">₹{Number(row.amount).toLocaleString('en-IN')}</div>
+                              {(!row.amount || row.amount <= 0) && (
+                                <div className="flex items-center gap-1 mt-1">
+                                  <span className="text-[10px] text-slate-400">₹</span>
+                                  <input
+                                    type="number"
+                                    placeholder="Amount"
+                                    value={row.amount || ''}
+                                    onChange={(e) => handleUpdateRowAmount(row.id, parseFloat(e.target.value) || 0)}
+                                    className="w-24 px-1.5 py-0.5 border border-amber-300 rounded text-[10px] bg-amber-50/40 text-slate-800 focus:outline-none"
+                                  />
+                                </div>
+                              )}
+                              <div className="text-[10px] text-slate-400 flex items-center gap-1.5">
+                                <span>PO:</span>
                                 <input
-                                  type="number"
-                                  placeholder="Amount"
-                                  value={row.amount || ''}
-                                  onChange={(e) => handleUpdateRowAmount(row.id, parseFloat(e.target.value) || 0)}
-                                  className="w-24 px-1.5 py-0.5 border border-amber-300 rounded text-[10px] bg-amber-50/40 text-slate-800 focus:outline-none"
+                                  type="text"
+                                  placeholder="PO Number"
+                                  value={row.poNo || ''}
+                                  onChange={(e) => handleUpdateRowPo(row.id, e.target.value)}
+                                  className={`w-28 px-1.5 py-0.5 border rounded font-mono text-[10px] focus:outline-none ${row.poNo === 'PO-AWAITED'
+                                      ? 'border-amber-300 bg-amber-50 text-amber-800 font-bold'
+                                      : 'border-slate-200 bg-white text-slate-700'
+                                    }`}
+                                  title={row.poNo === 'PO-AWAITED' ? 'PO is marked as Awaited/Pending. You can edit this anytime.' : 'PO Number'}
                                 />
                               </div>
-                            )}
-                            <div className="text-[10px] text-slate-400 flex items-center gap-1.5">
-                              <span>PO:</span>
-                              <input
-                                type="text"
-                                placeholder="PO Number"
-                                value={row.poNo || ''}
-                                onChange={(e) => handleUpdateRowPo(row.id, e.target.value)}
-                                className={`w-28 px-1.5 py-0.5 border rounded font-mono text-[10px] focus:outline-none ${
-                                  row.poNo === 'PO-AWAITED'
-                                    ? 'border-amber-300 bg-amber-50 text-amber-800 font-bold'
-                                    : 'border-slate-200 bg-white text-slate-700'
-                                }`}
-                                title={row.poNo === 'PO-AWAITED' ? 'PO is marked as Awaited/Pending. You can edit this anytime.' : 'PO Number'}
-                              />
+                              <div className="text-[10px] text-slate-400">
+                                Engineer: <span className="text-slate-600 font-semibold">{row.responsible}</span>
+                              </div>
                             </div>
-                            <div className="text-[10px] text-slate-400">
-                              Engineer: <span className="text-slate-600 font-semibold">{row.responsible}</span>
-                            </div>
-                          </div>
-                        </td>
+                          </td>
 
-                        {/* Zone match dropdown */}
-                        <td className="p-3 max-w-[150px]">
-                          <div className="space-y-1.5">
-                            <div className="font-bold text-slate-600 text-xs">
-                              {row.zoneName || 'No Zone'}
-                            </div>
+                          {/* Zone match dropdown */}
+                          <td className="p-3 max-w-[150px]">
+                            <div className="space-y-1.5">
+                              <div className="font-bold text-slate-600 text-xs">
+                                {row.zoneName || 'No Zone'}
+                              </div>
 
-                            {/* DB Zone Map Dropdown */}
-                            <select
-                              value={row.zoneId || ''}
-                              onChange={(e) => handleUpdateRowZone(row.id, Number(e.target.value))}
-                              className={`w-full px-2 py-1 border rounded-lg text-[10px] bg-white focus:outline-none ${row.zoneId
+                              {/* DB Zone Map Dropdown */}
+                              <select
+                                value={row.zoneId || ''}
+                                onChange={(e) => handleUpdateRowZone(row.id, Number(e.target.value))}
+                                className={`w-full px-2 py-1 border rounded-lg text-[10px] bg-white focus:outline-none ${row.zoneId
                                   ? 'border-slate-200 text-slate-600'
                                   : 'border-amber-500 text-amber-600 font-bold bg-amber-50/50'
-                                }`}
-                            >
-                              <option value="">-- Select Zone --</option>
-                              {dbZones.map(z => (
-                                <option key={z.id} value={z.id}>{z.name} Zone</option>
-                              ))}
-                            </select>
-                          </div>
-                        </td>
-
-                        {/* Warnings / Errors */}
-                        <td className="p-3 max-w-[200px]">
-                          {hasRowErrors ? (
-                            <div className="space-y-1">
-                              {row.errors.map((err, idx) => (
-                                <span
-                                  key={idx}
-                                  className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-100 break-words w-full"
-                                >
-                                  <AlertCircle className="w-3 h-3 flex-shrink-0" />
-                                  <span>{err}</span>
-                                </span>
-                              ))}
+                                  }`}
+                              >
+                                <option value="">-- Select Zone --</option>
+                                {dbZones.map(z => (
+                                  <option key={z.id} value={z.id}>{z.name} Zone</option>
+                                ))}
+                              </select>
                             </div>
-                          ) : !row.customerId ? (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#CE9F6B] bg-[#CE9F6B]/5 px-2 py-0.5 rounded border border-[#CE9F6B]/25">
-                              <Sparkles className="w-3 h-3 animate-pulse" />
-                              Auto-create Customer
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
-                              <CheckCircle className="w-3 h-3" />
-                              Ready to Import
-                            </span>
-                          )}
-                        </td>
+                          </td>
 
-                        {/* Delete Row Action */}
-                        <td className="p-3 text-center">
-                          <button
-                            onClick={() => handleRemoveRow(row.id)}
-                            className="p-2 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-xl transition-colors active:scale-95"
-                            title="Remove row"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  }))}
+                          {/* Warnings / Errors */}
+                          <td className="p-3 max-w-[200px]">
+                            {hasRowErrors ? (
+                              <div className="space-y-1">
+                                {row.errors.map((err, idx) => (
+                                  <span
+                                    key={idx}
+                                    className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-100 break-words w-full"
+                                  >
+                                    <AlertCircle className="w-3 h-3 flex-shrink-0" />
+                                    <span>{err}</span>
+                                  </span>
+                                ))}
+                              </div>
+                            ) : !row.customerId ? (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#CE9F6B] bg-[#CE9F6B]/5 px-2 py-0.5 rounded border border-[#CE9F6B]/25">
+                                <Sparkles className="w-3 h-3 animate-pulse" />
+                                Auto-create Customer
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
+                                <CheckCircle className="w-3 h-3" />
+                                Ready to Import
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Delete Row Action */}
+                          <td className="p-3 text-center">
+                            <button
+                              onClick={() => handleRemoveRow(row.id)}
+                              className="p-2 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-xl transition-colors active:scale-95"
+                              title="Remove row"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    }))}
                 </tbody>
               </table>
             </div>
@@ -1672,7 +1692,7 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
 
               <div className="border-t border-slate-100 pt-3 space-y-3">
                 <h4 className="text-[10px] font-extrabold text-[#CE9F6B] uppercase tracking-wider">Primary Contact (Required)</h4>
-                
+
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Contact Person</label>
                   <input

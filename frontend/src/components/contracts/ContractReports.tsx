@@ -274,7 +274,8 @@ export default function ContractReports({ role }: ContractReportsProps) {
     try {
       const endObj = getPMEndDate(range);
       if (!endObj) return false;
-      return endObj < now;
+      endObj.setHours(23, 59, 59, 999);
+      return endObj < new Date();
     } catch { return false; }
   };
 

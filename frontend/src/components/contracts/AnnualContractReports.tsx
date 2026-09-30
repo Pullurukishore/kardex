@@ -300,8 +300,14 @@ export default function AnnualContractReports({ role }: AnnualContractReportsPro
   const [techFilter, setTechFilter] = useState('all');
   const [departmentFilter, setDepartmentFilter] = useState('all');
   const [expiryFilter, setExpiryFilter] = useState('all');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const [dateFrom, setDateFrom] = useState(() => {
+    return new Date().toISOString().slice(0, 10);
+  });
+  const [dateTo, setDateTo] = useState(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() + 1);
+    return d.toISOString().slice(0, 10);
+  });
 
   // Sorting
   const [sortKey, setSortKey] = useState<SortKey>('customerName');
@@ -406,9 +412,15 @@ export default function AnnualContractReports({ role }: AnnualContractReportsPro
   };
 
   // Quick Date Range Presets
-  const applyDatePreset = (preset: 'today' | 'this_month' | 'next_month' | 'this_quarter' | 'all') => {
+  const applyDatePreset = (preset: '1_month' | 'today' | 'this_month' | 'next_month' | 'this_quarter' | 'all') => {
     const now = new Date();
-    if (preset === 'today') {
+    if (preset === '1_month') {
+      const todayStr = now.toISOString().slice(0, 10);
+      const d = new Date();
+      d.setMonth(d.getMonth() + 1);
+      setDateFrom(todayStr);
+      setDateTo(d.toISOString().slice(0, 10));
+    } else if (preset === 'today') {
       const todayStr = now.toISOString().slice(0, 10);
       setDateFrom(todayStr);
       setDateTo(todayStr);
@@ -439,8 +451,11 @@ export default function AnnualContractReports({ role }: AnnualContractReportsPro
     setTechFilter('all');
     setDepartmentFilter('all');
     setExpiryFilter('all');
-    setDateFrom('');
-    setDateTo('');
+    const now = new Date();
+    setDateFrom(now.toISOString().slice(0, 10));
+    const d = new Date();
+    d.setMonth(d.getMonth() + 1);
+    setDateTo(d.toISOString().slice(0, 10));
     toast.info('Filters reset to default');
   };
 
@@ -692,6 +707,13 @@ export default function AnnualContractReports({ role }: AnnualContractReportsPro
               </label>
               <div className="flex items-center gap-1 flex-wrap">
                 <span className="text-[10px] text-slate-400 mr-1">Quick ranges:</span>
+                <button
+                  type="button"
+                  onClick={() => applyDatePreset('1_month')}
+                  className="px-2 py-0.5 rounded text-[10px] font-semibold bg-[#6F8A9D]/15 text-[#546A7A] hover:bg-[#6F8A9D]/25 transition-colors"
+                >
+                  1 Month
+                </button>
                 <button
                   type="button"
                   onClick={() => applyDatePreset('today')}

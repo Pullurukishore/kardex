@@ -517,26 +517,26 @@ export default function DetailedContractTracking({ role, basePath }: DetailedCon
 
   return (
     <div className="space-y-4">
-      {/* ─── COMPACT HERO HEADER BANNER ─── */}
-      <div className="relative overflow-hidden bg-gradient-to-r from-[#75242D] via-[#9E3B47] to-[#546A7A] rounded-xl shadow-md p-3 sm:p-4 text-white space-y-3">
+      {/* ─── COMPACT HERO HEADER BANNER (Light Theme) ─── */}
+      <div className="relative overflow-hidden bg-white rounded-xl shadow-xs border border-slate-200/80 p-3 sm:p-4 space-y-3">
         {/* Top Row: Title on Left, Action Buttons on Right */}
         <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           {/* Title & Info */}
           <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-white/20 backdrop-blur-md rounded-lg ring-1 ring-white/30 shadow-xs flex-shrink-0">
-              <Layers className="h-5 w-5 text-white" />
+            <div className="p-2 bg-[#9E3B47]/10 text-[#9E3B47] rounded-lg border border-[#9E3B47]/20 shadow-2xs flex-shrink-0">
+              <Layers className="h-5 w-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-base sm:text-lg lg:text-xl font-extrabold tracking-tight">
+                <h1 className="text-base sm:text-lg lg:text-xl font-extrabold tracking-tight text-slate-900">
                   Annual Machine Contracts
                 </h1>
-                <span className="px-2 py-0.5 rounded-full bg-white/20 text-[9px] font-bold uppercase tracking-wider text-white">
+                <span className="px-2 py-0.5 rounded-full bg-slate-100 border border-slate-200 text-[9px] font-bold uppercase tracking-wider text-slate-700">
                   {role}
                 </span>
-                <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
               </div>
-              <p className="text-white/80 text-[11px] sm:text-xs hidden sm:block">
+              <p className="text-slate-500 text-[11px] sm:text-xs hidden sm:block">
                 Customer-wise annual maintenance agreements, machine asset lifecycle, and multi-tier expiration monitoring
               </p>
             </div>
@@ -548,34 +548,34 @@ export default function DetailedContractTracking({ role, basePath }: DetailedCon
               variant="outline"
               size="sm"
               onClick={fetchData}
-              className="bg-white/10 hover:bg-white/20 text-white border-white/30 text-xs font-semibold h-8 px-2.5 shadow-xs"
+              className="bg-white hover:bg-slate-50 text-slate-700 border-slate-200 text-xs font-semibold h-8 px-2.5 shadow-2xs"
             >
-              <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+              <RefreshCw className="h-3.5 w-3.5 mr-1.5 text-slate-500" />
               Refresh
             </Button>
             <Button
               variant="outline"
               size="sm"
               onClick={() => router.push(`${resolvedBasePath}/contracts/annual-reports`)}
-              className="bg-white/10 hover:bg-white/20 text-white border-white/30 text-xs font-semibold h-8 px-2.5 shadow-xs"
+              className="bg-white hover:bg-slate-50 text-slate-700 border-slate-200 text-xs font-semibold h-8 px-2.5 shadow-2xs"
             >
-              <BarChart3 className="h-3.5 w-3.5 mr-1.5" />
+              <BarChart3 className="h-3.5 w-3.5 mr-1.5 text-[#CE9F6B]" />
               Annual Reports
             </Button>
             <Button
               variant="outline"
               size="sm"
               onClick={() => router.push(`${resolvedBasePath}/contracts/detailed-import`)}
-              className="bg-white/10 hover:bg-white/20 text-white border-white/30 text-xs font-semibold h-8 px-2.5 shadow-xs"
+              className="bg-white hover:bg-slate-50 text-slate-700 border-slate-200 text-xs font-semibold h-8 px-2.5 shadow-2xs"
             >
-              <Upload className="h-3.5 w-3.5 mr-1.5" />
+              <Upload className="h-3.5 w-3.5 mr-1.5 text-[#546A7A]" />
               Import
             </Button>
             {canEdit && (
               <Button
                 size="sm"
                 onClick={() => router.push(`${resolvedBasePath}/contracts/detailed/new`)}
-                className="bg-white text-[#9E3B47] hover:bg-white/90 text-xs font-bold h-8 px-3 shadow-sm hover:scale-[1.02] active:scale-[0.98] transition-all"
+                className="bg-[#9E3B47] hover:bg-[#852f3a] text-white text-xs font-bold h-8 px-3 shadow-xs hover:shadow transition-all"
               >
                 <Plus className="h-3.5 w-3.5 mr-1" />
                 New Contract
@@ -586,29 +586,29 @@ export default function DetailedContractTracking({ role, basePath }: DetailedCon
 
         {/* Bottom Row: Compact Stats Bar */}
         {stats && (
-          <div className="relative z-10 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 pt-2 border-t border-white/15">
+          <div className="relative z-10 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 pt-2 border-t border-slate-100">
             {/* Total Machines */}
             <div
               onClick={() => { setQuickTab('all'); setExpiryFilter('all'); setCurrentPage(1); }}
-              className="bg-white/10 hover:bg-white/20 transition-colors cursor-pointer rounded-lg px-2.5 py-1.5 border border-white/15 text-center flex items-center justify-between sm:flex-col sm:justify-center"
+              className="bg-slate-50 hover:bg-slate-100/80 transition-colors cursor-pointer rounded-lg px-2.5 py-1.5 border border-slate-200/80 text-center flex items-center justify-between sm:flex-col sm:justify-center"
             >
-              <span className="text-white/70 text-[10px] uppercase font-bold tracking-wider">Total M/C</span>
-              <span className="text-sm sm:text-base font-extrabold">{stats.totalMachines}</span>
+              <span className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">Total M/C</span>
+              <span className="text-sm sm:text-base font-extrabold text-slate-900">{stats.totalMachines}</span>
             </div>
 
             {/* Customers */}
-            <div className="bg-white/10 rounded-lg px-2.5 py-1.5 border border-white/15 text-center flex items-center justify-between sm:flex-col sm:justify-center">
-              <span className="text-white/70 text-[10px] uppercase font-bold tracking-wider">Customers</span>
-              <span className="text-sm sm:text-base font-extrabold text-sky-200">{stats.totalCustomers}</span>
+            <div className="bg-slate-50 hover:bg-slate-100/80 transition-colors rounded-lg px-2.5 py-1.5 border border-slate-200/80 text-center flex items-center justify-between sm:flex-col sm:justify-center">
+              <span className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">Customers</span>
+              <span className="text-sm sm:text-base font-extrabold text-[#546A7A]">{stats.totalCustomers}</span>
             </div>
 
             {/* Total Value */}
             <div
-              className="bg-white/10 rounded-lg px-2.5 py-1.5 border border-white/15 text-center flex items-center justify-between sm:flex-col sm:justify-center"
+              className="bg-slate-50 hover:bg-slate-100/80 transition-colors rounded-lg px-2.5 py-1.5 border border-slate-200/80 text-center flex items-center justify-between sm:flex-col sm:justify-center"
               title={formatCurrency(stats.totalMCValue)}
             >
-              <span className="text-white/70 text-[10px] uppercase font-bold tracking-wider">Total Value</span>
-              <span className="text-xs sm:text-sm font-extrabold text-amber-200 truncate">
+              <span className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">Total Value</span>
+              <span className="text-xs sm:text-sm font-extrabold text-emerald-700 truncate font-mono">
                 {formatCurrencyCompact(stats.totalMCValue)}
               </span>
             </div>
@@ -616,19 +616,19 @@ export default function DetailedContractTracking({ role, basePath }: DetailedCon
             {/* Expiring ≤30d */}
             <div
               onClick={() => { setQuickTab('expiring30'); setExpiryFilter('critical'); setCurrentPage(1); }}
-              className="bg-rose-500/25 hover:bg-rose-500/35 transition-colors cursor-pointer rounded-lg px-2.5 py-1.5 border border-rose-400/30 text-center flex items-center justify-between sm:flex-col sm:justify-center"
+              className="bg-rose-50/80 hover:bg-rose-100/80 transition-colors cursor-pointer rounded-lg px-2.5 py-1.5 border border-rose-200 text-center flex items-center justify-between sm:flex-col sm:justify-center"
             >
-              <span className="text-rose-100 text-[10px] uppercase font-bold tracking-wider">≤ 30d Left</span>
-              <span className="text-sm sm:text-base font-extrabold text-rose-200">{stats.expiring30}</span>
+              <span className="text-rose-600 text-[10px] uppercase font-bold tracking-wider">≤ 30d Left</span>
+              <span className="text-sm sm:text-base font-extrabold text-rose-700">{stats.expiring30}</span>
             </div>
 
             {/* Expiring 31-90d */}
             <div
               onClick={() => { setQuickTab('all'); setExpiryFilter('warning'); setCurrentPage(1); }}
-              className="bg-amber-500/20 hover:bg-amber-500/30 transition-colors cursor-pointer rounded-lg px-2.5 py-1.5 border border-amber-400/30 text-center flex items-center justify-between sm:flex-col sm:justify-center"
+              className="bg-amber-50/80 hover:bg-amber-100/80 transition-colors cursor-pointer rounded-lg px-2.5 py-1.5 border border-amber-200 text-center flex items-center justify-between sm:flex-col sm:justify-center"
             >
-              <span className="text-amber-100 text-[10px] uppercase font-bold tracking-wider">31-90d Left</span>
-              <span className="text-sm sm:text-base font-extrabold text-amber-200">
+              <span className="text-amber-700 text-[10px] uppercase font-bold tracking-wider">31-90d Left</span>
+              <span className="text-sm sm:text-base font-extrabold text-amber-800">
                 {stats.expiring60 + stats.expiring90}
               </span>
             </div>
@@ -636,10 +636,10 @@ export default function DetailedContractTracking({ role, basePath }: DetailedCon
             {/* Expired */}
             <div
               onClick={() => { setQuickTab('expired'); setExpiryFilter('expired'); setCurrentPage(1); }}
-              className="bg-red-900/40 hover:bg-red-900/50 transition-colors cursor-pointer rounded-lg px-2.5 py-1.5 border border-red-500/30 text-center flex items-center justify-between sm:flex-col sm:justify-center"
+              className="bg-rose-50/90 hover:bg-rose-100/90 transition-colors cursor-pointer rounded-lg px-2.5 py-1.5 border border-rose-300 text-center flex items-center justify-between sm:flex-col sm:justify-center"
             >
-              <span className="text-red-200 text-[10px] uppercase font-bold tracking-wider">Expired</span>
-              <span className="text-sm sm:text-base font-extrabold text-red-300">{stats.expired}</span>
+              <span className="text-rose-700 text-[10px] uppercase font-bold tracking-wider">Expired</span>
+              <span className="text-sm sm:text-base font-extrabold text-rose-800">{stats.expired}</span>
             </div>
           </div>
         )}

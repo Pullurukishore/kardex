@@ -394,12 +394,42 @@ export default function DetailedContractImport({ role }: DetailedContractImportP
       setWorkbookData({ ...workbook, utils: XLSX.utils });
       setSheetNames(workbook.SheetNames);
 
-      let chosenSheet = workbook.SheetNames.find(
-        (n: string) => /detail|contract.*data|machine|dtls/i.test(n)
-      );
+      // Smart multi-sheet auto-detection:
+      // 1. Scan each sheet in the workbook to detect machine/contract headers (e.g. Sheet 3)
+      let chosenSheet = '';
+      for (const sName of workbook.SheetNames) {
+        const ws = workbook.Sheets[sName];
+        if (!ws) continue;
+        const sampleRows = XLSX.utils.sheet_to_json<any[]>(ws, { header: 1, defval: '' });
+        const hasHeaders = sampleRows.slice(0, 25).some(row =>
+          row && row.some(cell => {
+            const str = String(cell || '').trim().toLowerCase();
+            return (
+              str === 'customer name' ||
+              str === 'customer' ||
+              str === 'serial number' ||
+              str === 'serial no' ||
+              str === 'serial no.' ||
+              str === 'sl no' ||
+              str === 'sl.no' ||
+              str === 'equipment serial' ||
+              str === 'mc type' ||
+              str === 'model' ||
+              str === 'machine type'
+            );
+          })
+        );
+        if (hasHeaders) {
+          chosenSheet = sName;
+          break;
+        }
+      }
 
+      // 2. Fallback to name pattern match
       if (!chosenSheet) {
-        chosenSheet = workbook.SheetNames.length > 1 ? workbook.SheetNames[1] : workbook.SheetNames[0];
+        chosenSheet = workbook.SheetNames.find(
+          (n: string) => /detail|contract.*data|machine|dtls|amc/i.test(n)
+        ) || (workbook.SheetNames.length > 1 ? workbook.SheetNames[workbook.SheetNames.length - 1] : workbook.SheetNames[0]) || '';
       }
 
       setSelectedSheet(chosenSheet);
@@ -582,10 +612,10 @@ export default function DetailedContractImport({ role }: DetailedContractImportP
             onDragLeave={handleDragLeave}
             onClick={() => fileInputRef.current?.click()}
             className={`relative rounded-3xl border-2 border-dashed p-8 sm:p-12 cursor-pointer text-center transition-all duration-200 bg-white ${dragActive
-                ? 'border-[#6F8A9D] bg-[#6F8A9D]/5 shadow-md'
-                : file
-                  ? 'border-[#82A094] bg-[#82A094]/5 shadow-sm'
-                  : 'border-slate-300 hover:border-[#6F8A9D] hover:bg-slate-50/50 shadow-sm'
+              ? 'border-[#6F8A9D] bg-[#6F8A9D]/5 shadow-md'
+              : file
+                ? 'border-[#82A094] bg-[#82A094]/5 shadow-sm'
+                : 'border-slate-300 hover:border-[#6F8A9D] hover:bg-slate-50/50 shadow-sm'
               }`}
           >
             <input
@@ -629,22 +659,38 @@ export default function DetailedContractImport({ role }: DetailedContractImportP
 
           {/* Sheet Selector (if multiple sheets exist) */}
           {sheetNames.length > 1 && (
-            <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-sm flex items-center gap-3 flex-wrap">
-              <div className="flex items-center gap-2 text-xs font-bold text-[#546A7A] uppercase tracking-wider">
-                <FileCheck className="w-4 h-4 text-[#82A094]" />
-                <span>Workbook Sheets:</span>
+            <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-[#82A094]/15 text-[#4E7D6D] flex items-center justify-center font-bold">
+                  <FileCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-slate-800 flex items-center gap-2">
+                    <span>Active Excel Worksheet:</span>
+                    <span className="px-2.5 py-0.5 rounded-lg bg-[#82A094]/15 text-[#4E7D6D] font-extrabold">{selectedSheet}</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Found {sheetNames.length} sheets in workbook. Click below to switch worksheets:
+                  </p>
+                </div>
               </div>
-              <select
-                value={selectedSheet}
-                onChange={(e) => handleSheetChange(e.target.value)}
-                className="px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#6F8A9D]/30 focus:border-[#6F8A9D] cursor-pointer"
-              >
+              <div className="flex flex-wrap items-center gap-1.5">
                 {sheetNames.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => handleSheetChange(s)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                      selectedSheet === s
+                        ? 'bg-[#546A7A] text-white shadow-md ring-2 ring-[#546A7A]/20'
+                        : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+                    }`}
+                  >
+                    <span>{s}</span>
+                    {s === selectedSheet && <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />}
+                  </button>
                 ))}
-              </select>
+              </div>
             </div>
           )}
 
@@ -724,10 +770,10 @@ export default function DetailedContractImport({ role }: DetailedContractImportP
                           <tr
                             key={idx}
                             className={`transition-colors ${hasError
-                                ? 'bg-rose-50/60 hover:bg-rose-50'
-                                : hasWarning
-                                  ? 'bg-amber-50/50 hover:bg-amber-50'
-                                  : 'hover:bg-slate-50/80'
+                              ? 'bg-rose-50/60 hover:bg-rose-50'
+                              : hasWarning
+                                ? 'bg-amber-50/50 hover:bg-amber-50'
+                                : 'hover:bg-slate-50/80'
                               }`}
                             title={hasError ? row._errors.join(', ') : hasWarning ? row._warnings.join(', ') : ''}
                           >

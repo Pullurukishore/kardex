@@ -9,12 +9,62 @@ const computeContractStatus = (endDate: Date | null | string): string => {
   if (!endDate) return 'Active';
   const now = new Date();
   const end = new Date(endDate);
+  end.setHours(23, 59, 59, 999);
 
   if (end < now) {
     return 'Expired';
   }
 
   return 'Active';
+};
+
+// Helper to parse dates formatted as DD/MM/YYYY, DD.MM.YYYY, YYYY-MM-DD, or DD-MM-YYYY
+const parseDateObj = (str: string): Date | null => {
+  if (!str) return null;
+  str = str.trim();
+
+  const slashDot = str.match(/^(\d{1,2})[\/\.](\d{1,2})[\/\.](\d{2,4})$/);
+  if (slashDot) {
+    const d = parseInt(slashDot[1], 10);
+    const m = parseInt(slashDot[2], 10) - 1;
+    let y = parseInt(slashDot[3], 10);
+    if (y < 100) y += 2000;
+    return new Date(y, m, d);
+  }
+
+  const isoMatch = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (isoMatch) {
+    return new Date(parseInt(isoMatch[1], 10), parseInt(isoMatch[2], 10) - 1, parseInt(isoMatch[3], 10));
+  }
+
+  const dmyMatch = str.match(/^(\d{1,2})-(\d{1,2})-(\d{2,4})$/);
+  if (dmyMatch) {
+    let y = parseInt(dmyMatch[3], 10);
+    if (y < 100) y += 2000;
+    return new Date(y, parseInt(dmyMatch[2], 10) - 1, parseInt(dmyMatch[1], 10));
+  }
+
+  const fallback = new Date(str);
+  return isNaN(fallback.getTime()) ? null : fallback;
+};
+
+const getPMEndDate = (pmRange: string | null | undefined): Date | null => {
+  if (!pmRange) return null;
+  const parts = pmRange.split(/\s+(?:TO|to|-)\s+/);
+  const endStr = parts.length >= 2 ? parts[parts.length - 1]?.trim() : parts[0]?.trim();
+  return parseDateObj(endStr);
+};
+
+const isRangeOverdue = (range: string | null | undefined): boolean => {
+  if (!range) return false;
+  try {
+    const endObj = getPMEndDate(range);
+    if (!endObj) return false;
+    endObj.setHours(23, 59, 59, 999);
+    return endObj < new Date();
+  } catch {
+    return false;
+  }
 };
 
 // Helper to parse PM date range into start and end dates
@@ -141,18 +191,8 @@ export const getPMScheduleOverview = async (req: any, res: Response) => {
           completedPMs++;
         } else {
           pendingPMs++;
-          // Check if overdue: parse the range end date and compare with now
-          if (pm.range) {
-            const rangeParts = pm.range.split(' TO ');
-            if (rangeParts.length === 2) {
-              const rangeEndStr = rangeParts[1].trim();
-              // Parse DD/MM/YYYY
-              const [day, month, year] = rangeEndStr.split('/').map(Number);
-              const rangeEnd = new Date(year, month - 1, day);
-              if (rangeEnd < now) {
-                overduePMs++;
-              }
-            }
+          if (pm.range && isRangeOverdue(pm.range)) {
+            overduePMs++;
           }
         }
 
@@ -430,17 +470,8 @@ export const getTechnicianPMReport = async (req: any, res: Response) => {
           techMap[tech].completedPMs++;
         } else {
           techMap[tech].pendingPMs++;
-          // Check overdue
-          if (pm.range) {
-            const rangeParts = pm.range.split(' TO ');
-            if (rangeParts.length === 2) {
-              const rangeEndStr = rangeParts[1].trim();
-              const [day, month, year] = rangeEndStr.split('/').map(Number);
-              const rangeEnd = new Date(year, month - 1, day);
-              if (rangeEnd < now) {
-                techMap[tech].overduePMs++;
-              }
-            }
+          if (pm.range && isRangeOverdue(pm.range)) {
+            techMap[tech].overduePMs++;
           }
         }
       });
@@ -531,25 +562,9 @@ export const getCustomerPortfolioReport = async (req: any, res: Response) => {
       const completedPMs = applicablePMs.filter((p: any) => p.status === 'Completed').length;
 
       // Count overdue PMs safely
-      const now = new Date();
       const overduePMs = applicablePMs.filter((p: any) => {
         if (p.status === 'Completed') return false;
-        if (!p.range) return false;
-        try {
-          const parts = p.range.split(/\s+(?:TO|to|-)\s+/);
-          const endStr = parts[parts.length - 1]?.trim();
-          if (!endStr) return false;
-          let endDateObj: Date | null = null;
-          if (endStr.includes('/')) {
-            const [day, month, year] = endStr.split('/').map(Number);
-            if (day && month && year) endDateObj = new Date(year, month - 1, day);
-          } else if (endStr.includes('-')) {
-            endDateObj = new Date(endStr);
-          }
-          return endDateObj ? endDateObj < now : false;
-        } catch {
-          return false;
-        }
+        return isRangeOverdue(p.range);
       }).length;
 
       customerMap[key].pmTotal += applicablePMs.length;

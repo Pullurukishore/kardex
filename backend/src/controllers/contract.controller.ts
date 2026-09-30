@@ -17,6 +17,7 @@ const computeContractStatus = (endDate: Date | null | string): string => {
   if (!endDate) return 'Active';
   const now = new Date();
   const end = new Date(endDate);
+  end.setHours(23, 59, 59, 999);
 
   if (end < now) {
     return 'Expired';

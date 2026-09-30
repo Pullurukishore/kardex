@@ -169,6 +169,7 @@ const isRangeOverdue = (range: string): boolean => {
     try {
         const endObj = getPMEndDate(range);
         if (!endObj) return false;
+        endObj.setHours(23, 59, 59, 999);
         const now = new Date();
         return endObj < now;
     } catch { return false; }
@@ -371,8 +372,7 @@ export async function generateContractReportPdf(
                     completedPMs += 1;
                 } else {
                     totalPendingPMs += 1;
-                    const endObj = getPMEndDate(pm.range);
-                    if (endObj && endObj < now) overduePMs += 1;
+                    if (pm.range && isRangeOverdue(pm.range)) overduePMs += 1;
                 }
             });
         });
@@ -442,7 +442,7 @@ export async function generateContractReportPdf(
         { content: 'Timeline / Due', styles: { halign: 'center' } },
         { content: 'MC Type / SLA', styles: { halign: 'center' } },
         { content: 'Responsible Engineer', styles: { halign: 'left' } },
-        { content: 'PO Number', styles: { halign: 'center' } },
+        { content: 'PO Details', styles: { halign: 'center' } },
         { content: 'Contract Expiry', styles: { halign: 'center' } },
         { content: 'PM Value', styles: { halign: 'right' } }
     ].map(col => ({
@@ -477,16 +477,18 @@ export async function generateContractReportPdf(
             const daysLeft = getDaysRemainingPdf(c.endDate);
             const daysRemainingText = daysLeft < 0 ? `${Math.abs(daysLeft)}d overdue` : `${daysLeft}d left`;
             const expiryText = c.endDate ? `${fmtDatePdf(c.endDate)} (${daysRemainingText})` : '—';
+            const poDetailsText = c.poNo ? (c.poDate ? `${c.poNo}\n(${fmtDatePdf(c.poDate)})` : c.poNo) : '—';
 
             matchingPMs.forEach((pm: any) => {
                 const isDone = pm.status === 'Completed';
+                const isOverdue = !isDone && pm.range ? isRangeOverdue(pm.range) : false;
                 const endObj = getPMEndDate(pm.range);
-                const isOverdue = !isDone && endObj ? endObj < now : false;
+                if (endObj) endObj.setHours(23, 59, 59, 999);
                 const { startDate: pmStart, endDate: pmEnd } = parseRangeDatesFormatted(pm.range);
 
                 let pmDaysDueText = '—';
                 if (isDone) {
-                    pmDaysDueText = 'Completed';
+                    pmDaysDueText = pm.completedAt ? `Completed\n(${fmtDatePdf(pm.completedAt)})` : 'Completed';
                 } else if (endObj) {
                     const days = Math.ceil((endObj.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
                     pmDaysDueText = days < 0 ? `${Math.abs(days)}d overdue` : (days === 0 ? 'Due today' : `Due in ${days}d`);
@@ -502,7 +504,7 @@ export async function generateContractReportPdf(
                     dueIn: pmDaysDueText,
                     mcType: c.mcType || '—',
                     responsible: formatEngineerDisplayName(c.responsible),
-                    poNo: c.poNo || '—',
+                    poNo: poDetailsText,
                     expiryWithDays: expiryText,
                     amount: pmVisitAmount
                 });
@@ -521,6 +523,10 @@ export async function generateContractReportPdf(
         const mcTypes = Array.from(new Set(contracts.map((c: any) => c.mcType).filter(Boolean))).join(', ');
         const mcTypesText = mcTypes ? `   •   SLA: ${mcTypes}` : '';
         const swText = cust.hasSoftwareSupport ? '   •   SW Support: Yes' : '';
+        const totalBdVisits = contracts.reduce((sum: number, c: any) => sum + Number(c.bdCount || 0), 0);
+        const bdText = totalBdVisits > 0 ? `   •   BD Visits: ${totalBdVisits}` : '';
+        const payTerms = Array.from(new Set(contracts.map((c: any) => c.paymentTerms).filter(Boolean))).join(', ');
+        const payTermsText = payTerms ? `   •   Pay Terms: ${payTerms}` : '';
         const poNumbers = Array.from(new Set(contracts.map((c: any) => c.poNo).filter(Boolean))).join(', ');
         const poText = poNumbers ? `   •   PO: ${poNumbers}` : '';
         const resp = Array.from(new Set(contracts.flatMap((c: any) => normalizeEngineerNames(c.responsible)))).join(', ');
@@ -529,7 +535,7 @@ export async function generateContractReportPdf(
         // 1. Customer Main Banner Row (Span 10 columns)
         body.push([
             {
-                content: `${custIdx + 1}.  ${cust.customerName.toUpperCase()}   •   ${placeText}${respText}${mcTypesText}${swText}${poText}   •   ${machinesText}   •   Value: ${valueText}`,
+                content: `${custIdx + 1}.  ${cust.customerName.toUpperCase()}   •   ${placeText}${respText}${mcTypesText}${swText}${bdText}${payTermsText}${poText}   •   ${machinesText}   •   Agmt Value: ${valueText}`,
                 colSpan: 10,
                 styles: {
                     fillColor: customerColor,
@@ -562,34 +568,6 @@ export async function generateContractReportPdf(
             ]);
         });
 
-        // Customer Subtotal Row
-        const customerTotalVal = contracts.reduce((sum: number, c: any) => sum + Number(c.amount || 0), 0);
-        body.push([
-            {
-                content: `Customer Total: across ${contracts.length} Agreement${contracts.length !== 1 ? 's' : ''}`,
-                colSpan: 9,
-                styles: {
-                    fillColor: [241, 245, 249],
-                    textColor: COLORS.textDark,
-                    fontStyle: 'bold',
-                    fontSize: 7,
-                    halign: 'right',
-                    cellPadding: 2
-                }
-            },
-            {
-                content: fmtCurrency(customerTotalVal),
-                styles: {
-                    fillColor: [241, 245, 249],
-                    textColor: COLORS.textDark,
-                    fontStyle: 'bold',
-                    fontSize: 7,
-                    halign: 'right',
-                    cellPadding: 2
-                }
-            }
-        ]);
-
         // Spacing Gap between customers
         if (custIdx < filteredCustomerList.length - 1) {
             body.push([
@@ -597,7 +575,7 @@ export async function generateContractReportPdf(
                     content: '',
                     colSpan: 10,
                     styles: {
-                        minCellHeight: 4,
+                        minCellHeight: 3.5,
                         fillColor: [255, 255, 255],
                         cellPadding: 0,
                         lineWidth: 0
@@ -671,15 +649,15 @@ export async function generateContractReportPdf(
         },
         columnStyles: {
             0: { cellWidth: 8, halign: 'center' },                                // # (S.No)
-            1: { cellWidth: 16, halign: 'center', fontStyle: 'bold' },            // PM Visit (PM 1, PM 2)
-            2: { cellWidth: 50, halign: 'center' },                              // PM Schedule Window
-            3: { cellWidth: 20, halign: 'center', fontStyle: 'bold' },            // PM Status
-            4: { cellWidth: 24, halign: 'center' },                              // Timeline / Due
+            1: { cellWidth: 15, halign: 'center', fontStyle: 'bold' },            // PM Visit (PM 1, PM 2)
+            2: { cellWidth: 46, halign: 'center' },                              // PM Schedule Window
+            3: { cellWidth: 18, halign: 'center', fontStyle: 'bold' },            // PM Status
+            4: { cellWidth: 26, halign: 'center' },                              // Timeline / Due
             5: { cellWidth: 22, halign: 'center' },                              // MC Type / SLA
-            6: { cellWidth: 38, halign: 'left' },                                // Responsible Engineer
-            7: { cellWidth: 28, halign: 'center' },                              // PO Number
-            8: { cellWidth: 40, halign: 'center' },                              // Contract Expiry
-            9: { cellWidth: 31, halign: 'right', fontStyle: 'bold', textColor: COLORS.textDark }, // Agreement Value
+            6: { cellWidth: 36, halign: 'left' },                                // Responsible Engineer
+            7: { cellWidth: 32, halign: 'center' },                              // PO Details
+            8: { cellWidth: 43, halign: 'center' },                              // Contract Expiry
+            9: { cellWidth: 31, halign: 'right', fontStyle: 'bold', textColor: COLORS.textDark }, // PM Value
         },
         willDrawCell: (hookData: any) => {
             // If spacer row, don't draw border lines

@@ -363,8 +363,16 @@ export const getCustomerGroupedContracts = async (req: Request, res: Response) =
 
     if (dateFrom || dateTo) {
       where.mcEndDate = {};
-      if (dateFrom) where.mcEndDate.gte = new Date(dateFrom as string);
-      if (dateTo) where.mcEndDate.lte = new Date(dateTo as string);
+      if (dateFrom) {
+        const fromD = new Date(dateFrom as string);
+        fromD.setHours(0, 0, 0, 0);
+        where.mcEndDate.gte = fromD;
+      }
+      if (dateTo) {
+        const toD = new Date(dateTo as string);
+        toD.setHours(23, 59, 59, 999);
+        where.mcEndDate.lte = toD;
+      }
     }
 
     const records = await db.detailedContract.findMany({

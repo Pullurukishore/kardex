@@ -252,6 +252,7 @@ const isRangeOverdue = (range: string): boolean => {
     try {
         const endObj = getPMEndDate(range);
         if (!endObj) return false;
+        endObj.setHours(23, 59, 59, 999);
         const now = new Date();
         return endObj < now;
     } catch { return false; }
