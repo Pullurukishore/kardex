@@ -91,16 +91,13 @@ export const createContract = async (req: any, res: Response) => {
 
     const currentYear = new Date().getFullYear();
     const existingContracts = await db.contract.findMany({
-      where: {
-        contractNumber: {
-          startsWith: `CON-${currentYear}-`
-        }
-      },
-      select: {
-        contractNumber: true
-      }
+      select: { contractNumber: true }
     });
-    const existingNumbers = new Set(existingContracts.map((c: any) => c.contractNumber));
+    const existingNumbers = new Set(
+      existingContracts
+        .map((c: any) => c.contractNumber ? c.contractNumber.trim().toUpperCase() : '')
+        .filter(Boolean)
+    );
     let nextIndex = 1;
     let contractNumber = '';
     while (true) {
@@ -112,70 +109,85 @@ export const createContract = async (req: any, res: Response) => {
       nextIndex++;
     }
 
-    const result = await db.$transaction(async (tx: any) => {
-      let assignedToId: number | null = null;
-      if (responsible) {
-        const names = responsible.split(/[\/,]+/).map((n: string) => n.trim()).filter(Boolean);
-        const primaryName = names[0] || responsible;
-        const user = await tx.user.findFirst({
-          where: {
-            OR: [
-              { name: { equals: primaryName, mode: 'insensitive' } },
-              { email: { startsWith: primaryName.toLowerCase() } }
-            ]
-          }
-        });
-        if (user) {
-          assignedToId = user.id;
-        }
-      }
-
-      const contract = await tx.contract.create({
-        data: {
-          contractNumber,
-          scheduledMonth,
-          customerName,
-          place,
-          poNo,
-          poDate: poDate ? new Date(poDate) : start,
-          mcType: normalizeMcType(mcType),
-          noOfMachine: Number(noOfMachine),
-          amount: Number(amount),
-          noOfVisits: Number(noOfVisits),
-          startDate: start,
-          endDate: end,
-          responsible,
-          zoneName,
-          bdCount: bdCount !== undefined
-            ? (String(bdCount).trim().toLowerCase() === 'unlimited' || String(bdCount).trim().toLowerCase() === 'ul' || String(bdCount).trim() === '999' ? 999 : (parseInt(String(bdCount), 10) || 0))
-            : 0,
-          paymentTerms,
-          status: computeContractStatus(end),
-          softwareSupport: Boolean(softwareSupport),
-          customerId: Number(customerId),
-          zoneId: Number(zoneId),
-          createdById: Number(createdById),
-          assignedToId
-        }
-      });
-
-      const schedules = await Promise.all(
-        pmSchedulesData.map(pm =>
-          tx.contractPMSchedule.create({
-            data: {
-              contractId: contract.id,
-              pmNumber: pm.pmNumber,
-              range: pm.range,
-              status: pm.status
+    let attempts = 0;
+    while (attempts < 5) {
+      try {
+        const result = await db.$transaction(async (tx: any) => {
+          let assignedToId: number | null = null;
+          if (responsible) {
+            const names = responsible.split(/[\/,]+/).map((n: string) => n.trim()).filter(Boolean);
+            const primaryName = names[0] || responsible;
+            const user = await tx.user.findFirst({
+              where: {
+                OR: [
+                  { name: { equals: primaryName, mode: 'insensitive' } },
+                  { email: { startsWith: primaryName.toLowerCase() } }
+                ]
+              }
+            });
+            if (user) {
+              assignedToId = user.id;
             }
-          })
-        )
-      );
+          }
 
-      return { ...contract, pmSchedules: schedules };
-    });
+          const contract = await tx.contract.create({
+            data: {
+              contractNumber,
+              scheduledMonth,
+              customerName,
+              place,
+              poNo,
+              poDate: poDate ? new Date(poDate) : start,
+              mcType: normalizeMcType(mcType),
+              noOfMachine: Number(noOfMachine),
+              amount: Number(amount),
+              noOfVisits: Number(noOfVisits),
+              startDate: start,
+              endDate: end,
+              responsible,
+              zoneName,
+              bdCount: bdCount !== undefined
+                ? (String(bdCount).trim().toLowerCase() === 'unlimited' || String(bdCount).trim().toLowerCase() === 'ul' || String(bdCount).trim() === '999' ? 999 : (parseInt(String(bdCount), 10) || 0))
+                : 0,
+              paymentTerms,
+              status: computeContractStatus(end),
+              softwareSupport: Boolean(softwareSupport),
+              customerId: Number(customerId),
+              zoneId: Number(zoneId),
+              createdById: Number(createdById),
+              assignedToId
+            }
+          });
 
-    return res.status(201).json(result);
+          const schedules = await Promise.all(
+            pmSchedulesData.map(pm =>
+              tx.contractPMSchedule.create({
+                data: {
+                  contractId: contract.id,
+                  pmNumber: pm.pmNumber,
+                  range: pm.range,
+                  status: pm.status
+                }
+              })
+            )
+          );
+
+          return { ...contract, pmSchedules: schedules };
+        });
+
+        return res.status(201).json(result);
+      } catch (err: any) {
+        if (err.code === 'P2002' && (err.meta?.target?.includes('contractNumber') || String(err.message).includes('contractNumber'))) {
+          attempts++;
+          nextIndex++;
+          contractNumber = `CON-${currentYear}-${String(nextIndex).padStart(3, '0')}`;
+          continue;
+        }
+        throw err;
+      }
+    }
+
+    throw new Error('Failed to generate a unique contract number after multiple attempts.');
   } catch (error: any) {
     console.error('Failed to create contract:', error);
     return res.status(500).json({ error: 'Failed to create contract', details: error.message });
@@ -506,15 +518,22 @@ export const bulkImportContracts = async (req: any, res: Response) => {
     }
 
     // ── PHASE 0: Pre-fetch all lookup data in parallel (3 queries total) ──
-    const incomingContractNumbers = contracts
-      .map(c => c.contractNumber ? String(c.contractNumber).trim() : null)
-      .filter(Boolean) as string[];
+    const incomingContractNumbers = Array.from(new Set(
+      contracts
+        .map(c => c.contractNumber ? String(c.contractNumber).trim().toUpperCase() : null)
+        .filter(Boolean) as string[]
+    ));
 
-    const [existingContractsRaw, allCustomers, allUsers, currentYearContracts] = await Promise.all([
-      // All contracts matching incoming contract numbers
+    const [existingContractsRaw, allCustomers, allUsers, allExistingContracts] = await Promise.all([
+      // All contracts matching incoming contract numbers (case-insensitive)
       incomingContractNumbers.length > 0
         ? db.contract.findMany({
-          where: { contractNumber: { in: incomingContractNumbers } },
+          where: {
+            OR: [
+              { contractNumber: { in: incomingContractNumbers } },
+              { contractNumber: { in: incomingContractNumbers.map(n => n.toLowerCase()) } }
+            ]
+          },
           include: { pmSchedules: true }
         })
         : Promise.resolve([]),
@@ -529,17 +548,19 @@ export const bulkImportContracts = async (req: any, res: Response) => {
         select: { id: true, name: true, email: true }
       }),
 
-      // Existing contract numbers this year (for sequential numbering)
+      // All existing contract numbers in DB (for sequential numbering and collision avoidance)
       db.contract.findMany({
-        where: { contractNumber: { startsWith: `CON-${new Date().getFullYear()}-` } },
         select: { contractNumber: true }
       })
     ]);
 
     // Build O(1) lookup maps
-    const existingByContractNo = new Map<string, any>(
-      existingContractsRaw.map((c: any) => [c.contractNumber, c])
-    );
+    const existingByContractNo = new Map<string, any>();
+    existingContractsRaw.forEach((c: any) => {
+      if (c.contractNumber) {
+        existingByContractNo.set(c.contractNumber.trim().toUpperCase(), c);
+      }
+    });
 
     const cleanCustomerName = (s: string) =>
       String(s || '')
@@ -652,7 +673,13 @@ export const bulkImportContracts = async (req: any, res: Response) => {
       return null;
     };
 
-    const existingNumbers = new Set(currentYearContracts.map((c: any) => c.contractNumber));
+    const existingNumbers = new Set(
+      allExistingContracts
+        .map((c: any) => c.contractNumber ? c.contractNumber.trim().toUpperCase() : '')
+        .filter(Boolean)
+    );
+    incomingContractNumbers.forEach(n => existingNumbers.add(n));
+
     const currentYear = new Date().getFullYear();
     let nextIndex = 1;
 
@@ -836,7 +863,7 @@ export const bulkImportContracts = async (req: any, res: Response) => {
       }
 
       // Find existing contract: by contractNumber first, then by natural key
-      const safeContractNo = contractNumber ? String(contractNumber).trim() : '';
+      const safeContractNo = contractNumber ? String(contractNumber).trim().toUpperCase() : '';
       const naturalKey = `${String(customerName).trim().toLowerCase()}::${String(place).trim().toLowerCase()}::${safePoNo.toLowerCase()}::${start.toISOString().split('T')[0]}`;
 
       const existingContract = (safeContractNo && existingByContractNo.has(safeContractNo))
@@ -865,10 +892,14 @@ export const bulkImportContracts = async (req: any, res: Response) => {
         assignedToId
       };
 
-      const genContractNumber = safeContractNo || generateContractNumber();
+      const genContractNumber = safeContractNo || (existingContract?.contractNumber ? existingContract.contractNumber.trim().toUpperCase() : generateContractNumber());
+
+      if (safeContractNo && !existingByContractNo.has(safeContractNo)) {
+        existingByContractNo.set(safeContractNo, { contractNumber: safeContractNo });
+      }
 
       preparedContracts.push({
-        isUpdate: Boolean(existingContract),
+        isUpdate: Boolean(existingContract && existingContract.id),
         existingContract,
         contractData,
         genContractNumber,
@@ -885,54 +916,51 @@ export const bulkImportContracts = async (req: any, res: Response) => {
       const chunk = preparedContracts.slice(i, i + CHUNK_SIZE);
       const chunkResults = await Promise.all(
         chunk.map(async (task) => {
-          if (task.isUpdate) {
-            const savedContract = await db.contract.update({
+          let savedContract: any;
+
+          if (task.isUpdate && task.existingContract?.id) {
+            savedContract = await db.contract.update({
               where: { id: task.existingContract.id },
-              data: task.contractData
-            });
-
-            // Re-sync PM schedules cleanly in batch without stale record lookup errors
-            await db.contractPMSchedule.deleteMany({
-              where: { contractId: task.existingContract.id }
-            });
-
-            if (task.pmSchedulesData.length > 0) {
-              await db.contractPMSchedule.createMany({
-                data: task.pmSchedulesData.map((pm: any) => ({
-                  contractId: task.existingContract.id,
-                  pmNumber: pm.pmNumber,
-                  range: pm.range,
-                  status: pm.status,
-                  completedAt: pm.completedAt
-                }))
-              });
-            }
-
-            return savedContract;
-          } else {
-            const savedContract = await db.contract.create({
               data: {
+                ...task.contractData,
+                customerId: task.finalCustomerId ? Number(task.finalCustomerId) : undefined
+              }
+            });
+          } else {
+            // Atomic upsert by contractNumber prevents unique constraint collisions
+            savedContract = await db.contract.upsert({
+              where: { contractNumber: task.genContractNumber },
+              update: {
+                ...task.contractData,
+                customerId: task.finalCustomerId ? Number(task.finalCustomerId) : undefined
+              },
+              create: {
                 ...task.contractData,
                 contractNumber: task.genContractNumber,
                 customerId: task.finalCustomerId ? Number(task.finalCustomerId) : undefined,
                 createdById: Number(createdById)
               }
             });
-
-            if (task.pmSchedulesData.length > 0) {
-              await db.contractPMSchedule.createMany({
-                data: task.pmSchedulesData.map((pm: any) => ({
-                  contractId: savedContract.id,
-                  pmNumber: pm.pmNumber,
-                  range: pm.range,
-                  status: pm.status,
-                  completedAt: pm.completedAt
-                }))
-              });
-            }
-
-            return savedContract;
           }
+
+          // Re-sync PM schedules cleanly in batch without stale record lookup errors
+          await db.contractPMSchedule.deleteMany({
+            where: { contractId: savedContract.id }
+          });
+
+          if (task.pmSchedulesData.length > 0) {
+            await db.contractPMSchedule.createMany({
+              data: task.pmSchedulesData.map((pm: any) => ({
+                contractId: savedContract.id,
+                pmNumber: pm.pmNumber,
+                range: pm.range,
+                status: pm.status,
+                completedAt: pm.completedAt
+              }))
+            });
+          }
+
+          return savedContract;
         })
       );
       results.push(...chunkResults);
