@@ -507,7 +507,7 @@ export const updateContract = async (req: any, res: Response) => {
 // Bulk create/update contracts — optimised with pre-fetch + batch operations
 export const bulkImportContracts = async (req: any, res: Response) => {
   try {
-    const { contracts } = req.body;
+    const { contracts, mode = 'replace' } = req.body;
     if (!Array.isArray(contracts) || contracts.length === 0) {
       return res.status(400).json({ error: 'No contracts payload provided' });
     }
@@ -517,16 +517,18 @@ export const bulkImportContracts = async (req: any, res: Response) => {
       return res.status(401).json({ error: 'User context not found' });
     }
 
-    // ── PHASE 0: Pre-fetch all lookup data in parallel (3 queries total) ──
+    // ── PHASE 0: Pre-fetch all lookup data in parallel ──
     const incomingContractNumbers = Array.from(new Set(
       contracts
         .map(c => c.contractNumber ? String(c.contractNumber).trim().toUpperCase() : null)
         .filter(Boolean) as string[]
     ));
 
+    const isMergeMode = mode === 'merge';
+
     const [existingContractsRaw, allCustomers, allUsers, allExistingContracts] = await Promise.all([
-      // All contracts matching incoming contract numbers (case-insensitive)
-      incomingContractNumbers.length > 0
+      // Only query existing DB contracts if mode is 'merge'
+      (isMergeMode && incomingContractNumbers.length > 0)
         ? db.contract.findMany({
           where: {
             OR: [
@@ -548,10 +550,12 @@ export const bulkImportContracts = async (req: any, res: Response) => {
         select: { id: true, name: true, email: true }
       }),
 
-      // All existing contract numbers in DB (for sequential numbering and collision avoidance)
-      db.contract.findMany({
-        select: { contractNumber: true }
-      })
+      // DB contract numbers only needed if merge mode
+      isMergeMode
+        ? db.contract.findMany({
+          select: { contractNumber: true }
+        })
+        : Promise.resolve([])
     ]);
 
     // Build O(1) lookup maps
@@ -742,34 +746,35 @@ export const bulkImportContracts = async (req: any, res: Response) => {
       });
     }
 
-    // ── PHASE 2: Also scan for existing contracts by (customerName+place+poNo+startDate) for rows without contractNumber ──
-    // Fetch existing contracts for those combos to avoid duplicates
-    const nameBasedContracts = await db.contract.findMany({
-      where: {
-        customerName: { in: contracts.map((c: any) => String(c.customerName || '').trim()).filter(Boolean) }
-      },
-      include: { pmSchedules: true }
-    });
-
-    const formatDateStr = (d: any) => {
-      if (!d) return '';
-      const date = new Date(d);
-      return isNaN(date.getTime()) ? '' : date.toISOString().split('T')[0];
-    };
-
-    // Existing by natural key: customerName_lower::place_lower::poNo_lower::startDate
+    // ── PHASE 2: Natural key lookup only for merge mode ──
     const existingByNaturalKey = new Map<string, any>();
-    nameBasedContracts.forEach((c: any) => {
-      const poPart = String(c.poNo || '').toLowerCase().trim();
-      const startPart = formatDateStr(c.startDate);
-      const key = `${String(c.customerName).toLowerCase().trim()}::${String(c.place || '').toLowerCase().trim()}::${poPart}::${startPart}`;
-      if (!existingByNaturalKey.has(key)) {
-        existingByNaturalKey.set(key, c);
-      }
-    });
+    if (isMergeMode) {
+      const nameBasedContracts = await db.contract.findMany({
+        where: {
+          customerName: { in: contracts.map((c: any) => String(c.customerName || '').trim()).filter(Boolean) }
+        },
+        include: { pmSchedules: true }
+      });
+
+      const formatDateStr = (d: any) => {
+        if (!d) return '';
+        const date = new Date(d);
+        return isNaN(date.getTime()) ? '' : date.toISOString().split('T')[0];
+      };
+
+      nameBasedContracts.forEach((c: any) => {
+        const poPart = String(c.poNo || '').toLowerCase().trim();
+        const startPart = formatDateStr(c.startDate);
+        const key = `${String(c.customerName).toLowerCase().trim()}::${String(c.place || '').toLowerCase().trim()}::${poPart}::${startPart}`;
+        if (!existingByNaturalKey.has(key)) {
+          existingByNaturalKey.set(key, c);
+        }
+      });
+    }
 
     // ── PHASE 3: Prepare all contract payloads synchronously in memory ──
     const preparedContracts: any[] = [];
+    const usedBatchNumbers = new Set<string>();
 
     for (const item of contracts) {
       const {
@@ -834,7 +839,7 @@ export const bulkImportContracts = async (req: any, res: Response) => {
         pmSchedules.forEach((pm: any) => {
           const pmDate = pm.completedAt && !isNaN(new Date(pm.completedAt).getTime()) ? new Date(pm.completedAt) : null;
           pmSchedulesData.push({
-            pmNumber: Number(pm.pmNum || pm.pmNumber),
+            pmNumber: Number(pm.pmNumber || pm.pmNum),
             range: pm.range || '',
             status: pmDate ? 'Completed' : 'Pending',
             completedAt: pmDate
@@ -862,13 +867,15 @@ export const bulkImportContracts = async (req: any, res: Response) => {
         else parsedBdCount = parseInt(bdStr, 10) || 0;
       }
 
-      // Find existing contract: by contractNumber first, then by natural key
+      // Find existing contract only in merge mode
       const safeContractNo = contractNumber ? String(contractNumber).trim().toUpperCase() : '';
       const naturalKey = `${String(customerName).trim().toLowerCase()}::${String(place).trim().toLowerCase()}::${safePoNo.toLowerCase()}::${start.toISOString().split('T')[0]}`;
 
-      const existingContract = (safeContractNo && existingByContractNo.has(safeContractNo))
-        ? existingByContractNo.get(safeContractNo)
-        : existingByNaturalKey.get(naturalKey) || null;
+      const existingContract = isMergeMode
+        ? ((safeContractNo && existingByContractNo.has(safeContractNo))
+          ? existingByContractNo.get(safeContractNo)
+          : existingByNaturalKey.get(naturalKey) || null)
+        : null;
 
       const contractData = {
         scheduledMonth,
@@ -892,7 +899,16 @@ export const bulkImportContracts = async (req: any, res: Response) => {
         assignedToId
       };
 
-      const genContractNumber = safeContractNo || (existingContract?.contractNumber ? existingContract.contractNumber.trim().toUpperCase() : generateContractNumber());
+      // Determine contract number
+      let genContractNumber = '';
+      if (safeContractNo && !usedBatchNumbers.has(safeContractNo)) {
+        genContractNumber = safeContractNo;
+      } else if (isMergeMode && existingContract?.contractNumber) {
+        genContractNumber = existingContract.contractNumber.trim().toUpperCase();
+      } else {
+        genContractNumber = generateContractNumber();
+      }
+      usedBatchNumbers.add(genContractNumber);
 
       if (safeContractNo && !existingByContractNo.has(safeContractNo)) {
         existingByContractNo.set(safeContractNo, { contractNumber: safeContractNo });
@@ -908,65 +924,98 @@ export const bulkImportContracts = async (req: any, res: Response) => {
       });
     }
 
-    // ── PHASE 4: Concurrent chunked execution (chunks of 25 parallel database operations) ──
-    const CHUNK_SIZE = 25;
-    const results: any[] = [];
+    // ── PHASE 4: Atomic Execution in a Single Transaction ──
+    // In replace mode (default): Wipes old PM schedules and contracts, and inserts fresh Excel contracts
+    // Annual Contracts (DetailedContract / detailed_contracts) are 100% UNTOUCHED!
+    const results = await db.$transaction(async (tx: any) => {
+      if (!isMergeMode) {
+        // 1. Clear previous regular contract PM schedules
+        await tx.contractPMSchedule.deleteMany({});
+        // 2. Clear previous regular contracts ONLY
+        await tx.contract.deleteMany({});
+      }
 
-    for (let i = 0; i < preparedContracts.length; i += CHUNK_SIZE) {
-      const chunk = preparedContracts.slice(i, i + CHUNK_SIZE);
-      const chunkResults = await Promise.all(
-        chunk.map(async (task) => {
-          let savedContract: any;
+      const CHUNK_SIZE = 25;
+      const savedList: any[] = [];
 
-          if (task.isUpdate && task.existingContract?.id) {
-            savedContract = await db.contract.update({
-              where: { id: task.existingContract.id },
-              data: {
-                ...task.contractData,
-                customerId: task.finalCustomerId ? Number(task.finalCustomerId) : undefined
-              }
-            });
-          } else {
-            // Atomic upsert by contractNumber prevents unique constraint collisions
-            savedContract = await db.contract.upsert({
-              where: { contractNumber: task.genContractNumber },
-              update: {
-                ...task.contractData,
-                customerId: task.finalCustomerId ? Number(task.finalCustomerId) : undefined
-              },
-              create: {
-                ...task.contractData,
-                contractNumber: task.genContractNumber,
-                customerId: task.finalCustomerId ? Number(task.finalCustomerId) : undefined,
-                createdById: Number(createdById)
-              }
-            });
-          }
+      for (let i = 0; i < preparedContracts.length; i += CHUNK_SIZE) {
+        const chunk = preparedContracts.slice(i, i + CHUNK_SIZE);
+        const chunkResults = await Promise.all(
+          chunk.map(async (task) => {
+            let savedContract: any;
 
-          // Re-sync PM schedules cleanly in batch without stale record lookup errors
-          await db.contractPMSchedule.deleteMany({
-            where: { contractId: savedContract.id }
-          });
+            if (isMergeMode && task.isUpdate && task.existingContract?.id) {
+              savedContract = await tx.contract.update({
+                where: { id: task.existingContract.id },
+                data: {
+                  ...task.contractData,
+                  customerId: task.finalCustomerId ? Number(task.finalCustomerId) : undefined
+                }
+              });
+              await tx.contractPMSchedule.deleteMany({
+                where: { contractId: savedContract.id }
+              });
+            } else if (isMergeMode) {
+              // Upsert by contractNumber in merge mode
+              savedContract = await tx.contract.upsert({
+                where: { contractNumber: task.genContractNumber },
+                update: {
+                  ...task.contractData,
+                  customerId: task.finalCustomerId ? Number(task.finalCustomerId) : undefined
+                },
+                create: {
+                  ...task.contractData,
+                  contractNumber: task.genContractNumber,
+                  customerId: task.finalCustomerId ? Number(task.finalCustomerId) : undefined,
+                  createdById: Number(createdById)
+                }
+              });
+              await tx.contractPMSchedule.deleteMany({
+                where: { contractId: savedContract.id }
+              });
+            } else {
+              // REPLACE MODE: Direct create cleanly
+              savedContract = await tx.contract.create({
+                data: {
+                  ...task.contractData,
+                  contractNumber: task.genContractNumber,
+                  customerId: task.finalCustomerId ? Number(task.finalCustomerId) : undefined,
+                  createdById: Number(createdById)
+                }
+              });
+            }
 
-          if (task.pmSchedulesData.length > 0) {
-            await db.contractPMSchedule.createMany({
-              data: task.pmSchedulesData.map((pm: any) => ({
-                contractId: savedContract.id,
-                pmNumber: pm.pmNumber,
-                range: pm.range,
-                status: pm.status,
-                completedAt: pm.completedAt
-              }))
-            });
-          }
+            // Create PM schedules
+            if (task.pmSchedulesData.length > 0) {
+              await tx.contractPMSchedule.createMany({
+                data: task.pmSchedulesData.map((pm: any) => ({
+                  contractId: savedContract.id,
+                  pmNumber: pm.pmNumber,
+                  range: pm.range,
+                  status: pm.status,
+                  completedAt: pm.completedAt
+                }))
+              });
+            }
 
-          return savedContract;
-        })
-      );
-      results.push(...chunkResults);
-    }
+            return savedContract;
+          })
+        );
+        savedList.push(...chunkResults);
+      }
 
-    return res.status(201).json({ success: true, count: results.length, data: results });
+      return savedList;
+    }, {
+      timeout: 120000,
+      maxWait: 15000
+    });
+
+    return res.status(201).json({
+      success: true,
+      count: results.length,
+      mode: isMergeMode ? 'merge' : 'replace',
+      data: results
+    });
   } catch (error: any) {
     console.error('Failed bulk importing contracts:', error);
     return res.status(500).json({ error: 'Failed bulk importing contracts', details: error.message });

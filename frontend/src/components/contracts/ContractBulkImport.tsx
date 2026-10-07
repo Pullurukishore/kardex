@@ -77,6 +77,8 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [filterMode, setFilterMode] = useState<'all' | 'warnings' | 'valid'>('all');
+  const [importMode, setImportMode] = useState<'replace' | 'merge'>('replace');
+  const [confirmModalOpen, setConfirmModalOpen] = useState(false);
 
   // Quick Create Customer Modal State
   const [quickCreateModalOpen, setQuickCreateModalOpen] = useState(false);
@@ -981,18 +983,23 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
   };
 
   // Submit bulk payload to database
-  const handleImportSubmit = async () => {
+  const executeImport = async () => {
     const allErrors = parsedData.flatMap(r => r.errors);
     if (allErrors.length > 0) {
       toast.error(`Please correct all ${allErrors.length} validation errors before importing.`);
       return;
     }
 
+    setConfirmModalOpen(false);
     setLoading(true);
     try {
-      const response = await apiService.bulkImportContracts(parsedData);
+      const response = await apiService.bulkImportContracts(parsedData, importMode);
       if (response.success) {
-        toast.success(`Successfully imported ${response.count} contract agreements!`);
+        if (importMode === 'replace') {
+          toast.success(`Successfully imported ${response.count} contract agreements! Previous stray contracts cleared.`);
+        } else {
+          toast.success(`Successfully imported ${response.count} contract agreements!`);
+        }
         router.push(`${getBaseRoute()}/contracts`);
       } else {
         toast.error(response.error || 'Failed importing agreements');
@@ -1003,6 +1010,20 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
       toast.error(errorMsg);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleImportSubmit = () => {
+    const allErrors = parsedData.flatMap(r => r.errors);
+    if (allErrors.length > 0) {
+      toast.error(`Please correct all ${allErrors.length} validation errors before importing.`);
+      return;
+    }
+
+    if (importMode === 'replace') {
+      setConfirmModalOpen(true);
+    } else {
+      executeImport();
     }
   };
 
@@ -1274,6 +1295,35 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
                   >
                     <Check className="w-3.5 h-3.5" />
                     <span>Valid ({rowsValidCount})</span>
+                  </button>
+                </div>
+
+                {/* Import Mode Selector */}
+                <div className="inline-flex p-1 bg-slate-100 rounded-xl gap-1 border border-slate-200/60">
+                  <button
+                    type="button"
+                    onClick={() => setImportMode('replace')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                      importMode === 'replace'
+                        ? 'bg-emerald-600 text-white shadow-sm'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                    title="Clean sync: Clears previous contracts and saves only the latest Excel data so the database matches Excel 100%."
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Clean Sync (Matches Excel)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setImportMode('merge')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                      importMode === 'merge'
+                        ? 'bg-slate-800 text-white shadow-sm'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                    title="Merge mode: Keeps existing contracts and only updates/adds new records."
+                  >
+                    <span>Merge / Append</span>
                   </button>
                 </div>
 
@@ -1745,6 +1795,52 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Clean Import Confirmation Modal */}
+      {confirmModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-in fade-in zoom-in duration-200">
+            <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center mx-auto">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+
+            <div className="text-center space-y-1">
+              <h3 className="text-base font-extrabold text-slate-800">Confirm Clean Import</h3>
+              <p className="text-slate-500 text-xs leading-relaxed">
+                This will <strong>clear previous regular contracts</strong> and save <strong>only the {parsedData.length} contracts</strong> from this Excel file so your database matches Excel 100%.
+              </p>
+            </div>
+
+            <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200/60 text-[11px] text-emerald-800 space-y-1">
+              <div className="font-bold flex items-center gap-1.5">
+                <Check className="w-4 h-4 text-emerald-600" />
+                <span>Annual Contracts are 100% untouched</span>
+              </div>
+              <p className="text-emerald-700/80">
+                Customer accounts and Sheet 2 (Annual Machine Contracts) will remain intact.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setConfirmModalOpen(false)}
+                className="px-4 py-2 rounded-xl text-slate-500 text-xs font-bold hover:bg-slate-50 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={executeImport}
+                className="px-5 py-2 rounded-xl text-white text-xs font-bold bg-emerald-600 hover:bg-emerald-700 active:scale-95 transition-all shadow-md flex items-center gap-1.5"
+              >
+                <CheckCircle className="w-4 h-4" />
+                <span>Yes, Replace & Sync ({parsedData.length} contracts)</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
