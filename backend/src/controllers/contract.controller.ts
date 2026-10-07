@@ -838,11 +838,12 @@ export const bulkImportContracts = async (req: any, res: Response) => {
       if (Array.isArray(pmSchedules) && pmSchedules.length > 0) {
         pmSchedules.forEach((pm: any) => {
           const pmDate = pm.completedAt && !isNaN(new Date(pm.completedAt).getTime()) ? new Date(pm.completedAt) : null;
+          const isCompleted = pm.status === 'Completed' || Boolean(pmDate);
           pmSchedulesData.push({
             pmNumber: Number(pm.pmNumber || pm.pmNum),
             range: pm.range || '',
-            status: pmDate ? 'Completed' : 'Pending',
-            completedAt: pmDate
+            status: isCompleted ? 'Completed' : 'Pending',
+            completedAt: pmDate || (isCompleted ? start : null)
           });
         });
       } else {

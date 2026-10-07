@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { apiService } from '@/services/api';
 
 interface ExcelRow {
@@ -63,7 +64,7 @@ interface ContractBulkImportProps {
 export default function ContractBulkImport({ role }: ContractBulkImportProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const workbookRef = useRef<XLSX.WorkBook | null>(null);
+  const workbookRef = useRef<ExcelJS.Workbook | null>(null);
 
   // State
   const [loading, setLoading] = useState(false);
@@ -260,42 +261,137 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
     return '';
   };
 
-  const parseCompletionDate = (val: any): string => {
-    if (!val) return '';
+  const monthsMap: Record<string, number> = {
+    jan: 1, january: 1,
+    feb: 2, february: 2,
+    mar: 3, march: 3,
+    apr: 4, april: 4, apri: 4,
+    may: 5,
+    jun: 6, june: 6,
+    jul: 7, july: 7,
+    aug: 8, august: 8, ag: 8, ug: 8,
+    sep: 9, sept: 9, september: 9,
+    oct: 10, october: 10,
+    nov: 11, november: 11,
+    dec: 12, december: 12
+  };
+
+  const extractDateFromRange = (rangeStr: any): string => {
+    if (!rangeStr || typeof rangeStr !== 'string') return '';
+    const matches = [...rangeStr.matchAll(/(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})/g)];
+    if (matches.length > 0) {
+      const m = matches.length >= 2 ? matches[1] : matches[0];
+      const day = String(m[1]).padStart(2, '0');
+      const month = String(m[2]).padStart(2, '0');
+      const year = m[3];
+      return `${year}-${month}-${day}`;
+    }
+    return '';
+  };
+
+  const parseCompletionDate = (val: any, rangeVal?: any, fallbackYear?: number): string => {
+    if (!val) {
+      return extractDateFromRange(rangeVal);
+    }
     if (val instanceof Date) {
       return formatDateISO(val);
     }
 
-    // If Excel number serial format
     if (typeof val === 'number') {
       const date = new Date((val - 25569) * 86400 * 1000);
-      return formatDateISO(date);
+      return !isNaN(date.getTime()) ? formatDateISO(date) : '';
     }
 
     const str = String(val).trim();
-    if (!str) return '';
+    if (!str) return extractDateFromRange(rangeVal);
 
-    // Standardize common patterns (remove st, nd, rd, th)
-    const cleanStr = str.replace(/(\d+)(st|nd|rd|th)/i, '$1');
+    // Standardize common patterns (remove st, nd, rd, th, tth)
+    const cleanStr = str.replace(/(\d+)(st|nd|rd|th|tth)/gi, '$1');
 
     const d = new Date(cleanStr);
-    if (!isNaN(d.getTime())) {
+    if (!isNaN(d.getTime()) && d.getFullYear() > 2000 && d.getFullYear() < 2035) {
       return formatDateISO(d);
     }
 
-    // Fallback: match DD/MM/YYYY or YYYY-MM-DD
-    const partsDMY = cleanStr.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4}|\d{2})$/);
+    // Match DD Month YY/YYYY anywhere in sentences (e.g. '29th Aug 25,Inv generated', '14th Aug ,raise in July', '8th MAy 26')
+    const match1 = str.match(/(\d{1,2})(?:st|nd|rd|th|tth)?\s+([A-Za-z]+)(?:\s*[, -]?\s*(\d{2,4}))?/i);
+    if (match1) {
+      const day = parseInt(match1[1], 10);
+      const mStr = match1[2].toLowerCase();
+      let year = match1[3] ? parseInt(match1[3].replace(/\s+/g, ''), 10) : (fallbackYear || 2025);
+      if (year < 100) year = 2000 + year;
+      const matchedKey = Object.keys(monthsMap).find(k => mStr.startsWith(k));
+      const mNum = monthsMap[mStr] || (matchedKey ? monthsMap[matchedKey] : null);
+      if (mNum && day >= 1 && day <= 31) {
+        return `${year}-${String(mNum).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      }
+    }
+
+    // Match Month DD YY (e.g. 'Aug 14th 26')
+    const match2 = str.match(/([A-Za-z]+)\s+(\d{1,2})(?:st|nd|rd|th|tth)?(?:\s*[, -]?\s*(\d{2,4}))?/i);
+    if (match2) {
+      const mStr = match2[1].toLowerCase();
+      const day = parseInt(match2[2], 10);
+      let year = match2[3] ? parseInt(match2[3].replace(/\s+/g, ''), 10) : (fallbackYear || 2025);
+      if (year < 100) year = 2000 + year;
+      const matchedKey = Object.keys(monthsMap).find(k => mStr.startsWith(k));
+      const mNum = monthsMap[mStr] || (matchedKey ? monthsMap[matchedKey] : null);
+      if (mNum && day >= 1 && day <= 31) {
+        return `${year}-${String(mNum).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      }
+    }
+
+    // Fallback: match DD/MM/YYYY or DD-MM-YYYY
+    const partsDMY = cleanStr.match(/(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4}|\d{2})/);
     if (partsDMY) {
       const day = partsDMY[1].padStart(2, '0');
       const month = partsDMY[2].padStart(2, '0');
       let year = partsDMY[3];
       if (year.length === 2) {
-        year = '20' + year; // assume 20xx
+        year = '20' + year;
       }
       return `${year}-${month}-${day}`;
     }
 
-    return '';
+    return extractDateFromRange(rangeVal);
+  };
+
+  const getCellCleanValue = (cell: any): any => {
+    if (!cell) return '';
+    const val = cell.value;
+    if (val === null || val === undefined) return '';
+    if (typeof val === 'object') {
+      if (val instanceof Date) return val;
+      if ('result' in val) return val.result;
+      if ('text' in val) return val.text;
+      if ('richText' in val && Array.isArray(val.richText)) {
+        return val.richText.map((t: any) => t.text).join('');
+      }
+    }
+    return val;
+  };
+
+  const isCellGreen = (cell: any): boolean => {
+    if (!cell || !cell.fill) return false;
+    const fg = cell.fill.fgColor;
+    if (!fg) return false;
+    const argb = String(fg.argb || '').toUpperCase();
+    if (
+      argb.includes('92D050') ||
+      argb.includes('00B050') ||
+      argb.includes('70AD47') ||
+      argb.includes('C6EFCE') ||
+      argb.includes('A4B388')
+    ) {
+      return true;
+    }
+    if (argb.length === 8) {
+      const r = parseInt(argb.slice(2, 4), 16);
+      const g = parseInt(argb.slice(4, 6), 16);
+      const b = parseInt(argb.slice(6, 8), 16);
+      if (g > 150 && g > r * 1.15 && g > b * 1.15) return true;
+    }
+    return false;
   };
 
   const cleanName = (str: string): string => {
@@ -464,50 +560,53 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
   };
 
   // Parse a specific sheet from the workbook
-  const parseWorkbookSheet = (workbook: XLSX.WorkBook, sheetName: string, custs = dbCustomers, zones = dbZones) => {
+  const parseWorkbookSheet = (workbook: ExcelJS.Workbook, sheetName: string, custs = dbCustomers, zones = dbZones) => {
     try {
-      const worksheet = workbook.Sheets[sheetName];
+      const worksheet = workbook.getWorksheet(sheetName);
       if (!worksheet) {
         toast.error(`Sheet "${sheetName}" not found in workbook.`);
         return;
       }
 
-      // Use 2D array header: 1 to support dynamic / merged columns reliably
-      const rows = XLSX.utils.sheet_to_json<any[]>(worksheet, { header: 1, defval: '' });
-
-      if (rows.length === 0) {
-        toast.error(`The sheet "${sheetName}" contains no rows.`);
-        return;
-      }
-
       // Find header row index
       let headerRowIndex = -1;
-      for (let i = 0; i < Math.min(15, rows.length); i++) {
-        const row = rows[i];
-        if (row && row.some(cell => {
-          const str = String(cell || '').trim().toLowerCase();
-          return (
+      const headerColMap: { [colIndex: number]: string } = {};
+
+      worksheet.eachRow((row, rowNumber) => {
+        if (headerRowIndex !== -1 || rowNumber > 15) return;
+        let isHeader = false;
+        row.eachCell({ includeEmpty: true }, (cell) => {
+          const str = String(getCellCleanValue(cell) || '').trim().toLowerCase();
+          if (
             str === 'customer name' ||
             str === 'name of the customer' ||
             str === 'customer' ||
             (str.includes('customer') && str.length < 25 && !str.includes('invoice') && !str.includes('territory') && !str.includes('release'))
-          );
-        })) {
-          headerRowIndex = i;
-          break;
+          ) {
+            isHeader = true;
+          }
+        });
+        if (isHeader) {
+          headerRowIndex = rowNumber;
+          row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+            headerColMap[colNumber] = String(getCellCleanValue(cell) || '').trim().toLowerCase();
+          });
         }
-      }
+      });
 
       if (headerRowIndex === -1) {
         toast.error(`Could not find header row in sheet "${sheetName}". Make sure you have a "Customer Name" column.`);
         return;
       }
 
-      const headers = rows[headerRowIndex].map(h => String(h || '').trim().toLowerCase());
-
       // Find column indices
       const getColIndex = (aliases: string[]) => {
-        return headers.findIndex(h => aliases.some(alias => h.includes(alias.toLowerCase())));
+        for (const [colStr, headerText] of Object.entries(headerColMap)) {
+          if (aliases.some(alias => headerText.includes(alias.toLowerCase()))) {
+            return Number(colStr);
+          }
+        }
+        return -1;
       };
 
       const custCol = getColIndex(['customer name', 'customername', 'company', 'name of the customer']);
@@ -528,22 +627,25 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
       const contractNoCol = getColIndex(['contract no', 'contract number', 'contract_no', 'contractnumber', 'agreement no', 'agreement number']);
       const paymentCol = getColIndex(['payment terms', 'paymentterms', 'payment term', 'paymentterm', 'payment']);
 
-      const dataRows = rows.slice(headerRowIndex + 1);
-
       // Track recent zone by customer name or PO to auto-inherit across multi-year split rows
       const poZoneMap = new Map<string, any>();
       const custZoneMap = new Map<string, any>();
+      const parsedRows: ParsedContract[] = [];
 
-      const parsedRows = dataRows.map((row, index) => {
-        const rawCustName = custCol !== -1 && custCol < row.length ? String(row[custCol] || '').trim() : '';
+      worksheet.eachRow((row, rowNumber) => {
+        if (rowNumber <= headerRowIndex) return;
+
+        const rawCustName = custCol !== -1 ? String(getCellCleanValue(row.getCell(custCol)) || '').trim() : '';
+        if (!rawCustName) return; // Skip empty rows
+
         const cleanedRowCustName = cleanName(rawCustName);
-        const rawContractNo = contractNoCol !== -1 && contractNoCol < row.length ? String(row[contractNoCol] || '').trim() : '';
-        const rawPaymentTerms = paymentCol !== -1 && paymentCol < row.length ? String(row[paymentCol] || '').trim() : '';
-        const rawZoneName = zoneCol !== -1 && zoneCol < row.length ? String(row[zoneCol] || '').trim() : '';
-        const rawMcType = mcCol !== -1 && mcCol < row.length ? String(row[mcCol] || '').trim() : '';
-        const rawSoftware = swCol !== -1 && swCol < row.length ? String(row[swCol] || '').trim().toLowerCase() : '';
-        const rawPlaceStr = placeCol !== -1 && placeCol < row.length ? String(row[placeCol] || '').trim().toLowerCase() : '';
-        const rawPoNo = poCol !== -1 && poCol < row.length ? String(row[poCol] || '').trim() : '';
+        const rawContractNo = contractNoCol !== -1 ? String(getCellCleanValue(row.getCell(contractNoCol)) || '').trim() : '';
+        const rawPaymentTerms = paymentCol !== -1 ? String(getCellCleanValue(row.getCell(paymentCol)) || '').trim() : '';
+        const rawZoneName = zoneCol !== -1 ? String(getCellCleanValue(row.getCell(zoneCol)) || '').trim() : '';
+        const rawMcType = mcCol !== -1 ? String(getCellCleanValue(row.getCell(mcCol)) || '').trim() : '';
+        const rawSoftware = swCol !== -1 ? String(getCellCleanValue(row.getCell(swCol)) || '').trim().toLowerCase() : '';
+        const rawPlaceStr = placeCol !== -1 ? String(getCellCleanValue(row.getCell(placeCol)) || '').trim().toLowerCase() : '';
+        const rawPoNo = poCol !== -1 ? String(getCellCleanValue(row.getCell(poCol)) || '').trim() : '';
 
         // Normalize zone string & common typos (e.g. "Easr" -> "East")
         let cleanZoneName = rawZoneName.trim();
@@ -575,7 +677,6 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
           : undefined;
 
         // Smart Zone Fallbacks:
-        // 1. Inherit zone from matched Customer in database if Excel cell was empty
         if (!matchedZone && matchedCust) {
           if (matchedCust.serviceZoneId) {
             matchedZone = zones.find(z => Number(z.id) === Number(matchedCust.serviceZoneId));
@@ -584,7 +685,6 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
           }
         }
 
-        // 2. Inherit zone from previous multi-year row with same PO No or Customer
         if (!matchedZone && rawPoNo && poZoneMap.has(rawPoNo)) {
           matchedZone = poZoneMap.get(rawPoNo);
         }
@@ -592,7 +692,6 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
           matchedZone = custZoneMap.get(cleanedRowCustName);
         }
 
-        // 3. Fallback from Place keywords
         if (!matchedZone) {
           const placeToCheck = (rawPlaceStr || matchedCust?.address || '').toLowerCase();
           if (placeToCheck.includes('bangalore') || placeToCheck.includes('bengaluru') || placeToCheck.includes('chennai') || placeToCheck.includes('hyderabad')) {
@@ -606,17 +705,15 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
           }
         }
 
-        // Remember zone for subsequent multi-year rows in the same spreadsheet
         if (matchedZone) {
           if (rawPoNo) poZoneMap.set(rawPoNo, matchedZone);
           if (cleanedRowCustName) custZoneMap.set(cleanedRowCustName, matchedZone);
         }
 
-        let startDateParsed = startCol !== -1 && startCol < row.length ? parseExcelDate(row[startCol]) : '';
-        let endDateParsed = endCol !== -1 && endCol < row.length ? parseExcelDate(row[endCol]) : '';
-        const poDateParsed = poDateCol !== -1 && poDateCol < row.length ? parseExcelDate(row[poDateCol]) : '';
+        let startDateParsed = startCol !== -1 ? parseExcelDate(getCellCleanValue(row.getCell(startCol))) : '';
+        let endDateParsed = endCol !== -1 ? parseExcelDate(getCellCleanValue(row.getCell(endCol))) : '';
+        const poDateParsed = poDateCol !== -1 ? parseExcelDate(getCellCleanValue(row.getCell(poDateCol))) : '';
 
-        // If Start Date is missing in Excel but PO Date is available, derive 1-year contract dates from PO Date
         if (!startDateParsed && poDateParsed) {
           startDateParsed = poDateParsed;
           const sD = new Date(startDateParsed);
@@ -628,7 +725,6 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
           }
         }
 
-        // If Start Date is present but End Date is missing, automatically set End Date to 1 year minus 1 day
         if (startDateParsed && !endDateParsed) {
           const sD = new Date(startDateParsed);
           if (!isNaN(sD.getTime())) {
@@ -639,8 +735,7 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
           }
         }
 
-        // BD parsing
-        const bdRaw = bdCol !== -1 && bdCol < row.length ? String(row[bdCol] || '').trim() : '';
+        const bdRaw = bdCol !== -1 ? String(getCellCleanValue(row.getCell(bdCol)) || '').trim() : '';
         let parsedBdCount = 0;
         if (bdRaw.toLowerCase() === 'unlimited' || bdRaw.toLowerCase() === 'ul') {
           parsedBdCount = 999;
@@ -648,7 +743,7 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
           parsedBdCount = parseInt(bdRaw, 10) || 0;
         }
 
-        const parsedVisits = visitsCol !== -1 && visitsCol < row.length ? Math.min(12, Math.max(1, Number(row[visitsCol]) || 3)) : 3;
+        const parsedVisits = visitsCol !== -1 ? Math.min(12, Math.max(1, Number(getCellCleanValue(row.getCell(visitsCol))) || 3)) : 3;
 
         const isValidRangeString = (str: string): boolean => {
           if (!str) return false;
@@ -658,63 +753,72 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
             s.includes(' to ') || s.includes(' - ');
         };
 
+        const startYear = startDateParsed ? new Date(startDateParsed).getFullYear() : 2025;
+
+        // PM Visits Parsing with GREEN COLOR DETECTION & SENTENCE SUPPORT
         const pmSchedules: any[] = [];
         if (pm1Col !== -1) {
-          for (let p = 1; p <= Math.min(10, parsedVisits); p++) {
-            const rCol = pm1Col + (p - 1) * 2;
-            const dCol = rCol + 1;
-            const pRange = rCol < row.length ? String(row[rCol] || '').trim() : '';
-            const pDateVal = dCol < row.length ? row[dCol] : null;
-            const pDate = pDateVal ? parseCompletionDate(pDateVal) : null;
+          for (let p = 1; p <= Math.min(12, parsedVisits); p++) {
+            let rCol = -1;
+            let dCol = -1;
+            if (p <= 10) {
+              rCol = pm1Col + (p - 1) * 2;
+              dCol = rCol + 1;
+            } else if (p === 11) {
+              rCol = pm1Col + 20;
+              dCol = rCol + 1;
+            } else if (p === 12) {
+              rCol = pm1Col + 21;
+              dCol = rCol + 1;
+            }
 
-            if ((pRange && isValidRangeString(pRange)) || pDate) {
+            const rangeCell = row.getCell(rCol);
+            const dateCell = dCol !== -1 ? row.getCell(dCol) : null;
+
+            // Check if either range or date cell has green fill
+            const isGreen = isCellGreen(rangeCell) || (dateCell ? isCellGreen(dateCell) : false);
+
+            const rawRangeVal = getCellCleanValue(rangeCell);
+            const pRange = rawRangeVal ? String(rawRangeVal).trim() : '';
+
+            const rawDateVal = dateCell ? getCellCleanValue(dateCell) : null;
+            const completionDate = parseCompletionDate(rawDateVal, pRange, startYear);
+
+            // BUSINESS RULE: IF GREEN THEN COMPLETED (or if valid completion date is found)
+            const isCompleted = isGreen || Boolean(completionDate);
+            const finalCompletedAt = completionDate || (isCompleted ? (startDateParsed || formatDateISO(new Date())) : null);
+
+            if ((pRange && isValidRangeString(pRange)) || isCompleted) {
               pmSchedules.push({
                 pmNumber: p,
                 range: isValidRangeString(pRange) ? pRange : '',
-                completedAt: pDate
-              });
-            }
-          }
-          if (parsedVisits >= 11) {
-            const rCol11 = pm1Col + 20;
-            if (rCol11 < row.length && row[rCol11] && isValidRangeString(String(row[rCol11]))) {
-              pmSchedules.push({
-                pmNumber: 11,
-                range: String(row[rCol11]).trim(),
-                completedAt: null
-              });
-            }
-          }
-          if (parsedVisits >= 12) {
-            const rCol12 = pm1Col + 21;
-            if (rCol12 < row.length && row[rCol12] && isValidRangeString(String(row[rCol12]))) {
-              pmSchedules.push({
-                pmNumber: 12,
-                range: String(row[rCol12]).trim(),
-                completedAt: null
+                status: isCompleted ? 'Completed' : 'Pending',
+                completedAt: finalCompletedAt
               });
             }
           }
         }
 
+        const rawAmountVal = amountCol !== -1 ? getCellCleanValue(row.getCell(amountCol)) : '';
+        const amtStr = String(rawAmountVal || '').trim();
+        const cleanAmt = (!amtStr || amtStr === '-') ? 0 : (parseFloat(amtStr.replace(/[^0-9.]/g, '')) || 0);
+
+        const rawMachinesVal = machinesCol !== -1 ? getCellCleanValue(row.getCell(machinesCol)) : 0;
+        const noOfMachineParsed = (rawMachinesVal !== '' && rawMachinesVal !== null && rawMachinesVal !== undefined) ? (Number(rawMachinesVal) || 0) : 0;
+
         const contractItem: Partial<ParsedContract> = {
-          id: `row-${index}-${Date.now()}`,
+          id: `row-${rowNumber}-${Date.now()}`,
           customerName: rawCustName || 'Blank Customer',
-          place: placeCol !== -1 && placeCol < row.length ? String(row[placeCol] || '').trim() : '',
+          place: placeCol !== -1 ? String(getCellCleanValue(row.getCell(placeCol)) || '').trim() : '',
           mcType: rawMcType,
-          noOfMachine: machinesCol !== -1 && machinesCol < row.length && row[machinesCol] !== '' && row[machinesCol] !== null && row[machinesCol] !== undefined ? (Number(row[machinesCol]) || 0) : 0,
-          amount: (() => {
-            const amtRaw = amountCol !== -1 && amountCol < row.length ? String(row[amountCol]).trim() : '';
-            if (!amtRaw || amtRaw === '-') return 0;
-            const cleanAmt = amtRaw.replace(/[^0-9.]/g, '');
-            return parseFloat(cleanAmt) || 0;
-          })(),
-          noOfVisits: visitsCol !== -1 && visitsCol < row.length ? Number(row[visitsCol] || 3) : 3,
+          noOfMachine: noOfMachineParsed,
+          amount: cleanAmt,
+          noOfVisits: parsedVisits,
           startDate: startDateParsed,
           endDate: endDateParsed,
           poNo: (rawPoNo && rawPoNo !== 'N/A' && rawPoNo !== '-') ? rawPoNo : 'PO-AWAITED',
           poDate: poDateParsed || startDateParsed,
-          responsible: respCol !== -1 && respCol < row.length ? String(row[respCol] || '').trim() : '',
+          responsible: respCol !== -1 ? String(getCellCleanValue(row.getCell(respCol)) || '').trim() : '',
           zoneName: matchedZone?.name || cleanZoneName || rawZoneName || '',
           paymentTerms: rawPaymentTerms || undefined,
           softwareSupport: rawSoftware === 'yes' || rawSoftware === 'true' || rawSoftware === '1',
@@ -726,15 +830,13 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
         };
 
         contractItem.errors = validateContract(contractItem);
-        return contractItem as ParsedContract;
+        parsedRows.push(contractItem as ParsedContract);
       });
 
-      // Filter out empty rows (e.g. rows where customer name is empty)
+      // Filter out empty rows
       const validParsedRows = parsedRows.filter(r => r.customerName && r.customerName !== 'Blank Customer');
 
       // Post-process: Propagate "No of Machine" within multi-year contract groups.
-      // The Excel places the machine count on only one row (usually the last) in a group
-      // sharing the same Customer + Place + PO. Inherit it for rows where it was empty.
       const mcGroupMap = new Map<string, number>();
       for (const r of validParsedRows) {
         if (r.noOfMachine > 0) {
@@ -745,7 +847,7 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
       for (const r of validParsedRows) {
         if (r.noOfMachine <= 0) {
           const gKey = `${r.customerName.toLowerCase().trim()}::${(r.place || '').toLowerCase().trim()}::${(r.poNo || '').toLowerCase().trim()}`;
-          r.noOfMachine = mcGroupMap.get(gKey) || 1; // Default to 1 if still unknown
+          r.noOfMachine = mcGroupMap.get(gKey) || 1;
         }
       }
 
@@ -758,73 +860,71 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
     }
   };
 
-  // Handle excel file parsing with sheet detection
-  const processExcelFile = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const data = e.target?.result;
-        if (!data) return;
+  // Handle excel file parsing with sheet detection using ExcelJS for styling & color inspection
+  const processExcelFile = async (file: File) => {
+    try {
+      setLoading(true);
+      const buffer = await file.arrayBuffer();
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(buffer);
+      workbookRef.current = workbook;
 
-        const workbook = XLSX.read(data, { type: 'binary', cellDates: true });
-        workbookRef.current = workbook;
-
-        const sheetNames = workbook.SheetNames || [];
-        if (sheetNames.length === 0) {
-          toast.error('The uploaded Excel file contains no worksheets.');
-          return;
-        }
-
-        setAvailableSheets(sheetNames);
-
-        // Smart multi-sheet auto-detection:
-        // 1. Scan all sheets in the workbook to detect which sheet has the contract headers (e.g. Sheet 3)
-        let defaultSheet = '';
-        for (const sName of sheetNames) {
-          const ws = workbook.Sheets[sName];
-          if (!ws) continue;
-          const sampleRows = XLSX.utils.sheet_to_json<any[]>(ws, { header: 1, defval: '' });
-          const hasCustomerHeader = sampleRows.slice(0, 20).some(row =>
-            row && row.some(cell => {
-              const str = String(cell || '').trim().toLowerCase();
-              return (
-                str === 'customer name' ||
-                str === 'name of the customer' ||
-                str === 'customer' ||
-                str === 'company' ||
-                (str.includes('customer') && str.length < 25 && !str.includes('invoice') && !str.includes('territory') && !str.includes('release'))
-              );
-            })
-          );
-          if (hasCustomerHeader) {
-            defaultSheet = sName;
-            break;
-          }
-        }
-
-        // 2. Fallback to name pattern match if scanning didn't find one
-        if (!defaultSheet) {
-          defaultSheet = sheetNames.find(s => /amc\s*list/i.test(s)) || '';
-          if (!defaultSheet) {
-            const yearSheets = sheetNames.filter(s => /2026|2025|2027/i.test(s));
-            if (yearSheets.length > 0) {
-              defaultSheet = yearSheets[yearSheets.length - 1];
-            }
-          }
-        }
-        if (!defaultSheet) {
-          defaultSheet = sheetNames.find(s => /contract|amc|machine|detail/i.test(s)) || sheetNames[0] || '';
-        }
-
-        setSelectedSheet(defaultSheet);
-        parseWorkbookSheet(workbook, defaultSheet, dbCustomers, dbZones);
-      } catch (err) {
-        console.error('Failed parsing excel file:', err);
-        toast.error('Failed to parse Excel file. Make sure file format is valid.');
+      const sheetNames = workbook.worksheets.map(w => w.name) || [];
+      if (sheetNames.length === 0) {
+        toast.error('The uploaded Excel file contains no worksheets.');
+        setLoading(false);
+        return;
       }
-    };
 
-    reader.readAsBinaryString(file);
+      setAvailableSheets(sheetNames);
+
+      // Smart multi-sheet auto-detection:
+      let defaultSheet = '';
+      for (const ws of workbook.worksheets) {
+        let hasCustomerHeader = false;
+        ws.eachRow((row, rowNumber) => {
+          if (rowNumber > 20 || hasCustomerHeader) return;
+          row.eachCell((cell) => {
+            const str = String(getCellCleanValue(cell) || '').trim().toLowerCase();
+            if (
+              str === 'customer name' ||
+              str === 'name of the customer' ||
+              str === 'customer' ||
+              str === 'company' ||
+              (str.includes('customer') && str.length < 25 && !str.includes('invoice') && !str.includes('territory') && !str.includes('release'))
+            ) {
+              hasCustomerHeader = true;
+            }
+          });
+        });
+        if (hasCustomerHeader) {
+          defaultSheet = ws.name;
+          break;
+        }
+      }
+
+      // Fallback to name pattern match if scanning didn't find one
+      if (!defaultSheet) {
+        defaultSheet = sheetNames.find(s => /amc\s*list/i.test(s)) || '';
+        if (!defaultSheet) {
+          const yearSheets = sheetNames.filter(s => /2026|2025|2027/i.test(s));
+          if (yearSheets.length > 0) {
+            defaultSheet = yearSheets[yearSheets.length - 1];
+          }
+        }
+      }
+      if (!defaultSheet) {
+        defaultSheet = sheetNames.find(s => /contract|amc|machine|detail/i.test(s)) || sheetNames[0] || '';
+      }
+
+      setSelectedSheet(defaultSheet);
+      parseWorkbookSheet(workbook, defaultSheet, dbCustomers, dbZones);
+    } catch (err) {
+      console.error('Failed parsing excel file:', err);
+      toast.error('Failed to parse Excel file. Make sure file format is valid.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Inline correction handlers
@@ -1488,8 +1588,17 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
                                 <span className="text-slate-300 ml-1">•</span>
                                 <span className="text-slate-500 ml-1">{row.noOfMachine} Machine(s)</span>
                               </div>
-                              <div className="text-slate-400 text-[10px]">
-                                Visits: <span className="font-bold text-slate-700">{row.noOfVisits} PMs</span>
+                              <div className="text-slate-400 text-[10px] flex items-center gap-1.5 flex-wrap">
+                                <span>Visits: <strong className="text-slate-700">{row.noOfVisits} PMs</strong></span>
+                                {row.pmSchedules && row.pmSchedules.length > 0 && (
+                                  <span className={`inline-flex items-center px-1.5 py-0.2 rounded-md text-[9px] font-bold ${
+                                    row.pmSchedules.filter((p: any) => p.status === 'Completed').length > 0
+                                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                      : 'bg-slate-100 text-slate-500'
+                                  }`}>
+                                    {row.pmSchedules.filter((p: any) => p.status === 'Completed').length}/{row.noOfVisits} Completed
+                                  </span>
+                                )}
                               </div>
                               <div className="text-slate-400 text-[10px]">
                                 Dates: <span className="text-slate-600 font-semibold">{row.startDate || '—'} TO {row.endDate || '—'}</span>
