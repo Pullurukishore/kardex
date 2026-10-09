@@ -1206,19 +1206,13 @@ export default function AnnualContractReports({ role }: AnnualContractReportsPro
               </div>
             </div>
 
-            <div
-              onClick={() => setExpiryFilter(expiryFilter === 'critical' ? 'all' : 'critical')}
-              className={`bg-white rounded-xl border shadow-sm px-4 py-3 flex items-center gap-2.5 cursor-pointer transition-all hover:border-amber-400 hover:shadow-md ${expiryFilter === 'critical' ? 'ring-2 ring-amber-500 border-amber-400 bg-amber-50/20' : 'border-slate-100'
-                }`}
-              title="Click to toggle filter: Expiring in ≤30 days"
-            >
+            <div className="bg-white rounded-xl border border-slate-100 shadow-sm px-4 py-3 flex items-center gap-2.5">
               <div className="w-9 h-9 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-600 flex-shrink-0">
                 <Clock className="w-4 h-4" />
               </div>
               <div>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-                  <span>Expiring ≤30d</span>
-                  {expiryFilter === 'critical' && <span className="text-[8px] bg-amber-600 text-white px-1 py-0.2 rounded font-bold">Active</span>}
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+                  Expiring ≤30d
                 </p>
                 <p className="text-base font-extrabold text-amber-600">
                   {summaryKPIs.criticalCount}
@@ -1226,20 +1220,14 @@ export default function AnnualContractReports({ role }: AnnualContractReportsPro
               </div>
             </div>
 
-            <div
-              onClick={() => setExpiryFilter(expiryFilter === 'expired' ? 'all' : 'expired')}
-              className={`bg-white rounded-xl border shadow-sm px-4 py-3 flex items-center gap-2.5 cursor-pointer transition-all hover:border-rose-400 hover:shadow-md ${expiryFilter === 'expired' ? 'ring-2 ring-rose-500 border-rose-400 bg-rose-50/20' : 'border-slate-100'
-                }`}
-              title="Click to toggle filter: Expired Contracts"
-            >
+            <div className="bg-white rounded-xl border border-slate-100 shadow-sm px-4 py-3 flex items-center gap-2.5">
               <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${summaryKPIs.expiredCount > 0 ? 'bg-rose-500/10 text-rose-600' : 'bg-slate-100 text-slate-400'
                 }`}>
                 <AlertTriangle className="w-4 h-4" />
               </div>
               <div>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-                  <span>Expired</span>
-                  {expiryFilter === 'expired' && <span className="text-[8px] bg-rose-600 text-white px-1 py-0.2 rounded font-bold">Active</span>}
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+                  Expired
                 </p>
                 <p className={`text-base font-extrabold ${summaryKPIs.expiredCount > 0 ? 'text-rose-600' : 'text-slate-400'}`}>
                   {summaryKPIs.expiredCount}

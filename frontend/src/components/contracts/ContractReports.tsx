@@ -1232,58 +1232,40 @@ export default function ContractReports({ role }: ContractReportsProps) {
                 <p className="text-base font-extrabold text-slate-800">{formatCurrency(selectedSummary.totalValue || 0)}</p>
               </div>
             </div>
-            <div
-              onClick={() => setStatusFilter(statusFilter === 'Expired' ? 'all' : 'Expired')}
-              className={`bg-white rounded-xl border shadow-sm px-4 py-3 flex items-center gap-2.5 cursor-pointer transition-all hover:border-rose-400 hover:shadow-md ${statusFilter === 'Expired' ? 'ring-2 ring-rose-500 border-rose-400 bg-rose-50/20' : 'border-slate-100'
-                }`}
-              title="Click to toggle filter: Expired Contracts"
-            >
+            <div className="bg-white rounded-xl border border-slate-100 shadow-sm px-4 py-3 flex items-center gap-2.5">
               <div className="w-9 h-9 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-600 flex-shrink-0">
                 <CheckCircle className="w-4 h-4" />
               </div>
               <div>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-                  <span>Active / Expired</span>
-                  {statusFilter === 'Expired' && <span className="text-[8px] bg-rose-600 text-white px-1 py-0.2 rounded font-bold">Expired</span>}
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+                  Active / Expired
                 </p>
                 <p className="text-base font-extrabold text-slate-800">
                   {selectedSummary.active} <span className="text-rose-500 text-xs font-bold">/ {selectedSummary.expired}</span>
                 </p>
               </div>
             </div>
-            <div
-              onClick={() => setPmFilter(pmFilter === 'pending' ? 'all' : 'pending')}
-              className={`bg-white rounded-xl border shadow-sm px-4 py-3 flex items-center gap-2.5 cursor-pointer transition-all hover:border-amber-400 hover:shadow-md ${pmFilter === 'pending' ? 'ring-2 ring-amber-500 border-amber-400 bg-amber-50/20' : 'border-slate-100'
-                }`}
-              title="Click to toggle filter: Only Pending PMs"
-            >
+            <div className="bg-white rounded-xl border border-slate-100 shadow-sm px-4 py-3 flex items-center gap-2.5">
               <div className="w-9 h-9 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-600 flex-shrink-0">
                 <Clock className="w-4 h-4" />
               </div>
               <div>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-                  <span>{(dateFrom || dateTo) ? 'Pending PMs' : 'PM Done'}</span>
-                  {pmFilter === 'pending' && <span className="text-[8px] bg-amber-600 text-white px-1 py-0.2 rounded font-bold">Active</span>}
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+                  {(dateFrom || dateTo) ? 'Pending PMs' : 'PM Done'}
                 </p>
                 <p className="text-base font-extrabold text-amber-600">
                   {(dateFrom || dateTo) ? selectedSummary.pmTotal - selectedSummary.pmCompleted : `${selectedSummary.pmPct}%`}
                 </p>
               </div>
             </div>
-            <div
-              onClick={() => setPmFilter(pmFilter === 'overdue' ? 'all' : 'overdue')}
-              className={`bg-white rounded-xl border shadow-sm px-4 py-3 flex items-center gap-2.5 cursor-pointer transition-all hover:border-rose-400 hover:shadow-md ${pmFilter === 'overdue' ? 'ring-2 ring-rose-500 border-rose-400 bg-rose-50/20' : 'border-slate-100'
-                }`}
-              title="Click to toggle filter: Overdue PMs"
-            >
+            <div className="bg-white rounded-xl border border-slate-100 shadow-sm px-4 py-3 flex items-center gap-2.5">
               <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${selectedSummary.pmOverdue > 0 ? 'bg-rose-500/10 text-rose-600' : 'bg-slate-100 text-slate-400'
                 }`}>
                 <AlertTriangle className="w-4 h-4" />
               </div>
               <div>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-                  <span>Overdue</span>
-                  {pmFilter === 'overdue' && <span className="text-[8px] bg-rose-600 text-white px-1 py-0.2 rounded font-bold">Active</span>}
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+                  Overdue
                 </p>
                 <p className={`text-base font-extrabold ${selectedSummary.pmOverdue > 0 ? 'text-rose-600' : 'text-slate-400'}`}>
                   {selectedSummary.pmOverdue}
