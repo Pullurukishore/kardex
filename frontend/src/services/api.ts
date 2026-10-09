@@ -937,8 +937,8 @@ class ApiService {
     return response.data;
   }
 
-  async bulkImportDetailedContracts(records: any[]) {
-    const response = await api.post(`${this.baseURL}/detailed-contracts/bulk-import`, { records }, { timeout: 120000 });
+  async bulkImportDetailedContracts(records: any[], mode: 'replace' | 'merge' = 'replace') {
+    const response = await api.post(`${this.baseURL}/detailed-contracts/bulk-import`, { records, mode }, { timeout: 120000 });
     return response.data;
   }
 

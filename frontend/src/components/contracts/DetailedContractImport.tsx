@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Upload, FileSpreadsheet, CheckCircle, AlertTriangle, X,
   Download, Eye, Loader2, ArrowLeft, RefreshCw, AlertCircle,
-  FileCheck, Layers, Sparkles
+  FileCheck, Layers, Sparkles, Check
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiService } from '@/services/api';
@@ -253,6 +254,23 @@ export default function DetailedContractImport({ role }: DetailedContractImportP
   const [parsing, setParsing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [mounted, setMounted] = useState(false);
+  const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (confirmModalOpen) {
+      const original = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = original;
+      };
+    }
+  }, [confirmModalOpen]);
+
   const getBaseRoute = () => {
     if (role === 'Admin') return '/admin';
     if (role === 'Zone Manager') return '/zone-manager';
@@ -389,15 +407,27 @@ export default function DetailedContractImport({ role }: DetailedContractImportP
     try {
       const XLSX = await import('xlsx');
       const data = await selectedFile.arrayBuffer();
-      const workbook = XLSX.read(data, { type: 'array', cellDates: false });
+      let workbook: any;
+      try {
+        workbook = XLSX.read(data, { type: 'array', cellDates: false });
+      } catch (readErr) {
+        console.warn('Initial XLSX.read failed, attempting tolerant fallback mode...', readErr);
+        // Fallback with tolerant raw/dense options for shared or non-standard workbooks
+        workbook = XLSX.read(data, { type: 'array', cellDates: false, dense: false, raw: true });
+        toast.info('Loaded workbook in compatibility mode.');
+      }
+
+      // Filter out hidden sheets (SheetJS marks hidden sheets in workbook.Workbook.Sheets with Hidden: 1 or 2)
+      const visibleSheets = workbook.SheetNames.filter((_: string, idx: number) => !workbook.Workbook?.Sheets?.[idx]?.Hidden);
+      const targetSheets = visibleSheets.length > 0 ? visibleSheets : workbook.SheetNames;
 
       setWorkbookData({ ...workbook, utils: XLSX.utils });
-      setSheetNames(workbook.SheetNames);
+      setSheetNames(targetSheets);
 
       // Smart multi-sheet auto-detection:
-      // 1. Scan each sheet in the workbook to detect machine/contract headers (e.g. Sheet 3)
+      // 1. Scan each visible sheet in the workbook to detect machine/contract headers
       let chosenSheet = '';
-      for (const sName of workbook.SheetNames) {
+      for (const sName of targetSheets) {
         const ws = workbook.Sheets[sName];
         if (!ws) continue;
         const sampleRows = XLSX.utils.sheet_to_json<any[]>(ws, { header: 1, defval: '' });
@@ -473,20 +503,21 @@ export default function DetailedContractImport({ role }: DetailedContractImportP
 
   const handleDragLeave = () => setDragActive(false);
 
-  const handleImport = async () => {
+  const executeImport = async () => {
     const validRows = parsedRows.filter(r => r._errors.length === 0);
     if (validRows.length === 0) {
       toast.error('No valid rows to import');
       return;
     }
 
+    setConfirmModalOpen(false);
     setImporting(true);
     try {
       const cleanRecords = validRows.map(({ _rowIndex, _errors, _warnings, ...rest }) => rest);
-      const result = await apiService.bulkImportDetailedContracts(cleanRecords);
+      const result = await apiService.bulkImportDetailedContracts(cleanRecords, 'replace');
       setImportResult(result);
       if (result.success > 0) {
-        toast.success(`Successfully imported ${result.success} records`);
+        toast.success(`Successfully imported ${result.success} annual machine contracts! Database is 100% in sync with Excel.`);
       }
       if (result.failed > 0) {
         toast.warning(`${result.failed} records failed to import`);
@@ -497,6 +528,15 @@ export default function DetailedContractImport({ role }: DetailedContractImportP
     } finally {
       setImporting(false);
     }
+  };
+
+  const handleImport = () => {
+    const validRows = parsedRows.filter(r => r._errors.length === 0);
+    if (validRows.length === 0) {
+      toast.error('No valid rows to import');
+      return;
+    }
+    setConfirmModalOpen(true);
   };
 
   const reset = () => {
@@ -718,6 +758,10 @@ export default function DetailedContractImport({ role }: DetailedContractImportP
                 </div>
 
                 <div className="flex items-center gap-3">
+                  <div className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-200/80 rounded-xl text-xs font-bold text-emerald-800">
+                    <Check className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Syncs 100% with Excel</span>
+                  </div>
                   <button
                     onClick={reset}
                     className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center gap-2 transition-all"
@@ -735,7 +779,7 @@ export default function DetailedContractImport({ role }: DetailedContractImportP
                     ) : (
                       <Upload className="w-4 h-4" />
                     )}
-                    <span>{importing ? 'Importing...' : `Import ${validCount} Records`}</span>
+                    <span>{importing ? 'Importing...' : `Import & Sync ${validCount} Records`}</span>
                   </button>
                 </div>
               </div>
@@ -822,6 +866,55 @@ export default function DetailedContractImport({ role }: DetailedContractImportP
             </div>
           )}
         </>
+      )}
+
+      {/* Clean Import Confirmation Modal — Portal attached to document.body */}
+      {mounted && confirmModalOpen && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4 my-auto animate-in fade-in zoom-in-95 duration-150">
+            <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center mx-auto">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+
+            <div className="text-center space-y-1">
+              <h3 className="text-base font-extrabold text-slate-800">
+                Confirm Annual Contracts Sync
+              </h3>
+              <p className="text-slate-500 text-xs leading-relaxed">
+                This will clear previous annual contracts and save <strong>only the {validCount} machine records</strong> from this Excel file so your database matches Excel 100%.
+              </p>
+            </div>
+
+            <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200/60 text-[11px] text-emerald-800 space-y-1">
+              <div className="font-bold flex items-center gap-1.5">
+                <Check className="w-4 h-4 text-emerald-600" />
+                <span>Customer accounts & service zones are 100% safe</span>
+              </div>
+              <p className="text-emerald-700/80">
+                All customer records, zones, and users will remain intact.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setConfirmModalOpen(false)}
+                className="px-4 py-2 rounded-xl text-slate-500 text-xs font-bold hover:bg-slate-50 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={executeImport}
+                className="px-5 py-2 rounded-xl text-white text-xs font-bold bg-[#82A094] hover:bg-[#6e8a7f] active:scale-95 transition-all shadow-md flex items-center gap-1.5"
+              >
+                <CheckCircle className="w-4 h-4" />
+                <span>Yes, Sync & Import ({validCount} records)</span>
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );

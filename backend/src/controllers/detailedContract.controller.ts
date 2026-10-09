@@ -594,11 +594,16 @@ export const deleteDetailedContract = async (req: Request, res: Response) => {
 // ============================
 export const bulkImportDetailedContracts = async (req: Request, res: Response) => {
   try {
-    const { records: importRecords } = req.body;
+    const { records: importRecords, mode = 'replace' } = req.body;
     const userId = (req as any).user?.id;
 
     if (!importRecords || !Array.isArray(importRecords) || importRecords.length === 0) {
       return res.status(400).json({ error: 'No records provided for import' });
+    }
+
+    // In Clean Sync / Replace mode: clear previous detailed contracts so the database matches Excel 100%
+    if (mode === 'replace') {
+      await db.detailedContract.deleteMany({});
     }
 
     // 1. Prefetch all reference data in memory (3 fast queries instead of thousands)

@@ -74,12 +74,15 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
   const [dbUsers, setDbUsers] = useState<any[]>([]);
   const [parsedData, setParsedData] = useState<ParsedContract[]>([]);
   const [availableSheets, setAvailableSheets] = useState<string[]>([]);
+  const [hiddenSheetsCount, setHiddenSheetsCount] = useState(0);
+  const [showHiddenSheets, setShowHiddenSheets] = useState(false);
+  const allWorkbookSheetsRef = useRef<{ visible: string[]; hidden: string[]; all: string[] }>({ visible: [], hidden: [], all: [] });
   const [selectedSheet, setSelectedSheet] = useState<string>('');
+  const [isSharedMode, setIsSharedMode] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [filterMode, setFilterMode] = useState<'all' | 'warnings' | 'valid'>('all');
-  const [importMode, setImportMode] = useState<'replace' | 'merge'>('replace');
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [quickCreateModalOpen, setQuickCreateModalOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -984,27 +987,72 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
     }
   };
 
+  // Helper to convert SheetJS parsed workbook to ExcelJS Workbook when ExcelJS fails on shared/legacy workbooks
+  const convertXlsxToExcelJS = (rawBuffer: ArrayBuffer): ExcelJS.Workbook => {
+    const wbXlsx = XLSX.read(rawBuffer, { type: 'array', cellDates: true });
+    const ejWb = new ExcelJS.Workbook();
+    for (let idx = 0; idx < wbXlsx.SheetNames.length; idx++) {
+      const sName = wbXlsx.SheetNames[idx];
+      const sObj = wbXlsx.Sheets[sName];
+      const isHidden = !!(wbXlsx.Workbook?.Sheets?.[idx]?.Hidden);
+      const ejWs = ejWb.addWorksheet(sName);
+      if (isHidden) ejWs.state = 'hidden';
+      const rows = XLSX.utils.sheet_to_json<any[]>(sObj, { header: 1, raw: false, defval: '' });
+      rows.forEach(r => ejWs.addRow(r));
+    }
+    return ejWb;
+  };
+
   // Handle excel file parsing with sheet detection using ExcelJS for styling & color inspection
   const processExcelFile = async (file: File) => {
     try {
       setLoading(true);
       const buffer = await file.arrayBuffer();
-      const workbook = new ExcelJS.Workbook();
-      await workbook.xlsx.load(buffer);
+      let workbook = new ExcelJS.Workbook();
+      let isSharedWorkbook = false;
+
+      try {
+        await workbook.xlsx.load(buffer);
+        setIsSharedMode(false);
+      } catch (loadErr) {
+        console.warn('ExcelJS failed to parse directly (likely Shared/Legacy workbook). Attempting SheetJS fallback conversion...', loadErr);
+        workbook = convertXlsxToExcelJS(buffer);
+        isSharedWorkbook = true;
+        setIsSharedMode(true);
+        toast.info('Loaded shared/legacy Excel workbook in compatibility mode.');
+      }
       workbookRef.current = workbook;
 
-      const sheetNames = workbook.worksheets.map(w => w.name) || [];
-      if (sheetNames.length === 0) {
+      // Filter worksheets based on visibility (ExcelJS ws.state: 'visible' | 'hidden' | 'veryHidden')
+      const visibleWorksheets = workbook.worksheets.filter(w => !w.state || w.state === 'visible');
+      const hiddenWorksheets = workbook.worksheets.filter(w => w.state === 'hidden' || w.state === 'veryHidden');
+
+      const visibleNames = (visibleWorksheets.length > 0 ? visibleWorksheets : workbook.worksheets).map(w => w.name);
+      const hiddenNames = hiddenWorksheets.map(w => w.name);
+      const allNames = workbook.worksheets.map(w => w.name) || [];
+
+      allWorkbookSheetsRef.current = {
+        visible: visibleNames,
+        hidden: hiddenNames,
+        all: allNames
+      };
+
+      setHiddenSheetsCount(hiddenNames.length);
+      setShowHiddenSheets(false);
+
+      if (allNames.length === 0) {
         toast.error('The uploaded Excel file contains no worksheets.');
         setLoading(false);
         return;
       }
 
-      setAvailableSheets(sheetNames);
+      // Default: only show visible worksheets in sheet picker
+      setAvailableSheets(visibleNames);
 
-      // Smart multi-sheet auto-detection:
+      // Smart multi-sheet auto-detection (scan only visible worksheets first):
+      const candidateWorksheets = visibleWorksheets.length > 0 ? visibleWorksheets : workbook.worksheets;
       let defaultSheet = '';
-      for (const ws of workbook.worksheets) {
+      for (const ws of candidateWorksheets) {
         let hasCustomerHeader = false;
         ws.eachRow((row, rowNumber) => {
           if (rowNumber > 20 || hasCustomerHeader) return;
@@ -1027,18 +1075,18 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
         }
       }
 
-      // Fallback to name pattern match if scanning didn't find one
+      // Fallback to name pattern match within visible sheets
       if (!defaultSheet) {
-        defaultSheet = sheetNames.find(s => /amc\s*list/i.test(s)) || '';
+        defaultSheet = visibleNames.find(s => /amc\s*list/i.test(s)) || '';
         if (!defaultSheet) {
-          const yearSheets = sheetNames.filter(s => /2026|2025|2027/i.test(s));
+          const yearSheets = visibleNames.filter(s => /2026|2025|2027/i.test(s));
           if (yearSheets.length > 0) {
             defaultSheet = yearSheets[yearSheets.length - 1];
           }
         }
       }
       if (!defaultSheet) {
-        defaultSheet = sheetNames.find(s => /contract|amc|machine|detail/i.test(s)) || sheetNames[0] || '';
+        defaultSheet = visibleNames.find(s => /contract|amc|machine|detail/i.test(s)) || visibleNames[0] || allNames[0] || '';
       }
 
       setSelectedSheet(defaultSheet);
@@ -1217,13 +1265,9 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
     setConfirmModalOpen(false);
     setLoading(true);
     try {
-      const response = await apiService.bulkImportContracts(parsedData, importMode);
+      const response = await apiService.bulkImportContracts(parsedData, 'replace');
       if (response.success) {
-        if (importMode === 'replace') {
-          toast.success(`Successfully imported ${response.count} contract agreements! Previous stray contracts cleared.`);
-        } else {
-          toast.success(`Successfully imported ${response.count} contract agreements!`);
-        }
+        toast.success(`Successfully imported ${response.count} contract agreements! Database is now 100% in sync with Excel.`);
         router.push(`${getBaseRoute()}/contracts`);
       } else {
         toast.error(response.error || 'Failed importing agreements');
@@ -1244,11 +1288,7 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
       return;
     }
 
-    if (importMode === 'replace') {
-      setConfirmModalOpen(true);
-    } else {
-      executeImport();
-    }
+    setConfirmModalOpen(true);
   };
 
   // Drag and drop handlers
@@ -1356,7 +1396,7 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
         /* Preview Dashboard */
         <div className="space-y-6">
           {/* Sheet Selector Banner */}
-          {availableSheets.length > 1 && (
+          {(availableSheets.length > 1 || hiddenSheetsCount > 0) && (
             <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl bg-[#82A094]/15 text-[#82A094] flex items-center justify-center font-bold">
@@ -1366,32 +1406,69 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
                   <div className="text-xs font-bold text-slate-800 flex items-center gap-2">
                     <span>Active Excel Sheet:</span>
                     <span className="px-2.5 py-0.5 rounded-lg bg-[#82A094]/15 text-[#82A094] font-extrabold">{selectedSheet}</span>
+                    {allWorkbookSheetsRef.current.hidden.includes(selectedSheet) && (
+                      <span className="px-1.5 py-0.5 rounded text-[9px] bg-amber-100 text-amber-800 font-bold border border-amber-200">
+                        Hidden Tab
+                      </span>
+                    )}
+                    {isSharedMode && (
+                      <span className="px-1.5 py-0.5 rounded text-[9px] bg-sky-100 text-sky-800 font-bold border border-sky-200" title="Parsed via Shared Workbook Compatibility Engine">
+                        Shared Workbook Supported
+                      </span>
+                    )}
                   </div>
-                  <p className="text-[11px] text-slate-400 mt-0.5">
-                    Found {availableSheets.length} sheets in workbook. Switch below to preview contracts from other tabs:
-                  </p>
+                  <div className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                    <span>
+                      Found {availableSheets.length} {showHiddenSheets ? 'total' : 'active'} {availableSheets.length === 1 ? 'sheet' : 'sheets'} in workbook
+                      {hiddenSheetsCount > 0 && !showHiddenSheets && ` (${hiddenSheetsCount} hidden tabs excluded)`}. Switch below to preview contracts from other tabs:
+                    </span>
+                    {hiddenSheetsCount > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (showHiddenSheets) {
+                            setAvailableSheets(allWorkbookSheetsRef.current.visible);
+                            setShowHiddenSheets(false);
+                          } else {
+                            setAvailableSheets(allWorkbookSheetsRef.current.all);
+                            setShowHiddenSheets(true);
+                          }
+                        }}
+                        className="text-[10px] text-slate-600 hover:text-slate-900 font-bold underline transition-colors cursor-pointer"
+                      >
+                        {showHiddenSheets ? 'Hide hidden tabs' : `Show ${hiddenSheetsCount} hidden tabs`}
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-1.5">
-                {availableSheets.map(s => (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => {
-                      setSelectedSheet(s);
-                      if (workbookRef.current) {
-                        parseWorkbookSheet(workbookRef.current, s);
-                      }
-                    }}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${selectedSheet === s
-                        ? 'bg-slate-900 text-white shadow-md ring-2 ring-slate-900/20'
-                        : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
-                      }`}
-                  >
-                    <span>{s}</span>
-                    {s === selectedSheet && <Check className="w-3.5 h-3.5 text-emerald-400" />}
-                  </button>
-                ))}
+                {availableSheets.map(s => {
+                  const isHidden = allWorkbookSheetsRef.current.hidden.includes(s);
+                  return (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => {
+                        setSelectedSheet(s);
+                        if (workbookRef.current) {
+                          parseWorkbookSheet(workbookRef.current, s);
+                        }
+                      }}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${selectedSheet === s
+                          ? 'bg-slate-900 text-white shadow-md ring-2 ring-slate-900/20'
+                          : isHidden
+                            ? 'bg-slate-100/70 hover:bg-slate-200 text-slate-400 border border-dashed border-slate-300'
+                            : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+                        }`}
+                      title={isHidden ? `${s} (Hidden in Excel)` : s}
+                    >
+                      <span>{s}</span>
+                      {isHidden && <span className="text-[9px] text-amber-600 font-semibold">(Hidden)</span>}
+                      {s === selectedSheet && <Check className="w-3.5 h-3.5 text-emerald-400" />}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -1522,33 +1599,9 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
                   </button>
                 </div>
 
-                {/* Import Mode Selector */}
-                <div className="inline-flex p-1 bg-slate-100 rounded-xl gap-1 border border-slate-200/60">
-                  <button
-                    type="button"
-                    onClick={() => setImportMode('replace')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-                      importMode === 'replace'
-                        ? 'bg-emerald-600 text-white shadow-sm'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                    title="Clean sync: Clears previous contracts and saves only the latest Excel data so the database matches Excel 100%."
-                  >
-                    <Check className="w-3.5 h-3.5" />
-                    <span>Clean Sync (Matches Excel)</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setImportMode('merge')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-                      importMode === 'merge'
-                        ? 'bg-slate-800 text-white shadow-sm'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                    title="Merge mode: Keeps existing contracts and only updates/adds new records."
-                  >
-                    <span>Merge / Append</span>
-                  </button>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-200/80 rounded-xl text-xs font-bold text-emerald-800">
+                  <Check className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Syncs 100% with Excel</span>
                 </div>
 
                 <button
@@ -2071,32 +2124,22 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
 
             <div className="text-center space-y-1">
               <h3 className="text-base font-extrabold text-slate-800">
-                {importMode === 'replace' ? 'Confirm Clean Import' : 'Confirm Merge Import'}
+                Confirm Import & Sync
               </h3>
               <p className="text-slate-500 text-xs leading-relaxed">
-                {importMode === 'replace' ? (
-                  <>
-                    This will <strong>clear previous regular contracts</strong> and save <strong>only the {parsedData.length} contracts</strong> from this Excel file so your database matches Excel 100%.
-                  </>
-                ) : (
-                  <>
-                    This will <strong>append or update {parsedData.length} contracts</strong> while preserving any existing records in the database.
-                  </>
-                )}
+                This will clear previous regular contracts and save <strong>only the {parsedData.length} contracts</strong> from this Excel file so your database matches Excel 100%.
               </p>
             </div>
 
-            {importMode === 'replace' && (
-              <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200/60 text-[11px] text-emerald-800 space-y-1">
-                <div className="font-bold flex items-center gap-1.5">
-                  <Check className="w-4 h-4 text-emerald-600" />
-                  <span>Annual Contracts are 100% untouched</span>
-                </div>
-                <p className="text-emerald-700/80">
-                  Customer accounts and Sheet 2 (Annual Machine Contracts) will remain intact.
-                </p>
+            <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200/60 text-[11px] text-emerald-800 space-y-1">
+              <div className="font-bold flex items-center gap-1.5">
+                <Check className="w-4 h-4 text-emerald-600" />
+                <span>Annual Contracts are 100% untouched</span>
               </div>
-            )}
+              <p className="text-emerald-700/80">
+                Customer accounts and Sheet 2 (Annual Machine Contracts) will remain intact.
+              </p>
+            </div>
 
             <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
               <button
@@ -2112,11 +2155,7 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
                 className="px-5 py-2 rounded-xl text-white text-xs font-bold bg-emerald-600 hover:bg-emerald-700 active:scale-95 transition-all shadow-md flex items-center gap-1.5"
               >
                 <CheckCircle className="w-4 h-4" />
-                <span>
-                  {importMode === 'replace'
-                    ? `Yes, Replace & Sync (${parsedData.length} contracts)`
-                    : `Yes, Merge & Import (${parsedData.length} contracts)`}
-                </span>
+                <span>Yes, Sync & Import ({parsedData.length} contracts)</span>
               </button>
             </div>
           </div>
