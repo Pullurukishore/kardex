@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import {
   UploadCloud, FileSpreadsheet, CheckCircle, AlertTriangle, ArrowLeft,
@@ -80,9 +81,25 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
   const [filterMode, setFilterMode] = useState<'all' | 'warnings' | 'valid'>('all');
   const [importMode, setImportMode] = useState<'replace' | 'merge'>('replace');
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+  const [quickCreateModalOpen, setQuickCreateModalOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Lock background scrolling when either modal is open
+  useEffect(() => {
+    if (confirmModalOpen || quickCreateModalOpen) {
+      const original = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = original;
+      };
+    }
+  }, [confirmModalOpen, quickCreateModalOpen]);
 
   // Quick Create Customer Modal State
-  const [quickCreateModalOpen, setQuickCreateModalOpen] = useState(false);
   const [targetRowForCustomer, setTargetRowForCustomer] = useState<ParsedContract | null>(null);
   const [qcCompanyName, setQcCompanyName] = useState('');
   const [qcAddress, setQcAddress] = useState('');
@@ -371,27 +388,89 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
     return val;
   };
 
-  const isCellGreen = (cell: any): boolean => {
-    if (!cell || !cell.fill) return false;
-    const fg = cell.fill.fgColor;
-    if (!fg) return false;
-    const argb = String(fg.argb || '').toUpperCase();
-    if (
-      argb.includes('92D050') ||
-      argb.includes('00B050') ||
-      argb.includes('70AD47') ||
-      argb.includes('C6EFCE') ||
-      argb.includes('A4B388')
-    ) {
+  const checkArgbIsGreen = (argbRaw: any): boolean => {
+    if (!argbRaw) return false;
+    const str = String(argbRaw).toUpperCase().trim();
+    if (!str) return false;
+
+    // Direct matches for common Excel / Google Sheets green hexes
+    const knownGreenHexes = [
+      '92D050', // Standard Light Green
+      '00B050', // Standard Green
+      '70AD47', // Office Green Accent 6
+      '548235', // Accent 6 - 25% darker
+      '385723', // Accent 6 - 50% darker
+      '375623',
+      'A9D08E', // Accent 6 - 40% lighter
+      'C6EFCE', // Light Green Fill (Conditional Formatting)
+      'E2EFDA', // Accent 6 - 80% lighter (soft green)
+      '006100', // Dark Green Text (Conditional Formatting)
+      'A4B388', // Sage green
+      '82A094', // Kardex sage green
+      'D9EAD3', // Google Sheets soft green 1
+      'B6D7A8', // Google Sheets green 2
+      '274E13', // Google Sheets dark green
+      '34A853', // Material green
+      '22C55E', // Tailwind green-500
+      '16A34A', // Tailwind green-600
+      '15803D', // Tailwind green-700
+      '4CAF50',
+      '8BC34A',
+      '57BB8A',
+      'B7E1CD'
+    ];
+    if (knownGreenHexes.some(k => str.includes(k))) {
       return true;
     }
-    if (argb.length === 8) {
-      const r = parseInt(argb.slice(2, 4), 16);
-      const g = parseInt(argb.slice(4, 6), 16);
-      const b = parseInt(argb.slice(6, 8), 16);
-      if (g > 150 && g > r * 1.15 && g > b * 1.15) return true;
+
+    // Hex RGB dominant-green analysis
+    const clean = str.replace(/^#/, '');
+    const hex = clean.length === 8 ? clean.slice(2) : clean;
+    if (hex.length === 6) {
+      const r = parseInt(hex.slice(0, 2), 16);
+      const g = parseInt(hex.slice(2, 4), 16);
+      const b = parseInt(hex.slice(4, 6), 16);
+      if (!isNaN(r) && !isNaN(g) && !isNaN(b)) {
+        // Green dominates Red and Blue
+        if (g > 60 && g > r && g > b) {
+          // Soft/light greens (high RGB, e.g. E2EFDA)
+          if (g > 200 && (g - r >= 5 || g - b >= 5)) return true;
+          // Normal/vibrant/dark greens
+          if (g > r * 1.05 && g > b * 1.05) return true;
+        }
+      }
     }
     return false;
+  };
+
+  const isCellGreen = (cell: any): boolean => {
+    if (!cell) return false;
+
+    // Check cell fill (fgColor, bgColor, styles)
+    const fills = [cell.fill, cell.style?.fill].filter(Boolean);
+    for (const fill of fills) {
+      const fg = fill.fgColor;
+      const bg = fill.bgColor;
+      if (fg?.argb && checkArgbIsGreen(fg.argb)) return true;
+      if (bg?.argb && checkArgbIsGreen(bg.argb)) return true;
+      // Excel theme 9 is typically Accent 6 (Green)
+      if (fg?.theme === 9 || bg?.theme === 9) return true;
+    }
+
+    // Check cell font color (e.g. conditional formatting green text 006100)
+    const fonts = [cell.font, cell.style?.font].filter(Boolean);
+    for (const font of fonts) {
+      if (font?.color?.argb && checkArgbIsGreen(font.color.argb)) return true;
+      if (font?.color?.theme === 9) return true;
+    }
+
+    return false;
+  };
+
+  const isCompletedText = (val: any): boolean => {
+    if (!val) return false;
+    const s = String(val).toLowerCase().trim();
+    return /\b(done|completed|complete|attended|closed|finished|yes|ok)\b/i.test(s);
   };
 
   const cleanName = (str: string): string => {
@@ -745,17 +824,9 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
 
         const parsedVisits = visitsCol !== -1 ? Math.min(12, Math.max(1, Number(getCellCleanValue(row.getCell(visitsCol))) || 3)) : 3;
 
-        const isValidRangeString = (str: string): boolean => {
-          if (!str) return false;
-          const s = str.trim().toLowerCase();
-          return /\d{1,4}[-/\.]\d{1,2}/.test(s) ||
-            /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b/i.test(s) ||
-            s.includes(' to ') || s.includes(' - ');
-        };
-
         const startYear = startDateParsed ? new Date(startDateParsed).getFullYear() : 2025;
 
-        // PM Visits Parsing with GREEN COLOR DETECTION & SENTENCE SUPPORT
+        // PM Visits Parsing with GREEN COLOR DETECTION & FULL SENTENCE/TEXT PRESERVATION
         const pmSchedules: any[] = [];
         if (pm1Col !== -1) {
           for (let p = 1; p <= Math.min(12, parsedVisits); p++) {
@@ -779,19 +850,72 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
             const isGreen = isCellGreen(rangeCell) || (dateCell ? isCellGreen(dateCell) : false);
 
             const rawRangeVal = getCellCleanValue(rangeCell);
-            const pRange = rawRangeVal ? String(rawRangeVal).trim() : '';
+            let pRange = '';
+            if (rawRangeVal instanceof Date) {
+              pRange = formatDateISO(rawRangeVal);
+            } else if (typeof rawRangeVal === 'number' && rawRangeVal > 25569 && rawRangeVal < 60000) {
+              const d = new Date((rawRangeVal - 25569) * 86400 * 1000);
+              pRange = !isNaN(d.getTime()) ? formatDateISO(d) : String(rawRangeVal).trim();
+            } else {
+              pRange = (rawRangeVal !== null && rawRangeVal !== undefined) ? String(rawRangeVal).trim() : '';
+            }
 
             const rawDateVal = dateCell ? getCellCleanValue(dateCell) : null;
-            const completionDate = parseCompletionDate(rawDateVal, pRange, startYear);
+            let dateValStr = '';
+            if (rawDateVal instanceof Date) {
+              const cellText = dateCell?.text ? String(dateCell.text).trim() : '';
+              dateValStr = cellText || formatDateISO(rawDateVal);
+            } else if (typeof rawDateVal === 'number' && rawDateVal > 25569 && rawDateVal < 60000) {
+              const cellText = dateCell?.text ? String(dateCell.text).trim() : '';
+              const d = new Date((rawDateVal - 25569) * 86400 * 1000);
+              dateValStr = cellText || (!isNaN(d.getTime()) ? formatDateISO(d) : String(rawDateVal).trim());
+            } else {
+              dateValStr = (rawDateVal !== null && rawDateVal !== undefined) ? String(rawDateVal).trim() : '';
+            }
 
-            // BUSINESS RULE: IF GREEN THEN COMPLETED (or if valid completion date is found)
-            const isCompleted = isGreen || Boolean(completionDate);
+            const completionDate = parseCompletionDate(dateValStr || rawDateVal, pRange, startYear);
+            const textIndicatesDone = isCompletedText(dateValStr) || isCompletedText(pRange);
+
+            // BUSINESS RULE: IF GREEN COLOR OR COMPLETION DATE FOUND OR "DONE" TEXT -> COMPLETED
+            const isCompleted = isGreen || Boolean(completionDate) || textIndicatesDone;
             const finalCompletedAt = completionDate || (isCompleted ? (startDateParsed || formatDateISO(new Date())) : null);
 
-            if ((pRange && isValidRangeString(pRange)) || isCompleted) {
+            // Preserve full sentence/text from pRange and dateValStr (including text + date and notes)
+            let finalRange = '';
+            const cleanRange = pRange.trim();
+            const cleanDateVal = dateValStr.trim();
+
+            if (cleanRange && cleanDateVal) {
+              if (/^(?:Done:|done:)/i.test(cleanDateVal)) {
+                finalRange = `${cleanRange} | ${cleanDateVal}`;
+              } else if (isCompleted) {
+                finalRange = `${cleanRange} | Done: ${cleanDateVal}`;
+              } else {
+                finalRange = `${cleanRange} | ${cleanDateVal}`;
+              }
+            } else if (cleanRange) {
+              if (isCompleted && !/^(?:Done:|done:)/i.test(cleanRange) && isCompletedText(cleanRange)) {
+                finalRange = `Done: ${cleanRange}`;
+              } else {
+                finalRange = cleanRange;
+              }
+            } else if (cleanDateVal) {
+              if (/^(?:Done:|done:)/i.test(cleanDateVal)) {
+                finalRange = cleanDateVal;
+              } else if (isCompleted) {
+                finalRange = `Done: ${cleanDateVal}`;
+              } else {
+                finalRange = cleanDateVal;
+              }
+            } else if (isCompleted) {
+              finalRange = 'Completed';
+            }
+
+            // Push PM schedule if any text/range exists OR if cell is completed/green
+            if (finalRange || isCompleted) {
               pmSchedules.push({
                 pmNumber: p,
-                range: isValidRangeString(pRange) ? pRange : '',
+                range: finalRange,
                 status: isCompleted ? 'Completed' : 'Pending',
                 completedAt: finalCompletedAt
               });
@@ -1591,11 +1715,14 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
                               <div className="text-slate-400 text-[10px] flex items-center gap-1.5 flex-wrap">
                                 <span>Visits: <strong className="text-slate-700">{row.noOfVisits} PMs</strong></span>
                                 {row.pmSchedules && row.pmSchedules.length > 0 && (
-                                  <span className={`inline-flex items-center px-1.5 py-0.2 rounded-md text-[9px] font-bold ${
-                                    row.pmSchedules.filter((p: any) => p.status === 'Completed').length > 0
-                                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                      : 'bg-slate-100 text-slate-500'
-                                  }`}>
+                                  <span
+                                    className={`inline-flex items-center px-1.5 py-0.2 rounded-md text-[9px] font-bold cursor-help ${
+                                      row.pmSchedules.filter((p: any) => p.status === 'Completed').length > 0
+                                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                        : 'bg-slate-100 text-slate-500'
+                                    }`}
+                                    title={row.pmSchedules.map((p: any) => `PM ${p.pmNumber}: ${p.range || 'Scheduled'} [${p.status}]${p.completedAt ? ` (Done: ${p.completedAt})` : ''}`).join('\n')}
+                                  >
                                     {row.pmSchedules.filter((p: any) => p.status === 'Completed').length}/{row.noOfVisits} Completed
                                   </span>
                                 )}
@@ -1776,25 +1903,49 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <ChevronLeft className="w-4 h-4 text-slate-600" />
+                    </button>
+                    <span className="px-3 py-1 font-semibold text-slate-700">
+                      Page {currentPage} of {totalPages}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                      className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <ChevronRight className="w-4 h-4 text-slate-600" />
+                    </button>
+                  </div>
+
                   <button
                     type="button"
-                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                    disabled={currentPage === 1}
-                    className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    onClick={handleImportSubmit}
+                    disabled={loading || totalErrorsCount > 0}
+                    className={`ml-2 px-4 py-2 rounded-xl text-xs font-bold text-white transition-all shadow-md flex items-center gap-1.5 ${totalErrorsCount > 0
+                      ? 'bg-slate-300 cursor-not-allowed shadow-none'
+                      : 'bg-gradient-to-r from-[#82A094] to-[#688579] hover:brightness-110 active:scale-[0.98]'
+                      }`}
                   >
-                    <ChevronLeft className="w-4 h-4 text-slate-600" />
-                  </button>
-                  <span className="px-3 py-1 font-semibold text-slate-700">
-                    Page {currentPage} of {totalPages}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                    disabled={currentPage === totalPages}
-                    className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                  >
-                    <ChevronRight className="w-4 h-4 text-slate-600" />
+                    {loading ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        Importing...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="w-3.5 h-3.5" />
+                        Import Contracts ({parsedData.length})
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
@@ -1802,10 +1953,11 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
           </div>
         </div>
       )}
-      {/* Quick Create Customer Modal */}
-      {quickCreateModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-xl border border-slate-100 space-y-4 animate-in fade-in zoom-in duration-200">
+
+      {/* Quick Create Customer Modal — Portal attached to document.body */}
+      {mounted && quickCreateModalOpen && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4 my-auto animate-in fade-in zoom-in-95 duration-150">
             <div>
               <h3 className="text-base font-extrabold text-[#546A7A]">Quick Create Customer</h3>
               <p className="text-slate-400 text-xs mt-0.5">Register a new customer on-the-fly to link this contract.</p>
@@ -1905,33 +2057,46 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {/* Clean Import Confirmation Modal */}
-      {confirmModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-in fade-in zoom-in duration-200">
+      {/* Clean Import Confirmation Modal — Portal attached to document.body */}
+      {mounted && confirmModalOpen && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4 my-auto animate-in fade-in zoom-in-95 duration-150">
             <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center mx-auto">
               <AlertTriangle className="w-6 h-6" />
             </div>
 
             <div className="text-center space-y-1">
-              <h3 className="text-base font-extrabold text-slate-800">Confirm Clean Import</h3>
+              <h3 className="text-base font-extrabold text-slate-800">
+                {importMode === 'replace' ? 'Confirm Clean Import' : 'Confirm Merge Import'}
+              </h3>
               <p className="text-slate-500 text-xs leading-relaxed">
-                This will <strong>clear previous regular contracts</strong> and save <strong>only the {parsedData.length} contracts</strong> from this Excel file so your database matches Excel 100%.
+                {importMode === 'replace' ? (
+                  <>
+                    This will <strong>clear previous regular contracts</strong> and save <strong>only the {parsedData.length} contracts</strong> from this Excel file so your database matches Excel 100%.
+                  </>
+                ) : (
+                  <>
+                    This will <strong>append or update {parsedData.length} contracts</strong> while preserving any existing records in the database.
+                  </>
+                )}
               </p>
             </div>
 
-            <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200/60 text-[11px] text-emerald-800 space-y-1">
-              <div className="font-bold flex items-center gap-1.5">
-                <Check className="w-4 h-4 text-emerald-600" />
-                <span>Annual Contracts are 100% untouched</span>
+            {importMode === 'replace' && (
+              <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200/60 text-[11px] text-emerald-800 space-y-1">
+                <div className="font-bold flex items-center gap-1.5">
+                  <Check className="w-4 h-4 text-emerald-600" />
+                  <span>Annual Contracts are 100% untouched</span>
+                </div>
+                <p className="text-emerald-700/80">
+                  Customer accounts and Sheet 2 (Annual Machine Contracts) will remain intact.
+                </p>
               </div>
-              <p className="text-emerald-700/80">
-                Customer accounts and Sheet 2 (Annual Machine Contracts) will remain intact.
-              </p>
-            </div>
+            )}
 
             <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
               <button
@@ -1947,11 +2112,16 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
                 className="px-5 py-2 rounded-xl text-white text-xs font-bold bg-emerald-600 hover:bg-emerald-700 active:scale-95 transition-all shadow-md flex items-center gap-1.5"
               >
                 <CheckCircle className="w-4 h-4" />
-                <span>Yes, Replace & Sync ({parsedData.length} contracts)</span>
+                <span>
+                  {importMode === 'replace'
+                    ? `Yes, Replace & Sync (${parsedData.length} contracts)`
+                    : `Yes, Merge & Import (${parsedData.length} contracts)`}
+                </span>
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, Fragment } from 'react';
+import { useState, useEffect, useMemo, useRef, Fragment } from 'react';
 import {
   BarChart3, Search, Download, Calendar,
   AlertTriangle, Clock, MapPin, Building2, IndianRupee,
@@ -12,6 +12,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { apiService } from '@/services/api';
+import { safeSessionStorage } from '@/lib/browser';
 import { generateAnnualContractReportPdf } from '@/lib/annual-contract-report-pdf';
 import { generateAnnualContractReportExcel } from '@/lib/annual-contract-report-excel';
 import { normalizeEngineerNames, formatEngineerDisplayName, getCustomerColorClass, extractDepartmentFromCustomer } from '@/lib/utils';
@@ -283,35 +284,154 @@ const getContractTypeBadge = (type: string | null) => {
 // ============================
 // Main Component
 // ============================
+const ANNUAL_CONTRACT_REPORTS_STORAGE_KEY = 'kardex_annual_contract_reports_filters_v1';
+
+interface AnnualReportFilterState {
+  search: string;
+  zoneFilter: string;
+  classFilter: string;
+  contractTypeFilter: string;
+  unitTypeFilter: string;
+  techFilter: string;
+  departmentFilter: string;
+  expiryFilter: string;
+  dateFrom: string;
+  dateTo: string;
+  sortKey: SortKey;
+  sortDir: SortDir;
+}
+
+const getDefaultAnnualDates = () => {
+  const from = new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  d.setMonth(d.getMonth() + 1);
+  const to = d.toISOString().slice(0, 10);
+  return { from, to };
+};
+
+const getInitialAnnualFilters = (): AnnualReportFilterState => {
+  const defaultDates = getDefaultAnnualDates();
+  const defaults: AnnualReportFilterState = {
+    search: '',
+    zoneFilter: 'all',
+    classFilter: 'all',
+    contractTypeFilter: 'all',
+    unitTypeFilter: 'all',
+    techFilter: 'all',
+    departmentFilter: 'all',
+    expiryFilter: 'all',
+    dateFrom: defaultDates.from,
+    dateTo: defaultDates.to,
+    sortKey: 'customerName',
+    sortDir: 'asc',
+  };
+
+  if (typeof window === 'undefined') return defaults;
+
+  try {
+    const sp = new URLSearchParams(window.location.search);
+    const hasUrlParams =
+      sp.has('q') || sp.has('search') || sp.has('zone') || sp.has('class') || sp.has('customerClass') ||
+      sp.has('contractType') || sp.has('unitType') || sp.has('tech') || sp.has('engineer') ||
+      sp.has('dept') || sp.has('department') || sp.has('expiry') ||
+      sp.has('dateFrom') || sp.has('dateTo') || sp.has('sort') || sp.has('dir');
+
+    if (hasUrlParams) {
+      return {
+        search: sp.get('q') || sp.get('search') || '',
+        zoneFilter: sp.get('zone') || 'all',
+        classFilter: sp.get('class') || sp.get('customerClass') || 'all',
+        contractTypeFilter: sp.get('contractType') || 'all',
+        unitTypeFilter: sp.get('unitType') || 'all',
+        techFilter: sp.get('tech') || sp.get('engineer') || 'all',
+        departmentFilter: sp.get('dept') || sp.get('department') || 'all',
+        expiryFilter: sp.get('expiry') || 'all',
+        dateFrom: sp.has('dateFrom') ? (sp.get('dateFrom') || '') : defaultDates.from,
+        dateTo: sp.has('dateTo') ? (sp.get('dateTo') || '') : defaultDates.to,
+        sortKey: (sp.get('sort') as SortKey) || 'customerName',
+        sortDir: (sp.get('dir') as SortDir) || 'asc',
+      };
+    }
+
+    const cached = safeSessionStorage.getItem(ANNUAL_CONTRACT_REPORTS_STORAGE_KEY);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      return {
+        search: parsed.search ?? '',
+        zoneFilter: parsed.zoneFilter ?? 'all',
+        classFilter: parsed.classFilter ?? 'all',
+        contractTypeFilter: parsed.contractTypeFilter ?? 'all',
+        unitTypeFilter: parsed.unitTypeFilter ?? 'all',
+        techFilter: parsed.techFilter ?? 'all',
+        departmentFilter: parsed.departmentFilter ?? 'all',
+        expiryFilter: parsed.expiryFilter ?? 'all',
+        dateFrom: parsed.dateFrom ?? defaultDates.from,
+        dateTo: parsed.dateTo ?? defaultDates.to,
+        sortKey: parsed.sortKey ?? 'customerName',
+        sortDir: parsed.sortDir ?? 'asc',
+      };
+    }
+  } catch (err) {
+    console.error('Failed to parse initial annual contract report filters', err);
+  }
+
+  return defaults;
+};
+
+const syncAnnualUrlAndStorage = (filters: AnnualReportFilterState) => {
+  if (typeof window === 'undefined') return;
+
+  try {
+    safeSessionStorage.setItem(ANNUAL_CONTRACT_REPORTS_STORAGE_KEY, JSON.stringify(filters));
+
+    const defaultDates = getDefaultAnnualDates();
+    const sp = new URLSearchParams();
+    if (filters.search) sp.set('q', filters.search);
+    if (filters.zoneFilter && filters.zoneFilter !== 'all') sp.set('zone', filters.zoneFilter);
+    if (filters.classFilter && filters.classFilter !== 'all') sp.set('class', filters.classFilter);
+    if (filters.contractTypeFilter && filters.contractTypeFilter !== 'all') sp.set('contractType', filters.contractTypeFilter);
+    if (filters.unitTypeFilter && filters.unitTypeFilter !== 'all') sp.set('unitType', filters.unitTypeFilter);
+    if (filters.techFilter && filters.techFilter !== 'all') sp.set('tech', filters.techFilter);
+    if (filters.departmentFilter && filters.departmentFilter !== 'all') sp.set('dept', filters.departmentFilter);
+    if (filters.expiryFilter && filters.expiryFilter !== 'all') sp.set('expiry', filters.expiryFilter);
+    if (filters.dateFrom && filters.dateFrom !== defaultDates.from) sp.set('dateFrom', filters.dateFrom);
+    if (filters.dateTo && filters.dateTo !== defaultDates.to) sp.set('dateTo', filters.dateTo);
+    if (filters.sortKey && filters.sortKey !== 'customerName') sp.set('sort', filters.sortKey);
+    if (filters.sortDir && filters.sortDir !== 'asc') sp.set('dir', filters.sortDir);
+
+    const qs = sp.toString();
+    const newUrl = `${window.location.pathname}${qs ? `?${qs}` : ''}`;
+    window.history.replaceState(null, '', newUrl);
+  } catch (err) {
+    console.error('Failed to sync annual report URL and storage', err);
+  }
+};
+
 export default function AnnualContractReports({ role }: AnnualContractReportsProps) {
   const router = useRouter();
+  const [initialFilters] = useState(() => getInitialAnnualFilters());
+
   const [customers, setCustomers] = useState<CustomerGroup[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(false);
   const [hasGenerated, setHasGenerated] = useState(false);
   const [exporting, setExporting] = useState(false);
 
-  // Filters
-  const [search, setSearch] = useState('');
-  const [zoneFilter, setZoneFilter] = useState('all');
-  const [classFilter, setClassFilter] = useState('all');
-  const [contractTypeFilter, setContractTypeFilter] = useState('all');
-  const [unitTypeFilter, setUnitTypeFilter] = useState('all');
-  const [techFilter, setTechFilter] = useState('all');
-  const [departmentFilter, setDepartmentFilter] = useState('all');
-  const [expiryFilter, setExpiryFilter] = useState('all');
-  const [dateFrom, setDateFrom] = useState(() => {
-    return new Date().toISOString().slice(0, 10);
-  });
-  const [dateTo, setDateTo] = useState(() => {
-    const d = new Date();
-    d.setMonth(d.getMonth() + 1);
-    return d.toISOString().slice(0, 10);
-  });
+  // Filters (initialized from URL or sessionStorage)
+  const [search, setSearch] = useState(initialFilters.search);
+  const [zoneFilter, setZoneFilter] = useState(initialFilters.zoneFilter);
+  const [classFilter, setClassFilter] = useState(initialFilters.classFilter);
+  const [contractTypeFilter, setContractTypeFilter] = useState(initialFilters.contractTypeFilter);
+  const [unitTypeFilter, setUnitTypeFilter] = useState(initialFilters.unitTypeFilter);
+  const [techFilter, setTechFilter] = useState(initialFilters.techFilter);
+  const [departmentFilter, setDepartmentFilter] = useState(initialFilters.departmentFilter);
+  const [expiryFilter, setExpiryFilter] = useState(initialFilters.expiryFilter);
+  const [dateFrom, setDateFrom] = useState(initialFilters.dateFrom);
+  const [dateTo, setDateTo] = useState(initialFilters.dateTo);
 
   // Sorting
-  const [sortKey, setSortKey] = useState<SortKey>('customerName');
-  const [sortDir, setSortDir] = useState<SortDir>('asc');
+  const [sortKey, setSortKey] = useState<SortKey>(initialFilters.sortKey);
+  const [sortDir, setSortDir] = useState<SortDir>(initialFilters.sortDir);
 
   // Filter Presets
   interface FilterPreset {
@@ -451,13 +571,40 @@ export default function AnnualContractReports({ role }: AnnualContractReportsPro
     setTechFilter('all');
     setDepartmentFilter('all');
     setExpiryFilter('all');
-    const now = new Date();
-    setDateFrom(now.toISOString().slice(0, 10));
-    const d = new Date();
-    d.setMonth(d.getMonth() + 1);
-    setDateTo(d.toISOString().slice(0, 10));
+    const defaultDates = getDefaultAnnualDates();
+    setDateFrom(defaultDates.from);
+    setDateTo(defaultDates.to);
+    setSortKey('customerName');
+    setSortDir('asc');
+
+    safeSessionStorage.removeItem(ANNUAL_CONTRACT_REPORTS_STORAGE_KEY);
+    if (typeof window !== 'undefined') {
+      window.history.replaceState(null, '', window.location.pathname);
+    }
     toast.info('Filters reset to default');
   };
+
+  // Sync state to URL and sessionStorage (debounced for smooth search input)
+  const isFirstMount = useRef(true);
+  useEffect(() => {
+    if (isFirstMount.current) {
+      isFirstMount.current = false;
+      syncAnnualUrlAndStorage({
+        search, zoneFilter, classFilter, contractTypeFilter, unitTypeFilter,
+        techFilter, departmentFilter, expiryFilter, dateFrom, dateTo, sortKey, sortDir
+      });
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      syncAnnualUrlAndStorage({
+        search, zoneFilter, classFilter, contractTypeFilter, unitTypeFilter,
+        techFilter, departmentFilter, expiryFilter, dateFrom, dateTo, sortKey, sortDir
+      });
+    }, 200);
+
+    return () => clearTimeout(timer);
+  }, [search, zoneFilter, classFilter, contractTypeFilter, unitTypeFilter, techFilter, departmentFilter, expiryFilter, dateFrom, dateTo, sortKey, sortDir]);
 
   // Fetch data
   const fetchData = async () => {
@@ -669,7 +816,7 @@ export default function AnnualContractReports({ role }: AnnualContractReportsPro
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               <button
-                onClick={fetchData}
+                onClick={() => fetchData()}
                 disabled={loading}
                 className="inline-flex items-center justify-center gap-1.5 bg-[#6F8A9D] hover:bg-[#546A7A] text-white font-bold h-9 px-3.5 rounded-lg shadow-xs hover:shadow transition-all text-xs whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -1001,7 +1148,7 @@ export default function AnnualContractReports({ role }: AnnualContractReportsPro
             Configure your filters above and click &quot;Generate Report&quot; to compile comprehensive customer-wise annual machine contract asset lifecycle and expiration analytics.
           </p>
           <button
-            onClick={fetchData}
+            onClick={() => fetchData()}
             disabled={loading}
             className="inline-flex items-center gap-1.5 bg-[#6F8A9D] hover:bg-[#546A7A] text-white font-bold h-9 px-4 rounded-lg shadow-sm hover:shadow transition-all text-xs"
           >
@@ -1380,7 +1527,11 @@ export default function AnnualContractReports({ role }: AnnualContractReportsPro
                             return (
                               <tr
                                 key={m.id}
-                                onClick={() => router.push(`${getBaseRoute()}/contracts/detailed/${m.id}?from=${encodeURIComponent(`${getBaseRoute()}/contracts/annual-reports`)}`)}
+                                onClick={() => {
+                                  const currentQuery = typeof window !== 'undefined' ? window.location.search : '';
+                                  const returnUrl = `${getBaseRoute()}/contracts/annual-reports${currentQuery}`;
+                                  router.push(`${getBaseRoute()}/contracts/detailed/${m.id}?from=${encodeURIComponent(returnUrl)}`);
+                                }}
                                 className={`
                                   ${mIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50/40'}
                                   hover:bg-gradient-to-r hover:from-[#96AEC2]/10 hover:to-[#96AEC2]/20
@@ -1496,7 +1647,11 @@ export default function AnnualContractReports({ role }: AnnualContractReportsPro
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => router.push(`${getBaseRoute()}/contracts/detailed/${m.id}?from=${encodeURIComponent(`${getBaseRoute()}/contracts/annual-reports`)}`)}
+                                    onClick={() => {
+                                      const currentQuery = typeof window !== 'undefined' ? window.location.search : '';
+                                      const returnUrl = `${getBaseRoute()}/contracts/annual-reports${currentQuery}`;
+                                      router.push(`${getBaseRoute()}/contracts/detailed/${m.id}?from=${encodeURIComponent(returnUrl)}`);
+                                    }}
                                     className="h-6 w-6 p-0 hover:bg-slate-100 text-slate-600 rounded-md"
                                     title="View Machine Contract"
                                   >

@@ -72,6 +72,7 @@ export default function ContractDetails({ id, role, backUrl }: ContractDetailsPr
   const [dateModalOpen, setDateModalOpen] = useState(false);
   const [selectedPmId, setSelectedPmId] = useState<number | null>(null);
   const [completedDate, setCompletedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [completedRemarks, setCompletedRemarks] = useState('');
 
   // Fetch contract details
   const fetchContractDetails = async () => {
@@ -100,6 +101,7 @@ export default function ContractDetails({ id, role, backUrl }: ContractDetailsPr
     if (currentStatus === 'Pending') {
       setSelectedPmId(pmId);
       setCompletedDate(new Date().toISOString().split('T')[0]);
+      setCompletedRemarks('');
       setDateModalOpen(true);
     } else {
       if (!confirm('Are you sure you want to change this PM visit status back to Pending? This will clear the completion date.')) {
@@ -107,11 +109,13 @@ export default function ContractDetails({ id, role, backUrl }: ContractDetailsPr
       }
       // Toggle back to Pending
       try {
-        await apiService.updatePMSchedule(pmId, 'Pending');
+        const pmObj = contract?.pmSchedules.find(p => p.id === pmId);
+        const cleanRange = pmObj?.range ? pmObj.range.split(/\s*\|\s*(?:Done:|done:)/i)[0].trim() : '';
+        await apiService.updatePMSchedule(pmId, 'Pending', undefined, cleanRange);
         toast.success('PM Visit status set to Pending!');
         if (contract) {
           const updatedSchedules = contract.pmSchedules.map(pm =>
-            pm.id === pmId ? { ...pm, status: 'Pending' as any, completedAt: undefined } : pm
+            pm.id === pmId ? { ...pm, status: 'Pending' as any, completedAt: undefined, range: cleanRange } : pm
           );
           setContract({ ...contract, pmSchedules: updatedSchedules });
         }
@@ -125,16 +129,34 @@ export default function ContractDetails({ id, role, backUrl }: ContractDetailsPr
   const handleConfirmCompletion = async () => {
     if (!selectedPmId) return;
     try {
-      await apiService.updatePMSchedule(selectedPmId, 'Completed', completedDate);
+      const currentPm = contract?.pmSchedules.find(p => p.id === selectedPmId);
+      const cleanSchedule = currentPm?.range ? currentPm.range.split(/\s*\|\s*(?:Done:|done:)/i)[0].trim() : '';
+      const formattedDate = formatDateLabel(completedDate);
+      const trimmedRemarks = completedRemarks.trim();
+
+      let fullDoneText = formattedDate;
+      if (trimmedRemarks) {
+        fullDoneText = formattedDate ? `${formattedDate}, ${trimmedRemarks}` : trimmedRemarks;
+      }
+
+      let newRange = cleanSchedule;
+      if (cleanSchedule && fullDoneText) {
+        newRange = `${cleanSchedule} | Done: ${fullDoneText}`;
+      } else if (fullDoneText) {
+        newRange = `Done: ${fullDoneText}`;
+      }
+
+      await apiService.updatePMSchedule(selectedPmId, 'Completed', completedDate, newRange);
       toast.success('PM Visit marked as Completed!');
       if (contract) {
         const updatedSchedules = contract.pmSchedules.map(pm =>
-          pm.id === selectedPmId ? { ...pm, status: 'Completed' as any, completedAt: completedDate } : pm
+          pm.id === selectedPmId ? { ...pm, status: 'Completed' as any, completedAt: completedDate, range: newRange } : pm
         );
         setContract({ ...contract, pmSchedules: updatedSchedules });
       }
       setDateModalOpen(false);
       setSelectedPmId(null);
+      setCompletedRemarks('');
     } catch (err: any) {
       console.error(err);
       toast.error('Failed to update PM schedule status');
@@ -177,10 +199,82 @@ export default function ContractDetails({ id, role, backUrl }: ContractDetailsPr
     return 'from-slate-400 to-slate-600';
   };
 
-  const formatDateLabel = (isoStr: string) => {
+  const formatDateLabel = (isoStr: any) => {
     if (!isoStr) return '';
-    const d = new Date(isoStr);
-    return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    if (isoStr instanceof Date) {
+      return !isNaN(isoStr.getTime())
+        ? isoStr.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+        : '';
+    }
+    const str = String(isoStr).trim();
+    if (!str) return '';
+    const d = new Date(str);
+    if (!isNaN(d.getTime()) && d.getFullYear() > 1990 && d.getFullYear() < 2100) {
+      return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
+    return str;
+  };
+
+  const getPMDisplayDetails = (pm: { range?: string | null; status?: string; completedAt?: string | Date | null }) => {
+    const rawRange = (pm.range || '').trim();
+    const isCompleted = pm.status === 'Completed';
+
+    let scheduleText = '';
+    let doneText = '';
+
+    if (/\s*\|\s*(?:Done:|done:)\s*/i.test(rawRange)) {
+      const parts = rawRange.split(/\s*\|\s*(?:Done:|done:)\s*/i);
+      scheduleText = parts[0]?.trim() || '';
+      doneText = parts.slice(1).join(' | ').trim();
+    } else if (rawRange.includes(' | ')) {
+      const parts = rawRange.split(/\s*\|\s*/);
+      scheduleText = parts[0]?.trim() || '';
+      const secondPart = parts.slice(1).join(' | ').trim();
+      if (/^(?:Done:|done:)\s*/i.test(secondPart)) {
+        doneText = secondPart.replace(/^(?:Done:|done:)\s*/i, '').trim();
+      } else if (isCompleted) {
+        doneText = secondPart;
+      } else {
+        scheduleText = rawRange;
+      }
+    } else if (/^(?:Done:|done:)\s*/i.test(rawRange)) {
+      scheduleText = '';
+      doneText = rawRange.replace(/^(?:Done:|done:)\s*/i, '').trim();
+    } else {
+      const isTwoDateRange = /\d{1,2}[./-]\d{1,2}[./-]\d{2,4}\s+(?:to|TO|-)\s+\d{1,2}[./-]\d{1,2}[./-]\d{2,4}/i.test(rawRange);
+      if (isTwoDateRange) {
+        scheduleText = rawRange;
+        if (isCompleted && pm.completedAt) {
+          doneText = formatDateLabel(pm.completedAt);
+        }
+      } else {
+        if (isCompleted) {
+          if (rawRange && rawRange.toLowerCase() !== 'completed') {
+            scheduleText = '';
+            doneText = rawRange;
+          } else if (pm.completedAt) {
+            scheduleText = '';
+            doneText = formatDateLabel(pm.completedAt);
+          }
+        } else {
+          scheduleText = rawRange;
+        }
+      }
+    }
+
+    if (isCompleted && !doneText) {
+      if (pm.completedAt) {
+        doneText = formatDateLabel(pm.completedAt);
+      } else {
+        doneText = 'Completed';
+      }
+    }
+
+    return {
+      scheduleText,
+      doneText,
+      isCompleted
+    };
   };
 
   if (loading) {
@@ -401,6 +495,7 @@ export default function ContractDetails({ id, role, backUrl }: ContractDetailsPr
                 }
 
                 const isCompleted = pm.status === 'Completed';
+                const { scheduleText, doneText } = getPMDisplayDetails(pm);
                 return (
                   <div
                     key={idx}
@@ -409,14 +504,18 @@ export default function ContractDetails({ id, role, backUrl }: ContractDetailsPr
                         : 'bg-white border-slate-100 shadow-sm hover:border-slate-200'
                       }`}
                   >
-                    <div className="space-y-1">
+                    <div className="space-y-1 min-w-0 flex-1 mr-3">
                       <span className={`font-bold block text-[10px] uppercase tracking-wider ${isCompleted ? 'text-emerald-700' : 'text-slate-400'}`}>
                         Visit {pm.pmNumber}
                       </span>
-                      <span className="font-mono font-semibold text-slate-700 block">{pm.range}</span>
-                      {isCompleted && pm.completedAt && (
-                        <span className="text-[10px] font-bold text-emerald-600 block">
-                          Done: {formatDateLabel(pm.completedAt)}
+                      {scheduleText ? (
+                        <span className="font-mono font-semibold text-slate-700 block truncate" title={scheduleText}>{scheduleText}</span>
+                      ) : !isCompleted ? (
+                        <span className="font-mono text-slate-400 text-xs block italic">Scheduled Cycle</span>
+                      ) : null}
+                      {isCompleted && (
+                        <span className="text-[10px] font-bold text-emerald-600 block break-words" title={doneText}>
+                          Done: {doneText || 'Completed'}
                         </span>
                       )}
                     </div>
@@ -424,7 +523,7 @@ export default function ContractDetails({ id, role, backUrl }: ContractDetailsPr
                     <button
                       type="button"
                       onClick={() => handleTogglePMStatus(pm.id, pm.status)}
-                      className={`px-3 py-1.5 rounded-xl font-bold text-[10px] uppercase tracking-wider transition-all border ${isCompleted
+                      className={`px-3 py-1.5 rounded-xl font-bold text-[10px] uppercase tracking-wider transition-all border shrink-0 ${isCompleted
                           ? 'bg-emerald-500 text-white border-emerald-600 shadow-sm hover:bg-emerald-600'
                           : 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 border-amber-500/20'
                         }`}
@@ -532,6 +631,17 @@ export default function ContractDetails({ id, role, backUrl }: ContractDetailsPr
                 max={new Date().toISOString().split('T')[0]}
                 onChange={(e) => setCompletedDate(e.target.value)}
                 className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 text-slate-800"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Remarks / Notes (Optional)</label>
+              <input
+                type="text"
+                placeholder="e.g. Inv generated, attended breakdown, on call, etc."
+                value={completedRemarks}
+                onChange={(e) => setCompletedRemarks(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 text-slate-800"
               />
             </div>
 

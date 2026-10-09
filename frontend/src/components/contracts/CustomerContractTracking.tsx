@@ -213,10 +213,82 @@ export default function CustomerContractTracking({ role }: CustomerContractTrack
   }, [contracts, search]);
 
   // Format date
-  const formatDateLabel = (isoStr: string) => {
+  const formatDateLabel = (isoStr: any) => {
     if (!isoStr) return '—';
-    const d = new Date(isoStr);
-    return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    if (isoStr instanceof Date) {
+      return !isNaN(isoStr.getTime())
+        ? isoStr.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+        : '—';
+    }
+    const str = String(isoStr).trim();
+    if (!str) return '—';
+    const d = new Date(str);
+    if (!isNaN(d.getTime()) && d.getFullYear() > 1990 && d.getFullYear() < 2100) {
+      return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
+    return str;
+  };
+
+  const getPMDisplayDetails = (pm: { range?: string | null; status?: string; completedAt?: string | Date | null }) => {
+    const rawRange = (pm.range || '').trim();
+    const isCompleted = pm.status === 'Completed';
+
+    let scheduleText = '';
+    let doneText = '';
+
+    if (/\s*\|\s*(?:Done:|done:)\s*/i.test(rawRange)) {
+      const parts = rawRange.split(/\s*\|\s*(?:Done:|done:)\s*/i);
+      scheduleText = parts[0]?.trim() || '';
+      doneText = parts.slice(1).join(' | ').trim();
+    } else if (rawRange.includes(' | ')) {
+      const parts = rawRange.split(/\s*\|\s*/);
+      scheduleText = parts[0]?.trim() || '';
+      const secondPart = parts.slice(1).join(' | ').trim();
+      if (/^(?:Done:|done:)\s*/i.test(secondPart)) {
+        doneText = secondPart.replace(/^(?:Done:|done:)\s*/i, '').trim();
+      } else if (isCompleted) {
+        doneText = secondPart;
+      } else {
+        scheduleText = rawRange;
+      }
+    } else if (/^(?:Done:|done:)\s*/i.test(rawRange)) {
+      scheduleText = '';
+      doneText = rawRange.replace(/^(?:Done:|done:)\s*/i, '').trim();
+    } else {
+      const isTwoDateRange = /\d{1,2}[./-]\d{1,2}[./-]\d{2,4}\s+(?:to|TO|-)\s+\d{1,2}[./-]\d{1,2}[./-]\d{2,4}/i.test(rawRange);
+      if (isTwoDateRange) {
+        scheduleText = rawRange;
+        if (isCompleted && pm.completedAt) {
+          doneText = formatDateLabel(pm.completedAt);
+        }
+      } else {
+        if (isCompleted) {
+          if (rawRange && rawRange.toLowerCase() !== 'completed') {
+            scheduleText = '';
+            doneText = rawRange;
+          } else if (pm.completedAt) {
+            scheduleText = '';
+            doneText = formatDateLabel(pm.completedAt);
+          }
+        } else {
+          scheduleText = rawRange;
+        }
+      }
+    }
+
+    if (isCompleted && !doneText) {
+      if (pm.completedAt) {
+        doneText = formatDateLabel(pm.completedAt);
+      } else {
+        doneText = 'Completed';
+      }
+    }
+
+    return {
+      scheduleText,
+      doneText,
+      isCompleted
+    };
   };
 
   // Status badge helper
@@ -519,6 +591,7 @@ export default function CustomerContractTracking({ role }: CustomerContractTrack
                           }
 
                           const isCompleted = pm.status === 'Completed';
+                          const { scheduleText, doneText } = getPMDisplayDetails(pm);
                           return (
                             <div
                               key={idx}
@@ -527,14 +600,18 @@ export default function CustomerContractTracking({ role }: CustomerContractTrack
                                 : 'bg-white border-slate-100 hover:border-slate-200'
                                 }`}
                             >
-                              <div className="space-y-0.5">
+                              <div className="space-y-0.5 min-w-0 flex-1 mr-2">
                                 <span className={`font-bold block text-[10px] uppercase tracking-wider ${isCompleted ? 'text-emerald-700' : 'text-slate-400'}`}>
                                   Visit {pm.pmNumber}
                                 </span>
-                                <span className="font-mono font-semibold text-slate-600 text-[10px] block">{pm.range}</span>
-                                {isCompleted && pm.completedAt && (
-                                  <span className="block text-[9px] text-emerald-600 font-semibold mt-0.5 animate-in fade-in duration-200">
-                                    Done: {formatDateLabel(pm.completedAt)}
+                                {scheduleText ? (
+                                  <span className="font-mono font-semibold text-slate-600 text-[10px] block truncate" title={scheduleText}>{scheduleText}</span>
+                                ) : !isCompleted ? (
+                                  <span className="font-mono text-slate-400 text-[10px] block italic">Scheduled Cycle</span>
+                                ) : null}
+                                {isCompleted && (
+                                  <span className="block text-[9px] text-emerald-600 font-semibold mt-0.5 break-words" title={doneText}>
+                                    Done: {doneText || 'Completed'}
                                   </span>
                                 )}
                               </div>

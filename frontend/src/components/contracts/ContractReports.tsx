@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import {
   BarChart3, FileText, Search, Download, Calendar,
   CheckCircle, AlertTriangle, Clock, MapPin,
@@ -12,6 +12,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { apiService } from '@/services/api';
+import { safeSessionStorage } from '@/lib/browser';
 import { getCustomerColorClass, normalizeEngineerNames, formatEngineerDisplayName, extractDepartmentFromCustomer } from '@/lib/utils';
 import { generateContractReportPdf } from '@/lib/contract-report-pdf';
 import { generateContractReportExcel } from '@/lib/contract-report-excel';
@@ -74,36 +75,210 @@ interface ContractReportsProps {
 type SortKey = 'customerName' | 'totalValue' | 'totalContracts' | 'totalMachines' | 'pmPercentage' | 'zoneName';
 type SortDir = 'asc' | 'desc';
 
+const CONTRACT_REPORTS_STORAGE_KEY = 'kardex_contract_reports_filters_v1';
+
+interface ContractReportFilterState {
+  search: string;
+  zoneFilter: string;
+  statusFilter: string;
+  techFilter: string;
+  pmFilter: string;
+  mcTypeFilter: string;
+  swFilter: string;
+  dateFilterBasis: 'both' | 'pm' | 'expiry';
+  dateFrom: string;
+  dateTo: string;
+  sortKey: SortKey;
+  sortDir: SortDir;
+}
+
+const getDefaultContractDates = () => {
+  const from = new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  d.setDate(d.getDate() + 28);
+  const to = d.toISOString().slice(0, 10);
+  return { from, to };
+};
+
+const getInitialContractFilters = (): ContractReportFilterState => {
+  const defaultDates = getDefaultContractDates();
+  const defaults: ContractReportFilterState = {
+    search: '',
+    zoneFilter: 'all',
+    statusFilter: 'all',
+    techFilter: 'all',
+    pmFilter: 'all',
+    mcTypeFilter: 'all',
+    swFilter: 'all',
+    dateFilterBasis: 'pm',
+    dateFrom: defaultDates.from,
+    dateTo: defaultDates.to,
+    sortKey: 'customerName',
+    sortDir: 'asc',
+  };
+
+  if (typeof window === 'undefined') return defaults;
+
+  try {
+    const sp = new URLSearchParams(window.location.search);
+    const hasUrlParams =
+      sp.has('q') || sp.has('search') || sp.has('zone') || sp.has('status') ||
+      sp.has('tech') || sp.has('pm') || sp.has('mcType') || sp.has('sw') ||
+      sp.has('dateBasis') || sp.has('dateFrom') || sp.has('dateTo') ||
+      sp.has('sort') || sp.has('dir');
+
+    if (hasUrlParams) {
+      return {
+        search: sp.get('q') || sp.get('search') || '',
+        zoneFilter: sp.get('zone') || 'all',
+        statusFilter: sp.get('status') || 'all',
+        techFilter: sp.get('tech') || 'all',
+        pmFilter: sp.get('pm') || 'all',
+        mcTypeFilter: sp.get('mcType') || 'all',
+        swFilter: sp.get('sw') || 'all',
+        dateFilterBasis: (sp.get('dateBasis') as any) || 'pm',
+        dateFrom: sp.has('dateFrom') ? (sp.get('dateFrom') || '') : defaultDates.from,
+        dateTo: sp.has('dateTo') ? (sp.get('dateTo') || '') : defaultDates.to,
+        sortKey: (sp.get('sort') as SortKey) || 'customerName',
+        sortDir: (sp.get('dir') as SortDir) || 'asc',
+      };
+    }
+
+    const cached = safeSessionStorage.getItem(CONTRACT_REPORTS_STORAGE_KEY);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      return {
+        search: parsed.search ?? '',
+        zoneFilter: parsed.zoneFilter ?? 'all',
+        statusFilter: parsed.statusFilter ?? 'all',
+        techFilter: parsed.techFilter ?? 'all',
+        pmFilter: parsed.pmFilter ?? 'all',
+        mcTypeFilter: parsed.mcTypeFilter ?? 'all',
+        swFilter: parsed.swFilter ?? 'all',
+        dateFilterBasis: parsed.dateFilterBasis ?? 'pm',
+        dateFrom: parsed.dateFrom ?? defaultDates.from,
+        dateTo: parsed.dateTo ?? defaultDates.to,
+        sortKey: parsed.sortKey ?? 'customerName',
+        sortDir: parsed.sortDir ?? 'asc',
+      };
+    }
+  } catch (err) {
+    console.error('Failed to parse initial contract report filters', err);
+  }
+
+  return defaults;
+};
+
+const syncContractUrlAndStorage = (filters: ContractReportFilterState) => {
+  if (typeof window === 'undefined') return;
+
+  try {
+    safeSessionStorage.setItem(CONTRACT_REPORTS_STORAGE_KEY, JSON.stringify(filters));
+
+    const defaultDates = getDefaultContractDates();
+    const sp = new URLSearchParams();
+    if (filters.search) sp.set('q', filters.search);
+    if (filters.zoneFilter && filters.zoneFilter !== 'all') sp.set('zone', filters.zoneFilter);
+    if (filters.statusFilter && filters.statusFilter !== 'all') sp.set('status', filters.statusFilter);
+    if (filters.techFilter && filters.techFilter !== 'all') sp.set('tech', filters.techFilter);
+    if (filters.pmFilter && filters.pmFilter !== 'all') sp.set('pm', filters.pmFilter);
+    if (filters.mcTypeFilter && filters.mcTypeFilter !== 'all') sp.set('mcType', filters.mcTypeFilter);
+    if (filters.swFilter && filters.swFilter !== 'all') sp.set('sw', filters.swFilter);
+    if (filters.dateFilterBasis && filters.dateFilterBasis !== 'pm') sp.set('dateBasis', filters.dateFilterBasis);
+    if (filters.dateFrom && filters.dateFrom !== defaultDates.from) sp.set('dateFrom', filters.dateFrom);
+    if (filters.dateTo && filters.dateTo !== defaultDates.to) sp.set('dateTo', filters.dateTo);
+    if (filters.sortKey && filters.sortKey !== 'customerName') sp.set('sort', filters.sortKey);
+    if (filters.sortDir && filters.sortDir !== 'asc') sp.set('dir', filters.sortDir);
+
+    const qs = sp.toString();
+    const newUrl = `${window.location.pathname}${qs ? `?${qs}` : ''}`;
+    window.history.replaceState(null, '', newUrl);
+  } catch (err) {
+    console.error('Failed to sync contract report URL and storage', err);
+  }
+};
+
 export default function ContractReports({ role }: ContractReportsProps) {
   const router = useRouter();
+  const [initialFilters] = useState(() => getInitialContractFilters());
+
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasGenerated, setHasGenerated] = useState(false);
   const [exporting, setExporting] = useState(false);
 
-  // Filters
-  const [search, setSearch] = useState('');
-  const [zoneFilter, setZoneFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [techFilter, setTechFilter] = useState('all');
-  const [pmFilter, setPmFilter] = useState('all');
-  const [mcTypeFilter, setMcTypeFilter] = useState('all');
-  const [swFilter, setSwFilter] = useState('all');
+  // Filters (initialized from URL or sessionStorage)
+  const [search, setSearch] = useState(initialFilters.search);
+  const [zoneFilter, setZoneFilter] = useState(initialFilters.zoneFilter);
+  const [statusFilter, setStatusFilter] = useState(initialFilters.statusFilter);
+  const [techFilter, setTechFilter] = useState(initialFilters.techFilter);
+  const [pmFilter, setPmFilter] = useState(initialFilters.pmFilter);
+  const [mcTypeFilter, setMcTypeFilter] = useState(initialFilters.mcTypeFilter);
+  const [swFilter, setSwFilter] = useState(initialFilters.swFilter);
 
-  // Date range filter (default: today  →  today + 4 weeks)
-  const [dateFilterBasis, setDateFilterBasis] = useState<'both' | 'pm' | 'expiry'>('pm');
-  const [dateFrom, setDateFrom] = useState(() => {
-    return new Date().toISOString().slice(0, 10);
-  });
-  const [dateTo, setDateTo] = useState(() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 28);
-    return d.toISOString().slice(0, 10);
-  });
+  // Date range filter
+  const [dateFilterBasis, setDateFilterBasis] = useState<'both' | 'pm' | 'expiry'>(initialFilters.dateFilterBasis);
+  const [dateFrom, setDateFrom] = useState(initialFilters.dateFrom);
+  const [dateTo, setDateTo] = useState(initialFilters.dateTo);
 
+  // Sorting for Customers
+  const [sortKey, setSortKey] = useState<SortKey>(initialFilters.sortKey);
+  const [sortDir, setSortDir] = useState<SortDir>(initialFilters.sortDir);
+
+  // Fetch contracts
+  const fetchContracts = async (
+    customDateFrom?: string,
+    customDateTo?: string,
+    customDateBasis?: 'both' | 'pm' | 'expiry'
+  ) => {
+    setLoading(true);
+    setHasGenerated(true);
+    try {
+      const effectiveDateFrom = customDateFrom !== undefined ? customDateFrom : dateFrom;
+      const effectiveDateTo = customDateTo !== undefined ? customDateTo : dateTo;
+      const effectiveBasis = customDateBasis !== undefined ? customDateBasis : dateFilterBasis;
+
+      const params: any = { limit: 10000 };
+      if (effectiveDateFrom) params.dateFrom = effectiveDateFrom;
+      if (effectiveDateTo) params.dateTo = effectiveDateTo;
+      params.dateFilterType = effectiveBasis;
+      const data = await apiService.getContracts(params);
+      const list = Array.isArray(data) ? data : (data?.contracts || data?.data || []);
+      setContracts(list);
+    } catch (err: any) {
+      console.error('Failed to fetch contracts', err);
+      toast.error('Failed to load contracts data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Initial load using restored filters
   useEffect(() => {
-    fetchContracts();
+    fetchContracts(initialFilters.dateFrom, initialFilters.dateTo, initialFilters.dateFilterBasis);
   }, []);
+
+  // Sync state to URL and sessionStorage (debounced for smooth search input)
+  const isFirstMount = useRef(true);
+  useEffect(() => {
+    if (isFirstMount.current) {
+      isFirstMount.current = false;
+      syncContractUrlAndStorage({
+        search, zoneFilter, statusFilter, techFilter, pmFilter, mcTypeFilter, swFilter,
+        dateFilterBasis, dateFrom, dateTo, sortKey, sortDir
+      });
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      syncContractUrlAndStorage({
+        search, zoneFilter, statusFilter, techFilter, pmFilter, mcTypeFilter, swFilter,
+        dateFilterBasis, dateFrom, dateTo, sortKey, sortDir
+      });
+    }, 200);
+
+    return () => clearTimeout(timer);
+  }, [search, zoneFilter, statusFilter, techFilter, pmFilter, mcTypeFilter, swFilter, dateFilterBasis, dateFrom, dateTo, sortKey, sortDir]);
 
   // Quick Date Range Presets
   const applyDatePreset = (preset: '4_weeks' | 'today' | 'this_month' | 'next_month' | 'this_quarter' | 'all') => {
@@ -133,57 +308,6 @@ export default function ContractReports({ role }: ContractReportsProps) {
     } else if (preset === 'all') {
       setDateFrom('');
       setDateTo('');
-    }
-  };
-
-  const handleExport = async (format: 'excel' | 'pdf') => {
-    setExporting(true);
-    try {
-      const filters = {
-        zone: zoneFilter !== 'all' ? zoneFilter : 'All',
-        status: statusFilter !== 'all' ? statusFilter : 'All',
-        responsible: techFilter !== 'all' ? techFilter : 'All',
-        mcType: mcTypeFilter !== 'all' ? mcTypeFilter : 'All',
-        dateFrom,
-        dateTo
-      };
-
-      if (format === 'pdf') {
-        await generateContractReportPdf(customerSummaries, selectedSummary, filters);
-        toast.success('Contract Schedule PDF Report exported successfully!');
-      } else {
-        await generateContractReportExcel(customerSummaries, selectedSummary, filters);
-        toast.success('Contract Portfolio Excel Report exported successfully!');
-      }
-    } catch (err: any) {
-      console.error('Export failed:', err);
-      toast.error(`Failed to export ${format.toUpperCase()} report`);
-    } finally {
-      setExporting(false);
-    }
-  };
-
-  // Sorting for Customers
-  const [sortKey, setSortKey] = useState<SortKey>('customerName');
-  const [sortDir, setSortDir] = useState<SortDir>('asc');
-
-  // Fetch contracts
-  const fetchContracts = async () => {
-    setLoading(true);
-    setHasGenerated(true);
-    try {
-      const params: any = { limit: 10000 };
-      if (dateFrom) params.dateFrom = dateFrom;
-      if (dateTo) params.dateTo = dateTo;
-      params.dateFilterType = dateFilterBasis;
-      const data = await apiService.getContracts(params);
-      const list = Array.isArray(data) ? data : (data?.contracts || data?.data || []);
-      setContracts(list);
-    } catch (err: any) {
-      console.error('Failed to fetch contracts', err);
-      toast.error('Failed to load contracts data');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -223,6 +347,61 @@ export default function ContractReports({ role }: ContractReportsProps) {
       let y = parseInt(dmyMatch[3], 10);
       if (y < 100) y += 2000;
       return new Date(y, parseInt(dmyMatch[2], 10) - 1, parseInt(dmyMatch[1], 10));
+    }
+
+    // Check DD-MMM-YYYY or DD MMM YYYY (e.g. 31-Aug-2026 or 31 Aug 2026)
+    const monthNames: Record<string, number> = {
+      jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
+      jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11
+    };
+    const namedMonthMatch = str.match(/^(\d{1,2})[\s\-\/\.]([A-Za-z]{3,})[\s\-\/\.](\d{2,4})$/);
+    if (namedMonthMatch) {
+      const d = parseInt(namedMonthMatch[1], 10);
+      const mStr = namedMonthMatch[2].toLowerCase().slice(0, 3);
+      let y = parseInt(namedMonthMatch[3], 10);
+      if (y < 100) y += 2000;
+      if (monthNames[mStr] !== undefined) {
+        return new Date(y, monthNames[mStr], d);
+      }
+    }
+
+    // Check for dates embedded inside text or sentences
+    const anyNamed = str.match(/(\d{1,2})[\s\-\/\.]([A-Za-z]{3,})[\s\-\/\.](\d{2,4})/);
+    if (anyNamed) {
+      const d = parseInt(anyNamed[1], 10);
+      const mStr = anyNamed[2].toLowerCase().slice(0, 3);
+      let y = parseInt(anyNamed[3], 10);
+      if (y < 100) y += 2000;
+      if (monthNames[mStr] !== undefined) {
+        return new Date(y, monthNames[mStr], d);
+      }
+    }
+
+    const anySlash = str.match(/(\d{1,2})[\/\.](\d{1,2})[\/\.](\d{2,4})/);
+    if (anySlash) {
+      const d = parseInt(anySlash[1], 10);
+      const m = parseInt(anySlash[2], 10) - 1;
+      let y = parseInt(anySlash[3], 10);
+      if (y < 100) y += 2000;
+      return new Date(y, m, d);
+    }
+
+    const anyDmy = str.match(/(\d{1,2})-(\d{1,2})-(\d{2,4})/);
+    if (anyDmy) {
+      let y = parseInt(anyDmy[3], 10);
+      if (y < 100) y += 2000;
+      return new Date(y, parseInt(anyDmy[2], 10) - 1, parseInt(anyDmy[1], 10));
+    }
+
+    // Check Month + Year embedded in sentence (e.g. "Shutdown in Nov 2025") -> end of that month
+    const anyMonthYear = str.match(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[\s\-,]+(\d{4}|\d{2})\b/i);
+    if (anyMonthYear) {
+      const mStr = anyMonthYear[1].toLowerCase().slice(0, 3);
+      let y = parseInt(anyMonthYear[2], 10);
+      if (y < 100) y += 2000;
+      if (monthNames[mStr] !== undefined) {
+        return new Date(y, monthNames[mStr] + 1, 0); // last day of month
+      }
     }
 
     const fallback = new Date(str);
@@ -271,6 +450,7 @@ export default function ContractReports({ role }: ContractReportsProps) {
   };
 
   const isRangeOverdue = (range: string): boolean => {
+    if (!range) return false;
     try {
       const endObj = getPMEndDate(range);
       if (!endObj) return false;
@@ -292,13 +472,15 @@ export default function ContractReports({ role }: ContractReportsProps) {
   };
 
   const getPMStats = (pmSchedules: PMSchedule[], dFrom?: string, dTo?: string) => {
-    const applicable = pmSchedules.filter(p => p.status !== 'Not Applicable');
+    const applicable = (pmSchedules || []).filter(p => p.status !== 'Not Applicable');
+    // Overdue is all uncompleted PMs whose scheduled due date has passed
+    const overdue = applicable.filter(p => p.status !== 'Completed' && p.range && isRangeOverdue(p.range)).length;
+
     if (dFrom || dTo) {
       const inRange = applicable.filter(p => isPMInRange(p, dFrom, dTo));
       const completed = inRange.filter(p => p.status === 'Completed').length;
       const total = inRange.length;
       const pending = total - completed;
-      const overdue = inRange.filter(p => p.status !== 'Completed' && p.range && isRangeOverdue(p.range)).length;
       const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
       return {
         completed,
@@ -311,7 +493,6 @@ export default function ContractReports({ role }: ContractReportsProps) {
     const completed = applicable.filter(p => p.status === 'Completed').length;
     const total = applicable.length;
     const pending = total - completed;
-    const overdue = applicable.filter(p => p.status === 'Pending' && p.range && isRangeOverdue(p.range)).length;
     const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
     return { completed, total, pending, overdue, pct };
   };
@@ -350,6 +531,74 @@ export default function ContractReports({ role }: ContractReportsProps) {
     const m3 = trimmed.match(/^(\d{1,2}\s+[A-Za-z]{3})\s+20(\d{2})$/);
     if (m3) return `${m3[1]} '${m3[2]}`;
     return trimmed;
+  };
+
+  const isPureDateStr = (str: string | null | undefined): boolean => {
+    if (!str) return false;
+    const s = str.trim();
+    return /^\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}$/.test(s) ||
+      /^\d{4}[\/\-\.]\d{1,2}[\/\-\.]\d{1,2}$/.test(s) ||
+      /^\d{1,2}[\s\-\/\.][A-Za-z]{3,}[\s\-\/\.]\d{2,4}$/.test(s) ||
+      /^[A-Za-z]{3,}\s+\d{1,2}(?:st|nd|rd|th)?[\s,]+\d{2,4}$/i.test(s);
+  };
+
+  const getPMRangeDisplayInfo = (range: string | null | undefined) => {
+    if (!range) return { isTwoDates: false, isSingleDate: false, isText: false, text: '—', startFmt: '—', endFmt: '—', doneText: '' };
+    const raw = range.trim();
+
+    let schedulePart = raw;
+    let doneText = '';
+
+    if (/\s*\|\s*(?:Done:|done:)\s*/i.test(raw)) {
+      const parts = raw.split(/\s*\|\s*(?:Done:|done:)\s*/i);
+      schedulePart = parts[0]?.trim() || '';
+      doneText = parts.slice(1).join(' | ').trim();
+    } else if (raw.includes(' | ')) {
+      const parts = raw.split(/\s*\|\s*/);
+      schedulePart = parts[0]?.trim() || '';
+      const secondPart = parts.slice(1).join(' | ').trim();
+      if (/^(?:Done:|done:)\s*/i.test(secondPart)) {
+        doneText = secondPart.replace(/^(?:Done:|done:)\s*/i, '').trim();
+      } else {
+        doneText = secondPart;
+      }
+    } else if (/^(?:Done:|done:)\s*/i.test(raw)) {
+      schedulePart = '';
+      doneText = raw.replace(/^(?:Done:|done:)\s*/i, '').trim();
+    }
+
+    const parts = schedulePart.split(/\s+(?:TO|to|-)\s+/);
+    if (parts.length >= 2 && isPureDateStr(parts[0]) && isPureDateStr(parts[parts.length - 1])) {
+      return {
+        isTwoDates: true,
+        isSingleDate: false,
+        isText: false,
+        startFmt: formatCompactDate(parts[0]),
+        endFmt: formatCompactDate(parts[parts.length - 1]),
+        text: schedulePart,
+        doneText
+      };
+    }
+    if (schedulePart && isPureDateStr(schedulePart)) {
+      return {
+        isTwoDates: false,
+        isSingleDate: true,
+        isText: false,
+        startFmt: formatCompactDate(schedulePart),
+        endFmt: '',
+        text: schedulePart,
+        doneText
+      };
+    }
+    return {
+      isTwoDates: false,
+      isSingleDate: false,
+      isText: true,
+      startFmt: '',
+      endFmt: '',
+      text: schedulePart || raw,
+      doneText
+    };
   };
 
   const formatCurrency = (val: number) => `\u20B9${Number(val || 0).toLocaleString('en-IN')}`;
@@ -418,6 +667,19 @@ export default function ContractReports({ role }: ContractReportsProps) {
     // Date range filter on PM schedule dates AND/OR contract expiry
     if (dateFrom || dateTo) {
       filtered = filtered.filter(c => {
+        // If user specifically filtered for overdue PMs, do NOT drop contracts that have overdue PMs
+        if (pmFilter === 'overdue') {
+          const hasOverdue = (c.pmSchedules || []).some(
+            p => p.status !== 'Not Applicable' && p.status !== 'Completed' && p.range && isRangeOverdue(p.range)
+          );
+          if (hasOverdue) return true;
+        }
+
+        // If user specifically filtered for Expired contracts, do NOT drop expired contracts
+        if (statusFilter === 'Expired' && c.status === 'Expired') {
+          return true;
+        }
+
         // 1. Check PM Visit match in range
         const applicablePMs = (c.pmSchedules || []).filter(p => p.status !== 'Not Applicable');
         const hasPMMatch = applicablePMs.some(p => isPMInRange(p, dateFrom, dateTo));
@@ -613,6 +875,33 @@ export default function ContractReports({ role }: ContractReportsProps) {
     !!search,
   ].filter(Boolean).length;
 
+  const handleExport = async (format: 'excel' | 'pdf') => {
+    setExporting(true);
+    try {
+      const filters = {
+        zone: zoneFilter !== 'all' ? zoneFilter : 'All',
+        status: statusFilter !== 'all' ? statusFilter : 'All',
+        responsible: techFilter !== 'all' ? techFilter : 'All',
+        mcType: mcTypeFilter !== 'all' ? mcTypeFilter : 'All',
+        dateFrom,
+        dateTo
+      };
+
+      if (format === 'pdf') {
+        await generateContractReportPdf(customerSummaries, selectedSummary, filters);
+        toast.success('Contract Schedule PDF Report exported successfully!');
+      } else {
+        await generateContractReportExcel(customerSummaries, selectedSummary, filters);
+        toast.success('Contract Portfolio Excel Report exported successfully!');
+      }
+    } catch (err: any) {
+      console.error('Export failed:', err);
+      toast.error(`Failed to export ${format.toUpperCase()} report`);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const resetAllFilters = () => {
     setSearch('');
     setZoneFilter('all');
@@ -621,8 +910,18 @@ export default function ContractReports({ role }: ContractReportsProps) {
     setPmFilter('all');
     setMcTypeFilter('all');
     setSwFilter('all');
+    setDateFilterBasis('pm');
     setDateFrom('');
     setDateTo('');
+    setSortKey('customerName');
+    setSortDir('asc');
+
+    safeSessionStorage.removeItem(CONTRACT_REPORTS_STORAGE_KEY);
+    if (typeof window !== 'undefined') {
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+    fetchContracts('', '', 'pm');
+    toast.info('Filters reset to default');
   };
 
   return (
@@ -638,7 +937,7 @@ export default function ContractReports({ role }: ContractReportsProps) {
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               <button
-                onClick={fetchContracts}
+                onClick={() => fetchContracts()}
                 disabled={loading}
                 className="inline-flex items-center justify-center gap-1.5 bg-[#6F8A9D] hover:bg-[#546A7A] text-white font-bold h-9 px-3.5 rounded-lg shadow-xs hover:shadow transition-all text-xs whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -675,22 +974,6 @@ export default function ContractReports({ role }: ContractReportsProps) {
                   <Calendar className="w-3.5 h-3.5 text-[#6F8A9D]" />
                   Contract Date Range
                 </label>
-                <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200">
-                  <span className="text-[10px] font-bold uppercase text-slate-400 px-2">Basis:</span>
-                  {(['both', 'pm', 'expiry'] as const).map(basis => (
-                    <button
-                      key={basis}
-                      type="button"
-                      onClick={() => setDateFilterBasis(basis)}
-                      className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition-all ${dateFilterBasis === basis
-                        ? 'bg-[#546A7A] text-white shadow-xs'
-                        : 'text-slate-600 hover:text-slate-900'
-                        }`}
-                    >
-                      {basis === 'both' ? 'Both' : basis === 'pm' ? 'PM Schedule' : 'Contract Expiry'}
-                    </button>
-                  ))}
-                </div>
               </div>
               <div className="flex items-center gap-1 flex-wrap">
                 <span className="text-[10px] text-slate-400 mr-1">Quick ranges:</span>
@@ -906,7 +1189,7 @@ export default function ContractReports({ role }: ContractReportsProps) {
             Configure your filters above and click &quot;Generate Report&quot; to compile comprehensive contract portfolios and schedule analytics.
           </p>
           <button
-            onClick={fetchContracts}
+            onClick={() => fetchContracts()}
             disabled={loading}
             className="inline-flex items-center gap-2 bg-[#6F8A9D] hover:bg-[#546A7A] text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-all duration-200 hover:shadow-xl hover:scale-105"
           >
@@ -949,12 +1232,20 @@ export default function ContractReports({ role }: ContractReportsProps) {
                 <p className="text-base font-extrabold text-slate-800">{formatCurrency(selectedSummary.totalValue || 0)}</p>
               </div>
             </div>
-            <div className="bg-white rounded-xl border border-slate-100 shadow-sm px-4 py-3 flex items-center gap-2.5">
+            <div
+              onClick={() => setStatusFilter(statusFilter === 'Expired' ? 'all' : 'Expired')}
+              className={`bg-white rounded-xl border shadow-sm px-4 py-3 flex items-center gap-2.5 cursor-pointer transition-all hover:border-rose-400 hover:shadow-md ${statusFilter === 'Expired' ? 'ring-2 ring-rose-500 border-rose-400 bg-rose-50/20' : 'border-slate-100'
+                }`}
+              title="Click to toggle filter: Expired Contracts"
+            >
               <div className="w-9 h-9 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-600 flex-shrink-0">
                 <CheckCircle className="w-4 h-4" />
               </div>
               <div>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Active / Expired</p>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                  <span>Active / Expired</span>
+                  {statusFilter === 'Expired' && <span className="text-[8px] bg-rose-600 text-white px-1 py-0.2 rounded font-bold">Expired</span>}
+                </p>
                 <p className="text-base font-extrabold text-slate-800">
                   {selectedSummary.active} <span className="text-rose-500 text-xs font-bold">/ {selectedSummary.expired}</span>
                 </p>
@@ -1145,7 +1436,7 @@ export default function ContractReports({ role }: ContractReportsProps) {
                             <SortIcon col="totalValue" />
                           </div>
                         </th>
-                        <th className="py-1 px-1.5 whitespace-nowrap" title={dateFrom || dateTo ? `Showing visits between ${dateFrom || 'start'} and ${dateTo || 'end'}` : 'All PM visits'}>
+                        <th className="py-1 px-1.5 whitespace-nowrap min-w-[210px]" title={dateFrom || dateTo ? `Showing visits between ${dateFrom || 'start'} and ${dateTo || 'end'}` : 'All PM visits'}>
                           PM Visits ({selectedSummary.pmTotal}) {dateFrom || dateTo ? '(In Range)' : ''}
                         </th>
                         <th className="py-1 px-1 text-center whitespace-nowrap w-16">Status</th>
@@ -1164,7 +1455,7 @@ export default function ContractReports({ role }: ContractReportsProps) {
                         const perPmVal = totalContractVisits > 0 ? Math.round(Number(contract.amount || 0) / totalContractVisits) : Number(contract.amount || 0);
 
                         let displayedPMs = (dateFrom || dateTo)
-                          ? applicablePMs.filter(p => isPMInRange(p, dateFrom, dateTo))
+                          ? applicablePMs.filter(p => isPMInRange(p, dateFrom, dateTo) || (p.status !== 'Completed' && p.range && isRangeOverdue(p.range)))
                           : applicablePMs;
 
                         if (pmFilter === 'pending') {
@@ -1172,7 +1463,7 @@ export default function ContractReports({ role }: ContractReportsProps) {
                         } else if (pmFilter === 'completed') {
                           displayedPMs = displayedPMs.filter(p => p.status === 'Completed');
                         } else if (pmFilter === 'overdue') {
-                          displayedPMs = displayedPMs.filter(p => p.status !== 'Completed' && p.range && isRangeOverdue(p.range));
+                          displayedPMs = applicablePMs.filter(p => p.status !== 'Completed' && p.range && isRangeOverdue(p.range));
                         }
 
                         return (
@@ -1204,7 +1495,9 @@ export default function ContractReports({ role }: ContractReportsProps) {
                                       type="button"
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        router.push(`${getBaseRoute()}/customers/${cs.customerId}`);
+                                        const currentQuery = typeof window !== 'undefined' ? window.location.search : '';
+                                        const returnUrl = `${getBaseRoute()}/contracts/reports${currentQuery}`;
+                                        router.push(`${getBaseRoute()}/customers/${cs.customerId}?from=${encodeURIComponent(returnUrl)}`);
                                       }}
                                       className="text-slate-300 hover:text-[#82A094] transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0 mt-0.5"
                                       title="Open Customer"
@@ -1302,36 +1595,71 @@ export default function ContractReports({ role }: ContractReportsProps) {
                               )}
                             </td>
 
-                            {/* PM Visits (Start & End) */}
-                            <td className="py-1 px-1.5">
-                              <div className="flex flex-col gap-0.5 py-0.5">
+                            {/* PM Visits (Start & End or Full Text / Sentences) */}
+                            <td className="py-1 px-1.5 min-w-[210px] max-w-[340px]">
+                              <div className="flex flex-col gap-1 py-0.5">
                                 {displayedPMs.map((p, pidx) => {
                                   const done = p.status === 'Completed';
                                   const isOverdue = !done && p.range && isRangeOverdue(p.range);
-                                  const { startDate, endDate } = parseRangeDates(p.range);
-                                  const startFmt = formatCompactDate(startDate);
-                                  const endFmt = formatCompactDate(endDate);
+                                  const pmInfo = getPMRangeDisplayInfo(p.range);
                                   return (
                                     <div
                                       key={pidx}
-                                      className={`flex items-center justify-between gap-1 px-1.5 py-0.5 rounded text-[9px] border leading-tight ${done
+                                      className={`flex items-start justify-between gap-1.5 px-2 py-1 rounded text-[9px] border leading-tight ${done
                                         ? 'bg-emerald-50/70 border-emerald-200/80 text-emerald-900'
                                         : isOverdue
                                           ? 'bg-rose-50/70 border-rose-200/80 text-rose-900'
                                           : 'bg-amber-50/70 border-amber-200/80 text-amber-900'
                                         }`}
-                                      title={`PM ${p.pmNumber}: ${p.status}\nRange: ${p.range || 'N/A'}\nPM Value: ${formatCurrency(perPmVal)}${done && p.completedAt ? `\nCompleted: ${formatDate(p.completedAt)}` : ''}`}
+                                      title={`PM ${p.pmNumber}: ${p.status}\nDetails: ${p.range || 'N/A'}\nPM Value: ${formatCurrency(perPmVal)}${done && p.completedAt ? `\nCompleted: ${formatDate(p.completedAt)}` : ''}`}
                                     >
-                                      <div className="flex items-center gap-1 min-w-0">
-                                        <span className={`font-extrabold text-[8px] uppercase px-1 py-0.2 rounded ${done ? 'bg-emerald-200/70 text-emerald-800' : isOverdue ? 'bg-rose-200/70 text-rose-800' : 'bg-amber-200/70 text-amber-800'
+                                      <div className="flex items-start gap-1.5 min-w-0 flex-1">
+                                        <span className={`font-extrabold text-[8px] uppercase px-1 py-0.5 rounded shrink-0 ${done
+                                          ? 'bg-emerald-200/70 text-emerald-800'
+                                          : isOverdue
+                                            ? 'bg-rose-200/70 text-rose-800'
+                                            : 'bg-amber-200/70 text-amber-800'
                                           }`}>
                                           PM{p.pmNumber}
                                         </span>
-                                        <span className="font-semibold text-slate-700 whitespace-nowrap text-[9px]">
-                                          {startFmt} <span className="text-slate-400 font-bold">&rarr;</span> {endFmt}
-                                        </span>
+                                        <div className="min-w-0 flex-1">
+                                          {pmInfo.isTwoDates ? (
+                                            <div>
+                                              <span className="font-semibold text-slate-700 whitespace-nowrap text-[9px] block">
+                                                {pmInfo.startFmt} <span className="text-slate-400 font-bold">&rarr;</span> {pmInfo.endFmt}
+                                              </span>
+                                              {done && (
+                                                <span className="text-[8px] text-emerald-700 font-semibold mt-0.5 block break-words">
+                                                  Done: {pmInfo.doneText || (p.completedAt ? formatDate(p.completedAt) : 'Completed')}
+                                                </span>
+                                              )}
+                                            </div>
+                                          ) : pmInfo.isSingleDate ? (
+                                            <div>
+                                              <span className="font-semibold text-slate-700 whitespace-nowrap text-[9px] block">
+                                                {pmInfo.startFmt}
+                                              </span>
+                                              {done && (
+                                                <span className="text-[8px] text-emerald-700 font-semibold mt-0.5 block break-words">
+                                                  Done: {pmInfo.doneText || (p.completedAt ? formatDate(p.completedAt) : 'Completed')}
+                                                </span>
+                                              )}
+                                            </div>
+                                          ) : (
+                                            <div>
+                                              <span className="font-medium text-slate-800 text-[9px] leading-snug break-words block select-text">
+                                                {pmInfo.text}
+                                              </span>
+                                              {done && (
+                                                <span className="text-[8px] text-emerald-700 font-semibold mt-0.5 block break-words">
+                                                  Done: {pmInfo.doneText || (p.completedAt ? formatDate(p.completedAt) : 'Completed')}
+                                                </span>
+                                              )}
+                                            </div>
+                                          )}
+                                        </div>
                                       </div>
-                                      <span className={`text-[8px] font-bold px-1 py-0.2 rounded whitespace-nowrap ${done
+                                      <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded whitespace-nowrap shrink-0 ${done
                                         ? 'text-emerald-700 bg-emerald-100/90'
                                         : isOverdue
                                           ? 'text-rose-700 bg-rose-100/90'
@@ -1374,7 +1702,11 @@ export default function ContractReports({ role }: ContractReportsProps) {
                             <td className="py-1 px-0.5 text-center">
                               <button
                                 type="button"
-                                onClick={() => router.push(`${getBaseRoute()}/contracts/${contract.id}?from=${encodeURIComponent(`${getBaseRoute()}/contracts/reports`)}`)}
+                                onClick={() => {
+                                  const currentQuery = typeof window !== 'undefined' ? window.location.search : '';
+                                  const returnUrl = `${getBaseRoute()}/contracts/reports${currentQuery}`;
+                                  router.push(`${getBaseRoute()}/contracts/${contract.id}?from=${encodeURIComponent(returnUrl)}`);
+                                }}
                                 className="p-1 rounded border border-slate-200 hover:bg-slate-100 hover:border-[#82A094] text-slate-500 hover:text-[#546A7A] transition-colors"
                                 title="Open Contract"
                               >

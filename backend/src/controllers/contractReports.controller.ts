@@ -50,7 +50,8 @@ const parseDateObj = (str: string): Date | null => {
 
 const getPMEndDate = (pmRange: string | null | undefined): Date | null => {
   if (!pmRange) return null;
-  const parts = pmRange.split(/\s+(?:TO|to|-)\s+/);
+  const cleaned = pmRange.split(/\s*\|\s*(?:Done:|done:)/i)[0].trim();
+  const parts = cleaned.split(/\s+(?:TO|to|-)\s+/);
   const endStr = parts.length >= 2 ? parts[parts.length - 1]?.trim() : parts[0]?.trim();
   return parseDateObj(endStr);
 };
@@ -70,14 +71,15 @@ const isRangeOverdue = (range: string | null | undefined): boolean => {
 // Helper to parse PM date range into start and end dates
 const parseRangeDates = (range: string | null | undefined): { startDate: string; endDate: string } => {
   if (!range) return { startDate: '—', endDate: '—' };
-  const parts = range.split(/\s+(?:TO|to|-)\s+/);
+  const cleaned = range.split(/\s*\|\s*(?:Done:|done:)/i)[0].trim();
+  const parts = cleaned.split(/\s+(?:TO|to|-)\s+/);
   if (parts.length >= 2) {
     return {
       startDate: parts[0]?.trim() || '—',
       endDate: parts[parts.length - 1]?.trim() || '—'
     };
   }
-  return { startDate: range.trim(), endDate: '—' };
+  return { startDate: cleaned || '—', endDate: '—' };
 };
 
 // Helper: Apply role-based zone filtering

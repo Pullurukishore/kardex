@@ -130,7 +130,20 @@ export default function ContractsDashboard({ role, view = 'list' }: ContractsDas
     const totalExpectedPMs = contracts.reduce((sum, c) => sum + c.pmSchedules.filter(p => p.status !== 'Not Applicable').length, 0);
     const pmCompletionRate = totalExpectedPMs > 0 ? Math.round((totalPMs / totalExpectedPMs) * 100) : 0;
     const totalBDs = contracts.reduce((sum, c) => sum + (c.bdCount === 999 ? 0 : c.bdCount), 0);
-    const totalMachines = contracts.reduce((sum, c) => sum + (c.noOfMachine || 0), 0);
+    const agreementMachineMap = new Map<string, number>();
+    contracts.forEach(c => {
+      const custKey = (c.customerName || '').toLowerCase().trim();
+      const placeKey = (c.place || '').toLowerCase().trim();
+      const poKey = (c.poNo || '').toLowerCase().trim();
+      const machCount = Number(c.noOfMachine) || 0;
+      const groupKey = poKey ? `${custKey}::${placeKey}::${poKey}` : `${custKey}::${placeKey}::${c.id}`;
+      agreementMachineMap.set(groupKey, Math.max(agreementMachineMap.get(groupKey) || 0, machCount));
+    });
+    let totalMachines = 0;
+    agreementMachineMap.forEach(count => { totalMachines += count; });
+    if (totalMachines === 0) {
+      totalMachines = contracts.reduce((sum, c) => sum + (c.noOfMachine || 0), 0);
+    }
     const avgContractValue = totalActive > 0 ? Math.round(totalAmount / totalActive) : 0;
 
     return {

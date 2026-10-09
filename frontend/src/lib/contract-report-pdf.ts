@@ -120,18 +120,21 @@ const parseDateObj = (str: string): Date | null => {
 
 const parseRangeDatesFormatted = (range: string | null | undefined): { startDate: string; endDate: string } => {
     if (!range) return { startDate: '—', endDate: '—' };
-    const parts = range.split(/\s+(?:TO|to|-)\s+/);
+    const raw = range.split(/\s*\|\s*(?:Done:|done:)/i)[0].trim();
+    const parts = raw.split(/\s+(?:TO|to)\s+|\s+-\s+/);
     if (parts.length >= 2) {
         const d1 = parseDateObj(parts[0]?.trim());
         const d2 = parseDateObj(parts[parts.length - 1]?.trim());
-        return {
-            startDate: d1 ? fmtDatePdf(d1.toISOString()) : (parts[0]?.trim() || '—'),
-            endDate: d2 ? fmtDatePdf(d2.toISOString()) : (parts[parts.length - 1]?.trim() || '—')
-        };
+        if (d1 && d2) {
+            return {
+                startDate: fmtDatePdf(d1.toISOString()),
+                endDate: fmtDatePdf(d2.toISOString())
+            };
+        }
     }
-    const d = parseDateObj(range.trim());
+    const d = parseDateObj(raw);
     return {
-        startDate: d ? fmtDatePdf(d.toISOString()) : range.trim(),
+        startDate: d ? fmtDatePdf(d.toISOString()) : raw,
         endDate: '—'
     };
 };
@@ -139,7 +142,8 @@ const parseRangeDatesFormatted = (range: string | null | undefined): { startDate
 // Extracts the PM visit end date from range string (e.g. "11/08/2026 TO 31/08/2026" -> 31/08/2026)
 const getPMEndDate = (pmRange: string | null | undefined): Date | null => {
     if (!pmRange) return null;
-    const parts = pmRange.split(/\s+(?:TO|to|-)\s+/);
+    const cleaned = pmRange.split(/\s*\|\s*(?:Done:|done:)/i)[0].trim();
+    const parts = cleaned.split(/\s+(?:TO|to|-)\s+/);
     const endStr = parts.length >= 2 ? parts[parts.length - 1]?.trim() : parts[0]?.trim();
     return parseDateObj(endStr);
 };
@@ -488,13 +492,21 @@ export async function generateContractReportPdf(
 
                 let pmDaysDueText = '—';
                 if (isDone) {
-                    pmDaysDueText = pm.completedAt ? `Completed\n(${fmtDatePdf(pm.completedAt)})` : 'Completed';
+                    const doneMatch = (pm.range || '').match(/\|\s*(?:Done:|done:)\s*(.+)$/i);
+                    const customDone = doneMatch ? doneMatch[1].trim() : '';
+                    if (customDone) {
+                        pmDaysDueText = `Completed\n(${customDone})`;
+                    } else {
+                        pmDaysDueText = pm.completedAt ? `Completed\n(${fmtDatePdf(pm.completedAt)})` : 'Completed';
+                    }
                 } else if (endObj) {
                     const days = Math.ceil((endObj.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
                     pmDaysDueText = days < 0 ? `${Math.abs(days)}d overdue` : (days === 0 ? 'Due today' : `Due in ${days}d`);
                 }
 
-                const rangeText = (pmStart !== '—' || pmEnd !== '—') ? `${pmStart} to ${pmEnd}` : (pm.range || '—');
+                const rangeText = (pmStart !== '—' && pmEnd !== '—')
+                    ? `${pmStart} to ${pmEnd}`
+                    : (pmStart !== '—' ? pmStart : (pm.range || '—'));
                 const statusSuffix = isDone ? 'Done' : 'Pending';
 
                 customerPmRows.push({

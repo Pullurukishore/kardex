@@ -302,12 +302,82 @@ export default function ContractsListPage({
   };
 
   // Helper date & formatting
-  const formatDateLabel = (isoStr: string) => {
+  const formatDateLabel = (isoStr: any) => {
     if (!isoStr) return '—';
-    const d = new Date(isoStr);
-    return isNaN(d.getTime())
-      ? '—'
-      : d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    if (isoStr instanceof Date) {
+      return !isNaN(isoStr.getTime())
+        ? isoStr.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+        : '—';
+    }
+    const str = String(isoStr).trim();
+    if (!str) return '—';
+    const d = new Date(str);
+    if (!isNaN(d.getTime()) && d.getFullYear() > 1990 && d.getFullYear() < 2100) {
+      return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
+    return str;
+  };
+
+  const getPMDisplayDetails = (pm: { range?: string | null; status?: string; completedAt?: string | Date | null }) => {
+    const rawRange = (pm.range || '').trim();
+    const isCompleted = pm.status === 'Completed';
+
+    let scheduleText = '';
+    let doneText = '';
+
+    if (/\s*\|\s*(?:Done:|done:)\s*/i.test(rawRange)) {
+      const parts = rawRange.split(/\s*\|\s*(?:Done:|done:)\s*/i);
+      scheduleText = parts[0]?.trim() || '';
+      doneText = parts.slice(1).join(' | ').trim();
+    } else if (rawRange.includes(' | ')) {
+      const parts = rawRange.split(/\s*\|\s*/);
+      scheduleText = parts[0]?.trim() || '';
+      const secondPart = parts.slice(1).join(' | ').trim();
+      if (/^(?:Done:|done:)\s*/i.test(secondPart)) {
+        doneText = secondPart.replace(/^(?:Done:|done:)\s*/i, '').trim();
+      } else if (isCompleted) {
+        doneText = secondPart;
+      } else {
+        scheduleText = rawRange;
+      }
+    } else if (/^(?:Done:|done:)\s*/i.test(rawRange)) {
+      scheduleText = '';
+      doneText = rawRange.replace(/^(?:Done:|done:)\s*/i, '').trim();
+    } else {
+      const isTwoDateRange = /\d{1,2}[./-]\d{1,2}[./-]\d{2,4}\s+(?:to|TO|-)\s+\d{1,2}[./-]\d{1,2}[./-]\d{2,4}/i.test(rawRange);
+      if (isTwoDateRange) {
+        scheduleText = rawRange;
+        if (isCompleted && pm.completedAt) {
+          doneText = formatDateLabel(pm.completedAt);
+        }
+      } else {
+        if (isCompleted) {
+          if (rawRange && rawRange.toLowerCase() !== 'completed') {
+            scheduleText = '';
+            doneText = rawRange;
+          } else if (pm.completedAt) {
+            scheduleText = '';
+            doneText = formatDateLabel(pm.completedAt);
+          }
+        } else {
+          scheduleText = rawRange;
+        }
+      }
+    }
+
+    if (isCompleted && !doneText) {
+      if (pm.completedAt) {
+        doneText = formatDateLabel(pm.completedAt);
+      } else {
+        doneText = 'Completed';
+      }
+    }
+
+    return {
+      scheduleText,
+      doneText,
+      isCompleted
+    };
   };
 
   const formatCurrency = (value: number) => {
@@ -413,13 +483,30 @@ export default function ContractsListPage({
 
     const pmRate = totalPMs > 0 ? Math.round((completedPMs / totalPMs) * 100) : 0;
 
-    // Excel MC List 2026 reconciliation:
-    // Cell H1 = 1,675 machines (Total Fleet)
-    // Cell H2 = 1,055 machines (100% Invoiced / Renewed)
-    // Cell H3 = 620 machines (50% Invoice / Balance)
-    const totalMachines = total === 692 ? 1675 : contracts.reduce((sum, c) => sum + (Number(c.noOfMachine) || 1), 0);
-    const invoicedMachines100 = total === 692 ? 1055 : Math.round(totalMachines * 0.63);
-    const invoiceMachines50 = total === 692 ? 620 : (totalMachines - invoicedMachines100);
+    // Calculate true unique machine fleet by deduplicating multi-year/multi-period agreements (Customer + Place + PO)
+    const agreementMachineMap = new Map<string, number>();
+    contracts.forEach(c => {
+      const custKey = (c.customerName || '').toLowerCase().trim();
+      const placeKey = (c.place || '').toLowerCase().trim();
+      const poKey = (c.poNo || '').toLowerCase().trim();
+      const machCount = Number(c.noOfMachine) || 0;
+
+      // Group multi-year / multi-period contracts under the same PO to avoid double-counting machines
+      const groupKey = poKey
+        ? `${custKey}::${placeKey}::${poKey}`
+        : `${custKey}::${placeKey}::${c.id || Math.random()}`;
+
+      agreementMachineMap.set(groupKey, Math.max(agreementMachineMap.get(groupKey) || 0, machCount));
+    });
+
+    let totalMachines = 0;
+    agreementMachineMap.forEach(count => {
+      totalMachines += count;
+    });
+
+    if (totalMachines === 0) {
+      totalMachines = contracts.reduce((sum, c) => sum + (Number(c.noOfMachine) || 0), 0);
+    }
 
     return {
       total,
@@ -430,9 +517,7 @@ export default function ContractsListPage({
       pmRate,
       completedPMs,
       totalPMs,
-      totalMachines,
-      invoicedMachines100,
-      invoiceMachines50
+      totalMachines
     };
   }, [contracts]);
 
@@ -692,8 +777,8 @@ export default function ContractsListPage({
           </div>
         </div>
 
-        {/* Bottom Row: Machine & Contract Stats Cards (Matches Excel Top Summary) */}
-        <div className="relative z-10 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 pt-2 border-t border-slate-100">
+        {/* Bottom Row: Machine & Contract Stats Cards */}
+        <div className="relative z-10 grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-slate-100">
           {/* Total Contracts */}
           <div
             onClick={() => { setQuickTab('all'); setCurrentPage(1); }}
@@ -703,35 +788,13 @@ export default function ContractsListPage({
             <span className="text-sm sm:text-base font-extrabold text-slate-900">{stats.total}</span>
           </div>
 
-          {/* Total Machines (Excel Cell H1: 1,675) */}
+          {/* Total Machines */}
           <div
             className="bg-blue-50/80 hover:bg-blue-100/80 transition-colors rounded-lg px-2.5 py-1.5 border border-blue-200 text-center flex items-center justify-between sm:flex-col sm:justify-center"
-            title="Total Machines covered across all contracts (Excel Cell H1: 1,675)"
+            title="Total Machines covered across all contracts"
           >
             <span className="text-blue-700 text-[10px] uppercase font-bold tracking-wider">Total M/c</span>
             <span className="text-sm sm:text-base font-extrabold text-blue-900">{stats.totalMachines.toLocaleString()}</span>
-          </div>
-
-          {/* 100% Inv Raised / Renewed (Excel Cell H2: 1,055) */}
-          <div
-            onClick={() => { setQuickTab('Active'); setCurrentPage(1); }}
-            className="bg-emerald-50/80 hover:bg-emerald-100/80 transition-colors cursor-pointer rounded-lg px-2.5 py-1.5 border border-emerald-200 text-center flex items-center justify-between sm:flex-col sm:justify-center"
-            title="100% Invoice Raised / Full Care Renewed (Excel Cell H2: 1,055 Machines)"
-          >
-            <span className="text-emerald-700 text-[10px] uppercase font-bold tracking-wider">100% Inv Raised</span>
-            <span className="text-sm sm:text-base font-extrabold text-emerald-800">{stats.invoicedMachines100.toLocaleString()}</span>
-          </div>
-
-          {/* 50% Invoice / Balance (Excel Cell H3: 620) */}
-          <div
-            onClick={() => { setQuickTab('Expired'); setCurrentPage(1); }}
-            className="bg-amber-50/90 hover:bg-amber-100 transition-colors cursor-pointer rounded-lg px-2.5 py-1.5 border border-amber-300 ring-2 ring-amber-400/20 text-center flex items-center justify-between sm:flex-col sm:justify-center"
-            title="50% Invoice / Balance Machines (Excel Cell H3: H1 - H2 = 620 Machines)"
-          >
-            <span className="text-amber-800 text-[10px] uppercase font-bold tracking-wider flex items-center justify-center gap-1">
-              <span>50% Invoice</span>
-            </span>
-            <span className="text-sm sm:text-base font-black text-amber-900">{stats.invoiceMachines50.toLocaleString()}</span>
           </div>
 
           {/* PM Rate */}
@@ -752,11 +815,11 @@ export default function ContractsListPage({
           </div>
         </div>
 
-        {/* Excel MC List Reconciliation Bar */}
+        {/* Fleet & Contract Status Reconciliation Bar */}
         <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-600">
           <div className="flex items-center gap-1.5">
             <span className="px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-700 font-extrabold text-[10px] uppercase tracking-wide">
-              Excel MC List Sync
+              Fleet Overview
             </span>
             <span>Total Fleet:</span>
             <strong className="text-slate-900 font-bold">{stats.totalMachines.toLocaleString()} Machines</strong>
@@ -764,20 +827,8 @@ export default function ContractsListPage({
           </div>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-500" />
-              <span>100% Invoiced:</span>
-              <strong className="text-emerald-700 font-bold">{stats.invoicedMachines100.toLocaleString()} M/c</strong>
-            </div>
-            <span className="text-slate-300">•</span>
-            <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-amber-500" />
-              <span>50% Invoice:</span>
-              <strong className="text-amber-800 font-bold bg-amber-100/80 px-1.5 py-0.5 rounded">{stats.invoiceMachines50.toLocaleString()} M/c</strong>
-            </div>
-            <span className="text-slate-300">•</span>
-            <div className="flex items-center gap-1.5">
               <span>Active Contracts:</span>
-              <strong className="text-slate-800 font-bold">{stats.active}</strong>
+              <strong className="text-emerald-700 font-bold">{stats.active}</strong>
               <span className="text-slate-400">({stats.expired} expired)</span>
             </div>
           </div>
@@ -1657,6 +1708,7 @@ export default function ContractsListPage({
             <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1">
               {pmModalContract?.pmSchedules?.map(pm => {
                 const isCompleted = pm.status === 'Completed';
+                const { scheduleText, doneText } = getPMDisplayDetails(pm);
                 const isNA = pm.status === 'Not Applicable';
                 const isUpdating = updatingPmId === pm.id;
 
@@ -1701,12 +1753,16 @@ export default function ContractsListPage({
                           </span>
                         )}
                       </div>
-                      <span className="font-mono text-[11px] text-slate-500 block">
-                        {pm.range || 'Scheduled Cycle'}
-                      </span>
-                      {isCompleted && pm.completedAt && (
-                        <span className="text-[10px] text-emerald-600 font-semibold block">
-                          Completed on: {formatDateLabel(pm.completedAt)}
+                      {scheduleText ? (
+                        <span className="font-mono text-[11px] text-slate-500 block truncate" title={scheduleText}>
+                          {scheduleText}
+                        </span>
+                      ) : !isCompleted ? (
+                        <span className="font-mono text-[11px] text-slate-400 block italic">Scheduled Cycle</span>
+                      ) : null}
+                      {isCompleted && (
+                        <span className="text-[10px] text-emerald-600 font-semibold block break-words" title={doneText}>
+                          Completed on: {doneText || 'Completed'}
                         </span>
                       )}
                     </div>

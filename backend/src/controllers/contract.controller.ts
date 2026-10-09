@@ -316,20 +316,26 @@ export const getContractById = async (req: any, res: Response) => {
 export const updatePMSchedule = async (req: any, res: Response) => {
   try {
     const { pmId } = req.params;
-    const { status, completedAt } = req.body;
+    const { status, completedAt, range } = req.body;
 
     if (!status || !['Completed', 'Pending'].includes(status)) {
       return res.status(400).json({ error: 'Invalid status value' });
     }
 
+    const dataToUpdate: any = {
+      status,
+      completedAt: status === 'Completed'
+        ? (completedAt ? new Date(completedAt) : new Date())
+        : null
+    };
+
+    if (range !== undefined) {
+      dataToUpdate.range = range;
+    }
+
     const updated = await db.contractPMSchedule.update({
       where: { id: Number(pmId) },
-      data: {
-        status,
-        completedAt: status === 'Completed'
-          ? (completedAt ? new Date(completedAt) : new Date())
-          : null
-      }
+      data: dataToUpdate
     });
 
     return res.status(200).json(updated);

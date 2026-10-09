@@ -31,6 +31,7 @@ router.post('/', createContract);
 router.put('/:id', updateContract);
 
 // Update status of specific PM schedule cycle
+router.patch('/pm/:pmId', updatePMSchedule);
 router.patch('/:id/pm/:pmId', updatePMSchedule);
 
 // Delete contract (cascades delete on PM cycles)
