@@ -201,13 +201,14 @@ export default function ContractDetails({ id, role, backUrl }: ContractDetailsPr
 
   const formatDateLabel = (isoStr: any) => {
     if (!isoStr) return '';
+    if (typeof isoStr === 'string' && (isoStr.includes('NaN') || isoStr === '—' || isoStr === '-')) return '';
     if (isoStr instanceof Date) {
       return !isNaN(isoStr.getTime())
         ? isoStr.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
         : '';
     }
     const str = String(isoStr).trim();
-    if (!str) return '';
+    if (!str || str.includes('NaN')) return '';
     const d = new Date(str);
     if (!isNaN(d.getTime()) && d.getFullYear() > 1990 && d.getFullYear() < 2100) {
       return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -216,7 +217,10 @@ export default function ContractDetails({ id, role, backUrl }: ContractDetailsPr
   };
 
   const getPMDisplayDetails = (pm: { range?: string | null; status?: string; completedAt?: string | Date | null }) => {
-    const rawRange = (pm.range || '').trim();
+    let rawRange = (pm.range || '').replace(/NaN-NaN-NaN/gi, '').replace(/NaN/gi, '').trim();
+    if (rawRange.startsWith('|')) rawRange = rawRange.replace(/^\|\s*/, '').trim();
+    if (rawRange.endsWith('|')) rawRange = rawRange.replace(/\s*\|$/, '').trim();
+
     const isCompleted = pm.status === 'Completed';
 
     let scheduleText = '';
@@ -261,6 +265,9 @@ export default function ContractDetails({ id, role, backUrl }: ContractDetailsPr
         }
       }
     }
+
+    if (scheduleText.includes('NaN')) scheduleText = '';
+    if (doneText.includes('NaN')) doneText = '';
 
     if (isCompleted && !doneText) {
       if (pm.completedAt) {
@@ -500,8 +507,8 @@ export default function ContractDetails({ id, role, backUrl }: ContractDetailsPr
                   <div
                     key={idx}
                     className={`p-4 rounded-2xl border flex justify-between items-center text-xs transition-all ${isCompleted
-                        ? 'bg-emerald-500/5 border-emerald-500/20 shadow-sm'
-                        : 'bg-white border-slate-100 shadow-sm hover:border-slate-200'
+                      ? 'bg-emerald-500/5 border-emerald-500/20 shadow-sm'
+                      : 'bg-white border-slate-100 shadow-sm hover:border-slate-200'
                       }`}
                   >
                     <div className="space-y-1 min-w-0 flex-1 mr-3">
@@ -510,9 +517,9 @@ export default function ContractDetails({ id, role, backUrl }: ContractDetailsPr
                       </span>
                       {scheduleText ? (
                         <span className="font-mono font-semibold text-slate-700 block truncate" title={scheduleText}>{scheduleText}</span>
-                      ) : !isCompleted ? (
-                        <span className="font-mono text-slate-400 text-xs block italic">Scheduled Cycle</span>
-                      ) : null}
+                      ) : (
+                        <span className="font-mono text-slate-400 text-xs block italic">No dates</span>
+                      )}
                       {isCompleted && (
                         <span className="text-[10px] font-bold text-emerald-600 block break-words" title={doneText}>
                           Done: {doneText || 'Completed'}
@@ -524,8 +531,8 @@ export default function ContractDetails({ id, role, backUrl }: ContractDetailsPr
                       type="button"
                       onClick={() => handleTogglePMStatus(pm.id, pm.status)}
                       className={`px-3 py-1.5 rounded-xl font-bold text-[10px] uppercase tracking-wider transition-all border shrink-0 ${isCompleted
-                          ? 'bg-emerald-500 text-white border-emerald-600 shadow-sm hover:bg-emerald-600'
-                          : 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 border-amber-500/20'
+                        ? 'bg-emerald-500 text-white border-emerald-600 shadow-sm hover:bg-emerald-600'
+                        : 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 border-amber-500/20'
                         }`}
                     >
                       {isCompleted ? '✓ Completed' : '• Pending'}

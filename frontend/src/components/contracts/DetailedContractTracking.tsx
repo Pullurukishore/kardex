@@ -174,9 +174,24 @@ const formatCurrencyCompact = (value: number | null) => {
 
 const formatDate = (val: string | null) => {
   if (!val) return '—';
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    const isoMatch = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (isoMatch) {
+      const year = isoMatch[1];
+      const mIdx = parseInt(isoMatch[2], 10) - 1;
+      const day = String(parseInt(isoMatch[3], 10)).padStart(2, '0');
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      if (mIdx >= 0 && mIdx < 12) {
+        return `${day} ${monthNames[mIdx]} ${year}`;
+      }
+    }
+  }
   const d = new Date(val);
   if (isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${day} ${monthNames[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 };
 
 const renderDateRange = (startDate: string | null, endDate: string | null) => {
@@ -516,7 +531,7 @@ export default function DetailedContractTracking({ role, basePath }: DetailedCon
     quickTab !== 'all';
 
   return (
-    <div className="space-y-4">
+    <div className="w-full space-y-4">
       {/* ─── COMPACT HERO HEADER BANNER (Light Theme) ─── */}
       <div className="relative overflow-hidden bg-white rounded-xl shadow-xs border border-slate-200/80 p-3 sm:p-4 space-y-3">
         {/* Top Row: Title on Left, Action Buttons on Right */}

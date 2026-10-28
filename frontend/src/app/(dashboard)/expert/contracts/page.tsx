@@ -4,7 +4,7 @@ import CustomerContractTracking from '@/components/contracts/CustomerContractTra
 
 export default function ExpertContractsPage() {
   return (
-    <div className="w-full p-4 sm:p-6 lg:p-8 animate-in fade-in duration-200">
+    <div className="w-full animate-in fade-in duration-200">
       <CustomerContractTracking role="Expert Helpdesk" />
     </div>
   );

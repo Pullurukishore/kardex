@@ -66,6 +66,8 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const workbookRef = useRef<ExcelJS.Workbook | null>(null);
+  const xlsxWorkbookRef = useRef<XLSX.WorkBook | null>(null);
+  const currentXlsxSheetRef = useRef<any>(null);
 
   // State
   const [loading, setLoading] = useState(false);
@@ -232,6 +234,7 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
   };
 
   const formatDateISO = (d: Date): string => {
+    if (!d || !(d instanceof Date) || isNaN(d.getTime())) return '';
     const year = d.getFullYear();
     const month = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).padStart(2, '0');
@@ -242,13 +245,13 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
   const parseExcelDate = (val: any): string => {
     if (!val) return '';
     if (val instanceof Date) {
-      return formatDateISO(val);
+      return !isNaN(val.getTime()) ? formatDateISO(val) : '';
     }
 
     // If Excel number serial format
     if (typeof val === 'number') {
       const date = new Date((val - 25569) * 86400 * 1000);
-      return formatDateISO(date);
+      return !isNaN(date.getTime()) ? formatDateISO(date) : '';
     }
 
     const str = String(val).trim();
@@ -309,12 +312,10 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
     return '';
   };
 
-  const parseCompletionDate = (val: any, rangeVal?: any, fallbackYear?: number): string => {
-    if (!val) {
-      return extractDateFromRange(rangeVal);
-    }
+  const parseCompletionDate = (val: any, fallbackYear?: number): string => {
+    if (!val) return '';
     if (val instanceof Date) {
-      return formatDateISO(val);
+      return !isNaN(val.getTime()) ? formatDateISO(val) : '';
     }
 
     if (typeof val === 'number') {
@@ -323,7 +324,9 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
     }
 
     const str = String(val).trim();
-    if (!str) return extractDateFromRange(rangeVal);
+    if (!str || str.toLowerCase() === 'nan-nan-nan' || str.includes('NaN')) {
+      return '';
+    }
 
     // Standardize common patterns (remove st, nd, rd, th, tth)
     const cleanStr = str.replace(/(\d+)(st|nd|rd|th|tth)/gi, '$1');
@@ -339,10 +342,10 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
       const day = parseInt(match1[1], 10);
       const mStr = match1[2].toLowerCase();
       let year = match1[3] ? parseInt(match1[3].replace(/\s+/g, ''), 10) : (fallbackYear || 2025);
-      if (year < 100) year = 2000 + year;
+      if (!isNaN(year) && year < 100) year = 2000 + year;
       const matchedKey = Object.keys(monthsMap).find(k => mStr.startsWith(k));
       const mNum = monthsMap[mStr] || (matchedKey ? monthsMap[matchedKey] : null);
-      if (mNum && day >= 1 && day <= 31) {
+      if (mNum && !isNaN(day) && day >= 1 && day <= 31 && !isNaN(year) && year > 2000) {
         return `${year}-${String(mNum).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
       }
     }
@@ -353,10 +356,10 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
       const mStr = match2[1].toLowerCase();
       const day = parseInt(match2[2], 10);
       let year = match2[3] ? parseInt(match2[3].replace(/\s+/g, ''), 10) : (fallbackYear || 2025);
-      if (year < 100) year = 2000 + year;
+      if (!isNaN(year) && year < 100) year = 2000 + year;
       const matchedKey = Object.keys(monthsMap).find(k => mStr.startsWith(k));
       const mNum = monthsMap[mStr] || (matchedKey ? monthsMap[matchedKey] : null);
-      if (mNum && day >= 1 && day <= 31) {
+      if (mNum && !isNaN(day) && day >= 1 && day <= 31 && !isNaN(year) && year > 2000) {
         return `${year}-${String(mNum).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
       }
     }
@@ -370,19 +373,49 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
       if (year.length === 2) {
         year = '20' + year;
       }
-      return `${year}-${month}-${day}`;
+      const parsedYear = parseInt(year, 10);
+      if (!isNaN(parsedYear) && parsedYear > 2000) {
+        return `${year}-${month}-${day}`;
+      }
     }
 
-    return extractDateFromRange(rangeVal);
+    return '';
   };
 
   const getCellCleanValue = (cell: any): any => {
     if (!cell) return '';
+
+    // SheetJS fallback for cells where ExcelJS corrupts text into Invalid Date or null due to numFmt on formula cells
+    const activeXlsxSheet = currentXlsxSheetRef.current;
+    if (activeXlsxSheet && cell.address && activeXlsxSheet[cell.address]) {
+      const xCell = activeXlsxSheet[cell.address];
+      const xVal = xCell.w !== undefined ? xCell.w : xCell.v;
+      
+      const val = cell.value;
+      if (val === null || val === undefined) {
+        if (xVal !== undefined && xVal !== null && xVal !== '') return xVal;
+        return '';
+      }
+      if (val && typeof val === 'object') {
+        if (val instanceof Date && isNaN(val.getTime())) {
+          return xVal !== undefined && xVal !== null ? xVal : '';
+        }
+        if ('result' in val) {
+          if (val.result === null || val.result === undefined || (val.result instanceof Date && isNaN(val.result.getTime()))) {
+            return xVal !== undefined && xVal !== null ? xVal : '';
+          }
+        }
+      }
+    }
+
     const val = cell.value;
     if (val === null || val === undefined) return '';
-    if (typeof val === 'object') {
-      if (val instanceof Date) return val;
-      if ('result' in val) return val.result;
+    if (val && typeof val === 'object') {
+      if (val instanceof Date) return isNaN(val.getTime()) ? '' : val;
+      if ('result' in val) {
+        if (val.result instanceof Date && isNaN(val.result.getTime())) return '';
+        return val.result;
+      }
       if ('text' in val) return val.text;
       if ('richText' in val && Array.isArray(val.richText)) {
         return val.richText.map((t: any) => t.text).join('');
@@ -649,6 +682,7 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
         toast.error(`Sheet "${sheetName}" not found in workbook.`);
         return;
       }
+      currentXlsxSheetRef.current = xlsxWorkbookRef.current?.Sheets?.[sheetName] || null;
 
       // Find header row index
       let headerRowIndex = -1;
@@ -876,8 +910,11 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
               dateValStr = (rawDateVal !== null && rawDateVal !== undefined) ? String(rawDateVal).trim() : '';
             }
 
-            const completionDate = parseCompletionDate(dateValStr || rawDateVal, pRange, startYear);
-            const textIndicatesDone = isCompletedText(dateValStr) || isCompletedText(pRange);
+            const cleanRange = pRange.trim();
+            const cleanDateVal = dateValStr.trim();
+
+            const completionDate = parseCompletionDate(dateValStr || rawDateVal, startYear);
+            const textIndicatesDone = isCompletedText(dateValStr) || (isCompletedText(cleanRange) && !cleanRange.includes(' to ') && !cleanRange.includes(' TO '));
 
             // BUSINESS RULE: IF GREEN COLOR OR COMPLETION DATE FOUND OR "DONE" TEXT -> COMPLETED
             const isCompleted = isGreen || Boolean(completionDate) || textIndicatesDone;
@@ -885,8 +922,6 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
 
             // Preserve full sentence/text from pRange and dateValStr (including text + date and notes)
             let finalRange = '';
-            const cleanRange = pRange.trim();
-            const cleanDateVal = dateValStr.trim();
 
             if (cleanRange && cleanDateVal) {
               if (/^(?:Done:|done:)/i.test(cleanDateVal)) {
@@ -915,12 +950,23 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
             }
 
             // Push PM schedule if any text/range exists OR if cell is completed/green
-            if (finalRange || isCompleted) {
+            let sanitizedRange = finalRange.replace(/NaN-NaN-NaN/gi, '').replace(/NaN/gi, '').trim();
+            if (sanitizedRange.startsWith('|')) sanitizedRange = sanitizedRange.replace(/^\|\s*/, '').trim();
+            if (sanitizedRange.endsWith('|')) sanitizedRange = sanitizedRange.replace(/\s*\|$/, '').trim();
+
+            if (sanitizedRange || isCompleted) {
               pmSchedules.push({
                 pmNumber: p,
-                range: finalRange,
+                range: sanitizedRange,
                 status: isCompleted ? 'Completed' : 'Pending',
                 completedAt: finalCompletedAt
+              });
+            } else {
+              pmSchedules.push({
+                pmNumber: p,
+                range: '',
+                status: 'Pending',
+                completedAt: null
               });
             }
           }
@@ -1010,6 +1056,12 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
       const buffer = await file.arrayBuffer();
       let workbook = new ExcelJS.Workbook();
       let isSharedWorkbook = false;
+
+      try {
+        xlsxWorkbookRef.current = XLSX.read(buffer, { type: 'array', cellDates: false });
+      } catch (xErr) {
+        console.warn('SheetJS read failed:', xErr);
+      }
 
       try {
         await workbook.xlsx.load(buffer);

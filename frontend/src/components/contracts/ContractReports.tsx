@@ -7,7 +7,7 @@ import {
   Building2, IndianRupee, ShieldCheck,
   TrendingUp, ChevronDown, ChevronUp,
   ArrowUpDown, ExternalLink, X,
-  Settings2, RefreshCw
+  Settings2, RefreshCw, User
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -81,7 +81,7 @@ interface ContractReportFilterState {
   search: string;
   zoneFilter: string;
   statusFilter: string;
-  techFilter: string;
+  techFilter: string[];
   pmFilter: string;
   mcTypeFilter: string;
   swFilter: string;
@@ -91,6 +91,11 @@ interface ContractReportFilterState {
   sortKey: SortKey;
   sortDir: SortDir;
 }
+
+const parseTechParam = (val: string | null | undefined): string[] => {
+  if (!val || val === 'all') return [];
+  return val.split(',').map(s => s.trim()).filter(Boolean);
+};
 
 const getDefaultContractDates = () => {
   const from = new Date().toISOString().slice(0, 10);
@@ -106,7 +111,7 @@ const getInitialContractFilters = (): ContractReportFilterState => {
     search: '',
     zoneFilter: 'all',
     statusFilter: 'all',
-    techFilter: 'all',
+    techFilter: [],
     pmFilter: 'all',
     mcTypeFilter: 'all',
     swFilter: 'all',
@@ -132,7 +137,7 @@ const getInitialContractFilters = (): ContractReportFilterState => {
         search: sp.get('q') || sp.get('search') || '',
         zoneFilter: sp.get('zone') || 'all',
         statusFilter: sp.get('status') || 'all',
-        techFilter: sp.get('tech') || 'all',
+        techFilter: parseTechParam(sp.get('tech')),
         pmFilter: sp.get('pm') || 'all',
         mcTypeFilter: sp.get('mcType') || 'all',
         swFilter: sp.get('sw') || 'all',
@@ -151,7 +156,9 @@ const getInitialContractFilters = (): ContractReportFilterState => {
         search: parsed.search ?? '',
         zoneFilter: parsed.zoneFilter ?? 'all',
         statusFilter: parsed.statusFilter ?? 'all',
-        techFilter: parsed.techFilter ?? 'all',
+        techFilter: Array.isArray(parsed.techFilter)
+          ? parsed.techFilter
+          : parseTechParam(parsed.techFilter),
         pmFilter: parsed.pmFilter ?? 'all',
         mcTypeFilter: parsed.mcTypeFilter ?? 'all',
         swFilter: parsed.swFilter ?? 'all',
@@ -180,7 +187,7 @@ const syncContractUrlAndStorage = (filters: ContractReportFilterState) => {
     if (filters.search) sp.set('q', filters.search);
     if (filters.zoneFilter && filters.zoneFilter !== 'all') sp.set('zone', filters.zoneFilter);
     if (filters.statusFilter && filters.statusFilter !== 'all') sp.set('status', filters.statusFilter);
-    if (filters.techFilter && filters.techFilter !== 'all') sp.set('tech', filters.techFilter);
+    if (filters.techFilter && filters.techFilter.length > 0) sp.set('tech', filters.techFilter.join(','));
     if (filters.pmFilter && filters.pmFilter !== 'all') sp.set('pm', filters.pmFilter);
     if (filters.mcTypeFilter && filters.mcTypeFilter !== 'all') sp.set('mcType', filters.mcTypeFilter);
     if (filters.swFilter && filters.swFilter !== 'all') sp.set('sw', filters.swFilter);
@@ -211,7 +218,10 @@ export default function ContractReports({ role }: ContractReportsProps) {
   const [search, setSearch] = useState(initialFilters.search);
   const [zoneFilter, setZoneFilter] = useState(initialFilters.zoneFilter);
   const [statusFilter, setStatusFilter] = useState(initialFilters.statusFilter);
-  const [techFilter, setTechFilter] = useState(initialFilters.techFilter);
+  const [techFilter, setTechFilter] = useState<string[]>(initialFilters.techFilter);
+  const [techDropdownOpen, setTechDropdownOpen] = useState(false);
+  const [techSearch, setTechSearch] = useState('');
+  const techDropdownRef = useRef<HTMLDivElement>(null);
   const [pmFilter, setPmFilter] = useState(initialFilters.pmFilter);
   const [mcTypeFilter, setMcTypeFilter] = useState(initialFilters.mcTypeFilter);
   const [swFilter, setSwFilter] = useState(initialFilters.swFilter);
@@ -257,6 +267,21 @@ export default function ContractReports({ role }: ContractReportsProps) {
   useEffect(() => {
     fetchContracts(initialFilters.dateFrom, initialFilters.dateTo, initialFilters.dateFilterBasis);
   }, []);
+
+  // Close tech dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (techDropdownRef.current && !techDropdownRef.current.contains(e.target as Node)) {
+        setTechDropdownOpen(false);
+      }
+    };
+    if (techDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [techDropdownOpen]);
 
   // Sync state to URL and sessionStorage (debounced for smooth search input)
   const isFirstMount = useRef(true);
@@ -444,9 +469,49 @@ export default function ContractReports({ role }: ContractReportsProps) {
     return true;
   };
 
-  // Checks if the PM visit ENDS between dateFrom and dateTo (strictly based on PM end date)
-  const isPMInRange = (pm: PMSchedule, dFrom?: string, dTo?: string): boolean => {
-    return isPMEndDateInRange(pm.range, dFrom, dTo);
+  const getPMDueDate = (pm: PMSchedule, contract?: Contract): Date | null => {
+    if (pm.range && !pm.range.includes('NaN')) {
+      const endObj = getPMEndDate(pm.range);
+      if (endObj) return endObj;
+    }
+    return null;
+  };
+
+  const isPMOverdue = (pm: PMSchedule, contract?: Contract): boolean => {
+    if (pm.status === 'Completed' || pm.status === 'Not Applicable') return false;
+    const dueDate = getPMDueDate(pm, contract);
+    if (!dueDate) return false;
+    dueDate.setHours(23, 59, 59, 999);
+    return dueDate < new Date();
+  };
+
+  // Checks if the PM visit interval overlaps with [dFrom, dTo]
+  const isPMInRange = (pm: PMSchedule, dFrom?: string, dTo?: string, contract?: Contract): boolean => {
+    if (!dFrom && !dTo) return true;
+    if (!pm.range || pm.range.includes('NaN')) return false;
+
+    const startObj = getPMStartDate(pm.range);
+    const endObj = getPMEndDate(pm.range) || startObj;
+    if (!startObj && !endObj) return false;
+
+    const effectiveStart = startObj || endObj!;
+    const effectiveEnd = endObj || startObj!;
+
+    if (dFrom) {
+      const fromObj = new Date(dFrom);
+      fromObj.setHours(0, 0, 0, 0);
+      // The PM visit must not have ended before the filter window starts
+      if (effectiveEnd < fromObj) return false;
+    }
+
+    if (dTo) {
+      const toObj = new Date(dTo);
+      toObj.setHours(23, 59, 59, 999);
+      // The PM visit must not start after the filter window ends
+      if (effectiveStart > toObj) return false;
+    }
+
+    return true;
   };
 
   const isRangeOverdue = (range: string): boolean => {
@@ -471,22 +536,24 @@ export default function ContractReports({ role }: ContractReportsProps) {
     return { startDate: range.trim(), endDate: '—' };
   };
 
-  const getPMStats = (pmSchedules: PMSchedule[], dFrom?: string, dTo?: string) => {
+  const getPMStats = (pmSchedules: PMSchedule[], dFrom?: string, dTo?: string, contract?: Contract) => {
     const applicable = (pmSchedules || []).filter(p => p.status !== 'Not Applicable');
     // Overdue is all uncompleted PMs whose scheduled due date has passed
-    const overdue = applicable.filter(p => p.status !== 'Completed' && p.range && isRangeOverdue(p.range)).length;
+    const overdue = applicable.filter(p => isPMOverdue(p, contract)).length;
 
     if (dFrom || dTo) {
-      const inRange = applicable.filter(p => isPMInRange(p, dFrom, dTo));
+      // In-range visits strictly within / overlapping the selected date range
+      const inRange = applicable.filter(p => isPMInRange(p, dFrom, dTo, contract));
       const completed = inRange.filter(p => p.status === 'Completed').length;
       const total = inRange.length;
       const pending = total - completed;
       const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+      const overdueInRange = inRange.filter(p => isPMOverdue(p, contract)).length;
       return {
         completed,
         total,
         pending,
-        overdue,
+        overdue: overdueInRange,
         pct
       };
     }
@@ -504,17 +571,48 @@ export default function ContractReports({ role }: ContractReportsProps) {
 
   const formatDate = (iso: string) => {
     if (!iso) return '—';
-    return new Date(iso).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    if (typeof iso === 'string') {
+      const trimmed = iso.trim();
+      const isoMatch = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+      if (isoMatch) {
+        const year = isoMatch[1];
+        const mIdx = parseInt(isoMatch[2], 10) - 1;
+        const day = String(parseInt(isoMatch[3], 10)).padStart(2, '0');
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        if (mIdx >= 0 && mIdx < 12) {
+          return `${day} ${monthNames[mIdx]} ${year}`;
+        }
+      }
+    }
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '—';
+    const day = String(d.getUTCDate()).padStart(2, '0');
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${day} ${monthNames[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
   };
 
   const formatPeriodDate = (iso: string) => {
     if (!iso) return '—';
     try {
+      if (typeof iso === 'string') {
+        const trimmed = iso.trim();
+        const isoMatch = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+        if (isoMatch) {
+          const year = isoMatch[1].slice(-2);
+          const mIdx = parseInt(isoMatch[2], 10) - 1;
+          const day = String(parseInt(isoMatch[3], 10)).padStart(2, '0');
+          const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+          if (mIdx >= 0 && mIdx < 12) {
+            return `${day} ${monthNames[mIdx]} '${year}`;
+          }
+        }
+      }
       const d = new Date(iso);
       if (isNaN(d.getTime())) return '—';
-      const day = String(d.getDate()).padStart(2, '0');
-      const month = d.toLocaleDateString('en-IN', { month: 'short' });
-      const year = String(d.getFullYear()).slice(-2);
+      const day = String(d.getUTCDate()).padStart(2, '0');
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const month = monthNames[d.getUTCMonth()];
+      const year = String(d.getUTCFullYear()).slice(-2);
       return `${day} ${month} '${year}`;
     } catch {
       return '—';
@@ -542,30 +640,43 @@ export default function ContractReports({ role }: ContractReportsProps) {
       /^[A-Za-z]{3,}\s+\d{1,2}(?:st|nd|rd|th)?[\s,]+\d{2,4}$/i.test(s);
   };
 
-  const getPMRangeDisplayInfo = (range: string | null | undefined) => {
-    if (!range) return { isTwoDates: false, isSingleDate: false, isText: false, text: '—', startFmt: '—', endFmt: '—', doneText: '' };
-    const raw = range.trim();
-
-    let schedulePart = raw;
+  const getPMRangeDisplayInfo = (range: string | null | undefined, pm?: PMSchedule, contract?: Contract) => {
+    let cleanText = range ? range.trim() : '';
     let doneText = '';
 
-    if (/\s*\|\s*(?:Done:|done:)\s*/i.test(raw)) {
-      const parts = raw.split(/\s*\|\s*(?:Done:|done:)\s*/i);
-      schedulePart = parts[0]?.trim() || '';
+    if (/\s*\|\s*(?:Done:|done:)\s*/i.test(cleanText)) {
+      const parts = cleanText.split(/\s*\|\s*(?:Done:|done:)\s*/i);
+      cleanText = parts[0]?.trim() || '';
       doneText = parts.slice(1).join(' | ').trim();
-    } else if (raw.includes(' | ')) {
-      const parts = raw.split(/\s*\|\s*/);
-      schedulePart = parts[0]?.trim() || '';
+    } else if (cleanText.includes(' | ')) {
+      const parts = cleanText.split(/\s*\|\s*/);
+      cleanText = parts[0]?.trim() || '';
       const secondPart = parts.slice(1).join(' | ').trim();
       if (/^(?:Done:|done:)\s*/i.test(secondPart)) {
         doneText = secondPart.replace(/^(?:Done:|done:)\s*/i, '').trim();
       } else {
         doneText = secondPart;
       }
-    } else if (/^(?:Done:|done:)\s*/i.test(raw)) {
-      schedulePart = '';
-      doneText = raw.replace(/^(?:Done:|done:)\s*/i, '').trim();
+    } else if (/^(?:Done:|done:)\s*/i.test(cleanText)) {
+      cleanText = '';
+      doneText = cleanText.replace(/^(?:Done:|done:)\s*/i, '').trim();
     }
+
+    if (cleanText.includes('NaN-NaN-NaN') || cleanText === 'NaN-NaN-NaN' || cleanText.includes('NaN')) {
+      cleanText = cleanText.replace(/NaN-NaN-NaN/gi, '').replace(/NaN/gi, '').trim();
+    }
+    if (cleanText.startsWith('|')) cleanText = cleanText.replace(/^\|\s*/, '').trim();
+    if (cleanText.endsWith('|')) cleanText = cleanText.replace(/\s*\|$/, '').trim();
+
+    if (!cleanText && !doneText) {
+      return { isTwoDates: false, isSingleDate: false, isText: true, text: 'No dates', startFmt: 'No dates', endFmt: '—', doneText: '' };
+    }
+    if (!cleanText && doneText) {
+      return { isTwoDates: false, isSingleDate: false, isText: true, text: 'No dates', startFmt: 'No dates', endFmt: '—', doneText };
+    }
+
+    const raw = cleanText;
+    let schedulePart = raw;
 
     const parts = schedulePart.split(/\s+(?:TO|to|-)\s+/);
     if (parts.length >= 2 && isPureDateStr(parts[0]) && isPureDateStr(parts[parts.length - 1])) {
@@ -596,7 +707,7 @@ export default function ContractReports({ role }: ContractReportsProps) {
       isText: true,
       startFmt: '',
       endFmt: '',
-      text: schedulePart || raw,
+      text: schedulePart || (doneText ? '' : '—'),
       doneText
     };
   };
@@ -632,6 +743,16 @@ export default function ContractReports({ role }: ContractReportsProps) {
     return Array.from(set).sort();
   }, [contracts]);
 
+  const engineerCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    contracts.forEach(c => {
+      normalizeEngineerNames(c.responsible).forEach(name => {
+        counts[name] = (counts[name] || 0) + 1;
+      });
+    });
+    return counts;
+  }, [contracts]);
+
   const uniqueMcTypes = useMemo(() => {
     const set = new Set(contracts.map(c => c.mcType).filter(Boolean));
     return Array.from(set).sort();
@@ -664,15 +785,14 @@ export default function ContractReports({ role }: ContractReportsProps) {
   const customerSummaries = useMemo(() => {
     let filtered = [...contracts];
 
-    // Date range filter on PM schedule dates AND/OR contract expiry
+    // Date range filter strictly on PM schedule dates (overlap)
     if (dateFrom || dateTo) {
       filtered = filtered.filter(c => {
-        // If user specifically filtered for overdue PMs, do NOT drop contracts that have overdue PMs
+        const applicablePMs = (c.pmSchedules || []).filter(p => p.status !== 'Not Applicable');
+
+        // If user specifically filtered for overdue PMs, require overdue PM
         if (pmFilter === 'overdue') {
-          const hasOverdue = (c.pmSchedules || []).some(
-            p => p.status !== 'Not Applicable' && p.status !== 'Completed' && p.range && isRangeOverdue(p.range)
-          );
-          if (hasOverdue) return true;
+          return applicablePMs.some(p => isPMOverdue(p, c));
         }
 
         // If user specifically filtered for Expired contracts, do NOT drop expired contracts
@@ -680,34 +800,8 @@ export default function ContractReports({ role }: ContractReportsProps) {
           return true;
         }
 
-        // 1. Check PM Visit match in range
-        const applicablePMs = (c.pmSchedules || []).filter(p => p.status !== 'Not Applicable');
-        const hasPMMatch = applicablePMs.some(p => isPMInRange(p, dateFrom, dateTo));
-
-        // 2. Check Contract Expiry match in range
-        let hasExpiryMatch = false;
-        if (c.endDate) {
-          const end = new Date(c.endDate);
-          if (!isNaN(end.getTime())) {
-            let fromOk = true;
-            let toOk = true;
-            if (dateFrom) {
-              const from = new Date(dateFrom);
-              from.setHours(0, 0, 0, 0);
-              fromOk = end >= from;
-            }
-            if (dateTo) {
-              const to = new Date(dateTo);
-              to.setHours(23, 59, 59, 999);
-              toOk = end <= to;
-            }
-            hasExpiryMatch = fromOk && toOk;
-          }
-        }
-
-        if (dateFilterBasis === 'pm') return hasPMMatch;
-        if (dateFilterBasis === 'expiry') return hasExpiryMatch;
-        return hasPMMatch || hasExpiryMatch; // 'both'
+        // Check if ANY PM visit overlaps with the filtered date range
+        return applicablePMs.some(p => isPMInRange(p, dateFrom, dateTo, c));
       });
     }
 
@@ -723,11 +817,11 @@ export default function ContractReports({ role }: ContractReportsProps) {
     }
     if (zoneFilter !== 'all') filtered = filtered.filter(c => c.zoneName === zoneFilter);
     if (statusFilter !== 'all') filtered = filtered.filter(c => c.status === statusFilter);
-    if (techFilter !== 'all') {
+    if (techFilter.length > 0) {
       filtered = filtered.filter(c => {
         if (!c.responsible) return false;
         const normalizedList = normalizeEngineerNames(c.responsible);
-        return normalizedList.includes(techFilter);
+        return techFilter.some(selected => normalizedList.includes(selected));
       });
     }
     if (mcTypeFilter !== 'all') filtered = filtered.filter(c => c.mcType === mcTypeFilter);
@@ -736,7 +830,7 @@ export default function ContractReports({ role }: ContractReportsProps) {
 
     if (pmFilter !== 'all') {
       filtered = filtered.filter(c => {
-        const { pct, overdue, pending } = getPMStats(c.pmSchedules, dateFrom, dateTo);
+        const { pct, overdue, pending } = getPMStats(c.pmSchedules, dateFrom, dateTo, c);
         if (pmFilter === 'pending') return pending > 0;
         if (pmFilter === 'completed') return pct === 100;
         if (pmFilter === 'on-track') return pct >= 50 && pct < 100;
@@ -779,7 +873,7 @@ export default function ContractReports({ role }: ContractReportsProps) {
       grouped[key].totalMachines += c.noOfMachine;
       if (c.softwareSupport) grouped[key].hasSoftwareSupport = true;
 
-      const stats = getPMStats(c.pmSchedules, dateFrom, dateTo);
+      const stats = getPMStats(c.pmSchedules, dateFrom, dateTo, c);
       grouped[key].pmCompleted += stats.completed;
       grouped[key].pmTotal += stats.total;
       grouped[key].pmOverdue += stats.overdue;
@@ -868,7 +962,7 @@ export default function ContractReports({ role }: ContractReportsProps) {
   const activeFilterCount = [
     zoneFilter !== 'all',
     statusFilter !== 'all',
-    techFilter !== 'all',
+    techFilter.length > 0,
     pmFilter !== 'all',
     mcTypeFilter !== 'all',
     swFilter !== 'all',
@@ -881,7 +975,7 @@ export default function ContractReports({ role }: ContractReportsProps) {
       const filters = {
         zone: zoneFilter !== 'all' ? zoneFilter : 'All',
         status: statusFilter !== 'all' ? statusFilter : 'All',
-        responsible: techFilter !== 'all' ? techFilter : 'All',
+        responsible: techFilter.length > 0 ? techFilter.join(', ') : 'All',
         mcType: mcTypeFilter !== 'all' ? mcTypeFilter : 'All',
         dateFrom,
         dateTo
@@ -906,7 +1000,7 @@ export default function ContractReports({ role }: ContractReportsProps) {
     setSearch('');
     setZoneFilter('all');
     setStatusFilter('all');
-    setTechFilter('all');
+    setTechFilter([]);
     setPmFilter('all');
     setMcTypeFilter('all');
     setSwFilter('all');
@@ -927,7 +1021,7 @@ export default function ContractReports({ role }: ContractReportsProps) {
   return (
     <div className="w-full space-y-4 print:space-y-3">
       {/* === REPORT GENERATION CONTROLS — Card Layout (Matches Annual Contract Reports) === */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden print:hidden">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm relative print:hidden">
         {/* Card Header — Title + Generate + Export Buttons */}
         <div className="px-6 py-5 border-b border-slate-100">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -1096,17 +1190,190 @@ export default function ContractReports({ role }: ContractReportsProps) {
               </select>
             </div>
 
-            {/* Responsible Engineer */}
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-600">Responsible Engineer</label>
-              <select
-                value={techFilter}
-                onChange={(e) => setTechFilter(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 font-medium"
+            {/* Responsible Engineer — Multi-Select */}
+            <div className={`space-y-1 relative ${techDropdownOpen ? 'z-40' : 'z-10'}`} ref={techDropdownRef}>
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-slate-600">Responsible Engineer</label>
+                {techFilter.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setTechFilter([]);
+                    }}
+                    className="text-[10px] text-[#546A7A] hover:text-rose-600 font-bold transition-colors"
+                  >
+                    Clear ({techFilter.length})
+                  </button>
+                )}
+              </div>
+
+              {/* Trigger Button */}
+              <button
+                type="button"
+                onClick={() => setTechDropdownOpen(prev => !prev)}
+                className={`w-full px-3 py-2 rounded-lg border text-sm bg-white flex items-center justify-between gap-2 text-left transition-all ${
+                  techDropdownOpen
+                    ? 'border-[#82A094] ring-2 ring-[#82A094]/30 shadow-sm'
+                    : techFilter.length > 0
+                      ? 'border-[#546A7A] bg-slate-50/50'
+                      : 'border-slate-200 hover:border-slate-300'
+                }`}
               >
-                <option value="all">All Engineers</option>
-                {uniqueTechnicians.map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
+                <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                  <User className={`w-3.5 h-3.5 flex-shrink-0 ${techFilter.length > 0 ? 'text-[#546A7A]' : 'text-slate-400'}`} />
+                  {techFilter.length === 0 ? (
+                    <span className="text-slate-700 font-medium truncate">All Engineers ({uniqueTechnicians.length})</span>
+                  ) : techFilter.length === 1 ? (
+                    <span className="font-bold text-slate-900 truncate">
+                      {formatEngineerDisplayName(techFilter[0])}
+                    </span>
+                  ) : (
+                    <div className="flex items-center gap-1 min-w-0">
+                      <span className="font-extrabold text-[#546A7A] text-xs bg-[#546A7A]/10 px-1.5 py-0.5 rounded flex-shrink-0">
+                        {techFilter.length} Selected
+                      </span>
+                      <span className="text-slate-600 text-xs font-medium truncate">
+                        {formatEngineerDisplayName(techFilter[0])}, +{techFilter.length - 1}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  {techFilter.length > 0 && (
+                    <span
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setTechFilter([]);
+                      }}
+                      className="p-0.5 text-slate-400 hover:text-rose-600 rounded transition-colors"
+                      title="Clear selection"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </span>
+                  )}
+                  {techDropdownOpen ? (
+                    <ChevronUp className="w-4 h-4 text-slate-400" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-slate-400" />
+                  )}
+                </div>
+              </button>
+
+              {/* Popover Dropdown */}
+              {techDropdownOpen && (
+                <div className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-white rounded-xl border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-100 min-w-[280px]">
+                  {/* Search inside dropdown */}
+                  <div className="p-2 border-b border-slate-100 bg-slate-50/70">
+                    <div className="relative">
+                      <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="Search engineers..."
+                        value={techSearch}
+                        onChange={(e) => setTechSearch(e.target.value)}
+                        className="w-full pl-8 pr-7 py-1.5 text-xs bg-white border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#82A094]"
+                        autoFocus
+                      />
+                      {techSearch && (
+                        <button
+                          type="button"
+                          onClick={() => setTechSearch('')}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Action Bar: Select All / Clear All at once */}
+                    <div className="flex items-center justify-between pt-2 px-1 text-[11px]">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const filtered = uniqueTechnicians.filter(t =>
+                              t.toLowerCase().includes(techSearch.toLowerCase())
+                            );
+                            setTechFilter(Array.from(new Set([...techFilter, ...filtered])));
+                          }}
+                          className="font-bold text-[#546A7A] hover:underline"
+                        >
+                          Select All
+                        </button>
+                        <span className="text-slate-300">•</span>
+                        <button
+                          type="button"
+                          onClick={() => setTechFilter([])}
+                          className="font-semibold text-slate-500 hover:text-rose-600"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                      <span className="text-slate-400 font-bold">
+                        {techFilter.length}/{uniqueTechnicians.length}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* List of Engineers with Checkboxes */}
+                  <div className="max-h-56 overflow-y-auto p-1.5 space-y-0.5 divide-y divide-slate-50">
+                    {uniqueTechnicians
+                      .filter(t => t.toLowerCase().includes(techSearch.toLowerCase()))
+                      .map(t => {
+                        const isChecked = techFilter.includes(t);
+                        const count = engineerCounts[t] || 0;
+                        return (
+                          <div
+                            key={t}
+                            onClick={() => {
+                              setTechFilter(prev =>
+                                prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t]
+                              );
+                            }}
+                            className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg cursor-pointer text-xs transition-colors select-none ${
+                              isChecked ? 'bg-[#546A7A]/10 font-bold text-[#546A7A]' : 'hover:bg-slate-50 text-slate-700'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => {}}
+                                className="w-3.5 h-3.5 rounded border-slate-300 text-[#546A7A] focus:ring-[#82A094]/30 pointer-events-none"
+                              />
+                              <span className="truncate" title={t}>
+                                {formatEngineerDisplayName(t)}
+                              </span>
+                            </div>
+                            <span className="text-[10px] font-mono text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded ml-2 flex-shrink-0">
+                              {count}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    {uniqueTechnicians.filter(t => t.toLowerCase().includes(techSearch.toLowerCase())).length === 0 && (
+                      <div className="py-6 text-center text-xs text-slate-400">
+                        No engineers match &quot;{techSearch}&quot;
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Footer */}
+                  <div className="p-2 border-t border-slate-100 bg-slate-50/70 flex items-center justify-between">
+                    <span className="text-[11px] text-slate-500 font-medium">
+                      {techFilter.length === 0 ? 'Showing all engineers' : `${techFilter.length} engineer(s) filtered`}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setTechDropdownOpen(false)}
+                      className="px-2.5 py-1 rounded bg-[#546A7A] hover:bg-[#435562] text-white text-[11px] font-bold shadow-xs transition-colors"
+                    >
+                      Done
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Machine Type */}
@@ -1157,13 +1424,30 @@ export default function ContractReports({ role }: ContractReportsProps) {
 
           {/* Reset Controls & Active Filter Badges */}
           <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 flex-wrap">
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-1.5 flex-wrap">
               {activeFilterCount > 0 && (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#546A7A]/10 text-[#546A7A] text-xs font-semibold">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#546A7A]" />
                   {activeFilterCount} active filter{activeFilterCount > 1 ? 's' : ''}
                 </span>
               )}
+              {techFilter.map(eng => (
+                <span
+                  key={eng}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#82A094]/15 border border-[#82A094]/30 text-slate-800 text-[11px] font-semibold"
+                >
+                  <User className="w-3 h-3 text-[#546A7A]" />
+                  <span>{formatEngineerDisplayName(eng)}</span>
+                  <button
+                    type="button"
+                    onClick={() => setTechFilter(prev => prev.filter(t => t !== eng))}
+                    className="text-slate-400 hover:text-rose-600 p-0.5 transition-colors"
+                    title={`Remove ${eng}`}
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              ))}
             </div>
 
             <button
@@ -1280,98 +1564,126 @@ export default function ContractReports({ role }: ContractReportsProps) {
               <div className="w-10 h-10 border-4 border-[#82A094] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
               <p className="text-slate-500 text-sm font-semibold">Loading contract analytics...</p>
             </div>
-          ) : customerSummaries.length === 0 ? (
-            <div className="bg-white rounded-xl border border-slate-200 p-16 text-center shadow-sm space-y-3">
-              <Building2 className="w-12 h-12 text-slate-300 mx-auto" />
-              <p className="text-slate-500 text-sm font-medium">No contracts match current filters.</p>
-              <button
-                type="button"
-                onClick={resetAllFilters}
-                className="px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors"
-              >
-                Reset All Filters
-              </button>
-            </div>
-          ) : (() => {
-            const flatContracts = customerSummaries.flatMap(cs =>
-              cs.contracts.map(c => ({ ...c, _customer: cs }))
-            );
+          ) : (
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden w-full">
+              {/* Always visible toolbar so user can switch PM filters (All, Only Pending, Overdue, Done) even if current selection has 0 records */}
+              <div className="px-4 py-2.5 bg-slate-50/80 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 w-full">
+                <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-slate-400 text-white text-[11px] font-bold">
+                    {customerSummaries.length === 0 ? 0 : customerSummaries.flatMap(cs => cs.contracts).length}
+                  </span>
+                  <span className="font-semibold text-slate-700">Contracts</span>
+                  <span className="text-slate-300 font-bold">&bull;</span>
+                  <span>
+                    <strong className="text-slate-800">{customerSummaries.length}</strong> Customers
+                  </span>
+                  <span className="text-slate-300 font-bold">&bull;</span>
+                  <span>
+                    <strong className="text-slate-800">{selectedSummary.totalMachines}</strong> Machines
+                  </span>
+                  {techFilter.length > 0 && (
+                    <>
+                      <span className="text-slate-300 font-bold">&bull;</span>
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#546A7A] bg-[#546A7A]/10 px-2 py-0.5 rounded-full">
+                        <User className="w-3 h-3" />
+                        <span>
+                          {techFilter.length === 1
+                            ? formatEngineerDisplayName(techFilter[0])
+                            : `${techFilter.length} Engineers`}
+                        </span>
+                      </span>
+                    </>
+                  )}
+                </div>
 
-            return (
-              <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden w-full">
-                {/* Table Toolbar */}
-                <div className="px-4 py-2.5 bg-slate-50/80 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 w-full">
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#546A7A] text-white text-[11px] font-bold">
-                      {flatContracts.length}
-                    </span>
-                    <span className="font-semibold text-slate-700">Contracts</span>
-                    <span className="text-slate-300 font-bold">&bull;</span>
-                    <span>
-                      <strong className="text-slate-800">{customerSummaries.length}</strong> Customers
-                    </span>
-                    <span className="text-slate-300 font-bold">&bull;</span>
-                    <span>
-                      <strong className="text-slate-800">{selectedSummary.totalMachines}</strong> Machines
-                    </span>
-                    <span className="text-slate-300 font-bold">&bull;</span>
-                    <span>
-                      Value: <strong className="text-slate-900">{formatCurrency(selectedSummary.totalValue)}</strong>
-                    </span>
-                  </div>
+                {/* Quick PM Status Filters */}
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <span className="text-[11px] font-semibold text-slate-500 mr-1 hidden md:inline">PM:</span>
+                  <button
+                    type="button"
+                    onClick={() => setPmFilter('all')}
+                    className={`px-2 py-1 rounded-md text-[11px] font-bold transition-all ${pmFilter === 'all'
+                      ? 'bg-[#546A7A] text-white shadow-sm'
+                      : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
+                      }`}
+                  >
+                    All PMs
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPmFilter(pmFilter === 'pending' ? 'all' : 'pending')}
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1 ${pmFilter === 'pending'
+                      ? 'bg-amber-500 text-white shadow-sm ring-2 ring-amber-400/50'
+                      : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-amber-400'
+                      }`}
+                  >
+                    <Clock className="w-3 h-3 text-amber-500" />
+                    <span>Only Pending</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPmFilter(pmFilter === 'overdue' ? 'all' : 'overdue')}
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1 ${pmFilter === 'overdue'
+                      ? 'bg-rose-600 text-white shadow-sm ring-2 ring-rose-400/50'
+                      : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-rose-400'
+                      }`}
+                  >
+                    <AlertTriangle className="w-3 h-3 text-rose-500" />
+                    <span>Overdue</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPmFilter(pmFilter === 'completed' ? 'all' : 'completed')}
+                    className={`px-2 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1 ${pmFilter === 'completed'
+                      ? 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-400/50'
+                      : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-emerald-400'
+                      }`}
+                  >
+                    <CheckCircle className="w-3 h-3 text-emerald-500" />
+                    <span>Done</span>
+                  </button>
+                </div>
+              </div>
 
-                  {/* Quick PM Status Filters */}
-                  <div className="flex items-center gap-1.5 flex-shrink-0">
-                    <span className="text-[11px] font-semibold text-slate-500 mr-1 hidden md:inline">PM:</span>
+              {customerSummaries.length === 0 ? (
+                <div className="p-16 text-center space-y-3">
+                  <Building2 className="w-12 h-12 text-slate-300 mx-auto" />
+                  <p className="text-slate-700 text-sm font-bold">
+                    {pmFilter === 'pending' && 'No pending PMs found in this date range.'}
+                    {pmFilter === 'overdue' && 'No overdue PMs found in this date range.'}
+                    {pmFilter === 'completed' && 'No completed PMs found in this date range.'}
+                    {pmFilter === 'all' && 'No contracts match current filters.'}
+                  </p>
+                  <p className="text-slate-400 text-xs">
+                    Switch between the PM buttons above (<strong>All PMs</strong>, <strong>Done</strong>) or reset filters below:
+                  </p>
+                  <div className="flex items-center justify-center gap-2 pt-2">
+                    {pmFilter !== 'all' && (
+                      <button
+                        type="button"
+                        onClick={() => setPmFilter('all')}
+                        className="px-4 py-2 rounded-lg bg-[#546A7A] hover:bg-[#435562] text-white text-xs font-bold transition-colors shadow-sm"
+                      >
+                        Show All PMs
+                      </button>
+                    )}
                     <button
                       type="button"
-                      onClick={() => setPmFilter('all')}
-                      className={`px-2 py-1 rounded-md text-[11px] font-bold transition-all ${pmFilter === 'all'
-                        ? 'bg-[#546A7A] text-white shadow-sm'
-                        : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
-                        }`}
+                      onClick={resetAllFilters}
+                      className="px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors"
                     >
-                      All PMs
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPmFilter(pmFilter === 'pending' ? 'all' : 'pending')}
-                      className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1 ${pmFilter === 'pending'
-                        ? 'bg-amber-500 text-white shadow-sm ring-2 ring-amber-400/50'
-                        : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-amber-400'
-                        }`}
-                    >
-                      <Clock className="w-3 h-3 text-amber-500" />
-                      <span>Only Pending</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPmFilter(pmFilter === 'overdue' ? 'all' : 'overdue')}
-                      className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1 ${pmFilter === 'overdue'
-                        ? 'bg-rose-600 text-white shadow-sm ring-2 ring-rose-400/50'
-                        : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-rose-400'
-                        }`}
-                    >
-                      <AlertTriangle className="w-3 h-3 text-rose-500" />
-                      <span>Overdue</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPmFilter(pmFilter === 'completed' ? 'all' : 'completed')}
-                      className={`px-2 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1 ${pmFilter === 'completed'
-                        ? 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-400/50'
-                        : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-emerald-400'
-                        }`}
-                    >
-                      <CheckCircle className="w-3 h-3 text-emerald-500" />
-                      <span>Done</span>
+                      Reset All Filters
                     </button>
                   </div>
                 </div>
+              ) : (() => {
+                const flatContracts = customerSummaries.flatMap(cs =>
+                  cs.contracts.map(c => ({ ...c, _customer: cs }))
+                );
 
-                {/* Flat Detailed Table */}
-                {/* Flat Detailed Table - Single View (No Side Scroll) */}
-                <div className="w-full overflow-x-auto">
+                return (
+                  /* Flat Detailed Table - Single View (No Side Scroll) */
+                  <div className="w-full overflow-x-auto">
                   <table className="w-full text-left border-collapse table-auto">
                     <thead>
                       <tr className="bg-[#546A7A] text-white text-[10px] font-bold uppercase tracking-wider select-none border-b border-[#435562]">
@@ -1437,7 +1749,7 @@ export default function ContractReports({ role }: ContractReportsProps) {
                         const perPmVal = totalContractVisits > 0 ? Math.round(Number(contract.amount || 0) / totalContractVisits) : Number(contract.amount || 0);
 
                         let displayedPMs = (dateFrom || dateTo)
-                          ? applicablePMs.filter(p => isPMInRange(p, dateFrom, dateTo) || (p.status !== 'Completed' && p.range && isRangeOverdue(p.range)))
+                          ? applicablePMs.filter(p => isPMInRange(p, dateFrom, dateTo, contract))
                           : applicablePMs;
 
                         if (pmFilter === 'pending') {
@@ -1445,7 +1757,7 @@ export default function ContractReports({ role }: ContractReportsProps) {
                         } else if (pmFilter === 'completed') {
                           displayedPMs = displayedPMs.filter(p => p.status === 'Completed');
                         } else if (pmFilter === 'overdue') {
-                          displayedPMs = applicablePMs.filter(p => p.status !== 'Completed' && p.range && isRangeOverdue(p.range));
+                          displayedPMs = applicablePMs.filter(p => isPMOverdue(p, contract));
                         }
 
                         return (
@@ -1582,8 +1894,8 @@ export default function ContractReports({ role }: ContractReportsProps) {
                               <div className="flex flex-col gap-1 py-0.5">
                                 {displayedPMs.map((p, pidx) => {
                                   const done = p.status === 'Completed';
-                                  const isOverdue = !done && p.range && isRangeOverdue(p.range);
-                                  const pmInfo = getPMRangeDisplayInfo(p.range);
+                                  const isOverdue = !done && isPMOverdue(p, contract);
+                                  const pmInfo = getPMRangeDisplayInfo(p.range, p, contract);
                                   return (
                                     <div
                                       key={pidx}
@@ -1747,11 +2059,13 @@ export default function ContractReports({ role }: ContractReportsProps) {
                     </tfoot>
                   </table>
                 </div>
-              </div>
-            );
-          })()}
-        </>
-      )}
-    </div>
-  );
+              );
+            })()}
+          </div>
+        )}
+      </>
+    )}
+  </div>
+);
 }
+

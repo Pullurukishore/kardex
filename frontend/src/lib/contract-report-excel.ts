@@ -353,7 +353,7 @@ export async function generateContractReportExcel(
             const formatExcelPM = (p: PMSchedule) => {
                 const isDone = p.status === 'Completed';
                 const statusLabel = isDone ? 'Done' : 'Pending';
-                const rangeText = p.range ? p.range.trim() : 'Scheduled';
+                const rangeText = (p.range && !p.range.includes('NaN') && p.range.trim()) ? p.range.trim() : 'No dates';
                 return `PM ${p.pmNumber}: ${rangeText} (${statusLabel})`;
             };
 

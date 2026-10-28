@@ -215,13 +215,14 @@ export default function CustomerContractTracking({ role }: CustomerContractTrack
   // Format date
   const formatDateLabel = (isoStr: any) => {
     if (!isoStr) return '—';
+    if (typeof isoStr === 'string' && (isoStr.includes('NaN') || isoStr === '—' || isoStr === '-')) return '—';
     if (isoStr instanceof Date) {
       return !isNaN(isoStr.getTime())
         ? isoStr.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
         : '—';
     }
     const str = String(isoStr).trim();
-    if (!str) return '—';
+    if (!str || str.includes('NaN')) return '—';
     const d = new Date(str);
     if (!isNaN(d.getTime()) && d.getFullYear() > 1990 && d.getFullYear() < 2100) {
       return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -230,7 +231,10 @@ export default function CustomerContractTracking({ role }: CustomerContractTrack
   };
 
   const getPMDisplayDetails = (pm: { range?: string | null; status?: string; completedAt?: string | Date | null }) => {
-    const rawRange = (pm.range || '').trim();
+    let rawRange = (pm.range || '').replace(/NaN-NaN-NaN/gi, '').replace(/NaN/gi, '').trim();
+    if (rawRange.startsWith('|')) rawRange = rawRange.replace(/^\|\s*/, '').trim();
+    if (rawRange.endsWith('|')) rawRange = rawRange.replace(/\s*\|$/, '').trim();
+
     const isCompleted = pm.status === 'Completed';
 
     let scheduleText = '';
@@ -275,6 +279,9 @@ export default function CustomerContractTracking({ role }: CustomerContractTrack
         }
       }
     }
+
+    if (scheduleText.includes('NaN')) scheduleText = '';
+    if (doneText.includes('NaN')) doneText = '';
 
     if (isCompleted && !doneText) {
       if (pm.completedAt) {
@@ -606,9 +613,9 @@ export default function CustomerContractTracking({ role }: CustomerContractTrack
                                 </span>
                                 {scheduleText ? (
                                   <span className="font-mono font-semibold text-slate-600 text-[10px] block truncate" title={scheduleText}>{scheduleText}</span>
-                                ) : !isCompleted ? (
-                                  <span className="font-mono text-slate-400 text-[10px] block italic">Scheduled Cycle</span>
-                                ) : null}
+                                ) : (
+                                  <span className="font-mono text-slate-400 text-[10px] block italic">No dates</span>
+                                )}
                                 {isCompleted && (
                                   <span className="block text-[9px] text-emerald-600 font-semibold mt-0.5 break-words" title={doneText}>
                                     Done: {doneText || 'Completed'}
@@ -669,7 +676,7 @@ export default function CustomerContractTracking({ role }: CustomerContractTrack
 
   // ─── LIST VIEW ──────────────────────────────────────────
   return (
-    <div className="space-y-6">
+    <div className="w-full space-y-4">
       {/* Header Banner */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#546A7A] via-[#6F8A9D] to-[#3d4f5c] p-6 text-white shadow-xl">
         <div className="absolute top-0 right-0 -mt-10 -mr-10 w-40 h-40 bg-[#82A094]/25 rounded-full blur-3xl" />

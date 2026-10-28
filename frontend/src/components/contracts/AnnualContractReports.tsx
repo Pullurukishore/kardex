@@ -110,9 +110,24 @@ const formatCurrency = (val: number | null | undefined) => {
 
 const formatDate = (val: string | null | undefined) => {
   if (!val) return '—';
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    const isoMatch = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (isoMatch) {
+      const year = isoMatch[1];
+      const mIdx = parseInt(isoMatch[2], 10) - 1;
+      const day = String(parseInt(isoMatch[3], 10)).padStart(2, '0');
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      if (mIdx >= 0 && mIdx < 12) {
+        return `${day} ${monthNames[mIdx]} ${year}`;
+      }
+    }
+  }
   const d = new Date(val);
   if (isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${day} ${monthNames[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 };
 
 const renderDateRange = (startDate: string | null | undefined, endDate: string | null | undefined) => {
@@ -292,7 +307,7 @@ interface AnnualReportFilterState {
   classFilter: string;
   contractTypeFilter: string;
   unitTypeFilter: string;
-  techFilter: string;
+  techFilter: string[];
   departmentFilter: string;
   expiryFilter: string;
   dateFrom: string;
@@ -300,6 +315,11 @@ interface AnnualReportFilterState {
   sortKey: SortKey;
   sortDir: SortDir;
 }
+
+const parseAnnualTechParam = (val: string | null | undefined): string[] => {
+  if (!val || val === 'all') return [];
+  return val.split(',').map(s => s.trim()).filter(Boolean);
+};
 
 const getDefaultAnnualDates = () => {
   const from = new Date().toISOString().slice(0, 10);
@@ -317,7 +337,7 @@ const getInitialAnnualFilters = (): AnnualReportFilterState => {
     classFilter: 'all',
     contractTypeFilter: 'all',
     unitTypeFilter: 'all',
-    techFilter: 'all',
+    techFilter: [],
     departmentFilter: 'all',
     expiryFilter: 'all',
     dateFrom: defaultDates.from,
@@ -343,7 +363,7 @@ const getInitialAnnualFilters = (): AnnualReportFilterState => {
         classFilter: sp.get('class') || sp.get('customerClass') || 'all',
         contractTypeFilter: sp.get('contractType') || 'all',
         unitTypeFilter: sp.get('unitType') || 'all',
-        techFilter: sp.get('tech') || sp.get('engineer') || 'all',
+        techFilter: parseAnnualTechParam(sp.get('tech') || sp.get('engineer')),
         departmentFilter: sp.get('dept') || sp.get('department') || 'all',
         expiryFilter: sp.get('expiry') || 'all',
         dateFrom: sp.has('dateFrom') ? (sp.get('dateFrom') || '') : defaultDates.from,
@@ -362,7 +382,9 @@ const getInitialAnnualFilters = (): AnnualReportFilterState => {
         classFilter: parsed.classFilter ?? 'all',
         contractTypeFilter: parsed.contractTypeFilter ?? 'all',
         unitTypeFilter: parsed.unitTypeFilter ?? 'all',
-        techFilter: parsed.techFilter ?? 'all',
+        techFilter: Array.isArray(parsed.techFilter)
+          ? parsed.techFilter
+          : parseAnnualTechParam(parsed.techFilter),
         departmentFilter: parsed.departmentFilter ?? 'all',
         expiryFilter: parsed.expiryFilter ?? 'all',
         dateFrom: parsed.dateFrom ?? defaultDates.from,
@@ -391,7 +413,7 @@ const syncAnnualUrlAndStorage = (filters: AnnualReportFilterState) => {
     if (filters.classFilter && filters.classFilter !== 'all') sp.set('class', filters.classFilter);
     if (filters.contractTypeFilter && filters.contractTypeFilter !== 'all') sp.set('contractType', filters.contractTypeFilter);
     if (filters.unitTypeFilter && filters.unitTypeFilter !== 'all') sp.set('unitType', filters.unitTypeFilter);
-    if (filters.techFilter && filters.techFilter !== 'all') sp.set('tech', filters.techFilter);
+    if (filters.techFilter && filters.techFilter.length > 0) sp.set('tech', filters.techFilter.join(','));
     if (filters.departmentFilter && filters.departmentFilter !== 'all') sp.set('dept', filters.departmentFilter);
     if (filters.expiryFilter && filters.expiryFilter !== 'all') sp.set('expiry', filters.expiryFilter);
     if (filters.dateFrom && filters.dateFrom !== defaultDates.from) sp.set('dateFrom', filters.dateFrom);
@@ -423,7 +445,10 @@ export default function AnnualContractReports({ role }: AnnualContractReportsPro
   const [classFilter, setClassFilter] = useState(initialFilters.classFilter);
   const [contractTypeFilter, setContractTypeFilter] = useState(initialFilters.contractTypeFilter);
   const [unitTypeFilter, setUnitTypeFilter] = useState(initialFilters.unitTypeFilter);
-  const [techFilter, setTechFilter] = useState(initialFilters.techFilter);
+  const [techFilter, setTechFilter] = useState<string[]>(initialFilters.techFilter);
+  const [techDropdownOpen, setTechDropdownOpen] = useState(false);
+  const [techSearch, setTechSearch] = useState('');
+  const techDropdownRef = useRef<HTMLDivElement>(null);
   const [departmentFilter, setDepartmentFilter] = useState(initialFilters.departmentFilter);
   const [expiryFilter, setExpiryFilter] = useState(initialFilters.expiryFilter);
   const [dateFrom, setDateFrom] = useState(initialFilters.dateFrom);
@@ -439,11 +464,27 @@ export default function AnnualContractReports({ role }: AnnualContractReportsPro
     name: string;
     filters: {
       zone: string; customerClass: string; contractType: string; unitType: string;
-      engineer: string; department: string; expiry: string; search: string;
+      engineer: string[]; department: string; expiry: string; search: string;
       dateFrom: string; dateTo: string;
     };
     createdAt: string;
   }
+
+  // Close tech dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (techDropdownRef.current && !techDropdownRef.current.contains(e.target as Node)) {
+        setTechDropdownOpen(false);
+      }
+    };
+    if (techDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [techDropdownOpen]);
+
   const [filterPresets, setFilterPresets] = useState<FilterPreset[]>([]);
   const [presetName, setPresetName] = useState('');
   const [showPresetSave, setShowPresetSave] = useState(false);
@@ -515,7 +556,7 @@ export default function AnnualContractReports({ role }: AnnualContractReportsPro
     setClassFilter(preset.filters.customerClass);
     setContractTypeFilter(preset.filters.contractType);
     setUnitTypeFilter(preset.filters.unitType);
-    setTechFilter(preset.filters.engineer);
+    setTechFilter(Array.isArray(preset.filters.engineer) ? preset.filters.engineer : (preset.filters.engineer && (preset.filters.engineer as any) !== 'all' ? [preset.filters.engineer as any] : []));
     setDepartmentFilter(preset.filters.department);
     setExpiryFilter(preset.filters.expiry);
     setSearch(preset.filters.search);
@@ -568,7 +609,7 @@ export default function AnnualContractReports({ role }: AnnualContractReportsPro
     setClassFilter('all');
     setContractTypeFilter('all');
     setUnitTypeFilter('all');
-    setTechFilter('all');
+    setTechFilter([]);
     setDepartmentFilter('all');
     setExpiryFilter('all');
     const defaultDates = getDefaultAnnualDates();
@@ -616,7 +657,7 @@ export default function AnnualContractReports({ role }: AnnualContractReportsPro
       if (classFilter !== 'all') params.customerClass = classFilter;
       if (contractTypeFilter !== 'all') params.contractType = contractTypeFilter;
       if (unitTypeFilter !== 'all') params.unitType = unitTypeFilter;
-      if (techFilter !== 'all') params.engineer = techFilter;
+      if (techFilter.length > 0) params.engineer = techFilter.join(',');
       if (departmentFilter !== 'all') params.department = departmentFilter;
       if (dateFrom) params.dateFrom = dateFrom;
       if (dateTo) params.dateTo = dateTo;
@@ -726,6 +767,21 @@ export default function AnnualContractReports({ role }: AnnualContractReportsPro
     return Array.from(engs).sort();
   }, [allEngineers, customers]);
 
+  const engineerCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    customers.forEach(c => {
+      normalizeEngineerNames(c.engineerName).forEach(e => {
+        counts[e] = (counts[e] || 0) + 1;
+      });
+      (c.machines || []).forEach(m => {
+        normalizeEngineerNames(m.engineerName).forEach(e => {
+          counts[e] = (counts[e] || 0) + 1;
+        });
+      });
+    });
+    return counts;
+  }, [customers]);
+
   const uniqueDepartments = useMemo(() => {
     const deps = new Set<string>(allDepartments);
     customers.forEach(c => {
@@ -764,7 +820,7 @@ export default function AnnualContractReports({ role }: AnnualContractReportsPro
     classFilter !== 'all',
     contractTypeFilter !== 'all',
     unitTypeFilter !== 'all',
-    techFilter !== 'all',
+    techFilter.length > 0,
     departmentFilter !== 'all',
     expiryFilter !== 'all',
     !!search,
@@ -780,7 +836,7 @@ export default function AnnualContractReports({ role }: AnnualContractReportsPro
         customerClass: classFilter,
         contractType: contractTypeFilter,
         unitType: unitTypeFilter,
-        engineer: techFilter,
+        engineer: techFilter.length > 0 ? techFilter.join(', ') : 'All',
         department: departmentFilter,
         dateFrom,
         dateTo,
@@ -806,7 +862,7 @@ export default function AnnualContractReports({ role }: AnnualContractReportsPro
   return (
     <div className="w-full space-y-4 print:space-y-3">
       {/* ═══ REPORT GENERATION CONTROLS — Card Layout (Matches Contract Reports) ═══ */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden print:hidden">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm relative print:hidden">
         {/* Card Header — Title + Generate + Export Buttons */}
         <div className="px-6 py-5 border-b border-slate-100">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -1009,17 +1065,190 @@ export default function AnnualContractReports({ role }: AnnualContractReportsPro
               </select>
             </div>
 
-            {/* Responsible Engineer */}
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-600">Responsible Engineer</label>
-              <select
-                value={techFilter}
-                onChange={(e) => setTechFilter(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 font-medium"
+            {/* Responsible Engineer - Multi-Select */}
+            <div className={`space-y-1 relative ${techDropdownOpen ? 'z-40' : 'z-10'}`} ref={techDropdownRef}>
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-slate-600">Responsible Engineer</label>
+                {techFilter.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setTechFilter([]);
+                    }}
+                    className="text-[10px] text-[#546A7A] hover:text-rose-600 font-bold transition-colors"
+                  >
+                    Clear ({techFilter.length})
+                  </button>
+                )}
+              </div>
+
+              {/* Trigger Button */}
+              <button
+                type="button"
+                onClick={() => setTechDropdownOpen(prev => !prev)}
+                className={`w-full px-3 py-2 rounded-lg border text-sm bg-white flex items-center justify-between gap-2 text-left transition-all ${
+                  techDropdownOpen
+                    ? 'border-[#82A094] ring-2 ring-[#82A094]/30 shadow-sm'
+                    : techFilter.length > 0
+                      ? 'border-[#546A7A] bg-slate-50/50'
+                      : 'border-slate-200 hover:border-slate-300'
+                }`}
               >
-                <option value="all">All Responsible Engineers</option>
-                {uniqueEngineers.map(eng => <option key={eng} value={eng}>{eng}</option>)}
-              </select>
+                <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                  <User className={`w-3.5 h-3.5 flex-shrink-0 ${techFilter.length > 0 ? 'text-[#546A7A]' : 'text-slate-400'}`} />
+                  {techFilter.length === 0 ? (
+                    <span className="text-slate-700 font-medium truncate">All Engineers ({uniqueEngineers.length})</span>
+                  ) : techFilter.length === 1 ? (
+                    <span className="font-bold text-slate-900 truncate">
+                      {formatEngineerDisplayName(techFilter[0])}
+                    </span>
+                  ) : (
+                    <div className="flex items-center gap-1 min-w-0">
+                      <span className="font-extrabold text-[#546A7A] text-xs bg-[#546A7A]/10 px-1.5 py-0.5 rounded flex-shrink-0">
+                        {techFilter.length} Selected
+                      </span>
+                      <span className="text-slate-600 text-xs font-medium truncate">
+                        {formatEngineerDisplayName(techFilter[0])}, +{techFilter.length - 1}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  {techFilter.length > 0 && (
+                    <span
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setTechFilter([]);
+                      }}
+                      className="p-0.5 text-slate-400 hover:text-rose-600 rounded transition-colors"
+                      title="Clear selection"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </span>
+                  )}
+                  {techDropdownOpen ? (
+                    <ChevronUp className="w-4 h-4 text-slate-400" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-slate-400" />
+                  )}
+                </div>
+              </button>
+
+              {/* Popover Dropdown */}
+              {techDropdownOpen && (
+                <div className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-white rounded-xl border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-100 min-w-[280px]">
+                  {/* Search inside dropdown */}
+                  <div className="p-2 border-b border-slate-100 bg-slate-50/70">
+                    <div className="relative">
+                      <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="Search engineers..."
+                        value={techSearch}
+                        onChange={(e) => setTechSearch(e.target.value)}
+                        className="w-full pl-8 pr-7 py-1.5 text-xs bg-white border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#82A094]"
+                        autoFocus
+                      />
+                      {techSearch && (
+                        <button
+                          type="button"
+                          onClick={() => setTechSearch('')}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Action Bar: Select All / Clear All at once */}
+                    <div className="flex items-center justify-between pt-2 px-1 text-[11px]">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const filtered = uniqueEngineers.filter(t =>
+                              t.toLowerCase().includes(techSearch.toLowerCase())
+                            );
+                            setTechFilter(Array.from(new Set([...techFilter, ...filtered])));
+                          }}
+                          className="font-bold text-[#546A7A] hover:underline"
+                        >
+                          Select All
+                        </button>
+                        <span className="text-slate-300">•</span>
+                        <button
+                          type="button"
+                          onClick={() => setTechFilter([])}
+                          className="font-semibold text-slate-500 hover:text-rose-600"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                      <span className="text-slate-400 font-bold">
+                        {techFilter.length}/{uniqueEngineers.length}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* List of Engineers with Checkboxes */}
+                  <div className="max-h-56 overflow-y-auto p-1.5 space-y-0.5 divide-y divide-slate-50">
+                    {uniqueEngineers
+                      .filter(t => t.toLowerCase().includes(techSearch.toLowerCase()))
+                      .map(t => {
+                        const isChecked = techFilter.includes(t);
+                        const count = engineerCounts[t] || 0;
+                        return (
+                          <div
+                            key={t}
+                            onClick={() => {
+                              setTechFilter(prev =>
+                                prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t]
+                              );
+                            }}
+                            className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg cursor-pointer text-xs transition-colors select-none ${
+                              isChecked ? 'bg-[#546A7A]/10 font-bold text-[#546A7A]' : 'hover:bg-slate-50 text-slate-700'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => {}}
+                                className="w-3.5 h-3.5 rounded border-slate-300 text-[#546A7A] focus:ring-[#82A094]/30 pointer-events-none"
+                              />
+                              <span className="truncate" title={t}>
+                                {formatEngineerDisplayName(t)}
+                              </span>
+                            </div>
+                            <span className="text-[10px] font-mono text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded ml-2 flex-shrink-0">
+                              {count}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    {uniqueEngineers.filter(t => t.toLowerCase().includes(techSearch.toLowerCase())).length === 0 && (
+                      <div className="py-6 text-center text-xs text-slate-400">
+                        No engineers match &quot;{techSearch}&quot;
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Footer */}
+                  <div className="p-2 border-t border-slate-100 bg-slate-50/70 flex items-center justify-between">
+                    <span className="text-[11px] text-slate-500 font-medium">
+                      {techFilter.length === 0 ? 'Showing all engineers' : `${techFilter.length} engineer(s) filtered`}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setTechDropdownOpen(false)}
+                      className="px-2.5 py-1 rounded bg-[#546A7A] hover:bg-[#435562] text-white text-[11px] font-bold shadow-xs transition-colors"
+                    >
+                      Done
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Department */}
@@ -1094,6 +1323,24 @@ export default function AnnualContractReports({ role }: AnnualContractReportsPro
                   {activeFilterCount} active filter{activeFilterCount > 1 ? 's' : ''}
                 </span>
               )}
+
+              {techFilter.map(eng => (
+                <span
+                  key={eng}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#82A094]/15 border border-[#82A094]/30 text-slate-800 text-[11px] font-semibold"
+                >
+                  <User className="w-3 h-3 text-[#546A7A]" />
+                  <span>{formatEngineerDisplayName(eng)}</span>
+                  <button
+                    type="button"
+                    onClick={() => setTechFilter(prev => prev.filter(t => t !== eng))}
+                    className="text-slate-400 hover:text-rose-600 p-0.5 transition-colors"
+                    title={`Remove ${eng}`}
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              ))}
             </div>
 
             <button
@@ -1275,6 +1522,17 @@ export default function AnnualContractReports({ role }: AnnualContractReportsPro
                   <span className="text-emerald-700 font-bold">
                     {summaryKPIs.activeCount} Active
                   </span>
+                  {techFilter.length > 0 && (
+                    <>
+                      <span className="text-slate-300 font-bold">&bull;</span>
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#546A7A]/15 text-[#546A7A] font-bold text-[11px]">
+                        <User className="w-3 h-3" />
+                        {techFilter.length === 1
+                          ? formatEngineerDisplayName(techFilter[0])
+                          : `${techFilter.length} Engineers Filtered`}
+                      </span>
+                    </>
+                  )}
                 </div>
 
                 {/* Quick Expiry Status Filters */}

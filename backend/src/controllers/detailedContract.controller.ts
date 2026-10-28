@@ -248,12 +248,28 @@ export const getDetailedContractStats = async (req: Request, res: Response) => {
     if (contractType && contractType !== 'all') where.contractType = { equals: contractType as string, mode: 'insensitive' };
     if (unitType && unitType !== 'all') where.unitType = { contains: unitType as string, mode: 'insensitive' };
     if (engineer && engineer !== 'all') {
-      const engStr = String(engineer).trim();
-      const engLower = engStr.toLowerCase();
-      if (engLower.startsWith('sasi')) {
-        where.engineerName = { contains: 'sasi', mode: 'insensitive' };
-      } else {
-        where.engineerName = { contains: engStr, mode: 'insensitive' };
+      const engList = String(engineer).split(',').map(s => s.trim()).filter(Boolean);
+      if (engList.length === 1) {
+        const engStr = engList[0];
+        const engLower = engStr.toLowerCase();
+        if (engLower.startsWith('sasi')) {
+          where.engineerName = { contains: 'sasi', mode: 'insensitive' };
+        } else {
+          where.engineerName = { contains: engStr, mode: 'insensitive' };
+        }
+      } else if (engList.length > 1) {
+        const engConditions = engList.map(engStr => ({
+          engineerName: {
+            contains: engStr.toLowerCase().startsWith('sasi') ? 'sasi' : engStr,
+            mode: 'insensitive' as const
+          }
+        }));
+        if (where.OR) {
+          where.AND = [{ OR: where.OR }, { OR: engConditions }];
+          delete where.OR;
+        } else {
+          where.OR = engConditions;
+        }
       }
     }
     if (department && department !== 'all') where.department = { equals: department as string, mode: 'insensitive' };
@@ -351,12 +367,28 @@ export const getCustomerGroupedContracts = async (req: Request, res: Response) =
     if (contractType && contractType !== 'all') where.contractType = { equals: contractType as string, mode: 'insensitive' };
     if (unitType && unitType !== 'all') where.unitType = { contains: unitType as string, mode: 'insensitive' };
     if (engineer && engineer !== 'all') {
-      const engStr = String(engineer).trim();
-      const engLower = engStr.toLowerCase();
-      if (engLower.startsWith('sasi')) {
-        where.engineerName = { contains: 'sasi', mode: 'insensitive' };
-      } else {
-        where.engineerName = { contains: engStr, mode: 'insensitive' };
+      const engList = String(engineer).split(',').map(s => s.trim()).filter(Boolean);
+      if (engList.length === 1) {
+        const engStr = engList[0];
+        const engLower = engStr.toLowerCase();
+        if (engLower.startsWith('sasi')) {
+          where.engineerName = { contains: 'sasi', mode: 'insensitive' };
+        } else {
+          where.engineerName = { contains: engStr, mode: 'insensitive' };
+        }
+      } else if (engList.length > 1) {
+        const engConditions = engList.map(engStr => ({
+          engineerName: {
+            contains: engStr.toLowerCase().startsWith('sasi') ? 'sasi' : engStr,
+            mode: 'insensitive' as const
+          }
+        }));
+        if (where.OR) {
+          where.AND = [{ OR: where.OR }, { OR: engConditions }];
+          delete where.OR;
+        } else {
+          where.OR = engConditions;
+        }
       }
     }
     if (department && department !== 'all') where.department = { equals: department as string, mode: 'insensitive' };

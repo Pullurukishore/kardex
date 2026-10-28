@@ -5,12 +5,40 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatDate(date: Date | string): string {
-  return new Date(date).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+export function formatDate(date: Date | string | null | undefined): string {
+  if (!date) return '—';
+
+  if (typeof date === 'string') {
+    const trimmed = date.trim();
+    const isoMatch = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (isoMatch) {
+      const year = isoMatch[1];
+      const mIdx = parseInt(isoMatch[2], 10) - 1;
+      const day = parseInt(isoMatch[3], 10);
+      if (mIdx >= 0 && mIdx < 12 && day >= 1 && day <= 31) {
+        return `${String(day).padStart(2, '0')} ${MONTH_NAMES[mIdx]} ${year}`;
+      }
+    }
+
+    const dmyMatch = trimmed.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+    if (dmyMatch) {
+      const day = parseInt(dmyMatch[1], 10);
+      const mIdx = parseInt(dmyMatch[2], 10) - 1;
+      const year = dmyMatch[3];
+      if (mIdx >= 0 && mIdx < 12 && day >= 1 && day <= 31) {
+        return `${String(day).padStart(2, '0')} ${MONTH_NAMES[mIdx]} ${year}`;
+      }
+    }
+  }
+
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return '—';
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  const month = MONTH_NAMES[d.getUTCMonth()];
+  const year = d.getUTCFullYear();
+  return `${day} ${month} ${year}`;
 }
 
 export function formatDateTime(date: Date | string): string {

@@ -12,7 +12,7 @@ export default function AdminContractsPage() {
         </div>
       }
     >
-      <div className="w-full p-2 sm:p-4 lg:p-6 animate-in fade-in duration-200">
+      <div className="w-full animate-in fade-in duration-200">
         <ContractsListPage role="Admin" />
       </div>
     </Suspense>

@@ -113,7 +113,7 @@ export function DashboardClientWrapper({ children, userRole }: DashboardClientWr
         />
         
         <main className="flex-1 overflow-y-auto">
-          <div className={cn("min-h-full", isMobile ? "p-3" : "p-4")}>
+          <div className={cn("min-h-full", pathname?.includes('/contracts') ? (isMobile ? "p-1.5" : "p-2 sm:p-2.5") : (isMobile ? "p-3" : "p-4"))}>
             {/* Page transition */}
             <div
               key={pageKey}

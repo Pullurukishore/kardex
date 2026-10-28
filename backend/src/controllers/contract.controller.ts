@@ -69,17 +69,12 @@ export const createContract = async (req: any, res: Response) => {
     const end = new Date(endDate);
     const scheduledMonth = start.toLocaleString('default', { month: 'long' });
 
-    // Distribute PM cycles
-    const diff = end.getTime() - start.getTime();
-    const segment = diff / noOfVisits;
+    // PM schedules without synthesized dates (dates must come from Excel import only)
     const pmSchedulesData: { pmNumber: number; range: string; status: string }[] = [];
-
     for (let i = 1; i <= noOfVisits; i++) {
-      const cycleStart = new Date(start.getTime() + segment * (i - 1));
-      const cycleEnd = new Date(start.getTime() + segment * i);
       pmSchedulesData.push({
         pmNumber: i,
-        range: `${formatDateString(cycleStart)} TO ${formatDateString(cycleEnd)}`,
+        range: '',
         status: 'Pending'
       });
     }
@@ -400,26 +395,20 @@ export const updateContract = async (req: any, res: Response) => {
     const end = endDate ? new Date(endDate) : existing.endDate;
     const scheduledMonth = startDate ? start.toLocaleString('default', { month: 'long' }) : existing.scheduledMonth;
 
-    // Check if dates or visits count changed, to redistribute PM cycles
-    const datesChanged = startDate && new Date(startDate).getTime() !== existing.startDate.getTime();
-    const endDateChanged = endDate && new Date(endDate).getTime() !== existing.endDate.getTime();
+    // Adjust PM schedules only if visit count changed; preserve existing PM ranges (no auto-generated dates)
     const visitsChanged = noOfVisits !== undefined && Number(noOfVisits) !== existing.noOfVisits;
-
-    let pmSchedulesData: { pmNumber: number; range: string; status: string }[] = [];
-    const redistNeeded = datesChanged || endDateChanged || visitsChanged;
-
     const visitsCount = noOfVisits !== undefined ? Number(noOfVisits) : existing.noOfVisits;
+    const redistNeeded = visitsChanged;
+    let pmSchedulesData: { pmNumber: number; range: string; status: string }[] = [];
 
     if (redistNeeded) {
-      const diff = end.getTime() - start.getTime();
-      const segment = diff / visitsCount;
+      const existingPMMap = new Map<number, any>((existing.pmSchedules || []).map((p: any) => [p.pmNumber, p]));
       for (let i = 1; i <= visitsCount; i++) {
-        const cycleStart = new Date(start.getTime() + segment * (i - 1));
-        const cycleEnd = new Date(start.getTime() + segment * i);
+        const prev = existingPMMap.get(i);
         pmSchedulesData.push({
           pmNumber: i,
-          range: `${formatDateString(cycleStart)} TO ${formatDateString(cycleEnd)}`,
-          status: 'Pending'
+          range: prev ? (prev.range || '') : '',
+          status: prev ? prev.status : 'Pending'
         });
       }
     }
@@ -845,22 +834,20 @@ export const bulkImportContracts = async (req: any, res: Response) => {
         pmSchedules.forEach((pm: any) => {
           const pmDate = pm.completedAt && !isNaN(new Date(pm.completedAt).getTime()) ? new Date(pm.completedAt) : null;
           const isCompleted = pm.status === 'Completed' || Boolean(pmDate);
+          const cleanRange = (pm.range || '').replace(/NaN-NaN-NaN/gi, '').replace(/NaN/gi, '').trim();
           pmSchedulesData.push({
             pmNumber: Number(pm.pmNumber || pm.pmNum),
-            range: pm.range || '',
+            range: cleanRange,
             status: isCompleted ? 'Completed' : 'Pending',
             completedAt: pmDate || (isCompleted ? start : null)
           });
         });
       } else {
-        const diff = end.getTime() - start.getTime();
-        const segment = diff / Number(noOfVisits);
+        // No dates fabricated; ranges left blank so UI shows "No dates"
         for (let i = 1; i <= Number(noOfVisits); i++) {
-          const cycleStart = new Date(start.getTime() + segment * (i - 1));
-          const cycleEnd = new Date(start.getTime() + segment * i);
           pmSchedulesData.push({
             pmNumber: i,
-            range: `${formatDateString(cycleStart)} TO ${formatDateString(cycleEnd)}`,
+            range: '',
             status: 'Pending',
             completedAt: null
           });

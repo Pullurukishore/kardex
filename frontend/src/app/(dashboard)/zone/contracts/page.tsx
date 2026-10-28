@@ -4,7 +4,7 @@ import CustomerContractTracking from '@/components/contracts/CustomerContractTra
 
 export default function ZoneContractsPage() {
   return (
-    <div className="w-full p-4 sm:p-6 lg:p-8 animate-in fade-in duration-200">
+    <div className="w-full animate-in fade-in duration-200">
       <CustomerContractTracking role="Zone User" />
     </div>
   );

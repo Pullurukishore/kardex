@@ -248,10 +248,10 @@ export default function ContractsListPage({
             pmSchedules: c.pmSchedules.map(p =>
               p.id === pmId
                 ? {
-                    ...p,
-                    status: newStatus as any,
-                    completedAt: newStatus === 'Completed' ? new Date().toISOString() : undefined
-                  }
+                  ...p,
+                  status: newStatus as any,
+                  completedAt: newStatus === 'Completed' ? new Date().toISOString() : undefined
+                }
                 : p
             )
           };
@@ -267,10 +267,10 @@ export default function ContractsListPage({
             pmSchedules: prev.pmSchedules.map(p =>
               p.id === pmId
                 ? {
-                    ...p,
-                    status: newStatus as any,
-                    completedAt: newStatus === 'Completed' ? new Date().toISOString() : undefined
-                  }
+                  ...p,
+                  status: newStatus as any,
+                  completedAt: newStatus === 'Completed' ? new Date().toISOString() : undefined
+                }
                 : p
             )
           };
@@ -304,13 +304,14 @@ export default function ContractsListPage({
   // Helper date & formatting
   const formatDateLabel = (isoStr: any) => {
     if (!isoStr) return '—';
+    if (typeof isoStr === 'string' && (isoStr.includes('NaN') || isoStr === '—' || isoStr === '-')) return '—';
     if (isoStr instanceof Date) {
       return !isNaN(isoStr.getTime())
         ? isoStr.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
         : '—';
     }
     const str = String(isoStr).trim();
-    if (!str) return '—';
+    if (!str || str.includes('NaN')) return '—';
     const d = new Date(str);
     if (!isNaN(d.getTime()) && d.getFullYear() > 1990 && d.getFullYear() < 2100) {
       return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -319,7 +320,10 @@ export default function ContractsListPage({
   };
 
   const getPMDisplayDetails = (pm: { range?: string | null; status?: string; completedAt?: string | Date | null }) => {
-    const rawRange = (pm.range || '').trim();
+    let rawRange = (pm.range || '').replace(/NaN-NaN-NaN/gi, '').replace(/NaN/gi, '').trim();
+    if (rawRange.startsWith('|')) rawRange = rawRange.replace(/^\|\s*/, '').trim();
+    if (rawRange.endsWith('|')) rawRange = rawRange.replace(/\s*\|$/, '').trim();
+
     const isCompleted = pm.status === 'Completed';
 
     let scheduleText = '';
@@ -364,6 +368,9 @@ export default function ContractsListPage({
         }
       }
     }
+
+    if (scheduleText.includes('NaN')) scheduleText = '';
+    if (doneText.includes('NaN')) doneText = '';
 
     if (isCompleted && !doneText) {
       if (pm.completedAt) {
@@ -718,7 +725,7 @@ export default function ContractsListPage({
 
 
   return (
-    <div className="space-y-4">
+    <div className="w-full space-y-4">
       {/* ─── COMPACT HERO HEADER BANNER (Light Theme) ─── */}
       <div className="relative overflow-hidden bg-white rounded-xl shadow-xs border border-slate-200/80 p-3 sm:p-4 space-y-3">
         {/* Top Row: Title on Left, Action Buttons on Right */}
@@ -854,17 +861,15 @@ export default function ContractsListPage({
                   setQuickTab(tab.id as any);
                   setCurrentPage(1);
                 }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex-shrink-0 ${
-                  isActive
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex-shrink-0 ${isActive
                     ? `${tab.color} shadow-sm`
                     : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-                }`}
+                  }`}
               >
                 <span>{tab.label}</span>
                 <span
-                  className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${
-                    isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
-                  }`}
+                  className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+                    }`}
                 >
                   {tab.count}
                 </span>
@@ -876,805 +881,803 @@ export default function ContractsListPage({
       </div>
 
       {/* ─── SEARCH & FILTERS CARD ─── */}
-          <Card className="border border-slate-200/80 shadow-sm bg-white">
-            <CardHeader className="py-3 px-4 sm:px-6 bg-slate-50/70 border-b border-slate-200/60">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Filter className="h-4 w-4 text-[#546A7A]" />
-                  <CardTitle className="text-sm font-bold text-slate-800">Search & Filter Contracts</CardTitle>
-                  {hasActiveFilters && (
-                    <Badge variant="secondary" className="bg-[#9E3B47]/10 text-[#9E3B47] text-[10px] font-bold">
-                      Active Filters
-                    </Badge>
-                  )}
-                </div>
-                {hasActiveFilters && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={clearFilters}
-                    className="h-7 text-xs text-[#9E3B47] hover:text-[#75242D] hover:bg-[#9E3B47]/10 px-2"
+      <Card className="border border-slate-200/80 shadow-sm bg-white">
+        <CardHeader className="py-3 px-4 sm:px-6 bg-slate-50/70 border-b border-slate-200/60">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-[#546A7A]" />
+              <CardTitle className="text-sm font-bold text-slate-800">Search & Filter Contracts</CardTitle>
+              {hasActiveFilters && (
+                <Badge variant="secondary" className="bg-[#9E3B47]/10 text-[#9E3B47] text-[10px] font-bold">
+                  Active Filters
+                </Badge>
+              )}
+            </div>
+            {hasActiveFilters && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearFilters}
+                className="h-7 text-xs text-[#9E3B47] hover:text-[#75242D] hover:bg-[#9E3B47]/10 px-2"
+              >
+                <X className="h-3.5 w-3.5 mr-1" />
+                Clear All
+              </Button>
+            )}
+          </div>
+        </CardHeader>
+
+        <CardContent className="p-4 sm:p-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+            {/* Search */}
+            <div className="space-y-1.5">
+              <Label htmlFor="contract-search" className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
+                <Search className="h-3.5 w-3.5 text-[#82A094]" />
+                Search
+              </Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                <Input
+                  id="contract-search"
+                  placeholder="Contract #, Customer, PO..."
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  className="pl-9 h-9 text-xs border-slate-200 focus:border-[#82A094] focus:ring-[#82A094]"
+                />
+                {search && (
+                  <button
+                    onClick={() => setSearch('')}
+                    className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600"
                   >
-                    <X className="h-3.5 w-3.5 mr-1" />
-                    Clear All
-                  </Button>
+                    <X className="h-4 w-4" />
+                  </button>
                 )}
               </div>
-            </CardHeader>
+            </div>
 
-            <CardContent className="p-4 sm:p-5">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
-                {/* Search */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="contract-search" className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
-                    <Search className="h-3.5 w-3.5 text-[#82A094]" />
-                    Search
-                  </Label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-                    <Input
-                      id="contract-search"
-                      placeholder="Contract #, Customer, PO..."
-                      value={search}
-                      onChange={e => setSearch(e.target.value)}
-                      className="pl-9 h-9 text-xs border-slate-200 focus:border-[#82A094] focus:ring-[#82A094]"
-                    />
-                    {search && (
-                      <button
-                        onClick={() => setSearch('')}
-                        className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
+            {/* Zone Filter */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
+                <MapPin className="h-3.5 w-3.5 text-[#6F8A9D]" />
+                Zone
+              </Label>
+              <Select
+                value={selectedZone}
+                onValueChange={val => {
+                  setSelectedZone(val);
+                  setCurrentPage(1);
+                }}
+              >
+                <SelectTrigger className="h-9 text-xs border-slate-200">
+                  <SelectValue placeholder="All Zones" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Zones</SelectItem>
+                  {zones.length > 0 ? (
+                    zones.map(z => (
+                      <SelectItem key={z.id} value={z.name || String(z.id)}>
+                        {z.name}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <>
+                      <SelectItem value="North">North Zone</SelectItem>
+                      <SelectItem value="South">South Zone</SelectItem>
+                      <SelectItem value="East">East Zone</SelectItem>
+                      <SelectItem value="West">West Zone</SelectItem>
+                    </>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Status Filter */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
+                <Clock className="h-3.5 w-3.5 text-[#CE9F6B]" />
+                Status
+              </Label>
+              <Select
+                value={selectedStatus}
+                onValueChange={val => {
+                  setSelectedStatus(val);
+                  setCurrentPage(1);
+                }}
+              >
+                <SelectTrigger className="h-9 text-xs border-slate-200">
+                  <SelectValue placeholder="All Statuses" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="Active">Active</SelectItem>
+                  <SelectItem value="Expired">Expired</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* MC Type / Care Level */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
+                <Layers className="h-3.5 w-3.5 text-[#9E3B47]" />
+                Care Level / MC Type
+              </Label>
+              <Select
+                value={selectedMcType}
+                onValueChange={val => {
+                  setSelectedMcType(val);
+                  setCurrentPage(1);
+                }}
+              >
+                <SelectTrigger className="h-9 text-xs border-slate-200">
+                  <SelectValue placeholder="All Care Levels" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Care Levels</SelectItem>
+                  {uniqueMcTypes.map(type => (
+                    <SelectItem key={type} value={type}>
+                      {type}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Responsible / Service Engineer */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
+                <Users className="h-3.5 w-3.5 text-[#546A7A]" />
+                Responsible Engineer
+              </Label>
+              <Select
+                value={selectedTech}
+                onValueChange={val => {
+                  setSelectedTech(val);
+                  setCurrentPage(1);
+                }}
+              >
+                <SelectTrigger className="h-9 text-xs border-slate-200">
+                  <SelectValue placeholder="All Responsible" />
+                </SelectTrigger>
+                <SelectContent className="max-h-[280px]">
+                  <SelectItem value="all">All Responsible</SelectItem>
+                  {uniqueTechnicians.map(tech => (
+                    <SelectItem key={tech} value={tech}>
+                      {tech}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ─── CONTRACTS TABLE (Offers / Tickets Premium Design) ─── */}
+      <Card className="border-0 shadow-xl overflow-hidden bg-white rounded-2xl">
+        <div className="w-full overflow-x-auto relative">
+          <table className="w-full border-collapse">
+            <thead className="sticky top-0 z-30 shadow-sm">
+              <tr className="bg-gradient-to-r from-[#75242D] via-[#9E3B47] to-[#546A7A] text-white text-[11px] sm:text-xs font-extrabold uppercase tracking-wide select-none">
+                {/* Sl/No */}
+                <th
+                  className="px-2 py-2.5 text-center cursor-pointer hover:bg-black/10 transition-colors w-11 sticky top-0"
+                  onClick={() => handleSort('id')}
+                >
+                  <div className="flex items-center justify-center gap-1">
+                    <span>#</span>
+                    {sortField === 'id' && (
+                      <span className="text-[#A2B9AF]">{sortDirection === 'asc' ? '↑' : '↓'}</span>
                     )}
                   </div>
-                </div>
+                </th>
 
-                {/* Zone Filter */}
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
+                {/* Agreement / PO */}
+                <th
+                  className="px-2.5 py-2.5 text-left cursor-pointer hover:bg-black/10 transition-colors"
+                  onClick={() => handleSort('customerName')}
+                >
+                  <div className="flex items-center gap-1.5">
+                    <FileText className="h-3.5 w-3.5 text-[#A2B9AF]" />
+                    <span>PO / Agreement</span>
+                    {sortField === 'customerName' && (
+                      <span className="text-[#A2B9AF]">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                    )}
+                  </div>
+                </th>
+
+                {/* Zone */}
+                <th
+                  className="px-1.5 py-2.5 text-center cursor-pointer hover:bg-black/10 transition-colors w-18"
+                  onClick={() => handleSort('zoneName')}
+                >
+                  <div className="flex items-center justify-center gap-1">
                     <MapPin className="h-3.5 w-3.5 text-[#6F8A9D]" />
-                    Zone
-                  </Label>
-                  <Select
-                    value={selectedZone}
-                    onValueChange={val => {
-                      setSelectedZone(val);
-                      setCurrentPage(1);
-                    }}
-                  >
-                    <SelectTrigger className="h-9 text-xs border-slate-200">
-                      <SelectValue placeholder="All Zones" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Zones</SelectItem>
-                      {zones.length > 0 ? (
-                        zones.map(z => (
-                          <SelectItem key={z.id} value={z.name || String(z.id)}>
-                            {z.name}
-                          </SelectItem>
-                        ))
+                    <span>Zone</span>
+                    {sortField === 'zoneName' && (
+                      <span className="text-[#A2B9AF]">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                    )}
+                  </div>
+                </th>
+
+                {/* Care Level */}
+                <th
+                  className="px-1.5 py-2.5 text-center cursor-pointer hover:bg-black/10 transition-colors w-22"
+                  onClick={() => handleSort('mcType')}
+                >
+                  <div className="flex items-center justify-center gap-1">
+                    <Layers className="h-3.5 w-3.5 text-[#CE9F6B]" />
+                    <span>Care</span>
+                    {sortField === 'mcType' && (
+                      <span className="text-[#A2B9AF]">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                    )}
+                  </div>
+                </th>
+
+                {/* Machines */}
+                <th
+                  className="px-1.5 py-2.5 text-center cursor-pointer hover:bg-black/10 transition-colors w-18"
+                  onClick={() => handleSort('noOfMachine')}
+                >
+                  <div className="flex items-center justify-center gap-1">
+                    <span>Machines</span>
+                    {sortField === 'noOfMachine' && (
+                      <span className="text-[#A2B9AF]">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                    )}
+                  </div>
+                </th>
+
+                {/* BD Visits */}
+                <th
+                  className="px-1.5 py-2.5 text-center cursor-pointer hover:bg-black/10 transition-colors w-22"
+                  onClick={() => handleSort('bdCount')}
+                >
+                  <div className="flex items-center justify-center gap-1">
+                    <span>BD Visits</span>
+                    {sortField === 'bdCount' && (
+                      <span className="text-[#A2B9AF]">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                    )}
+                  </div>
+                </th>
+
+                {/* Value */}
+                <th
+                  className="px-2.5 py-2.5 text-right cursor-pointer hover:bg-black/10 transition-colors w-26"
+                  onClick={() => handleSort('amount')}
+                >
+                  <div className="flex items-center justify-end gap-1">
+                    <IndianRupee className="h-3.5 w-3.5 text-[#82A094]" />
+                    <span>Value</span>
+                    {sortField === 'amount' && (
+                      <span className="text-[#A2B9AF]">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                    )}
+                  </div>
+                </th>
+
+                {/* Period / Expiry */}
+                <th
+                  className="px-2 py-2.5 text-left cursor-pointer hover:bg-black/10 transition-colors w-32"
+                  onClick={() => handleSort('endDate')}
+                >
+                  <div className="flex items-center gap-1.5">
+                    <Calendar className="h-3.5 w-3.5 text-[#CE9F6B]" />
+                    <span>Period</span>
+                    {sortField === 'endDate' && (
+                      <span className="text-[#A2B9AF]">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                    )}
+                  </div>
+                </th>
+
+                {/* PM Progress */}
+                <th className="px-1.5 py-2.5 text-center w-22">
+                  <div className="flex items-center justify-center gap-1">
+                    <CheckCircle className="h-3.5 w-3.5 text-emerald-400" />
+                    <span>PM Visits</span>
+                  </div>
+                </th>
+
+                {/* Status */}
+                <th
+                  className="px-1.5 py-2.5 text-center cursor-pointer hover:bg-black/10 transition-colors w-20"
+                  onClick={() => handleSort('status')}
+                >
+                  <div className="flex items-center justify-center gap-1">
+                    <span>Status</span>
+                    {sortField === 'status' && (
+                      <span className="text-[#A2B9AF]">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                    )}
+                  </div>
+                </th>
+
+                {/* Responsible */}
+                <th
+                  className="px-2 py-2.5 text-left cursor-pointer hover:bg-black/10 transition-colors w-26"
+                  onClick={() => handleSort('responsible')}
+                >
+                  <div className="flex items-center gap-1.5">
+                    <Users className="h-3.5 w-3.5 text-cyan-300" />
+                    <span>Responsible</span>
+                    {sortField === 'responsible' && (
+                      <span className="text-[#A2B9AF]">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                    )}
+                  </div>
+                </th>
+
+                {/* Actions */}
+                <th className="px-1.5 py-2.5 text-center w-10">
+                  <span className="sr-only">Actions</span>
+                </th>
+              </tr>
+            </thead>
+
+            <tbody className="divide-y divide-slate-100">
+              {loading ? (
+                <tr>
+                  <td colSpan={12} className="px-6 py-20 text-center bg-slate-50/50">
+                    <div className="flex flex-col items-center justify-center space-y-3">
+                      <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-[#9E3B47] to-[#546A7A] flex items-center justify-center shadow-lg">
+                        <Loader2 className="h-6 w-6 animate-spin text-white" />
+                      </div>
+                      <div>
+                        <p className="text-base font-bold text-slate-800">Loading contracts...</p>
+                        <p className="text-xs text-slate-400 mt-0.5">Fetching latest service agreements</p>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              ) : paginatedGroups.length === 0 ? (
+                <tr>
+                  <td colSpan={12} className="px-6 py-16 text-center bg-slate-50/40">
+                    <div className="flex flex-col items-center justify-center space-y-3 max-w-md mx-auto">
+                      <div className="h-14 w-14 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400">
+                        <FileText className="h-7 w-7" />
+                      </div>
+                      <div>
+                        <p className="text-base font-bold text-slate-800">No service contracts found</p>
+                        <p className="text-xs text-slate-500 mt-1">
+                          {hasActiveFilters
+                            ? 'No contracts matched your filter criteria. Try adjusting or clearing your filters.'
+                            : 'No service contracts have been recorded yet.'}
+                        </p>
+                      </div>
+                      {hasActiveFilters ? (
+                        <Button
+                          variant="outline"
+                          onClick={clearFilters}
+                          className="mt-2 text-xs font-semibold text-slate-700"
+                        >
+                          <X className="h-3.5 w-3.5 mr-1.5" />
+                          Clear All Filters
+                        </Button>
                       ) : (
-                        <>
-                          <SelectItem value="North">North Zone</SelectItem>
-                          <SelectItem value="South">South Zone</SelectItem>
-                          <SelectItem value="East">East Zone</SelectItem>
-                          <SelectItem value="West">West Zone</SelectItem>
-                        </>
+                        <Button
+                          onClick={() => router.push(`${resolvedBasePath}/contracts/new`)}
+                          className="mt-2 bg-gradient-to-r from-[#9E3B47] to-[#75242D] text-white text-xs font-bold shadow-md h-8"
+                        >
+                          <Plus className="h-3.5 w-3.5 mr-1.5" />
+                          Create First Contract
+                        </Button>
                       )}
-                    </SelectContent>
-                  </Select>
-                </div>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                paginatedGroups.map((group, groupIndex) => {
+                  const customerSlNo = (currentPage - 1) * pageSize + groupIndex + 1;
+                  const dept = extractDepartmentFromCustomer(group.customerName);
 
-                {/* Status Filter */}
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
-                    <Clock className="h-3.5 w-3.5 text-[#CE9F6B]" />
-                    Status
-                  </Label>
-                  <Select
-                    value={selectedStatus}
-                    onValueChange={val => {
-                      setSelectedStatus(val);
-                      setCurrentPage(1);
-                    }}
-                  >
-                    <SelectTrigger className="h-9 text-xs border-slate-200">
-                      <SelectValue placeholder="All Statuses" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Statuses</SelectItem>
-                      <SelectItem value="Active">Active</SelectItem>
-                      <SelectItem value="Expired">Expired</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* MC Type / Care Level */}
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
-                    <Layers className="h-3.5 w-3.5 text-[#9E3B47]" />
-                    Care Level / MC Type
-                  </Label>
-                  <Select
-                    value={selectedMcType}
-                    onValueChange={val => {
-                      setSelectedMcType(val);
-                      setCurrentPage(1);
-                    }}
-                  >
-                    <SelectTrigger className="h-9 text-xs border-slate-200">
-                      <SelectValue placeholder="All Care Levels" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Care Levels</SelectItem>
-                      {uniqueMcTypes.map(type => (
-                        <SelectItem key={type} value={type}>
-                          {type}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Responsible / Service Engineer */}
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
-                    <Users className="h-3.5 w-3.5 text-[#546A7A]" />
-                    Responsible Engineer
-                  </Label>
-                  <Select
-                    value={selectedTech}
-                    onValueChange={val => {
-                      setSelectedTech(val);
-                      setCurrentPage(1);
-                    }}
-                  >
-                    <SelectTrigger className="h-9 text-xs border-slate-200">
-                      <SelectValue placeholder="All Responsible" />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-[280px]">
-                      <SelectItem value="all">All Responsible</SelectItem>
-                      {uniqueTechnicians.map(tech => (
-                        <SelectItem key={tech} value={tech}>
-                          {tech}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* ─── CONTRACTS TABLE (Offers / Tickets Premium Design) ─── */}
-          <Card className="border-0 shadow-xl overflow-hidden bg-white rounded-2xl">
-            <div className="w-full overflow-x-auto relative">
-              <table className="w-full border-collapse">
-                <thead className="sticky top-0 z-30 shadow-sm">
-                  <tr className="bg-gradient-to-r from-[#75242D] via-[#9E3B47] to-[#546A7A] text-white text-[11px] sm:text-xs font-extrabold uppercase tracking-wide select-none">
-                    {/* Sl/No */}
-                    <th
-                      className="px-2 py-2.5 text-center cursor-pointer hover:bg-black/10 transition-colors w-11 sticky top-0"
-                      onClick={() => handleSort('id')}
-                    >
-                      <div className="flex items-center justify-center gap-1">
-                        <span>#</span>
-                        {sortField === 'id' && (
-                          <span className="text-[#A2B9AF]">{sortDirection === 'asc' ? '↑' : '↓'}</span>
-                        )}
-                      </div>
-                    </th>
-
-                    {/* Agreement / PO */}
-                    <th
-                      className="px-2.5 py-2.5 text-left cursor-pointer hover:bg-black/10 transition-colors"
-                      onClick={() => handleSort('customerName')}
-                    >
-                      <div className="flex items-center gap-1.5">
-                        <FileText className="h-3.5 w-3.5 text-[#A2B9AF]" />
-                        <span>PO / Agreement</span>
-                        {sortField === 'customerName' && (
-                          <span className="text-[#A2B9AF]">{sortDirection === 'asc' ? '↑' : '↓'}</span>
-                        )}
-                      </div>
-                    </th>
-
-                    {/* Zone */}
-                    <th
-                      className="px-1.5 py-2.5 text-center cursor-pointer hover:bg-black/10 transition-colors w-18"
-                      onClick={() => handleSort('zoneName')}
-                    >
-                      <div className="flex items-center justify-center gap-1">
-                        <MapPin className="h-3.5 w-3.5 text-[#6F8A9D]" />
-                        <span>Zone</span>
-                        {sortField === 'zoneName' && (
-                          <span className="text-[#A2B9AF]">{sortDirection === 'asc' ? '↑' : '↓'}</span>
-                        )}
-                      </div>
-                    </th>
-
-                    {/* Care Level */}
-                    <th
-                      className="px-1.5 py-2.5 text-center cursor-pointer hover:bg-black/10 transition-colors w-22"
-                      onClick={() => handleSort('mcType')}
-                    >
-                      <div className="flex items-center justify-center gap-1">
-                        <Layers className="h-3.5 w-3.5 text-[#CE9F6B]" />
-                        <span>Care</span>
-                        {sortField === 'mcType' && (
-                          <span className="text-[#A2B9AF]">{sortDirection === 'asc' ? '↑' : '↓'}</span>
-                        )}
-                      </div>
-                    </th>
-
-                    {/* Machines */}
-                    <th
-                      className="px-1.5 py-2.5 text-center cursor-pointer hover:bg-black/10 transition-colors w-18"
-                      onClick={() => handleSort('noOfMachine')}
-                    >
-                      <div className="flex items-center justify-center gap-1">
-                        <span>Machines</span>
-                        {sortField === 'noOfMachine' && (
-                          <span className="text-[#A2B9AF]">{sortDirection === 'asc' ? '↑' : '↓'}</span>
-                        )}
-                      </div>
-                    </th>
-
-                    {/* BD Visits */}
-                    <th
-                      className="px-1.5 py-2.5 text-center cursor-pointer hover:bg-black/10 transition-colors w-22"
-                      onClick={() => handleSort('bdCount')}
-                    >
-                      <div className="flex items-center justify-center gap-1">
-                        <span>BD Visits</span>
-                        {sortField === 'bdCount' && (
-                          <span className="text-[#A2B9AF]">{sortDirection === 'asc' ? '↑' : '↓'}</span>
-                        )}
-                      </div>
-                    </th>
-
-                    {/* Value */}
-                    <th
-                      className="px-2.5 py-2.5 text-right cursor-pointer hover:bg-black/10 transition-colors w-26"
-                      onClick={() => handleSort('amount')}
-                    >
-                      <div className="flex items-center justify-end gap-1">
-                        <IndianRupee className="h-3.5 w-3.5 text-[#82A094]" />
-                        <span>Value</span>
-                        {sortField === 'amount' && (
-                          <span className="text-[#A2B9AF]">{sortDirection === 'asc' ? '↑' : '↓'}</span>
-                        )}
-                      </div>
-                    </th>
-
-                    {/* Period / Expiry */}
-                    <th
-                      className="px-2 py-2.5 text-left cursor-pointer hover:bg-black/10 transition-colors w-32"
-                      onClick={() => handleSort('endDate')}
-                    >
-                      <div className="flex items-center gap-1.5">
-                        <Calendar className="h-3.5 w-3.5 text-[#CE9F6B]" />
-                        <span>Period</span>
-                        {sortField === 'endDate' && (
-                          <span className="text-[#A2B9AF]">{sortDirection === 'asc' ? '↑' : '↓'}</span>
-                        )}
-                      </div>
-                    </th>
-
-                    {/* PM Progress */}
-                    <th className="px-1.5 py-2.5 text-center w-22">
-                      <div className="flex items-center justify-center gap-1">
-                        <CheckCircle className="h-3.5 w-3.5 text-emerald-400" />
-                        <span>PM Visits</span>
-                      </div>
-                    </th>
-
-                    {/* Status */}
-                    <th
-                      className="px-1.5 py-2.5 text-center cursor-pointer hover:bg-black/10 transition-colors w-20"
-                      onClick={() => handleSort('status')}
-                    >
-                      <div className="flex items-center justify-center gap-1">
-                        <span>Status</span>
-                        {sortField === 'status' && (
-                          <span className="text-[#A2B9AF]">{sortDirection === 'asc' ? '↑' : '↓'}</span>
-                        )}
-                      </div>
-                    </th>
-
-                    {/* Responsible */}
-                    <th
-                      className="px-2 py-2.5 text-left cursor-pointer hover:bg-black/10 transition-colors w-26"
-                      onClick={() => handleSort('responsible')}
-                    >
-                      <div className="flex items-center gap-1.5">
-                        <Users className="h-3.5 w-3.5 text-cyan-300" />
-                        <span>Responsible</span>
-                        {sortField === 'responsible' && (
-                          <span className="text-[#A2B9AF]">{sortDirection === 'asc' ? '↑' : '↓'}</span>
-                        )}
-                      </div>
-                    </th>
-
-                    {/* Actions */}
-                    <th className="px-1.5 py-2.5 text-center w-10">
-                      <span className="sr-only">Actions</span>
-                    </th>
-                  </tr>
-                </thead>
-
-                <tbody className="divide-y divide-slate-100">
-                  {loading ? (
-                    <tr>
-                      <td colSpan={12} className="px-6 py-20 text-center bg-slate-50/50">
-                        <div className="flex flex-col items-center justify-center space-y-3">
-                          <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-[#9E3B47] to-[#546A7A] flex items-center justify-center shadow-lg">
-                            <Loader2 className="h-6 w-6 animate-spin text-white" />
-                          </div>
-                          <div>
-                            <p className="text-base font-bold text-slate-800">Loading contracts...</p>
-                            <p className="text-xs text-slate-400 mt-0.5">Fetching latest service agreements</p>
-                          </div>
-                        </div>
-                      </td>
-                    </tr>
-                  ) : paginatedGroups.length === 0 ? (
-                    <tr>
-                      <td colSpan={12} className="px-6 py-16 text-center bg-slate-50/40">
-                        <div className="flex flex-col items-center justify-center space-y-3 max-w-md mx-auto">
-                          <div className="h-14 w-14 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400">
-                            <FileText className="h-7 w-7" />
-                          </div>
-                          <div>
-                            <p className="text-base font-bold text-slate-800">No service contracts found</p>
-                            <p className="text-xs text-slate-500 mt-1">
-                              {hasActiveFilters
-                                ? 'No contracts matched your filter criteria. Try adjusting or clearing your filters.'
-                                : 'No service contracts have been recorded yet.'}
-                            </p>
-                          </div>
-                          {hasActiveFilters ? (
-                            <Button
-                              variant="outline"
-                              onClick={clearFilters}
-                              className="mt-2 text-xs font-semibold text-slate-700"
-                            >
-                              <X className="h-3.5 w-3.5 mr-1.5" />
-                              Clear All Filters
-                            </Button>
-                          ) : (
-                            <Button
-                              onClick={() => router.push(`${resolvedBasePath}/contracts/new`)}
-                              className="mt-2 bg-gradient-to-r from-[#9E3B47] to-[#75242D] text-white text-xs font-bold shadow-md h-8"
-                            >
-                              <Plus className="h-3.5 w-3.5 mr-1.5" />
-                              Create First Contract
-                            </Button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ) : (
-                    paginatedGroups.map((group, groupIndex) => {
-                      const customerSlNo = (currentPage - 1) * pageSize + groupIndex + 1;
-                      const dept = extractDepartmentFromCustomer(group.customerName);
-
-                      return (
-                        <Fragment key={`${group.customerName}_${group.zoneName}_${group.place}_${groupIndex}`}>
-                          {/* ─── CUSTOMER HEADER BAND ─── */}
-                          <tr className="bg-gradient-to-r from-slate-100 via-slate-50 to-slate-100/90 border-t-2 border-b border-slate-200">
-                            <td colSpan={12} className="py-2 px-3 sm:px-4">
-                              <div className="flex items-center justify-between flex-wrap gap-2.5">
-                                <div className="flex items-center gap-2.5 min-w-0">
-                                  <span className="w-6 h-6 rounded-md bg-[#546A7A] text-white flex items-center justify-center text-[11px] font-black shadow-xs flex-shrink-0">
-                                    {customerSlNo}
-                                  </span>
-                                  <div
-                                    className={`w-7 h-7 rounded-lg bg-gradient-to-br ${getCustomerColorClass(
-                                      group.customerName
-                                    )} flex items-center justify-center text-white text-xs font-black shadow-xs flex-shrink-0`}
-                                  >
-                                    {(group.customerName || 'C').charAt(0).toUpperCase()}
-                                  </div>
-                                  <div className="flex items-center gap-2 flex-wrap min-w-0">
-                                    <span className="font-extrabold text-slate-900 text-sm sm:text-[15px] truncate">
-                                      {group.customerName}
-                                    </span>
-                                    {dept && dept !== '—' && (
-                                      <span className="px-2 py-0.5 rounded-md bg-white text-slate-700 font-bold text-[11px] border border-slate-200 shadow-2xs">
-                                        {dept}
-                                      </span>
-                                    )}
-                                    {group.place && (
-                                      <span className="text-xs text-slate-600 font-medium">
-                                        • {group.place}
-                                      </span>
-                                    )}
-                                    {group.zoneName && (
-                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white text-slate-700 text-[11px] font-bold border border-slate-200 shadow-2xs">
-                                        <span className="h-1.5 w-1.5 rounded-full bg-[#6F8A9D]" />
-                                        {group.zoneName} Zone
-                                      </span>
-                                    )}
-                                    <span className="px-2 py-0.5 rounded-full bg-[#9E3B47]/10 text-[#9E3B47] text-[11px] font-extrabold border border-[#9E3B47]/20 flex items-center gap-1">
-                                      <FileText className="w-3 h-3" />
-                                      {group.contracts.length} {group.contracts.length === 1 ? 'Contract' : 'Contracts'}
-                                    </span>
-                                  </div>
-                                </div>
-
-                                {/* Right side summary KPIs for this customer */}
-                                <div className="flex items-center gap-2 text-xs font-semibold flex-shrink-0">
-                                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white border border-slate-200 text-slate-700 shadow-2xs">
-                                    <span className="text-slate-400">Total Units:</span>
-                                    <span className="font-extrabold text-slate-900">{group.totalMachines} M/C</span>
-                                  </div>
-                                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 shadow-2xs">
-                                    <span className="text-emerald-600 font-medium">Total Value:</span>
-                                    <span className="font-black font-mono">{formatCurrency(group.totalAmount)}</span>
-                                  </div>
-                                </div>
+                  return (
+                    <Fragment key={`${group.customerName}_${group.zoneName}_${group.place}_${groupIndex}`}>
+                      {/* ─── CUSTOMER HEADER BAND ─── */}
+                      <tr className="bg-gradient-to-r from-slate-100 via-slate-50 to-slate-100/90 border-t-2 border-b border-slate-200">
+                        <td colSpan={12} className="py-2 px-3 sm:px-4">
+                          <div className="flex items-center justify-between flex-wrap gap-2.5">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <span className="w-6 h-6 rounded-md bg-[#546A7A] text-white flex items-center justify-center text-[11px] font-black shadow-xs flex-shrink-0">
+                                {customerSlNo}
+                              </span>
+                              <div
+                                className={`w-7 h-7 rounded-lg bg-gradient-to-br ${getCustomerColorClass(
+                                  group.customerName
+                                )} flex items-center justify-center text-white text-xs font-black shadow-xs flex-shrink-0`}
+                              >
+                                {(group.customerName || 'C').charAt(0).toUpperCase()}
                               </div>
-                            </td>
-                          </tr>
+                              <div className="flex items-center gap-2 flex-wrap min-w-0">
+                                <span className="font-extrabold text-slate-900 text-sm sm:text-[15px] truncate">
+                                  {group.customerName}
+                                </span>
+                                {dept && dept !== '—' && (
+                                  <span className="px-2 py-0.5 rounded-md bg-white text-slate-700 font-bold text-[11px] border border-slate-200 shadow-2xs">
+                                    {dept}
+                                  </span>
+                                )}
+                                {group.place && (
+                                  <span className="text-xs text-slate-600 font-medium">
+                                    • {group.place}
+                                  </span>
+                                )}
+                                {group.zoneName && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white text-slate-700 text-[11px] font-bold border border-slate-200 shadow-2xs">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-[#6F8A9D]" />
+                                    {group.zoneName} Zone
+                                  </span>
+                                )}
+                                <span className="px-2 py-0.5 rounded-full bg-[#9E3B47]/10 text-[#9E3B47] text-[11px] font-extrabold border border-[#9E3B47]/20 flex items-center gap-1">
+                                  <FileText className="w-3 h-3" />
+                                  {group.contracts.length} {group.contracts.length === 1 ? 'Contract' : 'Contracts'}
+                                </span>
+                              </div>
+                            </div>
 
-                          {/* ─── CUSTOMER'S CONTRACT ROWS ─── */}
-                          {group.contracts.map((contract, cIdx) => {
-                            const daysRemaining = getDaysRemaining(contract.endDate);
-                            const totalPMs = contract.pmSchedules?.filter(p => p.status !== 'Not Applicable').length || 0;
-                            const completedPMs = contract.pmSchedules?.filter(p => p.status === 'Completed').length || 0;
-                            const pmPercentage = totalPMs > 0 ? Math.round((completedPMs / totalPMs) * 100) : 0;
+                            {/* Right side summary KPIs for this customer */}
+                            <div className="flex items-center gap-2 text-xs font-semibold flex-shrink-0">
+                              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white border border-slate-200 text-slate-700 shadow-2xs">
+                                <span className="text-slate-400">Total Units:</span>
+                                <span className="font-extrabold text-slate-900">{group.totalMachines} M/C</span>
+                              </div>
+                              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 shadow-2xs">
+                                <span className="text-emerald-600 font-medium">Total Value:</span>
+                                <span className="font-black font-mono">{formatCurrency(group.totalAmount)}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
 
-                            return (
-                              <tr
-                                key={contract.id}
-                                onClick={() => router.push(`${resolvedBasePath}/contracts/${contract.id}`)}
-                                className={`
+                      {/* ─── CUSTOMER'S CONTRACT ROWS ─── */}
+                      {group.contracts.map((contract, cIdx) => {
+                        const daysRemaining = getDaysRemaining(contract.endDate);
+                        const totalPMs = contract.pmSchedules?.filter(p => p.status !== 'Not Applicable').length || 0;
+                        const completedPMs = contract.pmSchedules?.filter(p => p.status === 'Completed').length || 0;
+                        const pmPercentage = totalPMs > 0 ? Math.round((completedPMs / totalPMs) * 100) : 0;
+
+                        return (
+                          <tr
+                            key={contract.id}
+                            onClick={() => router.push(`${resolvedBasePath}/contracts/${contract.id}`)}
+                            className={`
                                   ${cIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50/40'}
                                   hover:bg-gradient-to-r hover:from-[#96AEC2]/10 hover:to-[#96AEC2]/20
                                   transition-all duration-150 cursor-pointer group border-b border-slate-100/70 text-xs sm:text-[12.5px]
                                 `}
-                              >
-                                {/* Sub-index */}
-                                <td className="px-2 py-2 text-center w-11">
-                                  <span className="font-mono text-slate-500 text-[10.5px] font-bold bg-slate-100 px-1.5 py-0.5 rounded">
-                                    #{cIdx + 1}
-                                  </span>
-                                </td>
+                          >
+                            {/* Sub-index */}
+                            <td className="px-2 py-2 text-center w-11">
+                              <span className="font-mono text-slate-500 text-[10.5px] font-bold bg-slate-100 px-1.5 py-0.5 rounded">
+                                #{cIdx + 1}
+                              </span>
+                            </td>
 
-                                {/* PO & Agreement */}
-                                <td className="px-2.5 py-2">
-                                  <div className="flex flex-col min-w-0">
-                                    <div className="flex items-center gap-1 flex-wrap">
-                                      <span
-                                        className="font-mono font-bold text-slate-900 group-hover:text-[#9E3B47] text-xs sm:text-[12.5px] leading-tight break-all transition-colors"
-                                        title={contract.poNo || '—'}
-                                      >
-                                        {contract.poNo ? `PO: ${contract.poNo}` : '—'}
-                                      </span>
-                                      {contract.softwareSupport && (
-                                        <span
-                                          title="Active Software Support License"
-                                          className="px-1 py-0.2 rounded text-[8.5px] font-extrabold bg-indigo-50 text-indigo-700 border border-indigo-200 flex-shrink-0"
-                                        >
-                                          SW
-                                        </span>
-                                      )}
-                                    </div>
-                                    {contract.poDate && (
-                                      <span className="text-[9.5px] text-slate-400 font-mono mt-0.5 whitespace-nowrap">
-                                        PO Date: {formatDateLabel(contract.poDate)}
-                                      </span>
-                                    )}
-                                  </div>
-                                </td>
-
-                                {/* Zone */}
-                                <td className="px-1.5 py-2 text-center w-18">
-                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-800 text-[10.5px] font-bold border border-slate-200 whitespace-nowrap">
-                                    {contract.zoneName || '—'}
-                                  </span>
-                                </td>
-
-                                {/* Care Level */}
-                                <td className="px-1.5 py-2 text-center w-22" onClick={e => e.stopPropagation()}>
+                            {/* PO & Agreement */}
+                            <td className="px-2.5 py-2">
+                              <div className="flex flex-col min-w-0">
+                                <div className="flex items-center gap-1 flex-wrap">
                                   <span
-                                    className={`inline-flex px-1.5 py-0.5 text-[10.5px] font-bold rounded-md border whitespace-nowrap ${getSlaBadgeStyle(
-                                      contract.mcType
-                                    )}`}
+                                    className="font-mono font-bold text-slate-900 group-hover:text-[#9E3B47] text-xs sm:text-[12.5px] leading-tight break-all transition-colors"
+                                    title={contract.poNo || '—'}
                                   >
-                                    {contract.mcType || 'Standard'}
+                                    {contract.poNo ? `PO: ${contract.poNo}` : '—'}
                                   </span>
-                                </td>
-
-                                {/* Machines */}
-                                <td className="px-1.5 py-2 text-center w-18">
-                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-900 text-[11px] font-extrabold border border-slate-200 whitespace-nowrap">
-                                    {contract.noOfMachine || 1} M/C
-                                  </span>
-                                </td>
-
-                                {/* BD Visits */}
-                                <td className="px-1.5 py-2 text-center w-22">
-                                  <span
-                                    className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10.5px] font-extrabold border whitespace-nowrap ${
-                                      contract.bdCount === 999
-                                        ? 'bg-purple-50 text-purple-700 border-purple-200'
-                                        : contract.bdCount > 0
-                                        ? 'bg-amber-50 text-amber-800 border-amber-200'
-                                        : 'bg-slate-100 text-slate-500 border-slate-200'
-                                    }`}
-                                  >
-                                    {contract.bdCount === 999 ? 'Unlimited' : `${contract.bdCount || 0} Visits`}
-                                  </span>
-                                </td>
-
-                                {/* Value */}
-                                <td className="px-2.5 py-2 text-right w-26 whitespace-nowrap">
-                                  <div className="font-extrabold text-slate-900 text-xs sm:text-[12.5px] font-mono leading-tight">
-                                    {formatCurrency(contract.amount)}
-                                  </div>
-                                  {contract.paymentTerms && (
-                                    <div
-                                      className="text-[9px] text-slate-400 font-medium truncate max-w-[95px] ml-auto mt-0.5"
-                                      title={contract.paymentTerms}
-                                    >
-                                      {contract.paymentTerms}
-                                    </div>
-                                  )}
-                                </td>
-
-                                {/* Period / Expiry */}
-                                <td className="px-2 py-2 whitespace-nowrap w-32">
-                                  <div className="flex flex-col text-[10.5px] leading-tight">
-                                    <div className="flex items-center gap-1 font-semibold text-slate-800 whitespace-nowrap">
-                                      <span>{formatDateLabel(contract.startDate)}</span>
-                                      <span className="text-slate-400 font-normal">→</span>
-                                      <span>{formatDateLabel(contract.endDate)}</span>
-                                    </div>
-                                    <div className="flex items-center gap-1 mt-0.5">
-                                      {daysRemaining !== null && (
-                                        daysRemaining < 0 ? (
-                                          <span className="text-[9.5px] font-bold text-rose-600">
-                                            Expired {Math.abs(daysRemaining)}d ago
-                                          </span>
-                                        ) : daysRemaining <= 30 ? (
-                                          <span className="text-[9.5px] font-bold text-amber-600">
-                                            {daysRemaining}d left
-                                          </span>
-                                        ) : (
-                                          <span className="text-[9.5px] font-medium text-slate-400">
-                                            {daysRemaining}d left
-                                          </span>
-                                        )
-                                      )}
-                                    </div>
-                                  </div>
-                                </td>
-
-                                {/* PM Visits (Interactive) */}
-                                <td
-                                  className="px-1.5 py-2 text-center w-22"
-                                  onClick={e => {
-                                    e.stopPropagation();
-                                    setPmModalContract(contract);
-                                  }}
-                                >
-                                  <div className="flex flex-col items-center gap-0.5 cursor-pointer group/pm" title="Click to view/update PM cycles">
-                                    <div className="flex items-center gap-0.5 flex-wrap justify-center max-w-[75px]">
-                                      {(contract.pmSchedules || []).length > 0 ? (
-                                        contract.pmSchedules.map(pm => {
-                                          if (pm.status === 'Not Applicable') {
-                                            return (
-                                              <span
-                                                key={pm.id}
-                                                className="w-3.5 h-3.5 rounded flex items-center justify-center text-[7.5px] font-bold bg-slate-100 text-slate-400"
-                                                title={`Visit ${pm.pmNumber}: N/A`}
-                                              >
-                                                —
-                                              </span>
-                                            );
-                                          }
-                                          const isDone = pm.status === 'Completed';
-                                          return (
-                                            <span
-                                              key={pm.id}
-                                              className={`w-3.5 h-3.5 rounded flex items-center justify-center text-[8px] font-bold border transition-transform group-hover/pm:scale-110 ${
-                                                isDone
-                                                  ? 'bg-emerald-500 text-white border-emerald-600 shadow-2xs'
-                                                  : 'bg-amber-100 text-amber-800 border-amber-300'
-                                              }`}
-                                              title={`Visit ${pm.pmNumber}: ${pm.status} (${pm.range})`}
-                                            >
-                                              {isDone ? '✓' : '•'}
-                                            </span>
-                                          );
-                                        })
-                                      ) : (
-                                        <span className="text-[9.5px] text-slate-400 italic">No PM</span>
-                                      )}
-                                    </div>
-                                    {totalPMs > 0 && (
-                                      <span className="text-[9px] font-bold text-slate-600 group-hover/pm:text-[#9E3B47] whitespace-nowrap mt-0.5">
-                                        {completedPMs}/{totalPMs} ({pmPercentage}%)
-                                      </span>
-                                    )}
-                                  </div>
-                                </td>
-
-                                {/* Status */}
-                                <td className="px-1.5 py-2 text-center w-20">
-                                  <span
-                                    className={`inline-flex px-1.5 py-0.5 rounded-full text-[9.5px] font-extrabold border whitespace-nowrap ${getStatusBadgeStyle(
-                                      contract.status
-                                    )}`}
-                                  >
-                                    {contract.status}
-                                  </span>
-                                </td>
-
-                                {/* Responsible */}
-                                <td className="px-2 py-2 w-26">
-                                  <div className="flex items-center gap-1 min-w-0" title={contract.responsible}>
-                                    <div className="w-4.5 h-4.5 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center flex-shrink-0 text-[8px]">
-                                      <Users className="h-2.5 w-2.5" />
-                                    </div>
+                                  {contract.softwareSupport && (
                                     <span
-                                      className="text-[11px] font-medium text-slate-700 truncate max-w-[85px]"
+                                      title="Active Software Support License"
+                                      className="px-1 py-0.2 rounded text-[8.5px] font-extrabold bg-indigo-50 text-indigo-700 border border-indigo-200 flex-shrink-0"
                                     >
-                                      {formatEngineerDisplayName(contract.responsible)}
+                                      SW
                                     </span>
-                                  </div>
-                                </td>
+                                  )}
+                                </div>
+                                {contract.poDate && (
+                                  <span className="text-[9.5px] text-slate-400 font-mono mt-0.5 whitespace-nowrap">
+                                    PO Date: {formatDateLabel(contract.poDate)}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
 
-                                {/* Actions */}
-                                <td className="px-1 py-2 text-center w-10" onClick={e => e.stopPropagation()}>
-                                  <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-6 w-6 p-0 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-md"
-                                      >
-                                        <MoreHorizontal className="h-3 w-3" />
-                                      </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="w-48 bg-white border border-slate-200 shadow-lg rounded-xl">
-                                      <DropdownMenuLabel className="text-[10px] text-slate-400 uppercase tracking-wider">
-                                        Actions
-                                      </DropdownMenuLabel>
-                                      <DropdownMenuItem
-                                        onClick={() => router.push(`${resolvedBasePath}/contracts/${contract.id}`)}
-                                        className="text-xs font-semibold text-slate-700 cursor-pointer"
-                                      >
-                                        <Eye className="h-3.5 w-3.5 mr-2 text-[#546A7A]" />
-                                        View Details
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem
-                                        onClick={() => router.push(`${resolvedBasePath}/contracts/${contract.id}/edit`)}
-                                        className="text-xs font-semibold text-slate-700 cursor-pointer"
-                                      >
-                                        <Pencil className="h-3.5 w-3.5 mr-2 text-[#CE9F6B]" />
-                                        Edit Contract
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem
-                                        onClick={() => setPmModalContract(contract)}
-                                        className="text-xs font-semibold text-slate-700 cursor-pointer"
-                                      >
-                                        <CheckCircle className="h-3.5 w-3.5 mr-2 text-emerald-600" />
-                                        Manage PM Visits
-                                      </DropdownMenuItem>
-                                      <DropdownMenuSeparator />
-                                      <DropdownMenuItem
-                                        onClick={() => setContractToDelete(contract)}
-                                        className="text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 cursor-pointer"
-                                      >
-                                        <Trash2 className="h-3.5 w-3.5 mr-2 text-rose-500" />
-                                        Delete Contract
-                                      </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                  </DropdownMenu>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </Fragment>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
+                            {/* Zone */}
+                            <td className="px-1.5 py-2 text-center w-18">
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-800 text-[10.5px] font-bold border border-slate-200 whitespace-nowrap">
+                                {contract.zoneName || '—'}
+                              </span>
+                            </td>
+
+                            {/* Care Level */}
+                            <td className="px-1.5 py-2 text-center w-22" onClick={e => e.stopPropagation()}>
+                              <span
+                                className={`inline-flex px-1.5 py-0.5 text-[10.5px] font-bold rounded-md border whitespace-nowrap ${getSlaBadgeStyle(
+                                  contract.mcType
+                                )}`}
+                              >
+                                {contract.mcType || 'Standard'}
+                              </span>
+                            </td>
+
+                            {/* Machines */}
+                            <td className="px-1.5 py-2 text-center w-18">
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-900 text-[11px] font-extrabold border border-slate-200 whitespace-nowrap">
+                                {contract.noOfMachine || 1} M/C
+                              </span>
+                            </td>
+
+                            {/* BD Visits */}
+                            <td className="px-1.5 py-2 text-center w-22">
+                              <span
+                                className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10.5px] font-extrabold border whitespace-nowrap ${contract.bdCount === 999
+                                    ? 'bg-purple-50 text-purple-700 border-purple-200'
+                                    : contract.bdCount > 0
+                                      ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                      : 'bg-slate-100 text-slate-500 border-slate-200'
+                                  }`}
+                              >
+                                {contract.bdCount === 999 ? 'Unlimited' : `${contract.bdCount || 0} Visits`}
+                              </span>
+                            </td>
+
+                            {/* Value */}
+                            <td className="px-2.5 py-2 text-right w-26 whitespace-nowrap">
+                              <div className="font-extrabold text-slate-900 text-xs sm:text-[12.5px] font-mono leading-tight">
+                                {formatCurrency(contract.amount)}
+                              </div>
+                              {contract.paymentTerms && (
+                                <div
+                                  className="text-[9px] text-slate-400 font-medium truncate max-w-[95px] ml-auto mt-0.5"
+                                  title={contract.paymentTerms}
+                                >
+                                  {contract.paymentTerms}
+                                </div>
+                              )}
+                            </td>
+
+                            {/* Period / Expiry */}
+                            <td className="px-2 py-2 whitespace-nowrap w-32">
+                              <div className="flex flex-col text-[10.5px] leading-tight">
+                                <div className="flex items-center gap-1 font-semibold text-slate-800 whitespace-nowrap">
+                                  <span>{formatDateLabel(contract.startDate)}</span>
+                                  <span className="text-slate-400 font-normal">→</span>
+                                  <span>{formatDateLabel(contract.endDate)}</span>
+                                </div>
+                                <div className="flex items-center gap-1 mt-0.5">
+                                  {daysRemaining !== null && (
+                                    daysRemaining < 0 ? (
+                                      <span className="text-[9.5px] font-bold text-rose-600">
+                                        Expired {Math.abs(daysRemaining)}d ago
+                                      </span>
+                                    ) : daysRemaining <= 30 ? (
+                                      <span className="text-[9.5px] font-bold text-amber-600">
+                                        {daysRemaining}d left
+                                      </span>
+                                    ) : (
+                                      <span className="text-[9.5px] font-medium text-slate-400">
+                                        {daysRemaining}d left
+                                      </span>
+                                    )
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* PM Visits (Interactive) */}
+                            <td
+                              className="px-1.5 py-2 text-center w-22"
+                              onClick={e => {
+                                e.stopPropagation();
+                                setPmModalContract(contract);
+                              }}
+                            >
+                              <div className="flex flex-col items-center gap-0.5 cursor-pointer group/pm" title="Click to view/update PM cycles">
+                                <div className="flex items-center gap-0.5 flex-wrap justify-center max-w-[75px]">
+                                  {(contract.pmSchedules || []).length > 0 ? (
+                                    contract.pmSchedules.map(pm => {
+                                      if (pm.status === 'Not Applicable') {
+                                        return (
+                                          <span
+                                            key={pm.id}
+                                            className="w-3.5 h-3.5 rounded flex items-center justify-center text-[7.5px] font-bold bg-slate-100 text-slate-400"
+                                            title={`Visit ${pm.pmNumber}: N/A`}
+                                          >
+                                            —
+                                          </span>
+                                        );
+                                      }
+                                      const isDone = pm.status === 'Completed';
+                                      return (
+                                        <span
+                                          key={pm.id}
+                                          className={`w-3.5 h-3.5 rounded flex items-center justify-center text-[8px] font-bold border transition-transform group-hover/pm:scale-110 ${isDone
+                                              ? 'bg-emerald-500 text-white border-emerald-600 shadow-2xs'
+                                              : 'bg-amber-100 text-amber-800 border-amber-300'
+                                            }`}
+                                          title={`Visit ${pm.pmNumber}: ${pm.status} (${pm.range ? pm.range.replace(/NaN-NaN-NaN/gi, '').trim() || 'No dates' : 'No dates'})`}
+                                        >
+                                          {isDone ? '✓' : '•'}
+                                        </span>
+                                      );
+                                    })
+                                  ) : (
+                                    <span className="text-[9.5px] text-slate-400 italic">No PM</span>
+                                  )}
+                                </div>
+                                {totalPMs > 0 && (
+                                  <span className="text-[9px] font-bold text-slate-600 group-hover/pm:text-[#9E3B47] whitespace-nowrap mt-0.5">
+                                    {completedPMs}/{totalPMs} ({pmPercentage}%)
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+
+                            {/* Status */}
+                            <td className="px-1.5 py-2 text-center w-20">
+                              <span
+                                className={`inline-flex px-1.5 py-0.5 rounded-full text-[9.5px] font-extrabold border whitespace-nowrap ${getStatusBadgeStyle(
+                                  contract.status
+                                )}`}
+                              >
+                                {contract.status}
+                              </span>
+                            </td>
+
+                            {/* Responsible */}
+                            <td className="px-2 py-2 w-26">
+                              <div className="flex items-center gap-1 min-w-0" title={contract.responsible}>
+                                <div className="w-4.5 h-4.5 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center flex-shrink-0 text-[8px]">
+                                  <Users className="h-2.5 w-2.5" />
+                                </div>
+                                <span
+                                  className="text-[11px] font-medium text-slate-700 truncate max-w-[85px]"
+                                >
+                                  {formatEngineerDisplayName(contract.responsible)}
+                                </span>
+                              </div>
+                            </td>
+
+                            {/* Actions */}
+                            <td className="px-1 py-2 text-center w-10" onClick={e => e.stopPropagation()}>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 w-6 p-0 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-md"
+                                  >
+                                    <MoreHorizontal className="h-3 w-3" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-48 bg-white border border-slate-200 shadow-lg rounded-xl">
+                                  <DropdownMenuLabel className="text-[10px] text-slate-400 uppercase tracking-wider">
+                                    Actions
+                                  </DropdownMenuLabel>
+                                  <DropdownMenuItem
+                                    onClick={() => router.push(`${resolvedBasePath}/contracts/${contract.id}`)}
+                                    className="text-xs font-semibold text-slate-700 cursor-pointer"
+                                  >
+                                    <Eye className="h-3.5 w-3.5 mr-2 text-[#546A7A]" />
+                                    View Details
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => router.push(`${resolvedBasePath}/contracts/${contract.id}/edit`)}
+                                    className="text-xs font-semibold text-slate-700 cursor-pointer"
+                                  >
+                                    <Pencil className="h-3.5 w-3.5 mr-2 text-[#CE9F6B]" />
+                                    Edit Contract
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => setPmModalContract(contract)}
+                                    className="text-xs font-semibold text-slate-700 cursor-pointer"
+                                  >
+                                    <CheckCircle className="h-3.5 w-3.5 mr-2 text-emerald-600" />
+                                    Manage PM Visits
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={() => setContractToDelete(contract)}
+                                    className="text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 cursor-pointer"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5 mr-2 text-rose-500" />
+                                    Delete Contract
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </Fragment>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* ─── PAGINATION BAR (Offers & Tickets Style) ─── */}
+        {!loading && customerGroups.length > 0 && (
+          <div className="px-4 py-3.5 bg-slate-50/70 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600">
+            <div className="flex items-center gap-2">
+              <span>
+                Showing{' '}
+                <span className="font-extrabold text-slate-800">
+                  {(currentPage - 1) * pageSize + 1}
+                </span>{' '}
+                to{' '}
+                <span className="font-extrabold text-slate-800">
+                  {Math.min(currentPage * pageSize, customerGroups.length)}
+                </span>{' '}
+                of{' '}
+                <span className="font-extrabold text-slate-800">{customerGroups.length}</span> customers{' '}
+                <span className="text-slate-400 font-medium">({sortedContracts.length} contracts)</span>
+              </span>
+
+              <div className="flex items-center gap-1.5 ml-4">
+                <span className="text-[11px] text-slate-400">Rows:</span>
+                <Select
+                  value={String(pageSize)}
+                  onValueChange={val => {
+                    setPageSize(Number(val));
+                    setCurrentPage(1);
+                  }}
+                >
+                  <SelectTrigger className="h-7 w-16 text-xs bg-white border-slate-200">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="25">25</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                    <SelectItem value="100">100</SelectItem>
+                    <SelectItem value="200">200</SelectItem>
+                    <SelectItem value="500">500</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            {/* ─── PAGINATION BAR (Offers & Tickets Style) ─── */}
-            {!loading && customerGroups.length > 0 && (
-              <div className="px-4 py-3.5 bg-slate-50/70 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600">
-                <div className="flex items-center gap-2">
-                  <span>
-                    Showing{' '}
-                    <span className="font-extrabold text-slate-800">
-                      {(currentPage - 1) * pageSize + 1}
-                    </span>{' '}
-                    to{' '}
-                    <span className="font-extrabold text-slate-800">
-                      {Math.min(currentPage * pageSize, customerGroups.length)}
-                    </span>{' '}
-                    of{' '}
-                    <span className="font-extrabold text-slate-800">{customerGroups.length}</span> customers{' '}
-                    <span className="text-slate-400 font-medium">({sortedContracts.length} contracts)</span>
-                  </span>
+            {/* Page Navigation Buttons */}
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(1)}
+                disabled={currentPage === 1}
+                className="h-8 w-8 p-0 border-slate-200 disabled:opacity-40"
+              >
+                <ChevronsLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className="h-8 w-8 p-0 border-slate-200 disabled:opacity-40"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
 
-                  <div className="flex items-center gap-1.5 ml-4">
-                    <span className="text-[11px] text-slate-400">Rows:</span>
-                    <Select
-                      value={String(pageSize)}
-                      onValueChange={val => {
-                        setPageSize(Number(val));
-                        setCurrentPage(1);
-                      }}
-                    >
-                      <SelectTrigger className="h-7 w-16 text-xs bg-white border-slate-200">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="25">25</SelectItem>
-                        <SelectItem value="50">50</SelectItem>
-                        <SelectItem value="100">100</SelectItem>
-                        <SelectItem value="200">200</SelectItem>
-                        <SelectItem value="500">500</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                {/* Page Navigation Buttons */}
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(1)}
-                    disabled={currentPage === 1}
-                    className="h-8 w-8 p-0 border-slate-200 disabled:opacity-40"
-                  >
-                    <ChevronsLeft className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                    disabled={currentPage === 1}
-                    className="h-8 w-8 p-0 border-slate-200 disabled:opacity-40"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-
-                  <div className="px-3 py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700">
-                    Page {currentPage} of {totalPages}
-                  </div>
-
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                    disabled={currentPage === totalPages}
-                    className="h-8 w-8 p-0 border-slate-200 disabled:opacity-40"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(totalPages)}
-                    disabled={currentPage === totalPages}
-                    className="h-8 w-8 p-0 border-slate-200 disabled:opacity-40"
-                  >
-                    <ChevronsRight className="h-4 w-4" />
-                  </Button>
-                </div>
+              <div className="px-3 py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700">
+                Page {currentPage} of {totalPages}
               </div>
-            )}
-          </Card>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                className="h-8 w-8 p-0 border-slate-200 disabled:opacity-40"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(totalPages)}
+                disabled={currentPage === totalPages}
+                className="h-8 w-8 p-0 border-slate-200 disabled:opacity-40"
+              >
+                <ChevronsRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+      </Card>
 
       {/* ─── QUICK PM VISITS MANAGEMENT DIALOG ─── */}
       <Dialog open={Boolean(pmModalContract)} onOpenChange={open => !open && setPmModalContract(null)}>
@@ -1734,16 +1737,14 @@ export default function ContractsListPage({
                 return (
                   <div
                     key={pm.id}
-                    className={`p-3 rounded-xl border flex justify-between items-center transition-all ${
-                      isCompleted ? 'bg-emerald-50/50 border-emerald-200' : 'bg-white border-slate-200'
-                    }`}
+                    className={`p-3 rounded-xl border flex justify-between items-center transition-all ${isCompleted ? 'bg-emerald-50/50 border-emerald-200' : 'bg-white border-slate-200'
+                      }`}
                   >
                     <div className="space-y-0.5">
                       <div className="flex items-center gap-1.5">
                         <span
-                          className={`font-bold text-xs uppercase tracking-wider ${
-                            isCompleted ? 'text-emerald-700' : 'text-slate-700'
-                          }`}
+                          className={`font-bold text-xs uppercase tracking-wider ${isCompleted ? 'text-emerald-700' : 'text-slate-700'
+                            }`}
                         >
                           Visit {pm.pmNumber}
                         </span>
@@ -1757,9 +1758,9 @@ export default function ContractsListPage({
                         <span className="font-mono text-[11px] text-slate-500 block truncate" title={scheduleText}>
                           {scheduleText}
                         </span>
-                      ) : !isCompleted ? (
-                        <span className="font-mono text-[11px] text-slate-400 block italic">Scheduled Cycle</span>
-                      ) : null}
+                      ) : (
+                        <span className="font-mono text-[11px] text-slate-400 block italic">No dates</span>
+                      )}
                       {isCompleted && (
                         <span className="text-[10px] text-emerald-600 font-semibold block break-words" title={doneText}>
                           Completed on: {doneText || 'Completed'}
@@ -1772,11 +1773,10 @@ export default function ContractsListPage({
                       size="sm"
                       disabled={isUpdating}
                       onClick={() => handleTogglePMStatus(pm.id, pm.status)}
-                      className={`text-xs font-bold h-8 px-3 rounded-lg border transition-all ${
-                        isCompleted
+                      className={`text-xs font-bold h-8 px-3 rounded-lg border transition-all ${isCompleted
                           ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-700 shadow-xs'
                           : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-300'
-                      }`}
+                        }`}
                     >
                       {isUpdating ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />

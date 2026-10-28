@@ -504,9 +504,10 @@ export async function generateContractReportPdf(
                     pmDaysDueText = days < 0 ? `${Math.abs(days)}d overdue` : (days === 0 ? 'Due today' : `Due in ${days}d`);
                 }
 
+                const cleanRange = (pm.range || '').replace(/NaN-NaN-NaN/gi, '').replace(/NaN/gi, '').trim();
                 const rangeText = (pmStart !== '—' && pmEnd !== '—')
                     ? `${pmStart} to ${pmEnd}`
-                    : (pmStart !== '—' ? pmStart : (pm.range || '—'));
+                    : (pmStart !== '—' ? pmStart : (cleanRange || 'No dates'));
                 const statusSuffix = isDone ? 'Done' : 'Pending';
 
                 customerPmRows.push({
