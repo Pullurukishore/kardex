@@ -134,12 +134,11 @@ async function main() {
     const startSerial = row[11];
     const endSerial = row[12];
 
-    const matchedContract = dbContracts.find((c: any) => {
-      const matchName = c.customerName.toLowerCase().trim() === custName.toLowerCase();
-      const matchPo = po && String(c.poNo || '').toLowerCase().trim() === po.toLowerCase();
-      const matchPlace = place && String(c.place || '').toLowerCase().trim() === place.toLowerCase();
-      return matchName && (matchPo || matchPlace);
-    });
+    const contractNum = `CON-2026-${String(rIdx - 5).padStart(3, '0')}`;
+    let matchedContract = dbContracts.find((c: any) => c.contractNumber === contractNum);
+    if (!matchedContract && (rIdx - 6) < dbContracts.length) {
+      matchedContract = dbContracts[rIdx - 6];
+    }
 
     if (!matchedContract) continue;
 

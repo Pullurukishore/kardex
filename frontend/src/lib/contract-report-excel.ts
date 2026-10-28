@@ -89,6 +89,7 @@ interface ContractExcelFilters {
     status?: string;
     responsible?: string;
     mcType?: string;
+    pmFilter?: string;
     dateFrom?: string;
     dateTo?: string;
 }
@@ -184,8 +185,10 @@ const months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', '
 
 const parseDateObj = (str: string | null | undefined): Date | null => {
     if (!str) return null;
-    str = str.trim();
+    str = str.trim().replace(/NaN-NaN-NaN/gi, '').replace(/NaN/gi, '').trim();
+    if (!str) return null;
 
+    // Check exact DD/MM/YYYY or DD.MM.YYYY
     const slashDot = str.match(/^(\d{1,2})[\/\.](\d{1,2})[\/\.](\d{2,4})$/);
     if (slashDot) {
         const d = parseInt(slashDot[1], 10);
@@ -195,11 +198,13 @@ const parseDateObj = (str: string | null | undefined): Date | null => {
         return new Date(y, m, d);
     }
 
+    // Check exact ISO YYYY-MM-DD
     const isoMatch = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
     if (isoMatch) {
         return new Date(parseInt(isoMatch[1], 10), parseInt(isoMatch[2], 10) - 1, parseInt(isoMatch[3], 10));
     }
 
+    // Check exact DD-MM-YYYY
     const dmyMatch = str.match(/^(\d{1,2})-(\d{1,2})-(\d{2,4})$/);
     if (dmyMatch) {
         let y = parseInt(dmyMatch[3], 10);
@@ -207,6 +212,7 @@ const parseDateObj = (str: string | null | undefined): Date | null => {
         return new Date(y, parseInt(dmyMatch[2], 10) - 1, parseInt(dmyMatch[1], 10));
     }
 
+    // Check exact DD-MMM-YYYY or DD MMM YYYY (e.g. 15-Oct-2026, 15 Oct 2026)
     const wordMatch = str.match(/^(\d{1,2})[-\s]+([A-Za-z]+)[-\s]+(\d{2,4})$/);
     if (wordMatch) {
         const d = parseInt(wordMatch[1], 10);
@@ -217,17 +223,47 @@ const parseDateObj = (str: string | null | undefined): Date | null => {
         if (m >= 0) return new Date(y, m, d);
     }
 
+    // Also match dates embedded inside text/sentences (e.g. with pipe remarks)
+    const anyNamed = str.match(/(\d{1,2})[\s\-\/\.]([A-Za-z]{3,})[\s\-\/\.](\d{2,4})/);
+    if (anyNamed) {
+        const d = parseInt(anyNamed[1], 10);
+        const mStr = anyNamed[2].toLowerCase().slice(0, 3);
+        const m = months.indexOf(mStr);
+        let y = parseInt(anyNamed[3], 10);
+        if (y < 100) y += 2000;
+        if (m >= 0) return new Date(y, m, d);
+    }
+
+    const anySlash = str.match(/(\d{1,2})[\/\.](\d{1,2})[\/\.](\d{2,4})/);
+    if (anySlash) {
+        const d = parseInt(anySlash[1], 10);
+        const m = parseInt(anySlash[2], 10) - 1;
+        let y = parseInt(anySlash[3], 10);
+        if (y < 100) y += 2000;
+        return new Date(y, m, d);
+    }
+
+    const anyDmy = str.match(/(\d{1,2})-(\d{1,2})-(\d{2,4})/);
+    if (anyDmy) {
+        let y = parseInt(anyDmy[3], 10);
+        if (y < 100) y += 2000;
+        return new Date(y, parseInt(anyDmy[2], 10) - 1, parseInt(anyDmy[1], 10));
+    }
+
     const fallback = new Date(str);
     return isNaN(fallback.getTime()) ? null : fallback;
 };
 
+// Extracts the PM visit end date from range string, cleanly ignoring pipe remarks
 const getPMEndDate = (pmRange: string | null | undefined): Date | null => {
     if (!pmRange) return null;
-    const parts = pmRange.split(/\s+(?:TO|to|-)\s+/);
+    const cleanRange = pmRange.split(/\s*\|\s*/)[0].trim();
+    const parts = cleanRange.split(/\s+(?:TO|to|-)\s+/);
     const endStr = parts.length >= 2 ? parts[parts.length - 1]?.trim() : parts[0]?.trim();
     return parseDateObj(endStr);
 };
 
+// Checks if the PM visit ENDS between dateFrom and dateTo
 const isPMEndDateInRange = (pmRange: string | null | undefined, dateFrom?: string, dateTo?: string): boolean => {
     if (!dateFrom && !dateTo) return true;
     const endObj = getPMEndDate(pmRange);
@@ -258,6 +294,58 @@ const isRangeOverdue = (range: string): boolean => {
     } catch { return false; }
 };
 
+// Cleanly separates schedule dates, completion details, and remarks for pending PMs
+function parsePMDetails(pm: PMSchedule) {
+    const raw = (pm.range || '').replace(/NaN-NaN-NaN/gi, '').replace(/NaN/gi, '').trim();
+    let scheduleText = '';
+    let doneText = '';
+    let noteText = '';
+    const isCompleted = pm.status === 'Completed';
+
+    if (/\s*\|\s*(?:Done:|done:)\s*/i.test(raw)) {
+        const parts = raw.split(/\s*\|\s*(?:Done:|done:)\s*/i);
+        scheduleText = parts[0]?.trim() || '';
+        doneText = parts.slice(1).join(' | ').trim();
+    } else if (raw.includes(' | ')) {
+        const parts = raw.split(/\s*\|\s*/);
+        scheduleText = parts[0]?.trim() || '';
+        const secondPart = parts.slice(1).join(' | ').trim();
+        if (/^(?:Done:|done:)\s*/i.test(secondPart)) {
+            doneText = secondPart.replace(/^(?:Done:|done:)\s*/i, '').trim();
+        } else if (isCompleted) {
+            doneText = secondPart;
+        } else {
+            noteText = secondPart;
+        }
+    } else if (/^(?:Done:|done:)\s*/i.test(raw)) {
+        scheduleText = '';
+        doneText = raw.replace(/^(?:Done:|done:)\s*/i, '').trim();
+    } else {
+        scheduleText = raw;
+    }
+
+    if (scheduleText.startsWith('|')) scheduleText = scheduleText.replace(/^\|\s*/, '').trim();
+    if (scheduleText.endsWith('|')) scheduleText = scheduleText.replace(/\s*\|$/, '').trim();
+
+    // Check overdue
+    let isOverdue = false;
+    if (!isCompleted) {
+        const endObj = getPMEndDate(scheduleText || raw);
+        if (endObj) {
+            endObj.setHours(23, 59, 59, 999);
+            isOverdue = endObj < new Date();
+        }
+    }
+
+    return {
+        scheduleText: scheduleText || 'No dates',
+        doneText,
+        noteText,
+        isCompleted,
+        isOverdue
+    };
+}
+
 // ============ Pure Tabular Columns Definition ============
 const CONTRACT_TABLE_COLUMNS = [
     { header: '#', key: 'slNo', width: 6, align: 'center' as const },
@@ -275,7 +363,7 @@ const CONTRACT_TABLE_COLUMNS = [
     { header: 'Status', key: 'status', width: 14, align: 'center' as const },
     { header: 'Responsible Engineer', key: 'responsible', width: 24, align: 'left' as const },
     { header: 'Total PM Visits', key: 'noOfVisits', width: 14, align: 'center' as const },
-    { header: 'PM Schedule Window', key: 'pendingWindow', width: 32, align: 'left' as const },
+    { header: 'PM Schedule Window', key: 'pendingWindow', width: 44, align: 'left' as const },
     { header: 'BD Visits', key: 'bdCount', width: 12, align: 'center' as const },
     { header: 'SW Support', key: 'softwareSupport', width: 12, align: 'center' as const },
     { header: 'Payment Terms', key: 'paymentTerms', width: 16, align: 'left' as const },
@@ -310,11 +398,16 @@ export async function generateContractReportExcel(
     });
 
     // ── Row 1: Standard Table Header ──
+    const isDateFiltered = Boolean(_filters?.dateFrom || _filters?.dateTo);
     const headerRow = ws.getRow(1);
     headerRow.height = 28;
     CONTRACT_TABLE_COLUMNS.forEach((col, i) => {
         const cell = headerRow.getCell(i + 1);
-        cell.value = col.header;
+        if (col.key === 'pendingWindow' && isDateFiltered) {
+            cell.value = 'PM Visits (In Range)';
+        } else {
+            cell.value = col.header;
+        }
         applyHeaderStyle(cell);
     });
 
@@ -344,22 +437,37 @@ export async function generateContractReportExcel(
             const applicablePMs = (ct.pmSchedules || []).filter(p => p.status !== 'Not Applicable');
             const totalPMs = ct.noOfVisits || applicablePMs.length;
 
-            const matchingPMs = (_filters?.dateFrom || _filters?.dateTo)
+            // Date filtering strictly checks if PM visit's end date is in [dateFrom, dateTo]
+            let targetPMs = isDateFiltered
                 ? applicablePMs.filter(p => isPMEndDateInRange(p.range, _filters.dateFrom, _filters.dateTo))
                 : applicablePMs;
 
-            const targetPMs = matchingPMs.length > 0 ? matchingPMs : applicablePMs;
+            // Apply PM status filter if selected
+            if (_filters?.pmFilter === 'pending') {
+                targetPMs = targetPMs.filter(p => p.status !== 'Completed');
+            } else if (_filters?.pmFilter === 'completed') {
+                targetPMs = targetPMs.filter(p => p.status === 'Completed');
+            } else if (_filters?.pmFilter === 'overdue') {
+                targetPMs = targetPMs.filter(p => isRangeOverdue(p.range));
+            }
 
             const formatExcelPM = (p: PMSchedule) => {
-                const isDone = p.status === 'Completed';
-                const statusLabel = isDone ? 'Done' : 'Pending';
-                const rangeText = (p.range && !p.range.includes('NaN') && p.range.trim()) ? p.range.trim() : 'No dates';
-                return `PM ${p.pmNumber}: ${rangeText} (${statusLabel})`;
+                const { scheduleText, doneText, noteText, isCompleted, isOverdue } = parsePMDetails(p);
+                let statusTag = '';
+                if (isCompleted) {
+                    const compStr = doneText || (p.completedAt ? fmtDate(p.completedAt) : '');
+                    statusTag = compStr ? `[✓ Done: ${compStr}]` : '[✓ Done]';
+                } else if (isOverdue) {
+                    statusTag = noteText ? `[Overdue - Note: ${noteText}]` : '[Overdue]';
+                } else {
+                    statusTag = noteText ? `[Pending - Note: ${noteText}]` : '[Pending]';
+                }
+                return `PM ${p.pmNumber}: ${scheduleText} ${statusTag}`;
             };
 
             const pendingWindowStr = targetPMs.length > 0
                 ? targetPMs.map(formatExcelPM).join('\n')
-                : (applicablePMs.length > 0 ? applicablePMs.map(formatExcelPM).join('\n') : '—');
+                : (isDateFiltered ? '—' : (applicablePMs.length > 0 ? applicablePMs.map(formatExcelPM).join('\n') : '—'));
 
             const bdLabel = ct.bdCount === 999 ? 'Unlimited' : (ct.bdCount ?? 0);
             const engNames = normalizeEngineerNames(ct.responsible).join(', ') || '—';
@@ -395,7 +503,7 @@ export async function generateContractReportExcel(
             ];
 
             const row = ws.getRow(r);
-            row.height = Math.max(20, (targetPMs.length || 1) * 16);
+            row.height = Math.max(22, (targetPMs.length || 1) * 18);
 
             rowData.forEach((val, colIdx) => {
                 const cell = row.getCell(colIdx + 1);

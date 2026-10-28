@@ -442,7 +442,8 @@ export default function ContractReports({ role }: ContractReportsProps) {
   // Extracts the PM visit end date from range string (e.g. "11/08/2026 TO 31/08/2026" -> 31/08/2026)
   const getPMEndDate = (pmRange: string | null | undefined): Date | null => {
     if (!pmRange) return null;
-    const parts = pmRange.split(/\s+(?:TO|to|-)\s+/);
+    const cleanRange = pmRange.split(/\s*\|\s*/)[0].trim();
+    const parts = cleanRange.split(/\s+(?:TO|to|-)\s+/);
     const endStr = parts.length >= 2 ? parts[parts.length - 1]?.trim() : parts[0]?.trim();
     return parseDateObj(endStr);
   };
@@ -620,6 +621,8 @@ export default function ContractReports({ role }: ContractReportsProps) {
   const getPMRangeDisplayInfo = (range: string | null | undefined, pm?: PMSchedule, contract?: Contract) => {
     let cleanText = range ? range.trim() : '';
     let doneText = '';
+    let noteText = '';
+    const isCompleted = pm?.status === 'Completed';
 
     if (/\s*\|\s*(?:Done:|done:)\s*/i.test(cleanText)) {
       const parts = cleanText.split(/\s*\|\s*(?:Done:|done:)\s*/i);
@@ -631,8 +634,10 @@ export default function ContractReports({ role }: ContractReportsProps) {
       const secondPart = parts.slice(1).join(' | ').trim();
       if (/^(?:Done:|done:)\s*/i.test(secondPart)) {
         doneText = secondPart.replace(/^(?:Done:|done:)\s*/i, '').trim();
-      } else {
+      } else if (isCompleted) {
         doneText = secondPart;
+      } else {
+        noteText = secondPart;
       }
     } else if (/^(?:Done:|done:)\s*/i.test(cleanText)) {
       cleanText = '';
@@ -646,10 +651,10 @@ export default function ContractReports({ role }: ContractReportsProps) {
     if (cleanText.endsWith('|')) cleanText = cleanText.replace(/\s*\|$/, '').trim();
 
     if (!cleanText && !doneText) {
-      return { isTwoDates: false, isSingleDate: false, isText: true, text: 'No dates', startFmt: 'No dates', endFmt: '—', doneText: '' };
+      return { isTwoDates: false, isSingleDate: false, isText: true, text: 'No dates', startFmt: 'No dates', endFmt: '—', doneText: '', noteText: '' };
     }
     if (!cleanText && doneText) {
-      return { isTwoDates: false, isSingleDate: false, isText: true, text: 'No dates', startFmt: 'No dates', endFmt: '—', doneText };
+      return { isTwoDates: false, isSingleDate: false, isText: true, text: 'No dates', startFmt: 'No dates', endFmt: '—', doneText, noteText: '' };
     }
 
     const raw = cleanText;
@@ -664,7 +669,8 @@ export default function ContractReports({ role }: ContractReportsProps) {
         startFmt: formatCompactDate(parts[0]),
         endFmt: formatCompactDate(parts[parts.length - 1]),
         text: schedulePart,
-        doneText
+        doneText,
+        noteText
       };
     }
     if (schedulePart && isPureDateStr(schedulePart)) {
@@ -675,7 +681,8 @@ export default function ContractReports({ role }: ContractReportsProps) {
         startFmt: formatCompactDate(schedulePart),
         endFmt: '',
         text: schedulePart,
-        doneText
+        doneText,
+        noteText
       };
     }
     return {
@@ -685,7 +692,8 @@ export default function ContractReports({ role }: ContractReportsProps) {
       startFmt: '',
       endFmt: '',
       text: schedulePart || (doneText ? '' : '—'),
-      doneText
+      doneText,
+      noteText
     };
   };
 
@@ -954,6 +962,7 @@ export default function ContractReports({ role }: ContractReportsProps) {
         status: statusFilter !== 'all' ? statusFilter : 'All',
         responsible: techFilter.length > 0 ? techFilter.join(', ') : 'All',
         mcType: mcTypeFilter !== 'all' ? mcTypeFilter : 'All',
+        pmFilter: pmFilter !== 'all' ? pmFilter : undefined,
         dateFrom,
         dateTo
       };
@@ -1891,6 +1900,11 @@ export default function ContractReports({ role }: ContractReportsProps) {
                                                   Done: {pmInfo.doneText || (p.completedAt ? formatDate(p.completedAt) : 'Completed')}
                                                 </span>
                                               )}
+                                              {!done && pmInfo.noteText && (
+                                                <span className="text-[8px] text-amber-700 font-semibold mt-0.5 block break-words" title={pmInfo.noteText}>
+                                                  Note: {pmInfo.noteText}
+                                                </span>
+                                              )}
                                             </div>
                                           ) : pmInfo.isSingleDate ? (
                                             <div>
@@ -1902,6 +1916,11 @@ export default function ContractReports({ role }: ContractReportsProps) {
                                                   Done: {pmInfo.doneText || (p.completedAt ? formatDate(p.completedAt) : 'Completed')}
                                                 </span>
                                               )}
+                                              {!done && pmInfo.noteText && (
+                                                <span className="text-[8px] text-amber-700 font-semibold mt-0.5 block break-words" title={pmInfo.noteText}>
+                                                  Note: {pmInfo.noteText}
+                                                </span>
+                                              )}
                                             </div>
                                           ) : (
                                             <div>
@@ -1911,6 +1930,11 @@ export default function ContractReports({ role }: ContractReportsProps) {
                                               {done && (
                                                 <span className="text-[8px] text-emerald-700 font-semibold mt-0.5 block break-words">
                                                   Done: {pmInfo.doneText || (p.completedAt ? formatDate(p.completedAt) : 'Completed')}
+                                                </span>
+                                              )}
+                                              {!done && pmInfo.noteText && (
+                                                <span className="text-[8px] text-amber-700 font-semibold mt-0.5 block break-words" title={pmInfo.noteText}>
+                                                  Note: {pmInfo.noteText}
                                                 </span>
                                               )}
                                             </div>

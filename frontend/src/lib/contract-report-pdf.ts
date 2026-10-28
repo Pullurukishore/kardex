@@ -120,7 +120,7 @@ const parseDateObj = (str: string): Date | null => {
 
 const parseRangeDatesFormatted = (range: string | null | undefined): { startDate: string; endDate: string } => {
     if (!range) return { startDate: '—', endDate: '—' };
-    const raw = range.split(/\s*\|\s*(?:Done:|done:)/i)[0].trim();
+    const raw = range.split(/\s*\|\s*/)[0].trim();
     const parts = raw.split(/\s+(?:TO|to)\s+|\s+-\s+/);
     if (parts.length >= 2) {
         const d1 = parseDateObj(parts[0]?.trim());
@@ -142,7 +142,7 @@ const parseRangeDatesFormatted = (range: string | null | undefined): { startDate
 // Extracts the PM visit end date from range string (e.g. "11/08/2026 TO 31/08/2026" -> 31/08/2026)
 const getPMEndDate = (pmRange: string | null | undefined): Date | null => {
     if (!pmRange) return null;
-    const cleaned = pmRange.split(/\s*\|\s*(?:Done:|done:)/i)[0].trim();
+    const cleaned = pmRange.split(/\s*\|\s*/)[0].trim();
     const parts = cleaned.split(/\s+(?:TO|to|-)\s+/);
     const endStr = parts.length >= 2 ? parts[parts.length - 1]?.trim() : parts[0]?.trim();
     return parseDateObj(endStr);
