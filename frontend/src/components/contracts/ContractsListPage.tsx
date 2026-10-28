@@ -328,6 +328,7 @@ export default function ContractsListPage({
 
     let scheduleText = '';
     let doneText = '';
+    let noteText = '';
 
     if (/\s*\|\s*(?:Done:|done:)\s*/i.test(rawRange)) {
       const parts = rawRange.split(/\s*\|\s*(?:Done:|done:)\s*/i);
@@ -342,7 +343,7 @@ export default function ContractsListPage({
       } else if (isCompleted) {
         doneText = secondPart;
       } else {
-        scheduleText = rawRange;
+        noteText = secondPart;
       }
     } else if (/^(?:Done:|done:)\s*/i.test(rawRange)) {
       scheduleText = '';
@@ -383,6 +384,7 @@ export default function ContractsListPage({
     return {
       scheduleText,
       doneText,
+      noteText,
       isCompleted
     };
   };
@@ -1711,7 +1713,7 @@ export default function ContractsListPage({
             <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1">
               {pmModalContract?.pmSchedules?.map(pm => {
                 const isCompleted = pm.status === 'Completed';
-                const { scheduleText, doneText } = getPMDisplayDetails(pm);
+                const { scheduleText, doneText, noteText } = getPMDisplayDetails(pm);
                 const isNA = pm.status === 'Not Applicable';
                 const isUpdating = updatingPmId === pm.id;
 
@@ -1740,7 +1742,7 @@ export default function ContractsListPage({
                     className={`p-3 rounded-xl border flex justify-between items-center transition-all ${isCompleted ? 'bg-emerald-50/50 border-emerald-200' : 'bg-white border-slate-200'
                       }`}
                   >
-                    <div className="space-y-0.5">
+                    <div className="space-y-0.5 min-w-0 flex-1 mr-2">
                       <div className="flex items-center gap-1.5">
                         <span
                           className={`font-bold text-xs uppercase tracking-wider ${isCompleted ? 'text-emerald-700' : 'text-slate-700'
@@ -1755,7 +1757,7 @@ export default function ContractsListPage({
                         )}
                       </div>
                       {scheduleText ? (
-                        <span className="font-mono text-[11px] text-slate-500 block truncate" title={scheduleText}>
+                        <span className="font-mono text-[11px] text-slate-700 font-semibold block whitespace-nowrap" title={scheduleText}>
                           {scheduleText}
                         </span>
                       ) : (
@@ -1764,6 +1766,11 @@ export default function ContractsListPage({
                       {isCompleted && (
                         <span className="text-[10px] text-emerald-600 font-semibold block break-words" title={doneText}>
                           Completed on: {doneText || 'Completed'}
+                        </span>
+                      )}
+                      {!isCompleted && noteText && (
+                        <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200/60 px-1.5 py-0.5 rounded block break-words" title={noteText}>
+                          Note: {noteText}
                         </span>
                       )}
                     </div>

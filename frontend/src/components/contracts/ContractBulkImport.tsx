@@ -315,12 +315,12 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
   const parseCompletionDate = (val: any, fallbackYear?: number): string => {
     if (!val) return '';
     if (val instanceof Date) {
-      return !isNaN(val.getTime()) ? formatDateISO(val) : '';
+      return !isNaN(val.getTime()) && val.getFullYear() >= 2020 && val.getFullYear() <= 2035 ? formatDateISO(val) : '';
     }
 
     if (typeof val === 'number') {
       const date = new Date((val - 25569) * 86400 * 1000);
-      return !isNaN(date.getTime()) ? formatDateISO(date) : '';
+      return !isNaN(date.getTime()) && date.getFullYear() >= 2020 && date.getFullYear() <= 2035 ? formatDateISO(date) : '';
     }
 
     const str = String(val).trim();
@@ -328,44 +328,58 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
       return '';
     }
 
+    // Ignore notes with future instructions, non-completion remarks, or pure quantity notes
+    // (e.g. "Generate in Jan 27", "generate after 3rd PM", "Need to generate", "Qty 2.5", "Due to Gate pass issue")
+    // unless they contain an explicit completed date like "10th June 26, generate after..."
+    if (/^\s*(?:generate|generater|generation|need to|to be|due to|qty\b|qty\s*\d|mention\b)/i.test(str)) {
+      if (!/(\d{1,2})(?:st|nd|rd|th)\s+[A-Za-z]+/i.test(str) && !/\d{1,2}[/\-.]\d{1,2}[/\-.]\d{2,4}/.test(str)) {
+        return '';
+      }
+    }
+
     // Standardize common patterns (remove st, nd, rd, th, tth)
     const cleanStr = str.replace(/(\d+)(st|nd|rd|th|tth)/gi, '$1');
 
-    const d = new Date(cleanStr);
-    if (!isNaN(d.getTime()) && d.getFullYear() > 2000 && d.getFullYear() < 2035) {
-      return formatDateISO(d);
+    // ONLY try direct Date parsing if it strictly looks like an ISO date: YYYY-MM-DD or YYYY/MM/DD
+    if (/^\d{4}[/\-.]\d{1,2}[/\-.]\d{1,2}$/.test(cleanStr)) {
+      const d = new Date(cleanStr);
+      if (!isNaN(d.getTime()) && d.getFullYear() >= 2020 && d.getFullYear() <= 2035) {
+        return formatDateISO(d);
+      }
     }
 
-    // Match DD Month YY/YYYY anywhere in sentences (e.g. '29th Aug 25,Inv generated', '14th Aug ,raise in July', '8th MAy 26')
+    // Match DD Month YY/YYYY anywhere in sentences (e.g. '29th Aug 25,Inv generated', '14th Aug ,raise in July', '8th MAy 26', '3rd Sep 26')
     const match1 = str.match(/(\d{1,2})(?:st|nd|rd|th|tth)?\s+([A-Za-z]+)(?:\s*[, -]?\s*(\d{2,4}))?/i);
     if (match1) {
       const day = parseInt(match1[1], 10);
       const mStr = match1[2].toLowerCase();
-      let year = match1[3] ? parseInt(match1[3].replace(/\s+/g, ''), 10) : (fallbackYear || 2025);
+      let year = match1[3] ? parseInt(match1[3].replace(/\s+/g, ''), 10) : (fallbackYear || 2026);
       if (!isNaN(year) && year < 100) year = 2000 + year;
       const matchedKey = Object.keys(monthsMap).find(k => mStr.startsWith(k));
       const mNum = monthsMap[mStr] || (matchedKey ? monthsMap[matchedKey] : null);
-      if (mNum && !isNaN(day) && day >= 1 && day <= 31 && !isNaN(year) && year > 2000) {
+      if (mNum && !isNaN(day) && day >= 1 && day <= 31 && !isNaN(year) && year >= 2020 && year <= 2035) {
         return `${year}-${String(mNum).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
       }
     }
 
-    // Match Month DD YY (e.g. 'Aug 14th 26')
-    const match2 = str.match(/([A-Za-z]+)\s+(\d{1,2})(?:st|nd|rd|th|tth)?(?:\s*[, -]?\s*(\d{2,4}))?/i);
+    // Match Month DDth YY or Month DD, YYYY (must have ordinal suffix OR explicit 3-part Month DD YYYY, not just Month YY like "Jan 27")
+    const match2 = str.match(/([A-Za-z]+)\s+(\d{1,2})(st|nd|rd|th|tth)\s*(?:[, -]?\s*(\d{2,4}))?/i) ||
+                   str.match(/([A-Za-z]+)\s+(\d{1,2})\s*[, -]\s*(\d{2,4})/i);
     if (match2) {
       const mStr = match2[1].toLowerCase();
       const day = parseInt(match2[2], 10);
-      let year = match2[3] ? parseInt(match2[3].replace(/\s+/g, ''), 10) : (fallbackYear || 2025);
+      const yearPart = match2[4] || match2[3];
+      let year = yearPart ? parseInt(String(yearPart).replace(/\s+/g, ''), 10) : (fallbackYear || 2026);
       if (!isNaN(year) && year < 100) year = 2000 + year;
       const matchedKey = Object.keys(monthsMap).find(k => mStr.startsWith(k));
       const mNum = monthsMap[mStr] || (matchedKey ? monthsMap[matchedKey] : null);
-      if (mNum && !isNaN(day) && day >= 1 && day <= 31 && !isNaN(year) && year > 2000) {
+      if (mNum && !isNaN(day) && day >= 1 && day <= 31 && !isNaN(year) && year >= 2020 && year <= 2035) {
         return `${year}-${String(mNum).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
       }
     }
 
     // Fallback: match DD/MM/YYYY or DD-MM-YYYY
-    const partsDMY = cleanStr.match(/(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4}|\d{2})/);
+    const partsDMY = cleanStr.match(/\b(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4}|\d{2})\b/);
     if (partsDMY) {
       const day = partsDMY[1].padStart(2, '0');
       const month = partsDMY[2].padStart(2, '0');
@@ -374,7 +388,7 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
         year = '20' + year;
       }
       const parsedYear = parseInt(year, 10);
-      if (!isNaN(parsedYear) && parsedYear > 2000) {
+      if (!isNaN(parsedYear) && parsedYear >= 2020 && parsedYear <= 2035) {
         return `${year}-${month}-${day}`;
       }
     }

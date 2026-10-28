@@ -69,6 +69,12 @@ const parseCompletionDate = (val: any, fallbackYear = 2026): Date | null => {
   const str = String(val).trim();
   if (!str) return null;
 
+  if (/^\s*(?:generate|generater|generation|need to|to be|due to|qty\b|qty\s*\d|mention\b)/i.test(str)) {
+    if (!/(\d{1,2})(?:st|nd|rd|th)\s+[A-Za-z]+/i.test(str) && !/\d{1,2}[/\-.]\d{1,2}[/\-.]\d{2,4}/.test(str)) {
+      return null;
+    }
+  }
+
   const match = str.match(/(\d{1,2})(?:st|nd|rd|th|tth)?\s+([A-Za-z]+)(?:\s*[, -]?\s*(\d{2,4}))?/i);
   if (match) {
     const day = parseInt(match[1], 10);
@@ -77,15 +83,19 @@ const parseCompletionDate = (val: any, fallbackYear = 2026): Date | null => {
     if (year < 100) year = 2000 + year;
     const matchedKey = Object.keys(monthsMap).find(k => mStr.startsWith(k));
     const mNum = monthsMap[mStr] || (matchedKey ? monthsMap[matchedKey] : null);
-    if (mNum && day >= 1 && day <= 31) {
+    if (mNum && day >= 1 && day <= 31 && year >= 2020 && year <= 2035) {
       return new Date(Date.UTC(year, mNum - 1, day));
     }
   }
 
-  const d = new Date(str);
-  if (!isNaN(d.getTime()) && d.getFullYear() > 2000 && d.getFullYear() < 2035) {
-    return d;
+  const cleanStr = str.replace(/(\d+)(st|nd|rd|th|tth)/gi, '$1');
+  if (/^\d{4}[/\-.]\d{1,2}[/\-.]\d{1,2}$/.test(cleanStr)) {
+    const d = new Date(cleanStr);
+    if (!isNaN(d.getTime()) && d.getFullYear() >= 2020 && d.getFullYear() <= 2035) {
+      return d;
+    }
   }
+
   return null;
 };
 

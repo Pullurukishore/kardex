@@ -239,6 +239,7 @@ export default function CustomerContractTracking({ role }: CustomerContractTrack
 
     let scheduleText = '';
     let doneText = '';
+    let noteText = '';
 
     if (/\s*\|\s*(?:Done:|done:)\s*/i.test(rawRange)) {
       const parts = rawRange.split(/\s*\|\s*(?:Done:|done:)\s*/i);
@@ -253,7 +254,7 @@ export default function CustomerContractTracking({ role }: CustomerContractTrack
       } else if (isCompleted) {
         doneText = secondPart;
       } else {
-        scheduleText = rawRange;
+        noteText = secondPart;
       }
     } else if (/^(?:Done:|done:)\s*/i.test(rawRange)) {
       scheduleText = '';
@@ -294,6 +295,7 @@ export default function CustomerContractTracking({ role }: CustomerContractTrack
     return {
       scheduleText,
       doneText,
+      noteText,
       isCompleted
     };
   };
@@ -598,7 +600,7 @@ export default function CustomerContractTracking({ role }: CustomerContractTrack
                           }
 
                           const isCompleted = pm.status === 'Completed';
-                          const { scheduleText, doneText } = getPMDisplayDetails(pm);
+                          const { scheduleText, doneText, noteText } = getPMDisplayDetails(pm);
                           return (
                             <div
                               key={idx}
@@ -612,13 +614,18 @@ export default function CustomerContractTracking({ role }: CustomerContractTrack
                                   Visit {pm.pmNumber}
                                 </span>
                                 {scheduleText ? (
-                                  <span className="font-mono font-semibold text-slate-600 text-[10px] block truncate" title={scheduleText}>{scheduleText}</span>
+                                  <span className="font-mono font-semibold text-slate-700 text-[10px] block whitespace-nowrap" title={scheduleText}>{scheduleText}</span>
                                 ) : (
                                   <span className="font-mono text-slate-400 text-[10px] block italic">No dates</span>
                                 )}
                                 {isCompleted && (
                                   <span className="block text-[9px] text-emerald-600 font-semibold mt-0.5 break-words" title={doneText}>
                                     Done: {doneText || 'Completed'}
+                                  </span>
+                                )}
+                                {!isCompleted && noteText && (
+                                  <span className="text-[9px] font-semibold text-amber-700 bg-amber-50 border border-amber-200/60 px-1 py-0.2 rounded block break-words mt-0.5" title={noteText}>
+                                    Note: {noteText}
                                   </span>
                                 )}
                               </div>

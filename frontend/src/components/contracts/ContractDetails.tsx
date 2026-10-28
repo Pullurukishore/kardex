@@ -225,6 +225,7 @@ export default function ContractDetails({ id, role, backUrl }: ContractDetailsPr
 
     let scheduleText = '';
     let doneText = '';
+    let noteText = '';
 
     if (/\s*\|\s*(?:Done:|done:)\s*/i.test(rawRange)) {
       const parts = rawRange.split(/\s*\|\s*(?:Done:|done:)\s*/i);
@@ -239,7 +240,7 @@ export default function ContractDetails({ id, role, backUrl }: ContractDetailsPr
       } else if (isCompleted) {
         doneText = secondPart;
       } else {
-        scheduleText = rawRange;
+        noteText = secondPart;
       }
     } else if (/^(?:Done:|done:)\s*/i.test(rawRange)) {
       scheduleText = '';
@@ -280,6 +281,7 @@ export default function ContractDetails({ id, role, backUrl }: ContractDetailsPr
     return {
       scheduleText,
       doneText,
+      noteText,
       isCompleted
     };
   };
@@ -502,7 +504,7 @@ export default function ContractDetails({ id, role, backUrl }: ContractDetailsPr
                 }
 
                 const isCompleted = pm.status === 'Completed';
-                const { scheduleText, doneText } = getPMDisplayDetails(pm);
+                const { scheduleText, doneText, noteText } = getPMDisplayDetails(pm);
                 return (
                   <div
                     key={idx}
@@ -516,13 +518,18 @@ export default function ContractDetails({ id, role, backUrl }: ContractDetailsPr
                         Visit {pm.pmNumber}
                       </span>
                       {scheduleText ? (
-                        <span className="font-mono font-semibold text-slate-700 block truncate" title={scheduleText}>{scheduleText}</span>
+                        <span className="font-mono font-semibold text-slate-700 block whitespace-nowrap text-xs" title={scheduleText}>{scheduleText}</span>
                       ) : (
                         <span className="font-mono text-slate-400 text-xs block italic">No dates</span>
                       )}
                       {isCompleted && (
                         <span className="text-[10px] font-bold text-emerald-600 block break-words" title={doneText}>
                           Done: {doneText || 'Completed'}
+                        </span>
+                      )}
+                      {!isCompleted && noteText && (
+                        <span className="text-[10px] font-semibold text-amber-700/90 block break-words" title={noteText}>
+                          Note: {noteText}
                         </span>
                       )}
                     </div>
