@@ -13,7 +13,6 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { apiService } from '@/services/api';
 import { safeSessionStorage } from '@/lib/browser';
-import { generateAnnualContractReportPdf } from '@/lib/annual-contract-report-pdf';
 import { generateAnnualContractReportExcel } from '@/lib/annual-contract-report-excel';
 import { normalizeEngineerNames, formatEngineerDisplayName, getCustomerColorClass, extractDepartmentFromCustomer } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -828,7 +827,7 @@ export default function AnnualContractReports({ role }: AnnualContractReportsPro
   ].filter(Boolean).length;
 
   // Export handler
-  const handleExport = async (format: 'excel' | 'pdf') => {
+  const handleExport = async (format: 'excel' = 'excel') => {
     setExporting(true);
     try {
       const filters = {
@@ -844,16 +843,11 @@ export default function AnnualContractReports({ role }: AnnualContractReportsPro
         search
       };
 
-      if (format === 'pdf') {
-        await generateAnnualContractReportPdf(customers, stats, filters);
-        toast.success('Annual Contract PDF Report exported successfully!');
-      } else {
-        await generateAnnualContractReportExcel(customers, stats, filters);
-        toast.success('Annual Contract Excel Report exported successfully!');
-      }
+      await generateAnnualContractReportExcel(customers, stats, filters);
+      toast.success('Annual Contract Excel Report exported successfully!');
     } catch (err: any) {
       console.error('Export failed:', err);
-      toast.error(`Failed to export ${format.toUpperCase()} report`);
+      toast.error('Failed to export Excel report');
     } finally {
       setExporting(false);
     }
@@ -886,14 +880,6 @@ export default function AnnualContractReports({ role }: AnnualContractReportsPro
               >
                 <Download className={`w-3.5 h-3.5 ${exporting ? 'animate-bounce' : ''}`} />
                 Export Excel
-              </button>
-              <button
-                onClick={() => handleExport('pdf')}
-                disabled={exporting || loading || summaryKPIs.totalMachines === 0}
-                className="inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-lg border border-[#9E3B47]/40 text-[#9E3B47] hover:bg-[#E17F70]/10 font-bold text-xs transition-all whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed shadow-xs"
-              >
-                <FileText className="w-3.5 h-3.5" />
-                Export PDF
               </button>
             </div>
           </div>

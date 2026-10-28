@@ -14,7 +14,6 @@ import { toast } from 'sonner';
 import { apiService } from '@/services/api';
 import { safeSessionStorage } from '@/lib/browser';
 import { getCustomerColorClass, normalizeEngineerNames, formatEngineerDisplayName, extractDepartmentFromCustomer } from '@/lib/utils';
-import { generateContractReportPdf } from '@/lib/contract-report-pdf';
 import { generateContractReportExcel } from '@/lib/contract-report-excel';
 
 interface PMSchedule {
@@ -485,33 +484,11 @@ export default function ContractReports({ role }: ContractReportsProps) {
     return dueDate < new Date();
   };
 
-  // Checks if the PM visit interval overlaps with [dFrom, dTo]
+  // Checks if the PM visit ends / is due between [dFrom, dTo]
   const isPMInRange = (pm: PMSchedule, dFrom?: string, dTo?: string, contract?: Contract): boolean => {
     if (!dFrom && !dTo) return true;
     if (!pm.range || pm.range.includes('NaN')) return false;
-
-    const startObj = getPMStartDate(pm.range);
-    const endObj = getPMEndDate(pm.range) || startObj;
-    if (!startObj && !endObj) return false;
-
-    const effectiveStart = startObj || endObj!;
-    const effectiveEnd = endObj || startObj!;
-
-    if (dFrom) {
-      const fromObj = new Date(dFrom);
-      fromObj.setHours(0, 0, 0, 0);
-      // The PM visit must not have ended before the filter window starts
-      if (effectiveEnd < fromObj) return false;
-    }
-
-    if (dTo) {
-      const toObj = new Date(dTo);
-      toObj.setHours(23, 59, 59, 999);
-      // The PM visit must not start after the filter window ends
-      if (effectiveStart > toObj) return false;
-    }
-
-    return true;
+    return isPMEndDateInRange(pm.range, dFrom, dTo);
   };
 
   const isRangeOverdue = (range: string): boolean => {
@@ -969,7 +946,7 @@ export default function ContractReports({ role }: ContractReportsProps) {
     !!search,
   ].filter(Boolean).length;
 
-  const handleExport = async (format: 'excel' | 'pdf') => {
+  const handleExport = async (format: 'excel' = 'excel') => {
     setExporting(true);
     try {
       const filters = {
@@ -981,16 +958,11 @@ export default function ContractReports({ role }: ContractReportsProps) {
         dateTo
       };
 
-      if (format === 'pdf') {
-        await generateContractReportPdf(customerSummaries, selectedSummary, filters);
-        toast.success('Contract Schedule PDF Report exported successfully!');
-      } else {
-        await generateContractReportExcel(customerSummaries, selectedSummary, filters);
-        toast.success('Contract Portfolio Excel Report exported successfully!');
-      }
+      await generateContractReportExcel(customerSummaries, selectedSummary, filters);
+      toast.success('Contract Portfolio Excel Report exported successfully!');
     } catch (err: any) {
       console.error('Export failed:', err);
-      toast.error(`Failed to export ${format.toUpperCase()} report`);
+      toast.error('Failed to export Excel report');
     } finally {
       setExporting(false);
     }
@@ -1045,14 +1017,6 @@ export default function ContractReports({ role }: ContractReportsProps) {
               >
                 <Download className={`w-3.5 h-3.5 ${exporting ? 'animate-bounce' : ''}`} />
                 Export Excel
-              </button>
-              <button
-                onClick={() => handleExport('pdf')}
-                disabled={exporting || loading || customerSummaries.length === 0}
-                className="inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-lg border border-[#9E3B47]/40 text-[#9E3B47] hover:bg-[#E17F70]/10 font-bold text-xs transition-all whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed shadow-xs"
-              >
-                <FileText className="w-3.5 h-3.5" />
-                Export PDF
               </button>
             </div>
           </div>
