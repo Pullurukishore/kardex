@@ -149,6 +149,9 @@ const fmtDate = (iso: string | null | undefined): string => {
 
 const getStatusColor = (status: string): string => {
     switch (status) {
+        case 'Completed': return COLORS.kardexGreenDark;
+        case 'Pending': return COLORS.kardexSandDark;
+        case 'Overdue': return COLORS.kardexRedDark;
         case 'Active': return COLORS.kardexGreenDark;
         case 'Expiring Soon': return COLORS.kardexSandDark;
         case 'Expired': return COLORS.kardexRedDark;
@@ -346,6 +349,18 @@ function parsePMDetails(pm: PMSchedule) {
     };
 }
 
+// Determines the overall PM status for the contract row based on PM visits
+const determinePMStatus = (pms: PMSchedule[], allContractPMs: PMSchedule[]): string => {
+    const list = pms.length > 0 ? pms : allContractPMs;
+    if (!list || list.length === 0) return '—';
+
+    const parsed = list.map(parsePMDetails);
+    if (parsed.some(p => p.isOverdue)) return 'Overdue';
+    if (parsed.some(p => !p.isCompleted)) return 'Pending';
+    if (parsed.every(p => p.isCompleted)) return 'Completed';
+    return 'Pending';
+};
+
 // ============ Pure Tabular Columns Definition ============
 const CONTRACT_TABLE_COLUMNS = [
     { header: '#', key: 'slNo', width: 6, align: 'center' as const },
@@ -357,10 +372,11 @@ const CONTRACT_TABLE_COLUMNS = [
     { header: 'MC Type', key: 'mcType', width: 14, align: 'center' as const },
     { header: 'Machines', key: 'noOfMachine', width: 10, align: 'center' as const },
     { header: 'Contract Value (₹)', key: 'amount', width: 18, align: 'right' as const },
-    { header: 'PM Visit Value (₹)', key: 'pmVisitValue', width: 18, align: 'right' as const },
+    { header: 'Per PM Rate (₹)', key: 'perPmValue', width: 16, align: 'right' as const },
+    { header: 'PM Visits Value (₹)', key: 'pmVisitsValue', width: 18, align: 'right' as const },
     { header: 'Start Date', key: 'startDate', width: 14, align: 'center' as const },
     { header: 'End Date', key: 'endDate', width: 14, align: 'center' as const },
-    { header: 'Status', key: 'status', width: 14, align: 'center' as const },
+    { header: 'PM Status', key: 'status', width: 14, align: 'center' as const },
     { header: 'Responsible Engineer', key: 'responsible', width: 24, align: 'left' as const },
     { header: 'Total PM Visits', key: 'noOfVisits', width: 14, align: 'center' as const },
     { header: 'PM Schedule Window', key: 'pendingWindow', width: 44, align: 'left' as const },
@@ -386,7 +402,7 @@ export async function generateContractReportExcel(
 
     const ws = workbook.addWorksheet('Contracts', {
         properties: { tabColor: { argb: COLORS.kardexBlueDark } },
-        views: [{ state: 'frozen', xSplit: 0, ySplit: 1, activeCell: 'A2' }],
+        views: [{ state: 'frozen', xSplit: 0, ySplit: 2, activeCell: 'A3' }],
     });
 
     const totalCols = CONTRACT_TABLE_COLUMNS.length;
@@ -405,6 +421,8 @@ export async function generateContractReportExcel(
         const cell = headerRow.getCell(i + 1);
         if (col.key === 'pendingWindow' && isDateFiltered) {
             cell.value = 'PM Visits (In Range)';
+        } else if (col.key === 'pmVisitsValue' && isDateFiltered) {
+            cell.value = 'PM Visits Value (In Range)';
         } else {
             cell.value = col.header;
         }
@@ -415,22 +433,27 @@ export async function generateContractReportExcel(
     ws.autoFilter = `A1:${lastCol}1`;
 
     const now = new Date();
-    let currentRow = 1;
     let recordIndex = 0;
     let totalMachinesSum = 0;
     let totalValueSum = 0;
+    let totalPMVisitsValueSum = 0;
     let totalPMVisitsSum = 0;
     const uniqueCustomers = new Set<string>();
 
-    // ── Rows 2..N: Contract Data Records ──
+    interface PreparedRow {
+        rowData: (string | number)[];
+        bg: string;
+        targetPMCount: number;
+    }
+    const preparedRows: PreparedRow[] = [];
+
+    // ── Pre-process Contract Data Records & Compute Aggregates ──
     customerSummaries.forEach(cs => {
         uniqueCustomers.add(cs.customerName);
         const contracts = cs.contracts || [];
 
         contracts.forEach(ct => {
             recordIndex++;
-            currentRow++;
-            const r = currentRow;
             const isOdd = recordIndex % 2 === 1;
             const bg = isOdd ? COLORS.white : COLORS.kardexBlueTint;
 
@@ -452,33 +475,43 @@ export async function generateContractReportExcel(
             }
 
             const formatExcelPM = (p: PMSchedule) => {
-                const { scheduleText, doneText, noteText, isCompleted, isOverdue } = parsePMDetails(p);
+                const { scheduleText, doneText, isCompleted, isOverdue } = parsePMDetails(p);
                 let statusTag = '';
                 if (isCompleted) {
                     const compStr = doneText || (p.completedAt ? fmtDate(p.completedAt) : '');
                     statusTag = compStr ? `[✓ Done: ${compStr}]` : '[✓ Done]';
                 } else if (isOverdue) {
-                    statusTag = noteText ? `[Overdue - Note: ${noteText}]` : '[Overdue]';
+                    statusTag = '[Overdue]';
                 } else {
-                    statusTag = noteText ? `[Pending - Note: ${noteText}]` : '[Pending]';
+                    statusTag = '[Pending]';
                 }
                 return `PM ${p.pmNumber}: ${scheduleText} ${statusTag}`;
             };
 
-            const pendingWindowStr = targetPMs.length > 0
-                ? targetPMs.map(formatExcelPM).join('\n')
-                : (isDateFiltered ? '—' : (applicablePMs.length > 0 ? applicablePMs.map(formatExcelPM).join('\n') : '—'));
+            const isFiltered = isDateFiltered || Boolean(_filters?.pmFilter && _filters.pmFilter !== 'all');
+            const displayedPMsList = targetPMs.length > 0
+                ? targetPMs
+                : (isFiltered ? [] : applicablePMs);
+
+            const pendingWindowStr = displayedPMsList.length > 0
+                ? displayedPMsList.map(formatExcelPM).join('\n')
+                : '—';
 
             const bdLabel = ct.bdCount === 999 ? 'Unlimited' : (ct.bdCount ?? 0);
             const engNames = normalizeEngineerNames(ct.responsible).join(', ') || '—';
 
             const machineCount = Number(ct.noOfMachine || 0);
             const contractAmount = Number(ct.amount || 0);
-            const pmVisitValue = totalPMs > 0 ? Math.round(contractAmount / totalPMs) : contractAmount;
+            const perPmValue = totalPMs > 0 ? Math.round(contractAmount / totalPMs) : contractAmount;
+            const pmVisitsCount = displayedPMsList.length;
+            const pmVisitsValue = Math.round(perPmValue * pmVisitsCount);
 
             totalMachinesSum += machineCount;
             totalValueSum += contractAmount;
+            totalPMVisitsValueSum += pmVisitsValue;
             totalPMVisitsSum += totalPMs;
+
+            const pmStatus = determinePMStatus(displayedPMsList, applicablePMs);
 
             const rowData: (string | number)[] = [
                 recordIndex,
@@ -490,10 +523,11 @@ export async function generateContractReportExcel(
                 ct.mcType || '—',
                 machineCount,
                 contractAmount,
-                pmVisitValue,
+                perPmValue,
+                pmVisitsValue,
                 fmtDate(ct.startDate),
                 fmtDate(ct.endDate),
-                ct.status || '—',
+                pmStatus,
                 engNames,
                 totalPMs,
                 pendingWindowStr,
@@ -502,38 +536,19 @@ export async function generateContractReportExcel(
                 ct.paymentTerms || '—',
             ];
 
-            const row = ws.getRow(r);
-            row.height = Math.max(22, (targetPMs.length || 1) * 18);
-
-            rowData.forEach((val, colIdx) => {
-                const cell = row.getCell(colIdx + 1);
-                cell.value = val;
-                const colDef = CONTRACT_TABLE_COLUMNS[colIdx];
-
-                const isNumeric = colDef.key === 'amount' || colDef.key === 'pmVisitValue' || colDef.key === 'noOfMachine' || colDef.key === 'noOfVisits';
-
-                let fontColor: string | undefined;
-                if (colDef.key === 'status') {
-                    fontColor = getStatusColor(String(val));
-                }
-
-                applyDataCell(cell, bg, {
-                    bold: colDef.key === 'poNo' || colDef.key === 'customerName' || colDef.key === 'amount' || colDef.key === 'pmVisitValue',
-                    isNumber: isNumeric,
-                    align: colDef.align,
-                    fontColor,
-                });
-
-                if ((colDef.key === 'amount' || colDef.key === 'pmVisitValue') && typeof val === 'number') {
-                    cell.numFmt = '₹#,##0';
-                }
+            preparedRows.push({
+                rowData,
+                bg,
+                targetPMCount: displayedPMsList.length,
             });
         });
     });
 
-    // ── Row N+1: Grand Total Row ──
+    let currentRow = 1;
+
+    // ── Row 2: Grand Total Row (At the Top) ──
     if (recordIndex > 0) {
-        currentRow++;
+        currentRow = 2;
         const grandRow = currentRow;
         const totalRow = ws.getRow(grandRow);
         totalRow.height = 24;
@@ -542,6 +557,7 @@ export async function generateContractReportExcel(
         const mcColIdx = CONTRACT_TABLE_COLUMNS.findIndex(c => c.key === 'mcType') + 1;
         const machColIdx = CONTRACT_TABLE_COLUMNS.findIndex(c => c.key === 'noOfMachine') + 1;
         const amtColIdx = CONTRACT_TABLE_COLUMNS.findIndex(c => c.key === 'amount') + 1;
+        const pmVisitsValColIdx = CONTRACT_TABLE_COLUMNS.findIndex(c => c.key === 'pmVisitsValue') + 1;
         const totPmColIdx = CONTRACT_TABLE_COLUMNS.findIndex(c => c.key === 'noOfVisits') + 1;
 
         // Label merged across columns 1..MC Type
@@ -570,13 +586,23 @@ export async function generateContractReportExcel(
         amtCell.alignment = { horizontal: 'right', vertical: 'middle' };
         amtCell.border = thinBorder(COLORS.kardexBlueDark);
 
-        // Fill non-aggregated columns between Amount and Total PM Visits
+        // Fill non-aggregated columns between Amount and Total PM Visits (except PM Visits Value)
         for (let i = amtColIdx + 1; i < totPmColIdx; i++) {
+            if (i === pmVisitsValColIdx) continue;
             const cell = totalRow.getCell(i);
             cell.value = '';
             cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.kardexBlueDark } };
             cell.border = thinBorder(COLORS.kardexBlueDark);
         }
+
+        // PM Visits Value total
+        const pmVisitsValCell = totalRow.getCell(pmVisitsValColIdx);
+        pmVisitsValCell.value = totalPMVisitsValueSum;
+        pmVisitsValCell.numFmt = '₹#,##0';
+        pmVisitsValCell.font = { bold: true, size: 9.5, color: { argb: COLORS.textWhite } };
+        pmVisitsValCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.kardexBlueDark } };
+        pmVisitsValCell.alignment = { horizontal: 'right', vertical: 'middle' };
+        pmVisitsValCell.border = thinBorder(COLORS.kardexBlueDark);
 
         // PM Visits total
         const totPmCell = totalRow.getCell(totPmColIdx);
@@ -594,6 +620,38 @@ export async function generateContractReportExcel(
             cell.border = thinBorder(COLORS.kardexBlueDark);
         }
     }
+
+    // ── Rows 3..N: Contract Data Records ──
+    preparedRows.forEach(item => {
+        currentRow++;
+        const r = currentRow;
+        const row = ws.getRow(r);
+        row.height = Math.max(22, (item.targetPMCount || 1) * 18);
+
+        item.rowData.forEach((val, colIdx) => {
+            const cell = row.getCell(colIdx + 1);
+            cell.value = val;
+            const colDef = CONTRACT_TABLE_COLUMNS[colIdx];
+
+            const isNumeric = colDef.key === 'amount' || colDef.key === 'perPmValue' || colDef.key === 'pmVisitsValue' || colDef.key === 'noOfMachine' || colDef.key === 'noOfVisits';
+
+            let fontColor: string | undefined;
+            if (colDef.key === 'status') {
+                fontColor = getStatusColor(String(val));
+            }
+
+            applyDataCell(cell, item.bg, {
+                bold: colDef.key === 'poNo' || colDef.key === 'customerName' || colDef.key === 'amount' || colDef.key === 'pmVisitsValue' || colDef.key === 'status',
+                isNumber: isNumeric,
+                align: colDef.align,
+                fontColor,
+            });
+
+            if ((colDef.key === 'amount' || colDef.key === 'perPmValue' || colDef.key === 'pmVisitsValue') && typeof val === 'number') {
+                cell.numFmt = '₹#,##0';
+            }
+        });
+    });
 
     // Generate & download Excel file
     const buffer = await workbook.xlsx.writeBuffer();
