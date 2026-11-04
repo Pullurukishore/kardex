@@ -551,7 +551,7 @@ export async function generateContractReportExcel(
         currentRow = 2;
         const grandRow = currentRow;
         const totalRow = ws.getRow(grandRow);
-        totalRow.height = 24;
+        totalRow.height = 26;
 
         // Find relevant column indexes (1-based)
         const mcColIdx = CONTRACT_TABLE_COLUMNS.findIndex(c => c.key === 'mcType') + 1;
@@ -560,31 +560,43 @@ export async function generateContractReportExcel(
         const pmVisitsValColIdx = CONTRACT_TABLE_COLUMNS.findIndex(c => c.key === 'pmVisitsValue') + 1;
         const totPmColIdx = CONTRACT_TABLE_COLUMNS.findIndex(c => c.key === 'noOfVisits') + 1;
 
+        const totalRowBorder = {
+            top: { style: 'thin' as const, color: { argb: COLORS.kardexBlueDark } },
+            bottom: { style: 'double' as const, color: { argb: COLORS.kardexBlueDark } },
+            left: { style: 'thin' as const, color: { argb: COLORS.kardexBlueDark } },
+            right: { style: 'thin' as const, color: { argb: COLORS.kardexBlueDark } },
+        };
+
+        const highlightTotalCell = (
+            cell: any,
+            value: number,
+            numFmt?: string,
+            align: 'center' | 'right' = 'right'
+        ) => {
+            cell.value = value;
+            if (numFmt) cell.numFmt = numFmt;
+            cell.font = { bold: true, size: 10.5, color: { argb: 'FF1E293B' } };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFE082' } }; // Warm Gold highlight
+            cell.alignment = { horizontal: align, vertical: 'middle' };
+            cell.border = totalRowBorder;
+        };
+
         // Label merged across columns 1..MC Type
         ws.mergeCells(`A${grandRow}:${numToCol(mcColIdx)}${grandRow}`);
         const labelCell = ws.getCell(`A${grandRow}`);
         labelCell.value = `GRAND TOTAL (${recordIndex} Contracts, ${uniqueCustomers.size} Customers):`;
-        labelCell.font = { bold: true, size: 9.5, color: { argb: COLORS.textWhite } };
+        labelCell.font = { bold: true, size: 10, color: { argb: COLORS.textWhite } };
         labelCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.kardexBlueDark } };
         labelCell.alignment = { horizontal: 'right', vertical: 'middle' };
-        labelCell.border = thinBorder(COLORS.kardexBlueDark);
+        labelCell.border = totalRowBorder;
 
-        // Machine total
+        // Machine total (Col 8) - Highlighted
         const machCell = totalRow.getCell(machColIdx);
-        machCell.value = totalMachinesSum;
-        machCell.font = { bold: true, size: 9.5, color: { argb: COLORS.textWhite } };
-        machCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.kardexBlueDark } };
-        machCell.alignment = { horizontal: 'center', vertical: 'middle' };
-        machCell.border = thinBorder(COLORS.kardexBlueDark);
+        highlightTotalCell(machCell, totalMachinesSum, undefined, 'center');
 
-        // Value total
+        // Contract Value total (Col 9) - Highlighted
         const amtCell = totalRow.getCell(amtColIdx);
-        amtCell.value = totalValueSum;
-        amtCell.numFmt = '₹#,##0';
-        amtCell.font = { bold: true, size: 9.5, color: { argb: COLORS.textWhite } };
-        amtCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.kardexBlueDark } };
-        amtCell.alignment = { horizontal: 'right', vertical: 'middle' };
-        amtCell.border = thinBorder(COLORS.kardexBlueDark);
+        highlightTotalCell(amtCell, totalValueSum, '₹#,##0', 'right');
 
         // Fill non-aggregated columns between Amount and Total PM Visits (except PM Visits Value)
         for (let i = amtColIdx + 1; i < totPmColIdx; i++) {
@@ -592,32 +604,23 @@ export async function generateContractReportExcel(
             const cell = totalRow.getCell(i);
             cell.value = '';
             cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.kardexBlueDark } };
-            cell.border = thinBorder(COLORS.kardexBlueDark);
+            cell.border = totalRowBorder;
         }
 
-        // PM Visits Value total
+        // PM Visits Value total (Col 11) - Highlighted
         const pmVisitsValCell = totalRow.getCell(pmVisitsValColIdx);
-        pmVisitsValCell.value = totalPMVisitsValueSum;
-        pmVisitsValCell.numFmt = '₹#,##0';
-        pmVisitsValCell.font = { bold: true, size: 9.5, color: { argb: COLORS.textWhite } };
-        pmVisitsValCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.kardexBlueDark } };
-        pmVisitsValCell.alignment = { horizontal: 'right', vertical: 'middle' };
-        pmVisitsValCell.border = thinBorder(COLORS.kardexBlueDark);
+        highlightTotalCell(pmVisitsValCell, totalPMVisitsValueSum, '₹#,##0', 'right');
 
-        // PM Visits total
+        // PM Visits total (Col 16) - Highlighted
         const totPmCell = totalRow.getCell(totPmColIdx);
-        totPmCell.value = totalPMVisitsSum;
-        totPmCell.font = { bold: true, size: 9.5, color: { argb: COLORS.textWhite } };
-        totPmCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.kardexBlueDark } };
-        totPmCell.alignment = { horizontal: 'center', vertical: 'middle' };
-        totPmCell.border = thinBorder(COLORS.kardexBlueDark);
+        highlightTotalCell(totPmCell, totalPMVisitsSum, undefined, 'center');
 
         // Fill remaining columns
         for (let i = totPmColIdx + 1; i <= totalCols; i++) {
             const cell = totalRow.getCell(i);
             cell.value = '';
             cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.kardexBlueDark } };
-            cell.border = thinBorder(COLORS.kardexBlueDark);
+            cell.border = totalRowBorder;
         }
     }
 
