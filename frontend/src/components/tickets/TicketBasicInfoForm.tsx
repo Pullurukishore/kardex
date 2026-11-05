@@ -154,6 +154,15 @@ export function TicketBasicInfoForm({ control, zones, isSubmitting, hideZoneSele
                         </div>
                       </div>
                     </SelectItem>
+                    <SelectItem value="UNDER_WARRANTY" className="py-3">
+                      <div className="flex items-center gap-3">
+                        <div className="h-3 w-3 rounded-full bg-[#82A094] ring-2 ring-[#82A094]/40"></div>
+                        <div>
+                          <span className="font-medium text-[#4F6A64]">Under Warranty</span>
+                          <p className="text-xs text-[#AEBFC3]0 mt-0.5">Covered under machine warranty</p>
+                        </div>
+                      </div>
+                    </SelectItem>
                     <SelectItem value="NOT_UNDER_CONTRACT" className="py-3">
                       <div className="flex items-center gap-3">
                         <div className="h-3 w-3 rounded-full bg-[#CE9F6B]/100 ring-2 ring-orange-200"></div>

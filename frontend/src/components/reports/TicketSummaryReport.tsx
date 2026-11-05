@@ -281,7 +281,7 @@ export function TicketSummaryReport({ reportData }: TicketSummaryReportProps) {
                 return (
                   <div key={type} className="text-center p-4 bg-[#AEBFC3]/10 rounded-lg">
                     <div className="text-2xl font-bold text-[#546A7A]">{count}</div>
-                    <div className="text-sm text-[#5D6E73] capitalize">{type.replace('_', ' ')}</div>
+                    <div className="text-sm text-[#5D6E73] font-medium">{type === 'UNDER_MAINTENANCE_CONTRACT' ? 'Under Maintenance (UMC)' : type === 'UNDER_WARRANTY' ? 'Under Warranty (UW)' : type === 'NOT_UNDER_CONTRACT' ? 'Not Under Contract (NO)' : type.replace(/_/g, ' ')}</div>
                     <div className="text-xs text-[#AEBFC3]0">{percentage}%</div>
                   </div>
                 );

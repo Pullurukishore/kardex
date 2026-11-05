@@ -889,6 +889,7 @@ enum Priority {
 enum CallType {
   UNDER_MAINTENANCE_CONTRACT
   NOT_UNDER_CONTRACT
+  UNDER_WARRANTY
 }
 
 enum SupportMode {

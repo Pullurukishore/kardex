@@ -327,7 +327,14 @@ async function generateTicketAnalyticsPdf(
                 .sort(([, a], [, b]) => (b as number) - (a as number))
                 .map(([callType, count]) => {
                     const pct = totalCallTypeCount > 0 ? ((count as number) / totalCallTypeCount * 100).toFixed(1) : '0'
-                    return [callType.replace(/_/g, ' '), String(count), `${pct}%`]
+                    const label = callType === 'UNDER_MAINTENANCE_CONTRACT' || callType === 'UMC'
+                        ? 'Under Maintenance Contract (UMC)'
+                        : callType === 'UNDER_WARRANTY' || callType === 'UW'
+                        ? 'Under Warranty (UW)'
+                        : callType === 'NOT_UNDER_CONTRACT' || callType === 'NO'
+                        ? 'Not Under Contract (NO)'
+                        : callType.replace(/_/g, ' ')
+                    return [label, String(count), `${pct}%`]
                 }),
             theme: 'grid',
             headStyles: {

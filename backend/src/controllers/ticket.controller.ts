@@ -383,9 +383,9 @@ export const createTicket = async (req: TicketRequest, res: Response) => {
     }
 
     // Validate callType if provided
-    if (callType && !['UNDER_MAINTENANCE_CONTRACT', 'NOT_UNDER_CONTRACT'].includes(callType)) {
+    if (callType && !['UNDER_MAINTENANCE_CONTRACT', 'NOT_UNDER_CONTRACT', 'UNDER_WARRANTY'].includes(callType)) {
       return res.status(400).json({
-        error: 'Invalid call type. Must be UNDER_MAINTENANCE_CONTRACT or NOT_UNDER_CONTRACT'
+        error: 'Invalid call type. Must be UNDER_MAINTENANCE_CONTRACT, NOT_UNDER_CONTRACT, or UNDER_WARRANTY'
       });
     }
 

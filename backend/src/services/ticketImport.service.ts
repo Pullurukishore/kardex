@@ -181,13 +181,16 @@ function isRowEmpty(row: any[]): boolean {
 function mapCallType(val: any): string | null {
     if (!val) return null;
     const s = String(val).trim().toUpperCase();
-    if (s === 'UMC' || s.includes('UNDER') || s.includes('MAINTENANCE') || s.includes('CONTRACT')) {
+    if (s === 'UW' || s.includes('WARRANTY') || s.includes('UNDER WARRANTY')) {
+        return 'UNDER_WARRANTY';
+    }
+    if (s === 'UMC' || s.includes('MAINTENANCE') || (s.includes('UNDER') && s.includes('CONTRACT'))) {
         return 'UNDER_MAINTENANCE_CONTRACT';
     }
-    if (s === 'NON UMC' || s.includes('NOT') || s.includes('WITHOUT')) {
+    if (s === 'NO' || s === 'NON UMC' || s.includes('NOT') || s.includes('WITHOUT')) {
         return 'NOT_UNDER_CONTRACT';
     }
-    // Default: return UMC if it looks like it, else NOT_UNDER_CONTRACT
+    // Default: return NOT_UNDER_CONTRACT
     return 'NOT_UNDER_CONTRACT';
 }
 
@@ -1013,6 +1016,7 @@ export class TicketImportService {
                         if (responseOffSite) metadata.responseOffSite = responseOffSite;
                         if (responseOnSite) metadata.responseOnSite = responseOnSite;
                         if (remarks2Val) metadata.remarks2 = remarks2Val;
+                        if (callTypeRaw) metadata.originalCallType = callTypeRaw;
 
                         const reportedHour = excelTimeToString(indices.reportedHour >= 0 ? row[indices.reportedHour] : null);
                         const downtimeVal = excelTimeToString(indices.downtime >= 0 ? row[indices.downtime] : null);

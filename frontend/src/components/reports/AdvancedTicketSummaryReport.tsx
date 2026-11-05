@@ -558,7 +558,9 @@ export function AdvancedTicketSummaryReport({ reportData }: AdvancedTicketSummar
             <div className="mt-4 grid grid-cols-2 gap-2">
               {Object.entries(callTypeDistribution || {}).map(([type, count]) => (
                 <div key={type} className="flex items-center justify-between p-2 bg-[#AEBFC3]/10 rounded">
-                  <span className="text-sm text-[#5D6E73] capitalize">{type.replace('_', ' ')}</span>
+                  <span className="text-sm text-[#5D6E73] font-medium">
+                    {type === 'UNDER_MAINTENANCE_CONTRACT' ? 'Under Maintenance (UMC)' : type === 'UNDER_WARRANTY' ? 'Under Warranty (UW)' : type === 'NOT_UNDER_CONTRACT' ? 'Not Under Contract (NO)' : type.replace(/_/g, ' ')}
+                  </span>
                   <span className="font-semibold text-[#546A7A]">{count as React.ReactNode}</span>
                 </div>
               ))}

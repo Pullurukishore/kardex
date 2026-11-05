@@ -33,7 +33,7 @@ const formSchema = z.object({
   title: z.string().min(3, 'Title must be at least 3 characters'),
   description: z.string().min(10, 'Description must be at least 10 characters'),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH']).default('MEDIUM'),
-  callType: z.enum(['UNDER_MAINTENANCE_CONTRACT', 'NOT_UNDER_CONTRACT'], {
+  callType: z.enum(['UNDER_MAINTENANCE_CONTRACT', 'NOT_UNDER_CONTRACT', 'UNDER_WARRANTY'], {
     required_error: 'Call type is required',
   }),
   customerId: z.string().min(1, 'Customer is required'),
