@@ -1062,7 +1062,7 @@ async function calculateAverageTravelTime(startDate: Date, endDate: Date) {
       );
 
       // Validate travel time (same 24h cap as reports)
-      if (travelMins > 0 && travelMins <= 1440) {
+      if (travelMins > 0) {
         travelTimes.push(travelMins);
       }
     }

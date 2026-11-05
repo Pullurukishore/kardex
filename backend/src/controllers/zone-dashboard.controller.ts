@@ -361,7 +361,7 @@ async function calculateAverageTravelTime(zoneId: number): Promise<{ hours: numb
         ticket.supportMode
       );
 
-      if (travelMins > 0 && travelMins <= 1440) {
+      if (travelMins > 0) {
         travelTimes.push(travelMins);
       }
     }

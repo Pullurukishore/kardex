@@ -652,7 +652,7 @@ async function generateTicketSummaryReport(res: Response, whereClause: any, star
       );
 
       // Validate travel time (same 24h cap as onsite work/resolution)
-      if (travelMinutes > 0 && travelMinutes <= 1440) {
+      if (travelMinutes > 0) {
         totalTravelTime += travelMinutes;
         validTravelTickets++;
       }
@@ -1097,7 +1097,7 @@ async function generateZonePerformanceReport(res: Response, whereClause: any, st
           ticket.supportMode
         );
 
-        if (travelMinutes > 0 && travelMinutes <= 1440) {
+        if (travelMinutes > 0) {
           totalTravelTime += travelMinutes;
           validTravelTickets++;
         }
@@ -2258,7 +2258,7 @@ async function getTicketSummaryData(whereClause: any, startDate: Date, endDate: 
         ticket.visitInProgressAt,
         ticket.supportMode
       );
-      if (computedTravel > 0 && computedTravel <= 1440) {
+      if (computedTravel > 0) {
         travelTime = computedTravel;
       }
     }
@@ -2323,7 +2323,7 @@ async function getTicketSummaryData(whereClause: any, startDate: Date, endDate: 
 
   for (const ticket of enhancedTickets) {
     if (ticket.supportMode !== 'PHONE_CALL') {
-      if (ticket.travelTime > 0 && ticket.travelTime <= 1440) {
+      if (ticket.travelTime > 0) {
         totalTravelTime += ticket.travelTime;
         validTravelTickets++;
       }
