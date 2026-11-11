@@ -38,6 +38,7 @@ export default function ContractCreateForm({ role, backUrl }: ContractCreateForm
   const [newZoneName, setNewZoneName] = useState('');
   const [newMachines, setNewMachines] = useState('1');
   const [newValue, setNewValue] = useState('');
+  const [newPerPmValue, setNewPerPmValue] = useState('');
   const [newVisits, setNewVisits] = useState('3');
   const [newBdCount, setNewBdCount] = useState('0');
   const [newStartDate, setNewStartDate] = useState('');
@@ -157,6 +158,7 @@ export default function ContractCreateForm({ role, backUrl }: ContractCreateForm
         mcType: newMcType,
         noOfMachine: machines,
         amount: val,
+        perPmValue: newPerPmValue.trim() ? parseFloat(newPerPmValue) : null,
         noOfVisits: visits,
         startDate: newStartDate,
         endDate: newEndDate,
@@ -528,7 +530,7 @@ export default function ContractCreateForm({ role, backUrl }: ContractCreateForm
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
               <div className="space-y-2">
                 <label className="text-[11px] font-bold text-[#546A7A] uppercase tracking-wider flex items-center gap-1">
                   <span>Contract Value (₹)</span>
@@ -543,6 +545,23 @@ export default function ContractCreateForm({ role, backUrl }: ContractCreateForm
                     value={newValue}
                     onChange={(e) => setNewValue(e.target.value)}
                     className="w-full pl-8 pr-4 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 text-xs font-bold text-[#546A7A] shadow-sm transition-all"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[11px] font-bold text-[#546A7A] uppercase tracking-wider">
+                  Per PM / Visit Value (₹)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#6F8A9D] font-bold text-xs">₹</span>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="Optional (none)"
+                    value={newPerPmValue}
+                    onChange={(e) => setNewPerPmValue(e.target.value)}
+                    className="w-full pl-8 pr-4 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#82A094]/30 text-xs font-semibold text-[#546A7A] shadow-sm transition-all"
                   />
                 </div>
               </div>

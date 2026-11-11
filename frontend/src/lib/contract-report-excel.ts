@@ -2,10 +2,10 @@
  * Contract Reports Excel Export Utility — Official Kardex Brand Design
  * Generates a clean, professional, single-sheet Excel workbook using ExcelJS.
  * Pure tabular structure (Table Only):
- * - Row 1: Standard Table Header with Kardex styling & AutoFilter enabled
- * - Rows 2..N: Data rows with individual contract records (no merged banners or nested sub-rows)
- * - Row N+1: Grand Total row
- * - Frozen header row for smooth scrolling
+ * - Row 1: Dynamic Grand Total summary bar (SUBTOTAL formulas — updates live on AutoFilter)
+ * - Row 2: Standard Table Header with Kardex styling & AutoFilter enabled
+ * - Rows 3..N: Data rows with individual contract records (no merged banners or nested sub-rows)
+ * - Frozen top 2 rows (Summary + Headers) for smooth scrolling
  */
 import {
     kardexBlue,
@@ -23,6 +23,7 @@ interface PMSchedule {
     pmNumber: number;
     range: string;
     status: 'Completed' | 'Pending' | 'Not Applicable';
+    amount?: number | string | null;
     completedAt?: string;
 }
 
@@ -36,6 +37,7 @@ interface Contract {
     mcType: string;
     noOfMachine: number;
     amount: number;
+    perPmValue?: number | string | null;
     noOfVisits: number;
     startDate: string;
     endDate: string;
@@ -413,9 +415,9 @@ export async function generateContractReportExcel(
         ws.getColumn(i + 1).width = col.width;
     });
 
-    // ── Row 1: Standard Table Header ──
+    // ── Row 2: Standard Table Header (below Row 1 Grand Total summary bar so AutoFilter never hides totals) ──
     const isDateFiltered = Boolean(_filters?.dateFrom || _filters?.dateTo);
-    const headerRow = ws.getRow(1);
+    const headerRow = ws.getRow(2);
     headerRow.height = 28;
     CONTRACT_TABLE_COLUMNS.forEach((col, i) => {
         const cell = headerRow.getCell(i + 1);
@@ -429,14 +431,12 @@ export async function generateContractReportExcel(
         applyHeaderStyle(cell);
     });
 
-    // Enable Excel AutoFilter across the table headers
-    ws.autoFilter = `A1:${lastCol}1`;
-
     const now = new Date();
     let recordIndex = 0;
     let totalMachinesSum = 0;
     let totalValueSum = 0;
     let totalPMVisitsValueSum = 0;
+    let hasAnyPMVisitsValue = false;
     let totalPMVisitsSum = 0;
     const uniqueCustomers = new Set<string>();
 
@@ -500,15 +500,30 @@ export async function generateContractReportExcel(
             const bdLabel = ct.bdCount === 999 ? 'Unlimited' : (ct.bdCount ?? 0);
             const engNames = normalizeEngineerNames(ct.responsible).join(', ') || '—';
 
+            const parseOptionalNum = (v: unknown): number | null => {
+                if (v === null || v === undefined || v === '') return null;
+                const n = Number(v);
+                return Number.isFinite(n) ? n : null;
+            };
+
             const machineCount = Number(ct.noOfMachine || 0);
             const contractAmount = Number(ct.amount || 0);
-            const perPmValue = totalPMs > 0 ? Math.round(contractAmount / totalPMs) : contractAmount;
-            const pmVisitsCount = displayedPMsList.length;
-            const pmVisitsValue = Math.round(perPmValue * pmVisitsCount);
+            const importedPerPm = parseOptionalNum(ct.perPmValue);
+            const perPmValue: number | string = importedPerPm !== null ? importedPerPm : '—';
+
+            const validPmAmounts = displayedPMsList
+                .map(p => parseOptionalNum(p.amount) ?? importedPerPm)
+                .filter((v): v is number => v !== null);
+            const pmVisitsValue: number | string = validPmAmounts.length > 0
+                ? validPmAmounts.reduce((sum, v) => sum + v, 0)
+                : '—';
 
             totalMachinesSum += machineCount;
             totalValueSum += contractAmount;
-            totalPMVisitsValueSum += pmVisitsValue;
+            if (typeof pmVisitsValue === 'number') {
+                totalPMVisitsValueSum += pmVisitsValue;
+                hasAnyPMVisitsValue = true;
+            }
             totalPMVisitsSum += totalPMs;
 
             const pmStatus = determinePMStatus(displayedPMsList, applicablePMs);
@@ -544,82 +559,115 @@ export async function generateContractReportExcel(
         });
     });
 
-    let currentRow = 1;
+    let currentRow = 2;
+    const startDataRow = 3;
+    const endDataRow = 2 + preparedRows.length;
 
-    // ── Row 2: Grand Total Row (At the Top) ──
+    // Enable Excel AutoFilter on Row 2 across the data range (keeps Row 1 Summary Bar pinned & unfiltered)
+    ws.autoFilter = recordIndex > 0 ? `A2:${lastCol}${endDataRow}` : `A2:${lastCol}2`;
+
+    // ── Row 1: Dynamic Grand Total Summary Bar (SUBTOTAL updates automatically when AutoFilter is used) ──
     if (recordIndex > 0) {
-        currentRow = 2;
-        const grandRow = currentRow;
+        const grandRow = 1;
         const totalRow = ws.getRow(grandRow);
         totalRow.height = 26;
 
         // Find relevant column indexes (1-based)
+        const custColIdx = CONTRACT_TABLE_COLUMNS.findIndex(c => c.key === 'customerName') + 1;
         const mcColIdx = CONTRACT_TABLE_COLUMNS.findIndex(c => c.key === 'mcType') + 1;
         const machColIdx = CONTRACT_TABLE_COLUMNS.findIndex(c => c.key === 'noOfMachine') + 1;
         const amtColIdx = CONTRACT_TABLE_COLUMNS.findIndex(c => c.key === 'amount') + 1;
         const pmVisitsValColIdx = CONTRACT_TABLE_COLUMNS.findIndex(c => c.key === 'pmVisitsValue') + 1;
         const totPmColIdx = CONTRACT_TABLE_COLUMNS.findIndex(c => c.key === 'noOfVisits') + 1;
 
+        const summarySurface = 'FFF1F5F9';       // Soft Slate-100 across non-metric cells
+        const metricCountBg = 'FFE2E8F0';        // Subtle Slate-200 for count totals
+        const metricCurrencyBg = 'FFE6F0EC';     // Soft Kardex Sage tint for currency totals
+
         const totalRowBorder = {
-            top: { style: 'thin' as const, color: { argb: COLORS.kardexBlueDark } },
-            bottom: { style: 'double' as const, color: { argb: COLORS.kardexBlueDark } },
-            left: { style: 'thin' as const, color: { argb: COLORS.kardexBlueDark } },
-            right: { style: 'thin' as const, color: { argb: COLORS.kardexBlueDark } },
+            top: { style: 'thin' as const, color: { argb: COLORS.borderMedium } },
+            bottom: { style: 'medium' as const, color: { argb: COLORS.kardexBlueDark } },
+            left: { style: 'thin' as const, color: { argb: COLORS.borderLight } },
+            right: { style: 'thin' as const, color: { argb: COLORS.borderLight } },
         };
 
-        const highlightTotalCell = (
+        const applyTotalMetricCell = (
             cell: any,
-            value: number,
-            numFmt?: string,
-            align: 'center' | 'right' = 'right'
+            formula: string,
+            result: number | string,
+            opts: { numFmt?: string; align?: 'center' | 'right'; fillBg?: string; textColor?: string } = {}
         ) => {
-            cell.value = value;
-            if (numFmt) cell.numFmt = numFmt;
-            cell.font = { bold: true, size: 10.5, color: { argb: 'FF1E293B' } };
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFE082' } }; // Warm Gold highlight
-            cell.alignment = { horizontal: align, vertical: 'middle' };
+            cell.value = { formula, result };
+            if (opts.numFmt) cell.numFmt = opts.numFmt;
+            cell.font = { bold: true, size: 10.5, color: { argb: opts.textColor || COLORS.textDark } };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: opts.fillBg || metricCountBg } };
+            cell.alignment = { horizontal: opts.align || 'right', vertical: 'middle' };
             cell.border = totalRowBorder;
         };
 
-        // Label merged across columns 1..MC Type
+        // Label merged across columns 1..MC Type (dynamic filtered contract count via SUBTOTAL(3, ...))
         ws.mergeCells(`A${grandRow}:${numToCol(mcColIdx)}${grandRow}`);
         const labelCell = ws.getCell(`A${grandRow}`);
-        labelCell.value = `GRAND TOTAL (${recordIndex} Contracts, ${uniqueCustomers.size} Customers):`;
-        labelCell.font = { bold: true, size: 10, color: { argb: COLORS.textWhite } };
-        labelCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.kardexBlueDark } };
+        const custColLetter = numToCol(custColIdx);
+        labelCell.value = {
+            formula: `"GRAND TOTAL ("&SUBTOTAL(3,${custColLetter}${startDataRow}:${custColLetter}${endDataRow})&" Contracts):"`,
+            result: `GRAND TOTAL (${recordIndex} Contracts):`,
+        };
+        labelCell.font = { bold: true, size: 10, color: { argb: COLORS.kardexBlueDark } };
+        labelCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: summarySurface } };
         labelCell.alignment = { horizontal: 'right', vertical: 'middle' };
         labelCell.border = totalRowBorder;
 
-        // Machine total (Col 8) - Highlighted
-        const machCell = totalRow.getCell(machColIdx);
-        highlightTotalCell(machCell, totalMachinesSum, undefined, 'center');
+        // Machine total (Col 8)
+        const machColLetter = numToCol(machColIdx);
+        applyTotalMetricCell(
+            totalRow.getCell(machColIdx),
+            `SUBTOTAL(9,${machColLetter}${startDataRow}:${machColLetter}${endDataRow})`,
+            totalMachinesSum,
+            { align: 'center', fillBg: metricCountBg, textColor: COLORS.textDark }
+        );
 
-        // Contract Value total (Col 9) - Highlighted
-        const amtCell = totalRow.getCell(amtColIdx);
-        highlightTotalCell(amtCell, totalValueSum, '₹#,##0', 'right');
+        // Contract Value total (Col 9)
+        const amtColLetter = numToCol(amtColIdx);
+        applyTotalMetricCell(
+            totalRow.getCell(amtColIdx),
+            `SUBTOTAL(9,${amtColLetter}${startDataRow}:${amtColLetter}${endDataRow})`,
+            totalValueSum,
+            { numFmt: '₹#,##0', align: 'right', fillBg: metricCurrencyBg, textColor: COLORS.kardexGreenDark }
+        );
 
         // Fill non-aggregated columns between Amount and Total PM Visits (except PM Visits Value)
         for (let i = amtColIdx + 1; i < totPmColIdx; i++) {
             if (i === pmVisitsValColIdx) continue;
             const cell = totalRow.getCell(i);
             cell.value = '';
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.kardexBlueDark } };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: summarySurface } };
             cell.border = totalRowBorder;
         }
 
-        // PM Visits Value total (Col 11) - Highlighted
-        const pmVisitsValCell = totalRow.getCell(pmVisitsValColIdx);
-        highlightTotalCell(pmVisitsValCell, totalPMVisitsValueSum, '₹#,##0', 'right');
+        // PM Visits Value total (Col 11) — SUBTOTAL(2, ...) checks if any visible rows have numeric PM values
+        const pmValColLetter = numToCol(pmVisitsValColIdx);
+        applyTotalMetricCell(
+            totalRow.getCell(pmVisitsValColIdx),
+            `IF(SUBTOTAL(2,${pmValColLetter}${startDataRow}:${pmValColLetter}${endDataRow})=0,"—",SUBTOTAL(9,${pmValColLetter}${startDataRow}:${pmValColLetter}${endDataRow}))`,
+            hasAnyPMVisitsValue ? totalPMVisitsValueSum : '—',
+            { numFmt: '₹#,##0', align: 'right', fillBg: metricCurrencyBg, textColor: COLORS.kardexGreenDark }
+        );
 
-        // PM Visits total (Col 16) - Highlighted
-        const totPmCell = totalRow.getCell(totPmColIdx);
-        highlightTotalCell(totPmCell, totalPMVisitsSum, undefined, 'center');
+        // PM Visits total (Col 16)
+        const totPmColLetter = numToCol(totPmColIdx);
+        applyTotalMetricCell(
+            totalRow.getCell(totPmColIdx),
+            `SUBTOTAL(9,${totPmColLetter}${startDataRow}:${totPmColLetter}${endDataRow})`,
+            totalPMVisitsSum,
+            { align: 'center', fillBg: metricCountBg, textColor: COLORS.textDark }
+        );
 
         // Fill remaining columns
         for (let i = totPmColIdx + 1; i <= totalCols; i++) {
             const cell = totalRow.getCell(i);
             cell.value = '';
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.kardexBlueDark } };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: summarySurface } };
             cell.border = totalRowBorder;
         }
     }

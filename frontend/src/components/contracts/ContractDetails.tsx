@@ -15,6 +15,7 @@ interface PMSchedule {
   pmNumber: 1 | 2 | 3 | 4;
   range: string;
   status: 'Completed' | 'Pending' | 'Not Applicable';
+  amount?: number | string | null;
   completedAt?: string;
 }
 
@@ -28,6 +29,7 @@ interface Contract {
   mcType: string;
   noOfMachine: number;
   amount: number;
+  perPmValue?: number | string | null;
   noOfVisits: number;
   startDate: string;
   endDate: string;
@@ -514,9 +516,20 @@ export default function ContractDetails({ id, role, backUrl }: ContractDetailsPr
                       }`}
                   >
                     <div className="space-y-1 min-w-0 flex-1 mr-3">
-                      <span className={`font-bold block text-[10px] uppercase tracking-wider ${isCompleted ? 'text-emerald-700' : 'text-slate-400'}`}>
-                        Visit {pm.pmNumber}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className={`font-bold block text-[10px] uppercase tracking-wider ${isCompleted ? 'text-emerald-700' : 'text-slate-400'}`}>
+                          Visit {pm.pmNumber}
+                        </span>
+                        {(pm.amount !== null && pm.amount !== undefined && pm.amount !== '') ? (
+                          <span className="text-[10px] font-bold font-mono text-[#976E44] bg-[#976E44]/10 px-1.5 py-0.5 rounded">
+                            ₹{Number(pm.amount).toLocaleString('en-IN')}
+                          </span>
+                        ) : (contract.perPmValue !== null && contract.perPmValue !== undefined && contract.perPmValue !== '') ? (
+                          <span className="text-[10px] font-bold font-mono text-[#976E44] bg-[#976E44]/10 px-1.5 py-0.5 rounded">
+                            ₹{Number(contract.perPmValue).toLocaleString('en-IN')}
+                          </span>
+                        ) : null}
+                      </div>
                       {scheduleText ? (
                         <span className="font-mono font-semibold text-slate-700 block whitespace-nowrap text-xs" title={scheduleText}>{scheduleText}</span>
                       ) : (
@@ -566,6 +579,14 @@ export default function ContractDetails({ id, role, backUrl }: ContractDetailsPr
             <div className="space-y-1 relative z-10">
               <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Total Contract Value</span>
               <h3 className="text-3xl font-extrabold text-slate-800 tracking-tight mt-1">₹{Number(contract.amount).toLocaleString('en-IN')}</h3>
+              <div className="pt-1 text-xs font-bold text-slate-500 flex items-center gap-1.5">
+                <span className="text-[10px] uppercase tracking-wider text-slate-400">Per Quarter / PM:</span>
+                <span className="font-mono text-[#976E44]">
+                  {contract.perPmValue !== null && contract.perPmValue !== undefined && contract.perPmValue !== ''
+                    ? `₹${Number(contract.perPmValue).toLocaleString('en-IN')}`
+                    : '—'}
+                </span>
+              </div>
             </div>
             <div className="flex items-center gap-1.5 text-xs text-amber-600 font-bold bg-amber-500/10 w-fit px-2.5 py-1 rounded-lg mt-4">
               <IndianRupee className="w-3.5 h-3.5" />
@@ -607,6 +628,15 @@ export default function ContractDetails({ id, role, backUrl }: ContractDetailsPr
               <div className="flex justify-between py-1 border-b border-slate-50">
                 <span className="text-slate-400 font-bold uppercase text-[9px]">Payment Terms</span>
                 <span className="font-semibold text-slate-700">{contract.paymentTerms}</span>
+              </div>
+
+              <div className="flex justify-between py-1 border-b border-slate-50">
+                <span className="text-slate-400 font-bold uppercase text-[9px]">Per Quarter / PM Value</span>
+                <span className="font-semibold text-slate-700 font-mono">
+                  {contract.perPmValue !== null && contract.perPmValue !== undefined && contract.perPmValue !== ''
+                    ? `₹${Number(contract.perPmValue).toLocaleString('en-IN')}`
+                    : '—'}
+                </span>
               </div>
 
               <div className="flex justify-between py-1">

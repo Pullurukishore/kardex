@@ -470,8 +470,12 @@ export async function generateContractReportPdf(
 
         contracts.forEach((c: any) => {
             const applicablePMs = (c.pmSchedules || []).filter((p: any) => p.status !== 'Not Applicable');
-            const totalVisitsCount = c.noOfVisits || applicablePMs.length || 1;
-            const pmVisitAmount = totalVisitsCount > 0 ? Math.round(Number(c.amount || 0) / totalVisitsCount) : Number(c.amount || 0);
+            const parseOptAmount = (v: unknown): number | null => {
+                if (v === null || v === undefined || v === '') return null;
+                const n = Number(v);
+                return Number.isFinite(n) ? n : null;
+            };
+            const contractPerPm = parseOptAmount(c.perPmValue);
 
             const matchingPMs = applicablePMs.filter((pm: any) => {
                 if (isDateFiltered) return isPMEndDateInRange(pm.range, filters.dateFrom, filters.dateTo);
@@ -509,6 +513,8 @@ export async function generateContractReportPdf(
                     ? `${pmStart} to ${pmEnd}`
                     : (pmStart !== '—' ? pmStart : (cleanRange || 'No dates'));
                 const statusSuffix = isDone ? 'Done' : 'Pending';
+
+                const pmVisitAmount = parseOptAmount(pm.amount) ?? contractPerPm;
 
                 customerPmRows.push({
                     pmNumber: `PM ${pm.pmNumber}`,
@@ -577,7 +583,7 @@ export async function generateContractReportPdf(
                 row.responsible,
                 row.poNo,
                 row.expiryWithDays,
-                fmtCurrency(row.amount)
+                row.amount !== null && row.amount !== undefined ? fmtCurrency(row.amount) : '—'
             ]);
         });
 

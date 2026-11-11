@@ -77,6 +77,7 @@ export interface PMSchedule {
   pmNumber: number;
   range: string;
   status: 'Completed' | 'Pending' | 'Not Applicable';
+  amount?: number | string | null;
   completedAt?: string;
 }
 
@@ -90,6 +91,7 @@ export interface Contract {
   mcType: string;
   noOfMachine: number;
   amount: number;
+  perPmValue?: number | string | null;
   noOfVisits: number;
   startDate: string;
   endDate: string;
@@ -1417,10 +1419,47 @@ export default function ContractsListPage({
                             </td>
 
                             {/* Value */}
-                            <td className="px-2.5 py-2 text-right w-26 whitespace-nowrap">
+                            <td className="px-2.5 py-2 text-right w-28 whitespace-nowrap">
                               <div className="font-extrabold text-slate-900 text-xs sm:text-[12.5px] font-mono leading-tight">
                                 {formatCurrency(contract.amount)}
                               </div>
+                              {(() => {
+                                const rawPerPm = contract.perPmValue;
+                                const perPmNum = (rawPerPm !== null && rawPerPm !== undefined && rawPerPm !== '' && Number.isFinite(Number(rawPerPm)))
+                                  ? Number(rawPerPm)
+                                  : null;
+                                const hasVisitAmounts = (contract.pmSchedules || []).some(
+                                  p => p.status !== 'Not Applicable' && p.amount !== null && p.amount !== undefined && p.amount !== '' && Number.isFinite(Number(p.amount))
+                                );
+                                if (perPmNum !== null) {
+                                  return (
+                                    <div
+                                      className="text-[9.5px] text-[#976E44] font-bold font-mono mt-0.5"
+                                      title={`Per Quarter / PM Value: ${formatCurrency(perPmNum)}`}
+                                    >
+                                      {formatCurrency(perPmNum)} / Qtr
+                                    </div>
+                                  );
+                                }
+                                if (hasVisitAmounts) {
+                                  return (
+                                    <div
+                                      className="text-[9.5px] text-[#976E44] font-bold mt-0.5"
+                                      title="Per-visit / per-quarter values vary by PM visit"
+                                    >
+                                      Visit-wise
+                                    </div>
+                                  );
+                                }
+                                return (
+                                  <div
+                                    className="text-[9.5px] text-slate-400 font-semibold font-mono mt-0.5"
+                                    title="No Per Quarter / PM value imported"
+                                  >
+                                    — / Qtr
+                                  </div>
+                                );
+                              })()}
                               {contract.paymentTerms && (
                                 <div
                                   className="text-[9px] text-slate-400 font-medium truncate max-w-[95px] ml-auto mt-0.5"
@@ -1750,6 +1789,19 @@ export default function ContractsListPage({
                         >
                           Visit {pm.pmNumber}
                         </span>
+                        {(() => {
+                          const rawVal = (pm.amount !== null && pm.amount !== undefined && pm.amount !== '')
+                            ? pm.amount
+                            : pmModalContract?.perPmValue;
+                          const valNum = (rawVal !== null && rawVal !== undefined && rawVal !== '' && Number.isFinite(Number(rawVal)))
+                            ? Number(rawVal)
+                            : null;
+                          return valNum !== null ? (
+                            <span className="px-1.5 py-0.2 rounded text-[9.5px] font-bold font-mono bg-[#976E44]/10 text-[#976E44]">
+                              {formatCurrency(valNum)}
+                            </span>
+                          ) : null;
+                        })()}
                         {isCompleted && (
                           <span className="px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-emerald-100 text-emerald-800">
                             Done

@@ -38,6 +38,18 @@ const normalizeMcType = (mcType: string | null | undefined): string => {
   return trimmed.replace(/\b\w/g, (l: string) => l.toUpperCase());
 };
 
+// Parse optional decimal amount without fabricating 0 or fallback calculations
+const parseOptionalDecimal = (val: any): number | null => {
+  if (val === null || val === undefined) return null;
+  if (typeof val === 'number') return Number.isFinite(val) ? val : null;
+  const str = String(val).trim();
+  if (!str || str === '-' || /^n\/?a$/i.test(str)) return null;
+  const cleaned = str.replace(/[^0-9.-]/g, '');
+  if (!cleaned) return null;
+  const num = Number(cleaned);
+  return Number.isFinite(num) ? num : null;
+};
+
 // Create a new contract and distribute PM visits
 export const createContract = async (req: any, res: Response) => {
   try {
@@ -49,6 +61,7 @@ export const createContract = async (req: any, res: Response) => {
       mcType,
       noOfMachine = 1,
       amount,
+      perPmValue,
       noOfVisits = 3,
       startDate,
       endDate,
@@ -58,7 +71,8 @@ export const createContract = async (req: any, res: Response) => {
       paymentTerms,
       softwareSupport = false,
       customerId,
-      zoneId
+      zoneId,
+      pmSchedules
     } = req.body;
 
     if (!customerName || !place || !poNo || !amount || !startDate || !endDate || !customerId || !zoneId) {
@@ -70,12 +84,19 @@ export const createContract = async (req: any, res: Response) => {
     const scheduledMonth = start.toLocaleString('default', { month: 'long' });
 
     // PM schedules without synthesized dates (dates must come from Excel import only)
-    const pmSchedulesData: { pmNumber: number; range: string; status: string }[] = [];
+    const incomingPMMap = new Map<number, any>(
+      Array.isArray(pmSchedules)
+        ? pmSchedules.map((pm: any) => [Number(pm.pmNumber), pm])
+        : []
+    );
+    const pmSchedulesData: { pmNumber: number; range: string; status: string; amount: number | null }[] = [];
     for (let i = 1; i <= noOfVisits; i++) {
+      const incoming = incomingPMMap.get(i);
       pmSchedulesData.push({
         pmNumber: i,
-        range: '',
-        status: 'Pending'
+        range: incoming?.range ? String(incoming.range) : '',
+        status: incoming?.status || 'Pending',
+        amount: incoming ? parseOptionalDecimal(incoming.amount) : null
       });
     }
 
@@ -136,6 +157,7 @@ export const createContract = async (req: any, res: Response) => {
               mcType: normalizeMcType(mcType),
               noOfMachine: Number(noOfMachine),
               amount: Number(amount),
+              perPmValue: parseOptionalDecimal(perPmValue),
               noOfVisits: Number(noOfVisits),
               startDate: start,
               endDate: end,
@@ -161,7 +183,8 @@ export const createContract = async (req: any, res: Response) => {
                   contractId: contract.id,
                   pmNumber: pm.pmNumber,
                   range: pm.range,
-                  status: pm.status
+                  status: pm.status,
+                  amount: pm.amount ?? null
                 }
               })
             )
@@ -311,7 +334,7 @@ export const getContractById = async (req: any, res: Response) => {
 export const updatePMSchedule = async (req: any, res: Response) => {
   try {
     const { pmId } = req.params;
-    const { status, completedAt, range } = req.body;
+    const { status, completedAt, range, amount } = req.body;
 
     if (!status || !['Completed', 'Pending'].includes(status)) {
       return res.status(400).json({ error: 'Invalid status value' });
@@ -326,6 +349,10 @@ export const updatePMSchedule = async (req: any, res: Response) => {
 
     if (range !== undefined) {
       dataToUpdate.range = range;
+    }
+
+    if (amount !== undefined) {
+      dataToUpdate.amount = parseOptionalDecimal(amount);
     }
 
     const updated = await db.contractPMSchedule.update({
@@ -368,6 +395,7 @@ export const updateContract = async (req: any, res: Response) => {
       mcType,
       noOfMachine,
       amount,
+      perPmValue,
       noOfVisits,
       startDate,
       endDate,
@@ -378,7 +406,8 @@ export const updateContract = async (req: any, res: Response) => {
       softwareSupport,
       status,
       customerId,
-      zoneId
+      zoneId,
+      pmSchedules
     } = req.body;
 
     const contractId = Number(id);
@@ -399,7 +428,7 @@ export const updateContract = async (req: any, res: Response) => {
     const visitsChanged = noOfVisits !== undefined && Number(noOfVisits) !== existing.noOfVisits;
     const visitsCount = noOfVisits !== undefined ? Number(noOfVisits) : existing.noOfVisits;
     const redistNeeded = visitsChanged;
-    let pmSchedulesData: { pmNumber: number; range: string; status: string }[] = [];
+    let pmSchedulesData: { pmNumber: number; range: string; status: string; amount: number | null }[] = [];
 
     if (redistNeeded) {
       const existingPMMap = new Map<number, any>((existing.pmSchedules || []).map((p: any) => [p.pmNumber, p]));
@@ -408,7 +437,8 @@ export const updateContract = async (req: any, res: Response) => {
         pmSchedulesData.push({
           pmNumber: i,
           range: prev ? (prev.range || '') : '',
-          status: prev ? prev.status : 'Pending'
+          status: prev ? prev.status : 'Pending',
+          amount: prev ? prev.amount : null
         });
       }
     }
@@ -444,6 +474,7 @@ export const updateContract = async (req: any, res: Response) => {
           mcType: normalizeMcType(mcType ?? existing.mcType),
           noOfMachine: noOfMachine !== undefined ? Number(noOfMachine) : existing.noOfMachine,
           amount: amount !== undefined ? Number(amount) : existing.amount,
+          perPmValue: perPmValue !== undefined ? parseOptionalDecimal(perPmValue) : existing.perPmValue,
           noOfVisits: visitsCount,
           startDate: start,
           endDate: end,
@@ -475,7 +506,8 @@ export const updateContract = async (req: any, res: Response) => {
                 contractId,
                 pmNumber: pm.pmNumber,
                 range: pm.range,
-                status: pm.status
+                status: pm.status,
+                amount: pm.amount ?? null
               }
             })
           )
@@ -781,6 +813,7 @@ export const bulkImportContracts = async (req: any, res: Response) => {
         mcType,
         noOfMachine = 1,
         amount,
+        perPmValue,
         noOfVisits = 3,
         startDate,
         endDate,
@@ -828,7 +861,7 @@ export const bulkImportContracts = async (req: any, res: Response) => {
       }
 
       // Build PM schedule data
-      const pmSchedulesData: { pmNumber: number; range: string; status: string; completedAt: Date | null }[] = [];
+      const pmSchedulesData: { pmNumber: number; range: string; status: string; completedAt: Date | null; amount: number | null }[] = [];
 
       if (Array.isArray(pmSchedules) && pmSchedules.length > 0) {
         pmSchedules.forEach((pm: any) => {
@@ -839,7 +872,8 @@ export const bulkImportContracts = async (req: any, res: Response) => {
             pmNumber: Number(pm.pmNumber || pm.pmNum),
             range: cleanRange,
             status: isCompleted ? 'Completed' : 'Pending',
-            completedAt: pmDate || (isCompleted ? start : null)
+            completedAt: pmDate || (isCompleted ? start : null),
+            amount: parseOptionalDecimal(pm.amount)
           });
         });
       } else {
@@ -849,7 +883,8 @@ export const bulkImportContracts = async (req: any, res: Response) => {
             pmNumber: i,
             range: '',
             status: 'Pending',
-            completedAt: null
+            completedAt: null,
+            amount: null
           });
         }
       }
@@ -880,6 +915,7 @@ export const bulkImportContracts = async (req: any, res: Response) => {
         mcType: safeMcType,
         noOfMachine: Number(noOfMachine || 1),
         amount: Number(amount || 0),
+        perPmValue: parseOptionalDecimal(perPmValue),
         noOfVisits: Number(noOfVisits || 3),
         startDate: start,
         endDate: end,
@@ -987,7 +1023,8 @@ export const bulkImportContracts = async (req: any, res: Response) => {
                   pmNumber: pm.pmNumber,
                   range: pm.range,
                   status: pm.status,
-                  completedAt: pm.completedAt
+                  completedAt: pm.completedAt,
+                  amount: pm.amount ?? null
                 }))
               });
             }

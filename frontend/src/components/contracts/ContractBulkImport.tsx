@@ -19,6 +19,7 @@ interface ExcelRow {
   'SLA Type'?: string;
   'No of Machines'?: string | number;
   'Contract Amount'?: string | number;
+  'Per PM Value'?: string | number;
   'No of Visits'?: string | number;
   'Start Date'?: string;
   'End Date'?: string;
@@ -37,6 +38,7 @@ interface ParsedContract {
   mcType: string;
   noOfMachine: number;
   amount: number;
+  perPmValue?: number | null;
   noOfVisits: number;
   startDate: string;
   endDate: string;
@@ -183,6 +185,7 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
       'MC Type',
       'No of Machine',
       'Amount',
+      'Per PM Value',
       'No of Visits',
       'Start ',
       'End',
@@ -719,7 +722,7 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
         if (isHeader) {
           headerRowIndex = rowNumber;
           row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
-            headerColMap[colNumber] = String(getCellCleanValue(cell) || '').trim().toLowerCase();
+            headerColMap[colNumber] = String(getCellCleanValue(cell) || '').replace(/\s+/g, ' ').trim().toLowerCase();
           });
         }
       });
@@ -729,9 +732,16 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
         return;
       }
 
-      // Find column indices
-      const getColIndex = (aliases: string[]) => {
+      // Find column indices (exact-match pass first, then substring pass)
+      const getColIndex = (aliases: string[], excludeKeywords: string[] = []) => {
         for (const [colStr, headerText] of Object.entries(headerColMap)) {
+          if (excludeKeywords.some(ex => headerText.includes(ex.toLowerCase()))) continue;
+          if (aliases.some(alias => headerText === alias.toLowerCase())) {
+            return Number(colStr);
+          }
+        }
+        for (const [colStr, headerText] of Object.entries(headerColMap)) {
+          if (excludeKeywords.some(ex => headerText.includes(ex.toLowerCase()))) continue;
           if (aliases.some(alias => headerText.includes(alias.toLowerCase()))) {
             return Number(colStr);
           }
@@ -743,7 +753,18 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
       const placeCol = getColIndex(['place', 'location', 'city']);
       const mcCol = getColIndex(['mc type', 'mc_type', 'mctype', 'sla type', 'slatype', 'care level']);
       const machinesCol = getColIndex(['no of machine', 'no of machines', 'noofmachine', 'noofmachines', 'number of machines', 'number of machine', 'machines']);
-      const amountCol = getColIndex(['amount', 'contract amount', 'contractamount', 'value', 'price']);
+      const amountCol = getColIndex(
+        ['amount', 'contract amount', 'contractamount', 'contract value', 'total amount', 'total value', 'value', 'price'],
+        ['per pm', 'per visit', 'per quarter', 'per quater', 'per qtr', 'pm value', 'visit value', 'quarter value', 'quater value', 'qtr value', 'pm rate', 'pm amount', '1st pm', '2nd pm', '3rd pm', '4th pm', '5th pm', '6th pm', '7th pm', '8th pm', '9th pm', '10th pm', '11th pm', '12th pm']
+      );
+      const perPmValueCol = getColIndex([
+        'per quater', 'per quater value', 'per quater amount', 'quater value', 'quater amount', 'quaterly value', 'quaterly amount',
+        'per quarter', 'per quarter value', 'per quarter amount', 'quarter value', 'quarter amount', 'quarterly value', 'quarterly amount',
+        'per qtr', 'per qtr value', 'per qtr amount', 'qtr value', 'qtr amount',
+        'per pm value', 'per pm rate', 'per pm amount', 'per pm',
+        'pm value', 'pm rate', 'pm amount',
+        'per visit', 'per visit value', 'per visit amount', 'per visit rate', 'visit value', 'visit amount'
+      ]);
       const visitsCol = getColIndex(['no of visits', 'noofvisits', 'number of visits', 'visits']);
       const startCol = getColIndex(['start', 'start ', 'start date', 'startdate']);
       const endCol = getColIndex(['end', 'end date', 'enddate']);
@@ -753,9 +774,20 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
       const zoneCol = getColIndex(['zone', 'zone name', 'zonename']);
       const swCol = getColIndex(['software support', 'softwaresupport', 'sw support']);
       const bdCol = getColIndex(['bd', 'bd count', 'bdcount', 'buffer days', 'breakdown visits']);
-      const pm1Col = getColIndex(['1st pm', 'pm1', 'pm 1']);
+      const pm1Col = getColIndex(['1st pm', 'pm1', 'pm 1'], ['value', 'amount', 'rate', 'date']);
       const contractNoCol = getColIndex(['contract no', 'contract number', 'contract_no', 'contractnumber', 'agreement no', 'agreement number']);
       const paymentCol = getColIndex(['payment terms', 'paymentterms', 'payment term', 'paymentterm', 'payment']);
+
+      const parseOptionalCurrency = (val: any): number | null => {
+        if (val === null || val === undefined || typeof val === 'object') return null;
+        if (typeof val === 'number') return Number.isFinite(val) ? val : null;
+        const str = String(val).trim();
+        if (!str || str === '-' || /^n\/?a$/i.test(str) || str.startsWith('#')) return null;
+        const cleaned = str.replace(/rs\.?/gi, '').replace(/[^0-9.-]/g, '').replace(/^\.+/, '');
+        if (!cleaned) return null;
+        const num = Number(cleaned);
+        return Number.isFinite(num) ? num : null;
+      };
 
       // Track recent zone by customer name or PO to auto-inherit across multi-year split rows
       const poZoneMap = new Map<string, any>();
@@ -877,30 +909,58 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
 
         const startYear = startDateParsed ? new Date(startDateParsed).getFullYear() : 2025;
 
+        // Precompute per-PM header columns (range, date, value) once per sheet/row if needed
+        const ordinals = ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th', '11th', '12th'];
+        const hasAnyPmValueCol = ordinals.some((ord, idx) => {
+          const pNum = idx + 1;
+          return getColIndex([
+            `${ord} pm value`, `${ord} pm amount`, `${ord} pm rate`,
+            `pm${pNum} value`, `pm ${pNum} value`, `pm${pNum} amount`, `pm ${pNum} amount`,
+            `pm${pNum} rate`, `pm ${pNum} rate`, `visit ${pNum} value`, `visit ${pNum} amount`,
+            `q${pNum} value`, `q${pNum} amount`
+          ]) !== -1;
+        });
+
         // PM Visits Parsing with GREEN COLOR DETECTION & FULL SENTENCE/TEXT PRESERVATION
         const pmSchedules: any[] = [];
-        if (pm1Col !== -1) {
+        if (pm1Col !== -1 || hasAnyPmValueCol) {
           for (let p = 1; p <= Math.min(12, parsedVisits); p++) {
+            const ord = ordinals[p - 1];
+            const explicitRangeCol = getColIndex([`${ord} pm`, `pm${p}`, `pm ${p}`], ['value', 'amount', 'rate', 'date']);
+            const explicitDateCol = getColIndex([`${ord} pm date`, `pm${p} date`, `pm ${p} date`], ['value', 'amount', 'rate']);
+            const pmValCol = getColIndex([
+              `${ord} pm value`, `${ord} pm amount`, `${ord} pm rate`,
+              `pm${p} value`, `pm ${p} value`, `pm${p} amount`, `pm ${p} amount`,
+              `pm${p} rate`, `pm ${p} rate`, `visit ${p} value`, `visit ${p} amount`,
+              `q${p} value`, `q${p} amount`
+            ]);
+
             let rCol = -1;
             let dCol = -1;
-            if (p <= 10) {
-              rCol = pm1Col + (p - 1) * 2;
-              dCol = rCol + 1;
-            } else if (p === 11) {
-              rCol = pm1Col + 20;
-              dCol = rCol + 1;
-            } else if (p === 12) {
-              rCol = pm1Col + 21;
-              dCol = rCol + 1;
+            if (explicitRangeCol !== -1) {
+              rCol = explicitRangeCol;
+              dCol = explicitDateCol !== -1 ? explicitDateCol : (p <= 10 && rCol + 1 !== pmValCol ? rCol + 1 : -1);
+            } else if (pm1Col !== -1) {
+              if (p <= 10) {
+                rCol = pm1Col + (p - 1) * 2;
+                dCol = rCol + 1;
+              } else if (p === 11) {
+                rCol = pm1Col + 20;
+                dCol = rCol + 1;
+              } else if (p === 12) {
+                rCol = pm1Col + 21;
+                dCol = rCol + 1;
+              }
             }
 
-            const rangeCell = row.getCell(rCol);
+            const rangeCell = rCol !== -1 ? row.getCell(rCol) : null;
             const dateCell = dCol !== -1 ? row.getCell(dCol) : null;
+            const parsedPmAmount = pmValCol !== -1 ? parseOptionalCurrency(getCellCleanValue(row.getCell(pmValCol))) : null;
 
             // Check if either range or date cell has green fill
-            const isGreen = isCellGreen(rangeCell) || (dateCell ? isCellGreen(dateCell) : false);
+            const isGreen = (rangeCell ? isCellGreen(rangeCell) : false) || (dateCell ? isCellGreen(dateCell) : false);
 
-            const rawRangeVal = getCellCleanValue(rangeCell);
+            const rawRangeVal = rangeCell ? getCellCleanValue(rangeCell) : '';
             let pRange = '';
             if (rawRangeVal instanceof Date) {
               pRange = formatDateISO(rawRangeVal);
@@ -973,14 +1033,16 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
                 pmNumber: p,
                 range: sanitizedRange,
                 status: isCompleted ? 'Completed' : 'Pending',
-                completedAt: finalCompletedAt
+                completedAt: finalCompletedAt,
+                amount: parsedPmAmount
               });
             } else {
               pmSchedules.push({
                 pmNumber: p,
                 range: '',
                 status: 'Pending',
-                completedAt: null
+                completedAt: null,
+                amount: parsedPmAmount
               });
             }
           }
@@ -989,6 +1051,9 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
         const rawAmountVal = amountCol !== -1 ? getCellCleanValue(row.getCell(amountCol)) : '';
         const amtStr = String(rawAmountVal || '').trim();
         const cleanAmt = (!amtStr || amtStr === '-') ? 0 : (parseFloat(amtStr.replace(/[^0-9.]/g, '')) || 0);
+
+        const rawPerPmVal = perPmValueCol !== -1 ? getCellCleanValue(row.getCell(perPmValueCol)) : '';
+        const parsedPerPmValue = parseOptionalCurrency(rawPerPmVal);
 
         const rawMachinesVal = machinesCol !== -1 ? getCellCleanValue(row.getCell(machinesCol)) : 0;
         const noOfMachineParsed = (rawMachinesVal !== '' && rawMachinesVal !== null && rawMachinesVal !== undefined) ? (Number(rawMachinesVal) || 0) : 0;
@@ -1000,6 +1065,7 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
           mcType: rawMcType,
           noOfMachine: noOfMachineParsed,
           amount: cleanAmt,
+          perPmValue: parsedPerPmValue,
           noOfVisits: parsedVisits,
           startDate: startDateParsed,
           endDate: endDateParsed,
@@ -1888,6 +1954,14 @@ export default function ContractBulkImport({ role }: ContractBulkImportProps) {
                           <td className="p-3">
                             <div className="space-y-1 text-[11px] leading-tight">
                               <div className="font-bold text-slate-800">₹{Number(row.amount).toLocaleString('en-IN')}</div>
+                              <div className="text-[10px] text-slate-500">
+                                Per PM:{' '}
+                                <span className="font-semibold text-slate-700">
+                                  {row.perPmValue !== null && row.perPmValue !== undefined
+                                    ? `₹${Number(row.perPmValue).toLocaleString('en-IN')}`
+                                    : '—'}
+                                </span>
+                              </div>
                               {(!row.amount || row.amount <= 0) && (
                                 <div className="flex items-center gap-1 mt-1">
                                   <span className="text-[10px] text-slate-400">₹</span>

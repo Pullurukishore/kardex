@@ -35,6 +35,7 @@ export default function ContractEditForm({ id, role, backUrl }: ContractEditForm
   const [editZoneName, setEditZoneName] = useState('');
   const [editMachines, setEditMachines] = useState('1');
   const [editValue, setEditValue] = useState('');
+  const [editPerPmValue, setEditPerPmValue] = useState('');
   const [editVisits, setEditVisits] = useState('3');
   const [editBdCount, setEditBdCount] = useState('0');
   const [editStartDate, setEditStartDate] = useState('');
@@ -76,6 +77,7 @@ export default function ContractEditForm({ id, role, backUrl }: ContractEditForm
           setEditZoneName(contract.zoneName || '');
           setEditMachines(String(contract.noOfMachine || 1));
           setEditValue(String(contract.amount || ''));
+          setEditPerPmValue(contract.perPmValue !== null && contract.perPmValue !== undefined && contract.perPmValue !== '' ? String(contract.perPmValue) : '');
           setEditVisits(String(contract.noOfVisits || 3));
           setEditBdCount(contract.bdCount === 999 ? 'Unlimited' : String(contract.bdCount || 0));
           setEditStartDate(contract.startDate ? contract.startDate.substring(0, 10) : '');
@@ -152,6 +154,7 @@ export default function ContractEditForm({ id, role, backUrl }: ContractEditForm
         mcType: editMcType,
         noOfMachine: machines,
         amount: val,
+        perPmValue: editPerPmValue.trim() ? parseFloat(editPerPmValue) : null,
         noOfVisits: visits,
         startDate: editStartDate,
         endDate: editEndDate,
@@ -314,7 +317,7 @@ export default function ContractEditForm({ id, role, backUrl }: ContractEditForm
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="space-y-1.5">
               <label className="text-[10px] font-bold text-slate-400 uppercase">Machines Covered</label>
               <input
@@ -334,6 +337,18 @@ export default function ContractEditForm({ id, role, backUrl }: ContractEditForm
                 placeholder="e.g. 150000"
                 value={editValue}
                 onChange={(e) => setEditValue(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#82A094]/20 text-xs"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-slate-400 uppercase">Per PM / Visit Value (₹)</label>
+              <input
+                type="number"
+                min="0"
+                placeholder="Optional (leave blank if none)"
+                value={editPerPmValue}
+                onChange={(e) => setEditPerPmValue(e.target.value)}
                 className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#82A094]/20 text-xs"
               />
             </div>

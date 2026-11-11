@@ -21,6 +21,7 @@ interface PMSchedule {
   pmNumber: number;
   range: string;
   status: 'Completed' | 'Pending' | 'Not Applicable';
+  amount?: number | string | null;
   completedAt?: string;
 }
 
@@ -34,6 +35,7 @@ interface Contract {
   mcType: string;
   noOfMachine: number;
   amount: number;
+  perPmValue?: number | string | null;
   noOfVisits: number;
   startDate: string;
   endDate: string;
@@ -1719,7 +1721,13 @@ export default function ContractReports({ role }: ContractReportsProps) {
                         const dept = extractDepartmentFromCustomer(contract.customerName, cs.customerName);
                         const applicablePMs = contract.pmSchedules.filter(p => p.status !== 'Not Applicable');
                         const totalContractVisits = contract.noOfVisits || applicablePMs.length || 0;
-                        const perPmVal = totalContractVisits > 0 ? Math.round(Number(contract.amount || 0) / totalContractVisits) : Number(contract.amount || 0);
+                        const parseOptAmt = (v: unknown): number | null => {
+                          if (v === null || v === undefined || v === '') return null;
+                          const n = Number(v);
+                          return Number.isFinite(n) ? n : null;
+                        };
+                        const perPmVal = parseOptAmt(contract.perPmValue);
+                        const hasPerVisitAmounts = applicablePMs.some(p => parseOptAmt(p.amount) !== null);
 
                         let displayedPMs = (dateFrom || dateTo)
                           ? applicablePMs.filter(p => isPMInRange(p, dateFrom, dateTo, contract))
@@ -1852,12 +1860,26 @@ export default function ContractReports({ role }: ContractReportsProps) {
                               <div className="font-bold text-slate-900 font-mono text-[11px]">
                                 {formatCurrency(contract.amount)}
                               </div>
-                              {totalContractVisits > 0 && (
+                              {perPmVal !== null ? (
                                 <div
                                   className="text-[9px] text-[#976E44] font-bold font-mono mt-0.5"
-                                  title={`PM Visit Value: ${formatCurrency(perPmVal)} per visit (${totalContractVisits} PM visits)`}
+                                  title={`PM Visit Value: ${formatCurrency(perPmVal)} per visit`}
                                 >
                                   {formatCurrency(perPmVal)} / PM
+                                </div>
+                              ) : hasPerVisitAmounts ? (
+                                <div
+                                  className="text-[9px] text-[#976E44] font-bold mt-0.5"
+                                  title="Individual PM visit values imported from Excel"
+                                >
+                                  Visit-wise
+                                </div>
+                              ) : (
+                                <div
+                                  className="text-[9px] text-slate-400 font-semibold font-mono mt-0.5"
+                                  title="No Per PM value imported"
+                                >
+                                  — / PM
                                 </div>
                               )}
                             </td>
@@ -1869,6 +1891,7 @@ export default function ContractReports({ role }: ContractReportsProps) {
                                   const done = p.status === 'Completed';
                                   const isOverdue = !done && isPMOverdue(p, contract);
                                   const pmInfo = getPMRangeDisplayInfo(p.range, p, contract);
+                                  const thisPmVal = parseOptAmt(p.amount) ?? perPmVal;
                                   return (
                                     <div
                                       key={pidx}
@@ -1878,7 +1901,7 @@ export default function ContractReports({ role }: ContractReportsProps) {
                                           ? 'bg-rose-50/70 border-rose-200/80 text-rose-900'
                                           : 'bg-amber-50/70 border-amber-200/80 text-amber-900'
                                         }`}
-                                      title={`PM ${p.pmNumber}: ${p.status}\nDetails: ${p.range || 'N/A'}\nPM Value: ${formatCurrency(perPmVal)}${done && p.completedAt ? `\nCompleted: ${formatDate(p.completedAt)}` : ''}`}
+                                      title={`PM ${p.pmNumber}: ${p.status}\nDetails: ${p.range || 'N/A'}\nPM Value: ${thisPmVal !== null ? formatCurrency(thisPmVal) : '—'}${done && p.completedAt ? `\nCompleted: ${formatDate(p.completedAt)}` : ''}`}
                                     >
                                       <div className="flex items-start gap-1.5 min-w-0 flex-1">
                                         <span className={`font-extrabold text-[8px] uppercase px-1 py-0.5 rounded shrink-0 ${done

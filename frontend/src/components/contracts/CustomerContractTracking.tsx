@@ -18,6 +18,7 @@ interface PMSchedule {
   pmNumber: number;
   range: string;
   status: 'Completed' | 'Pending' | 'Not Applicable';
+  amount?: number | string | null;
   completedAt?: string;
 }
 
@@ -31,6 +32,7 @@ interface Contract {
   mcType: string;
   noOfMachine: number;
   amount: number;
+  perPmValue?: number | string | null;
   noOfVisits: number;
   startDate: string;
   endDate: string;
@@ -528,6 +530,11 @@ export default function CustomerContractTracking({ role }: CustomerContractTrack
 
                     <div className="text-right">
                       <div className="text-sm font-extrabold text-slate-800">₹{Number(contract.amount).toLocaleString('en-IN')}</div>
+                      <div className="text-[10px] font-bold font-mono text-[#976E44]">
+                        {contract.perPmValue !== null && contract.perPmValue !== undefined && contract.perPmValue !== ''
+                          ? `₹${Number(contract.perPmValue).toLocaleString('en-IN')} / Qtr`
+                          : '— / Qtr'}
+                      </div>
                       <div className="text-[10px] text-slate-400">{contract.noOfMachine} Machines</div>
                     </div>
 
